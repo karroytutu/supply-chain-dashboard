@@ -1,0 +1,110 @@
+// 导入全局变量
+@import '@/styles/variables.less';
+
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: @bg-color-base;
+  padding: @spacing-lg;
+  box-sizing: border-box;
+
+  // 支持滚动（当内容超出视口时）
+  @media (max-height: 600px) {
+    justify-content: flex-start;
+    padding-top: 20px;
+  }
+}
+
+.loginBox {
+  background: @bg-color-card;
+  padding: 24px 32px;
+  border-radius: @border-radius-card;
+  box-shadow: @box-shadow-card;
+  text-align: center;
+  width: 100%;
+  max-width: 100%;
+  height: calc(100vh - 48px);
+  max-height: 900px;
+  display: flex;
+  flex-direction: column;
+
+  @media (max-width: 768px) {
+    padding: 16px 20px;
+    height: calc(100vh - 32px);
+    max-height: none;
+  }
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: @text-color-primary;
+  margin-bottom: @spacing-xs;
+  flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    font-size: 18px;
+  }
+}
+
+.subtitle {
+  font-size: 14px;
+  color: @text-color-secondary;
+  margin-bottom: @spacing-md;
+  flex-shrink: 0;
+}
+
+.qrcodeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+
+  iframe {
+    border: none;
+    width: 100%;
+    max-width: 500px;
+    height: 100%;
+    max-height: 600px;
+    min-height: 400px;
+  }
+}
+
+.loading {
+  padding: @spacing-lg;
+  color: @text-color-secondary;
+}
+
+.tips {
+  margin-top: @spacing-md;
+  font-size: 12px;
+  color: @text-color-secondary;
+  flex-shrink: 0;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: @bg-color-base;
+}
+
+.devLoginSection {
+  margin-top: @spacing-lg;
+  padding-top: @spacing-md;
+  border-top: 1px solid @border-color-base;
+  flex-shrink: 0;
+}
+
+.devHint {
+  font-size: 12px;
+  color: @text-color-disabled;
+  margin-top: @spacing-xs;
+  margin-bottom: 0;
+}

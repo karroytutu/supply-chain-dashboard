@@ -1,0 +1,136 @@
+.container {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.header {
+  margin-bottom: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f1f1f;
+}
+
+.content {
+  min-height: 240px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 240px;
+}
+
+// 商品列表样式
+.productList {
+  height: 100%;
+}
+
+.listHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.listTitle {
+  font-size: 16px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.backBtn {
+  margin-right: 8px;
+}
+
+.categoryTag {
+  color: #1890ff;
+  margin-left: 8px;
+}
+
+.totalCount {
+  font-size: 14px;
+  color: #8c8c8c;
+  margin-left: 16px;
+}
+
+.searchInput {
+  width: 200px;
+}
+
+.table {
+  :global {
+    .ant-table-thead > tr > th {
+      background: #fafafa;
+    }
+  }
+}
+
+.productName {
+  color: #1f1f1f;
+}
+
+// 树形表格样式
+.categoryTable {
+  .tableHeader {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .searchInput {
+    width: 200px;
+  }
+
+  .table {
+    :global {
+      .ant-table-thead > tr > th {
+        background: #fafafa;
+        font-weight: 500;
+      }
+      .ant-table-tbody > tr:hover > td {
+        background: #f5f5f5;
+      }
+    }
+  }
+
+  .categoryName {
+    font-weight: 500;
+    color: #1f1f1f;
+  }
+
+  .skuCount {
+    font-family: 'Monaco', 'Menlo', monospace;
+    color: #595959;
+  }
+
+  .stockInfo {
+    font-family: 'Monaco', 'Menlo', monospace;
+  }
+
+  .inStock {
+    color: #52c41a;
+  }
+
+  .outOfStock {
+    color: #ff4d4f;
+    font-weight: 500;
+  }
+
+  .separator {
+    color: #bfbfbf;
+    margin: 0 4px;
+  }
+
+  .noAction {
+    color: #bfbfbf;
+  }
+}

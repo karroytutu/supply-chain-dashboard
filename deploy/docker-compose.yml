@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # 前端服务 - Nginx
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    container_name: xly-frontend
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      # nginx配置可以热更新
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - TZ=Asia/Shanghai
+
+  # 后端服务 - Node.js
+  backend:
+    build:
+      context: ../dev/backend
+      dockerfile: ../../deploy/Dockerfile.backend
+    container_name: xly-backend
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - ../prod/backend/.env
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - TZ=Asia/Shanghai
+      - NODE_ENV=production
+
+# 使用 host 网络模式，容器直接使用宿主机网络
+# 这样容器可以通过 localhost 访问宿主机上的 PostgreSQL

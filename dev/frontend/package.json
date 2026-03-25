@@ -1,0 +1,33 @@
+{
+  "name": "supply-chain-dashboard",
+  "version": "1.0.0",
+  "description": "快消行业供应链数据可视化管理系统",
+  "private": true,
+  "scripts": {
+    "dev": "cross-env PORT=3100 umi dev",
+    "build": "umi build",
+    "preview": "umi preview",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/charts": "^2.0.3",
+    "@ant-design/pro-components": "^2.7.0",
+    "antd": "^5.15.0",
+    "dayjs": "^1.11.10",
+    "lodash": "^4.17.21",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "umi": "^4.3.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.202",
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@umijs/lint": "^4.3.0",
+    "@umijs/plugins": "^4.3.0",
+    "cross-env": "^10.1.0",
+    "typescript": "^5.3.3"
+  }
+}

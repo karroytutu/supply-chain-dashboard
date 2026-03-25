@@ -1,0 +1,67 @@
+.dashboard {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 24px;
+
+  .titleSection {
+    .title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #262626;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #8c8c8c;
+      margin-top: 4px;
+      display: block;
+    }
+  }
+}
+
+.metricsOverview {
+  margin-bottom: 20px;
+}
+
+.warningSection {
+  margin-bottom: 20px;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+
+.errorContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  color: #ff4d4f;
+  font-size: 16px;
+}
+
+// 响应式
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 16px;
+  }
+
+  .header {
+    .titleSection {
+      .title {
+        font-size: 20px;
+      }
+    }
+  }
+}

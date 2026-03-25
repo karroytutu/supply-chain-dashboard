@@ -1,0 +1,41 @@
+# 依赖目录
+node_modules/
+dev/frontend/node_modules/
+dev/backend/node_modules/
+
+# 构建产物
+dist/
+.umi/
+dev/frontend/dist/
+dev/backend/dist/
+
+# 生产环境（不提交）
+prod/
+
+# 环境配置（敏感信息）
+dev/backend/.env.development
+dev/backend/.env.production
+prod/backend/.env
+
+# 日志文件
+*.log
+npm-debug.log*
+logs/
+
+# IDE 配置
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+__MACOSX/
+
+# 临时文件
+*.tmp
+*.temp
+
+# 测试覆盖率
+coverage/

@@ -1,0 +1,209 @@
+.warningPanel {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+
+  .panelHeader {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    background: linear-gradient(135deg, #fff7e6 0%, #ffffff 100%);
+
+    .alertIcon {
+      font-size: 18px;
+      color: #fa8c16;
+      margin-right: 8px;
+    }
+
+    .panelTitle {
+      font-size: 15px;
+      font-weight: 500;
+      color: #262626;
+    }
+
+    .totalCount {
+      margin-left: auto;
+      font-size: 13px;
+      color: #8c8c8c;
+      background: #f5f5f5;
+      padding: 2px 10px;
+      border-radius: 10px;
+    }
+  }
+
+  .panelBody {
+    display: flex;
+    min-height: 400px;
+
+    .sidebar {
+      width: 200px;
+      flex-shrink: 0;
+      border-right: 1px solid #f0f0f0;
+      background: #fafafa;
+      padding: 12px 0;
+
+      .warningGroup {
+        margin-bottom: 8px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .groupHeader {
+          display: flex;
+          align-items: center;
+          padding: 10px 16px;
+          background: #f5f5f5;
+
+          .groupIcon {
+            font-size: 14px;
+            margin-right: 6px;
+          }
+
+          .groupTitle {
+            font-size: 13px;
+            font-weight: 500;
+            color: #262626;
+          }
+
+          .groupCount {
+            font-size: 12px;
+            color: #8c8c8c;
+            margin-left: auto;
+          }
+        }
+
+        .groupItems {
+          padding: 4px 8px;
+
+          .warningItem {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            margin-bottom: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            &:hover {
+              background: #e6f7ff;
+            }
+
+            &.selected {
+              background: #e6f7ff;
+
+              .itemLabel {
+                font-weight: 500;
+                color: #1890ff;
+              }
+
+              .itemCount {
+                color: #1890ff;
+              }
+            }
+
+            .itemDot {
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              margin-right: 10px;
+              flex-shrink: 0;
+            }
+
+            .itemLabel {
+              font-size: 13px;
+              color: #595959;
+              flex: 1;
+            }
+
+            .itemCount {
+              font-size: 12px;
+              color: #8c8c8c;
+            }
+          }
+        }
+      }
+    }
+
+    .content {
+      flex: 1;
+      padding: 16px 20px;
+      min-width: 0;
+
+      .tableHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+
+        .tableTitle {
+          display: flex;
+          align-items: center;
+          font-size: 14px;
+          font-weight: 500;
+          color: #262626;
+
+          .titleBar {
+            width: 3px;
+            height: 16px;
+            border-radius: 2px;
+            margin-right: 10px;
+          }
+
+          .productCount {
+            margin-left: 10px;
+            font-size: 12px;
+            font-weight: 400;
+            color: #8c8c8c;
+          }
+        }
+      }
+    }
+  }
+
+  .emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+
+    .emptyText {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #52c41a;
+    }
+  }
+}
+
+// 响应式
+@media (max-width: 768px) {
+  .warningPanel {
+    .panelBody {
+      flex-direction: column;
+
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #f0f0f0;
+
+        .warningGroup {
+          margin-bottom: 0;
+
+          .groupItems {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px;
+
+            .warningItem {
+              margin-bottom: 0;
+            }
+          }
+        }
+      }
+    }
+  }
+}

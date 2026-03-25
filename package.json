@@ -1,0 +1,26 @@
+{
+  "name": "supply-chain-dashboard",
+  "version": "1.0.0",
+  "description": "供应链数据可视化管理系统",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "cd dev/frontend && npm run dev",
+    "dev:backend": "cd dev/backend && npm run dev",
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "build:frontend": "cd dev/frontend && npm run build",
+    "build:backend": "cd dev/backend && npm run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "lint:frontend": "cd dev/frontend && npm run lint",
+    "lint:backend": "cd dev/backend && npm run lint",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "typecheck:frontend": "cd dev/frontend && npx tsc --noEmit",
+    "typecheck:backend": "cd dev/backend && npx tsc --noEmit",
+    "typecheck": "npm run typecheck:frontend && npm run typecheck:backend",
+    "start": "cd deploy && docker-compose up -d",
+    "stop": "cd deploy && docker-compose down",
+    "logs": "cd deploy && docker-compose logs -f"
+  },
+  "keywords": ["supply-chain", "dashboard", "react", "umi", "express"],
+  "author": "",
+  "license": "MIT"
+}
