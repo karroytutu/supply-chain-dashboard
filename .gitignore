@@ -6,6 +6,7 @@ dev/backend/node_modules/
 # 构建产物
 dist/
 .umi/
+.umi-production/
 dev/frontend/dist/
 dev/backend/dist/
 
