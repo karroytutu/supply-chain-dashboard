@@ -91,3 +91,28 @@ export interface GetProductsQueryParams {
 
 export type StrategicProductListResult = PaginatedResult<StrategicProduct>;
 export type ProductSelectionResult = PaginatedResult<ProductForSelection>;
+
+/** 批量确认战略商品参数 */
+export interface BatchConfirmStrategicProductsParams {
+  ids: number[];
+  action: 'confirm' | 'reject';
+  userId: number;
+  userRoles: string[];
+  userName: string;
+}
+
+/** 批量确认结果 */
+export interface BatchConfirmResult {
+  successCount: number;
+  failedCount: number;
+}
+
+/** 批量删除参数 */
+export interface BatchDeleteStrategicProductsParams {
+  ids: number[];
+}
+
+/** 批量删除结果 */
+export interface BatchDeleteResult {
+  deletedCount: number;
+}

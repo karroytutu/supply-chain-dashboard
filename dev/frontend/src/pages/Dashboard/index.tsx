@@ -86,8 +86,10 @@ const Dashboard: React.FC = () => {
               value={data.availability.value}
               unit="%"
               metricType="availability"
-              totalSku={data.availability.totalSku}
-              outOfStock={data.availability.warningStats.outOfStock}
+              totalSku={data.availability.strategicMonthlyAvailability?.totalStrategicSku}
+              monthlyValue={data.availability.strategicMonthlyAvailability?.value}
+              currentValue={data.availability.strategicAvailability?.value}
+              monthlyData={data.availability.strategicMonthlyAvailability}
             />
           </Col>
           <Col xs={12} sm={12} md={6}>

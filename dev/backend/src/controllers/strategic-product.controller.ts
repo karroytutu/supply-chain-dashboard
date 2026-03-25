@@ -9,6 +9,8 @@ import {
   addStrategicProducts,
   deleteStrategicProduct,
   confirmStrategicProduct,
+  batchConfirmStrategicProducts,
+  batchDeleteStrategicProducts,
   getCategoryTree,
   getProductsForSelection,
 } from '../services/strategic-product';
@@ -211,6 +213,89 @@ export async function getProductsForSelectionController(req: Request, res: Respo
     res.status(500).json({
       success: false,
       message: '获取商品列表失败',
+    });
+  }
+}
+
+/**
+ * 批量确认战略商品
+ */
+export async function batchConfirmStrategicProductsController(req: Request, res: Response) {
+  try {
+    const { ids, action } = req.body;
+    const userId = req.user?.userId;
+    const userRoles = req.user?.roles || [];
+    const userName = req.user?.name || '';
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '请提供商品ID列表',
+      });
+    }
+
+    if (!action || !['confirm', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: '无效的操作类型',
+      });
+    }
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: '未登录',
+      });
+    }
+
+    const result = await batchConfirmStrategicProducts({
+      ids,
+      action,
+      userId,
+      userRoles,
+      userName,
+    });
+
+    res.json({
+      success: true,
+      message: `成功${action === 'confirm' ? '确认' : '驳回'} ${result.successCount} 个战略商品`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('批量确认战略商品失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '批量确认战略商品失败',
+    });
+  }
+}
+
+/**
+ * 批量删除战略商品
+ */
+export async function batchDeleteStrategicProductsController(req: Request, res: Response) {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '请提供商品ID列表',
+      });
+    }
+
+    const result = await batchDeleteStrategicProducts({ ids });
+
+    res.json({
+      success: true,
+      message: `成功删除 ${result.deletedCount} 个战略商品`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('批量删除战略商品失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '批量删除战略商品失败',
     });
   }
 }

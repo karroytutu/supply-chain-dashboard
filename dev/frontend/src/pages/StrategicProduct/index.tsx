@@ -11,7 +11,8 @@ import {
 } from '@ant-design/icons';
 import {
   getStrategicProducts, getStrategicProductStats, addStrategicProducts,
-  deleteStrategicProduct, confirmStrategicProduct, getCategoryTree, getProductsForSelection
+  deleteStrategicProduct, confirmStrategicProduct, batchConfirmStrategicProducts,
+  batchDeleteStrategicProducts, getCategoryTree, getProductsForSelection
 } from '@/services/api/strategic-product';
 import type {
   StrategicProduct, StrategicProductStats, CategoryNode, SelectableProduct, StrategicProductStatus
@@ -31,6 +32,10 @@ export default function StrategicProductManage() {
 
   // 统计数据
   const [stats, setStats] = useState<StrategicProductStats>({ total: 0, pending: 0, confirmed: 0, rejected: 0 });
+
+  // 批量操作相关
+  const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
+  const [batchLoading, setBatchLoading] = useState(false);
 
   // 品类树相关
   const [categoryTree, setCategoryTree] = useState<CategoryNode[]>([]);
@@ -275,6 +280,59 @@ export default function StrategicProductManage() {
     }
   };
 
+  // 批量确认
+  const handleBatchConfirm = async (action: 'confirm' | 'reject') => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请选择要操作的商品');
+      return;
+    }
+
+    setBatchLoading(true);
+    try {
+      const result = await batchConfirmStrategicProducts({
+        ids: selectedRowKeys,
+        action,
+      });
+      message.success(result.message);
+      setSelectedRowKeys([]);
+      loadStrategicProducts();
+      loadStats();
+    } catch (error) {
+      message.error('批量操作失败');
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  // 批量删除
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请选择要删除的商品');
+      return;
+    }
+
+    Modal.confirm({
+      title: '确认删除',
+      content: `确定要删除选中的 ${selectedRowKeys.length} 个战略商品吗？`,
+      okText: '确定',
+      cancelText: '取消',
+      onOk: async () => {
+        setBatchLoading(true);
+        try {
+          const result = await batchDeleteStrategicProducts({ ids: selectedRowKeys });
+          message.success(result.message);
+          setSelectedRowKeys([]);
+          loadStrategicProducts();
+          loadStats();
+        } catch (error) {
+          message.error('批量删除失败');
+        } finally {
+          setBatchLoading(false);
+        }
+      },
+    });
+  };
+
   // 转换品类树数据为 antd Tree 格式
   const convertToTreeData = (nodes: CategoryNode[]): any[] => {
     return nodes.map(node => ({
@@ -498,9 +556,40 @@ export default function StrategicProductManage() {
                 已驳回
               </Button>
             </Space>
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenAddModal}>
-              添加战略商品
-            </Button>
+            <Space>
+              {selectedRowKeys.length > 0 && (
+                <>
+                  <span style={{ color: '#1890ff' }}>已选 {selectedRowKeys.length} 项</span>
+                  <Button
+                    type="primary"
+                    icon={<CheckOutlined />}
+                    loading={batchLoading}
+                    onClick={() => handleBatchConfirm('confirm')}
+                  >
+                    批量确认
+                  </Button>
+                  <Button
+                    danger
+                    icon={<CloseOutlined />}
+                    loading={batchLoading}
+                    onClick={() => handleBatchConfirm('reject')}
+                  >
+                    批量驳回
+                  </Button>
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    loading={batchLoading}
+                    onClick={handleBatchDelete}
+                  >
+                    批量删除
+                  </Button>
+                </>
+              )}
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenAddModal}>
+                添加战略商品
+              </Button>
+            </Space>
           </div>
 
           <Table
@@ -508,6 +597,10 @@ export default function StrategicProductManage() {
             dataSource={dataSource}
             rowKey="id"
             loading={loading}
+            rowSelection={{
+              selectedRowKeys,
+              onChange: (keys) => setSelectedRowKeys(keys as number[]),
+            }}
             pagination={{
               current: page,
               pageSize,

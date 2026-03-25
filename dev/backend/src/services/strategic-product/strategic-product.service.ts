@@ -12,6 +12,10 @@ import type {
   StrategicProductListResult,
   AddStrategicProductsParams,
   ConfirmStrategicProductParams,
+  BatchConfirmStrategicProductsParams,
+  BatchConfirmResult,
+  BatchDeleteStrategicProductsParams,
+  BatchDeleteResult,
   CategoryTreeNode,
   ProductForSelection,
   ProductSelectionResult,
@@ -560,4 +564,96 @@ export async function getStrategicLevels(
   });
 
   return resultMap;
+}
+
+/**
+ * 批量确认战略商品
+ */
+export async function batchConfirmStrategicProducts(
+  params: BatchConfirmStrategicProductsParams
+): Promise<BatchConfirmResult> {
+  const { ids, action, userId, userRoles, userName } = params;
+  
+  if (!ids || ids.length === 0) {
+    return { successCount: 0, failedCount: 0 };
+  }
+
+  const isConfirm = action === 'confirm';
+  const isAdmin = userRoles.includes('admin');
+  const isProcurementManager = userRoles.includes('procurement_manager');
+  const isMarketingManager = userRoles.includes('marketing_manager');
+
+  const updateFields: string[] = [];
+  const now = new Date();
+
+  if (isProcurementManager || isAdmin) {
+    updateFields.push(`procurement_confirmed = ${isConfirm}`);
+    updateFields.push(`procurement_confirmed_by = ${userId}`);
+    updateFields.push(`procurement_confirmed_at = ${isConfirm ? `'${now.toISOString()}'` : 'NULL'}`);
+  }
+
+  if (isMarketingManager || isAdmin) {
+    updateFields.push(`marketing_confirmed = ${isConfirm}`);
+    updateFields.push(`marketing_confirmed_by = ${userId}`);
+    updateFields.push(`marketing_confirmed_at = ${isConfirm ? `'${now.toISOString()}'` : 'NULL'}`);
+  }
+
+  if (updateFields.length === 0) {
+    return { successCount: 0, failedCount: ids.length };
+  }
+
+  // 驳回时更新状态
+  if (action === 'reject') {
+    updateFields.push(`status = 'rejected'`);
+  }
+
+  // 执行批量更新
+  const result = await appQuery(
+    `UPDATE strategic_products 
+     SET ${updateFields.join(', ')}, updated_at = NOW()
+     WHERE id = ANY($1) AND status = 'pending'`,
+    [ids]
+  );
+
+  const successCount = result.rowCount ?? 0;
+
+  // 确认操作时，检查并更新最终确认状态
+  if (action === 'confirm') {
+    await appQuery(
+      `UPDATE strategic_products 
+       SET status = 'confirmed', confirmed_at = NOW()
+       WHERE id = ANY($1) 
+         AND procurement_confirmed = TRUE 
+         AND marketing_confirmed = TRUE 
+         AND status = 'pending'`,
+      [ids]
+    );
+  }
+
+  return { 
+    successCount, 
+    failedCount: ids.length - successCount 
+  };
+}
+
+/**
+ * 批量删除战略商品
+ */
+export async function batchDeleteStrategicProducts(
+  params: BatchDeleteStrategicProductsParams
+): Promise<BatchDeleteResult> {
+  const { ids } = params;
+  
+  if (!ids || ids.length === 0) {
+    return { deletedCount: 0 };
+  }
+
+  const result = await appQuery(
+    'DELETE FROM strategic_products WHERE id = ANY($1)',
+    [ids]
+  );
+
+  return { 
+    deletedCount: result.rowCount ?? 0 
+  };
 }

@@ -13,6 +13,8 @@ import type {
   CategoryTreeNode,
   StockWarningStats,
   StrategicAvailabilityData,
+  StrategicMonthlyAvailabilityData,
+  DailyAvailabilityRate,
   PaginationParams,
   PaginatedResult,
   TrendDirection,
@@ -109,25 +111,26 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
   const availabilityRate = totalEnabled > 0 ? Math.round((inStock / totalEnabled) * 1000) / 10 : 0;
 
   // 计算战略商品齐全率（跨数据库查询）
-  // 第一步：从 xly_dashboard 获取已确认的战略商品 goods_id 列表
-  const strategicGoodsResult = await appQuery<{ goods_id: string }>(`
-    SELECT goods_id
+  // 第一步：从 xly_dashboard 获取已确认的战略商品 goods_name 列表
+  const strategicGoodsResult = await appQuery<{ goods_name: string }>(`
+    SELECT goods_name
     FROM strategic_products
     WHERE status = 'confirmed' AND confirmed_at IS NOT NULL
   `);
 
   let strategicAvailability: StrategicAvailabilityData | undefined;
+  let strategicMonthlyAvailability: StrategicMonthlyAvailabilityData | undefined;
 
   if (strategicGoodsResult.rows.length > 0) {
-    const strategicGoodsIds = strategicGoodsResult.rows.map(r => r.goods_id);
-    const totalStrategic = strategicGoodsIds.length;
+    const strategicGoodsNames = strategicGoodsResult.rows.map(r => r.goods_name);
+    const totalStrategic = strategicGoodsNames.length;
 
-    // 第二步：用这些 goods_id 去 xinshutong 查询库存
+    // 第二步：用商品名称去 xinshutong 查询库存
     const stockResult = await query<{ in_stock_count: number }>(`
-      SELECT COUNT(*) as in_stock_count
+      SELECT COUNT(DISTINCT "goodsName") as in_stock_count
       FROM "实时库存表"
-      WHERE "goodsId" = ANY($1) AND "availableBaseQuantity" > 0
-    `, [strategicGoodsIds]);
+      WHERE "goodsName" = ANY($1) AND "availableBaseQuantity" > 0
+    `, [strategicGoodsNames]);
 
     const inStockStrategic = parseInt(stockResult.rows[0]?.in_stock_count as any) || 0;
 
@@ -136,6 +139,9 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
       totalStrategicSku: totalStrategic,
       inStockStrategic,
     };
+
+    // 计算月度平均齐全率
+    strategicMonthlyAvailability = await getStrategicMonthlyAvailability(strategicGoodsNames);
   }
 
   return {
@@ -148,6 +154,70 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
       lowStock,
     },
     strategicAvailability,
+    strategicMonthlyAvailability,
+  };
+}
+
+/**
+ * 获取战略商品月度平均齐全率
+ * 通过每日库存快照计算月度平均值
+ */
+export async function getStrategicMonthlyAvailability(
+  strategicGoodsNames: string[]
+): Promise<StrategicMonthlyAvailabilityData | undefined> {
+  if (strategicGoodsNames.length === 0) {
+    return undefined;
+  }
+
+  const totalStrategic = strategicGoodsNames.length;
+
+  // 计算当月月初日期
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthStartStr = monthStart.toISOString().split('T')[0];
+
+  // 查询每日战略商品库存状态（使用商品名称匹配）
+  const dailyStockResult = await query<{
+    stock_date: Date;
+    in_stock_count: number;
+  }>(`
+    SELECT
+      "数据日期"::date as stock_date,
+      COUNT(DISTINCT "goodsName") as in_stock_count
+    FROM "实时库存表_每天"
+    WHERE "goodsName" = ANY($1)
+      AND "availableBaseQuantity" > 0
+      AND "数据日期" >= $2
+      AND "数据日期" <= CURRENT_DATE
+    GROUP BY "数据日期"::date
+    ORDER BY stock_date
+  `, [strategicGoodsNames, monthStartStr]);
+
+  // 构建每日齐全率数据
+  const dailyRates: DailyAvailabilityRate[] = dailyStockResult.rows.map(row => {
+    const inStockCount = parseInt(row.in_stock_count as any) || 0;
+    const rate = Math.round((inStockCount / totalStrategic) * 1000) / 10;
+    return {
+      date: (row.stock_date as Date).toISOString().split('T')[0],
+      rate,
+      inStockCount,
+    };
+  });
+
+  // 计算月度平均齐全率
+  const daysInMonth = dailyRates.length;
+  let avgRate = 0;
+
+  if (daysInMonth > 0) {
+    const totalRate = dailyRates.reduce((sum, d) => sum + d.rate, 0);
+    avgRate = Math.round((totalRate / daysInMonth) * 10) / 10;
+  }
+
+  return {
+    value: avgRate,
+    totalStrategicSku: totalStrategic,
+    daysInMonth,
+    dailyRates,
   };
 }
 

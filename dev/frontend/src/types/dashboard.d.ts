@@ -74,6 +74,28 @@ export interface StockWarningStats {
 // 预警类型
 export type StockWarningType = 'outOfStock' | 'lowStock';
 
+// 战略商品齐全率数据（瞬时值）
+export interface StrategicAvailabilityData {
+  value: number;
+  totalStrategicSku: number;
+  inStockStrategic: number;
+}
+
+// 每日齐全率
+export interface DailyAvailabilityRate {
+  date: string;              // 日期 YYYY-MM-DD
+  rate: number;              // 当日齐全率
+  inStockCount: number;      // 当日有库存商品数
+}
+
+// 战略商品月度齐全率数据
+export interface StrategicMonthlyAvailabilityData {
+  value: number;             // 月度平均齐全率
+  totalStrategicSku: number; // 战略商品总数
+  daysInMonth: number;       // 当月统计天数
+  dailyRates: DailyAvailabilityRate[]; // 每日齐全率明细
+}
+
 // 周转预警统计
 export interface TurnoverWarningStats {
   mildOverstock: number;     // 轻度积压 >60天
@@ -91,6 +113,8 @@ export interface AvailabilityData {
   totalSku: number;           // 总SKU数
   categories: CategoryMetric[];
   warningStats: StockWarningStats;
+  strategicAvailability?: StrategicAvailabilityData;           // 当前瞬时战略商品齐全率
+  strategicMonthlyAvailability?: StrategicMonthlyAvailabilityData; // 月度平均战略商品齐全率
 }
 
 // 库存周转天数数据

@@ -11,6 +11,8 @@ import {
   addStrategicProductsController,
   deleteStrategicProductController,
   confirmStrategicProductController,
+  batchConfirmStrategicProductsController,
+  batchDeleteStrategicProductsController,
   getCategoryTreeController,
   getProductsForSelectionController,
 } from '../controllers/strategic-product.controller';
@@ -53,6 +55,20 @@ router.post(
   '/',
   requirePermission('strategic:write'),
   addStrategicProductsController
+);
+
+// 批量确认战略商品
+router.post(
+  '/batch/confirm',
+  requirePermission(['strategic:confirm:procurement', 'strategic:confirm:marketing']),
+  batchConfirmStrategicProductsController
+);
+
+// 批量删除战略商品
+router.post(
+  '/batch/delete',
+  requirePermission('strategic:write'),
+  batchDeleteStrategicProductsController
 );
 
 // 确认战略商品（采购主管或营销主管）
