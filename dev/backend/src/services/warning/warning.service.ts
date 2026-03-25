@@ -296,7 +296,7 @@ async function getOverstockProducts(
       AND s.avg_daily > 0
       AND r.total_quantity / s.avg_daily > ${minDays}
       ${maxCondition}
-    ORDER BY stock_cost_amount DESC
+    ORDER BY sellable_days DESC
     LIMIT ${pageSize} OFFSET ${offset}
   `);
 

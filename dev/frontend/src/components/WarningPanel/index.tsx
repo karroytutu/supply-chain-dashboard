@@ -215,16 +215,43 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
 
     const turnoverColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
-      { title: '规格', dataIndex: 'specification', key: 'specification', width: 100, align: 'center' },
       {
-        title: '库存数量', dataIndex: ['stock', 'quantity'], key: 'stockQuantity', width: 100, align: 'right',
-        render: (val: number) => <span style={{ fontWeight: 500 }}>{val.toLocaleString()}</span>,
+        title: '库存数量',
+        dataIndex: ['stock', 'quantity'],
+        key: 'stockQuantity',
+        width: 100,
+        align: 'right',
+        render: (val: number, record: WarningProduct) => (
+          <span style={{ fontWeight: 500 }}>{val.toLocaleString()}{record.stock.unitName ? ` ${record.stock.unitName}` : ''}</span>
+        ),
       },
       {
-        title: '周转天数', key: 'turnoverDays', width: 100, align: 'right',
+        title: '库存金额',
+        dataIndex: ['stock', 'costAmount'],
+        key: 'stockCostAmount',
+        width: 120,
+        align: 'right',
+        render: (val: number) => <span style={{ fontWeight: 500 }}>¥{val?.toLocaleString() ?? '-'}</span>,
+      },
+      {
+        title: '日均销量',
+        key: 'avgDailySales',
+        width: 100,
+        align: 'right',
+        render: (_: unknown, record: WarningProduct) => {
+          const sales = record.turnover.avgDailySales;
+          const unit = record.stock.unitName || '';
+          return <span style={{ fontWeight: 500 }}>{sales != null ? `${sales.toFixed(1)} ${unit}` : '-'}</span>;
+        },
+      },
+      {
+        title: '可售天数',
+        key: 'sellableDays',
+        width: 100,
+        align: 'right',
         render: (_: unknown, record: WarningProduct) => {
           const days = record.turnover.days;
-          const color = days > 90 ? '#ff4d4f' : days > 60 ? '#fa541c' : days > 30 ? '#faad14' : days > 15 ? '#1890ff' : '#52c41a';
+          const color = days > 90 ? '#ff4d4f' : days > 60 ? '#fa541c' : days > 30 ? '#faad14' : '#52c41a';
           return <span style={{ color, fontWeight: 500 }}>{days}天</span>;
         },
       },
