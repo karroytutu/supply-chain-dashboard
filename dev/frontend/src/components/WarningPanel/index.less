@@ -38,16 +38,13 @@
     min-height: 400px;
 
     .sidebar {
-      width: 280px;
+      width: 220px;
       flex-shrink: 0;
       border-right: 1px solid #f0f0f0;
       background: #fafafa;
-      display: flex;
-      flex-direction: column;
 
       .warningGroups {
         padding: 12px 0;
-        flex-shrink: 0;
 
         .warningGroup {
           margin-bottom: 8px;
@@ -129,39 +126,6 @@
               }
             }
           }
-        }
-      }
-
-      .categoryFilter {
-        flex: 1;
-        border-top: 1px solid #e8e8e8;
-        padding: 12px;
-        overflow: auto;
-
-        .filterTitle {
-          font-size: 13px;
-          font-weight: 500;
-          color: #262626;
-          margin-bottom: 8px;
-          padding-bottom: 8px;
-          border-bottom: 1px solid #e8e8e8;
-        }
-
-        .categoryTree {
-          font-size: 12px;
-
-          :global {
-            .ant-tree-node-content-wrapper {
-              padding: 2px 4px;
-            }
-          }
-        }
-
-        .clearFilter {
-          display: block;
-          margin-top: 8px;
-          font-size: 12px;
-          text-align: center;
         }
       }
     }
@@ -250,10 +214,6 @@
               margin-bottom: 0;
             }
           }
-        }
-
-        .categoryFilter {
-          max-height: 200px;
         }
       }
     }

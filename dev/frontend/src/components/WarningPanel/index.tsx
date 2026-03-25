@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Empty, Tree, Tag, Select, Space } from 'antd';
+import { Table, Empty, Tag, Select, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import type { TreeProps } from 'antd';
 import {
   AlertOutlined,
   InboxOutlined,
@@ -11,8 +10,7 @@ import {
   StarFilled,
 } from '@ant-design/icons';
 import type { WarningProduct, StrategicLevel } from '@/types/warning';
-import { getWarningProducts, getCategoryTree } from '@/services/api/dashboard';
-import type { CategoryTreeNode } from '@/services/api/dashboard';
+import { getWarningProducts } from '@/services/api/dashboard';
 import styles from './index.less';
 
 // 预警项配置
@@ -81,10 +79,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
   const [loading, setLoading] = useState(false);
   // 分页状态
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
-  // 品类树相关
-  const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([]);
-  const [selectedCategoryPath, setSelectedCategoryPath] = useState<string | undefined>();
-  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+
   // 战略等级筛选
   const [strategicLevelFilter, setStrategicLevelFilter] = useState<StrategicLevel | undefined>();
 
@@ -148,22 +143,6 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
     0
   );
 
-  // 加载品类树数据
-  useEffect(() => {
-    const loadCategoryTree = async () => {
-      try {
-        const tree = await getCategoryTree();
-        setCategoryTree(tree);
-        // 默认展开第一级
-        const firstLevelPaths = tree.map(node => node.categoryPath);
-        setExpandedKeys(firstLevelPaths);
-      } catch (error) {
-        console.error('加载品类树失败:', error);
-      }
-    };
-    loadCategoryTree();
-  }, []);
-
   // 默认选中第一个有数据的预警项
   useEffect(() => {
     if (!selectedKey && totalWarnings > 0) {
@@ -191,15 +170,6 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
         const result = await getWarningProducts(apiType, { page: pagination.page, pageSize: pagination.pageSize });
         let filteredData = result.data || [];
 
-        // 前端按品类筛选（如果后端不支持品类筛选）
-        if (selectedCategoryPath) {
-          filteredData = filteredData.filter(product => {
-            // 根据品类路径筛选
-            return product.categoryName?.includes(selectedCategoryPath) ||
-                   selectedCategoryPath.includes(product.categoryName);
-          });
-        }
-
         // 前端按战略等级筛选
         if (strategicLevelFilter) {
           filteredData = filteredData.filter(product => product.strategicLevel === strategicLevelFilter);
@@ -217,13 +187,12 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
     };
 
     loadProducts();
-  }, [selectedKey, pagination.page, pagination.pageSize, selectedCategoryPath, strategicLevelFilter]);
+  }, [selectedKey, pagination.page, pagination.pageSize, strategicLevelFilter]);
 
   // 切换预警类型时重置分页和筛选
   const handleSelectedKeyChange = (key: string) => {
     setSelectedKey(key);
     setPagination(prev => ({ ...prev, page: 1 }));
-    setSelectedCategoryPath(undefined);
     setStrategicLevelFilter(undefined);
   };
 
@@ -232,26 +201,10 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
     setPagination(prev => ({ ...prev, page, pageSize }));
   };
 
-  // 品类树选择处理
-  const handleCategorySelect: TreeProps['onSelect'] = (selectedKeys) => {
-    const path = selectedKeys[0] as string | undefined;
-    setSelectedCategoryPath(path);
-    setPagination(prev => ({ ...prev, page: 1 }));
-  };
-
   // 战略等级筛选变化
   const handleStrategicLevelChange = (value: StrategicLevel | undefined) => {
     setStrategicLevelFilter(value);
     setPagination(prev => ({ ...prev, page: 1 }));
-  };
-
-  // 转换品类树数据为 antd Tree 格式
-  const convertToTreeData = (nodes: CategoryTreeNode[]): any[] => {
-    return nodes.map(node => ({
-      key: node.categoryPath,
-      title: `${node.name} (${node.value}%)`,
-      children: node.children ? convertToTreeData(node.children) : undefined,
-    }));
   };
 
   // 列配置
@@ -414,7 +367,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
 
       {/* 左右分栏主体 */}
       <div className={styles.panelBody}>
-        {/* 左侧：预警分类 + 品类树筛选 */}
+        {/* 左侧：预警分类 */}
         <div className={styles.sidebar}>
           {/* 预警分类 */}
           <div className={styles.warningGroups}>
@@ -451,25 +404,6 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
                 </div>
               );
             })}
-          </div>
-
-          {/* 品类树筛选 */}
-          <div className={styles.categoryFilter}>
-            <div className={styles.filterTitle}>品类筛选</div>
-            <Tree
-              treeData={convertToTreeData(categoryTree)}
-              selectedKeys={selectedCategoryPath ? [selectedCategoryPath] : []}
-              expandedKeys={expandedKeys}
-              onExpand={(keys) => setExpandedKeys(keys as string[])}
-              onSelect={handleCategorySelect}
-              showLine
-              className={styles.categoryTree}
-            />
-            {selectedCategoryPath && (
-              <a className={styles.clearFilter} onClick={() => setSelectedCategoryPath(undefined)}>
-                清除筛选
-              </a>
-            )}
           </div>
         </div>
 
