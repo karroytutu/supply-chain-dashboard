@@ -154,6 +154,8 @@ export async function addStrategicProducts(
     return { addedCount: 0, skippedCount: 0 };
   }
 
+  console.log('添加战略商品，goodsIds:', goodsIds);
+
   // 获取商品信息
   const goodsResult = await query<{
     goodsId: string;
@@ -166,23 +168,39 @@ export async function addStrategicProducts(
     [goodsIds]
   );
 
+  console.log('查询到的商品数量:', goodsResult.rows.length);
+
   let addedCount = 0;
+  let skippedCount = 0;
   
   for (const goods of goodsResult.rows) {
     try {
-      await appQuery(
+      const insertResult = await appQuery(
         `INSERT INTO strategic_products (goods_id, goods_name, category_path, created_by)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (goods_id) DO NOTHING`,
         [goods.goodsId, goods.goodsName, goods.categoryChainName || '', userId]
       );
-      addedCount++;
+      // 检查是否真正插入了
+      if (insertResult.rowCount && insertResult.rowCount > 0) {
+        addedCount++;
+        console.log('成功添加商品:', goods.goodsId, goods.goodsName);
+      } else {
+        skippedCount++;
+        console.log('商品已存在，跳过:', goods.goodsId);
+      }
     } catch (error) {
-      // 忽略重复插入错误
+      skippedCount++;
+      console.error('添加商品失败:', goods.goodsId, error);
     }
   }
 
-  return { addedCount, skippedCount: goodsIds.length - addedCount };
+  // 计算不在商品档案表中的商品数量
+  const notFoundCount = goodsIds.length - goodsResult.rows.length;
+  
+  console.log(`添加完成: 成功 ${addedCount}, 已存在 ${skippedCount}, 未找到 ${notFoundCount}`);
+
+  return { addedCount, skippedCount: skippedCount + notFoundCount };
 }
 
 /**
@@ -222,7 +240,12 @@ export async function confirmStrategicProduct(
   const updateParams: any[] = [];
   let paramIndex = 1;
 
-  if (userRoles.includes('procurement_manager')) {
+  // admin 角色可以同时确认采购和营销
+  const isAdmin = userRoles.includes('admin');
+  const isProcurementManager = userRoles.includes('procurement_manager');
+  const isMarketingManager = userRoles.includes('marketing_manager');
+
+  if (isProcurementManager || isAdmin) {
     updateFields.push(`procurement_confirmed = $${paramIndex++}`);
     updateParams.push(isConfirm);
     updateFields.push(`procurement_confirmed_by = $${paramIndex++}`);
@@ -231,7 +254,7 @@ export async function confirmStrategicProduct(
     updateParams.push(isConfirm ? new Date() : null);
   }
 
-  if (userRoles.includes('marketing_manager')) {
+  if (isMarketingManager || isAdmin) {
     updateFields.push(`marketing_confirmed = $${paramIndex++}`);
     updateParams.push(isConfirm);
     updateFields.push(`marketing_confirmed_by = $${paramIndex++}`);

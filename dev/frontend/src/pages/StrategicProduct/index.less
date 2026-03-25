@@ -57,15 +57,26 @@
 .addModalContent {
   display: flex;
   gap: 16px;
-  min-height: 400px;
+  height: 700px;
 }
 
 .addModalTree {
   width: 250px;
+  height: 100%;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   padding: 12px;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+
+  :global {
+    .ant-tree {
+      flex: 1;
+      overflow: auto;
+    }
+  }
 }
 
 .treeTitle {
@@ -73,14 +84,17 @@
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
 }
 
 .addModalProducts {
   flex: 1;
+  height: 100%;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .productsHeader {
@@ -90,12 +104,21 @@
   padding: 12px;
   border-bottom: 1px solid #f0f0f0;
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .productsList {
   flex: 1;
   overflow: auto;
   padding: 8px;
+  min-height: 0; // 关键：允许 flex 子项收缩
+}
+
+.paginationWrap {
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .loadingWrap {

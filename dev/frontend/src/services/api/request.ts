@@ -20,12 +20,15 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
   // 处理查询参数
   let fullUrl = `${API_BASE}${url}`;
   if (params && method === 'GET') {
-    const queryString = new URLSearchParams(
-      Object.entries(params).reduce((acc, [key, value]) => {
+    // 过滤掉 undefined 和 null 值
+    const filteredParams = Object.entries(params)
+      .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+      .reduce((acc, [key, value]) => {
         acc[key] = String(value);
         return acc;
-      }, {} as Record<string, string>)
-    ).toString();
+      }, {} as Record<string, string>);
+    
+    const queryString = new URLSearchParams(filteredParams).toString();
     if (queryString) {
       fullUrl += `?${queryString}`;
     }

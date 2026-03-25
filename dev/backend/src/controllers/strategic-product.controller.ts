@@ -20,6 +20,8 @@ export async function getStrategicProductsController(req: Request, res: Response
   try {
     const { page, pageSize, status, categoryPath, keyword } = req.query;
 
+    console.log('获取战略商品列表，查询参数:', { page, pageSize, status, categoryPath, keyword });
+
     const result = await getStrategicProducts({
       page: page ? parseInt(page as string) : 1,
       pageSize: pageSize ? parseInt(pageSize as string) : 20,

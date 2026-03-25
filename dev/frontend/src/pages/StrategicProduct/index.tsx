@@ -47,6 +47,7 @@ export default function StrategicProductManage() {
   const [productsPage, setProductsPage] = useState(1);
   const [productsPageSize, setProductsPageSize] = useState(10);
   const [productsTotal, setProductsTotal] = useState(0);
+  const [productsKeyword, setProductsKeyword] = useState('');
 
   // 加载统计信息
   const loadStats = async () => {
@@ -116,6 +117,7 @@ export default function StrategicProductManage() {
   // 打开添加商品弹窗
   const handleOpenAddModal = async () => {
     setAddModalVisible(true);
+    setProductsKeyword(''); // 清空搜索关键词
     try {
       const result = await getCategoryTree();
       setAddCategoryTree(result);
@@ -125,10 +127,10 @@ export default function StrategicProductManage() {
   };
 
   // 加载可选商品
-  const loadProductsForSelection = async (categoryPath: string, page = 1, pageSize = 10) => {
+  const loadProductsForSelection = async (categoryPath: string, page = 1, pageSize = 10, keyword = '') => {
     setProductsLoading(true);
     try {
-      const result = await getProductsForSelection(categoryPath, { page, pageSize });
+      const result = await getProductsForSelection(categoryPath, { page, pageSize, keyword: keyword || undefined });
       console.log('商品列表响应:', result);
       setProductsForSelection(result.data);
       setProductsTotal(result.total);
@@ -148,12 +150,20 @@ export default function StrategicProductManage() {
     const categoryPath = selectedKeys[0] as string | undefined;
     setSelectedAddCategoryPath(categoryPath);
     setSelectedProductIds([]);
+    setProductsKeyword(''); // 清空搜索关键词
     if (categoryPath) {
-      loadProductsForSelection(categoryPath, 1, productsPageSize);
+      loadProductsForSelection(categoryPath, 1, productsPageSize, '');
     } else {
       setProductsForSelection([]);
       setProductsTotal(0);
     }
+  };
+
+  // 弹窗商品搜索
+  const handleProductsSearch = () => {
+    setProductsPage(1);
+    // 如果有品类则搜索该品类，否则搜索全部
+    loadProductsForSelection(selectedAddCategoryPath || '', 1, productsPageSize, productsKeyword);
   };
 
   // 商品选择
@@ -227,11 +237,14 @@ export default function StrategicProductManage() {
     }
     try {
       const result = await addStrategicProducts({ goodsIds: selectedProductIds });
-      message.success(`成功添加 ${result.addedCount} 个战略商品`);
+      // result 格式: { data: { addedCount, skippedCount } }
+      const addedCount = result.data?.addedCount ?? result.addedCount ?? 0;
+      message.success(`成功添加 ${addedCount} 个战略商品`);
       setAddModalVisible(false);
       setSelectedProductIds([]);
       setSelectedAddCategoryPath(undefined);
       setProductsForSelection([]);
+      setProductsKeyword('');
       loadStrategicProducts();
       loadStats();
     } catch (error) {
@@ -309,23 +322,10 @@ export default function StrategicProductManage() {
 
   const columns = [
     {
-      title: '商品编码',
-      dataIndex: 'goodsId',
-      key: 'goodsId',
-      width: 120,
-    },
-    {
       title: '商品名称',
       dataIndex: 'goodsName',
       key: 'goodsName',
-      width: 200,
-      ellipsis: true,
-    },
-    {
-      title: '品类路径',
-      dataIndex: 'categoryPath',
-      key: 'categoryPath',
-      width: 180,
+      width: 250,
       ellipsis: true,
     },
     {
@@ -536,6 +536,7 @@ export default function StrategicProductManage() {
           setProductsForSelection([]);
           setProductsPage(1);
           setProductsTotal(0);
+          setProductsKeyword('');
         }}
         width={900}
         okText="确认添加"
@@ -549,63 +550,76 @@ export default function StrategicProductManage() {
               selectedKeys={selectedAddCategoryPath ? [selectedAddCategoryPath] : []}
               onSelect={handleAddCategorySelect}
               showLine
-              style={{ maxHeight: 400, overflow: 'auto' }}
             />
           </div>
           <div className={styles.addModalProducts}>
             <div className={styles.productsHeader}>
               <span>选择商品</span>
-              {productsForSelection.length > 0 && (
-                <Dropdown menu={{ items: selectAllMenuItems }} trigger={['click']}>
-                  <Button size="small">
-                    {selectedProductIds.length > 0 
-                      ? `已选 ${selectedProductIds.length} 条` 
-                      : '选择'} <DownOutlined />
-                  </Button>
-                </Dropdown>
-              )}
+              <Space>
+                <Input
+                  placeholder="搜索商品名称"
+                  value={productsKeyword}
+                  onChange={e => setProductsKeyword(e.target.value)}
+                  onPressEnter={handleProductsSearch}
+                  style={{ width: 150 }}
+                  size="small"
+                  prefix={<SearchOutlined />}
+                  allowClear
+                />
+                {productsForSelection.length > 0 && (
+                  <Dropdown menu={{ items: selectAllMenuItems }} trigger={['click']}>
+                    <Button size="small">
+                      {selectedProductIds.length > 0 
+                        ? `已选 ${selectedProductIds.length} 条` 
+                        : '选择'} <DownOutlined />
+                    </Button>
+                  </Dropdown>
+                )}
+              </Space>
             </div>
             <div className={styles.productsList}>
               {productsLoading ? (
                 <div className={styles.loadingWrap}>
                   <Spin />
                 </div>
-              ) : !selectedAddCategoryPath ? (
-                <Empty description="请先选择品类" />
+              ) : !selectedAddCategoryPath && !productsKeyword ? (
+                <Empty description="请选择品类或输入商品名称搜索" />
               ) : productsForSelection.length === 0 ? (
-                <Empty description="该品类下暂无可选商品" />
+                <Empty description="未找到符合条件的商品" />
               ) : (
-                <>
-                  <List
-                    dataSource={productsForSelection}
-                    renderItem={item => (
-                      <List.Item className={styles.productItem}>
-                        <Checkbox
-                          checked={selectedProductIds.includes(item.goodsId)}
-                          onChange={e => handleProductSelect(item.goodsId, e.target.checked)}
-                        >
-                          <div className={styles.productInfo}>
-                            <span className={styles.productName}>{item.goodsName}</span>
-                            <span className={styles.productSpec}>{item.specification || '-'}</span>
-                          </div>
-                        </Checkbox>
-                      </List.Item>
-                    )}
-                  />
-                  <Pagination
-                    current={productsPage}
-                    pageSize={productsPageSize}
-                    total={productsTotal}
-                    showSizeChanger
-                    showTotal={total => `共 ${total} 条`}
-                    onChange={(page, pageSize) => {
-                      loadProductsForSelection(selectedAddCategoryPath!, page, pageSize);
-                    }}
-                    style={{ marginTop: 16, textAlign: 'center' }}
-                  />
-                </>
+                <List
+                  dataSource={productsForSelection}
+                  renderItem={item => (
+                    <List.Item className={styles.productItem}>
+                      <Checkbox
+                        checked={selectedProductIds.includes(item.goodsId)}
+                        onChange={e => handleProductSelect(item.goodsId, e.target.checked)}
+                      >
+                        <div className={styles.productInfo}>
+                          <span className={styles.productName}>{item.goodsName}</span>
+                          <span className={styles.productSpec}>{item.specification || '-'}</span>
+                        </div>
+                      </Checkbox>
+                    </List.Item>
+                  )}
+                />
               )}
             </div>
+            {(selectedAddCategoryPath || productsKeyword) && productsTotal > 0 && (
+              <div className={styles.paginationWrap}>
+                <Pagination
+                  current={productsPage}
+                  pageSize={productsPageSize}
+                  total={productsTotal}
+                  showSizeChanger
+                  showTotal={total => `共 ${total} 条`}
+                  onChange={(page, pageSize) => {
+                    loadProductsForSelection(selectedAddCategoryPath || '', page, pageSize, productsKeyword);
+                  }}
+                  size="small"
+                />
+              </div>
+            )}
             {selectedProductIds.length > 0 && (
               <div className={styles.selectedInfo}>
                 已选择 {selectedProductIds.length} 个商品

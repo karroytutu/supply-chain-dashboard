@@ -60,6 +60,7 @@ export interface WarningProduct {
 export interface PaginationParams {
   page: number;
   pageSize: number;
+  keyword?: string;
 }
 
 /**
