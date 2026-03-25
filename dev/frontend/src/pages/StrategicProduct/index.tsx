@@ -237,8 +237,7 @@ export default function StrategicProductManage() {
     }
     try {
       const result = await addStrategicProducts({ goodsIds: selectedProductIds });
-      // result 格式: { data: { addedCount, skippedCount } }
-      const addedCount = result.data?.addedCount ?? result.addedCount ?? 0;
+      const addedCount = result.addedCount ?? 0;
       message.success(`成功添加 ${addedCount} 个战略商品`);
       setAddModalVisible(false);
       setSelectedProductIds([]);
