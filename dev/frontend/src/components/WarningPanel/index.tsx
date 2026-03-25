@@ -324,10 +324,15 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
     const slowMovingColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
       strategicLevelColumn,
-      { title: '规格', dataIndex: 'specification', key: 'specification', width: 100, align: 'center' },
       {
         title: '库存数量', dataIndex: ['stock', 'quantity'], key: 'stockQuantity', width: 100, align: 'right',
-        render: (val: number) => <span style={{ fontWeight: 500 }}>{val.toLocaleString()}</span>,
+        render: (val: number, record: WarningProduct) => (
+          <span style={{ fontWeight: 500 }}>{val.toLocaleString()}{record.stock.unitName ? ` ${record.stock.unitName}` : ''}</span>
+        ),
+      },
+      {
+        title: '库存金额', dataIndex: ['stock', 'costAmount'], key: 'stockCostAmount', width: 120, align: 'right',
+        render: (val: number) => <span style={{ fontWeight: 500 }}>¥{val?.toLocaleString() ?? '-'}</span>,
       },
       {
         title: '未销售天数', key: 'daysWithoutSale', width: 100, align: 'right',

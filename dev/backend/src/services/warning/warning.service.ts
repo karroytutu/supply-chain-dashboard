@@ -568,6 +568,10 @@ async function getSlowMovingProducts(
     category_id: string;
     category_name: string;
     stock_quantity: number;
+    stock_cost_amount: number;
+    pkg_unit_name: string;
+    base_unit_name: string;
+    unit_factor: number;
     days_without_sale: number;
     last_sale_date: string | null;
   }>(`
@@ -582,7 +586,8 @@ async function getSlowMovingProducts(
       SELECT
         "goodsId",
         "goodsName",
-        SUM("availableBaseQuantity") as total_quantity
+        SUM("availableBaseQuantity") as total_quantity,
+        SUM("availableCostAmount") as total_cost_amount
       FROM "实时库存表"
       GROUP BY "goodsId", "goodsName"
       HAVING SUM("availableBaseQuantity") > 0
@@ -592,6 +597,7 @@ async function getSlowMovingProducts(
         r."goodsId",
         r."goodsName",
         r.total_quantity,
+        r.total_cost_amount,
         s.last_sale_time,
         CASE
           WHEN s.last_sale_time IS NULL THEN 999
@@ -607,6 +613,10 @@ async function getSlowMovingProducts(
       g."categoryId" as category_id,
       SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
       t.total_quantity as stock_quantity,
+      t.total_cost_amount as stock_cost_amount,
+      g."pkgUnitName" as pkg_unit_name,
+      g."baseUnitName" as base_unit_name,
+      COALESCE(g."unitFactor", 1) as unit_factor,
       t.days_without_sale,
       t.last_sale_time as last_sale_date
     FROM stock_with_sale t
@@ -621,35 +631,50 @@ async function getSlowMovingProducts(
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count as any) || 0 : 0;
   const totalPages = Math.ceil(total / pageSize);
 
-  const data = result.rows.map(row => ({
-    productId: row.goods_id || '',
-    productCode: row.goods_id || '',
-    productName: row.goods_name || '',
-    categoryId: row.category_id || '',
-    categoryName: row.category_name || '未分类',
-    brand: null,
-    specification: null,
-    stock: {
-      quantity: parseInt(row.stock_quantity as any) || 0,
-      warehouseLocation: null,
-    },
-    turnover: {
-      days: 0,
-      avgDailySales: 0,
-    },
-    expiring: {
-      daysToExpiry: null,
-      expiryDate: null,
-    },
-    availability: {
-      status: 'available' as const,
-    },
-    slowMoving: {
-      daysWithoutSale: parseInt(row.days_without_sale as any) || 0,
-      lastSaleDate: row.last_sale_date ? new Date(row.last_sale_date).toISOString().split('T')[0] : null,
-    },
-    strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
-  }));
+  const data = result.rows.map(row => {
+    const unitFactor = parseUnitFactor(row.unit_factor);
+    const baseQuantity = parseQuantity(row.stock_quantity);
+
+    const converted = convertStockUnits({
+      baseQuantity,
+      baseAvgDaily: 0,
+      unitFactor,
+      baseUnitName: row.base_unit_name || '个',
+      pkgUnitName: row.pkg_unit_name || '个',
+    });
+
+    return {
+      productId: row.goods_id || '',
+      productCode: row.goods_id || '',
+      productName: row.goods_name || '',
+      categoryId: row.category_id || '',
+      categoryName: row.category_name || '未分类',
+      brand: null,
+      specification: null,
+      stock: {
+        quantity: converted.displayQuantity,
+        unitName: converted.displayUnit,
+        costAmount: Math.round(parseQuantity(row.stock_cost_amount)),
+        warehouseLocation: null,
+      },
+      turnover: {
+        days: 0,
+        avgDailySales: 0,
+      },
+      expiring: {
+        daysToExpiry: null,
+        expiryDate: null,
+      },
+      availability: {
+        status: 'available' as const,
+      },
+      slowMoving: {
+        daysWithoutSale: parseInt(row.days_without_sale as any) || 0,
+        lastSaleDate: row.last_sale_date ? new Date(row.last_sale_date).toISOString().split('T')[0] : null,
+      },
+      strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
+    };
+  });
 
   return { data, total, page, pageSize, totalPages };
 }
