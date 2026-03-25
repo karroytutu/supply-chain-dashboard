@@ -75,6 +75,7 @@ export interface CategoryTreeNode {
 export interface ProductForSelection {
   goodsId: string;
   goodsName: string;
+  specification: string;  // 规格（单位换算关系，如 "1件=24个"）
   categoryPath: string;
   stock: number;
   isStrategic: boolean;

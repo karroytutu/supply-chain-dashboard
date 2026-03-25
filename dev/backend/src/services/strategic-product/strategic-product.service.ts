@@ -449,12 +449,18 @@ export async function getProductsForSelection(
     goods_name: string;
     category_path: string;
     stock: number;
+    pkg_unit_name: string | null;
+    base_unit_name: string | null;
+    unit_factor: number | null;
   }>(
     `SELECT 
       g."goodsId" as goods_id,
       g."name" as goods_name,
       g."categoryChainName" as category_path,
-      COALESCE(s.total_stock, 0) as stock
+      COALESCE(s.total_stock, 0) as stock,
+      g."pkgUnitName" as pkg_unit_name,
+      g."baseUnitName" as base_unit_name,
+      g."unitFactor" as unit_factor
     FROM "商品档案" g
     LEFT JOIN (
       SELECT "goodsId", SUM("availableBaseQuantity") as total_stock
@@ -467,13 +473,28 @@ export async function getProductsForSelection(
     listParams
   );
 
-  const data: ProductForSelection[] = result.rows.map(row => ({
-    goodsId: row.goods_id,
-    goodsName: row.goods_name,
-    categoryPath: row.category_path || '',
-    stock: parseFloat(row.stock as any) || 0,
-    isStrategic: strategicGoodsIds.has(row.goods_id),
-  }));
+  const data: ProductForSelection[] = result.rows.map(row => {
+    // 生成规格字符串（单位换算关系）
+    let specification = '';
+    const pkgUnit = row.pkg_unit_name;
+    const baseUnit = row.base_unit_name;
+    const unitFactor = row.unit_factor;
+    
+    if (pkgUnit && baseUnit && pkgUnit !== baseUnit && unitFactor && unitFactor > 1) {
+      specification = `1${pkgUnit}=${unitFactor}${baseUnit}`;
+    } else if (pkgUnit) {
+      specification = pkgUnit;
+    }
+    
+    return {
+      goodsId: row.goods_id,
+      goodsName: row.goods_name,
+      specification,
+      categoryPath: row.category_path || '',
+      stock: parseFloat(row.stock as any) || 0,
+      isStrategic: strategicGoodsIds.has(row.goods_id),
+    };
+  });
 
   return {
     data,

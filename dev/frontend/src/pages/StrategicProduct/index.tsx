@@ -585,8 +585,8 @@ export default function StrategicProductManage() {
                           onChange={e => handleProductSelect(item.goodsId, e.target.checked)}
                         >
                           <div className={styles.productInfo}>
-                            <span className={styles.productId}>{item.goodsId}</span>
                             <span className={styles.productName}>{item.goodsName}</span>
+                            <span className={styles.productSpec}>{item.specification || '-'}</span>
                           </div>
                         </Checkbox>
                       </List.Item>
