@@ -408,72 +408,140 @@ async function getExpiringProducts(
     goods_name: string;
     category_id: string;
     category_name: string;
-    stock_quantity: number;
+    batch_base_quantity: number;
+    batch_cost_amount: number;
+    pkg_unit_name: string;
+    base_unit_name: string;
+    unit_factor: number;
     days_to_expire: number;
     expiry_date: string | null;
   }>(`
-    WITH expiring_batches AS (
+    WITH batch_base AS (
       SELECT
-        "goodsName",
-        SUM("quantity") as expiring_quantity,
+        b."goodsName",
+        b."quantity",
+        b."unitName",
+        b."daysToExpire",
+        b."expireDate"
+      FROM "独山云仓批次库存表" b
+      WHERE b."daysToExpire" > ${minDays}
+        AND b."daysToExpire" <= ${maxDays}
+    ),
+    goods_with_cost AS (
+      SELECT 
+        g."name",
+        g."goodsId",
+        g."categoryId",
+        g."categoryChainName",
+        g."baseUnitName",
+        g."pkgUnitName",
+        g."unitFactor",
+        g."state",
+        COALESCE(SUM(r."baseCostPrice" * r."availableBaseQuantity") / NULLIF(SUM(r."availableBaseQuantity"), 0), 0) as avg_cost_price
+      FROM "商品档案" g
+      LEFT JOIN "实时库存表" r ON g."name" = r."goodsName"
+      GROUP BY g."name", g."goodsId", g."categoryId", g."categoryChainName", g."baseUnitName", g."pkgUnitName", g."unitFactor", g."state"
+    ),
+    batch_with_cost AS (
+      SELECT
+        g."name",
+        g."goodsId",
+        g."categoryId",
+        g."categoryChainName",
+        g."baseUnitName",
+        g."pkgUnitName",
+        g."unitFactor",
+        b."daysToExpire",
+        b."expireDate",
+        b."quantity",
+        b."unitName",
+        g.avg_cost_price,
+        CASE 
+          WHEN b."unitName" = g."baseUnitName" THEN b."quantity"
+          WHEN b."unitName" = g."pkgUnitName" THEN b."quantity" * g."unitFactor"
+          ELSE b."quantity"
+        END as base_quantity
+      FROM batch_base b
+      JOIN goods_with_cost g ON b."goodsName" = g."name"
+      WHERE g."state" = 0
+    ),
+    expiring_summary AS (
+      SELECT
+        "name",
+        "goodsId",
+        "categoryId",
+        "categoryChainName",
+        "baseUnitName",
+        "pkgUnitName",
+        "unitFactor",
+        SUM(base_quantity) as batch_base_quantity,
+        SUM(base_quantity * avg_cost_price) as batch_cost_amount,
         MIN("daysToExpire") as min_days_to_expire,
         MIN("expireDate") as nearest_expire_date
-      FROM "独山云仓批次库存表"
-      WHERE "qualityTypeStr" = '良品'
-        AND "daysToExpire" > ${minDays}
-        AND "daysToExpire" <= ${maxDays}
-      GROUP BY "goodsName"
-    ),
-    stock_summary AS (
-      SELECT "goodsName", SUM("availableBaseQuantity") as total_quantity
-      FROM "实时库存表"
-      GROUP BY "goodsName"
+      FROM batch_with_cost
+      GROUP BY "name", "goodsId", "categoryId", "categoryChainName", "baseUnitName", "pkgUnitName", "unitFactor"
     )
     SELECT
       COUNT(*) OVER() as total_count,
-      g."goodsId" as goods_id,
-      g."name" as goods_name,
-      g."categoryId" as category_id,
-      SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
-      COALESCE(s.total_quantity, b.expiring_quantity) as stock_quantity,
-      b.min_days_to_expire as days_to_expire,
-      b.nearest_expire_date as expiry_date
-    FROM expiring_batches b
-    JOIN "商品档案" g ON b."goodsName" = g."name"
-    LEFT JOIN stock_summary s ON b."goodsName" = s."goodsName"
-    WHERE g."state" = 0
-    ORDER BY b.min_days_to_expire ASC
+      s."goodsId" as goods_id,
+      s."name" as goods_name,
+      s."categoryId" as category_id,
+      SPLIT_PART(s."categoryChainName", '/', 1) as category_name,
+      s.batch_base_quantity,
+      s.batch_cost_amount,
+      s."pkgUnitName" as pkg_unit_name,
+      s."baseUnitName" as base_unit_name,
+      COALESCE(s."unitFactor", 1) as unit_factor,
+      s.min_days_to_expire as days_to_expire,
+      s.nearest_expire_date as expiry_date
+    FROM expiring_summary s
+    ORDER BY s.min_days_to_expire ASC
     LIMIT ${pageSize} OFFSET ${offset}
   `);
 
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count as any) || 0 : 0;
   const totalPages = Math.ceil(total / pageSize);
 
-  const data = result.rows.map(row => ({
-    productId: row.goods_id || '',
-    productCode: row.goods_id || '',
-    productName: row.goods_name || '',
-    categoryId: row.category_id || '',
-    categoryName: row.category_name || '未分类',
-    brand: null,
-    specification: null,
-    stock: {
-      quantity: parseInt(row.stock_quantity as any) || 0,
-      warehouseLocation: null,
-    },
-    turnover: {
-      days: 0,
-      avgDailySales: 0,
-    },
-    expiring: {
-      daysToExpiry: parseInt(row.days_to_expire as any) || 0,
-      expiryDate: row.expiry_date,
-    },
-    availability: {
-      status: 'available' as const,
-    },
-    strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
-  }));
+  const data = result.rows.map(row => {
+    const unitFactor = parseUnitFactor(row.unit_factor);
+    const baseQuantity = parseQuantity(row.batch_base_quantity);
+
+    const converted = convertStockUnits({
+      baseQuantity,
+      baseAvgDaily: 0,
+      unitFactor,
+      baseUnitName: row.base_unit_name || '个',
+      pkgUnitName: row.pkg_unit_name || '个',
+    });
+
+    return {
+      productId: row.goods_id || '',
+      productCode: row.goods_id || '',
+      productName: row.goods_name || '',
+      categoryId: row.category_id || '',
+      categoryName: row.category_name || '未分类',
+      brand: null,
+      specification: null,
+      stock: {
+        quantity: converted.displayQuantity,
+        unitName: converted.displayUnit,
+        costAmount: Math.round(parseQuantity(row.batch_cost_amount)),
+        warehouseLocation: null,
+      },
+      turnover: {
+        days: 0,
+        avgDailySales: 0,
+      },
+      expiring: {
+        daysToExpiry: parseInt(row.days_to_expire as any) || 0,
+        expiryDate: row.expiry_date,
+      },
+      availability: {
+        status: 'available' as const,
+      },
+      strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
+    };
+  });
 
   return { data, total, page, pageSize, totalPages };
 }

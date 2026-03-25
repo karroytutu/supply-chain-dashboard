@@ -178,8 +178,7 @@ export async function getExpiringProducts(
         MIN("daysToExpire") as min_days_to_expire,
         MIN("expireDate") as nearest_expire_date
       FROM "独山云仓批次库存表"
-      WHERE "qualityTypeStr" = '良品'
-        AND "daysToExpire" > ${minDays}
+      WHERE "daysToExpire" > ${minDays}
         AND "daysToExpire" <= ${maxDays}
       GROUP BY "goodsName"
     ),
