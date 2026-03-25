@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # 前端 CI
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: dev/frontend/package-lock.json
+
+      - name: 安装前端依赖
+        working-directory: dev/frontend
+        run: npm ci
+
+      - name: TypeScript 类型检查
+        working-directory: dev/frontend
+        run: npm run typecheck
+        continue-on-error: true
+
+      - name: ESLint 检查
+        working-directory: dev/frontend
+        run: npm run lint
+        continue-on-error: true
+
+      - name: 构建前端
+        working-directory: dev/frontend
+        run: npm run build
+
+  # 后端 CI
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: dev/backend/package-lock.json
+
+      - name: 安装后端依赖
+        working-directory: dev/backend
+        run: npm ci
+
+      - name: TypeScript 类型检查
+        working-directory: dev/backend
+        run: npx tsc --noEmit
+
+      - name: ESLint 检查
+        working-directory: dev/backend
+        run: npm run lint
+        continue-on-error: true
+
+      - name: 构建后端
+        working-directory: dev/backend
+        run: npm run build
+
+      - name: 依赖安全扫描
+        working-directory: dev/backend
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+  # CI 状态汇总
+  ci-status:
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: 检查 CI 状态
+        run: |
+          if [ "${{ needs.frontend.result }}" != "success" ] || [ "${{ needs.backend.result }}" != "success" ]; then
+            echo "CI 检查失败"
+            exit 1
+          fi
+          echo "所有 CI 检查通过"
