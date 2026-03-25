@@ -1,7 +1,10 @@
+// 页面容器 - 符合 Ant Design 规范
 .container {
   display: flex;
-  height: calc(100vh - 120px);
-  gap: 16px;
+  min-height: calc(100vh - 48px);  // 减去页面 header 高度
+  gap: 24px;  // 左右分栏间距，符合 Ant Design 规范
+  padding: 24px;  // 页面边距，与 Dashboard 保持一致
+  box-sizing: border-box;
 }
 
 .sidebar {
@@ -12,20 +15,15 @@
 .categoryCard {
   height: 100%;
   overflow: auto;
-
-  :global {
-    .ant-card-body {
-      padding: 12px;
-    }
-  }
 }
 
 .main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;  // 区块间距，符合 Ant Design 规范
   overflow: hidden;
+  min-width: 0;  // 防止内容溢出
 }
 
 .statsRow {
@@ -35,7 +33,9 @@
 .tableCard {
   flex: 1;
   overflow: auto;
+  min-height: 0;  // 允许 flex 子项收缩
 
+  // 功能性布局：让表格撑满卡片
   :global {
     .ant-card-body {
       display: flex;

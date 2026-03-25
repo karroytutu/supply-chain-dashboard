@@ -353,26 +353,33 @@ export default function StrategicProductManage() {
     return <Tag color={color}>{text}</Tag>;
   };
 
-  // 确认状态渲染
+  // 确认状态渲染 - 图标+角色标识
   const renderConfirmStatus = (record: StrategicProduct) => {
+    const procurementStatus = record.procurementConfirmed ? '已确认' : '待确认';
+    const marketingStatus = record.marketingConfirmed ? '已确认' : '待确认';
+    
     return (
-      <Space direction="vertical" size="small">
-        <div>
-          <span style={{ marginRight: 8 }}>采购主管：</span>
-          {record.procurementConfirmed ? (
-            <Tag color="green" icon={<CheckOutlined />}>已确认</Tag>
-          ) : (
-            <Tag color="default">待确认</Tag>
-          )}
-        </div>
-        <div>
-          <span style={{ marginRight: 8 }}>营销主管：</span>
-          {record.marketingConfirmed ? (
-            <Tag color="green" icon={<CheckOutlined />}>已确认</Tag>
-          ) : (
-            <Tag color="default">待确认</Tag>
-          )}
-        </div>
+      <Space size={8}>
+        <Tooltip title={`采购主管：${procurementStatus}`}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+            <span style={{ fontSize: 12, color: '#8c8c8c' }}>采</span>
+            {record.procurementConfirmed ? (
+              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 14 }} />
+            ) : (
+              <ClockCircleOutlined style={{ color: '#d9d9d9', fontSize: 14 }} />
+            )}
+          </span>
+        </Tooltip>
+        <Tooltip title={`营销主管：${marketingStatus}`}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+            <span style={{ fontSize: 12, color: '#8c8c8c' }}>营</span>
+            {record.marketingConfirmed ? (
+              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 14 }} />
+            ) : (
+              <ClockCircleOutlined style={{ color: '#d9d9d9', fontSize: 14 }} />
+            )}
+          </span>
+        </Tooltip>
       </Space>
     );
   };
@@ -382,40 +389,41 @@ export default function StrategicProductManage() {
       title: '商品名称',
       dataIndex: 'goodsName',
       key: 'goodsName',
-      width: 250,
       ellipsis: true,
     },
     {
       title: '确认状态',
       key: 'confirmStatus',
-      width: 160,
+      width: 90,
+      align: 'center' as const,
       render: renderConfirmStatus,
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 90,
       render: renderStatusTag,
     },
     {
       title: '提交时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      width: 160,
+      width: 170,
       render: (text: string) => text ? new Date(text).toLocaleString() : '-',
     },
     {
       title: '确认时间',
       dataIndex: 'confirmedAt',
       key: 'confirmedAt',
-      width: 160,
+      width: 170,
       render: (text: string) => text ? new Date(text).toLocaleString() : '-',
     },
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 120,
+      fixed: 'right' as const,
       render: (_: any, record: StrategicProduct) => (
         <Space>
           {record.status === 'pending' && (
@@ -597,6 +605,7 @@ export default function StrategicProductManage() {
             dataSource={dataSource}
             rowKey="id"
             loading={loading}
+            scroll={{ x: 'max-content' }}
             rowSelection={{
               selectedRowKeys,
               onChange: (keys) => setSelectedRowKeys(keys as number[]),
