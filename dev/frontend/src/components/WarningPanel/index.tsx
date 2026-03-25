@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Input, Empty } from 'antd';
+import { Table, Empty } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   AlertOutlined,
   InboxOutlined,
   ClockCircleOutlined,
-  SearchOutlined,
   PauseCircleOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import type { Product } from '@/types/category';
+import type { WarningProduct } from '@/types/warning';
 import { getWarningProducts } from '@/services/api/dashboard';
 import styles from './index.less';
 
@@ -54,10 +53,10 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
   slowMovingWarnings,
 }) => {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<WarningProduct[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchText, setSearchText] = useState('');
+  // 分页状态
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
 
   // 前端预警类型到后端API类型的映射
   const warningTypeMap: Record<string, string> = {
@@ -131,11 +130,11 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
     }
   }, [totalWarnings]);
 
-  // 根据选中项加载商品数据
+  // 根据选中项加载商品数据（服务端分页）
   useEffect(() => {
     if (!selectedKey) {
       setProducts([]);
-      setFilteredProducts([]);
+      setPagination(prev => ({ ...prev, total: 0 }));
       return;
     }
 
@@ -143,54 +142,63 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       setLoading(true);
       try {
         const apiType = warningTypeMap[selectedKey];
-        const result = await getWarningProducts(apiType);
-        // result 是分页结果，需要访问 result.data 获取数组
-        const productList = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
-        setProducts(productList);
-        setFilteredProducts(productList);
-        setSearchText('');
+        const result = await getWarningProducts(apiType, { page: pagination.page, pageSize: pagination.pageSize });
+        setProducts(result.data || []);
+        setPagination(prev => ({ ...prev, total: result.total || 0 }));
       } catch (error) {
         console.error('加载预警商品数据失败:', error);
         setProducts([]);
-        setFilteredProducts([]);
+        setPagination(prev => ({ ...prev, total: 0 }));
       } finally {
         setLoading(false);
       }
     };
 
     loadProducts();
-  }, [selectedKey]);
+  }, [selectedKey, pagination.page, pagination.pageSize]);
 
-  // 搜索过滤
-  useEffect(() => {
-    if (!searchText) {
-      setFilteredProducts(products);
-      return;
-    }
-    const filtered = products.filter(
-      p =>
-        p.productCode.toLowerCase().includes(searchText.toLowerCase()) ||
-        p.productName.toLowerCase().includes(searchText.toLowerCase())
-    );
-    setFilteredProducts(filtered);
-  }, [searchText, products]);
+  // 切换预警类型时重置分页
+  const handleSelectedKeyChange = (key: string) => {
+    setSelectedKey(key);
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // 分页变化处理
+  const handleTableChange = (page: number, pageSize: number) => {
+    setPagination(prev => ({ ...prev, page, pageSize }));
+  };
 
   // 列配置
-  const getColumns = (): ColumnsType<Product> => {
-    const stockColumns: ColumnsType<Product> = [
+  const getColumns = (): ColumnsType<WarningProduct> => {
+    const stockColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
-      { title: '规格', dataIndex: 'specification', key: 'specification', width: 100, align: 'center' },
       {
-        title: '库存数量', dataIndex: ['stock', 'quantity'], key: 'stockQuantity', width: 100, align: 'right',
-        render: (val: number) => (
-          <span style={{ color: val === 0 ? '#ff4d4f' : val < 100 ? '#fa8c16' : undefined, fontWeight: 500 }}>
-            {val.toLocaleString()}
-          </span>
+        title: '库存数量',
+        dataIndex: ['stock', 'quantity'],
+        key: 'stockQuantity',
+        width: 100,
+        align: 'right',
+        render: (val: number, record: WarningProduct) => (
+          <span style={{ fontWeight: 500 }}>{val.toLocaleString()}{record.stock.unitName ? ` ${record.stock.unitName}` : ''}</span>
         ),
       },
       {
-        title: '可售天数', key: 'sellableDays', width: 100, align: 'right',
-        render: (_: unknown, record: Product) => {
+        title: '日均销量',
+        key: 'avgDailySales',
+        width: 100,
+        align: 'right',
+        render: (_: unknown, record: WarningProduct) => {
+          const sales = record.turnover.avgDailySales;
+          const unit = record.stock.unitName || '';
+          return <span style={{ fontWeight: 500 }}>{sales != null ? `${sales.toFixed(1)} ${unit}` : '-'}</span>;
+        },
+      },
+      {
+        title: '可售天数',
+        key: 'sellableDays',
+        width: 100,
+        align: 'right',
+        render: (_: unknown, record: WarningProduct) => {
           const days = record.turnover.days;
           const color = record.availability.status === 'out_of_stock' ? '#ff4d4f'
             : days <= 7 ? '#fa8c16'
@@ -205,7 +213,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       },
     ];
 
-    const turnoverColumns: ColumnsType<Product> = [
+    const turnoverColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
       { title: '规格', dataIndex: 'specification', key: 'specification', width: 100, align: 'center' },
       {
@@ -214,7 +222,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       },
       {
         title: '周转天数', key: 'turnoverDays', width: 100, align: 'right',
-        render: (_: unknown, record: Product) => {
+        render: (_: unknown, record: WarningProduct) => {
           const days = record.turnover.days;
           const color = days > 90 ? '#ff4d4f' : days > 60 ? '#fa541c' : days > 30 ? '#faad14' : days > 15 ? '#1890ff' : '#52c41a';
           return <span style={{ color, fontWeight: 500 }}>{days}天</span>;
@@ -222,7 +230,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       },
     ];
 
-    const expiringColumns: ColumnsType<Product> = [
+    const expiringColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
       { title: '规格', dataIndex: 'specification', key: 'specification', width: 100, align: 'center' },
       {
@@ -231,7 +239,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       },
       {
         title: '距到期天数', key: 'daysToExpiry', width: 100, align: 'right',
-        render: (_: unknown, record: Product) => {
+        render: (_: unknown, record: WarningProduct) => {
           const days = record.expiring.daysToExpiry;
           const color = days <= 7 ? '#ff4d4f' : days <= 15 ? '#fa8c16' : days <= 30 ? '#faad14' : '#52c41a';
           return <span style={{ color, fontWeight: 500 }}>{days}天</span>;
@@ -239,7 +247,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       },
     ];
 
-    const slowMovingColumns: ColumnsType<Product> = [
+    const slowMovingColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
       { title: '规格', dataIndex: 'specification', key: 'specification', width: 100, align: 'center' },
       {
@@ -248,7 +256,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       },
       {
         title: '未销售天数', key: 'daysWithoutSale', width: 100, align: 'right',
-        render: (_: unknown, record: Product) => {
+        render: (_: unknown, record: WarningProduct) => {
           const days = record.slowMoving?.daysWithoutSale ?? 0;
           const color = days > 30 ? '#ff4d4f' : days > 15 ? '#fa8c16' : '#faad14';
           return <span style={{ color, fontWeight: 500 }}>{days}天</span>;
@@ -302,7 +310,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
                     {groupConfig.icon}
                   </span>
                   <span className={styles.groupTitle}>{groupConfig.title}</span>
-                  <span className={styles.groupCount}>{groupTotal}件</span>
+                  <span className={styles.groupCount}>{groupTotal}</span>
                 </div>
                 <div className={styles.groupItems}>
                   {group.items.map(item => {
@@ -312,11 +320,11 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
                       <div
                         key={item.key}
                         className={`${styles.warningItem} ${isSelected ? styles.selected : ''}`}
-                        onClick={() => setSelectedKey(item.key)}
+                        onClick={() => handleSelectedKeyChange(item.key)}
                       >
                         <span className={styles.itemDot} style={{ backgroundColor: config.color }} />
                         <span className={styles.itemLabel}>{config.label}</span>
-                        <span className={styles.itemCount}>{item.count}件</span>
+                        <span className={styles.itemCount}>{item.count}</span>
                       </div>
                     );
                   })}
@@ -334,28 +342,22 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
                 <div className={styles.tableTitle}>
                   <span className={styles.titleBar} style={{ backgroundColor: selectedConfig.color }} />
                   {selectedConfig.label}商品明细
-                  <span className={styles.productCount}>{filteredProducts.length}件</span>
+                  <span className={styles.productCount}>{pagination.total}</span>
                 </div>
-                <Input
-                  placeholder="搜索商品名称"
-                  prefix={<SearchOutlined />}
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  allowClear
-                  style={{ width: 200 }}
-                  size="small"
-                />
               </div>
               <Table
                 columns={getColumns()}
-                dataSource={filteredProducts}
+                dataSource={products}
                 rowKey="productId"
                 loading={loading}
                 pagination={{
-                  defaultPageSize: 20,
+                  current: pagination.page,
+                  pageSize: pagination.pageSize,
+                  total: pagination.total,
                   showSizeChanger: true,
                   pageSizeOptions: ['20', '50', '100'],
                   showTotal: (total) => `共 ${total} 条`,
+                  onChange: handleTableChange,
                   size: 'small',
                 }}
                 scroll={{ x: 500 }}
