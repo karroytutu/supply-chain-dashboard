@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Table, Card, Button, Input, Space, Tag, Modal, message, Tree, Row, Col, Statistic, Badge,
-  Drawer, List, Checkbox, Tabs, Empty, Spin, Tooltip, Popconfirm
+  Drawer, List, Checkbox, Tabs, Empty, Spin, Tooltip, Popconfirm, Pagination, Dropdown
 } from 'antd';
+import type { MenuProps } from 'antd';
 import type { TreeProps } from 'antd';
 import {
   SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined,
-  InboxOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined
+  InboxOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, DownOutlined
 } from '@ant-design/icons';
 import {
   getStrategicProducts, getStrategicProductStats, addStrategicProducts,
@@ -43,6 +44,9 @@ export default function StrategicProductManage() {
   const [productsForSelection, setProductsForSelection] = useState<SelectableProduct[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsPageSize, setProductsPageSize] = useState(10);
+  const [productsTotal, setProductsTotal] = useState(0);
 
   // 加载统计信息
   const loadStats = async () => {
@@ -121,14 +125,19 @@ export default function StrategicProductManage() {
   };
 
   // 加载可选商品
-  const loadProductsForSelection = async (categoryPath: string) => {
+  const loadProductsForSelection = async (categoryPath: string, page = 1, pageSize = 10) => {
     setProductsLoading(true);
     try {
-      const result = await getProductsForSelection(categoryPath, { page: 1, pageSize: 100 });
+      const result = await getProductsForSelection(categoryPath, { page, pageSize });
+      console.log('商品列表响应:', result);
       setProductsForSelection(result.data);
+      setProductsTotal(result.total);
+      setProductsPage(page);
+      setProductsPageSize(pageSize);
     } catch (error) {
       console.error('加载商品列表失败:', error);
       setProductsForSelection([]);
+      setProductsTotal(0);
     } finally {
       setProductsLoading(false);
     }
@@ -140,9 +149,10 @@ export default function StrategicProductManage() {
     setSelectedAddCategoryPath(categoryPath);
     setSelectedProductIds([]);
     if (categoryPath) {
-      loadProductsForSelection(categoryPath);
+      loadProductsForSelection(categoryPath, 1, productsPageSize);
     } else {
       setProductsForSelection([]);
+      setProductsTotal(0);
     }
   };
 
@@ -155,14 +165,59 @@ export default function StrategicProductManage() {
     }
   };
 
-  // 全选/取消全选
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedProductIds(productsForSelection.map(p => p.goodsId));
-    } else {
-      setSelectedProductIds([]);
+  // 全选本页
+  const handleSelectAllPage = () => {
+    const pageIds = productsForSelection.map(p => p.goodsId);
+    // 合并本页ID，去重
+    const newIds = [...new Set([...selectedProductIds, ...pageIds])];
+    setSelectedProductIds(newIds);
+  };
+
+  // 全选全部
+  const handleSelectAll = async () => {
+    if (!selectedAddCategoryPath) return;
+    
+    setProductsLoading(true);
+    try {
+      // 获取该品类下所有商品ID
+      const result = await getProductsForSelection(selectedAddCategoryPath, { page: 1, pageSize: 9999 });
+      const allIds = result.data.map(p => p.goodsId);
+      setSelectedProductIds(allIds);
+      message.success(`已选择全部 ${allIds.length} 个商品`);
+    } catch (error) {
+      console.error('获取全部商品失败:', error);
+      message.error('获取全部商品失败');
+    } finally {
+      setProductsLoading(false);
     }
   };
+
+  // 取消全选
+  const handleClearSelection = () => {
+    setSelectedProductIds([]);
+  };
+
+  // 全选下拉菜单
+  const selectAllMenuItems: MenuProps['items'] = [
+    {
+      key: 'page',
+      label: `全选本页 (${productsForSelection.length} 条)`,
+      onClick: handleSelectAllPage,
+    },
+    {
+      key: 'all',
+      label: `全选全部 (${productsTotal} 条)`,
+      onClick: handleSelectAll,
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'clear',
+      label: '取消选择',
+      onClick: handleClearSelection,
+    },
+  ];
 
   // 确认添加商品
   const handleAddProducts = async () => {
@@ -479,6 +534,8 @@ export default function StrategicProductManage() {
           setSelectedProductIds([]);
           setSelectedAddCategoryPath(undefined);
           setProductsForSelection([]);
+          setProductsPage(1);
+          setProductsTotal(0);
         }}
         width={900}
         okText="确认添加"
@@ -499,13 +556,13 @@ export default function StrategicProductManage() {
             <div className={styles.productsHeader}>
               <span>选择商品</span>
               {productsForSelection.length > 0 && (
-                <Checkbox
-                  checked={selectedProductIds.length === productsForSelection.length}
-                  indeterminate={selectedProductIds.length > 0 && selectedProductIds.length < productsForSelection.length}
-                  onChange={e => handleSelectAll(e.target.checked)}
-                >
-                  全选
-                </Checkbox>
+                <Dropdown menu={{ items: selectAllMenuItems }} trigger={['click']}>
+                  <Button size="small">
+                    {selectedProductIds.length > 0 
+                      ? `已选 ${selectedProductIds.length} 条` 
+                      : '选择'} <DownOutlined />
+                  </Button>
+                </Dropdown>
               )}
             </div>
             <div className={styles.productsList}>
@@ -518,22 +575,35 @@ export default function StrategicProductManage() {
               ) : productsForSelection.length === 0 ? (
                 <Empty description="该品类下暂无可选商品" />
               ) : (
-                <List
-                  dataSource={productsForSelection}
-                  renderItem={item => (
-                    <List.Item className={styles.productItem}>
-                      <Checkbox
-                        checked={selectedProductIds.includes(item.goodsId)}
-                        onChange={e => handleProductSelect(item.goodsId, e.target.checked)}
-                      >
-                        <div className={styles.productInfo}>
-                          <span className={styles.productId}>{item.goodsId}</span>
-                          <span className={styles.productName}>{item.goodsName}</span>
-                        </div>
-                      </Checkbox>
-                    </List.Item>
-                  )}
-                />
+                <>
+                  <List
+                    dataSource={productsForSelection}
+                    renderItem={item => (
+                      <List.Item className={styles.productItem}>
+                        <Checkbox
+                          checked={selectedProductIds.includes(item.goodsId)}
+                          onChange={e => handleProductSelect(item.goodsId, e.target.checked)}
+                        >
+                          <div className={styles.productInfo}>
+                            <span className={styles.productId}>{item.goodsId}</span>
+                            <span className={styles.productName}>{item.goodsName}</span>
+                          </div>
+                        </Checkbox>
+                      </List.Item>
+                    )}
+                  />
+                  <Pagination
+                    current={productsPage}
+                    pageSize={productsPageSize}
+                    total={productsTotal}
+                    showSizeChanger
+                    showTotal={total => `共 ${total} 条`}
+                    onChange={(page, pageSize) => {
+                      loadProductsForSelection(selectedAddCategoryPath!, page, pageSize);
+                    }}
+                    style={{ marginTop: 16, textAlign: 'center' }}
+                  />
+                </>
               )}
             </div>
             {selectedProductIds.length > 0 && (

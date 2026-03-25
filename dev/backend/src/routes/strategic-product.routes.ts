@@ -36,7 +36,7 @@ router.get(
 
 // 获取品类树
 router.get(
-  '/categories',
+  '/categories/tree',
   requirePermission('strategic:read'),
   getCategoryTreeController
 );
