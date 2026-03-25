@@ -13,41 +13,58 @@
 
 **后端服务 (端口 8100)**
 ```bash
-cd /www2/DevHub/supply-chain-dashboard/server
+cd dev/backend
+npm install  # 首次运行需要安装依赖
 npm run dev
 ```
 
 **前端服务 (端口 3100)**
 ```bash
-cd /www2/DevHub/supply-chain-dashboard
+cd dev/frontend
+npm install  # 首次运行需要安装依赖
+npm run dev
+```
+
+**统一启动（根目录）**
+```bash
+# 同时启动前端和后端
 npm run dev
 ```
 
 ### 生产环境
 
-**后端服务 (端口 8000)**
+**使用 Docker Compose 部署**
 ```bash
-cd /www2/DevHub/supply-chain-dashboard/server
-npm run start
+cd deploy
+docker-compose up -d
 ```
 
-**前端服务**
+**或单独构建运行**
+
+后端服务 (端口 8000)
 ```bash
-# 使用 Docker 部署，映射到端口 3000
-docker build -t supply-chain-dashboard .
-docker run -d -p 3000:80 supply-chain-dashboard
+cd dev/backend
+npm run build
+# 编译产物输出到 prod/backend/dist/
+```
+
+前端服务 (端口 3000)
+```bash
+cd dev/frontend
+npm run build
+# 构建产物输出到 prod/frontend/dist/
 ```
 
 ## 配置文件
 
 ### 后端配置
-- 开发环境配置: `server/.env.development` (端口 8100)
-- 生产环境配置: `server/.env.production` (端口 8000)
+- 开发环境配置: `dev/backend/.env.development` (端口 8100)
+- 生产环境配置: `dev/backend/.env.production` (端口 8000)
 
 ### 前端配置
-- 配置文件: `.umirc.ts`
+- 配置文件: `dev/frontend/.umirc.ts`
 - 开发环境代理: `/api` -> `http://localhost:8100`
-- 生产环境代理: 通过 nginx 配置
+- 生产环境代理: 通过 nginx 配置 (`deploy/nginx.conf`)
 
 ## 数据库连接
 
@@ -55,7 +72,7 @@ docker run -d -p 3000:80 supply-chain-dashboard
 |------|-----|
 | 主机 | localhost |
 | 端口 | 5432 |
-| 数据库 | xinshutong |
+| 数据库 | xinshutong (只读) / xly_dashboard (读写) |
 | 用户名 | postgres |
 | 密码 | postgres |
 
@@ -66,3 +83,20 @@ docker run -d -p 3000:80 supply-chain-dashboard
 3. 检查端口命令: `lsof -i :端口号`
 4. 开发环境和生产环境使用不同端口，可以在同一台机器上同时运行
 5. 切换环境时注意使用正确的启动命令
+
+## 目录结构说明
+
+```
+项目根目录/
+├── dev/                    # 开发环境（提交至 Git）
+│   ├── frontend/           # 前端开发目录
+│   └── backend/            # 后端开发目录
+├── prod/                   # 生产环境（不提交至 Git）
+│   ├── frontend/dist/      # 前端构建产物
+│   └── backend/dist/       # 后端编译产物
+└── deploy/                 # 部署配置
+    ├── docker-compose.yml
+    ├── nginx.conf
+    ├── Dockerfile.frontend
+    └── Dockerfile.backend
+```
