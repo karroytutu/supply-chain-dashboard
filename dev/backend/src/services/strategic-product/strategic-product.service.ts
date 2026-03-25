@@ -3,6 +3,7 @@
  */
 
 import { query } from '../../db/pool';
+import { appQuery } from '../../db/appPool';
 import type {
   StrategicProduct,
   StrategicProductStatus,
@@ -45,7 +46,7 @@ export async function getStrategicProducts(
   const whereClause = conditions.join(' AND ');
 
   // 查询总数
-  const countResult = await query<{ total: number }>(
+  const countResult = await appQuery<{ total: number }>(
     `SELECT COUNT(*) as total FROM strategic_products sp WHERE ${whereClause}`,
     queryParams
   );
@@ -53,7 +54,7 @@ export async function getStrategicProducts(
 
   // 查询列表
   const listParams = [...queryParams, pageSize, offset];
-  const result = await query<{
+  const result = await appQuery<{
     id: number;
     goods_id: string;
     goods_name: string;
@@ -118,7 +119,7 @@ export async function getStrategicProducts(
  * 获取战略商品统计数据
  */
 export async function getStrategicProductStats(): Promise<StrategicProductStats> {
-  const result = await query<{
+  const result = await appQuery<{
     pending: number;
     confirmed: number;
     rejected: number;
@@ -169,7 +170,7 @@ export async function addStrategicProducts(
   
   for (const goods of goodsResult.rows) {
     try {
-      await query(
+      await appQuery(
         `INSERT INTO strategic_products (goods_id, goods_name, category_path, created_by)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (goods_id) DO NOTHING`,
@@ -188,7 +189,7 @@ export async function addStrategicProducts(
  * 删除战略商品
  */
 export async function deleteStrategicProduct(id: number): Promise<boolean> {
-  const result = await query(
+  const result = await appQuery(
     'DELETE FROM strategic_products WHERE id = $1',
     [id]
   );
@@ -204,7 +205,7 @@ export async function confirmStrategicProduct(
   const { id, action, userId, userRoles, userName } = params;
   
   // 查询当前记录
-  const currentResult = await query<StrategicProduct>(
+  const currentResult = await appQuery<StrategicProduct>(
     'SELECT * FROM strategic_products WHERE id = $1',
     [id]
   );
@@ -249,7 +250,7 @@ export async function confirmStrategicProduct(
   }
 
   updateParams.push(id);
-  await query(
+  await appQuery(
     `UPDATE strategic_products SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`,
     updateParams
   );
@@ -260,7 +261,7 @@ export async function confirmStrategicProduct(
   }
 
   // 返回更新后的记录
-  const result = await query<{
+  const result = await appQuery<{
     id: number;
     goods_id: string;
     goods_name: string;
@@ -310,7 +311,7 @@ export async function confirmStrategicProduct(
  * 检查并更新确认状态
  */
 async function checkAndUpdateConfirmedStatus(id: number): Promise<void> {
-  await query(
+  await appQuery(
     `UPDATE strategic_products 
      SET status = 'confirmed', confirmed_at = NOW()
      WHERE id = $1 
@@ -336,7 +337,7 @@ export async function getCategoryTree(): Promise<CategoryTreeNode[]> {
   );
 
   // 统计各品类的战略商品数量
-  const statsResult = await query<{
+  const statsResult = await appQuery<{
     category_path: string;
     count: number;
   }>(
@@ -484,7 +485,7 @@ export async function getProductsForSelection(
  * 根据商品ID判断是否为战略商品
  */
 export async function isStrategicProduct(goodsId: string): Promise<boolean> {
-  const result = await query(
+  const result = await appQuery(
     `SELECT 1 FROM strategic_products 
      WHERE goods_id = $1 AND status = 'confirmed' AND confirmed_at IS NOT NULL`,
     [goodsId]
@@ -498,7 +499,7 @@ export async function isStrategicProduct(goodsId: string): Promise<boolean> {
 export async function getStrategicLevels(
   goodsIds: string[]
 ): Promise<Map<string, 'strategic' | 'normal'>> {
-  const result = await query<{ goods_id: string }>(
+  const result = await appQuery<{ goods_id: string }>(
     `SELECT goods_id FROM strategic_products 
      WHERE goods_id = ANY($1) AND status = 'confirmed' AND confirmed_at IS NOT NULL`,
     [goodsIds]

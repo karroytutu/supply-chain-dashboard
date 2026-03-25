@@ -4,6 +4,7 @@
  */
 
 import { query } from '../../db/pool';
+import { appQuery } from '../../db/appPool';
 import { convertStockUnits, parseUnitFactor, parseQuantity } from '../../utils/unitConverter';
 import {
   LOW_STOCK_DAYS,
@@ -17,6 +18,34 @@ import type {
   PaginationParams,
   PaginatedResult,
 } from './warning.types';
+
+// 缓存战略商品 ID 集合
+let strategicGoodsIdsCache: Set<string> | null = null;
+let strategicGoodsIdsCacheTime = 0;
+const STRATEGIC_CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
+
+/**
+ * 获取已确认的战略商品 ID 集合
+ */
+async function getStrategicGoodsIds(): Promise<Set<string>> {
+  const now = Date.now();
+  if (strategicGoodsIdsCache && (now - strategicGoodsIdsCacheTime) < STRATEGIC_CACHE_TTL) {
+    return strategicGoodsIdsCache;
+  }
+
+  try {
+    const result = await appQuery<{ goods_id: string }>(`
+      SELECT goods_id FROM strategic_products
+      WHERE status = 'confirmed' AND confirmed_at IS NOT NULL
+    `);
+    strategicGoodsIdsCache = new Set(result.rows.map(r => r.goods_id));
+    strategicGoodsIdsCacheTime = now;
+    return strategicGoodsIdsCache;
+  } catch (error) {
+    console.error('获取战略商品列表失败:', error);
+    return new Set();
+  }
+}
 
 // 预警类型映射表
 const WARNING_TYPE_HANDLERS: Record<string, (page: number, pageSize: number) => Promise<PaginatedResult<WarningProduct>>> = {
@@ -57,6 +86,9 @@ export async function getWarningProducts(
 async function getOutOfStockProducts(page: number, pageSize: number): Promise<PaginatedResult<WarningProduct>> {
   const offset = (page - 1) * pageSize;
 
+  // 获取战略商品 ID 集合
+  const strategicIds = await getStrategicGoodsIds();
+
   const result = await query<{
     total_count: number;
     goods_id: string;
@@ -66,7 +98,6 @@ async function getOutOfStockProducts(page: number, pageSize: number): Promise<Pa
     pkg_unit_name: string;
     unit_factor: number;
     avg_daily_sales: number;
-    is_strategic: boolean;
   }>(`
     WITH daily_sales AS (
       SELECT "goodsName", SUM("baseQuantity") / ${STANDARD_CALC_DAYS}.0 as avg_daily
@@ -87,12 +118,10 @@ async function getOutOfStockProducts(page: number, pageSize: number): Promise<Pa
       SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
       g."pkgUnitName" as pkg_unit_name,
       COALESCE(g."unitFactor", 1) as unit_factor,
-      COALESCE(s.avg_daily, 0) as avg_daily_sales,
-      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
+      COALESCE(s.avg_daily, 0) as avg_daily_sales
     FROM "商品档案" g
     LEFT JOIN stock_summary r ON g."goodsId" = r."goodsId"
     LEFT JOIN daily_sales s ON g."name" = s."goodsName"
-    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
       AND (r.total_quantity = 0 OR r.total_quantity IS NULL)
     ORDER BY avg_daily_sales DESC
@@ -130,7 +159,7 @@ async function getOutOfStockProducts(page: number, pageSize: number): Promise<Pa
       availability: {
         status: 'out_of_stock' as const,
       },
-      strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
+      strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
     };
   });
 
@@ -142,6 +171,9 @@ async function getOutOfStockProducts(page: number, pageSize: number): Promise<Pa
  */
 async function getLowStockProducts(page: number, pageSize: number): Promise<PaginatedResult<WarningProduct>> {
   const offset = (page - 1) * pageSize;
+
+  // 获取战略商品 ID 集合
+  const strategicIds = await getStrategicGoodsIds();
 
   const result = await query<{
     total_count: number;
@@ -155,7 +187,6 @@ async function getLowStockProducts(page: number, pageSize: number): Promise<Pagi
     unit_factor: number;
     avg_daily_sales: number;
     turnover_days: number;
-    is_strategic: boolean;
   }>(`
     WITH daily_sales AS (
       SELECT "goodsName", SUM("baseQuantity") / ${STANDARD_CALC_DAYS}.0 as avg_daily
@@ -183,12 +214,10 @@ async function getLowStockProducts(page: number, pageSize: number): Promise<Pagi
         WHEN COALESCE(s.avg_daily, 0) > 0
         THEN r.total_quantity / s.avg_daily
         ELSE 999
-      END as turnover_days,
-      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
+      END as turnover_days
     FROM "商品档案" g
     JOIN stock_summary r ON g."goodsId" = r."goodsId"
     LEFT JOIN daily_sales s ON r."goodsName" = s."goodsName"
-    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
       AND r.total_quantity > 0
       AND s.avg_daily IS NOT NULL
@@ -238,7 +267,7 @@ async function getLowStockProducts(page: number, pageSize: number): Promise<Pagi
       availability: {
         status: 'low_stock' as const,
       },
-      strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
+      strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
     };
   });
 
@@ -257,6 +286,9 @@ async function getOverstockProducts(
   const maxCondition = maxDays ? `AND r.total_quantity / s.avg_daily <= ${maxDays}` : '';
   const offset = (page - 1) * pageSize;
 
+  // 获取战略商品 ID 集合
+  const strategicIds = await getStrategicGoodsIds();
+
   const result = await query<{
     total_count: number;
     goods_id: string;
@@ -270,7 +302,6 @@ async function getOverstockProducts(
     unit_factor: number;
     avg_daily_sales: number;
     sellable_days: number;
-    is_strategic: boolean;
   }>(`
     WITH daily_sales AS (
       SELECT "goodsName", SUM("baseQuantity") / ${STANDARD_CALC_DAYS}.0 as avg_daily
@@ -295,12 +326,10 @@ async function getOverstockProducts(
       g."baseUnitName" as base_unit_name,
       COALESCE(g."unitFactor", 1) as unit_factor,
       s.avg_daily as avg_daily_sales,
-      r.total_quantity / s.avg_daily as sellable_days,
-      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
+      r.total_quantity / s.avg_daily as sellable_days
     FROM stock_summary r
     JOIN "商品档案" g ON r."goodsId" = g."goodsId"
     LEFT JOIN daily_sales s ON r."goodsName" = s."goodsName"
-    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
       AND r.total_quantity > 0
       AND s.avg_daily IS NOT NULL
@@ -352,7 +381,7 @@ async function getOverstockProducts(
       availability: {
         status: 'available' as const,
       },
-      strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
+      strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
     };
   });
 
@@ -370,6 +399,9 @@ async function getExpiringProducts(
 ): Promise<PaginatedResult<WarningProduct>> {
   const offset = (page - 1) * pageSize;
 
+  // 获取战略商品 ID 集合
+  const strategicIds = await getStrategicGoodsIds();
+
   const result = await query<{
     total_count: number;
     goods_id: string;
@@ -379,7 +411,6 @@ async function getExpiringProducts(
     stock_quantity: number;
     days_to_expire: number;
     expiry_date: string | null;
-    is_strategic: boolean;
   }>(`
     WITH expiring_batches AS (
       SELECT
@@ -406,12 +437,10 @@ async function getExpiringProducts(
       SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
       COALESCE(s.total_quantity, b.expiring_quantity) as stock_quantity,
       b.min_days_to_expire as days_to_expire,
-      b.nearest_expire_date as expiry_date,
-      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
+      b.nearest_expire_date as expiry_date
     FROM expiring_batches b
     JOIN "商品档案" g ON b."goodsName" = g."name"
     LEFT JOIN stock_summary s ON b."goodsName" = s."goodsName"
-    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
     ORDER BY b.min_days_to_expire ASC
     LIMIT ${pageSize} OFFSET ${offset}
@@ -443,7 +472,7 @@ async function getExpiringProducts(
     availability: {
       status: 'available' as const,
     },
-    strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
+    strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
   }));
 
   return { data, total, page, pageSize, totalPages };
@@ -461,6 +490,9 @@ async function getSlowMovingProducts(
   const maxCondition = maxDays ? `AND days_without_sale <= ${maxDays}` : '';
   const offset = (page - 1) * pageSize;
 
+  // 获取战略商品 ID 集合
+  const strategicIds = await getStrategicGoodsIds();
+
   const result = await query<{
     total_count: number;
     goods_id: string;
@@ -470,7 +502,6 @@ async function getSlowMovingProducts(
     stock_quantity: number;
     days_without_sale: number;
     last_sale_date: string | null;
-    is_strategic: boolean;
   }>(`
     WITH last_sale AS (
       SELECT
@@ -509,11 +540,9 @@ async function getSlowMovingProducts(
       SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
       t.total_quantity as stock_quantity,
       t.days_without_sale,
-      t.last_sale_time as last_sale_date,
-      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
+      t.last_sale_time as last_sale_date
     FROM stock_with_sale t
     JOIN "商品档案" g ON t."goodsName" = g."name"
-    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
       AND t.days_without_sale > ${minDays}
       ${maxCondition}
@@ -551,7 +580,7 @@ async function getSlowMovingProducts(
       daysWithoutSale: parseInt(row.days_without_sale as any) || 0,
       lastSaleDate: row.last_sale_date ? new Date(row.last_sale_date).toISOString().split('T')[0] : null,
     },
-    strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
+    strategicLevel: strategicIds.has(row.goods_id) ? 'strategic' as const : 'normal' as const,
   }));
 
   return { data, total, page, pageSize, totalPages };

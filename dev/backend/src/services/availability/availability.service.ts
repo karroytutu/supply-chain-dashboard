@@ -4,6 +4,7 @@
  */
 
 import { query } from '../../db/pool';
+import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { LOW_STOCK_DAYS, STANDARD_CALC_DAYS } from '../../utils/constants';
 import type {
@@ -107,29 +108,29 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
 
   const availabilityRate = totalEnabled > 0 ? Math.round((inStock / totalEnabled) * 1000) / 10 : 0;
 
-  // 计算战略商品齐全率
-  const strategicResult = await query<{
-    total_strategic: number;
-    in_stock_strategic: number;
-  }>(`
-    WITH strategic_confirmed AS (
-      SELECT sp.goods_id
-      FROM strategic_products sp
-      WHERE sp.status = 'confirmed' AND sp.confirmed_at IS NOT NULL
-    )
-    SELECT 
-      COUNT(*) as total_strategic,
-      COUNT(CASE WHEN r."availableBaseQuantity" > 0 THEN 1 END) as in_stock_strategic
-    FROM strategic_confirmed sc
-    LEFT JOIN "实时库存表" r ON sc.goods_id = r."goodsId"
+  // 计算战略商品齐全率（跨数据库查询）
+  // 第一步：从 xly_dashboard 获取已确认的战略商品 goods_id 列表
+  const strategicGoodsResult = await appQuery<{ goods_id: string }>(`
+    SELECT goods_id
+    FROM strategic_products
+    WHERE status = 'confirmed' AND confirmed_at IS NOT NULL
   `);
 
-  const strategicData = strategicResult.rows[0];
-  const totalStrategic = parseInt(strategicData?.total_strategic as any) || 0;
-  const inStockStrategic = parseInt(strategicData?.in_stock_strategic as any) || 0;
-
   let strategicAvailability: StrategicAvailabilityData | undefined;
-  if (totalStrategic > 0) {
+
+  if (strategicGoodsResult.rows.length > 0) {
+    const strategicGoodsIds = strategicGoodsResult.rows.map(r => r.goods_id);
+    const totalStrategic = strategicGoodsIds.length;
+
+    // 第二步：用这些 goods_id 去 xinshutong 查询库存
+    const stockResult = await query<{ in_stock_count: number }>(`
+      SELECT COUNT(*) as in_stock_count
+      FROM "实时库存表"
+      WHERE "goodsId" = ANY($1) AND "availableBaseQuantity" > 0
+    `, [strategicGoodsIds]);
+
+    const inStockStrategic = parseInt(stockResult.rows[0]?.in_stock_count as any) || 0;
+
     strategicAvailability = {
       value: Math.round((inStockStrategic / totalStrategic) * 1000) / 10,
       totalStrategicSku: totalStrategic,
