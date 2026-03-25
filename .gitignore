@@ -3,6 +3,9 @@ node_modules/
 dev/frontend/node_modules/
 dev/backend/node_modules/
 
+# 根目录 package-lock（无依赖项，不需要）
+/package-lock.json
+
 # 构建产物
 dist/
 .umi/
@@ -12,6 +15,7 @@ dev/backend/dist/
 
 # 生产环境（不提交）
 prod/
+prod.backup/
 
 # 环境配置（敏感信息）
 dev/backend/.env.development
