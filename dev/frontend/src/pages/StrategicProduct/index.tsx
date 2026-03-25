@@ -33,13 +33,13 @@ export default function StrategicProductManage() {
 
   // 品类树相关
   const [categoryTree, setCategoryTree] = useState<CategoryNode[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
+  const [selectedCategoryPath, setSelectedCategoryPath] = useState<string | undefined>();
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
 
   // 添加商品弹窗相关
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [addCategoryTree, setAddCategoryTree] = useState<CategoryNode[]>([]);
-  const [selectedAddCategoryId, setSelectedAddCategoryId] = useState<string | undefined>();
+  const [selectedAddCategoryPath, setSelectedAddCategoryPath] = useState<string | undefined>();
   const [productsForSelection, setProductsForSelection] = useState<SelectableProduct[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -60,7 +60,7 @@ export default function StrategicProductManage() {
       const result = await getCategoryTree();
       setCategoryTree(result);
       // 默认展开第一级
-      const firstLevelKeys = result.map(node => node.id);
+      const firstLevelKeys = result.map(node => node.key);
       setExpandedKeys(firstLevelKeys);
     } catch (error) {
       console.error('加载品类树失败:', error);
@@ -76,7 +76,7 @@ export default function StrategicProductManage() {
         pageSize,
         keyword,
         status: statusFilter,
-        categoryId: selectedCategoryId,
+        categoryPath: selectedCategoryPath,
       });
       setDataSource(result.data);
       setTotal(result.total);
@@ -94,12 +94,12 @@ export default function StrategicProductManage() {
 
   useEffect(() => {
     loadStrategicProducts();
-  }, [page, pageSize, statusFilter, selectedCategoryId]);
+  }, [page, pageSize, statusFilter, selectedCategoryPath]);
 
   // 品类树选择处理
   const handleCategorySelect: TreeProps['onSelect'] = (selectedKeys) => {
-    const categoryId = selectedKeys[0] as string | undefined;
-    setSelectedCategoryId(categoryId);
+    const categoryPath = selectedKeys[0] as string | undefined;
+    setSelectedCategoryPath(categoryPath);
     setPage(1);
   };
 
@@ -121,10 +121,10 @@ export default function StrategicProductManage() {
   };
 
   // 加载可选商品
-  const loadProductsForSelection = async (categoryId: string) => {
+  const loadProductsForSelection = async (categoryPath: string) => {
     setProductsLoading(true);
     try {
-      const result = await getProductsForSelection(categoryId, { page: 1, pageSize: 100 });
+      const result = await getProductsForSelection(categoryPath, { page: 1, pageSize: 100 });
       setProductsForSelection(result.data);
     } catch (error) {
       console.error('加载商品列表失败:', error);
@@ -136,11 +136,11 @@ export default function StrategicProductManage() {
 
   // 添加弹窗品类选择
   const handleAddCategorySelect: TreeProps['onSelect'] = (selectedKeys) => {
-    const categoryId = selectedKeys[0] as string | undefined;
-    setSelectedAddCategoryId(categoryId);
+    const categoryPath = selectedKeys[0] as string | undefined;
+    setSelectedAddCategoryPath(categoryPath);
     setSelectedProductIds([]);
-    if (categoryId) {
-      loadProductsForSelection(categoryId);
+    if (categoryPath) {
+      loadProductsForSelection(categoryPath);
     } else {
       setProductsForSelection([]);
     }
@@ -172,10 +172,10 @@ export default function StrategicProductManage() {
     }
     try {
       const result = await addStrategicProducts({ goodsIds: selectedProductIds });
-      message.success(`成功添加 ${result.count} 个战略商品`);
+      message.success(`成功添加 ${result.addedCount} 个战略商品`);
       setAddModalVisible(false);
       setSelectedProductIds([]);
-      setSelectedAddCategoryId(undefined);
+      setSelectedAddCategoryPath(undefined);
       setProductsForSelection([]);
       loadStrategicProducts();
       loadStats();
@@ -199,7 +199,7 @@ export default function StrategicProductManage() {
   // 确认/驳回战略商品
   const handleConfirm = async (record: StrategicProduct, confirmed: boolean) => {
     try {
-      await confirmStrategicProduct(record.id, { confirmed });
+      await confirmStrategicProduct(record.id, { action: confirmed ? 'confirm' : 'reject' });
       message.success(confirmed ? '确认成功' : '驳回成功');
       loadStrategicProducts();
       loadStats();
@@ -211,7 +211,7 @@ export default function StrategicProductManage() {
   // 转换品类树数据为 antd Tree 格式
   const convertToTreeData = (nodes: CategoryNode[]): any[] => {
     return nodes.map(node => ({
-      key: node.id,
+      key: node.key,
       title: node.name,
       children: node.children ? convertToTreeData(node.children) : undefined,
     }));
@@ -347,7 +347,7 @@ export default function StrategicProductManage() {
         <Card title="品类筛选" size="small" className={styles.categoryCard}>
           <Tree
             treeData={convertToTreeData(categoryTree)}
-            selectedKeys={selectedCategoryId ? [selectedCategoryId] : []}
+            selectedKeys={selectedCategoryPath ? [selectedCategoryPath] : []}
             expandedKeys={expandedKeys}
             onExpand={(keys) => setExpandedKeys(keys as string[])}
             onSelect={handleCategorySelect}
@@ -477,7 +477,7 @@ export default function StrategicProductManage() {
         onCancel={() => {
           setAddModalVisible(false);
           setSelectedProductIds([]);
-          setSelectedAddCategoryId(undefined);
+          setSelectedAddCategoryPath(undefined);
           setProductsForSelection([]);
         }}
         width={900}
@@ -489,7 +489,7 @@ export default function StrategicProductManage() {
             <div className={styles.treeTitle}>选择品类</div>
             <Tree
               treeData={convertToTreeData(addCategoryTree)}
-              selectedKeys={selectedAddCategoryId ? [selectedAddCategoryId] : []}
+              selectedKeys={selectedAddCategoryPath ? [selectedAddCategoryPath] : []}
               onSelect={handleAddCategorySelect}
               showLine
               style={{ maxHeight: 400, overflow: 'auto' }}
@@ -513,7 +513,7 @@ export default function StrategicProductManage() {
                 <div className={styles.loadingWrap}>
                   <Spin />
                 </div>
-              ) : !selectedAddCategoryId ? (
+              ) : !selectedAddCategoryPath ? (
                 <Empty description="请先选择品类" />
               ) : productsForSelection.length === 0 ? (
                 <Empty description="该品类下暂无可选商品" />

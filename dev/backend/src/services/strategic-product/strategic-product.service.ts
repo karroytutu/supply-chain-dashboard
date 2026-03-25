@@ -429,6 +429,12 @@ export async function getProductsForSelection(
 
   const whereClause = conditions.join(' AND ');
 
+  // 先从 xly_dashboard 获取已存在的战略商品 goods_id
+  const strategicResult = await appQuery<{ goods_id: string }>(
+    `SELECT goods_id FROM strategic_products WHERE status IN ('pending', 'confirmed')`
+  );
+  const strategicGoodsIds = new Set(strategicResult.rows.map(r => r.goods_id));
+
   // 查询总数
   const countResult = await query<{ total: number }>(
     `SELECT COUNT(*) as total FROM "商品档案" g WHERE ${whereClause}`,
@@ -443,21 +449,18 @@ export async function getProductsForSelection(
     goods_name: string;
     category_path: string;
     stock: number;
-    is_strategic: boolean;
   }>(
     `SELECT 
       g."goodsId" as goods_id,
       g."name" as goods_name,
       g."categoryChainName" as category_path,
-      COALESCE(s.total_stock, 0) as stock,
-      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
+      COALESCE(s.total_stock, 0) as stock
     FROM "商品档案" g
     LEFT JOIN (
       SELECT "goodsId", SUM("availableBaseQuantity") as total_stock
       FROM "实时库存表"
       GROUP BY "goodsId"
     ) s ON g."goodsId" = s."goodsId"
-    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status IN ('pending', 'confirmed')
     WHERE ${whereClause}
     ORDER BY g."name"
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
@@ -469,7 +472,7 @@ export async function getProductsForSelection(
     goodsName: row.goods_name,
     categoryPath: row.category_path || '',
     stock: parseFloat(row.stock as any) || 0,
-    isStrategic: row.is_strategic,
+    isStrategic: strategicGoodsIds.has(row.goods_id),
   }));
 
   return {

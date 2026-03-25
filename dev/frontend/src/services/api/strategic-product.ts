@@ -33,8 +33,8 @@ export const getStrategicProductStats = (): Promise<StrategicProductStats> => {
 /**
  * 添加战略商品
  */
-export const addStrategicProducts = (data: AddStrategicProductsRequest): Promise<{ count: number }> => {
-  return request.post<{ count: number }>('/strategic-products', data);
+export const addStrategicProducts = (data: AddStrategicProductsRequest): Promise<{ addedCount: number; skippedCount: number }> => {
+  return request.post<{ addedCount: number; skippedCount: number }>('/strategic-products', data);
 };
 
 /**
@@ -65,10 +65,10 @@ export const getCategoryTree = (): Promise<CategoryNode[]> => {
  * 获取可选商品列表（用于添加战略商品）
  */
 export const getProductsForSelection = (
-  categoryId: string,
+  categoryPath?: string,
   params?: PaginationParams
 ): Promise<PaginatedResult<SelectableProduct>> => {
-  const queryParams = { categoryId, ...params };
+  const queryParams = { categoryPath, ...params };
   return request.get<PaginatedResult<SelectableProduct>>('/strategic-products/products', { params: queryParams });
 };
 

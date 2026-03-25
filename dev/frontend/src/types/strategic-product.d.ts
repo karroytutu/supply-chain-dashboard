@@ -40,10 +40,11 @@ export interface StrategicProductStats {
  * 品类树节点（用于战略商品选择）
  */
 export interface CategoryNode {
-  id: string;
+  key: string;    // 品类路径，用于查询
   name: string;
   level: number;
   path: string;
+  count?: number;
   children?: CategoryNode[];
 }
 
@@ -54,7 +55,8 @@ export interface SelectableProduct {
   goodsId: string;
   goodsName: string;
   categoryPath: string;
-  categoryId: string;
+  stock?: number;
+  isStrategic?: boolean;
 }
 
 /**
@@ -62,7 +64,7 @@ export interface SelectableProduct {
  */
 export interface StrategicProductQueryParams extends PaginationParams {
   status?: StrategicProductStatus;
-  categoryId?: string;
+  categoryPath?: string;
   keyword?: string;
 }
 
@@ -77,8 +79,8 @@ export interface AddStrategicProductsRequest {
  * 确认战略商品请求
  */
 export interface ConfirmStrategicProductRequest {
-  confirmed: boolean; // true=确认, false=驳回
-  reason?: string;    // 驳回原因
+  action: 'confirm' | 'reject';
+  comment?: string;
 }
 
 /**
