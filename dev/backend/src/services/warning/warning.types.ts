@@ -48,4 +48,6 @@ export interface WarningProduct {
     daysWithoutSale: number;
     lastSaleDate: string | null;
   };
+  /** 战略等级 */
+  strategicLevel?: 'strategic' | 'normal';
 }

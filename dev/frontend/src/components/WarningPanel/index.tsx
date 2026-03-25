@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Empty } from 'antd';
+import { Table, Empty, Tree, Tag, Select, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import type { TreeProps } from 'antd';
 import {
   AlertOutlined,
   InboxOutlined,
   ClockCircleOutlined,
   PauseCircleOutlined,
   StopOutlined,
+  StarFilled,
 } from '@ant-design/icons';
-import type { WarningProduct } from '@/types/warning';
-import { getWarningProducts } from '@/services/api/dashboard';
+import type { WarningProduct, StrategicLevel } from '@/types/warning';
+import { getWarningProducts, getCategoryTree } from '@/services/api/dashboard';
+import type { CategoryTreeNode } from '@/services/api/dashboard';
 import styles from './index.less';
 
 // 预警项配置
@@ -39,6 +42,27 @@ const GROUP_CONFIG = {
   slowMoving: { title: '滞销预警', icon: <StopOutlined />, color: '#722ed1' },
 };
 
+// 战略等级渲染
+const renderStrategicLevel = (level?: StrategicLevel) => {
+  if (level === 'strategic') {
+    return (
+      <Tag color="gold" icon={<StarFilled />}>
+        战略商品
+      </Tag>
+    );
+  }
+  return <Tag>普通商品</Tag>;
+};
+
+// 战略等级列配置
+const strategicLevelColumn = {
+  title: '战略等级',
+  key: 'strategicLevel',
+  width: 100,
+  align: 'center' as const,
+  render: (_: unknown, record: WarningProduct) => renderStrategicLevel(record.strategicLevel),
+};
+
 interface WarningPanelProps {
   stockWarnings: { outOfStock: number; lowStock: number };
   turnoverWarnings: { mildOverstock: number; moderateOverstock: number; seriousOverstock: number };
@@ -57,6 +81,12 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
   const [loading, setLoading] = useState(false);
   // 分页状态
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
+  // 品类树相关
+  const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([]);
+  const [selectedCategoryPath, setSelectedCategoryPath] = useState<string | undefined>();
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  // 战略等级筛选
+  const [strategicLevelFilter, setStrategicLevelFilter] = useState<StrategicLevel | undefined>();
 
   // 前端预警类型到后端API类型的映射
   const warningTypeMap: Record<string, string> = {
@@ -118,6 +148,22 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
     0
   );
 
+  // 加载品类树数据
+  useEffect(() => {
+    const loadCategoryTree = async () => {
+      try {
+        const tree = await getCategoryTree();
+        setCategoryTree(tree);
+        // 默认展开第一级
+        const firstLevelPaths = tree.map(node => node.categoryPath);
+        setExpandedKeys(firstLevelPaths);
+      } catch (error) {
+        console.error('加载品类树失败:', error);
+      }
+    };
+    loadCategoryTree();
+  }, []);
+
   // 默认选中第一个有数据的预警项
   useEffect(() => {
     if (!selectedKey && totalWarnings > 0) {
@@ -143,7 +189,23 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       try {
         const apiType = warningTypeMap[selectedKey];
         const result = await getWarningProducts(apiType, { page: pagination.page, pageSize: pagination.pageSize });
-        setProducts(result.data || []);
+        let filteredData = result.data || [];
+
+        // 前端按品类筛选（如果后端不支持品类筛选）
+        if (selectedCategoryPath) {
+          filteredData = filteredData.filter(product => {
+            // 根据品类路径筛选
+            return product.categoryName?.includes(selectedCategoryPath) ||
+                   selectedCategoryPath.includes(product.categoryName);
+          });
+        }
+
+        // 前端按战略等级筛选
+        if (strategicLevelFilter) {
+          filteredData = filteredData.filter(product => product.strategicLevel === strategicLevelFilter);
+        }
+
+        setProducts(filteredData);
         setPagination(prev => ({ ...prev, total: result.total || 0 }));
       } catch (error) {
         console.error('加载预警商品数据失败:', error);
@@ -155,12 +217,14 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
     };
 
     loadProducts();
-  }, [selectedKey, pagination.page, pagination.pageSize]);
+  }, [selectedKey, pagination.page, pagination.pageSize, selectedCategoryPath, strategicLevelFilter]);
 
-  // 切换预警类型时重置分页
+  // 切换预警类型时重置分页和筛选
   const handleSelectedKeyChange = (key: string) => {
     setSelectedKey(key);
     setPagination(prev => ({ ...prev, page: 1 }));
+    setSelectedCategoryPath(undefined);
+    setStrategicLevelFilter(undefined);
   };
 
   // 分页变化处理
@@ -168,10 +232,33 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
     setPagination(prev => ({ ...prev, page, pageSize }));
   };
 
+  // 品类树选择处理
+  const handleCategorySelect: TreeProps['onSelect'] = (selectedKeys) => {
+    const path = selectedKeys[0] as string | undefined;
+    setSelectedCategoryPath(path);
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // 战略等级筛选变化
+  const handleStrategicLevelChange = (value: StrategicLevel | undefined) => {
+    setStrategicLevelFilter(value);
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // 转换品类树数据为 antd Tree 格式
+  const convertToTreeData = (nodes: CategoryTreeNode[]): any[] => {
+    return nodes.map(node => ({
+      key: node.categoryPath,
+      title: `${node.name} (${node.value}%)`,
+      children: node.children ? convertToTreeData(node.children) : undefined,
+    }));
+  };
+
   // 列配置
   const getColumns = (): ColumnsType<WarningProduct> => {
     const stockColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
+      strategicLevelColumn,
       {
         title: '库存数量',
         dataIndex: ['stock', 'quantity'],
@@ -215,6 +302,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
 
     const turnoverColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
+      strategicLevelColumn,
       {
         title: '库存数量',
         dataIndex: ['stock', 'quantity'],
@@ -259,6 +347,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
 
     const expiringColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
+      strategicLevelColumn,
       { title: '规格', dataIndex: 'specification', key: 'specification', width: 100, align: 'center' },
       {
         title: '库存数量', dataIndex: ['stock', 'quantity'], key: 'stockQuantity', width: 100, align: 'right',
@@ -267,7 +356,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       {
         title: '距到期天数', key: 'daysToExpiry', width: 100, align: 'right',
         render: (_: unknown, record: WarningProduct) => {
-          const days = record.expiring.daysToExpiry;
+          const days = record.expiring.daysToExpiry ?? 0;
           const color = days <= 7 ? '#ff4d4f' : days <= 15 ? '#fa8c16' : days <= 30 ? '#faad14' : '#52c41a';
           return <span style={{ color, fontWeight: 500 }}>{days}天</span>;
         },
@@ -276,6 +365,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
 
     const slowMovingColumns: ColumnsType<WarningProduct> = [
       { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
+      strategicLevelColumn,
       { title: '规格', dataIndex: 'specification', key: 'specification', width: 100, align: 'center' },
       {
         title: '库存数量', dataIndex: ['stock', 'quantity'], key: 'stockQuantity', width: 100, align: 'right',
@@ -324,41 +414,63 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
 
       {/* 左右分栏主体 */}
       <div className={styles.panelBody}>
-        {/* 左侧预警分类 */}
+        {/* 左侧：预警分类 + 品类树筛选 */}
         <div className={styles.sidebar}>
-          {warningGroups.map(group => {
-            const groupConfig = GROUP_CONFIG[group.key as keyof typeof GROUP_CONFIG];
-            if (group.items.length === 0) return null;
-            const groupTotal = group.items.reduce((s, item) => s + item.count, 0);
-            return (
-              <div key={group.key} className={styles.warningGroup}>
-                <div className={styles.groupHeader}>
-                  <span className={styles.groupIcon} style={{ color: groupConfig.color }}>
-                    {groupConfig.icon}
-                  </span>
-                  <span className={styles.groupTitle}>{groupConfig.title}</span>
-                  <span className={styles.groupCount}>{groupTotal}</span>
+          {/* 预警分类 */}
+          <div className={styles.warningGroups}>
+            {warningGroups.map(group => {
+              const groupConfig = GROUP_CONFIG[group.key as keyof typeof GROUP_CONFIG];
+              if (group.items.length === 0) return null;
+              const groupTotal = group.items.reduce((s, item) => s + item.count, 0);
+              return (
+                <div key={group.key} className={styles.warningGroup}>
+                  <div className={styles.groupHeader}>
+                    <span className={styles.groupIcon} style={{ color: groupConfig.color }}>
+                      {groupConfig.icon}
+                    </span>
+                    <span className={styles.groupTitle}>{groupConfig.title}</span>
+                    <span className={styles.groupCount}>{groupTotal}</span>
+                  </div>
+                  <div className={styles.groupItems}>
+                    {group.items.map(item => {
+                      const config = WARNING_CONFIG[item.key as keyof typeof WARNING_CONFIG];
+                      const isSelected = selectedKey === item.key;
+                      return (
+                        <div
+                          key={item.key}
+                          className={`${styles.warningItem} ${isSelected ? styles.selected : ''}`}
+                          onClick={() => handleSelectedKeyChange(item.key)}
+                        >
+                          <span className={styles.itemDot} style={{ backgroundColor: config.color }} />
+                          <span className={styles.itemLabel}>{config.label}</span>
+                          <span className={styles.itemCount}>{item.count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className={styles.groupItems}>
-                  {group.items.map(item => {
-                    const config = WARNING_CONFIG[item.key as keyof typeof WARNING_CONFIG];
-                    const isSelected = selectedKey === item.key;
-                    return (
-                      <div
-                        key={item.key}
-                        className={`${styles.warningItem} ${isSelected ? styles.selected : ''}`}
-                        onClick={() => handleSelectedKeyChange(item.key)}
-                      >
-                        <span className={styles.itemDot} style={{ backgroundColor: config.color }} />
-                        <span className={styles.itemLabel}>{config.label}</span>
-                        <span className={styles.itemCount}>{item.count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {/* 品类树筛选 */}
+          <div className={styles.categoryFilter}>
+            <div className={styles.filterTitle}>品类筛选</div>
+            <Tree
+              treeData={convertToTreeData(categoryTree)}
+              selectedKeys={selectedCategoryPath ? [selectedCategoryPath] : []}
+              expandedKeys={expandedKeys}
+              onExpand={(keys) => setExpandedKeys(keys as string[])}
+              onSelect={handleCategorySelect}
+              showLine
+              className={styles.categoryTree}
+            />
+            {selectedCategoryPath && (
+              <a className={styles.clearFilter} onClick={() => setSelectedCategoryPath(undefined)}>
+                清除筛选
+              </a>
+            )}
+          </div>
         </div>
 
         {/* 右侧商品明细 */}
@@ -370,6 +482,21 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
                   <span className={styles.titleBar} style={{ backgroundColor: selectedConfig.color }} />
                   {selectedConfig.label}商品明细
                   <span className={styles.productCount}>{pagination.total}</span>
+                </div>
+                <div className={styles.filterBar}>
+                  <Space>
+                    <span>战略等级：</span>
+                    <Select
+                      value={strategicLevelFilter}
+                      onChange={handleStrategicLevelChange}
+                      style={{ width: 120 }}
+                      allowClear
+                      placeholder="全部"
+                    >
+                      <Select.Option value="strategic">战略商品</Select.Option>
+                      <Select.Option value="normal">普通商品</Select.Option>
+                    </Select>
+                  </Space>
                 </div>
               </div>
               <Table
@@ -387,8 +514,9 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
                   onChange: handleTableChange,
                   size: 'small',
                 }}
-                scroll={{ x: 500 }}
+                scroll={{ x: 700 }}
                 size="small"
+                rowClassName={(record) => record.strategicLevel === 'strategic' ? styles.strategicRow : ''}
                 locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无商品数据" /> }}
               />
             </>

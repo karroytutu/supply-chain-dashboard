@@ -27,6 +27,13 @@ export interface StockWarningStats {
   lowStock: number;
 }
 
+/** 战略商品齐全率数据 */
+export interface StrategicAvailabilityData {
+  value: number;
+  totalStrategicSku: number;
+  inStockStrategic: number;
+}
+
 /** 库存齐全率数据 */
 export interface AvailabilityData {
   value: number;
@@ -34,6 +41,7 @@ export interface AvailabilityData {
   totalSku: number;
   categories: CategoryMetric[];
   warningStats: StockWarningStats;
+  strategicAvailability?: StrategicAvailabilityData;
 }
 
 /** 品类树节点 */

@@ -1,6 +1,11 @@
 import type { StockStatus } from './category';
 
 /**
+ * 战略等级类型
+ */
+export type StrategicLevel = 'strategic' | 'normal';
+
+/**
  * 预警商品信息
  * 与后端 WarningProduct 接口对齐
  */
@@ -44,6 +49,9 @@ export interface WarningProduct {
     daysWithoutSale: number;     // 未销售天数
     lastSaleDate: string | null; // 最后销售日期
   };
+
+  // 战略等级
+  strategicLevel?: StrategicLevel;
 }
 
 /**

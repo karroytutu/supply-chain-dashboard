@@ -11,6 +11,7 @@ import type {
   CategoryMetric,
   CategoryTreeNode,
   StockWarningStats,
+  StrategicAvailabilityData,
   PaginationParams,
   PaginatedResult,
   TrendDirection,
@@ -106,6 +107,36 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
 
   const availabilityRate = totalEnabled > 0 ? Math.round((inStock / totalEnabled) * 1000) / 10 : 0;
 
+  // 计算战略商品齐全率
+  const strategicResult = await query<{
+    total_strategic: number;
+    in_stock_strategic: number;
+  }>(`
+    WITH strategic_confirmed AS (
+      SELECT sp.goods_id
+      FROM strategic_products sp
+      WHERE sp.status = 'confirmed' AND sp.confirmed_at IS NOT NULL
+    )
+    SELECT 
+      COUNT(*) as total_strategic,
+      COUNT(CASE WHEN r."availableBaseQuantity" > 0 THEN 1 END) as in_stock_strategic
+    FROM strategic_confirmed sc
+    LEFT JOIN "实时库存表" r ON sc.goods_id = r."goodsId"
+  `);
+
+  const strategicData = strategicResult.rows[0];
+  const totalStrategic = parseInt(strategicData?.total_strategic as any) || 0;
+  const inStockStrategic = parseInt(strategicData?.in_stock_strategic as any) || 0;
+
+  let strategicAvailability: StrategicAvailabilityData | undefined;
+  if (totalStrategic > 0) {
+    strategicAvailability = {
+      value: Math.round((inStockStrategic / totalStrategic) * 1000) / 10,
+      totalStrategicSku: totalStrategic,
+      inStockStrategic,
+    };
+  }
+
   return {
     value: availabilityRate,
     unit: 'percent',
@@ -115,6 +146,7 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
       outOfStock,
       lowStock,
     },
+    strategicAvailability,
   };
 }
 

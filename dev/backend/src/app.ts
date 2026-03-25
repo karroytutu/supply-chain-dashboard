@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import roleRoutes from './routes/role.routes';
 import permissionRoutes from './routes/permission.routes';
+import strategicProductRoutes from './routes/strategic-product.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 
 const app = express();
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/permissions', permissionRoutes);
+app.use('/api/strategic-products', strategicProductRoutes);
 
 // 错误处理
 app.use(errorHandler);

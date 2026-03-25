@@ -1,0 +1,549 @@
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Table, Card, Button, Input, Space, Tag, Modal, message, Tree, Row, Col, Statistic, Badge,
+  Drawer, List, Checkbox, Tabs, Empty, Spin, Tooltip, Popconfirm
+} from 'antd';
+import type { TreeProps } from 'antd';
+import {
+  SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined,
+  InboxOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined
+} from '@ant-design/icons';
+import {
+  getStrategicProducts, getStrategicProductStats, addStrategicProducts,
+  deleteStrategicProduct, confirmStrategicProduct, getCategoryTree, getProductsForSelection
+} from '@/services/api/strategic-product';
+import type {
+  StrategicProduct, StrategicProductStats, CategoryNode, SelectableProduct, StrategicProductStatus
+} from '@/types/strategic-product';
+import type { PaginatedResult } from '@/types/warning';
+import styles from './index.less';
+
+export default function StrategicProductManage() {
+  // 列表相关状态
+  const [loading, setLoading] = useState(false);
+  const [dataSource, setDataSource] = useState<StrategicProduct[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [keyword, setKeyword] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StrategicProductStatus | undefined>();
+
+  // 统计数据
+  const [stats, setStats] = useState<StrategicProductStats>({ total: 0, pending: 0, confirmed: 0, rejected: 0 });
+
+  // 品类树相关
+  const [categoryTree, setCategoryTree] = useState<CategoryNode[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+
+  // 添加商品弹窗相关
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [addCategoryTree, setAddCategoryTree] = useState<CategoryNode[]>([]);
+  const [selectedAddCategoryId, setSelectedAddCategoryId] = useState<string | undefined>();
+  const [productsForSelection, setProductsForSelection] = useState<SelectableProduct[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+
+  // 加载统计信息
+  const loadStats = async () => {
+    try {
+      const result = await getStrategicProductStats();
+      setStats(result);
+    } catch (error) {
+      console.error('加载统计信息失败:', error);
+    }
+  };
+
+  // 加载品类树
+  const loadCategoryTree = async () => {
+    try {
+      const result = await getCategoryTree();
+      setCategoryTree(result);
+      // 默认展开第一级
+      const firstLevelKeys = result.map(node => node.id);
+      setExpandedKeys(firstLevelKeys);
+    } catch (error) {
+      console.error('加载品类树失败:', error);
+    }
+  };
+
+  // 加载战略商品列表
+  const loadStrategicProducts = async () => {
+    setLoading(true);
+    try {
+      const result: PaginatedResult<StrategicProduct> = await getStrategicProducts({
+        page,
+        pageSize,
+        keyword,
+        status: statusFilter,
+        categoryId: selectedCategoryId,
+      });
+      setDataSource(result.data);
+      setTotal(result.total);
+    } catch (error) {
+      message.error('加载战略商品列表失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCategoryTree();
+    loadStats();
+  }, []);
+
+  useEffect(() => {
+    loadStrategicProducts();
+  }, [page, pageSize, statusFilter, selectedCategoryId]);
+
+  // 品类树选择处理
+  const handleCategorySelect: TreeProps['onSelect'] = (selectedKeys) => {
+    const categoryId = selectedKeys[0] as string | undefined;
+    setSelectedCategoryId(categoryId);
+    setPage(1);
+  };
+
+  // 搜索
+  const handleSearch = () => {
+    setPage(1);
+    loadStrategicProducts();
+  };
+
+  // 打开添加商品弹窗
+  const handleOpenAddModal = async () => {
+    setAddModalVisible(true);
+    try {
+      const result = await getCategoryTree();
+      setAddCategoryTree(result);
+    } catch (error) {
+      console.error('加载品类树失败:', error);
+    }
+  };
+
+  // 加载可选商品
+  const loadProductsForSelection = async (categoryId: string) => {
+    setProductsLoading(true);
+    try {
+      const result = await getProductsForSelection(categoryId, { page: 1, pageSize: 100 });
+      setProductsForSelection(result.data);
+    } catch (error) {
+      console.error('加载商品列表失败:', error);
+      setProductsForSelection([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  // 添加弹窗品类选择
+  const handleAddCategorySelect: TreeProps['onSelect'] = (selectedKeys) => {
+    const categoryId = selectedKeys[0] as string | undefined;
+    setSelectedAddCategoryId(categoryId);
+    setSelectedProductIds([]);
+    if (categoryId) {
+      loadProductsForSelection(categoryId);
+    } else {
+      setProductsForSelection([]);
+    }
+  };
+
+  // 商品选择
+  const handleProductSelect = (goodsId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProductIds([...selectedProductIds, goodsId]);
+    } else {
+      setSelectedProductIds(selectedProductIds.filter(id => id !== goodsId));
+    }
+  };
+
+  // 全选/取消全选
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedProductIds(productsForSelection.map(p => p.goodsId));
+    } else {
+      setSelectedProductIds([]);
+    }
+  };
+
+  // 确认添加商品
+  const handleAddProducts = async () => {
+    if (selectedProductIds.length === 0) {
+      message.warning('请选择至少一个商品');
+      return;
+    }
+    try {
+      const result = await addStrategicProducts({ goodsIds: selectedProductIds });
+      message.success(`成功添加 ${result.count} 个战略商品`);
+      setAddModalVisible(false);
+      setSelectedProductIds([]);
+      setSelectedAddCategoryId(undefined);
+      setProductsForSelection([]);
+      loadStrategicProducts();
+      loadStats();
+    } catch (error) {
+      message.error('添加失败');
+    }
+  };
+
+  // 删除战略商品
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteStrategicProduct(id);
+      message.success('删除成功');
+      loadStrategicProducts();
+      loadStats();
+    } catch (error) {
+      message.error('删除失败');
+    }
+  };
+
+  // 确认/驳回战略商品
+  const handleConfirm = async (record: StrategicProduct, confirmed: boolean) => {
+    try {
+      await confirmStrategicProduct(record.id, { confirmed });
+      message.success(confirmed ? '确认成功' : '驳回成功');
+      loadStrategicProducts();
+      loadStats();
+    } catch (error) {
+      message.error('操作失败');
+    }
+  };
+
+  // 转换品类树数据为 antd Tree 格式
+  const convertToTreeData = (nodes: CategoryNode[]): any[] => {
+    return nodes.map(node => ({
+      key: node.id,
+      title: node.name,
+      children: node.children ? convertToTreeData(node.children) : undefined,
+    }));
+  };
+
+  // 状态标签渲染
+  const renderStatusTag = (status: StrategicProductStatus) => {
+    const config: Record<StrategicProductStatus, { color: string; text: string }> = {
+      pending: { color: 'warning', text: '待确认' },
+      confirmed: { color: 'success', text: '已确认' },
+      rejected: { color: 'error', text: '已驳回' },
+    };
+    const { color, text } = config[status];
+    return <Tag color={color}>{text}</Tag>;
+  };
+
+  // 确认状态渲染
+  const renderConfirmStatus = (record: StrategicProduct) => {
+    return (
+      <Space direction="vertical" size="small">
+        <div>
+          <span style={{ marginRight: 8 }}>采购主管：</span>
+          {record.procurementConfirmed ? (
+            <Tag color="green" icon={<CheckOutlined />}>已确认</Tag>
+          ) : (
+            <Tag color="default">待确认</Tag>
+          )}
+        </div>
+        <div>
+          <span style={{ marginRight: 8 }}>营销主管：</span>
+          {record.marketingConfirmed ? (
+            <Tag color="green" icon={<CheckOutlined />}>已确认</Tag>
+          ) : (
+            <Tag color="default">待确认</Tag>
+          )}
+        </div>
+      </Space>
+    );
+  };
+
+  const columns = [
+    {
+      title: '商品编码',
+      dataIndex: 'goodsId',
+      key: 'goodsId',
+      width: 120,
+    },
+    {
+      title: '商品名称',
+      dataIndex: 'goodsName',
+      key: 'goodsName',
+      width: 200,
+      ellipsis: true,
+    },
+    {
+      title: '品类路径',
+      dataIndex: 'categoryPath',
+      key: 'categoryPath',
+      width: 180,
+      ellipsis: true,
+    },
+    {
+      title: '确认状态',
+      key: 'confirmStatus',
+      width: 160,
+      render: renderConfirmStatus,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: renderStatusTag,
+    },
+    {
+      title: '提交时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 160,
+      render: (text: string) => text ? new Date(text).toLocaleString() : '-',
+    },
+    {
+      title: '确认时间',
+      dataIndex: 'confirmedAt',
+      key: 'confirmedAt',
+      width: 160,
+      render: (text: string) => text ? new Date(text).toLocaleString() : '-',
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 200,
+      render: (_: any, record: StrategicProduct) => (
+        <Space>
+          {record.status === 'pending' && (
+            <>
+              <Tooltip title="确认">
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<CheckOutlined />}
+                  onClick={() => handleConfirm(record, true)}
+                />
+              </Tooltip>
+              <Tooltip title="驳回">
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  icon={<CloseOutlined />}
+                  onClick={() => handleConfirm(record, false)}
+                />
+              </Tooltip>
+            </>
+          )}
+          <Popconfirm
+            title="确定要删除该战略商品吗？"
+            onConfirm={() => handleDelete(record.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <div className={styles.container}>
+      {/* 左侧品类树 */}
+      <div className={styles.sidebar}>
+        <Card title="品类筛选" size="small" className={styles.categoryCard}>
+          <Tree
+            treeData={convertToTreeData(categoryTree)}
+            selectedKeys={selectedCategoryId ? [selectedCategoryId] : []}
+            expandedKeys={expandedKeys}
+            onExpand={(keys) => setExpandedKeys(keys as string[])}
+            onSelect={handleCategorySelect}
+            showLine
+          />
+        </Card>
+      </div>
+
+      {/* 右侧主内容区 */}
+      <div className={styles.main}>
+        {/* 统计卡片 */}
+        <Row gutter={16} className={styles.statsRow}>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="战略商品总数"
+                value={stats.total}
+                prefix={<InboxOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="待确认"
+                value={stats.pending}
+                prefix={<ClockCircleOutlined />}
+                valueStyle={{ color: '#faad14' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="已确认"
+                value={stats.confirmed}
+                prefix={<CheckCircleOutlined />}
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="已驳回"
+                value={stats.rejected}
+                prefix={<CloseCircleOutlined />}
+                valueStyle={{ color: '#ff4d4f' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* 商品列表 */}
+        <Card className={styles.tableCard}>
+          <div className={styles.toolbar}>
+            <Space>
+              <Input
+                placeholder="搜索商品名称/编码"
+                value={keyword}
+                onChange={e => setKeyword(e.target.value)}
+                onPressEnter={handleSearch}
+                style={{ width: 200 }}
+                prefix={<SearchOutlined />}
+              />
+              <Button type="primary" onClick={handleSearch}>搜索</Button>
+              <span>状态：</span>
+              <Button
+                type={statusFilter === undefined ? 'primary' : 'default'}
+                size="small"
+                onClick={() => setStatusFilter(undefined)}
+              >
+                全部
+              </Button>
+              <Button
+                type={statusFilter === 'pending' ? 'primary' : 'default'}
+                size="small"
+                onClick={() => setStatusFilter('pending')}
+              >
+                待确认
+              </Button>
+              <Button
+                type={statusFilter === 'confirmed' ? 'primary' : 'default'}
+                size="small"
+                onClick={() => setStatusFilter('confirmed')}
+              >
+                已确认
+              </Button>
+              <Button
+                type={statusFilter === 'rejected' ? 'primary' : 'default'}
+                size="small"
+                onClick={() => setStatusFilter('rejected')}
+              >
+                已驳回
+              </Button>
+            </Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenAddModal}>
+              添加战略商品
+            </Button>
+          </div>
+
+          <Table
+            columns={columns}
+            dataSource={dataSource}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              current: page,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+              onChange: (p, ps) => {
+                setPage(p);
+                setPageSize(ps);
+              },
+            }}
+          />
+        </Card>
+      </div>
+
+      {/* 添加商品弹窗 */}
+      <Modal
+        title="添加战略商品"
+        open={addModalVisible}
+        onOk={handleAddProducts}
+        onCancel={() => {
+          setAddModalVisible(false);
+          setSelectedProductIds([]);
+          setSelectedAddCategoryId(undefined);
+          setProductsForSelection([]);
+        }}
+        width={900}
+        okText="确认添加"
+        cancelText="取消"
+      >
+        <div className={styles.addModalContent}>
+          <div className={styles.addModalTree}>
+            <div className={styles.treeTitle}>选择品类</div>
+            <Tree
+              treeData={convertToTreeData(addCategoryTree)}
+              selectedKeys={selectedAddCategoryId ? [selectedAddCategoryId] : []}
+              onSelect={handleAddCategorySelect}
+              showLine
+              style={{ maxHeight: 400, overflow: 'auto' }}
+            />
+          </div>
+          <div className={styles.addModalProducts}>
+            <div className={styles.productsHeader}>
+              <span>选择商品</span>
+              {productsForSelection.length > 0 && (
+                <Checkbox
+                  checked={selectedProductIds.length === productsForSelection.length}
+                  indeterminate={selectedProductIds.length > 0 && selectedProductIds.length < productsForSelection.length}
+                  onChange={e => handleSelectAll(e.target.checked)}
+                >
+                  全选
+                </Checkbox>
+              )}
+            </div>
+            <div className={styles.productsList}>
+              {productsLoading ? (
+                <div className={styles.loadingWrap}>
+                  <Spin />
+                </div>
+              ) : !selectedAddCategoryId ? (
+                <Empty description="请先选择品类" />
+              ) : productsForSelection.length === 0 ? (
+                <Empty description="该品类下暂无可选商品" />
+              ) : (
+                <List
+                  dataSource={productsForSelection}
+                  renderItem={item => (
+                    <List.Item className={styles.productItem}>
+                      <Checkbox
+                        checked={selectedProductIds.includes(item.goodsId)}
+                        onChange={e => handleProductSelect(item.goodsId, e.target.checked)}
+                      >
+                        <div className={styles.productInfo}>
+                          <span className={styles.productId}>{item.goodsId}</span>
+                          <span className={styles.productName}>{item.goodsName}</span>
+                        </div>
+                      </Checkbox>
+                    </List.Item>
+                  )}
+                />
+              )}
+            </div>
+            {selectedProductIds.length > 0 && (
+              <div className={styles.selectedInfo}>
+                已选择 {selectedProductIds.length} 个商品
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}

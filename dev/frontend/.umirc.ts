@@ -29,6 +29,13 @@ export default defineConfig({
       wrappers: ['@/wrappers/auth'],
     },
     {
+      path: '/strategic-products',
+      name: '战略商品管理',
+      icon: 'star',
+      component: '@/pages/StrategicProduct',
+      wrappers: ['@/wrappers/auth'],
+    },
+    {
       path: '/system',
       name: '系统管理',
       icon: 'setting',

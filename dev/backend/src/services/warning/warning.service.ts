@@ -66,6 +66,7 @@ async function getOutOfStockProducts(page: number, pageSize: number): Promise<Pa
     pkg_unit_name: string;
     unit_factor: number;
     avg_daily_sales: number;
+    is_strategic: boolean;
   }>(`
     WITH daily_sales AS (
       SELECT "goodsName", SUM("baseQuantity") / ${STANDARD_CALC_DAYS}.0 as avg_daily
@@ -86,10 +87,12 @@ async function getOutOfStockProducts(page: number, pageSize: number): Promise<Pa
       SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
       g."pkgUnitName" as pkg_unit_name,
       COALESCE(g."unitFactor", 1) as unit_factor,
-      COALESCE(s.avg_daily, 0) as avg_daily_sales
+      COALESCE(s.avg_daily, 0) as avg_daily_sales,
+      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
     FROM "商品档案" g
     LEFT JOIN stock_summary r ON g."goodsId" = r."goodsId"
     LEFT JOIN daily_sales s ON g."name" = s."goodsName"
+    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
       AND (r.total_quantity = 0 OR r.total_quantity IS NULL)
     ORDER BY avg_daily_sales DESC
@@ -127,6 +130,7 @@ async function getOutOfStockProducts(page: number, pageSize: number): Promise<Pa
       availability: {
         status: 'out_of_stock' as const,
       },
+      strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
     };
   });
 
@@ -151,6 +155,7 @@ async function getLowStockProducts(page: number, pageSize: number): Promise<Pagi
     unit_factor: number;
     avg_daily_sales: number;
     turnover_days: number;
+    is_strategic: boolean;
   }>(`
     WITH daily_sales AS (
       SELECT "goodsName", SUM("baseQuantity") / ${STANDARD_CALC_DAYS}.0 as avg_daily
@@ -178,10 +183,12 @@ async function getLowStockProducts(page: number, pageSize: number): Promise<Pagi
         WHEN COALESCE(s.avg_daily, 0) > 0
         THEN r.total_quantity / s.avg_daily
         ELSE 999
-      END as turnover_days
+      END as turnover_days,
+      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
     FROM "商品档案" g
     JOIN stock_summary r ON g."goodsId" = r."goodsId"
     LEFT JOIN daily_sales s ON r."goodsName" = s."goodsName"
+    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
       AND r.total_quantity > 0
       AND s.avg_daily IS NOT NULL
@@ -231,6 +238,7 @@ async function getLowStockProducts(page: number, pageSize: number): Promise<Pagi
       availability: {
         status: 'low_stock' as const,
       },
+      strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
     };
   });
 
@@ -262,6 +270,7 @@ async function getOverstockProducts(
     unit_factor: number;
     avg_daily_sales: number;
     sellable_days: number;
+    is_strategic: boolean;
   }>(`
     WITH daily_sales AS (
       SELECT "goodsName", SUM("baseQuantity") / ${STANDARD_CALC_DAYS}.0 as avg_daily
@@ -286,10 +295,12 @@ async function getOverstockProducts(
       g."baseUnitName" as base_unit_name,
       COALESCE(g."unitFactor", 1) as unit_factor,
       s.avg_daily as avg_daily_sales,
-      r.total_quantity / s.avg_daily as sellable_days
+      r.total_quantity / s.avg_daily as sellable_days,
+      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
     FROM stock_summary r
     JOIN "商品档案" g ON r."goodsId" = g."goodsId"
     LEFT JOIN daily_sales s ON r."goodsName" = s."goodsName"
+    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
       AND r.total_quantity > 0
       AND s.avg_daily IS NOT NULL
@@ -341,6 +352,7 @@ async function getOverstockProducts(
       availability: {
         status: 'available' as const,
       },
+      strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
     };
   });
 
@@ -367,6 +379,7 @@ async function getExpiringProducts(
     stock_quantity: number;
     days_to_expire: number;
     expiry_date: string | null;
+    is_strategic: boolean;
   }>(`
     WITH expiring_batches AS (
       SELECT
@@ -393,10 +406,12 @@ async function getExpiringProducts(
       SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
       COALESCE(s.total_quantity, b.expiring_quantity) as stock_quantity,
       b.min_days_to_expire as days_to_expire,
-      b.nearest_expire_date as expiry_date
+      b.nearest_expire_date as expiry_date,
+      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
     FROM expiring_batches b
     JOIN "商品档案" g ON b."goodsName" = g."name"
     LEFT JOIN stock_summary s ON b."goodsName" = s."goodsName"
+    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
     ORDER BY b.min_days_to_expire ASC
     LIMIT ${pageSize} OFFSET ${offset}
@@ -428,6 +443,7 @@ async function getExpiringProducts(
     availability: {
       status: 'available' as const,
     },
+    strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
   }));
 
   return { data, total, page, pageSize, totalPages };
@@ -454,6 +470,7 @@ async function getSlowMovingProducts(
     stock_quantity: number;
     days_without_sale: number;
     last_sale_date: string | null;
+    is_strategic: boolean;
   }>(`
     WITH last_sale AS (
       SELECT
@@ -492,9 +509,11 @@ async function getSlowMovingProducts(
       SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
       t.total_quantity as stock_quantity,
       t.days_without_sale,
-      t.last_sale_time as last_sale_date
+      t.last_sale_time as last_sale_date,
+      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as is_strategic
     FROM stock_with_sale t
     JOIN "商品档案" g ON t."goodsName" = g."name"
+    LEFT JOIN strategic_products sp ON g."goodsId" = sp.goods_id AND sp.status = 'confirmed'
     WHERE g."state" = 0
       AND t.days_without_sale > ${minDays}
       ${maxCondition}
@@ -532,6 +551,7 @@ async function getSlowMovingProducts(
       daysWithoutSale: parseInt(row.days_without_sale as any) || 0,
       lastSaleDate: row.last_sale_date ? new Date(row.last_sale_date).toISOString().split('T')[0] : null,
     },
+    strategicLevel: row.is_strategic ? 'strategic' as const : 'normal' as const,
   }));
 
   return { data, total, page, pageSize, totalPages };
