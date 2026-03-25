@@ -572,10 +572,34 @@ export async function getStrategicLevels(
 export async function batchConfirmStrategicProducts(
   params: BatchConfirmStrategicProductsParams
 ): Promise<BatchConfirmResult> {
-  const { ids, action, userId, userRoles, userName } = params;
-  
-  if (!ids || ids.length === 0) {
-    return { successCount: 0, failedCount: 0 };
+  const { ids, action, userId, userRoles, userName, selectAll, status, categoryPath, keyword } = params;
+
+  // 构建 WHERE 条件
+  let whereClause = "status = 'pending'";
+  const queryParams: any[] = [];
+  let paramIndex = 1;
+
+  if (selectAll) {
+    // 全选全部：使用筛选条件
+    if (status) {
+      whereClause = `status = $${paramIndex++}`;
+      queryParams.push(status);
+    }
+    if (categoryPath) {
+      whereClause += ` AND category_path LIKE $${paramIndex++}`;
+      queryParams.push(`${categoryPath}%`);
+    }
+    if (keyword) {
+      whereClause += ` AND (goods_name ILIKE $${paramIndex++} OR goods_id ILIKE $${paramIndex++})`;
+      queryParams.push(`%${keyword}%`, `%${keyword}%`);
+    }
+  } else {
+    // 指定ID列表
+    if (!ids || ids.length === 0) {
+      return { successCount: 0, failedCount: 0 };
+    }
+    whereClause += ` AND id = ANY($${paramIndex++})`;
+    queryParams.push(ids);
   }
 
   const isConfirm = action === 'confirm';
@@ -599,7 +623,13 @@ export async function batchConfirmStrategicProducts(
   }
 
   if (updateFields.length === 0) {
-    return { successCount: 0, failedCount: ids.length };
+    // 获取符合条件的总数用于计算失败数
+    const countResult = await appQuery<{ count: string }>(
+      `SELECT COUNT(*) as count FROM strategic_products WHERE ${whereClause}`,
+      queryParams
+    );
+    const total = parseInt(countResult.rows[0]?.count || '0');
+    return { successCount: 0, failedCount: total };
   }
 
   // 驳回时更新状态
@@ -609,30 +639,50 @@ export async function batchConfirmStrategicProducts(
 
   // 执行批量更新
   const result = await appQuery(
-    `UPDATE strategic_products 
+    `UPDATE strategic_products
      SET ${updateFields.join(', ')}, updated_at = NOW()
-     WHERE id = ANY($1) AND status = 'pending'`,
-    [ids]
+     WHERE ${whereClause}`,
+    queryParams
   );
 
   const successCount = result.rowCount ?? 0;
 
   // 确认操作时，检查并更新最终确认状态
   if (action === 'confirm') {
+    // 重新构建 WHERE 条件用于更新已确认状态
+    let confirmWhere = "procurement_confirmed = TRUE AND marketing_confirmed = TRUE AND status = 'pending'";
+    const confirmParams: any[] = [];
+    let confirmParamIndex = 1;
+
+    if (selectAll) {
+      if (status) {
+        confirmWhere += ` AND status = $${confirmParamIndex++}`;
+        confirmParams.push(status);
+      }
+      if (categoryPath) {
+        confirmWhere += ` AND category_path LIKE $${confirmParamIndex++}`;
+        confirmParams.push(`${categoryPath}%`);
+      }
+      if (keyword) {
+        confirmWhere += ` AND (goods_name ILIKE $${confirmParamIndex++} OR goods_id ILIKE $${confirmParamIndex++})`;
+        confirmParams.push(`%${keyword}%`, `%${keyword}%`);
+      }
+    } else if (ids && ids.length > 0) {
+      confirmWhere += ` AND id = ANY($${confirmParamIndex++})`;
+      confirmParams.push(ids);
+    }
+
     await appQuery(
-      `UPDATE strategic_products 
+      `UPDATE strategic_products
        SET status = 'confirmed', confirmed_at = NOW()
-       WHERE id = ANY($1) 
-         AND procurement_confirmed = TRUE 
-         AND marketing_confirmed = TRUE 
-         AND status = 'pending'`,
-      [ids]
+       WHERE ${confirmWhere}`,
+      confirmParams
     );
   }
 
-  return { 
-    successCount, 
-    failedCount: ids.length - successCount 
+  return {
+    successCount,
+    failedCount: 0
   };
 }
 
@@ -642,18 +692,42 @@ export async function batchConfirmStrategicProducts(
 export async function batchDeleteStrategicProducts(
   params: BatchDeleteStrategicProductsParams
 ): Promise<BatchDeleteResult> {
-  const { ids } = params;
-  
-  if (!ids || ids.length === 0) {
-    return { deletedCount: 0 };
+  const { ids, selectAll, status, categoryPath, keyword } = params;
+
+  // 构建 WHERE 条件
+  let whereClause = '1=1';
+  const queryParams: any[] = [];
+  let paramIndex = 1;
+
+  if (selectAll) {
+    // 全选全部：使用筛选条件
+    if (status) {
+      whereClause += ` AND status = $${paramIndex++}`;
+      queryParams.push(status);
+    }
+    if (categoryPath) {
+      whereClause += ` AND category_path LIKE $${paramIndex++}`;
+      queryParams.push(`${categoryPath}%`);
+    }
+    if (keyword) {
+      whereClause += ` AND (goods_name ILIKE $${paramIndex++} OR goods_id ILIKE $${paramIndex++})`;
+      queryParams.push(`%${keyword}%`, `%${keyword}%`);
+    }
+  } else {
+    // 指定ID列表
+    if (!ids || ids.length === 0) {
+      return { deletedCount: 0 };
+    }
+    whereClause += ` AND id = ANY($${paramIndex++})`;
+    queryParams.push(ids);
   }
 
   const result = await appQuery(
-    'DELETE FROM strategic_products WHERE id = ANY($1)',
-    [ids]
+    `DELETE FROM strategic_products WHERE ${whereClause}`,
+    queryParams
   );
 
-  return { 
-    deletedCount: result.rowCount ?? 0 
+  return {
+    deletedCount: result.rowCount ?? 0
   };
 }

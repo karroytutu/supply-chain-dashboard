@@ -222,15 +222,16 @@ export async function getProductsForSelectionController(req: Request, res: Respo
  */
 export async function batchConfirmStrategicProductsController(req: Request, res: Response) {
   try {
-    const { ids, action } = req.body;
+    const { ids, action, selectAll, status, categoryPath, keyword } = req.body;
     const userId = req.user?.userId;
     const userRoles = req.user?.roles || [];
     const userName = req.user?.name || '';
 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    // 验证参数：必须有 ids 或 selectAll
+    if (!selectAll && (!ids || !Array.isArray(ids) || ids.length === 0)) {
       return res.status(400).json({
         success: false,
-        message: '请提供商品ID列表',
+        message: '请提供商品ID列表或选择全选全部',
       });
     }
 
@@ -254,6 +255,10 @@ export async function batchConfirmStrategicProductsController(req: Request, res:
       userId,
       userRoles,
       userName,
+      selectAll,
+      status,
+      categoryPath,
+      keyword,
     });
 
     res.json({
@@ -275,16 +280,23 @@ export async function batchConfirmStrategicProductsController(req: Request, res:
  */
 export async function batchDeleteStrategicProductsController(req: Request, res: Response) {
   try {
-    const { ids } = req.body;
+    const { ids, selectAll, status, categoryPath, keyword } = req.body;
 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    // 验证参数：必须有 ids 或 selectAll
+    if (!selectAll && (!ids || !Array.isArray(ids) || ids.length === 0)) {
       return res.status(400).json({
         success: false,
-        message: '请提供商品ID列表',
+        message: '请提供商品ID列表或选择全选全部',
       });
     }
 
-    const result = await batchDeleteStrategicProducts({ ids });
+    const result = await batchDeleteStrategicProducts({
+      ids,
+      selectAll,
+      status,
+      categoryPath,
+      keyword,
+    });
 
     res.json({
       success: true,

@@ -91,3 +91,14 @@ export interface StrategicLevelData {
   level: string;
   count: number;
 }
+
+/**
+ * 批量操作参数（支持全选全部）
+ */
+export interface BatchOperationParams {
+  ids?: number[];
+  selectAll?: boolean;
+  status?: StrategicProductStatus;
+  categoryPath?: string;
+  keyword?: string;
+}

@@ -12,6 +12,7 @@ import type {
   AddStrategicProductsRequest,
   ConfirmStrategicProductRequest,
   StrategicLevelData,
+  BatchOperationParams,
 } from '@/types/strategic-product';
 
 /**
@@ -58,7 +59,7 @@ export const confirmStrategicProduct = (
  * 批量确认战略商品
  */
 export const batchConfirmStrategicProducts = (
-  data: { ids: number[]; action: 'confirm' | 'reject' }
+  data: BatchOperationParams & { action: 'confirm' | 'reject' }
 ): Promise<{ success: boolean; message: string; data: { successCount: number; failedCount: number } }> => {
   return request.post('/strategic-products/batch/confirm', data);
 };
@@ -67,7 +68,7 @@ export const batchConfirmStrategicProducts = (
  * 批量删除战略商品
  */
 export const batchDeleteStrategicProducts = (
-  data: { ids: number[] }
+  data: BatchOperationParams
 ): Promise<{ success: boolean; message: string; data: { deletedCount: number } }> => {
   return request.post('/strategic-products/batch/delete', data);
 };

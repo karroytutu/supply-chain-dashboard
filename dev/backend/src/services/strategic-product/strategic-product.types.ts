@@ -94,11 +94,16 @@ export type ProductSelectionResult = PaginatedResult<ProductForSelection>;
 
 /** 批量确认战略商品参数 */
 export interface BatchConfirmStrategicProductsParams {
-  ids: number[];
+  ids?: number[];
   action: 'confirm' | 'reject';
   userId: number;
   userRoles: string[];
   userName: string;
+  // 筛选条件（用于全选全部）
+  selectAll?: boolean;
+  status?: StrategicProductStatus;
+  categoryPath?: string;
+  keyword?: string;
 }
 
 /** 批量确认结果 */
@@ -109,7 +114,12 @@ export interface BatchConfirmResult {
 
 /** 批量删除参数 */
 export interface BatchDeleteStrategicProductsParams {
-  ids: number[];
+  ids?: number[];
+  // 筛选条件（用于全选全部）
+  selectAll?: boolean;
+  status?: StrategicProductStatus;
+  categoryPath?: string;
+  keyword?: string;
 }
 
 /** 批量删除结果 */

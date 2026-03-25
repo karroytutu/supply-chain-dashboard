@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Table, Card, Button, Input, Space, Tag, Modal, message, Tree, Row, Col, Statistic, Badge,
-  Drawer, List, Checkbox, Tabs, Empty, Spin, Tooltip, Popconfirm, Pagination, Dropdown
+  Drawer, List, Checkbox, Tabs, Empty, Spin, Tooltip, Popconfirm, Pagination, Dropdown,
+  Segmented
 } from 'antd';
 import type { MenuProps } from 'antd';
 import type { TreeProps } from 'antd';
@@ -36,6 +37,7 @@ export default function StrategicProductManage() {
   // 批量操作相关
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [selectAll, setSelectAll] = useState(false);  // 全选全部模式
 
   // 品类树相关
   const [categoryTree, setCategoryTree] = useState<CategoryNode[]>([]);
@@ -282,7 +284,7 @@ export default function StrategicProductManage() {
 
   // 批量确认
   const handleBatchConfirm = async (action: 'confirm' | 'reject') => {
-    if (selectedRowKeys.length === 0) {
+    if (!selectAll && selectedRowKeys.length === 0) {
       message.warning('请选择要操作的商品');
       return;
     }
@@ -290,11 +292,16 @@ export default function StrategicProductManage() {
     setBatchLoading(true);
     try {
       const result = await batchConfirmStrategicProducts({
-        ids: selectedRowKeys,
+        selectAll,
+        ids: selectAll ? undefined : selectedRowKeys,
         action,
+        status: statusFilter,
+        categoryPath: selectedCategoryPath,
+        keyword,
       });
       message.success(result.message);
       setSelectedRowKeys([]);
+      setSelectAll(false);
       loadStrategicProducts();
       loadStats();
     } catch (error) {
@@ -306,22 +313,33 @@ export default function StrategicProductManage() {
 
   // 批量删除
   const handleBatchDelete = async () => {
-    if (selectedRowKeys.length === 0) {
+    if (!selectAll && selectedRowKeys.length === 0) {
       message.warning('请选择要删除的商品');
       return;
     }
 
+    const confirmContent = selectAll
+      ? `确定要删除全部 ${total} 个符合条件的战略商品吗？`
+      : `确定要删除选中的 ${selectedRowKeys.length} 个战略商品吗？`;
+
     Modal.confirm({
       title: '确认删除',
-      content: `确定要删除选中的 ${selectedRowKeys.length} 个战略商品吗？`,
+      content: confirmContent,
       okText: '确定',
       cancelText: '取消',
       onOk: async () => {
         setBatchLoading(true);
         try {
-          const result = await batchDeleteStrategicProducts({ ids: selectedRowKeys });
+          const result = await batchDeleteStrategicProducts({
+            selectAll,
+            ids: selectAll ? undefined : selectedRowKeys,
+            status: statusFilter,
+            categoryPath: selectedCategoryPath,
+            keyword,
+          });
           message.success(result.message);
           setSelectedRowKeys([]);
+          setSelectAll(false);
           loadStrategicProducts();
           loadStats();
         } catch (error) {
@@ -524,7 +542,7 @@ export default function StrategicProductManage() {
         {/* 商品列表 */}
         <Card className={styles.tableCard}>
           <div className={styles.toolbar}>
-            <Space>
+            <div className={styles.toolbarLeft}>
               <Input
                 placeholder="搜索商品名称/编码"
                 value={keyword}
@@ -534,71 +552,68 @@ export default function StrategicProductManage() {
                 prefix={<SearchOutlined />}
               />
               <Button type="primary" onClick={handleSearch}>搜索</Button>
-              <span>状态：</span>
-              <Button
-                type={statusFilter === undefined ? 'primary' : 'default'}
-                size="small"
-                onClick={() => setStatusFilter(undefined)}
+              <Segmented
+                value={statusFilter ?? 'all'}
+                onChange={(val) => setStatusFilter(val === 'all' ? undefined : val as StrategicProductStatus)}
+                options={[
+                  { value: 'all', label: '全部' },
+                  { value: 'pending', label: '待确认' },
+                  { value: 'confirmed', label: '已确认' },
+                  { value: 'rejected', label: '已驳回' },
+                ]}
+              />
+            </div>
+            <div className={styles.toolbarRight}>
+              <Dropdown
+                menu={{
+                  items: [
+                    { key: 'confirm', label: '批量确认', icon: <CheckOutlined /> },
+                    { key: 'reject', label: '批量驳回', icon: <CloseOutlined /> },
+                    { type: 'divider' },
+                    { key: 'delete', label: '批量删除', icon: <DeleteOutlined />, danger: true },
+                  ],
+                  onClick: ({ key }) => {
+                    if (key === 'confirm') handleBatchConfirm('confirm');
+                    else if (key === 'reject') handleBatchConfirm('reject');
+                    else if (key === 'delete') handleBatchDelete();
+                  },
+                }}
+                disabled={selectedRowKeys.length === 0 && !selectAll}
               >
-                全部
-              </Button>
-              <Button
-                type={statusFilter === 'pending' ? 'primary' : 'default'}
-                size="small"
-                onClick={() => setStatusFilter('pending')}
-              >
-                待确认
-              </Button>
-              <Button
-                type={statusFilter === 'confirmed' ? 'primary' : 'default'}
-                size="small"
-                onClick={() => setStatusFilter('confirmed')}
-              >
-                已确认
-              </Button>
-              <Button
-                type={statusFilter === 'rejected' ? 'primary' : 'default'}
-                size="small"
-                onClick={() => setStatusFilter('rejected')}
-              >
-                已驳回
-              </Button>
-            </Space>
-            <Space>
-              {selectedRowKeys.length > 0 && (
-                <>
-                  <span style={{ color: '#1890ff' }}>已选 {selectedRowKeys.length} 项</span>
-                  <Button
-                    type="primary"
-                    icon={<CheckOutlined />}
-                    loading={batchLoading}
-                    onClick={() => handleBatchConfirm('confirm')}
-                  >
-                    批量确认
-                  </Button>
-                  <Button
-                    danger
-                    icon={<CloseOutlined />}
-                    loading={batchLoading}
-                    onClick={() => handleBatchConfirm('reject')}
-                  >
-                    批量驳回
-                  </Button>
-                  <Button
-                    danger
-                    icon={<DeleteOutlined />}
-                    loading={batchLoading}
-                    onClick={handleBatchDelete}
-                  >
-                    批量删除
-                  </Button>
-                </>
-              )}
+                <Button icon={<DownOutlined />}>
+                  批量操作 {selectAll ? (
+                    <Badge count={total} style={{ marginLeft: 6 }} />
+                  ) : selectedRowKeys.length > 0 && (
+                    <Badge count={selectedRowKeys.length} style={{ marginLeft: 6 }} />
+                  )}
+                </Button>
+              </Dropdown>
               <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenAddModal}>
                 添加战略商品
               </Button>
-            </Space>
+            </div>
           </div>
+
+          {/* 全选全部提示 */}
+          {selectAll && (
+            <div style={{ marginBottom: 12, padding: '8px 12px', background: '#e6f7ff', borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#1890ff' }}>已选择全部 {total} 条数据</span>
+              <Button type="link" size="small" onClick={() => {
+                setSelectAll(false);
+                setSelectedRowKeys([]);
+              }}>取消全选</Button>
+            </div>
+          )}
+
+          {/* 当前页全选提示 */}
+          {!selectAll && selectedRowKeys.length > 0 && selectedRowKeys.length === dataSource.length && dataSource.length < total && (
+            <div style={{ marginBottom: 12, padding: '8px 12px', background: '#e6f7ff', borderRadius: 4 }}>
+              <span style={{ color: '#1890ff' }}>已选择当前页 {selectedRowKeys.length} 条</span>
+              <Button type="link" size="small" onClick={() => setSelectAll(true)} style={{ marginLeft: 8 }}>
+                选择全部 {total} 条数据
+              </Button>
+            </div>
+          )}
 
           <Table
             columns={columns}
@@ -607,8 +622,11 @@ export default function StrategicProductManage() {
             loading={loading}
             scroll={{ x: 'max-content' }}
             rowSelection={{
-              selectedRowKeys,
-              onChange: (keys) => setSelectedRowKeys(keys as number[]),
+              selectedRowKeys: selectAll ? dataSource.map(item => item.id) : selectedRowKeys,
+              onChange: (keys) => {
+                setSelectedRowKeys(keys as number[]);
+                setSelectAll(false);  // 手动选择时取消全选模式
+              },
             }}
             pagination={{
               current: page,
