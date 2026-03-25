@@ -6,9 +6,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
+COPY tsconfig.json ./tsconfig.orig.json
 COPY src ./src
-RUN npm run build
+
+# 构建：临时修改 outDir 为容器内路径
+RUN sed 's|"outDir": "../../prod/backend/dist"|"outDir": "./dist"|' tsconfig.orig.json > tsconfig.json && \
+    npm run build
 
 # 运行阶段
 FROM node:20-alpine
