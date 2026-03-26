@@ -69,7 +69,7 @@ const Dashboard: React.FC = () => {
       {/* 页面头部 */}
       <div className={styles.header}>
         <div className={styles.titleSection}>
-          <h1 className={styles.title}>供应链数据总览</h1>
+          <h1 className={styles.title}>鑫链云供应链数据管理系统</h1>
           <span className={styles.subtitle}>
             数据周期：{data.period.current}
           </span>

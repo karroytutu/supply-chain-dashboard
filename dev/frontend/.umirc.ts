@@ -7,7 +7,7 @@ export default defineConfig({
     '@umijs/plugins/dist/layout',
   ],
   layout: {
-    title: '供应链数据总览',
+    title: '鑫链云供应链数据管理系统',
   },
   npmClient: 'npm',
   routes: [
