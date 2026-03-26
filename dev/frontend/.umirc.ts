@@ -23,17 +23,29 @@ export default defineConfig({
     },
     {
       path: '/',
-      component: '@/pages/Dashboard',
+      component: '@/pages/Overview',
       name: '数据总览',
       icon: 'dashboard',
       wrappers: ['@/wrappers/auth'],
     },
     {
-      path: '/strategic-products',
-      name: '战略商品管理',
-      icon: 'star',
-      component: '@/pages/StrategicProduct',
+      path: '/procurement',
+      name: '采购数据管理',
+      icon: 'shopping',
       wrappers: ['@/wrappers/auth'],
+      routes: [
+        {
+          path: 'overview',
+          component: '@/pages/ProcurementDashboard',
+          name: '采购数据看板',
+        },
+        {
+          path: 'strategic-products',
+          name: '战略商品管理',
+          icon: 'star',
+          component: '@/pages/StrategicProduct',
+        },
+      ],
     },
     {
       path: '/system',
@@ -42,17 +54,17 @@ export default defineConfig({
       wrappers: ['@/wrappers/auth'],
       routes: [
         {
-          path: '/system/users',
+          path: 'users',
           name: '用户管理',
           component: '@/pages/System/User',
         },
         {
-          path: '/system/roles',
+          path: 'roles',
           name: '角色管理',
           component: '@/pages/System/Role',
         },
         {
-          path: '/system/permissions',
+          path: 'permissions',
           name: '权限管理',
           component: '@/pages/System/Permission',
         },
