@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .container {
   background: #fff;
   border-radius: 8px;
@@ -132,5 +134,62 @@
 
   .noAction {
     color: #bfbfbf;
+  }
+}
+
+// 响应式
+@media (max-width: @screen-md) {
+  .container {
+    padding: @spacing-sm;
+  }
+
+  .header {
+    margin-bottom: @spacing-sm;
+  }
+
+  .title {
+    font-size: 15px;
+  }
+
+  .categoryTable {
+    .searchInput {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .table {
+      :global {
+        .ant-table {
+          font-size: 13px;
+        }
+
+        .ant-table-thead > tr > th {
+          padding: 8px;
+        }
+
+        .ant-table-tbody > tr > td {
+          padding: 8px;
+        }
+      }
+    }
+  }
+
+  .productList {
+    .searchInput {
+      width: 100%;
+    }
+  }
+}
+
+@media (max-width: @screen-sm) {
+  .categoryTable {
+    .categoryName {
+      font-size: 13px;
+    }
+
+    .skuCount,
+    .stockInfo {
+      font-size: 12px;
+    }
   }
 }

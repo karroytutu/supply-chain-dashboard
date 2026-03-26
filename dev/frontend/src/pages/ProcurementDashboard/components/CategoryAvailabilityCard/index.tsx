@@ -71,7 +71,7 @@ const CategoryAvailabilityCard: React.FC = () => {
       <Drawer
         title={`缺货商品明细 - ${selectedCategory?.name || ''}`}
         placement="right"
-        width={480}
+        width={typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : 480}
         open={!!selectedCategory}
         onClose={handleCloseDrawer}
         destroyOnClose

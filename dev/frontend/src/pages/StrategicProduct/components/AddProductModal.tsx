@@ -1,8 +1,8 @@
 /**
  * 添加战略商品弹窗组件
  */
-import React from 'react';
-import { Modal, Tree, Input, Space, List, Checkbox, Dropdown, Button, Empty, Spin, Pagination, message } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Modal, Tree, Input, Space, List, Checkbox, Dropdown, Button, Empty, Spin, Pagination, Collapse } from 'antd';
 import { SearchOutlined, DownOutlined } from '@ant-design/icons';
 import type { TreeProps, MenuProps } from 'antd';
 import type { CategoryNode, SelectableProduct } from '@/types/strategic-product';
@@ -64,6 +64,18 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
   onConfirm,
   onPaginationChange,
 }) => {
+  // 移动端判断
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // 全选下拉菜单
   const selectAllMenuItems: MenuProps['items'] = [
     {
@@ -96,30 +108,46 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
       open={visible}
       onOk={handleOk}
       onCancel={onClose}
-      width={900}
+      width={isMobile ? '100%' : 900}
+      style={isMobile ? { top: 0, margin: 0, maxWidth: '100vw', height: '100vh' } : undefined}
+      bodyStyle={isMobile ? { height: 'calc(100vh - 110px)', overflow: 'auto' } : undefined}
       okText="确认添加"
       cancelText="取消"
     >
-      <div className={styles.addModalContent}>
-        <div className={styles.addModalTree}>
-          <div className={styles.treeTitle}>选择品类</div>
-          <Tree
-            treeData={convertToTreeData(categoryTree)}
-            selectedKeys={selectedCategoryPath ? [selectedCategoryPath] : []}
-            onSelect={onCategorySelect}
-            showLine
-          />
-        </div>
-        <div className={styles.addModalProducts}>
+      <div className={styles.addModalContent} style={isMobile ? { flexDirection: 'column', height: '100%' } : undefined}>
+        {/* 移动端：品类树放在折叠面板中 */}
+        {isMobile ? (
+          <Collapse defaultActiveKey={['category']} style={{ marginBottom: 12 }}>
+            <Collapse.Panel header="选择品类" key="category">
+              <Tree
+                treeData={convertToTreeData(categoryTree)}
+                selectedKeys={selectedCategoryPath ? [selectedCategoryPath] : []}
+                onSelect={onCategorySelect}
+                showLine
+              />
+            </Collapse.Panel>
+          </Collapse>
+        ) : (
+          <div className={styles.addModalTree}>
+            <div className={styles.treeTitle}>选择品类</div>
+            <Tree
+              treeData={convertToTreeData(categoryTree)}
+              selectedKeys={selectedCategoryPath ? [selectedCategoryPath] : []}
+              onSelect={onCategorySelect}
+              showLine
+            />
+          </div>
+        )}
+        <div className={styles.addModalProducts} style={isMobile ? { flex: 1, minHeight: 0 } : undefined}>
           <div className={styles.productsHeader}>
             <span>选择商品</span>
-            <Space>
+            <Space size="small" wrap>
               <Input
                 placeholder="搜索商品名称"
                 value={keyword}
                 onChange={e => onKeywordChange(e.target.value)}
                 onPressEnter={onSearch}
-                style={{ width: 150 }}
+                style={{ width: isMobile ? '100%' : 150 }}
                 size="small"
                 prefix={<SearchOutlined />}
                 allowClear
@@ -127,8 +155,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
               {products.length > 0 && (
                 <Dropdown menu={{ items: selectAllMenuItems }} trigger={['click']}>
                   <Button size="small">
-                    {selectedProductIds.length > 0 
-                      ? `已选 ${selectedProductIds.length} 条` 
+                    {selectedProductIds.length > 0
+                      ? `已选 ${selectedProductIds.length} 条`
                       : '选择'} <DownOutlined />
                   </Button>
                 </Dropdown>

@@ -1,8 +1,8 @@
 /**
  * 战略商品表格组件
  */
-import React from 'react';
-import { Table, Input, Button, Space, Badge, Dropdown, Segmented, Modal } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Table, Input, Button, Space, Badge, Dropdown, Segmented, Select } from 'antd';
 import { SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, DownOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import type { StrategicProduct, StrategicProductStatus } from '@/types/strategic-product';
@@ -60,6 +60,18 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
 }) => {
   const columns = getColumns(onConfirm, onDelete);
 
+  // 移动端判断
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // 批量操作菜单
   const batchMenuItems: MenuProps['items'] = [
     { key: 'confirm', label: '批量确认', icon: <CheckOutlined /> },
@@ -83,27 +95,41 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
             value={keyword}
             onChange={e => onKeywordChange(e.target.value)}
             onPressEnter={onSearch}
-            style={{ width: 200 }}
+            style={{ width: isMobile ? '100%' : 200 }}
             prefix={<SearchOutlined />}
           />
-          <Button type="primary" onClick={onSearch}>搜索</Button>
-          <Segmented
-            value={statusFilter ?? 'all'}
-            onChange={(val) => onStatusFilterChange(val === 'all' ? undefined : val as StrategicProductStatus)}
-            options={[
-              { value: 'all', label: '全部' },
-              { value: 'pending', label: '待确认' },
-              { value: 'confirmed', label: '已确认' },
-              { value: 'rejected', label: '已驳回' },
-            ]}
-          />
+          {isMobile ? (
+            <Select
+              value={statusFilter ?? 'all'}
+              onChange={(val) => onStatusFilterChange(val === 'all' ? undefined : val as StrategicProductStatus)}
+              style={{ width: '100%' }}
+              options={[
+                { value: 'all', label: '全部' },
+                { value: 'pending', label: '待确认' },
+                { value: 'confirmed', label: '已确认' },
+                { value: 'rejected', label: '已驳回' },
+              ]}
+            />
+          ) : (
+            <Segmented
+              value={statusFilter ?? 'all'}
+              onChange={(val) => onStatusFilterChange(val === 'all' ? undefined : val as StrategicProductStatus)}
+              options={[
+                { value: 'all', label: '全部' },
+                { value: 'pending', label: '待确认' },
+                { value: 'confirmed', label: '已确认' },
+                { value: 'rejected', label: '已驳回' },
+              ]}
+            />
+          )}
+          <Button type="primary" onClick={onSearch} block={isMobile}>搜索</Button>
         </div>
         <div className={styles.toolbarRight}>
           <Dropdown
             menu={{ items: batchMenuItems, onClick: handleBatchMenuClick }}
             disabled={selectedRowKeys.length === 0 && !selectAll}
           >
-            <Button icon={<DownOutlined />} loading={batchLoading}>
+            <Button icon={<DownOutlined />} loading={batchLoading} block={isMobile}>
               批量操作 {selectAll ? (
                 <Badge count={total} style={{ marginLeft: 6 }} />
               ) : selectedRowKeys.length > 0 && (
@@ -111,7 +137,7 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
               )}
             </Button>
           </Dropdown>
-          <Button type="primary" icon={<PlusOutlined />} onClick={onAddClick}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={onAddClick} block={isMobile}>
             添加战略商品
           </Button>
         </div>

@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .summaryCard {
   background: #ffffff;
   border-radius: 12px;
@@ -222,6 +224,87 @@
           font-weight: 500;
           color: #262626;
         }
+      }
+    }
+  }
+}
+
+// 响应式
+@media (max-width: @screen-md) {
+  .summaryCard {
+    padding: @spacing-md;
+
+    .body .valueWrapper .value {
+      font-size: 24px;
+    }
+  }
+
+  .summaryCardClickable {
+    padding: @spacing-md;
+
+    .body .valueWrapper .value {
+      font-size: 24px;
+    }
+  }
+}
+
+@media (max-width: @screen-sm) {
+  .summaryCard {
+    padding: @spacing-sm;
+
+    .header {
+      margin-bottom: @spacing-sm;
+
+      .iconWrapper {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+      }
+
+      .title {
+        font-size: 13px;
+      }
+    }
+
+    .body {
+      .valueWrapper .value {
+        font-size: 20px;
+      }
+
+      .statsWrapper {
+        gap: @spacing-sm;
+        margin-top: @spacing-sm;
+        padding-top: @spacing-sm;
+      }
+    }
+  }
+
+  .summaryCardClickable {
+    padding: @spacing-sm;
+
+    .header {
+      margin-bottom: @spacing-sm;
+
+      .iconWrapper {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+      }
+
+      .title {
+        font-size: 13px;
+      }
+    }
+
+    .body {
+      .valueWrapper .value {
+        font-size: 20px;
+      }
+
+      .statsWrapper {
+        gap: @spacing-sm;
+        margin-top: @spacing-sm;
+        padding-top: @spacing-sm;
       }
     }
   }

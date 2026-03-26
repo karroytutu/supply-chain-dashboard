@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .dashboard {
   min-height: 100vh;
   background-color: #f5f7fa;
@@ -52,16 +54,42 @@
 }
 
 // 响应式
-@media (max-width: 768px) {
+@media (max-width: @screen-md) {
   .dashboard {
-    padding: 16px;
+    padding: @spacing-md;
   }
 
   .header {
     .titleSection {
       .title {
-        font-size: 20px;
+        font-size: 18px;
       }
     }
+  }
+}
+
+@media (max-width: @screen-sm) {
+  .dashboard {
+    padding: @spacing-sm;
+  }
+
+  .header {
+    .titleSection {
+      .title {
+        font-size: 16px;
+      }
+
+      .subtitle {
+        font-size: 12px;
+      }
+    }
+  }
+
+  .metricsOverview {
+    margin-bottom: @spacing-md;
+  }
+
+  .warningSection {
+    margin-bottom: @spacing-md;
   }
 }

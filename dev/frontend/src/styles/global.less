@@ -120,9 +120,80 @@ body {
 }
 
 // 响应式断点
-@media (max-width: 768px) {
+@media (max-width: @screen-md) {
   .dashboard-card {
     padding: @spacing-md;
+  }
+
+  // 触摸友好的按钮尺寸
+  .ant-btn {
+    min-height: @touch-target-size;
+    padding: @spacing-sm @spacing-md;
+  }
+
+  // 移动端表格横滚优化
+  .ant-table-wrapper {
+    .ant-table-body {
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  // 移动端 Modal 适配
+  .ant-modal {
+    max-width: calc(100vw - 32px);
+    margin: 16px auto;
+
+    .ant-modal-content {
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }
+  }
+
+  // 移动端 Input 触摸友好
+  .ant-input,
+  .ant-input-affix-wrapper,
+  .ant-select-selector {
+    min-height: @touch-target-size;
+  }
+
+  // 移动端分页器适配
+  .ant-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+
+    .ant-pagination-item,
+    .ant-pagination-prev,
+    .ant-pagination-next {
+      min-width: @touch-target-size;
+      min-height: @touch-target-size;
+      line-height: @touch-target-size;
+    }
+  }
+}
+
+// 更小屏幕适配
+@media (max-width: @screen-sm) {
+  body {
+    font-size: 13px;
+  }
+
+  .mobile-hide {
+    display: none !important;
+  }
+}
+
+// 移动端显示/隐藏工具类
+.mobile-show {
+  display: none !important;
+
+  @media (max-width: @screen-md) {
+    display: block !important;
+  }
+}
+
+.mobile-hide {
+  @media (max-width: @screen-md) {
+    display: none !important;
   }
 }
 

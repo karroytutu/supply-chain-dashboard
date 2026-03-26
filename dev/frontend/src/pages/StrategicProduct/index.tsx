@@ -1,8 +1,11 @@
 /**
  * 战略商品管理页面
  */
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import Card from 'antd/es/card';
+import Button from 'antd/es/button';
+import Drawer from 'antd/es/drawer';
+import { FilterOutlined } from '@ant-design/icons';
 import styles from './index.less';
 
 // Hooks
@@ -17,6 +20,21 @@ import StrategicProductTable from './components/StrategicProductTable';
 import AddProductModal from './components/AddProductModal';
 
 export default function StrategicProductManage() {
+  // 移动端品类抽屉状态
+  const [categoryDrawerVisible, setCategoryDrawerVisible] = useState(false);
+  
+  // 移动端判断
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // 商品数据和操作
   const {
     loading,
@@ -115,14 +133,47 @@ export default function StrategicProductManage() {
 
   return (
     <div className={styles.container}>
-      {/* 左侧品类树 */}
-      <CategoryTree
-        tree={categoryTree}
-        selectedPath={selectedCategoryPath}
-        expandedKeys={expandedKeys}
-        onExpand={setExpandedKeys}
-        onSelect={handleCategorySelect}
-      />
+      {/* 移动端筛选按钮 */}
+      {isMobile && (
+        <Button
+          className={styles.filterBtn}
+          icon={<FilterOutlined />}
+          onClick={() => setCategoryDrawerVisible(true)}
+        >
+          品类筛选
+        </Button>
+      )}
+
+      {/* 桌面端侧边栏 */}
+      {!isMobile && (
+        <CategoryTree
+          tree={categoryTree}
+          selectedPath={selectedCategoryPath}
+          expandedKeys={expandedKeys}
+          onExpand={setExpandedKeys}
+          onSelect={handleCategorySelect}
+        />
+      )}
+
+      {/* 移动端品类抽屉 */}
+      <Drawer
+        title="品类筛选"
+        placement="left"
+        open={categoryDrawerVisible}
+        onClose={() => setCategoryDrawerVisible(false)}
+        width="80%"
+      >
+        <CategoryTree
+          tree={categoryTree}
+          selectedPath={selectedCategoryPath}
+          expandedKeys={expandedKeys}
+          onExpand={setExpandedKeys}
+          onSelect={(keys, info) => {
+            handleCategorySelect(keys, info);
+            setCategoryDrawerVisible(false);
+          }}
+        />
+      </Drawer>
 
       {/* 右侧主内容区 */}
       <div className={styles.main}>

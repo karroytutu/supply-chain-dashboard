@@ -1,15 +1,46 @@
+@import '~@/styles/variables.less';
+
 // 页面容器 - 符合 Ant Design 规范
 .container {
   display: flex;
   min-height: calc(100vh - 48px);  // 减去页面 header 高度
-  gap: 24px;  // 左右分栏间距，符合 Ant Design 规范
-  padding: 24px;  // 页面边距，与 Dashboard 保持一致
+  gap: @spacing-lg;  // 左右分栏间距，符合 Ant Design 规范
+  padding: @spacing-lg;  // 页面边距，与 Dashboard 保持一致
   box-sizing: border-box;
+
+  @media (max-width: @screen-md) {
+    flex-direction: column;
+    padding: @spacing-md;
+    gap: @spacing-md;
+  }
+
+  @media (max-width: @screen-sm) {
+    padding: @spacing-sm;
+    gap: @spacing-sm;
+  }
+}
+
+// 移动端筛选按钮
+.filterBtn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: @spacing-sm;
+
+  @media (max-width: @screen-md) {
+    display: flex;
+    min-height: @touch-target-size;
+    width: 100%;
+  }
 }
 
 .sidebar {
   width: 240px;
   flex-shrink: 0;
+
+  @media (max-width: @screen-md) {
+    display: none;  // 移动端隐藏，使用抽屉代替
+  }
 }
 
 .categoryCard {
@@ -21,9 +52,18 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;  // 区块间距，符合 Ant Design 规范
+  gap: @spacing-lg;  // 区块间距，符合 Ant Design 规范
   overflow: hidden;
   min-width: 0;  // 防止内容溢出
+
+  @media (max-width: @screen-md) {
+    width: 100%;
+    gap: @spacing-md;
+  }
+
+  @media (max-width: @screen-sm) {
+    gap: @spacing-sm;
+  }
 }
 
 .statsRow {
@@ -34,6 +74,10 @@
   flex: 1;
   overflow: auto;
   min-height: 0;  // 允许 flex 子项收缩
+
+  @media (max-width: @screen-md) {
+    flex: none;
+  }
 
   // 功能性布局：让表格撑满卡片
   :global {
@@ -52,6 +96,12 @@
   align-items: center;
   margin-bottom: 16px;
   flex-shrink: 0;
+
+  @media (max-width: @screen-md) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: @spacing-sm;
+  }
 }
 
 .toolbarLeft {
@@ -59,6 +109,12 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+
+  @media (max-width: @screen-md) {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
 }
 
 .toolbarRight {
@@ -66,13 +122,15 @@
   align-items: center;
   gap: 12px;
   margin-left: auto;
-}
 
-@media (max-width: 768px) {
-  .toolbarRight {
+  @media (max-width: @screen-md) {
     margin-left: 0;
     width: 100%;
-    justify-content: flex-end;
+    justify-content: stretch;
+
+    > * {
+      flex: 1;
+    }
   }
 }
 
@@ -185,4 +243,53 @@
   border-top: 1px solid #91d5ff;
   color: #1890ff;
   font-size: 13px;
+}
+
+// 添加商品弹窗响应式
+@media (max-width: @screen-md) {
+  .addModalContent {
+    flex-direction: column;
+    height: auto;
+    min-height: 400px;
+  }
+
+  .addModalTree {
+    display: none;  // 移动端用折叠面板代替
+  }
+
+  .addModalProducts {
+    width: 100%;
+    min-height: 300px;
+  }
+
+  .productsHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+
+    :global {
+      .ant-input-affix-wrapper {
+        width: 100% !important;
+      }
+    }
+  }
+}
+
+@media (max-width: @screen-sm) {
+  .productItem {
+    padding: 6px 8px !important;
+  }
+
+  .productName {
+    font-size: 13px;
+  }
+
+  .productSpec {
+    font-size: 11px;
+  }
+
+  .selectedInfo {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
 }

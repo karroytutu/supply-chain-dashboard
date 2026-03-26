@@ -12,8 +12,8 @@ interface StatsCardsProps {
 
 const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
   return (
-    <Row gutter={16} style={{ marginBottom: 16 }}>
-      <Col span={6}>
+    <Row gutter={[16, 16]}>
+      <Col xs={12} sm={12} md={6}>
         <Card>
           <Statistic
             title="战略商品总数"
@@ -22,7 +22,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col xs={12} sm={12} md={6}>
         <Card>
           <Statistic
             title="待确认"
@@ -32,7 +32,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col xs={12} sm={12} md={6}>
         <Card>
           <Statistic
             title="已确认"
@@ -42,7 +42,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col xs={12} sm={12} md={6}>
         <Card>
           <Statistic
             title="已驳回"
