@@ -1,65 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Empty, Tag, Select, Space } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import {
-  AlertOutlined,
-  InboxOutlined,
-  ClockCircleOutlined,
-  PauseCircleOutlined,
-  StopOutlined,
-  StarFilled,
-} from '@ant-design/icons';
-import type { WarningProduct, StrategicLevel } from '@/types/warning';
-import { getWarningProducts } from '@/services/api/dashboard';
+/**
+ * 预警面板组件
+ */
+import React from 'react';
+import { Table, Empty, Select, Space } from 'antd';
+import { AlertOutlined, PauseCircleOutlined } from '@ant-design/icons';
+import { WARNING_CONFIG, GROUP_CONFIG } from './constants';
+import { getColumns } from './columns';
+import { useWarningData } from './useWarningData';
 import styles from './index.less';
-
-// 预警项配置
-const WARNING_CONFIG = {
-  // 库存预警
-  outOfStock: { label: '缺货', color: '#ff4d4f' },
-  lowStock: { label: '低库存', color: '#fa8c16' },
-  // 库存积压预警
-  mildOverstock: { label: '轻度积压', color: '#faad14' },
-  moderateOverstock: { label: '中度积压', color: '#fa8c16' },
-  seriousOverstock: { label: '严重积压', color: '#ff4d4f' },
-  // 临期预警
-  expiring7Days: { label: '7天内临期', color: '#ff4d4f' },
-  expiring15Days: { label: '15天内临期', color: '#fa8c16' },
-  expiring30Days: { label: '30天内临期', color: '#faad14' },
-  // 滞销预警
-  mildSlowMoving: { label: '轻度滞销', color: '#faad14' },
-  moderateSlowMoving: { label: '中度滞销', color: '#fa8c16' },
-  seriousSlowMoving: { label: '严重滞销', color: '#ff4d4f' },
-};
-
-// 分组配置
-const GROUP_CONFIG = {
-  stock: { title: '库存预警', icon: <AlertOutlined />, color: '#ff4d4f' },
-  overstock: { title: '库存积压预警', icon: <InboxOutlined />, color: '#fa8c16' },
-  expiring: { title: '临期预警', icon: <ClockCircleOutlined />, color: '#faad14' },
-  slowMoving: { title: '滞销预警', icon: <StopOutlined />, color: '#722ed1' },
-};
-
-// 战略等级渲染
-const renderStrategicLevel = (level?: StrategicLevel) => {
-  if (level === 'strategic') {
-    return (
-      <Tag color="gold" icon={<StarFilled />}>
-        战略商品
-      </Tag>
-    );
-  }
-  return <Tag>普通商品</Tag>;
-};
-
-// 战略等级列配置
-const strategicLevelColumn = {
-  title: '战略等级',
-  key: 'strategicLevel',
-  width: 100,
-  align: 'center' as const,
-  render: (_: unknown, record: WarningProduct) => renderStrategicLevel(record.strategicLevel),
-};
 
 interface WarningPanelProps {
   stockWarnings: { outOfStock: number; lowStock: number };
@@ -68,290 +16,21 @@ interface WarningPanelProps {
   slowMovingWarnings: { mildSlowMoving: number; moderateSlowMoving: number; seriousSlowMoving: number };
 }
 
-const WarningPanel: React.FC<WarningPanelProps> = ({
-  stockWarnings,
-  turnoverWarnings,
-  expiringWarnings,
-  slowMovingWarnings,
-}) => {
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [products, setProducts] = useState<WarningProduct[]>([]);
-  const [loading, setLoading] = useState(false);
-  // 分页状态
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
+const WarningPanel: React.FC<WarningPanelProps> = (props) => {
+  const {
+    selectedKey,
+    products,
+    loading,
+    pagination,
+    strategicLevelFilter,
+    warningGroups,
+    totalWarnings,
+    handleSelectedKeyChange,
+    handleTableChange,
+    handleStrategicLevelChange,
+  } = useWarningData(props);
 
-  // 战略等级筛选
-  const [strategicLevelFilter, setStrategicLevelFilter] = useState<StrategicLevel | undefined>();
-
-  // 前端预警类型到后端API类型的映射
-  const warningTypeMap: Record<string, string> = {
-    // 库存预警
-    outOfStock: 'out_of_stock',
-    lowStock: 'low_stock',
-    // 库存积压预警
-    mildOverstock: 'mild_overstock',
-    moderateOverstock: 'moderate_overstock',
-    seriousOverstock: 'serious_overstock',
-    // 临期预警
-    expiring7Days: 'expiring_7',
-    expiring15Days: 'expiring_15',
-    expiring30Days: 'expiring_30',
-    // 滞销预警
-    mildSlowMoving: 'mild_slow_moving',
-    moderateSlowMoving: 'moderate_slow_moving',
-    seriousSlowMoving: 'serious_slow_moving',
-  };
-
-  // 构建预警分组数据
-  const warningGroups = [
-    {
-      key: 'stock',
-      items: [
-        { key: 'outOfStock', count: stockWarnings.outOfStock },
-        { key: 'lowStock', count: stockWarnings.lowStock },
-      ].filter(item => item.count > 0),
-    },
-    {
-      key: 'overstock',
-      items: [
-        { key: 'mildOverstock', count: turnoverWarnings.mildOverstock },
-        { key: 'moderateOverstock', count: turnoverWarnings.moderateOverstock },
-        { key: 'seriousOverstock', count: turnoverWarnings.seriousOverstock },
-      ].filter(item => item.count > 0),
-    },
-    {
-      key: 'expiring',
-      items: [
-        { key: 'expiring7Days', count: expiringWarnings.within7Days },
-        { key: 'expiring15Days', count: expiringWarnings.within15Days },
-        { key: 'expiring30Days', count: expiringWarnings.within30Days },
-      ].filter(item => item.count > 0),
-    },
-    {
-      key: 'slowMoving',
-      items: [
-        { key: 'mildSlowMoving', count: slowMovingWarnings.mildSlowMoving },
-        { key: 'moderateSlowMoving', count: slowMovingWarnings.moderateSlowMoving },
-        { key: 'seriousSlowMoving', count: slowMovingWarnings.seriousSlowMoving },
-      ].filter(item => item.count > 0),
-    },
-  ];
-
-  // 计算总预警数
-  const totalWarnings = warningGroups.reduce(
-    (sum, group) => sum + group.items.reduce((s, item) => s + item.count, 0),
-    0
-  );
-
-  // 默认选中第一个有数据的预警项
-  useEffect(() => {
-    if (!selectedKey && totalWarnings > 0) {
-      for (const group of warningGroups) {
-        if (group.items.length > 0) {
-          setSelectedKey(group.items[0].key);
-          break;
-        }
-      }
-    }
-  }, [totalWarnings]);
-
-  // 根据选中项加载商品数据（服务端分页）
-  useEffect(() => {
-    if (!selectedKey) {
-      setProducts([]);
-      setPagination(prev => ({ ...prev, total: 0 }));
-      return;
-    }
-
-    const loadProducts = async () => {
-      setLoading(true);
-      try {
-        const apiType = warningTypeMap[selectedKey];
-        const result = await getWarningProducts(apiType, { page: pagination.page, pageSize: pagination.pageSize });
-        let filteredData = result.data || [];
-
-        // 前端按战略等级筛选
-        if (strategicLevelFilter) {
-          filteredData = filteredData.filter(product => product.strategicLevel === strategicLevelFilter);
-        }
-
-        setProducts(filteredData);
-        setPagination(prev => ({ ...prev, total: result.total || 0 }));
-      } catch (error) {
-        console.error('加载预警商品数据失败:', error);
-        setProducts([]);
-        setPagination(prev => ({ ...prev, total: 0 }));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProducts();
-  }, [selectedKey, pagination.page, pagination.pageSize, strategicLevelFilter]);
-
-  // 切换预警类型时重置分页和筛选
-  const handleSelectedKeyChange = (key: string) => {
-    setSelectedKey(key);
-    setPagination(prev => ({ ...prev, page: 1 }));
-    setStrategicLevelFilter(undefined);
-  };
-
-  // 分页变化处理
-  const handleTableChange = (page: number, pageSize: number) => {
-    setPagination(prev => ({ ...prev, page, pageSize }));
-  };
-
-  // 战略等级筛选变化
-  const handleStrategicLevelChange = (value: StrategicLevel | undefined) => {
-    setStrategicLevelFilter(value);
-    setPagination(prev => ({ ...prev, page: 1 }));
-  };
-
-  // 列配置
-  const getColumns = (): ColumnsType<WarningProduct> => {
-    const stockColumns: ColumnsType<WarningProduct> = [
-      { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
-      strategicLevelColumn,
-      {
-        title: '库存数量',
-        dataIndex: ['stock', 'quantity'],
-        key: 'stockQuantity',
-        width: 100,
-        align: 'right',
-        render: (val: number, record: WarningProduct) => (
-          <span style={{ fontWeight: 500 }}>{val.toLocaleString()}{record.stock.unitName ? ` ${record.stock.unitName}` : ''}</span>
-        ),
-      },
-      {
-        title: '日均销量',
-        key: 'avgDailySales',
-        width: 100,
-        align: 'right',
-        render: (_: unknown, record: WarningProduct) => {
-          const sales = record.turnover.avgDailySales;
-          const unit = record.stock.unitName || '';
-          return <span style={{ fontWeight: 500 }}>{sales != null ? `${sales.toFixed(1)} ${unit}` : '-'}</span>;
-        },
-      },
-      {
-        title: '可售天数',
-        key: 'sellableDays',
-        width: 100,
-        align: 'right',
-        render: (_: unknown, record: WarningProduct) => {
-          const days = record.turnover.days;
-          const color = record.availability.status === 'out_of_stock' ? '#ff4d4f'
-            : days <= 7 ? '#fa8c16'
-            : days <= 15 ? '#fadb14'
-            : '#52c41a';
-          return (
-            <span style={{ color, fontWeight: 500 }}>
-              {record.availability.status === 'out_of_stock' ? '缺货' : `${days}天`}
-            </span>
-          );
-        },
-      },
-    ];
-
-    const turnoverColumns: ColumnsType<WarningProduct> = [
-      { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
-      strategicLevelColumn,
-      {
-        title: '库存数量',
-        dataIndex: ['stock', 'quantity'],
-        key: 'stockQuantity',
-        width: 100,
-        align: 'right',
-        render: (val: number, record: WarningProduct) => (
-          <span style={{ fontWeight: 500 }}>{val.toLocaleString()}{record.stock.unitName ? ` ${record.stock.unitName}` : ''}</span>
-        ),
-      },
-      {
-        title: '库存金额',
-        dataIndex: ['stock', 'costAmount'],
-        key: 'stockCostAmount',
-        width: 120,
-        align: 'right',
-        render: (val: number) => <span style={{ fontWeight: 500 }}>¥{val?.toLocaleString() ?? '-'}</span>,
-      },
-      {
-        title: '日均销量',
-        key: 'avgDailySales',
-        width: 100,
-        align: 'right',
-        render: (_: unknown, record: WarningProduct) => {
-          const sales = record.turnover.avgDailySales;
-          const unit = record.stock.unitName || '';
-          return <span style={{ fontWeight: 500 }}>{sales != null ? `${sales.toFixed(1)} ${unit}` : '-'}</span>;
-        },
-      },
-      {
-        title: '可售天数',
-        key: 'sellableDays',
-        width: 100,
-        align: 'right',
-        render: (_: unknown, record: WarningProduct) => {
-          const days = record.turnover.days;
-          const color = days > 90 ? '#ff4d4f' : days > 60 ? '#fa541c' : days > 30 ? '#faad14' : '#52c41a';
-          return <span style={{ color, fontWeight: 500 }}>{days}天</span>;
-        },
-      },
-    ];
-
-    const expiringColumns: ColumnsType<WarningProduct> = [
-      { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 280, ellipsis: true },
-      strategicLevelColumn,
-      {
-        title: '库存数量', dataIndex: ['stock', 'quantity'], key: 'stockQuantity', width: 100, align: 'right',
-        render: (val: number, record: WarningProduct) => (
-          <span style={{ fontWeight: 500 }}>{val.toLocaleString()}{record.stock.unitName ? ` ${record.stock.unitName}` : ''}</span>
-        ),
-      },
-      {
-        title: '库存金额', dataIndex: ['stock', 'costAmount'], key: 'stockCostAmount', width: 120, align: 'right',
-        render: (val: number) => <span style={{ fontWeight: 500 }}>¥{val?.toLocaleString() ?? '-'}</span>,
-      },
-      {
-        title: '距到期天数', key: 'daysToExpiry', width: 100, align: 'right',
-        render: (_: unknown, record: WarningProduct) => {
-          const days = record.expiring.daysToExpiry ?? 0;
-          const color = days <= 7 ? '#ff4d4f' : days <= 15 ? '#fa8c16' : days <= 30 ? '#faad14' : '#52c41a';
-          return <span style={{ color, fontWeight: 500 }}>{days}天</span>;
-        },
-      },
-    ];
-
-    const slowMovingColumns: ColumnsType<WarningProduct> = [
-      { title: '商品名称', dataIndex: 'productName', key: 'productName', width: 200, ellipsis: true },
-      strategicLevelColumn,
-      {
-        title: '库存数量', dataIndex: ['stock', 'quantity'], key: 'stockQuantity', width: 100, align: 'right',
-        render: (val: number, record: WarningProduct) => (
-          <span style={{ fontWeight: 500 }}>{val.toLocaleString()}{record.stock.unitName ? ` ${record.stock.unitName}` : ''}</span>
-        ),
-      },
-      {
-        title: '库存金额', dataIndex: ['stock', 'costAmount'], key: 'stockCostAmount', width: 120, align: 'right',
-        render: (val: number) => <span style={{ fontWeight: 500 }}>¥{val?.toLocaleString() ?? '-'}</span>,
-      },
-      {
-        title: '未销售天数', key: 'daysWithoutSale', width: 100, align: 'right',
-        render: (_: unknown, record: WarningProduct) => {
-          const days = record.slowMoving?.daysWithoutSale ?? 0;
-          const color = days > 30 ? '#ff4d4f' : days > 15 ? '#fa8c16' : '#faad14';
-          return <span style={{ color, fontWeight: 500 }}>{days}天</span>;
-        },
-      },
-    ];
-
-    if (['outOfStock', 'lowStock'].includes(selectedKey || '')) return stockColumns;
-    if (['mildOverstock', 'moderateOverstock', 'seriousOverstock'].includes(selectedKey || '')) return turnoverColumns;
-    if (['mildSlowMoving', 'moderateSlowMoving', 'seriousSlowMoving'].includes(selectedKey || '')) return slowMovingColumns;
-    if (['expiring7Days', 'expiring15Days', 'expiring30Days'].includes(selectedKey || '')) return expiringColumns;
-    return [];
-  };
-
-  const getSelectedConfig = () => selectedKey ? WARNING_CONFIG[selectedKey as keyof typeof WARNING_CONFIG] : null;
+  const selectedConfig = selectedKey ? WARNING_CONFIG[selectedKey as keyof typeof WARNING_CONFIG] : null;
 
   if (totalWarnings === 0) {
     return (
@@ -363,8 +42,6 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       </div>
     );
   }
-
-  const selectedConfig = getSelectedConfig();
 
   return (
     <div className={styles.warningPanel}>
@@ -379,7 +56,6 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
       <div className={styles.panelBody}>
         {/* 左侧：预警分类 */}
         <div className={styles.sidebar}>
-          {/* 预警分类 */}
           <div className={styles.warningGroups}>
             {warningGroups.map(group => {
               const groupConfig = GROUP_CONFIG[group.key as keyof typeof GROUP_CONFIG];
@@ -444,7 +120,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({
                 </div>
               </div>
               <Table
-                columns={getColumns()}
+                columns={getColumns(selectedKey)}
                 dataSource={products}
                 rowKey="productId"
                 loading={loading}

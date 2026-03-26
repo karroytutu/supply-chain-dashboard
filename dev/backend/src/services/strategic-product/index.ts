@@ -2,20 +2,26 @@
  * 战略商品管理模块入口
  */
 
+// 查询服务
 export {
   getStrategicProducts,
   getStrategicProductStats,
+  getCategoryTree,
+  getProductsForSelection,
+  isStrategicProduct,
+  getStrategicLevels,
+} from './strategic-product-query';
+
+// 变更服务
+export {
   addStrategicProducts,
   deleteStrategicProduct,
   confirmStrategicProduct,
   batchConfirmStrategicProducts,
   batchDeleteStrategicProducts,
-  getCategoryTree,
-  getProductsForSelection,
-  isStrategicProduct,
-  getStrategicLevels,
-} from './strategic-product.service';
+} from './strategic-product-mutation';
 
+// 类型定义
 export type {
   StrategicProduct,
   StrategicProductStatus,
