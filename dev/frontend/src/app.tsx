@@ -8,6 +8,7 @@ const TOKEN_KEY = 'auth_token';
 export const layout = () => ({
   layout: 'mix' as const,
   logo: '/logo.png',
+  siderWidth: 180,
   contentStyle: {
     padding: 0,
     background: '#f5f7fa',

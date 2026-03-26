@@ -30,7 +30,7 @@ export default defineConfig({
     },
     {
       path: '/procurement',
-      name: '采购数据管理',
+      name: '采购管理',
       icon: 'shopping',
       wrappers: ['@/wrappers/auth'],
       routes: [
