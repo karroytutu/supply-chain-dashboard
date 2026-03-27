@@ -1,0 +1,170 @@
+@import '~@/styles/variables.less';
+
+// 页面容器
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 48px);
+  padding: @spacing-lg;
+  gap: @spacing-md;
+  box-sizing: border-box;
+
+  @media (max-width: @screen-md) {
+    padding: @spacing-md;
+    gap: @spacing-sm;
+  }
+
+  @media (max-width: @screen-sm) {
+    padding: @spacing-sm;
+  }
+}
+
+// 面包屑
+.breadcrumb {
+  flex-shrink: 0;
+  margin-bottom: @spacing-xs;
+}
+
+// 统计卡片行
+.statsRow {
+  flex-shrink: 0;
+}
+
+.statsCard {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.statsCardActive {
+  border-width: 2px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+// 主卡片
+.mainCard {
+  flex: 1;
+  overflow: hidden;
+
+  :global {
+    .ant-card-body {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: @spacing-md;
+      gap: @spacing-md;
+    }
+  }
+}
+
+// 工具栏
+.toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: @spacing-sm;
+  align-items: center;
+
+  @media (max-width: @screen-md) {
+    flex-direction: column;
+    align-items: stretch;
+
+    :global {
+      .ant-input-affix-wrapper,
+      .ant-select,
+      .ant-picker {
+        width: 100% !important;
+      }
+    }
+  }
+}
+
+// 批量操作栏
+.batchActionBar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: @spacing-sm @spacing-md;
+  background: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+
+  @media (max-width: @screen-md) {
+    flex-direction: column;
+    gap: @spacing-sm;
+    align-items: stretch;
+  }
+}
+
+.selectedInfo {
+  color: @primary-color;
+  font-size: 13px;
+}
+
+// 表格
+.table {
+  flex: 1;
+  overflow: auto;
+
+  :global {
+    .ant-table-wrapper {
+      height: 100%;
+    }
+
+    .ant-spin-nested-loading {
+      height: 100%;
+    }
+
+    .ant-spin-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ant-table {
+      flex: 1;
+    }
+
+    .ant-table-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ant-table-body {
+      flex: 1;
+    }
+  }
+}
+
+// 响应式适配
+@media (max-width: @screen-sm) {
+  .statsCard {
+    :global {
+      .ant-statistic-title {
+        font-size: 12px;
+      }
+
+      .ant-statistic-content {
+        font-size: 18px;
+      }
+    }
+  }
+
+  .batchActionBar {
+    padding: @spacing-xs @spacing-sm;
+
+    :global {
+      .ant-btn {
+        font-size: 12px;
+        padding: 4px 8px;
+      }
+    }
+  }
+}

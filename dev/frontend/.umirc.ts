@@ -45,6 +45,22 @@ export default defineConfig({
           icon: 'star',
           component: '@/pages/StrategicProduct',
         },
+        {
+          path: 'return',
+          name: '临期退货管理',
+          routes: [
+            {
+              path: 'orders',
+              component: '@/pages/ProcurementReturn/Orders',
+              name: '退货单列表',
+            },
+            {
+              path: 'goods-rules',
+              component: '@/pages/ProcurementReturn/GoodsRules',
+              name: '商品退货规则',
+            },
+          ],
+        },
       ],
     },
     {

@@ -7,7 +7,10 @@ import userRoutes from './routes/user.routes';
 import roleRoutes from './routes/role.routes';
 import permissionRoutes from './routes/permission.routes';
 import strategicProductRoutes from './routes/strategic-product.routes';
+import returnOrderRoutes from './routes/return-order.routes';
+import goodsReturnRulesRoutes from './routes/goods-return-rules.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
+import { startScheduler } from './services/scheduler';
 
 const app = express();
 
@@ -23,6 +26,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/strategic-products', strategicProductRoutes);
+app.use('/api/return-orders', returnOrderRoutes);
+app.use('/api/goods-return-rules', goodsReturnRulesRoutes);
 
 // 错误处理
 app.use(errorHandler);
@@ -31,6 +36,9 @@ app.use(errorHandler);
 app.listen(config.port, () => {
   console.log(`服务器已启动: http://localhost:${config.port}`);
   console.log(`API 文档: http://localhost:${config.port}/api/health`);
+
+  // 启动定时任务调度器
+  startScheduler();
 });
 
 export default app;

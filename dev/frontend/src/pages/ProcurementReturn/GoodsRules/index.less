@@ -1,0 +1,109 @@
+@import '~@/styles/variables.less';
+
+// 页面容器
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 48px);
+  padding: @spacing-lg;
+  box-sizing: border-box;
+  gap: @spacing-md;
+
+  @media (max-width: @screen-md) {
+    padding: @spacing-md;
+    gap: @spacing-sm;
+  }
+
+  @media (max-width: @screen-sm) {
+    padding: @spacing-sm;
+  }
+}
+
+// 面包屑
+.breadcrumb {
+  flex-shrink: 0;
+  margin-bottom: @spacing-sm;
+}
+
+// 统计卡片行
+.statsRow {
+  flex-shrink: 0;
+}
+
+// 统计卡片
+.statCard {
+  cursor: pointer;
+  transition: all 0.3s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+// 激活的统计卡片
+.activeCard {
+  cursor: pointer;
+  transition: all 0.3s;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+// 批量操作栏
+.batchBar {
+  flex-shrink: 0;
+}
+
+.batchContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: @spacing-sm;
+
+  @media (max-width: @screen-sm) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.selectedInfo {
+  font-weight: 500;
+  color: #1890ff;
+}
+
+// 筛选卡片
+.filterCard {
+  flex-shrink: 0;
+}
+
+.filterBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: @spacing-sm;
+
+  @media (max-width: @screen-md) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+// 表格卡片
+.tableCard {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+
+  @media (max-width: @screen-md) {
+    flex: none;
+  }
+
+  :global {
+    .ant-card-body {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+  }
+}

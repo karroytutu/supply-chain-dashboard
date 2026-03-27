@@ -270,3 +270,64 @@ export async function getDepartmentInfo(deptId: number): Promise<{ name: string 
 export function clearAccessTokenCache(): void {
   // SDK模式不需要手动缓存
 }
+
+/**
+ * 发送钉钉工作通知
+ * 使用钉钉 asyncsend_v2 API 发送工作通知消息
+ * @param userIdList 接收者的用户ID列表
+ * @param title 消息标题
+ * @param content 消息内容（支持Markdown格式）
+ * @returns 发送结果
+ */
+export async function sendWorkNotification(
+  userIdList: string[],
+  title: string,
+  content: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!userIdList || userIdList.length === 0) {
+      console.log('[Dingtalk] 工作通知跳过: 接收者列表为空');
+      return { success: false, message: '接收者列表为空' };
+    }
+
+    const accessToken = await getAccessToken();
+
+    const response = await axios.post(
+      'https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2',
+      {
+        agent_id: config.dingtalk.agentId,
+        userid_list: userIdList.join(','),
+        msg: {
+          msgtype: 'markdown',
+          markdown: {
+            title,
+            text: content,
+          },
+        },
+      },
+      {
+        params: { access_token: accessToken },
+      }
+    );
+
+    if (response.data && response.data.errcode === 0) {
+      console.log('[Dingtalk] 工作通知发送成功:', {
+        taskId: response.data.task_id,
+        receivers: userIdList.length,
+      });
+      return { success: true, message: '发送成功' };
+    } else {
+      console.error('[Dingtalk] 工作通知发送失败:', response.data);
+      return {
+        success: false,
+        message: response.data?.errmsg || '发送失败',
+      };
+    }
+  } catch (error: any) {
+    console.error('[Dingtalk] 工作通知发送异常:', error.message);
+    return {
+      success: false,
+      message: error.message || '发送异常',
+    };
+  }
+}
