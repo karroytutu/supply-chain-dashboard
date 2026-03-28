@@ -8,7 +8,8 @@ import { appQuery } from '../../db/appPool';
 import { getExpiringThreshold } from '../../utils/constants';
 import { checkGoodsReturnRule } from '../goods-return-rules/goods-return-rules.service';
 import { createReturnOrder } from '../return-order/return-order.mutation';
-import type { CreateReturnOrderParams } from '../return-order/return-order.types';
+import { sendDailyNewReturnReminder } from '../return-order/return-order-notify';
+import type { CreateReturnOrderParams, ReturnOrder } from '../return-order/return-order.types';
 
 /**
  * 云仓退货验收明细记录
@@ -79,10 +80,10 @@ export async function syncReturnOrders(): Promise<{
         continue;
       }
 
-      // 3. 查询商品档案获取保质期
-      const goodsInfo = await queryGoodsInfo(record.goodsId);
+      // 3. 查询商品档案获取保质期（使用商品名称匹配）
+      const goodsInfo = await queryGoodsInfo(record.goodsName);
       if (!goodsInfo) {
-        console.warn(`[SyncReturnOrders] 未找到商品档案: ${record.goodsId}`);
+        console.warn(`[SyncReturnOrders] 未找到商品档案: ${record.goodsName}`);
         continue;
       }
 
@@ -213,11 +214,12 @@ async function queryReturnAcceptanceRecords(
 
 /**
  * 查询商品档案信息
+ * 使用商品名称匹配
  */
-async function queryGoodsInfo(goodsId: string): Promise<GoodsInfo | null> {
+async function queryGoodsInfo(goodsName: string): Promise<GoodsInfo | null> {
   const result = await query<GoodsInfo>(
-    `SELECT "shelfLife" FROM "商品档案" WHERE "goodsId" = $1 LIMIT 1`,
-    [goodsId]
+    `SELECT "shelfLife"::int as "shelfLife" FROM "商品档案" WHERE "name" = $1 LIMIT 1`,
+    [goodsName]
   );
 
   if (result.rows.length === 0) {
@@ -338,4 +340,62 @@ function generateReturnNo(): string {
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
   const random = Math.floor(1000 + Math.random() * 9000);
   return `RET${dateStr}${random}`;
+}
+
+/**
+ * 发送新增临期退货提醒
+ * 在同步完成后调用，发送今天新增的待确认退货单提醒
+ */
+export async function sendNewReturnReminder(): Promise<void> {
+  try {
+    console.log('[SyncReturnOrders] 准备发送新增临期退货提醒...');
+
+    // 查询今天新增的待确认退货单
+    const today = getTodayRange();
+    const result = await appQuery<ReturnOrder>(
+      `SELECT 
+        id, return_no as "returnNo", goods_id as "goodsId", goods_name as "goodsName",
+        quantity, unit, batch_date as "batchDate", return_date as "returnDate",
+        expire_date as "expireDate", shelf_life as "shelfLife", days_to_expire as "daysToExpire",
+        status, source_bill_no as "sourceBillNo", consumer_name as "consumerName",
+        marketing_manager as "marketingManager", erp_return_no as "erpReturnNo",
+        created_at as "createdAt", updated_at as "updatedAt"
+       FROM expiring_return_orders 
+       WHERE status = 'pending_confirm' 
+         AND created_at >= $1 AND created_at <= $2
+       ORDER BY created_at DESC`,
+      [today.start, today.end]
+    );
+
+    const orders = result.rows;
+    console.log(`[SyncReturnOrders] 查询到 ${orders.length} 条待确认退货单`);
+
+    if (orders.length === 0) {
+      console.log('[SyncReturnOrders] 无新增待确认退货单，跳过提醒');
+      return;
+    }
+
+    // 发送批量提醒
+    await sendDailyNewReturnReminder(orders);
+    console.log('[SyncReturnOrders] 新增临期退货提醒发送完成');
+  } catch (error) {
+    console.error('[SyncReturnOrders] 发送新增临期退货提醒失败:', error);
+  }
+}
+
+/**
+ * 获取今天的时间范围
+ */
+function getTodayRange(): { start: string; end: string } {
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  return {
+    start: formatDateTime(start),
+    end: formatDateTime(end),
+  };
 }

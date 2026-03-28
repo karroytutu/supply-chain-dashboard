@@ -91,7 +91,10 @@ INSERT INTO roles (code, name, description, is_system) VALUES
   ('admin', '系统管理员', '拥有系统全部权限', TRUE),
   ('manager', '供应链经理', '管理数据和报表', TRUE),
   ('operator', '运营人员', '日常数据操作', TRUE),
-  ('viewer', '只读用户', '仅查看权限', TRUE);
+  ('viewer', '只读用户', '仅查看权限', TRUE),
+  ('procurement_manager', '采购主管', '负责临期退货确认和ERP退货单填写', TRUE),
+  ('warehouse_manager', '仓储主管', '负责仓储退货执行', TRUE)
+ON CONFLICT (code) DO NOTHING;
 
 -- 初始化基础权限
 INSERT INTO permissions (code, name, resource_type, resource_key, action, sort_order) VALUES

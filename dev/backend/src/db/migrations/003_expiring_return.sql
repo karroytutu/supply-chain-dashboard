@@ -147,31 +147,31 @@ INSERT INTO dingtalk_msg_templates (
   (
     'return_new_reminder',
     '新临期退货单提醒',
-    '## 新临期退货单待处理\n\n**退货单号：** {{return_no}}\n**商品名称：** {{goods_name}}\n**数量：** {{quantity}}{{unit}}\n**剩余保质期：** {{days_to_expire}}天\n**来源客户：** {{consumer_name}}\n\n请及时处理：[查看详情]({{detail_url}})',
-    'warehouse_manager',
-    '新退货单创建时',
+    '### 临期退货提醒\n\n{{user_name}}：\n\n今日（{{date}}）共新增 {{count}} 条临期退货入库，现需要您确认是否可以采购退货：\n\n| 退货单号 | 商品名称 | 数量 | 剩余保质期 |\n|----------|----------|------|------------|\n{{order_rows}}\n\n请及时确认是否可以采购退货！\n\n---\n点击查看详情: https://supply-chain.xly.com/procurement/return/orders\n\n推送时间：{{timestamp}}',
+    'procurement_manager',
+    '每天08:30同步后',
     TRUE
   ),
   (
     'return_pending_erp_reminder',
-    'ERP待填写提醒',
-    '## 临期退货单ERP信息待填写\n\n**退货单号：** {{return_no}}\n**商品名称：** {{goods_name}}\n**数量：** {{quantity}}{{unit}}\n**创建时间：** {{created_at}}\n\n请及时填写ERP采购退货单号：[处理]({{detail_url}})',
-    'procurement_specialist',
-    '规则确认后每日提醒',
+    '待填ERP退货单提醒',
+    '### 待填写ERP退货单号提醒\n\n{{user_name}}：\n\n以下退货单已确认可采购退货，但尚未填写ERP采购退货单号：\n\n| 退货单号 | 商品名称 | 数量 | 确认时间 |\n|----------|----------|------|----------|\n{{order_rows}}\n\n请尽快填写ERP采购退货单号！\n\n---\n点击填写: https://supply-chain.xly.com/procurement/return/orders\n\n推送时间：{{timestamp}}',
+    'procurement_manager',
+    '每天08:35',
     TRUE
   ),
   (
     'return_cannot_purchase_reminder',
-    '不可采购退货提醒',
-    '## 临期退货单不可采购退货\n\n**退货单号：** {{return_no}}\n**商品名称：** {{goods_name}}\n**数量：** {{quantity}}{{unit}}\n**原因：** 该商品规则设定为不可采购退货\n\n请营销部门跟进处理：[查看详情]({{detail_url}})',
+    '无法采购退货通知',
+    '### 临期退货无法采购退货通知\n\n{{user_name}}：\n\n以下临期退货商品已确认无法采购退货，请您尽快寻找渠道销售：\n\n| 退货单号 | 商品名称 | 数量 | 剩余保质期 | 来源客户 |\n|----------|----------|------|------------|----------|\n{{order_rows}}\n\n⚠️ 重要提醒：若商品在过期前无法完成销售，将执行考核。\n\n请尽快处理！\n\n---\n点击查看详情: https://supply-chain.xly.com/procurement/return/orders\n\n推送时间：{{timestamp}}',
     'marketing_manager',
-    '规则确认为不可退货时',
+    '采购主管确认为不可退货时',
     TRUE
   ),
   (
     'return_pending_warehouse_reminder',
-    '仓储待执行提醒',
-    '## 临期退货单待仓储执行\n\n**退货单号：** {{return_no}}\n**商品名称：** {{goods_name}}\n**ERP退货单号：** {{erp_return_no}}\n**应退数量：** {{quantity}}{{unit}}\n\n请及时执行退货操作：[处理]({{detail_url}})',
+    '待仓储退货通知',
+    '### 待仓储退货通知\n\n{{user_name}}：\n\n以下临期退货商品已填写ERP采购退货单，请尽快安排商品退出，并录入退货情况：\n\n| 退货单号 | 商品名称 | 数量 | ERP退货单号 | 剩余保质期 |\n|----------|----------|------|------------|------------|\n{{order_rows}}\n\n请及时安排退货，并在系统中录入退货情况！\n\n---\n点击查看详情: https://supply-chain.xly.com/procurement/return/orders\n\n推送时间：{{timestamp}}',
     'warehouse_manager',
     'ERP填写完成后',
     TRUE
