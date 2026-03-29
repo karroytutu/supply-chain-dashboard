@@ -65,8 +65,8 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
   const columns = [
     {
       title: '退货单号',
-      dataIndex: 'returnNo',
-      key: 'returnNo',
+      dataIndex: 'sourceBillNo',
+      key: 'sourceBillNo',
       width: 160,
       fixed: 'left' as const,
     },
