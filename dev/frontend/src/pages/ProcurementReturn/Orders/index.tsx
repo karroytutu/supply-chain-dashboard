@@ -12,7 +12,6 @@ import ReturnOrderTable from './components/ReturnOrderTable';
 import BatchActionBar from './components/BatchActionBar';
 import ErpFillModal from './components/ErpFillModal';
 import WarehouseExecuteModal from './components/WarehouseExecuteModal';
-import MarketingSaleModal from './components/MarketingSaleModal';
 import styles from './index.less';
 
 const { RangePicker } = DatePicker;
@@ -62,7 +61,7 @@ export default function ReturnOrderList() {
   const [cancelComment, setCancelComment] = useState('');
 
   // 流程操作弹窗状态
-  const [modalType, setModalType] = useState<'erpFill' | 'warehouseExecute' | 'marketingSale' | null>(null);
+  const [modalType, setModalType] = useState<'erpFill' | 'warehouseExecute' | null>(null);
   const [currentRecord, setCurrentRecord] = useState<ReturnOrder | null>(null);
 
   // 处理状态筛选点击
@@ -111,12 +110,6 @@ export default function ReturnOrderList() {
   const onWarehouseExecute = useCallback((record: ReturnOrder) => {
     setCurrentRecord(record);
     setModalType('warehouseExecute');
-  }, []);
-
-  // 打开营销销售完成弹窗
-  const onMarketingSale = useCallback((record: ReturnOrder) => {
-    setCurrentRecord(record);
-    setModalType('marketingSale');
   }, []);
 
   // 关闭流程操作弹窗
@@ -225,7 +218,6 @@ export default function ReturnOrderList() {
           onCancel={onCancel}
           onErpFill={onErpFill}
           onWarehouseExecute={onWarehouseExecute}
-          onMarketingSale={onMarketingSale}
         />
       </Card>
 
@@ -262,14 +254,6 @@ export default function ReturnOrderList() {
       {/* 仓储执行弹窗 */}
       <WarehouseExecuteModal
         visible={modalType === 'warehouseExecute'}
-        record={currentRecord}
-        onClose={closeModal}
-        onSuccess={onRefresh}
-      />
-
-      {/* 营销销售完成弹窗 */}
-      <MarketingSaleModal
-        visible={modalType === 'marketingSale'}
         record={currentRecord}
         onClose={closeModal}
         onSuccess={onRefresh}

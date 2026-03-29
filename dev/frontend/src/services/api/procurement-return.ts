@@ -12,7 +12,6 @@ import type {
   BatchConfirmResult,
   FillErpReturnNoParams,
   WarehouseExecuteParams,
-  MarketingSaleCompleteParams,
   CancelReturnOrderParams,
 } from '@/types/procurement-return';
 
@@ -92,16 +91,6 @@ export const warehouseExecute = (
   return request.post<ReturnOrder>(`/return-orders/${id}/warehouse`, data);
 };
 
-/**
- * 营销销售完成
- */
-export const marketingSaleComplete = (
-  id: number,
-  data: MarketingSaleCompleteParams
-): Promise<ReturnOrder> => {
-  return request.post<ReturnOrder>(`/return-orders/${id}/marketing`, data);
-};
-
 export default {
   getReturnOrders,
   getReturnOrderById,
@@ -112,5 +101,4 @@ export default {
   cancelReturnOrder,
   fillErpReturnNo,
   warehouseExecute,
-  marketingSaleComplete,
 };

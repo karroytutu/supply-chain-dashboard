@@ -87,13 +87,13 @@ export function mapRowToReturnOrder(row: ReturnOrderRow): ReturnOrder {
 export async function recordAction(
   orderId: number,
   actionType: ReturnActionType,
-  operatorId: number,
+  operatorId: number | null,
   operatorName: string,
   comment?: string,
   details?: Record<string, any>
 ): Promise<void> {
   await appQuery(
-    `INSERT INTO expiring_return_actions 
+    `INSERT INTO expiring_return_actions
      (order_id, action_type, operator_id, operator_name, comment, details)
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [orderId, actionType, operatorId, operatorName, comment || null, details || null]

@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Table, Tag, Button, Space, Tooltip } from 'antd';
-import { CloseCircleOutlined, EditOutlined, ShoppingOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { CloseCircleOutlined, EditOutlined, ShoppingOutlined } from '@ant-design/icons';
 import type { ReturnOrder, ReturnOrderStatus } from '@/types/procurement-return';
 import type { TablePaginationConfig } from 'antd';
 import dayjs from 'dayjs';
@@ -45,7 +45,6 @@ interface ReturnOrderTableProps {
   onCancel?: (record: ReturnOrder) => void;
   onErpFill?: (record: ReturnOrder) => void;
   onWarehouseExecute?: (record: ReturnOrder) => void;
-  onMarketingSale?: (record: ReturnOrder) => void;
 }
 
 const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
@@ -58,7 +57,6 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
   onCancel,
   onErpFill,
   onWarehouseExecute,
-  onMarketingSale,
 }) => {
   const columns = [
     {
@@ -156,16 +154,6 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
                 size="small"
                 icon={<ShoppingOutlined />}
                 onClick={() => onWarehouseExecute?.(record)}
-              />
-            </Tooltip>
-          )}
-          {record.status === 'pending_marketing_sale' && (
-            <Tooltip title="完成销售">
-              <Button
-                type="link"
-                size="small"
-                icon={<CheckCircleOutlined />}
-                onClick={() => onMarketingSale?.(record)}
               />
             </Tooltip>
           )}

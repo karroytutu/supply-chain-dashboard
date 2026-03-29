@@ -2,10 +2,10 @@
  * 退货单变更服务
  */
 
+import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
 import { mapRowToReturnOrder, recordAction, type ReturnOrderRow } from './return-order-utils';
 import {
-  notifyNewReturnOrder,
   notifyPendingErpFill,
   notifyPendingMarketingSale,
   notifyPendingWarehouseExecute,
@@ -62,14 +62,7 @@ export async function createReturnOrder(
     [row.id]
   );
 
-  const returnOrder = mapRowToReturnOrder(row);
-
-  // 发送钉钉通知（异步执行，不影响主流程）
-  notifyNewReturnOrder(returnOrder).catch(error => {
-    console.error('[DingTalk] 创建退货单通知失败:', error);
-  });
-
-  return returnOrder;
+  return mapRowToReturnOrder(row);
 }
 
 /**
@@ -392,4 +385,116 @@ export async function marketingSaleComplete(
   });
 
   return returnOrder;
+}
+
+/**
+ * 自动检查并完成销售
+ * 根据云仓批次库存表中的残次品库存判断销售是否完成
+ * 当残次品库存为0或不存在时，自动将退货单状态更新为 completed
+ */
+export async function autoCompleteMarketingSale(): Promise<{
+  checkedCount: number;
+  completedCount: number;
+}> {
+  console.log('[AutoComplete] 开始检查待营销销售的退货单...');
+
+  // 1. 查询所有状态为 pending_marketing_sale 的退货单
+  const pendingOrdersResult = await appQuery<{
+    id: number;
+    return_no: string;
+    goods_name: string;
+    quantity: number;
+  }>(
+    `SELECT id, return_no, goods_name, quantity
+     FROM expiring_return_orders
+     WHERE status = 'pending_marketing_sale'
+     ORDER BY created_at ASC`,
+    []
+  );
+
+  const pendingOrders = pendingOrdersResult.rows;
+  const checkedCount = pendingOrders.length;
+
+  if (checkedCount === 0) {
+    console.log('[AutoComplete] 没有待营销销售的退货单');
+    return { checkedCount: 0, completedCount: 0 };
+  }
+
+  console.log(`[AutoComplete] 查询到 ${checkedCount} 条待营销销售的退货单`);
+
+  // 2. 获取所有待处理商品的名称列表
+  const goodsNames = pendingOrders.map(order => order.goods_name);
+
+  // 3. 查询云仓批次库存表中这些商品的残次品库存
+  const stockResult = await query<{
+    goodsName: string;
+    total_quantity: number;
+  }>(
+    `SELECT "goodsName", SUM("quantity") as total_quantity
+     FROM "独山云仓批次库存表"
+     WHERE "goodsName" = ANY($1)
+       AND "qualityTypeStr" = '残次品'
+     GROUP BY "goodsName"`,
+    [goodsNames]
+  );
+
+  // 构建库存映射表
+  const stockMap = new Map<string, number>();
+  stockResult.rows.forEach(row => {
+    stockMap.set(row.goodsName, parseFloat(row.total_quantity as any) || 0);
+  });
+
+  // 4. 检查每个退货单的库存情况
+  let completedCount = 0;
+
+  for (const order of pendingOrders) {
+    const stockQuantity = stockMap.get(order.goods_name) || 0;
+
+    // 如果残次品库存为0，说明已销售完成
+    if (stockQuantity <= 0) {
+      console.log(`[AutoComplete] 检测到销售完成: ${order.return_no}, 商品: ${order.goods_name}, 库存: ${stockQuantity}`);
+
+      try {
+        // 自动更新状态为 completed
+        await appQuery(
+          `UPDATE expiring_return_orders
+           SET status = 'completed',
+               marketing_completed_at = NOW(),
+               marketing_comment = '系统自动检测：残次品库存已清零',
+               updated_at = NOW()
+           WHERE id = $1`,
+          [order.id]
+        );
+
+        // 记录操作日志
+        await recordAction(order.id, 'marketing_complete', null, '系统自动检测', '残次品库存已清零，自动完成销售');
+
+        completedCount++;
+        console.log(`[AutoComplete] 自动完成销售: ${order.return_no}`);
+
+        // 发送完成通知（异步）
+        try {
+          const completedOrder = await appQuery<any>(
+            'SELECT * FROM expiring_return_orders WHERE id = $1',
+            [order.id]
+          );
+          if (completedOrder.rows.length > 0) {
+            const returnOrder = mapRowToReturnOrder(completedOrder.rows[0]);
+            notifyReturnOrderCompleted(returnOrder).catch(error => {
+              console.error('[DingTalk] 自动完成通知失败:', error);
+            });
+          }
+        } catch (notifyError) {
+          console.error('[AutoComplete] 发送通知失败:', notifyError);
+        }
+      } catch (updateError) {
+        console.error(`[AutoComplete] 更新退货单失败: ${order.return_no}`, updateError);
+      }
+    } else {
+      console.log(`[AutoComplete] 仍有残次品库存: ${order.goods_name}, 数量: ${stockQuantity}`);
+    }
+  }
+
+  console.log(`[AutoComplete] 检查完成，共检查 ${checkedCount} 条，自动完成 ${completedCount} 条`);
+  return { checkedCount, completedCount };
 }

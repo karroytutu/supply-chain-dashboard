@@ -47,7 +47,7 @@ export default defineConfig({
         },
         {
           path: 'return',
-          name: '临期退货管理',
+          name: '临过期退货',
           routes: [
             {
               path: 'orders',
@@ -57,7 +57,7 @@ export default defineConfig({
             {
               path: 'goods-rules',
               component: '@/pages/ProcurementReturn/GoodsRules',
-              name: '商品退货规则',
+              name: '采购退货规则',
             },
           ],
         },

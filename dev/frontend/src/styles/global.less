@@ -199,12 +199,17 @@ body {
 
 // 侧边栏菜单紧凑样式
 .ant-pro-sider-menu {
+  // 菜单文字不换行
+  .ant-pro-base-menu-inline-item-text {
+    white-space: nowrap;
+  }
+
   // 一级菜单项
   .ant-menu-item {
     height: 40px !important;
     line-height: 40px !important;
     margin: 0 !important;
-    padding-left: 12px !important;
+    padding-left: 4px !important;
   }
 
   // 一级子菜单标题
@@ -212,7 +217,7 @@ body {
     height: 40px !important;
     line-height: 40px !important;
     margin: 0 !important;
-    padding-left: 12px !important;
+    padding-left: 4px !important;
   }
 
   // 二级菜单项
@@ -220,12 +225,12 @@ body {
     .ant-menu-item {
       height: 36px !important;
       line-height: 36px !important;
-      padding-left: 28px !important;
+      padding-left: 20px !important;
     }
   }
 
   // 菜单图标
   .ant-pro-base-menu-inline-item-icon {
-    margin-right: 6px !important;
+    margin-right: 2px !important;
   }
 }

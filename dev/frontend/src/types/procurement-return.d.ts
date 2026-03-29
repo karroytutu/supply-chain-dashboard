@@ -128,13 +128,6 @@ export interface WarehouseExecuteParams {
 }
 
 /**
- * 营销销售完成参数
- */
-export interface MarketingSaleCompleteParams {
-  comment?: string;
-}
-
-/**
  * 取消退货单参数
  */
 export interface CancelReturnOrderParams {

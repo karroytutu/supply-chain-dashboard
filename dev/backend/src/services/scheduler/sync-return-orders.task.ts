@@ -7,7 +7,7 @@ import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
 import { getExpiringThreshold } from '../../utils/constants';
 import { checkGoodsReturnRule } from '../goods-return-rules/goods-return-rules.service';
-import { createReturnOrder } from '../return-order/return-order.mutation';
+import { createReturnOrder, autoCompleteMarketingSale } from '../return-order/return-order.mutation';
 import { sendDailyNewReturnReminder } from '../return-order/return-order-notify';
 import type { CreateReturnOrderParams, ReturnOrder } from '../return-order/return-order.types';
 
@@ -144,6 +144,14 @@ export async function syncReturnOrders(): Promise<{
 
   const duration = Date.now() - startTime;
   console.log(`[SyncReturnOrders] 同步完成，总记录: ${returnRecords.length}, 临期: ${expiringCount}, 创建: ${createdCount}, 跳过: ${skippedCount}, 耗时: ${duration}ms`);
+
+  // 自动检查销售完成情况
+  try {
+    const autoCompleteResult = await autoCompleteMarketingSale();
+    console.log(`[SyncReturnOrders] 销售完成检查: 检查 ${autoCompleteResult.checkedCount} 条, 完成 ${autoCompleteResult.completedCount} 条`);
+  } catch (autoError) {
+    console.error('[SyncReturnOrders] 自动销售完成检查失败:', autoError);
+  }
 
   return {
     totalProcessed: returnRecords.length,
