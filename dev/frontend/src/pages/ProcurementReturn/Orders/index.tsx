@@ -94,12 +94,6 @@ export default function ReturnOrderList() {
     }
   }, [handleBatchConfirm]);
 
-  // 查看详情
-  const onView = useCallback((record: ReturnOrder) => {
-    // TODO: 跳转到详情页或打开详情弹窗
-    console.log('查看详情:', record);
-  }, []);
-
   // 取消退货单
   const onCancel = useCallback((record: ReturnOrder) => {
     setCancelingOrder(record);
@@ -228,7 +222,6 @@ export default function ReturnOrderList() {
             total,
           }}
           onPageChange={handlePageChange}
-          onView={onView}
           onCancel={onCancel}
           onErpFill={onErpFill}
           onWarehouseExecute={onWarehouseExecute}

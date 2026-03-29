@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Table, Tag, Button, Space, Tooltip } from 'antd';
-import { EyeOutlined, CloseCircleOutlined, EditOutlined, ShoppingOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { CloseCircleOutlined, EditOutlined, ShoppingOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import type { ReturnOrder, ReturnOrderStatus } from '@/types/procurement-return';
 import type { TablePaginationConfig } from 'antd';
 import dayjs from 'dayjs';
@@ -42,7 +42,6 @@ interface ReturnOrderTableProps {
     total: number;
   };
   onPageChange: (page: number, pageSize: number) => void;
-  onView?: (record: ReturnOrder) => void;
   onCancel?: (record: ReturnOrder) => void;
   onErpFill?: (record: ReturnOrder) => void;
   onWarehouseExecute?: (record: ReturnOrder) => void;
@@ -56,7 +55,6 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
   onSelectChange,
   pagination,
   onPageChange,
-  onView,
   onCancel,
   onErpFill,
   onWarehouseExecute,
@@ -130,14 +128,6 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       fixed: 'right' as const,
       render: (_: any, record: ReturnOrder) => (
         <Space size="small">
-          <Tooltip title="查看详情">
-            <Button
-              type="link"
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => onView?.(record)}
-            />
-          </Tooltip>
           {record.status === 'pending_confirm' && (
             <Tooltip title="取消">
               <Button
