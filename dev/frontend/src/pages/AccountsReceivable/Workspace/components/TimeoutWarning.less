@@ -1,0 +1,61 @@
+/**
+ * 超时预警组件样式
+ */
+.timeoutWarning {
+  width: 100%;
+}
+
+.alertContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeoutIcon {
+  color: #ff4d4f;
+  font-size: 16px;
+}
+
+.timeoutText {
+  color: #cf1322;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.urgentIcon {
+  color: #faad14;
+  font-size: 16px;
+}
+
+.urgentText {
+  color: #d48806;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.normalIcon {
+  color: #1890ff;
+  font-size: 16px;
+}
+
+.normalText {
+  color: #096dd9;
+  font-size: 14px;
+}
+
+.penaltyTag {
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+// 移动端适配
+@media (max-width: 768px) {
+  .alertContent {
+    flex-wrap: wrap;
+  }
+
+  .penaltyTag {
+    margin-left: 0;
+    margin-top: 4px;
+  }
+}

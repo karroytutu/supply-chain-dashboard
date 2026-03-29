@@ -1,0 +1,60 @@
+/**
+ * 催收结果提交弹窗样式
+ */
+.collectionModal {
+  :global(.ant-modal-body) {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+}
+
+.collectionDrawer {
+  :global(.ant-drawer-body) {
+    padding: 16px;
+    padding-bottom: 80px;
+  }
+
+  :global(.ant-drawer-footer) {
+    padding: 12px 16px;
+    border-top: 1px solid #f0f0f0;
+  }
+}
+
+.form {
+  :global(.ant-segmented) {
+    background-color: #f5f5f5;
+  }
+}
+
+.preview {
+  margin-top: 12px;
+  padding: 8px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+
+  :global(.ant-btn) {
+    min-width: 80px;
+  }
+}
+
+// 移动端适配
+@media (max-width: 768px) {
+  .collectionDrawer {
+    :global(.ant-drawer-content-wrapper) {
+      height: 90% !important;
+    }
+  }
+
+  .footer {
+    :global(.ant-btn) {
+      flex: 1;
+    }
+  }
+}

@@ -36,7 +36,7 @@ export default function LoginPage() {
   const handleAutoLogin = async (corpId: string, agentId?: string) => {
     try {
       setLoading(true);
-      const authCode = await getAuthCode(envInfo.clientType, corpId, agentId);
+      const authCode = await getAuthCode(envInfo.clientType === 'outside' ? 'pc' : envInfo.clientType, corpId, agentId);
       const result = await dingtalkAutoLogin(authCode);
       
       if (result.success && result.token) {

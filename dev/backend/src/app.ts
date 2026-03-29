@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import { config } from './config';
 import routes from './routes';
 import authRoutes from './routes/auth.routes';
@@ -9,6 +10,7 @@ import permissionRoutes from './routes/permission.routes';
 import strategicProductRoutes from './routes/strategic-product.routes';
 import returnOrderRoutes from './routes/return-order.routes';
 import goodsReturnRulesRoutes from './routes/goods-return-rules.routes';
+import arRoutes from './routes/accounts-receivable.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 
@@ -19,6 +21,9 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
+// 静态文件服务（上传文件访问）
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // 路由
 app.use('/api', routes);
 app.use('/api/auth', authRoutes);
@@ -28,6 +33,7 @@ app.use('/api/permissions', permissionRoutes);
 app.use('/api/strategic-products', strategicProductRoutes);
 app.use('/api/return-orders', returnOrderRoutes);
 app.use('/api/goods-return-rules', goodsReturnRulesRoutes);
+app.use('/api/ar', arRoutes);
 
 // 错误处理
 app.use(errorHandler);

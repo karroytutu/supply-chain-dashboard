@@ -64,6 +64,29 @@ export default defineConfig({
       ],
     },
     {
+      path: '/finance',
+      name: '财务管理',
+      icon: 'AccountBookOutlined',
+      wrappers: ['@/wrappers/auth'],
+      routes: [
+        {
+          path: 'ar/overview',
+          name: '应收总览',
+          component: '@/pages/AccountsReceivable/Overview',
+        },
+        {
+          path: 'ar/workspace',
+          name: '催收工作台',
+          component: '@/pages/AccountsReceivable/Workspace',
+        },
+        {
+          path: 'ar/penalty',
+          name: '考核管理',
+          component: '@/pages/AccountsReceivable/Penalty',
+        },
+      ],
+    },
+    {
       path: '/system',
       name: '系统管理',
       icon: 'setting',

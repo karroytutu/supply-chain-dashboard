@@ -1,0 +1,62 @@
+/**
+ * 已处理记录列表样式
+ */
+.historyList {
+  padding: 16px 0;
+}
+
+.table {
+  :global(.ant-table) {
+    background-color: #fff;
+    border-radius: 8px;
+  }
+
+  :global(.ant-table-thead > tr > th) {
+    background-color: #fafafa;
+    font-weight: 600;
+  }
+
+  :global(.ant-table-tbody > tr:hover > td) {
+    background-color: #e6f7ff;
+  }
+}
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #fff;
+  border-radius: 8px;
+}
+
+.empty {
+  padding: 48px 0;
+}
+
+// 移动端适配
+@media (max-width: 768px) {
+  .historyList {
+    padding: 8px 0;
+  }
+
+  .table {
+    :global(.ant-table) {
+      font-size: 13px;
+    }
+
+    :global(.ant-table-cell) {
+      padding: 8px !important;
+    }
+  }
+
+  .pagination {
+    justify-content: center;
+    padding: 12px;
+    margin-top: 12px;
+
+    :global(.ant-pagination-options) {
+      display: none;
+    }
+  }
+}

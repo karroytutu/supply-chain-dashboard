@@ -44,3 +44,6 @@ __MACOSX/
 
 # 测试覆盖率
 coverage/
+
+# 上传文件目录
+uploads/

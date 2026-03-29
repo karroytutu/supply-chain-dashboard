@@ -1,0 +1,337 @@
+/**
+ * 考核管理页面样式
+ */
+@import '~@/styles/variables.less';
+
+.penaltyPage {
+  padding: 24px;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+// 页面头部
+.header {
+  margin-bottom: 16px;
+
+  .title {
+    font-size: 22px;
+    font-weight: 600;
+    color: @text-color-primary;
+    margin: 0;
+  }
+}
+
+// 统计卡片区域
+.statsRow {
+  margin-bottom: 16px;
+}
+
+.statsCard {
+  height: 100%;
+
+  :global(.ant-card-body) {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.statsValue {
+  font-size: 28px;
+  font-weight: 600;
+  color: @error-color;
+}
+
+.statsLabel {
+  font-size: 14px;
+  color: @text-color-secondary;
+  margin-top: 8px;
+}
+
+// 筛选区域
+.filterCard {
+  margin-bottom: 16px;
+
+  :global(.ant-card-body) {
+    padding: 16px;
+  }
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.filterItem {
+  min-width: 150px;
+}
+
+.filterLabel {
+  font-size: 14px;
+  color: @text-color-secondary;
+  margin-right: 8px;
+}
+
+.myPenaltySwitch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.refreshBtn {
+  margin-left: auto;
+}
+
+// 表格区域
+.tableCard {
+  margin-bottom: 16px;
+
+  :global(.ant-card-body) {
+    padding: 16px;
+  }
+}
+
+// 考核级别标签颜色
+.penaltyLevelTag {
+  min-width: 80px;
+  text-align: center;
+
+  &.none {
+    background-color: #f5f5f5;
+    color: #8c8c8c;
+  }
+
+  &.base {
+    background-color: #f6ffed;
+    color: #52c41a;
+  }
+
+  &.double {
+    background-color: #fff7e6;
+    color: #fa8c16;
+  }
+
+  &.full {
+    background-color: #fff1f0;
+    color: #cf1322;
+  }
+}
+
+// 考核金额颜色
+.penaltyAmount {
+  font-weight: 600;
+
+  &.base {
+    color: #52c41a;
+  }
+
+  &.double {
+    color: #fa8c16;
+  }
+
+  &.full {
+    color: #cf1322;
+  }
+}
+
+// 状态标签
+.statusTag {
+  min-width: 60px;
+  text-align: center;
+}
+
+// 考核规则区域
+.rulesCard {
+  margin-bottom: 16px;
+
+  :global(.ant-card-body) {
+    padding: 16px;
+  }
+}
+
+.rulesContent {
+  padding: 12px 0;
+}
+
+.ruleSection {
+  margin-bottom: 16px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.ruleTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: @text-color-primary;
+  margin-bottom: 8px;
+  padding-left: 8px;
+  border-left: 3px solid @primary-color;
+}
+
+.ruleList {
+  background-color: #fafafa;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.ruleItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed @border-color-base;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.ruleCondition {
+  color: @text-color-secondary;
+}
+
+.rulePenalty {
+  font-weight: 500;
+  color: @text-color-primary;
+
+  &.highlight {
+    color: @error-color;
+  }
+}
+
+// 移动端适配
+@media (max-width: @screen-md) {
+  .penaltyPage {
+    padding: 16px;
+  }
+
+  .header {
+    .title {
+      font-size: 18px;
+    }
+  }
+
+  .statsCard {
+    :global(.ant-card-body) {
+      padding: 16px;
+    }
+  }
+
+  .statsValue {
+    font-size: 24px;
+  }
+
+  .filterRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterItem {
+    width: 100%;
+  }
+
+  .refreshBtn {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: @screen-sm) {
+  .penaltyPage {
+    padding: 12px;
+  }
+
+  .statsValue {
+    font-size: 20px;
+  }
+}
+
+// 移动端卡片样式
+.mobileCard {
+  margin-bottom: 12px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.mobileCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid @border-color-split;
+}
+
+.mobileUserName {
+  font-size: 16px;
+  font-weight: 600;
+  color: @text-color-primary;
+}
+
+.mobileCardRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.mobileCardLabel {
+  color: @text-color-secondary;
+  font-size: 13px;
+}
+
+.mobileCardValue {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+// 移动端筛选抽屉
+.mobileFilterDrawer {
+  :global(.ant-drawer-body) {
+    padding: 16px;
+  }
+}
+
+.mobileFilterItem {
+  margin-bottom: 16px;
+}
+
+.mobileFilterLabel {
+  font-size: 14px;
+  color: @text-color-secondary;
+  margin-bottom: 8px;
+}
+
+// 移动端规则按钮
+.mobileRulesBtn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+// 隐藏表格，显示移动端卡片
+.mobileCardList {
+  display: none;
+}
+
+.desktopTable {
+  display: block;
+}
+
+@media (max-width: @screen-md) {
+  .mobileCardList {
+    display: block;
+  }
+
+  .desktopTable {
+    display: none;
+  }
+}
