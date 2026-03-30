@@ -1,6 +1,6 @@
 /**
  * 应收账款总览页面
- * 展示应收统计概览、账龄分析、催收进度、趋势图和客户欠款分析表
+ * 展示应收统计概览、账龄分析、催收进度和客户欠款分析表
  */
 import React, { useState, useEffect } from 'react';
 import { Spin, message, Button } from 'antd';
@@ -9,7 +9,6 @@ import type { ArStats, AgingAnalysis } from '@/types/accounts-receivable';
 import { getArStats, getAgingAnalysis, syncArData } from '@/services/api/accounts-receivable';
 import ArOverviewCards from './components/ArOverviewCards';
 import AgingChart from './components/AgingChart';
-import TrendChart from './components/TrendChart';
 import CollectionProgress from './components/CollectionProgress';
 import CustomerDebtTable from './components/CustomerDebtTable';
 import styles from './index.less';
@@ -92,9 +91,6 @@ const Overview: React.FC = () => {
           <CollectionProgress />
         </div>
       </div>
-
-      {/* 趋势图 */}
-      <TrendChart />
 
       {/* 客户欠款分析表 */}
       <CustomerDebtTable />
