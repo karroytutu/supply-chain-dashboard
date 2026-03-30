@@ -11,6 +11,7 @@ import strategicProductRoutes from './routes/strategic-product.routes';
 import returnOrderRoutes from './routes/return-order.routes';
 import goodsReturnRulesRoutes from './routes/goods-return-rules.routes';
 import arRoutes from './routes/accounts-receivable.routes';
+import procurementArchiveRoutes from './routes/procurement-archive.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 
@@ -34,6 +35,7 @@ app.use('/api/strategic-products', strategicProductRoutes);
 app.use('/api/return-orders', returnOrderRoutes);
 app.use('/api/goods-return-rules', goodsReturnRulesRoutes);
 app.use('/api/ar', arRoutes);
+app.use('/api/procurement', procurementArchiveRoutes);
 
 // 错误处理
 app.use(errorHandler);

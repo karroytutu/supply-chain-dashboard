@@ -65,9 +65,54 @@ export const getCategoryOutOfStockProducts = (
   return request<PaginatedResult<{ productName: string }>>(`/availability/out-of-stock?${params.toString()}`);
 };
 
+/**
+ * 采购绩效月度存档记录
+ */
+export interface MonthlyArchiveRecord {
+  id: number;
+  archiveMonth: string;
+  strategicAvailabilityRate: number | null;
+  strategicTotalSku: number | null;
+  strategicDaysInMonth: number | null;
+  turnoverDays: number | null;
+  turnoverPreviousDays: number | null;
+  turnoverTrend: number | null;
+  archivedAt: string;
+  archivedBy: string;
+}
+
+/**
+ * 采购绩效存档响应
+ */
+export interface ProcurementArchiveResponse {
+  success: boolean;
+  data: MonthlyArchiveRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/**
+ * 获取采购绩效月度存档列表
+ */
+export const getProcurementArchive = (
+  pagination?: PaginationParams
+): Promise<ProcurementArchiveResponse> => {
+  const params = new URLSearchParams();
+  if (pagination) {
+    params.append('page', String(pagination.page));
+    params.append('pageSize', String(pagination.pageSize));
+  }
+  const queryString = params.toString();
+  const url = queryString ? `/procurement/archive?${queryString}` : '/procurement/archive';
+  return request<ProcurementArchiveResponse>(url);
+};
+
 export default {
   getDashboardData,
   getWarningProducts,
   getCategoryTree,
   getCategoryOutOfStockProducts,
+  getProcurementArchive,
 };
