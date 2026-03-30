@@ -40,6 +40,7 @@ import {
   sendPaymentConfirmedNotification,
   sendEscalateNotification,
   sendGuaranteeNotification,
+  getNotificationRecordsByArId,
 } from '../services/accounts-receivable/ar-notification.service';
 
 import { syncArReceivables } from '../services/accounts-receivable';
@@ -995,6 +996,38 @@ export const manualSync = async (req: Request, res: Response) => {
     res.status(500).json({
       code: 500,
       message: '同步失败',
+    });
+  }
+};
+
+// ==================== 推送记录查询 Controller ====================
+
+/**
+ * 获取应收账款的推送历史记录
+ * GET /api/ar/:id/notifications
+ * 权限: finance:ar:read
+ */
+export const getArNotifications = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const arId = parseInt(id, 10);
+
+    if (isNaN(arId)) {
+      res.status(400).json({ error: '参数错误', message: '无效的ID' });
+      return;
+    }
+
+    const records = await getNotificationRecordsByArId(arId);
+
+    res.json({
+      code: 200,
+      data: records,
+    });
+  } catch (error) {
+    console.error('获取推送记录失败:', error);
+    res.status(500).json({
+      error: '获取推送记录失败',
+      message: error instanceof Error ? error.message : '未知错误',
     });
   }
 };
