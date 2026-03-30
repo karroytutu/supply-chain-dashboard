@@ -3,11 +3,11 @@
  * 展示应收统计概览、账龄分析、催收进度和客户欠款分析表
  */
 import React, { useState, useEffect } from 'react';
-import { Spin, message, Button } from 'antd';
-import { SyncOutlined } from '@ant-design/icons';
+import { Spin, message, Button, Row, Col } from 'antd';
+import { SyncOutlined, DollarOutlined, WarningOutlined, PercentageOutlined, CalendarOutlined } from '@ant-design/icons';
 import type { ArStats, AgingAnalysis } from '@/types/accounts-receivable';
 import { getArStats, getAgingAnalysis, syncArData } from '@/services/api/accounts-receivable';
-import ArOverviewCards from './components/ArOverviewCards';
+import SummaryCard from '@/components/SummaryCard';
 import AgingChart from './components/AgingChart';
 import CollectionProgress from './components/CollectionProgress';
 import CustomerDebtTable from './components/CustomerDebtTable';
@@ -80,7 +80,60 @@ const Overview: React.FC = () => {
       </div>
 
       {/* 概览卡片 */}
-      {stats && <ArOverviewCards stats={stats} />}
+      {stats && (
+        <div className={styles.metricsOverview}>
+          <Row gutter={[16, 16]}>
+            <Col xs={12} sm={12} md={6}>
+              <SummaryCard
+                title="应收总额"
+                icon={<DollarOutlined />}
+                value={stats.totalAmount}
+                unit="元"
+                metricType="receivable"
+                trend={stats.totalAmountTrend}
+                trendDirection={stats.totalAmountTrend >= 0 ? 'up' : 'down'}
+                isInverseMetric={false}
+              />
+            </Col>
+            <Col xs={12} sm={12} md={6}>
+              <SummaryCard
+                title="逾期总额"
+                icon={<WarningOutlined />}
+                value={stats.overdueAmount}
+                unit="元"
+                metricType="receivable"
+                trend={stats.overdueAmountTrend}
+                trendDirection={stats.overdueAmountTrend >= 0 ? 'up' : 'down'}
+                isInverseMetric={true}
+              />
+            </Col>
+            <Col xs={12} sm={12} md={6}>
+              <SummaryCard
+                title="逾期率"
+                icon={<PercentageOutlined />}
+                value={stats.overdueRate}
+                unit="%"
+                metricType="receivable"
+                trend={stats.overdueRateTrend}
+                trendDirection={stats.overdueRateTrend >= 0 ? 'up' : 'down'}
+                isInverseMetric={true}
+              />
+            </Col>
+            <Col xs={12} sm={12} md={6}>
+              <SummaryCard
+                title="平均账龄"
+                icon={<CalendarOutlined />}
+                value={stats.avgAgingDays}
+                unit="天"
+                metricType="receivable"
+                trend={stats.avgAgingDaysTrend}
+                trendDirection={stats.avgAgingDaysTrend >= 0 ? 'up' : 'down'}
+                isInverseMetric={true}
+              />
+            </Col>
+          </Row>
+        </div>
+      )}
 
       {/* 图表区域 */}
       <div className={styles.chartsRow}>

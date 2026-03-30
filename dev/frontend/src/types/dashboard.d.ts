@@ -8,7 +8,7 @@ export type WarningLevel = 'normal' | 'attention' | 'warning' | 'serious';
 export type HealthStatus = 'excellent' | 'good' | 'attention' | 'warning';
 
 // 指标类型
-export type MetricType = 'availability' | 'turnover' | 'expiring' | 'slowMoving';
+export type MetricType = 'availability' | 'turnover' | 'expiring' | 'slowMoving' | 'receivable';
 
 // 趋势结果
 export interface TrendResult {
