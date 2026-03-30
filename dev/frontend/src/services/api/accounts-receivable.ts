@@ -20,6 +20,7 @@ import type {
   ArPaginatedResult,
   UploadEvidenceResponse,
   SaveSignatureResponse,
+  ArNotificationRecord,
 } from '@/types/accounts-receivable';
 
 // ==================== 数据查询 ====================
@@ -156,6 +157,15 @@ export const getMyPenalties = (params?: { page?: number; pageSize?: number }): P
   return request<ArPaginatedResult<ArPenaltyRecord>>('/ar/penalties/my', { params });
 };
 
+// ==================== 推送记录查询 ====================
+
+/**
+ * 获取应收账款的推送历史记录
+ */
+export const getArNotifications = (arId: number): Promise<{ code: number; data: ArNotificationRecord[] }> => {
+  return request<{ code: number; data: ArNotificationRecord[] }>(`/ar/${arId}/notifications`);
+};
+
 // ==================== 默认导出 ====================
 
 export default {
@@ -174,4 +184,5 @@ export default {
   saveSignature,
   getPenalties,
   getMyPenalties,
+  getArNotifications,
 };

@@ -1074,3 +1074,48 @@ export async function sendGuaranteeNotification(params: {
     });
   }
 }
+
+// ==================== 推送记录查询函数 ====================
+
+/**
+ * 推送记录返回类型
+ */
+export interface NotificationRecord {
+  id: number;
+  ar_ids: number[];
+  notification_type: string;
+  recipient_id: number;
+  recipient_name: string | null;
+  consumer_name: string | null;
+  bill_count: number;
+  message_content: string | null;
+  status: string;
+  sent_at: Date | null;
+  dingtalk_task_id: string | null;
+  error_message: string | null;
+  created_at: Date;
+}
+
+/**
+ * 根据应收账款ID查询推送记录
+ * @param arId 应收账款ID
+ * @returns 推送记录列表，按创建时间倒序
+ */
+export async function getNotificationRecordsByArId(arId: number): Promise<NotificationRecord[]> {
+  try {
+    const result = await appQuery<NotificationRecord>(
+      `SELECT
+         id, ar_ids, notification_type, recipient_id, recipient_name,
+         consumer_name, bill_count, message_content, status,
+         sent_at, dingtalk_task_id, error_message, created_at
+       FROM ar_notification_records
+       WHERE $1 = ANY(ar_ids)
+       ORDER BY created_at DESC`,
+      [arId]
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('[AR-Notification] 查询推送记录失败:', error);
+    throw error;
+  }
+}

@@ -1,9 +1,9 @@
 /**
  * 催收任务详情组件
- * 显示客户欠款信息和催收历史
+ * 显示客户欠款信息、催收历史和推送记录
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Drawer, Card, Timeline, Spin, Empty, Image, Tag, Descriptions } from 'antd';
+import { Drawer, Card, Timeline, Spin, Empty, Image, Tag, Descriptions, List } from 'antd';
 import {
   UserOutlined,
   DollarOutlined,
@@ -12,9 +12,11 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
+  BellOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
-import type { ArDetail, ArActionLog } from '@/types/accounts-receivable';
-import { getArDetail } from '@/services/api/accounts-receivable';
+import type { ArDetail, ArActionLog, ArNotificationRecord, NotificationType } from '@/types/accounts-receivable';
+import { getArDetail, getArNotifications } from '@/services/api/accounts-receivable';
 import styles from './TaskDetail.less';
 
 interface TaskDetailProps {
@@ -23,6 +25,28 @@ interface TaskDetailProps {
   onClose: () => void;
 }
 
+// 推送类型映射
+const notificationTypeMap: Record<string, { text: string; color: string }> = {
+  'pre_warn_5': { text: '5天预警', color: 'orange' },
+  'pre_warn_2': { text: '2天预警', color: 'gold' },
+  'overdue_collect': { text: '逾期催收', color: 'red' },
+  'timeout_penalty': { text: '超时处罚', color: 'magenta' },
+  'escalate': { text: '升级通知', color: 'purple' },
+  'auto_escalate': { text: '自动升级', color: 'purple' },
+  'pending_review': { text: '待审核通知', color: 'blue' },
+  'review_result': { text: '审核结果', color: 'green' },
+  'payment_confirmed': { text: '支付确认', color: 'green' },
+  'guarantee_notify': { text: '担保通知', color: 'cyan' },
+  'daily_summary': { text: '日报摘要', color: 'default' },
+};
+
+// 推送状态映射
+const notificationStatusMap: Record<string, { text: string; color: string }> = {
+  'pending': { text: '待发送', color: 'default' },
+  'sent': { text: '已发送', color: 'success' },
+  'failed': { text: '发送失败', color: 'error' },
+};
+
 const TaskDetail: React.FC<TaskDetailProps> = ({
   arId,
   visible,
@@ -30,6 +54,8 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<ArDetail | null>(null);
+  const [notifications, setNotifications] = useState<ArNotificationRecord[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   // 加载详情数据
   const loadDetail = useCallback(async (id: number) => {
@@ -44,11 +70,26 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
     }
   }, []);
 
+  // 加载推送记录
+  const loadNotifications = useCallback(async (id: number) => {
+    setNotificationsLoading(true);
+    try {
+      const result = await getArNotifications(id);
+      setNotifications(result.data || []);
+    } catch (error) {
+      console.error('加载推送记录失败:', error);
+      setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (arId && visible) {
       loadDetail(arId);
+      loadNotifications(arId);
     }
-  }, [arId, visible, loadDetail]);
+  }, [arId, visible, loadDetail, loadNotifications]);
 
   // 获取操作类型标签
   const getActionTag = (actionType: string) => {
@@ -72,9 +113,26 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
     );
   };
 
+  // 获取推送类型标签
+  const getNotificationTypeTag = (type: string) => {
+    const typeInfo = notificationTypeMap[type] || { text: type, color: 'default' };
+    return (
+      <Tag color={typeInfo.color} icon={<BellOutlined />}>
+        {typeInfo.text}
+      </Tag>
+    );
+  };
+
+  // 获取推送状态标签
+  const getNotificationStatusTag = (status: string) => {
+    const statusInfo = notificationStatusMap[status] || { text: status, color: 'default' };
+    return <Tag color={statusInfo.color}>{statusInfo.text}</Tag>;
+  };
+
   // 格式化金额
-  const formatAmount = (amount: number): string => {
-    return `¥${amount.toFixed(2)}`;
+  const formatAmount = (amount: number | string): string => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `¥${num.toFixed(2)}`;
   };
 
   // 格式化日期
@@ -187,6 +245,54 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
               ) : (
                 <Empty description="暂无催收记录" />
               )}
+            </Card>
+
+            {/* 推送历史卡片 */}
+            <Card 
+              title={
+                <span>
+                  <BellOutlined style={{ marginRight: 8 }} />
+                  推送历史
+                </span>
+              } 
+              className={styles.notificationCard}
+            >
+              <Spin spinning={notificationsLoading}>
+                {notifications.length > 0 ? (
+                  <List
+                    dataSource={notifications}
+                    renderItem={(item) => (
+                      <List.Item className={styles.notificationItem}>
+                        <div className={styles.notificationHeader}>
+                          <div className={styles.notificationTitle}>
+                            {getNotificationTypeTag(item.notification_type)}
+                            <span className={styles.recipientName}>
+                              {item.recipient_name || '-'}
+                            </span>
+                          </div>
+                          <span className={styles.notificationTime}>
+                            <ClockCircleOutlined style={{ marginRight: 4 }} />
+                            {formatDate(item.created_at)}
+                          </span>
+                        </div>
+                        <div className={styles.notificationMeta}>
+                          {getNotificationStatusTag(item.status)}
+                          <span className={styles.billCount}>
+                            涉及 {item.bill_count} 单
+                          </span>
+                        </div>
+                        {item.status === 'failed' && item.error_message && (
+                          <div className={styles.errorMessage}>
+                            错误信息: {item.error_message}
+                          </div>
+                        )}
+                      </List.Item>
+                    )}
+                  />
+                ) : (
+                  <Empty description="暂无推送记录" />
+                )}
+              </Spin>
             </Card>
           </>
         ) : (
