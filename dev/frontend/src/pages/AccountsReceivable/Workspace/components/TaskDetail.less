@@ -115,3 +115,75 @@
     padding: @spacing-sm;
   }
 }
+
+// ==================== 推送历史卡片样式 ====================
+
+.notificationCard {
+  margin-top: 16px;
+
+  :global(.ant-card-head) {
+    background-color: #f9f0ff;
+    border-bottom: 1px solid #d3adf7;
+  }
+
+  :global(.ant-card-head-title) {
+    color: #722ed1;
+    font-weight: 600;
+  }
+
+  :global(.ant-card-body) {
+    padding: 0;
+  }
+}
+
+.notificationItem {
+  padding: 12px 16px !important;
+  border-bottom: 1px solid #f0f0f0;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.notificationHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.notificationTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recipientName {
+  color: #595959;
+  font-size: 13px;
+}
+
+.notificationTime {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+.notificationMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.billCount {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+.errorMessage {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #fff1f0;
+  border-radius: 4px;
+  color: #cf1322;
+  font-size: 12px;
+}

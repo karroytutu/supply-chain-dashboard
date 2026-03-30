@@ -32,6 +32,8 @@ import {
   reviewTask,
   // 手动同步
   manualSync,
+  // 推送记录
+  getArNotifications,
 } from '../controllers/accounts-receivable.controller';
 
 const router = Router();
@@ -205,6 +207,18 @@ router.post(
 );
 
 // ==================== 详情（放在参数路由之前）====================
+
+/**
+ * 获取应收账款的推送历史记录
+ * GET /api/ar/:id/notifications
+ * 权限: finance:ar:read
+ * 注意：此路由必须在 /:id 之前，否则会被 /:id 匹配
+ */
+router.get(
+  '/:id/notifications',
+  requirePermission('finance:ar:read'),
+  getArNotifications
+);
 
 /**
  * 获取应收详情+催收历史
