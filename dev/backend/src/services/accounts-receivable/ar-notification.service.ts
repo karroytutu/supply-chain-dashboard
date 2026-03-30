@@ -1,6 +1,6 @@
 /**
  * 应收账款通知服务
- * 实现11种推送通知的消息构建和发送逻辑
+ * 实现12种推送通知的消息构建和发送逻辑
  */
 
 import { appQuery, getAppClient } from '../../db/appPool';
@@ -19,9 +19,10 @@ import {
   buildPaymentConfirmedMessage,
   buildGuaranteeNotifyMessage,
   buildDailySummaryMessage,
+  buildAggregatedPreWarnMessage,
   getNotificationTitle,
 } from './ar-notification-templates';
-import type { NotificationType, CollectorLevel } from './ar.types';
+import type { NotificationType, CollectorLevel, PreWarnTypeData, AggregatedPreWarnData } from './ar.types';
 
 /** 系统基础URL */
 const SYSTEM_BASE_URL = process.env.SYSTEM_BASE_URL || 'http://localhost:3100';
@@ -180,23 +181,40 @@ export async function sendAndRecordNotification(params: {
 
 /**
  * 检查今天是否已发送过同类通知（防重复）
+ * 当 consumerName 传入时，按营销师+客户维度检查
+ * 当 consumerName 为空时，按营销师维度检查
  */
 export async function hasNotifiedToday(
   recipientId: number,
   notificationType: string,
-  consumerName: string
+  consumerName?: string
 ): Promise<boolean> {
   try {
-    const result = await appQuery(
-      `SELECT 1 FROM ar_notification_records
-       WHERE recipient_id = $1
-         AND notification_type = $2
-         AND consumer_name = $3
-         AND status = 'sent'
-         AND DATE(created_at) = CURRENT_DATE
-       LIMIT 1`,
-      [recipientId, notificationType, consumerName]
-    );
+    let query: string;
+    let params: (number | string)[];
+
+    if (consumerName) {
+      // 按营销师+客户维度检查
+      query = `SELECT 1 FROM ar_notification_records
+               WHERE recipient_id = $1
+                 AND notification_type = $2
+                 AND consumer_name = $3
+                 AND status = 'sent'
+                 AND DATE(created_at) = CURRENT_DATE
+               LIMIT 1`;
+      params = [recipientId, notificationType, consumerName];
+    } else {
+      // 按营销师维度检查
+      query = `SELECT 1 FROM ar_notification_records
+               WHERE recipient_id = $1
+                 AND notification_type = $2
+                 AND status = 'sent'
+                 AND DATE(created_at) = CURRENT_DATE
+               LIMIT 1`;
+      params = [recipientId, notificationType];
+    }
+
+    const result = await appQuery(query, params);
     return (result.rowCount ?? 0) > 0;
   } catch (error) {
     console.error('[AR-Notification] 检查通知记录失败:', error);
@@ -275,143 +293,6 @@ async function createCollectionTask(
 }
 
 // ==================== 定时推送任务（每日20:00执行） ====================
-
-/**
- * 任务1: 逾期前5天预警
- */
-async function sendPreWarn5Notifications(): Promise<void> {
-  console.log('[AR-Notification] 执行逾期前5天预警...');
-
-  const result = await appQuery<{
-    id: number;
-    consumer_name: string;
-    manager_users: string;
-    settle_method: number;
-    order_no: string;
-    left_amount: number;
-    due_date: Date;
-  }>(
-    `SELECT id, consumer_name, manager_users, settle_method, order_no, left_amount, due_date
-     FROM ar_receivables
-     WHERE due_date::date - CURRENT_DATE = 5
-       AND ar_status IN ('synced', 'pre_warning_5')
-       AND notification_status NOT IN ('pre_warn_5_sent', 'pre_warn_2_sent', 'overdue_sent')`
-  );
-
-  // 按 (manager_users, consumer_name) 分组
-  const grouped = new Map<string, typeof result.rows>();
-  for (const row of result.rows) {
-    const key = `${row.manager_users || ''}|${row.consumer_name}`;
-    if (!grouped.has(key)) {
-      grouped.set(key, []);
-    }
-    grouped.get(key)!.push(row);
-  }
-
-  // 逐组发送
-  for (const [key, bills] of grouped) {
-    const [managerUsers, consumerName] = key.split('|');
-    const marketingUser = await matchMarketingUser(managerUsers);
-    if (!marketingUser) continue;
-
-    // 防重复检查
-    if (await hasNotifiedToday(marketingUser.userId, 'pre_warn_5', consumerName)) {
-      continue;
-    }
-
-    const billDetails: BillDetail[] = bills.map(b => ({
-      billNo: b.order_no || '-',
-      amount: b.left_amount,
-      dueDate: new Date(b.due_date).toISOString().split('T')[0],
-    }));
-
-    const settleMethod = bills[0].settle_method === 1 ? '月结' : '现结';
-    const content = buildPreWarn5Message(consumerName, settleMethod, billDetails);
-    const title = getNotificationTitle('pre_warn_5', consumerName);
-
-    const sent = await sendAndRecordNotification({
-      arIds: bills.map(b => b.id),
-      notificationType: 'pre_warn_5',
-      recipientId: marketingUser.userId,
-      recipientName: marketingUser.name,
-      recipientDingtalkId: marketingUser.dingtalkUserId,
-      consumerName,
-      billCount: bills.length,
-      title,
-      markdownContent: content,
-    });
-
-    if (sent) {
-      await updateArStatus(bills.map(b => b.id), 'pre_warning_5', 'pre_warn_5_sent');
-    }
-  }
-}
-
-/**
- * 任务2: 逾期前2天紧急预警
- */
-async function sendPreWarn2Notifications(): Promise<void> {
-  console.log('[AR-Notification] 执行逾期前2天紧急预警...');
-
-  const result = await appQuery<{
-    id: number;
-    consumer_name: string;
-    manager_users: string;
-    order_no: string;
-    left_amount: number;
-    due_date: Date;
-  }>(
-    `SELECT id, consumer_name, manager_users, order_no, left_amount, due_date
-     FROM ar_receivables
-     WHERE due_date::date - CURRENT_DATE = 2
-       AND ar_status IN ('synced', 'pre_warning_5', 'pre_warning_2')
-       AND notification_status NOT IN ('pre_warn_2_sent', 'overdue_sent')`
-  );
-
-  const grouped = new Map<string, typeof result.rows>();
-  for (const row of result.rows) {
-    const key = `${row.manager_users || ''}|${row.consumer_name}`;
-    if (!grouped.has(key)) {
-      grouped.set(key, []);
-    }
-    grouped.get(key)!.push(row);
-  }
-
-  for (const [key, bills] of grouped) {
-    const [managerUsers, consumerName] = key.split('|');
-    const marketingUser = await matchMarketingUser(managerUsers);
-    if (!marketingUser) continue;
-
-    if (await hasNotifiedToday(marketingUser.userId, 'pre_warn_2', consumerName)) {
-      continue;
-    }
-
-    const billDetails: BillDetail[] = bills.map(b => ({
-      billNo: b.order_no || '-',
-      amount: b.left_amount,
-      dueDate: new Date(b.due_date).toISOString().split('T')[0],
-    }));
-
-    const content = buildPreWarn2Message(consumerName, billDetails);
-    const title = getNotificationTitle('pre_warn_2', consumerName);
-
-    const sent = await sendAndRecordNotification({
-      arIds: bills.map(b => b.id),
-      notificationType: 'pre_warn_2',
-      recipientId: marketingUser.userId,
-      recipientName: marketingUser.name,
-      recipientDingtalkId: marketingUser.dingtalkUserId,
-      consumerName,
-      billCount: bills.length,
-      title,
-      markdownContent: content,
-    });
-
-    if (sent) {
-      await updateArStatus(bills.map(b => b.id), 'pre_warning_2', 'pre_warn_2_sent');
-    }
-  }
-}
 
 /**
  * 任务3: 逾期触发催收
@@ -799,15 +680,205 @@ async function sendDailySummary(): Promise<void> {
 }
 
 /**
+ * 发送聚合预警通知
+ * 每个营销师每天只发送一条消息，包含5天和2天预警数据
+ */
+async function sendAggregatedPreWarnNotifications(): Promise<void> {
+  console.log('[AR-Notification] 执行聚合预警推送...');
+
+  // 1. 并行查询两类预警数据
+  const [warn5Result, warn2Result] = await Promise.all([
+    appQuery<{
+      id: number;
+      consumer_name: string;
+      manager_users: string;
+      settle_method: number;
+      order_no: string;
+      left_amount: number;
+      due_date: Date;
+    }>(
+      `SELECT id, consumer_name, manager_users, settle_method, order_no, left_amount, due_date
+       FROM ar_receivables
+       WHERE due_date::date - CURRENT_DATE = 5
+         AND ar_status IN ('synced', 'pre_warning_5')
+         AND notification_status NOT IN ('pre_warn_5_sent', 'pre_warn_2_sent', 'overdue_sent')`
+    ),
+    appQuery<{
+      id: number;
+      consumer_name: string;
+      manager_users: string;
+      settle_method: number;
+      order_no: string;
+      left_amount: number;
+      due_date: Date;
+    }>(
+      `SELECT id, consumer_name, manager_users, settle_method, order_no, left_amount, due_date
+       FROM ar_receivables
+       WHERE due_date::date - CURRENT_DATE = 2
+         AND ar_status IN ('synced', 'pre_warning_5', 'pre_warning_2')
+         AND notification_status NOT IN ('pre_warn_2_sent', 'overdue_sent')`
+    )
+  ]);
+
+  // 2. 按营销师分组聚合数据
+  const groupedByManager = new Map<string, AggregatedPreWarnData>();
+
+  // 处理5天预警数据
+  for (const row of warn5Result.rows) {
+    const managerKey = row.manager_users || '未知';
+    if (!groupedByManager.has(managerKey)) {
+      groupedByManager.set(managerKey, {
+        managerUsers: managerKey,
+        warn5Data: null,
+        warn2Data: null,
+        allArIds: []
+      });
+    }
+    const data = groupedByManager.get(managerKey)!;
+    data.allArIds.push(row.id);
+
+    if (!data.warn5Data) {
+      data.warn5Data = {
+        type: 'pre_warn_5',
+        consumers: [],
+        totalCount: 0,
+        totalAmount: 0,
+        arIds: []
+      };
+    }
+    data.warn5Data.arIds.push(row.id);
+    data.warn5Data.totalCount++;
+    data.warn5Data.totalAmount += row.left_amount;
+
+    // 按客户分组
+    const consumerKey = row.consumer_name;
+    let consumer = data.warn5Data.consumers.find(c => c.consumerName === consumerKey);
+    if (!consumer) {
+      consumer = {
+        consumerName: consumerKey,
+        settleMethod: row.settle_method === 1 ? '月结' : '现结',
+        bills: [],
+        totalAmount: 0
+      };
+      data.warn5Data.consumers.push(consumer);
+    }
+    consumer.bills.push({
+      billNo: row.order_no || '-',
+      amount: row.left_amount,
+      dueDate: new Date(row.due_date).toISOString().split('T')[0],
+      arId: row.id
+    });
+    consumer.totalAmount += row.left_amount;
+  }
+
+  // 处理2天预警数据
+  for (const row of warn2Result.rows) {
+    const managerKey = row.manager_users || '未知';
+    if (!groupedByManager.has(managerKey)) {
+      groupedByManager.set(managerKey, {
+        managerUsers: managerKey,
+        warn5Data: null,
+        warn2Data: null,
+        allArIds: []
+      });
+    }
+    const data = groupedByManager.get(managerKey)!;
+    data.allArIds.push(row.id);
+
+    if (!data.warn2Data) {
+      data.warn2Data = {
+        type: 'pre_warn_2',
+        consumers: [],
+        totalCount: 0,
+        totalAmount: 0,
+        arIds: []
+      };
+    }
+    data.warn2Data.arIds.push(row.id);
+    data.warn2Data.totalCount++;
+    data.warn2Data.totalAmount += row.left_amount;
+
+    // 按客户分组
+    const consumerKey = row.consumer_name;
+    let consumer = data.warn2Data!.consumers.find(c => c.consumerName === consumerKey);
+    if (!consumer) {
+      consumer = {
+        consumerName: consumerKey,
+        settleMethod: row.settle_method === 1 ? '月结' : '现结',
+        bills: [],
+        totalAmount: 0
+      };
+      data.warn2Data!.consumers.push(consumer);
+    }
+    consumer.bills.push({
+      billNo: row.order_no || '-',
+      amount: row.left_amount,
+      dueDate: new Date(row.due_date).toISOString().split('T')[0],
+      arId: row.id
+    });
+    consumer.totalAmount += row.left_amount;
+  }
+
+  // 3. 遍历每个营销师发送聚合通知
+  for (const [managerUsers, aggregatedData] of groupedByManager) {
+    const marketingUser = await matchMarketingUser(managerUsers);
+    if (!marketingUser) continue;
+
+    // 防重复检查（按营销师维度）
+    if (await hasNotifiedToday(marketingUser.userId, 'pre_warn_aggregated')) {
+      console.log('[AR-Notification] 营销师今日已收到聚合预警，跳过:', marketingUser.name);
+      continue;
+    }
+
+    // 构建聚合消息
+    const content = buildAggregatedPreWarnMessage(
+      aggregatedData.warn5Data,
+      aggregatedData.warn2Data
+    );
+
+    if (!content) continue; // 内容为空则跳过
+
+    const title = getNotificationTitle('pre_warn_aggregated');
+    const totalBillCount = (aggregatedData.warn5Data?.totalCount || 0) +
+                           (aggregatedData.warn2Data?.totalCount || 0);
+
+    // 发送通知
+    const sent = await sendAndRecordNotification({
+      arIds: aggregatedData.allArIds,
+      notificationType: 'pre_warn_aggregated',
+      recipientId: marketingUser.userId,
+      recipientName: marketingUser.name,
+      recipientDingtalkId: marketingUser.dingtalkUserId,
+      consumerName: '聚合预警',
+      billCount: totalBillCount,
+      title,
+      markdownContent: content,
+    });
+
+    // 更新状态（区分预警类型）
+    if (sent) {
+      // 更新5天预警单据状态
+      if (aggregatedData.warn5Data && aggregatedData.warn5Data.arIds.length > 0) {
+        await updateArStatus(aggregatedData.warn5Data.arIds, 'pre_warning_5', 'pre_warn_5_sent');
+      }
+      // 更新2天预警单据状态
+      if (aggregatedData.warn2Data && aggregatedData.warn2Data.arIds.length > 0) {
+        await updateArStatus(aggregatedData.warn2Data.arIds, 'pre_warning_2', 'pre_warn_2_sent');
+      }
+    }
+  }
+}
+
+/**
  * 每日20:00统一推送任务
- * 按顺序执行: 逾期前5天预警 → 逾期前2天预警 → 逾期触发催收 → 超时检查与考核 → 延期到期自动升级 → 每日汇总
+ * 按顺序执行: 聚合预警 → 逾期触发催收 → 超时检查与考核 → 延期到期自动升级 → 每日汇总
  */
 export async function runDailyNotificationTask(): Promise<void> {
   console.log('[AR-Notification] 开始执行每日20:00推送任务...');
 
   try {
-    await sendPreWarn5Notifications();
-    await sendPreWarn2Notifications();
+    // 聚合预警推送（替代原来的独立推送）
+    await sendAggregatedPreWarnNotifications();
     await sendOverdueCollectNotifications();
     await checkTimeoutAndPenalty();
     await processAutoEscalate();

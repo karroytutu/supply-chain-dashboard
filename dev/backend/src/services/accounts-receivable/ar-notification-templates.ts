@@ -1,7 +1,9 @@
 /**
  * 应收账款通知消息模板
- * 包含11种通知类型的消息构建函数
+ * 包含12种通知类型的消息构建函数
  */
+
+import type { PreWarnTypeData } from './ar.types';
 
 /** 单据明细接口 */
 export interface BillDetail {
@@ -408,10 +410,69 @@ export function buildDailySummaryMessage(stats: DailySummaryStats): string {
 }
 
 /**
+ * 模板12: 聚合预警消息
+ * 发送给营销师，汇总逾期前5天和2天的预警数据
+ */
+export function buildAggregatedPreWarnMessage(
+  warn5Data: { consumers: Array<{ consumerName: string; settleMethod: string; bills: Array<{ billNo: string; amount: number; dueDate: string }>; totalAmount: number }>; totalCount: number; totalAmount: number } | null,
+  warn2Data: { consumers: Array<{ consumerName: string; settleMethod: string; bills: Array<{ billNo: string; amount: number; dueDate: string }> }> } | null
+): string {
+  // 如果两者都为空，返回空字符串
+  if (!warn5Data && !warn2Data) {
+    return '';
+  }
+
+  let content = '## 📋 逾期预警汇总\n\n---\n\n';
+
+  // 5天预警部分
+  if (warn5Data && warn5Data.consumers.length > 0) {
+    content += `### 📅 逾期前5天预警\n`;
+    content += `> 共 ${warn5Data.totalCount} 张单据，合计 ${formatAmount(warn5Data.totalAmount)}\n\n`;
+
+    for (const consumer of warn5Data.consumers) {
+      content += `**${consumer.consumerName}**（${consumer.settleMethod}）\n`;
+      for (const bill of consumer.bills) {
+        content += `- ${bill.billNo}\n`;
+        content += `  - ${formatAmount(bill.amount)} | 到期 ${bill.dueDate}\n`;
+      }
+      content += '\n';
+    }
+  }
+
+  // 2天预警部分
+  if (warn2Data && warn2Data.consumers.length > 0) {
+    const warn2TotalCount = warn2Data.consumers.reduce((sum, c) => sum + c.bills.length, 0);
+    const warn2TotalAmount = warn2Data.consumers.reduce((sum, c) => sum + c.bills.reduce((s, b) => s + b.amount, 0), 0);
+
+    content += '---\n\n';
+    content += `### ⚠️ 逾期前2天紧急预警\n`;
+    content += `> 共 ${warn2TotalCount} 张单据，合计 ${formatAmount(warn2TotalAmount)}\n\n`;
+
+    for (const consumer of warn2Data.consumers) {
+      const settleMethod = (consumer as any).settleMethod || '';
+      content += `**${consumer.consumerName}**${settleMethod ? `（${settleMethod}）` : ''}\n`;
+      for (const bill of consumer.bills) {
+        content += `- ${bill.billNo}\n`;
+        content += `  - ${formatAmount(bill.amount)} | 到期 ${bill.dueDate}\n`;
+      }
+      content += '\n';
+    }
+  }
+
+  content += '---\n\n';
+  content += '请及时跟进客户付款进度，避免逾期。\n\n';
+  content += `[立即处理](${SYSTEM_BASE_URL}/finance/ar/workspace)\n\n`;
+  content += `推送时间: ${getTimestamp()}`;
+
+  return content;
+}
+
+/**
  * 获取通知标题
  */
 export function getNotificationTitle(type: string, consumerName?: string): string {
   const titles: Record<string, string> = {
+    'pre_warn_aggregated': '📋 逾期预警汇总',
     'pre_warn_5': '📅 即将到期预警',
     'pre_warn_2': '⚠️ 紧急预警',
     'overdue_collect': '🔴 逾期催收通知',

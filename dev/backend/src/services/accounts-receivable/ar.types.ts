@@ -37,8 +37,12 @@ export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 /** 考核级别 */
 export type PenaltyLevel = 'none' | 'base' | 'double' | 'full';
 
+/** 预警类型 */
+export type PreWarnType = 'pre_warn_5' | 'pre_warn_2';
+
 /** 通知类型 */
 export type NotificationType =
+  | 'pre_warn_aggregated'  // 聚合预警（替代 pre_warn_5 和 pre_warn_2）
   | 'pre_warn_5'
   | 'pre_warn_2'
   | 'overdue_collect'
@@ -189,4 +193,34 @@ export interface AgingAnalysis {
   range: string;
   amount: number;
   count: number;
+}
+
+/** 按客户分组的预警数据 */
+export interface PreWarnConsumerGroup {
+  consumerName: string;
+  settleMethod: string;
+  bills: Array<{
+    billNo: string;
+    amount: number;
+    dueDate: string;
+    arId: number;
+  }>;
+  totalAmount: number;
+}
+
+/** 单个预警类型的数据 */
+export interface PreWarnTypeData {
+  type: PreWarnType;
+  consumers: PreWarnConsumerGroup[];
+  totalCount: number;
+  totalAmount: number;
+  arIds: number[];
+}
+
+/** 聚合预警数据（按营销师） */
+export interface AggregatedPreWarnData {
+  managerUsers: string;
+  warn5Data: PreWarnTypeData | null;
+  warn2Data: PreWarnTypeData | null;
+  allArIds: number[];
 }
