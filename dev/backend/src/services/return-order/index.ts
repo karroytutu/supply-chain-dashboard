@@ -20,6 +20,7 @@ export {
   fillErpReturnNo,
   warehouseExecute,
   marketingSaleComplete,
+  rollbackReturnOrder,
 } from './return-order.mutation';
 
 // 工具函数
@@ -42,4 +43,5 @@ export type {
   FillErpReturnNoParams,
   WarehouseExecuteParams,
   MarketingSaleCompleteParams,
+  RollbackReturnOrderParams,
 } from './return-order.types';

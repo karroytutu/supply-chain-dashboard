@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Table, Tag, Button, Space, Tooltip } from 'antd';
-import { EditOutlined, ShoppingOutlined } from '@ant-design/icons';
+import { EditOutlined, ShoppingOutlined, RollbackOutlined } from '@ant-design/icons';
 import type { ReturnOrder, ReturnOrderStatus } from '@/types/procurement-return';
 import type { TablePaginationConfig } from 'antd';
 import dayjs from 'dayjs';
@@ -49,6 +49,7 @@ interface ReturnOrderTableProps {
   onPageChange: (page: number, pageSize: number) => void;
   onErpFill?: (record: ReturnOrder) => void;
   onWarehouseExecute?: (record: ReturnOrder) => void;
+  onRollback?: (record: ReturnOrder) => void;
 }
 
 const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
@@ -60,6 +61,7 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
   onPageChange,
   onErpFill,
   onWarehouseExecute,
+  onRollback,
 }) => {
   const columns = [
     {
@@ -132,19 +134,30 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
     {
       title: '操作',
       key: 'action',
-      width: 160,
+      width: 200,
       fixed: 'right' as const,
       render: (_: any, record: ReturnOrder) => (
         <Space size="small">
           {record.status === 'pending_erp_fill' && (
-            <Tooltip title="填写ERP">
-              <Button
-                type="link"
-                size="small"
-                icon={<EditOutlined />}
-                onClick={() => onErpFill?.(record)}
-              />
-            </Tooltip>
+            <>
+              <Tooltip title="填写ERP">
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => onErpFill?.(record)}
+                />
+              </Tooltip>
+              <Tooltip title="回退">
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  icon={<RollbackOutlined />}
+                  onClick={() => onRollback?.(record)}
+                />
+              </Tooltip>
+            </>
           )}
           {record.status === 'pending_warehouse_execute' && (
             <Tooltip title="执行退货">
@@ -153,6 +166,17 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
                 size="small"
                 icon={<ShoppingOutlined />}
                 onClick={() => onWarehouseExecute?.(record)}
+              />
+            </Tooltip>
+          )}
+          {record.status === 'pending_marketing_sale' && (
+            <Tooltip title="回退">
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<RollbackOutlined />}
+                onClick={() => onRollback?.(record)}
               />
             </Tooltip>
           )}

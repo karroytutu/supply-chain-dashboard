@@ -3,7 +3,7 @@
  */
 import React, { useCallback, useState } from 'react';
 import { Card, Input, Select, DatePicker, Button, Space, Breadcrumb, Modal, message } from 'antd';
-import { SearchOutlined, ReloadOutlined, HomeOutlined } from '@ant-design/icons';
+import { SearchOutlined, ReloadOutlined, HomeOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { ReturnOrder, ReturnOrderStatus } from '@/types/procurement-return';
 import { useReturnOrders } from './hooks/useReturnOrders';
@@ -12,6 +12,7 @@ import ReturnOrderTable from './components/ReturnOrderTable';
 import BatchActionBar from './components/BatchActionBar';
 import ErpFillModal from './components/ErpFillModal';
 import WarehouseExecuteModal from './components/WarehouseExecuteModal';
+import { rollbackReturnOrder } from '@/services/api/procurement-return';
 import styles from './index.less';
 
 const { RangePicker } = DatePicker;
@@ -111,6 +112,31 @@ export default function ReturnOrderList() {
     fetchStats();
   }, [fetchReturnOrders, fetchStats]);
 
+  // 回退退货单
+  const onRollback = useCallback((record: ReturnOrder) => {
+    Modal.confirm({
+      title: '确认回退',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>确定要将退货单 <strong>{record.sourceBillNo}</strong> 回退到待确认状态吗？</p>
+          <p>回退后可以重新选择"可退货"或"不可退货"。</p>
+        </div>
+      ),
+      okText: '确认回退',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await rollbackReturnOrder(record.id);
+          message.success('回退成功');
+          onRefresh();
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : '回退失败');
+        }
+      },
+    });
+  }, [onRefresh]);
+
   return (
     <div className={styles.container}>
       {/* 面包屑 */}
@@ -191,6 +217,7 @@ export default function ReturnOrderList() {
           onPageChange={handlePageChange}
           onErpFill={onErpFill}
           onWarehouseExecute={onWarehouseExecute}
+          onRollback={onRollback}
         />
       </Card>
 

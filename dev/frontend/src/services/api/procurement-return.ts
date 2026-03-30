@@ -91,6 +91,16 @@ export const warehouseExecute = (
   return request.post<ReturnOrder>(`/return-orders/${id}/warehouse`, data);
 };
 
+/**
+ * 回退退货单
+ */
+export const rollbackReturnOrder = (
+  id: number,
+  data?: { comment?: string }
+): Promise<ReturnOrder> => {
+  return request.post<ReturnOrder>(`/return-orders/${id}/rollback`, data);
+};
+
 export default {
   getReturnOrders,
   getReturnOrderById,
@@ -101,4 +111,5 @@ export default {
   cancelReturnOrder,
   fillErpReturnNo,
   warehouseExecute,
+  rollbackReturnOrder,
 };

@@ -14,6 +14,7 @@ import {
   fillErpReturnNo,
   warehouseExecute,
   marketingSaleComplete,
+  rollbackReturnOrder,
 } from '../services/return-order';
 import { syncReturnOrders } from '../services/scheduler/sync-return-orders.task';
 import type { ReturnOrderStatus } from '../services/return-order';
@@ -307,6 +308,41 @@ export const marketingSaleCompleteController = async (req: Request, res: Respons
     console.error('营销销售完成处理失败:', error);
     res.status(500).json({
       error: '营销销售完成处理失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 回退退货单
+ * POST /api/return-orders/:id/rollback
+ */
+export const rollbackReturnOrderController = async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { comment } = req.body;
+    const operatorId = req.user?.userId;
+    const operatorName = req.user?.name;
+
+    if (!operatorId || !operatorName) {
+      res.status(401).json({
+        error: '未登录',
+        message: '无法获取操作人信息',
+      });
+      return;
+    }
+
+    const result = await rollbackReturnOrder({
+      id,
+      operatorId,
+      operatorName,
+      comment,
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('回退退货单失败:', error);
+    res.status(500).json({
+      error: '回退退货单失败',
       message: error instanceof Error ? error.message : '未知错误',
     });
   }

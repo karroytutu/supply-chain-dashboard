@@ -21,6 +21,7 @@ import type {
   FillErpReturnNoParams,
   WarehouseExecuteParams,
   MarketingSaleCompleteParams,
+  RollbackReturnOrderParams,
 } from './return-order.types';
 
 /**
@@ -500,4 +501,56 @@ export async function autoCompleteMarketingSale(): Promise<{
 
   console.log(`[AutoComplete] 检查完成，共检查 ${checkedCount} 条，自动完成 ${completedCount} 条`);
   return { checkedCount, completedCount };
+}
+
+/**
+ * 回退退货单
+ * 将状态从 pending_erp_fill 或 pending_marketing_sale 回退到 pending_confirm
+ */
+export async function rollbackReturnOrder(
+  params: RollbackReturnOrderParams
+): Promise<ReturnOrder> {
+  const { id, operatorId, operatorName, comment } = params;
+
+  // 验证退货单存在并获取当前状态
+  const currentResult = await appQuery<{ status: string }>(
+    'SELECT status FROM expiring_return_orders WHERE id = $1',
+    [id]
+  );
+
+  if (currentResult.rows.length === 0) {
+    throw new Error('退货单不存在');
+  }
+
+  const currentStatus = currentResult.rows[0].status;
+
+  // 只有 pending_erp_fill 和 pending_marketing_sale 状态可以回退
+  if (!['pending_erp_fill', 'pending_marketing_sale'].includes(currentStatus)) {
+    throw new Error(`当前状态为 ${currentStatus}，无法回退`);
+  }
+
+  // 更新状态回退到 pending_confirm，并清除相关字段
+  const result = await appQuery<ReturnOrderRow>(
+    `UPDATE expiring_return_orders 
+     SET status = 'pending_confirm',
+         erp_return_no = NULL,
+         erp_filled_by = NULL,
+         erp_filled_at = NULL,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [id]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('更新退货单失败');
+  }
+
+  // 记录操作日志
+  await recordAction(id, 'rollback', operatorId, operatorName, comment, {
+    previousStatus: currentStatus,
+    newStatus: 'pending_confirm',
+  });
+
+  return mapRowToReturnOrder(result.rows[0]);
 }

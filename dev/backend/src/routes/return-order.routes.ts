@@ -17,6 +17,7 @@ import {
   warehouseExecuteController,
   marketingSaleCompleteController,
   triggerSyncController,
+  rollbackReturnOrderController,
 } from '../controllers/return-order.controller';
 
 const router = Router();
@@ -99,6 +100,13 @@ router.post(
   '/:id/marketing',
   requirePermission('return:write'),
   marketingSaleCompleteController
+);
+
+// 回退退货单
+router.post(
+  '/:id/rollback',
+  requirePermission('return:write'),
+  rollbackReturnOrderController
 );
 
 export default router;

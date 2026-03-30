@@ -77,7 +77,8 @@ export type ReturnActionType =
   | 'erp_fill'
   | 'warehouse_execute'
   | 'marketing_complete'
-  | 'cancel';
+  | 'cancel'
+  | 'rollback';
 
 /** 操作记录实体 */
 export interface ReturnAction {
@@ -156,6 +157,14 @@ export interface MarketingSaleCompleteParams {
   comment?: string;
   operatorId: number;
   operatorName: string;
+}
+
+/** 回退退货单参数 */
+export interface RollbackReturnOrderParams {
+  id: number;
+  operatorId: number;
+  operatorName: string;
+  comment?: string;
 }
 
 export type ReturnOrderListResult = PaginatedResult<ReturnOrder>;
