@@ -17,13 +17,21 @@ interface CategoryTreeProps {
 
 /**
  * 转换品类树数据为 antd Tree 格式
+ * 在节点标题后显示战略商品数量
  */
 const convertToTreeData = (nodes: CategoryNode[]): any[] => {
-  return nodes.map(node => ({
-    key: node.key,
-    title: node.name,
-    children: node.children ? convertToTreeData(node.children) : undefined,
-  }));
+  return nodes.map(node => {
+    // 显示数量（大于0时）
+    const title = node.count && node.count > 0
+      ? `${node.name} (${node.count})`
+      : node.name;
+
+    return {
+      key: node.key,
+      title,
+      children: node.children ? convertToTreeData(node.children) : undefined,
+    };
+  });
 };
 
 const CategoryTree: React.FC<CategoryTreeProps> = ({
