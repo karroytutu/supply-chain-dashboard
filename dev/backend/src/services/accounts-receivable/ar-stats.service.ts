@@ -177,6 +177,74 @@ export async function getLastMonthEndStats(): Promise<ArDailyStats | null> {
 }
 
 /**
+ * 获取逾期前预警数据
+ * @returns 逾期前5天和2天的预警数据
+ */
+export async function getPreWarningData(): Promise<{
+  preWarn5: any[];
+  preWarn2: any[];
+  preWarn5Count: number;
+  preWarn2Count: number;
+}> {
+  // 逾期前5天预警
+  const preWarn5Sql = `
+    SELECT
+      id,
+      erp_bill_id,
+      order_no,
+      consumer_name,
+      consumer_code,
+      salesman_name,
+      dept_name,
+      max_debt_days,
+      left_amount,
+      bill_order_time,
+      due_date,
+      ar_status,
+      notification_status,
+      CURRENT_DATE - bill_order_time::date as aging_days,
+      5 as days_before_due
+    FROM ar_receivables
+    WHERE due_date::date - CURRENT_DATE = 5
+      AND left_amount > 0
+    ORDER BY left_amount DESC
+  `;
+  const preWarn5Result = await appQuery(preWarn5Sql);
+
+  // 逾期前2天预警
+  const preWarn2Sql = `
+    SELECT
+      id,
+      erp_bill_id,
+      order_no,
+      consumer_name,
+      consumer_code,
+      salesman_name,
+      dept_name,
+      max_debt_days,
+      left_amount,
+      bill_order_time,
+      due_date,
+      ar_status,
+      notification_status,
+      CURRENT_DATE - bill_order_time::date as aging_days,
+      2 as days_before_due
+    FROM ar_receivables
+    WHERE due_date::date - CURRENT_DATE = 2
+      AND left_amount > 0
+    ORDER BY left_amount DESC
+  `;
+  const preWarn2Result = await appQuery(preWarn2Sql);
+
+  return {
+    preWarn5: preWarn5Result.rows,
+    preWarn2: preWarn2Result.rows,
+    preWarn5Count: preWarn5Result.rows.length,
+    preWarn2Count: preWarn2Result.rows.length,
+  };
+}
+
+/**
  * 获取统计数据（含环比）
  * 主入口函数：计算本期数据并与上月底对比
  */

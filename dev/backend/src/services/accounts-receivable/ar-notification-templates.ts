@@ -26,7 +26,7 @@ export interface DailySummaryStats {
 }
 
 /** 系统基础URL */
-const SYSTEM_BASE_URL = process.env.SYSTEM_BASE_URL || 'http://localhost:3100';
+const SYSTEM_BASE_URL = process.env.SYSTEM_BASE_URL || 'https://xly.gzzxd.com';
 
 /**
  * 格式化金额显示
@@ -106,10 +106,10 @@ export function buildPreWarn5Message(
   const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
 
   let content = `## 📅 即将到期预警（前5天）\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**结算方式**: ${settleMethod}\n`;
-  content += `**涉及单据**: ${bills.length}张\n`;
-  content += `**应收总额**: ${formatAmount(totalAmount)}\n\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **结算方式**: ${settleMethod}\n`;
+  content += `- **涉及单据**: ${bills.length}张\n`;
+  content += `- **应收总额**: ${formatAmount(totalAmount)}\n\n`;
   content += `### 单据明细\n\n`;
   content += buildBillList(bills);
   content += `\n> 请及时跟进客户付款进度，避免逾期。\n\n`;
@@ -130,9 +130,9 @@ export function buildPreWarn2Message(
   const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
 
   let content = `## ⚠️ 紧急预警（前2天）\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**涉及单据**: ${bills.length}张\n`;
-  content += `**应收总额**: ${formatAmount(totalAmount)}\n\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **涉及单据**: ${bills.length}张\n`;
+  content += `- **应收总额**: ${formatAmount(totalAmount)}\n\n`;
   content += `### 单据明细\n\n`;
   content += buildBillList(bills);
   content += `\n> ⚠️ 即将逾期，请务必立即跟进！\n\n`;
@@ -154,10 +154,10 @@ export function buildOverdueCollectMessage(
   const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
 
   let content = `## 🔴 逾期催收通知\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**涉及单据**: ${bills.length}张\n`;
-  content += `**应收总额**: ${formatAmount(totalAmount)}\n`;
-  content += `**催收截止**: ${deadlineDate}\n\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **涉及单据**: ${bills.length}张\n`;
+  content += `- **应收总额**: ${formatAmount(totalAmount)}\n`;
+  content += `- **催收截止**: ${deadlineDate}\n\n`;
   content += `### 单据明细\n\n`;
   content += buildBillList(bills, true);
   content += `\n> 请在规定期限内完成催收，超时将触发考核。\n\n`;
@@ -183,9 +183,9 @@ export function buildTimeoutPenaltyMessage(
   }));
 
   let content = `## 💰 催收超时考核\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**超时天数**: ${timeoutDays}天\n`;
-  content += `**考核总额**: ${formatAmount(totalPenalty)}\n\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **超时天数**: ${timeoutDays}天\n`;
+  content += `- **考核总额**: ${formatAmount(totalPenalty)}\n\n`;
   content += `### 考核明细\n\n`;
   content += buildBillList(billsWithPenalty, true, true);
   content += `\n> 由于催收超时，已触发考核机制。\n\n`;
@@ -209,11 +209,11 @@ export function buildEscalateMessage(
   const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
 
   let content = `## ⬆️ 催收升级通知\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**逾期天数**: ${overdueDays}天\n`;
-  content += `**应收总额**: ${formatAmount(totalAmount)}\n`;
-  content += `**升级原因**: ${reason}\n`;
-  content += `**原催收人**: ${previousCollector}\n\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **逾期天数**: ${overdueDays}天\n`;
+  content += `- **应收总额**: ${formatAmount(totalAmount)}\n`;
+  content += `- **升级原因**: ${reason}\n`;
+  content += `- **原催收人**: ${previousCollector}\n\n`;
   content += `### 单据明细\n\n`;
   content += buildBillList(bills, true);
   content += `\n> 该客户的催收任务已升级至您，请及时处理。\n\n`;
@@ -238,11 +238,11 @@ export function buildAutoEscalateMessage(
   const delayTypeText = delayType === 'customer_delay' ? '客户延期' : '营销担保延期';
 
   let content = `## 🔄 延期到期自动升级\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**延期类型**: ${delayTypeText}\n`;
-  content += `**承诺付款日**: ${latestPayDate}\n`;
-  content += `**应收总额**: ${formatAmount(totalAmount)}\n`;
-  content += `**原催收人**: ${previousCollector}\n\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **延期类型**: ${delayTypeText}\n`;
+  content += `- **承诺付款日**: ${latestPayDate}\n`;
+  content += `- **应收总额**: ${formatAmount(totalAmount)}\n`;
+  content += `- **原催收人**: ${previousCollector}\n\n`;
   content += `### 单据明细\n\n`;
   content += buildBillList(bills, true);
   content += `\n> 该客户延期已到期但未付款，已自动升级至您处理。\n\n`;
@@ -268,10 +268,10 @@ export function buildPendingReviewMessage(
                          reviewType === 'paid_off' ? '回款确认' : '催收升级';
 
   let content = `## 📋 待审核通知\n\n`;
-  content += `**审核类型**: ${reviewTypeText}\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**催收人**: ${collectorName}\n`;
-  content += `**涉及金额**: ${formatAmount(totalAmount)}\n\n`;
+  content += `- **审核类型**: ${reviewTypeText}\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **催收人**: ${collectorName}\n`;
+  content += `- **涉及金额**: ${formatAmount(totalAmount)}\n\n`;
   content += `### 单据明细\n\n`;
   content += buildBillList(bills);
   content += `\n> 请及时审核该催收结果。\n\n`;
@@ -301,14 +301,14 @@ export function buildReviewResultMessage(
   const statusText = approved ? '已通过' : '已驳回';
 
   let content = `## ${statusIcon} 审核结果通知\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**审核类型**: ${reviewTypeText}\n`;
-  content += `**审核结果**: ${statusText}\n`;
-  content += `**审核人**: ${reviewerName}\n`;
-  content += `**涉及金额**: ${formatAmount(totalAmount)}\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **审核类型**: ${reviewTypeText}\n`;
+  content += `- **审核结果**: ${statusText}\n`;
+  content += `- **审核人**: ${reviewerName}\n`;
+  content += `- **涉及金额**: ${formatAmount(totalAmount)}\n`;
 
   if (!approved && rejectComment) {
-    content += `**驳回原因**: ${rejectComment}\n`;
+    content += `- **驳回原因**: ${rejectComment}\n`;
   }
 
   content += `\n### 单据明细\n\n`;
@@ -338,9 +338,9 @@ export function buildPaymentConfirmedMessage(
   const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
 
   let content = `## ✅ 回款确认成功\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**确认人**: ${cashierName}（出纳）\n`;
-  content += `**回款金额**: ${formatAmount(totalAmount)}\n\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **确认人**: ${cashierName}（出纳）\n`;
+  content += `- **回款金额**: ${formatAmount(totalAmount)}\n\n`;
   content += `### 单据明细\n\n`;
   content += buildBillList(bills);
   content += `\n> 该客户的回款已确认到账。\n\n`;
@@ -363,10 +363,10 @@ export function buildGuaranteeNotifyMessage(
   const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
 
   let content = `## 📝 营销担保延期生效\n\n`;
-  content += `**客户名称**: ${consumerName}\n`;
-  content += `**担保人**: ${collectorName}\n`;
-  content += `**承诺付款日**: ${latestPayDate}\n`;
-  content += `**担保金额**: ${formatAmount(totalAmount)}\n\n`;
+  content += `- **客户名称**: ${consumerName}\n`;
+  content += `- **担保人**: ${collectorName}\n`;
+  content += `- **承诺付款日**: ${latestPayDate}\n`;
+  content += `- **担保金额**: ${formatAmount(totalAmount)}\n\n`;
   content += `### 单据明细\n\n`;
   content += buildBillList(bills);
   content += `\n> 若到期未付款，将自动升级处理，并由担保人承担相应责任。\n\n`;

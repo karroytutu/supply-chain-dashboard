@@ -287,11 +287,11 @@ async function sendPreWarn5Notifications(): Promise<void> {
     consumer_name: string;
     manager_users: string;
     settle_method: number;
-    erp_bill_id: string;
+    order_no: string;
     left_amount: number;
     due_date: Date;
   }>(
-    `SELECT id, consumer_name, manager_users, settle_method, erp_bill_id, left_amount, due_date
+    `SELECT id, consumer_name, manager_users, settle_method, order_no, left_amount, due_date
      FROM ar_receivables
      WHERE due_date::date - CURRENT_DATE = 5
        AND ar_status IN ('synced', 'pre_warning_5')
@@ -320,7 +320,7 @@ async function sendPreWarn5Notifications(): Promise<void> {
     }
 
     const billDetails: BillDetail[] = bills.map(b => ({
-      billNo: b.erp_bill_id,
+      billNo: b.order_no || '-',
       amount: b.left_amount,
       dueDate: new Date(b.due_date).toISOString().split('T')[0],
     }));
@@ -357,11 +357,11 @@ async function sendPreWarn2Notifications(): Promise<void> {
     id: number;
     consumer_name: string;
     manager_users: string;
-    erp_bill_id: string;
+    order_no: string;
     left_amount: number;
     due_date: Date;
   }>(
-    `SELECT id, consumer_name, manager_users, erp_bill_id, left_amount, due_date
+    `SELECT id, consumer_name, manager_users, order_no, left_amount, due_date
      FROM ar_receivables
      WHERE due_date::date - CURRENT_DATE = 2
        AND ar_status IN ('synced', 'pre_warning_5', 'pre_warning_2')
@@ -387,7 +387,7 @@ async function sendPreWarn2Notifications(): Promise<void> {
     }
 
     const billDetails: BillDetail[] = bills.map(b => ({
-      billNo: b.erp_bill_id,
+      billNo: b.order_no || '-',
       amount: b.left_amount,
       dueDate: new Date(b.due_date).toISOString().split('T')[0],
     }));

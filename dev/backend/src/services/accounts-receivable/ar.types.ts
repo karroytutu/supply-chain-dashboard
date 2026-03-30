@@ -149,6 +149,7 @@ export interface ArSyncResult {
   synced: number;
   updated: number;
   errors: number;
+  removed?: number; // 清理的孤儿数据数量
 }
 
 /** 查询参数 */

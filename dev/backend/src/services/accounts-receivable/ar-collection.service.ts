@@ -89,6 +89,16 @@ export async function getCollectionTasks(params: {
       r.consumer_name,
       r.left_amount as owed_amount,
       r.due_date,
+      r.order_no,
+      r.bill_order_time,
+      r.settle_method,
+      r.max_debt_days,
+      COALESCE(CURRENT_DATE - r.due_date::date, 0) as overdue_days,
+      CASE
+        WHEN r.work_time IS NOT NULL THEN CURRENT_DATE - r.work_time::date
+        WHEN r.bill_order_time IS NOT NULL THEN CURRENT_DATE - r.bill_order_time::date
+        ELSE 0
+      END as aging_days,
       u.name as collector_name,
       u.name as collector_real_name
     FROM ar_collection_tasks t

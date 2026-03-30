@@ -31,6 +31,10 @@ import {
 } from '../services/accounts-receivable/ar-signature.service';
 
 import {
+  getPreWarningData,
+} from '../services/accounts-receivable/ar-stats.service';
+
+import {
   sendPendingReviewNotification,
   sendReviewResultNotification,
   sendPaymentConfirmedNotification,
@@ -309,7 +313,7 @@ export const getArDetail = async (req: Request, res: Response) => {
 
     // 查询操作日志
     const logsSql = `
-      SELECT 
+      SELECT
         l.*,
         u.name as action_by_name,
         u.name as action_by_real_name
@@ -319,14 +323,58 @@ export const getArDetail = async (req: Request, res: Response) => {
       ORDER BY l.created_at DESC
     `;
     const logsResult = await appQuery(logsSql, [arId]);
-
-    res.json({
-      ...arResult.rows[0],
-      tasks: tasksResult.rows,
-      logs: logsResult.rows.map((row) => ({
-        ...row,
-        action_data: row.action_data ? JSON.parse(row.action_data) : null,
+    
+    // 查询通知推送记录
+    const notifySql = `
+      SELECT
+        n.id,
+        n.ar_ids,
+        n.notification_type,
+        n.recipient_id,
+        n.recipient_name,
+        n.consumer_name,
+        n.bill_count,
+        n.status,
+        n.sent_at,
+        n.created_at
+      FROM ar_notification_records n
+      WHERE $1 = ANY(n.ar_ids)
+      ORDER BY n.created_at DESC
+    `;
+    const notifyResult = await appQuery(notifySql, [arId]);
+    
+    // 合并操作日志和通知记录
+    const actionLogs = [
+      // 操作日志
+      ...logsResult.rows.map((row) => ({
+        id: row.id,
+        source: 'action',
+        action_type: row.action_type,
+        operator_id: row.action_by,
+        operator_name: row.action_by_name,
+        created_at: row.created_at,
+        details: row.action_data ? JSON.parse(row.action_data) : null,
       })),
+      // 通知推送记录
+      ...notifyResult.rows.map((row) => ({
+        id: `notify-${row.id}`,
+        source: 'notification',
+        action_type: row.notification_type,
+        operator_id: row.recipient_id,
+        operator_name: row.recipient_name,
+        created_at: row.sent_at || row.created_at,
+        details: {
+          status: row.status,
+          consumer_name: row.consumer_name,
+          bill_count: row.bill_count,
+        },
+      })),
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    res.json({
+      receivable: arResult.rows[0],
+      tasks: tasksResult.rows,
+      actionLogs,
     });
   } catch (error) {
     console.error('获取应收账款详情失败:', error);
@@ -359,6 +407,59 @@ export const getMyTasks = async (req: Request, res: Response) => {
     console.error('获取催收任务失败:', error);
     res.status(500).json({
       error: '获取催收任务失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 获取所有催收任务（管理员视角）
+ * GET /api/ar/all-tasks
+ * 权限: finance:ar:manage
+ */
+export const getAllTasks = async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const status = req.query.status as string;
+    const keyword = req.query.keyword as string;
+
+    // 不传 userId，查询全部任务
+    const result = await getCollectionTasks({ status, page, pageSize });
+
+    // 如果有关键词搜索，进行过滤
+    if (keyword && result.list.length > 0) {
+      result.list = result.list.filter(
+        (task: any) =>
+          task.consumer_name?.includes(keyword) ||
+          task.collector_name?.includes(keyword)
+      );
+      result.total = result.list.length;
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('获取所有催收任务失败:', error);
+    res.status(500).json({
+      error: '获取所有催收任务失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 获取逾期前预警数据（管理员视角）
+ * GET /api/ar/pre-warning
+ * 权限: finance:ar:manage
+ */
+export const getPreWarning = async (req: Request, res: Response) => {
+  try {
+    const result = await getPreWarningData();
+    res.json(result);
+  } catch (error) {
+    console.error('获取逾期前预警数据失败:', error);
+    res.status(500).json({
+      error: '获取逾期前预警数据失败',
       message: error instanceof Error ? error.message : '未知错误',
     });
   }

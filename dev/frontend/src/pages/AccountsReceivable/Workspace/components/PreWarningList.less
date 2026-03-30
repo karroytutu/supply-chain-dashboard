@@ -1,0 +1,84 @@
+/**
+ * 逾期前预警数据样式
+ */
+.preWarningList {
+  padding: 0;
+}
+
+.section {
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.sectionHeader {
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #262626;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preWarn2Icon {
+  color: #fa8c16;
+  font-size: 16px;
+}
+
+.preWarn5Icon {
+  color: #faad14;
+  font-size: 16px;
+}
+
+.badge {
+  margin-left: 8px;
+
+  :global(.ant-badge-count) {
+    background-color: #faad14;
+  }
+}
+
+.badgeInfo {
+  margin-left: 8px;
+
+  :global(.ant-badge-count) {
+    background-color: #1890ff;
+  }
+}
+
+.amount {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+.collectorTag {
+  display: inline-block;
+  background: #e6f7ff;
+  color: #1890ff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.empty {
+  padding: 32px 0;
+}
+
+// 移动端适配
+@media (max-width: 768px) {
+  .section {
+    padding: 16px;
+  }
+
+  .sectionTitle {
+    font-size: 14px;
+  }
+}

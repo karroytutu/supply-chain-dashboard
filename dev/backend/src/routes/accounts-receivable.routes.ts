@@ -15,6 +15,8 @@ import {
   getArAgingAnalysis,
   getArDetail,
   getMyTasks,
+  getAllTasks,
+  getPreWarning,
   getReviews,
   getHistory,
   // 考核
@@ -94,6 +96,28 @@ router.get(
   '/my-tasks',
   requirePermission('finance:ar:collect'),
   getMyTasks
+);
+
+/**
+ * 获取所有催收任务（管理员视角）
+ * GET /api/ar/all-tasks
+ * 权限: finance:ar:manage
+ */
+router.get(
+  '/all-tasks',
+  requirePermission('finance:ar:manage'),
+  getAllTasks
+);
+
+/**
+ * 获取逾期前预警数据（管理员视角）
+ * GET /api/ar/pre-warning
+ * 权限: finance:ar:manage
+ */
+router.get(
+  '/pre-warning',
+  requirePermission('finance:ar:manage'),
+  getPreWarning
 );
 
 /**

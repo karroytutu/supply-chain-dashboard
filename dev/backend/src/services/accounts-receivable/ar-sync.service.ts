@@ -10,7 +10,8 @@ import type { ArSyncResult } from './ar.types';
 /** ERP欠款明细记录（字段类型与ERP表一致） */
 interface ErpDebtRecord {
   billId: string;
-  bizStr: string | null; // 订单号
+  bizStr: string | null; // 结算单号
+  bizOrderStr: string | null; // 订单号
   consumerName: string;
   consumerCode: string | null;
   traderId: number | null; // 客户档案ID，用于关联客户档案表
@@ -41,6 +42,7 @@ async function fetchErpDebtRecords(): Promise<ErpDebtRecord[]> {
     SELECT
       "billId",
       "bizStr",
+      "bizOrderStr",
       "consumerName",
       "consumerCode",
       "traderId",
@@ -213,7 +215,7 @@ export async function syncArReceivables(): Promise<ArSyncResult> {
 
         const upsertResult = await appQuery<{ inserted: boolean }>(upsertSql, [
           record.billId,
-          record.bizStr,
+          record.bizOrderStr, // order_no 存储订单号
           record.consumerName,
           record.consumerCode,
           record.salesmanName,
@@ -248,10 +250,52 @@ export async function syncArReceivables(): Promise<ArSyncResult> {
     console.log(
       `[AR Sync] 同步完成: 新增 ${result.synced}, 更新 ${result.updated}, 错误 ${result.errors}`
     );
+
+    // 3. 清理已不存在于 ERP 的记录（孤儿数据）
+    await cleanupOrphanRecords(erpRecords.map(r => r.billId), result);
+
   } catch (error) {
     console.error('[AR Sync] 同步失败:', error);
     throw error;
   }
 
   return result;
+}
+
+/**
+ * 清理已不存在于 ERP 的记录
+ * 这些记录可能是已在 ERP 中结清或删除的数据
+ */
+async function cleanupOrphanRecords(
+  erpBillIds: string[],
+  result: ArSyncResult
+): Promise<void> {
+  try {
+    // 获取应用数据库中所有 erp_bill_id
+    const appRecordsResult = await appQuery<{ erp_bill_id: string }>(`
+      SELECT erp_bill_id FROM ar_receivables
+    `);
+
+    const erpIdSet = new Set(erpBillIds);
+    const orphanIds = appRecordsResult.rows
+      .filter(r => !erpIdSet.has(r.erp_bill_id))
+      .map(r => r.erp_bill_id);
+
+    if (orphanIds.length === 0) {
+      return;
+    }
+
+    console.log(`[AR Sync] 发现 ${orphanIds.length} 条孤儿数据，开始清理...`);
+
+    // 删除孤儿记录（级联删除会自动处理关联表）
+    const deleteResult = await appQuery(`
+      DELETE FROM ar_receivables WHERE erp_bill_id = ANY($1)
+    `, [orphanIds]);
+
+    result.removed = deleteResult.rowCount || 0;
+    console.log(`[AR Sync] 已清理 ${result.removed} 条孤儿数据`);
+  } catch (error) {
+    console.error('[AR Sync] 清理孤儿数据失败:', error);
+    // 不抛出错误，仅记录日志
+  }
 }

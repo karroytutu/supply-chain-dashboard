@@ -19,9 +19,12 @@ CREATE TABLE IF NOT EXISTS ar_receivables (
   paid_amount DECIMAL(15,2) DEFAULT 0,                -- 已付金额
   write_off_amount DECIMAL(15,2) DEFAULT 0,           -- 核销金额
   bill_order_time TIMESTAMP,                          -- 单据日期
+  order_no VARCHAR(100),                              -- 订单号
   expire_day INTEGER,                                 -- ERP过期天数（numeric）
+  overdue_days INTEGER DEFAULT 0,                     -- 逾期天数
   last_pay_day TIMESTAMP,                             -- 最后付款日
   due_date TIMESTAMP,                                 -- 计算的到期日（bill_order_time + max_debt_days）
+  work_time TIMESTAMP,                                -- 工作时间
   ar_status VARCHAR(30) DEFAULT 'synced',             -- 状态: synced/pre_warning_5/pre_warning_2/overdue/collecting/escalated/resolved/written_off
   current_collector_id INTEGER REFERENCES users(id),  -- 当前催收人
   collector_level VARCHAR(20),                        -- 催收层级: marketing/supervisor/finance
@@ -177,3 +180,10 @@ INSERT INTO permissions (code, name, resource_type, resource_key, action, sort_o
   ('finance:ar:penalty', '考核管理', 'api', '/api/finance/ar/penalty', 'write', 203),
   ('finance:ar:manage', '应收账款管理', 'api', '/api/ar/sync', 'write', 204)
 ON CONFLICT (code) DO NOTHING;
+
+-- 为admin角色分配新增的权限
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r, permissions p
+WHERE r.code = 'admin' AND p.code IN ('finance:ar:read', 'finance:ar:collect', 'finance:ar:review', 'finance:ar:penalty', 'finance:ar:manage')
+ON CONFLICT (role_id, permission_id) DO NOTHING;

@@ -73,7 +73,7 @@ async function assignARPermissions() {
     // 7. 为管理员角色分配应收账款权限
     console.log('\n7. 分配应收账款权限给管理员角色...');
     
-    const arPermissionCodes = ['finance:ar:read', 'finance:ar:collect', 'finance:ar:review', 'finance:ar:penalty'];
+    const arPermissionCodes = ['finance:ar:read', 'finance:ar:collect', 'finance:ar:review', 'finance:ar:penalty', 'finance:ar:manage'];
     
     for (const permCode of arPermissionCodes) {
       // 获取权限ID

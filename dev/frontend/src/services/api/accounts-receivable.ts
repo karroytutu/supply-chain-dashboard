@@ -69,6 +69,30 @@ export const getMyTasks = (params?: CollectionTaskParams): Promise<ArPaginatedRe
 };
 
 /**
+ * 获取所有催收任务（管理员视角）
+ */
+export const getAllTasks = (params?: CollectionTaskParams): Promise<ArPaginatedResult<ArCollectionTask>> => {
+  return request<ArPaginatedResult<ArCollectionTask>>('/ar/all-tasks', { params });
+};
+
+/**
+ * 获取逾期前预警数据（管理员视角）
+ */
+export const getPreWarningData = (): Promise<{
+  preWarn5: ArReceivable[];
+  preWarn2: ArReceivable[];
+  preWarn5Count: number;
+  preWarn2Count: number;
+}> => {
+  return request<{
+    preWarn5: ArReceivable[];
+    preWarn2: ArReceivable[];
+    preWarn5Count: number;
+    preWarn2Count: number;
+  }>('/ar/pre-warning');
+};
+
+/**
  * 获取待审核任务列表
  */
 export const getReviewTasks = (params?: ReviewTaskParams): Promise<ArPaginatedResult<ArCollectionTask>> => {
@@ -165,6 +189,8 @@ export default {
   getAgingAnalysis,
   getArDetail,
   getMyTasks,
+  getAllTasks,
+  getPreWarningData,
   getReviewTasks,
   getHistoryRecords,
   submitCollectionResult,

@@ -53,6 +53,7 @@ export interface ArReceivable {
   notification_status: NotificationStatus;
   last_notified_at: string | null;
   overdue_days?: number;        // 计算字段：逾期天数
+  aging_days?: number;          // 计算字段：账龄天数
   last_synced_at: string;
   created_at: string;
   updated_at: string;
@@ -89,6 +90,12 @@ export interface ArCollectionTask {
   remaining_hours?: number;     // 剩余时间（小时）
   timeout_days?: number;        // 超时天数
   penalty_amount?: number;      // 当前考核金额
+  order_no?: string | null;     // 订单号
+  bill_order_time?: string;     // 单据日期
+  settle_method?: number;       // 结算方式：1=现结, 2=挂账
+  max_debt_days?: number;       // 最大欠款天数
+  aging_days?: number;          // 账龄天数
+  owed_amount?: number;         // 欠款金额（别名）
 }
 
 /** 考核记录 */
@@ -111,7 +118,8 @@ export interface ArPenaltyRecord {
 
 /** 操作日志 */
 export interface ArActionLog {
-  id: number;
+  id?: string | number;
+  source?: 'action' | 'notification';  // 来源类型: action=操作日志, notification=通知记录
   ar_id: number;
   task_id: number | null;
   action_type: string;
@@ -180,6 +188,7 @@ export interface ArQueryParams {
 /** 催收任务查询参数 */
 export interface CollectionTaskParams {
   status?: string;
+  keyword?: string;
   page?: number;
   pageSize?: number;
 }
