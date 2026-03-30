@@ -13,7 +13,6 @@ interface BatchActionBarProps {
   onCheckChange: (checked: boolean) => void;
   onBatchConfirm: (canReturn: boolean) => void;
   loading: boolean;
-  showBatchActions?: boolean;
 }
 
 const BatchActionBar: React.FC<BatchActionBarProps> = ({
@@ -23,7 +22,6 @@ const BatchActionBar: React.FC<BatchActionBarProps> = ({
   onCheckChange,
   onBatchConfirm,
   loading,
-  showBatchActions = true,
 }) => {
   return (
     <div className={styles.batchActionBar}>
@@ -41,28 +39,26 @@ const BatchActionBar: React.FC<BatchActionBarProps> = ({
         )}
       </Space>
       
-      {showBatchActions && (
-        <Space size="small">
-          <Button
-            type="primary"
-            icon={<CheckOutlined />}
-            disabled={selectedCount === 0}
-            loading={loading}
-            onClick={() => onBatchConfirm(true)}
-          >
-            批量确认可退货
-          </Button>
-          <Button
-            danger
-            icon={<CloseOutlined />}
-            disabled={selectedCount === 0}
-            loading={loading}
-            onClick={() => onBatchConfirm(false)}
-          >
-            批量确认不可退货
-          </Button>
-        </Space>
-      )}
+      <Space size="small">
+        <Button
+          type="primary"
+          icon={<CheckOutlined />}
+          disabled={selectedCount === 0}
+          loading={loading}
+          onClick={() => onBatchConfirm(true)}
+        >
+          批量确认可退货
+        </Button>
+        <Button
+          danger
+          icon={<CloseOutlined />}
+          disabled={selectedCount === 0}
+          loading={loading}
+          onClick={() => onBatchConfirm(false)}
+        >
+          批量确认不可退货
+        </Button>
+      </Space>
     </div>
   );
 };
