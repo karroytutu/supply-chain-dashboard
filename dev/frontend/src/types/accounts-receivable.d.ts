@@ -31,6 +31,7 @@ export type NotificationStatus = 'none' | 'pre_warn_5_sent' | 'pre_warn_2_sent' 
 export interface ArReceivable {
   id: number;
   erp_bill_id: string;
+  order_no: string | null; // 订单号
   consumer_name: string;
   consumer_code: string;
   salesman_name: string;

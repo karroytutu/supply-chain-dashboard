@@ -10,6 +10,7 @@ import type { ArSyncResult } from './ar.types';
 /** ERP欠款明细记录（字段类型与ERP表一致） */
 interface ErpDebtRecord {
   billId: string;
+  bizStr: string | null; // 订单号
   consumerName: string;
   consumerCode: string | null;
   traderId: number | null; // 客户档案ID，用于关联客户档案表
@@ -21,7 +22,7 @@ interface ErpDebtRecord {
   deptName: string | null;
   managerUsers: string | null;
   billOrderTime: Date | null;
-  workTime: Date | null; // 欠款确认日期（送达确认后产生欠款的时间）
+  workTime: Date | null; // 欠单日期（欠款确认日期）
   collectState: string;
 }
 
@@ -39,6 +40,7 @@ async function fetchErpDebtRecords(): Promise<ErpDebtRecord[]> {
   const sql = `
     SELECT
       "billId",
+      "bizStr",
       "consumerName",
       "consumerCode",
       "traderId",
@@ -180,14 +182,16 @@ export async function syncArReceivables(): Promise<ArSyncResult> {
         const validLastPayDay = lastPayDay && !isNaN(lastPayDay.getTime()) ? lastPayDay : null;
 
         // 插入或更新记录
+        // bill_order_time 使用 workTime（欠单日期）
         const upsertSql = `
           INSERT INTO ar_receivables (
-            erp_bill_id, consumer_name, consumer_code, salesman_name, dept_name,
+            erp_bill_id, order_no, consumer_name, consumer_code, salesman_name, dept_name,
             manager_users, settle_method, max_debt_days, total_amount, left_amount,
             paid_amount, write_off_amount, bill_order_time, work_time, expire_day, last_pay_day,
             due_date, ar_status, last_synced_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'synced', NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'synced', NOW())
           ON CONFLICT (erp_bill_id) DO UPDATE SET
+            order_no = EXCLUDED.order_no,
             consumer_name = EXCLUDED.consumer_name,
             consumer_code = EXCLUDED.consumer_code,
             salesman_name = EXCLUDED.salesman_name,
@@ -209,6 +213,7 @@ export async function syncArReceivables(): Promise<ArSyncResult> {
 
         const upsertResult = await appQuery<{ inserted: boolean }>(upsertSql, [
           record.billId,
+          record.bizStr,
           record.consumerName,
           record.consumerCode,
           record.salesmanName,
@@ -220,7 +225,7 @@ export async function syncArReceivables(): Promise<ArSyncResult> {
           leftAmount,
           paidAmount,
           0, // write_off_amount 初始为0
-          record.billOrderTime,
+          workTime, // bill_order_time 使用 workTime（欠单日期）
           workTime,
           record.expireDay, // numeric天数，直接存入
           validLastPayDay,

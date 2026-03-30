@@ -148,9 +148,10 @@ export const getArList = async (req: Request, res: Response) => {
     const safeSortOrder = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
     const listSql = `
-      SELECT 
+      SELECT
         id,
         erp_bill_id,
+        order_no,
         consumer_name,
         consumer_code,
         salesman_name,

@@ -26,6 +26,12 @@ import styles from '../index.less';
 
 const { Option } = Select;
 
+// 结算方式映射
+const settleMethodMap: Record<number, string> = {
+  1: '现结',
+  2: '挂账',
+};
+
 // 状态标签颜色映射
 const statusColorMap: Record<string, string> = {
   synced: 'green',
@@ -182,6 +188,35 @@ const CustomerDebtTable: React.FC = () => {
       ellipsis: true,
     },
     {
+      title: '订单号',
+      dataIndex: 'order_no',
+      key: 'order_no',
+      width: 140,
+      ellipsis: true,
+      render: (value: string) => value || '-',
+    },
+    {
+      title: '欠单日期',
+      dataIndex: 'bill_order_time',
+      key: 'bill_order_time',
+      width: 110,
+      render: (value: string) => (value ? dayjs(value).format('YYYY-MM-DD') : '-'),
+    },
+    {
+      title: '结算方式',
+      dataIndex: 'settle_method',
+      key: 'settle_method',
+      width: 90,
+      render: (value: number) => settleMethodMap[value] || '-',
+    },
+    {
+      title: '最大欠款天数',
+      dataIndex: 'max_debt_days',
+      key: 'max_debt_days',
+      width: 110,
+      render: (value: number) => (value ? `${value}天` : '-'),
+    },
+    {
       title: '欠款金额',
       dataIndex: 'left_amount',
       key: 'left_amount',
@@ -252,6 +287,26 @@ const CustomerDebtTable: React.FC = () => {
             <div className={styles.mobileCardHeader}>
               <strong>{record.consumer_name}</strong>
               <Tag color={statusColorMap[record.ar_status]}>{statusLabelMap[record.ar_status]}</Tag>
+            </div>
+            <div className={styles.mobileCardRow}>
+              <span className={styles.mobileCardLabel}>订单号</span>
+              <span className={styles.mobileCardValue}>{record.order_no || '-'}</span>
+            </div>
+            <div className={styles.mobileCardRow}>
+              <span className={styles.mobileCardLabel}>欠单日期</span>
+              <span className={styles.mobileCardValue}>
+                {record.bill_order_time ? dayjs(record.bill_order_time).format('YYYY-MM-DD') : '-'}
+              </span>
+            </div>
+            <div className={styles.mobileCardRow}>
+              <span className={styles.mobileCardLabel}>结算方式</span>
+              <span className={styles.mobileCardValue}>{settleMethodMap[record.settle_method] || '-'}</span>
+            </div>
+            <div className={styles.mobileCardRow}>
+              <span className={styles.mobileCardLabel}>最大欠款天数</span>
+              <span className={styles.mobileCardValue}>
+                {record.max_debt_days ? `${record.max_debt_days}天` : '-'}
+              </span>
             </div>
             <div className={styles.mobileCardRow}>
               <span className={styles.mobileCardLabel}>欠款金额</span>
@@ -438,7 +493,7 @@ const CustomerDebtTable: React.FC = () => {
           rowKey="id"
           loading={loading}
           pagination={false}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1450 }}
         />
       )}
 
