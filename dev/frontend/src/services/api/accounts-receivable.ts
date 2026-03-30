@@ -83,12 +83,16 @@ export const getPreWarningData = (): Promise<{
   preWarn2: ArReceivable[];
   preWarn5Count: number;
   preWarn2Count: number;
+  preWarn5Total: number;
+  preWarn2Total: number;
 }> => {
   return request<{
     preWarn5: ArReceivable[];
     preWarn2: ArReceivable[];
     preWarn5Count: number;
     preWarn2Count: number;
+    preWarn5Total: number;
+    preWarn2Total: number;
   }>('/ar/pre-warning');
 };
 

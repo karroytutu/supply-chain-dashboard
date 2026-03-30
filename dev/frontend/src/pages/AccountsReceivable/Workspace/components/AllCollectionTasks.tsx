@@ -1,13 +1,15 @@
 /**
  * 所有催收任务列表组件（管理员视角）
- * 表格布局，支持筛选和分页
+ * 桌面端：表格布局
+ * 移动端：卡片视图 + 无限滚动
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { Table, Button, Input, Select, Space, Tag, Empty, Spin } from 'antd';
-import { SearchOutlined, ExportOutlined } from '@ant-design/icons';
+import { SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { ArCollectionTask } from '@/types/accounts-receivable';
 import { getAllTasks } from '@/services/api/accounts-receivable';
+import { WorkspaceContext } from '../index';
 import styles from './AllCollectionTasks.less';
 
 interface AllCollectionTasksProps {
@@ -17,38 +19,85 @@ interface AllCollectionTasksProps {
 const AllCollectionTasks: React.FC<AllCollectionTasksProps> = ({
   onViewDetail,
 }) => {
+  const { isMobile } = useContext(WorkspaceContext);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<ArCollectionTask[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize] = useState(20);
+
+  // 无限滚动相关状态
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // 筛选条件
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [keyword, setKeyword] = useState('');
 
   // 加载数据
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (pageNum: number = page, append: boolean = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const result = await getAllTasks({
-        page,
+        page: pageNum,
         pageSize,
         status: statusFilter,
         keyword,
       });
-      setDataSource(result.list || []);
+      const newList = result.list || [];
+
+      if (append) {
+        setDataSource(prev => [...prev, ...newList]);
+      } else {
+        setDataSource(newList);
+      }
+
       setTotal(result.total || 0);
+      setHasMore(newList.length === pageSize && (pageNum * pageSize) < (result.total || 0));
     } catch (error) {
       console.error('加载所有催收任务失败:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [page, pageSize, statusFilter, keyword]);
 
+  // 加载更多
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadData(nextPage, true);
+  }, [hasMore, loadingMore, page, loadData]);
+
+  // 无限滚动检测
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!isMobile || !loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [isMobile, hasMore, loadingMore, handleLoadMore]);
+
+  useEffect(() => {
+    setPage(1);
+    setDataSource([]);
+    loadData(1, false);
+  }, [statusFilter, keyword]);
 
   // 格式化金额
   const formatAmount = (amount?: number): string => {
@@ -157,7 +206,7 @@ const AllCollectionTasks: React.FC<AllCollectionTasksProps> = ({
       title: '剩余时间',
       key: 'remaining_time',
       width: 150,
-      render: (_: any, record) => {
+      render: (_: unknown, record) => {
         const timeout = isTimeout(record);
         return (
           <span className={timeout ? styles.warningText : ''}>
@@ -170,7 +219,7 @@ const AllCollectionTasks: React.FC<AllCollectionTasksProps> = ({
       title: '催收人',
       key: 'collector',
       width: 150,
-      render: (_: any, record) => (
+      render: (_: unknown, record) => (
         <span>
           <Tag color="blue">{record.collector_name || '-'}</Tag>
           <span className={styles.roleTag}>
@@ -184,7 +233,7 @@ const AllCollectionTasks: React.FC<AllCollectionTasksProps> = ({
       key: 'action',
       width: 80,
       align: 'center',
-      render: (_: any, record) => (
+      render: (_: unknown, record) => (
         <Button
           type="link"
           onClick={() => onViewDetail(record.ar_id)}
@@ -195,6 +244,101 @@ const AllCollectionTasks: React.FC<AllCollectionTasksProps> = ({
     },
   ];
 
+  // 渲染移动端卡片
+  const renderMobileCard = (task: ArCollectionTask) => {
+    const timeout = isTimeout(task);
+    const statusConfig = statusMap[task.status] || { text: task.status, color: 'default' };
+
+    return (
+      <div
+        key={task.id}
+        className={`${styles.mobileCard} ${timeout ? styles.mobileCardTimeout : ''}`}
+        onClick={() => onViewDetail(task.ar_id)}
+      >
+        <div className={styles.mobileCardHeader}>
+          <div className={styles.mobileCardTitle}>
+            {timeout && <span className={styles.timeoutIcon}>⚠️</span>}
+            <span>{task.consumer_name}</span>
+          </div>
+          <Tag color={statusConfig.color}>{statusConfig.text}</Tag>
+        </div>
+
+        <div className={styles.mobileCardInfo}>
+          <div className={styles.mobileInfoItem}>
+            <span className={styles.mobileInfoLabel}>欠款金额</span>
+            <span className={styles.mobileInfoValueAmount}>{formatAmount(task.owed_amount)}</span>
+          </div>
+          <div className={styles.mobileInfoItem}>
+            <span className={styles.mobileInfoLabel}>逾期/剩余</span>
+            <span className={`${styles.mobileInfoValue} ${timeout ? styles.warningText : ''}`}>
+              {task.overdue_days || 0}天 / {getRemainingTime(task)}
+            </span>
+          </div>
+        </div>
+
+        <div className={styles.mobileCardFooter}>
+          <span className={styles.collectorInfo}>
+            催收人: {task.collector_name || '-'}
+            {task.collector_role && (
+              <span className={styles.roleTag}>· {roleMap[task.collector_role] || task.collector_role}</span>
+            )}
+          </span>
+          <span className={styles.viewDetail}>详情 →</span>
+        </div>
+      </div>
+    );
+  };
+
+  // 渲染移动端视图
+  if (isMobile) {
+    return (
+      <div className={styles.allTasksList}>
+        {/* 移动端工具栏 */}
+        <div className={styles.mobileToolbar}>
+          <Select
+            placeholder="全部状态"
+            allowClear
+            className={styles.mobileSelect}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          >
+            <Select.Option value="pending">待处理</Select.Option>
+            <Select.Option value="in_progress">处理中</Select.Option>
+            <Select.Option value="timeout">已超时</Select.Option>
+            <Select.Option value="completed">已完成</Select.Option>
+          </Select>
+          <Input
+            placeholder="搜索客户"
+            prefix={<SearchOutlined />}
+            className={styles.mobileSearch}
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            allowClear
+          />
+        </div>
+
+        <div className={styles.mobileContainer}>
+          <Spin spinning={loading && dataSource.length === 0}>
+            {dataSource.length > 0 ? (
+              <>
+                {dataSource.map(renderMobileCard)}
+                <div ref={loadMoreRef} className={styles.loadMoreTrigger}>
+                  {loadingMore && <Spin size="small" />}
+                  {!hasMore && dataSource.length > 0 && (
+                    <span className={styles.noMore}>已加载全部 {total} 条记录</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              !loading && <Empty description="暂无催收任务" className={styles.empty} />
+            )}
+          </Spin>
+        </div>
+      </div>
+    );
+  }
+
+  // 渲染桌面端表格视图
   return (
     <div className={styles.allTasksList}>
       {/* 工具栏 */}
@@ -222,37 +366,38 @@ const AllCollectionTasks: React.FC<AllCollectionTasksProps> = ({
             allowClear
           />
         </Space>
-        <Button icon={<ExportOutlined />}>导出数据</Button>
       </div>
 
       {/* 表格 */}
-      <Spin spinning={loading}>
-        {dataSource.length > 0 ? (
-          <Table
-            columns={columns}
-            dataSource={dataSource}
-            rowKey="id"
-            pagination={{
-              current: page,
-              pageSize,
-              total,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (t) => `共 ${t} 条记录`,
-              onChange: (p, ps) => {
-                setPage(p);
-                setPageSize(ps);
-              },
-            }}
-            rowClassName={(record) =>
-              isTimeout(record) ? styles.timeoutRow : ''
-            }
-            scroll={{ x: 1000 }}
-          />
-        ) : (
-          <Empty description="暂无催收任务" className={styles.empty} />
-        )}
-      </Spin>
+      <div className={styles.tableContainer}>
+        <Spin spinning={loading}>
+          {dataSource.length > 0 ? (
+            <Table
+              columns={columns}
+              dataSource={dataSource}
+              rowKey="id"
+              pagination={{
+                current: page,
+                pageSize,
+                total,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (t) => `共 ${t} 条记录`,
+                onChange: (p) => {
+                  setPage(p);
+                  loadData(p, false);
+                },
+              }}
+              rowClassName={(record) =>
+                isTimeout(record) ? styles.timeoutRow : ''
+              }
+              scroll={{ x: 1000 }}
+            />
+          ) : (
+            <Empty description="暂无催收任务" className={styles.empty} />
+          )}
+        </Spin>
+      </div>
     </div>
   );
 };

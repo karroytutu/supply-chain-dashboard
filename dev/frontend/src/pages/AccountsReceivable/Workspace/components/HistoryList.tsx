@@ -1,11 +1,14 @@
 /**
  * 已处理记录列表组件
  * 展示催收和审核的历史记录
+ * 桌面端：表格布局
+ * 移动端：卡片视图 + 无限滚动
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { Table, Tag, Spin, Empty, Pagination } from 'antd';
 import type { ArCollectionTask } from '@/types/accounts-receivable';
 import { getHistoryRecords } from '@/services/api/accounts-receivable';
+import { WorkspaceContext } from '../index';
 import styles from './HistoryList.less';
 
 interface HistoryListProps {
@@ -13,6 +16,7 @@ interface HistoryListProps {
 }
 
 const HistoryList: React.FC<HistoryListProps> = ({ onViewDetail }) => {
+  const { isMobile } = useContext(WorkspaceContext);
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState<ArCollectionTask[]>([]);
   const [pagination, setPagination] = useState({
@@ -21,27 +25,71 @@ const HistoryList: React.FC<HistoryListProps> = ({ onViewDetail }) => {
     total: 0,
   });
 
+  // 无限滚动相关状态
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
   // 加载历史记录
-  const loadRecords = useCallback(async (page = 1, pageSize = 10) => {
-    setLoading(true);
+  const loadRecords = useCallback(async (page = 1, pageSize = 10, append = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const result = await getHistoryRecords({ page, pageSize });
-      setRecords(result.list);
+      const newList = result.list || [];
+
+      if (append) {
+        setRecords(prev => [...prev, ...newList]);
+      } else {
+        setRecords(newList);
+      }
+
       setPagination({
         current: page,
         pageSize,
         total: result.total,
       });
+
+      setHasMore(newList.length === pageSize && (page * pageSize) < result.total);
     } catch (error) {
       console.error('加载历史记录失败:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, []);
 
+  // 加载更多
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    const nextPage = pagination.current + 1;
+    loadRecords(nextPage, pagination.pageSize, true);
+  }, [hasMore, loadingMore, pagination.current, pagination.pageSize, loadRecords]);
+
+  // 无限滚动检测
+  useEffect(() => {
+    if (!isMobile || !loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [isMobile, hasMore, loadingMore, handleLoadMore]);
+
   useEffect(() => {
     loadRecords();
-  }, [loadRecords]);
+  }, []);
 
   // 处理分页变化
   const handlePageChange = (page: number, pageSize?: number) => {
@@ -70,10 +118,10 @@ const HistoryList: React.FC<HistoryListProps> = ({ onViewDetail }) => {
   // 获取状态标签
   const getStatusTag = (record: ArCollectionTask) => {
     if (record.review_status === 'approved') {
-      return <Tag color="green">已通过</Tag>;
+      return <Tag color="green">已通过 ✓</Tag>;
     }
     if (record.review_status === 'rejected') {
-      return <Tag color="red">已拒绝</Tag>;
+      return <Tag color="red">已拒绝 ✗</Tag>;
     }
     if (record.status === 'completed') {
       return <Tag color="blue">已完成</Tag>;
@@ -143,34 +191,103 @@ const HistoryList: React.FC<HistoryListProps> = ({ onViewDetail }) => {
     },
   ];
 
+  // 渲染移动端卡片
+  const renderMobileCard = (record: ArCollectionTask) => {
+    const isApproved = record.review_status === 'approved';
+    const isRejected = record.review_status === 'rejected';
+
+    return (
+      <div
+        key={record.id}
+        className={`${styles.mobileCard} ${isRejected ? styles.mobileCardRejected : ''}`}
+        onClick={() => onViewDetail(record.ar_id)}
+      >
+        <div className={styles.mobileCardHeader}>
+          <div className={styles.mobileCardTitle}>{record.consumer_name}</div>
+          {getStatusTag(record)}
+        </div>
+
+        <div className={styles.mobileCardInfo}>
+          <div className={styles.mobileInfoItem}>
+            <span className={styles.mobileInfoLabel}>处理金额</span>
+            <span className={styles.mobileInfoValueAmount}>{formatAmount(record.left_amount)}</span>
+          </div>
+          <div className={styles.mobileInfoItem}>
+            <span className={styles.mobileInfoLabel}>处理结果</span>
+            <span className={styles.mobileInfoValue}>{getResultTypeTag(record.result_type)}</span>
+          </div>
+        </div>
+
+        <div className={styles.mobileCardFooter}>
+          <span className={styles.footerInfo}>
+            处理人: {record.collector_name || '-'}
+            {record.reviewer_name && ` | 审核: ${record.reviewer_name}`}
+          </span>
+        </div>
+
+        <div className={styles.mobileCardTime}>
+          {formatDate(record.completed_at)}
+          <span className={styles.viewDetail}>详情 →</span>
+        </div>
+      </div>
+    );
+  };
+
+  // 渲染移动端视图
+  if (isMobile) {
+    return (
+      <div className={styles.historyList}>
+        <div className={styles.mobileContainer}>
+          <Spin spinning={loading && records.length === 0}>
+            {records.length > 0 ? (
+              <>
+                {records.map(renderMobileCard)}
+                <div ref={loadMoreRef} className={styles.loadMoreTrigger}>
+                  {loadingMore && <Spin size="small" />}
+                  {!hasMore && records.length > 0 && (
+                    <span className={styles.noMore}>已加载全部 {pagination.total} 条记录</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              !loading && <Empty description="暂无历史记录" className={styles.empty} />
+            )}
+          </Spin>
+        </div>
+      </div>
+    );
+  }
+
+  // 渲染桌面端表格视图
   return (
     <div className={styles.historyList}>
-      <Spin spinning={loading}>
-        {records.length > 0 ? (
-          <>
-            <Table
-              columns={columns}
-              dataSource={records}
-              rowKey="id"
-              pagination={false}
-              className={styles.table}
-              scroll={{ x: 'max-content' }}
-            />
-            <div className={styles.pagination}>
-              <Pagination
-                current={pagination.current}
-                pageSize={pagination.pageSize}
-                total={pagination.total}
-                onChange={handlePageChange}
-                showSizeChanger
-                showTotal={(total) => `共 ${total} 条记录`}
+      <div className={styles.table}>
+        <Spin spinning={loading}>
+          {records.length > 0 ? (
+            <>
+              <Table
+                columns={columns}
+                dataSource={records}
+                rowKey="id"
+                pagination={false}
+                scroll={{ x: 'max-content' }}
               />
-            </div>
-          </>
-        ) : (
-          <Empty description="暂无历史记录" className={styles.empty} />
-        )}
-      </Spin>
+              <div className={styles.pagination}>
+                <Pagination
+                  current={pagination.current}
+                  pageSize={pagination.pageSize}
+                  total={pagination.total}
+                  onChange={handlePageChange}
+                  showSizeChanger
+                  showTotal={(total) => `共 ${total} 条记录`}
+                />
+              </div>
+            </>
+          ) : (
+            <Empty description="暂无历史记录" className={styles.empty} />
+          )}
+        </Spin>
+      </div>
     </div>
   );
 };

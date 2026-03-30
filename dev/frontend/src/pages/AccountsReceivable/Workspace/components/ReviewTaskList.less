@@ -1,35 +1,105 @@
 /**
  * 审核任务列表样式
+ * 支持批量审核操作
  */
+@import '~@/styles/variables.less';
+
 .reviewTaskList {
-  padding: 16px 0;
+  padding: 0;
 }
 
-.tabs {
-  margin-bottom: 16px;
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: @spacing-md;
+  padding-bottom: 0;
+  flex-wrap: wrap;
+  gap: @spacing-sm;
+}
 
-  :global(.ant-tabs-nav) {
-    margin-bottom: 16px;
+// 筛选器样式
+.filterSegment {
+  background: @bg-color-hover;
+  padding: 4px;
+  border-radius: 8px;
+
+  :global {
+    .ant-segmented-item {
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .ant-segmented-item-selected {
+      background: @component-background;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
   }
+}
+
+.filterLabel {
+  display: flex;
+  align-items: center;
+  gap: @spacing-sm;
+  padding: 4px 12px;
+  font-size: 14px;
+}
+
+.filterIconFinance {
+  color: @primary-color;
+  font-size: 14px;
+}
+
+.filterIconCashier {
+  color: @success-color;
+  font-size: 14px;
+}
+
+.batchToolbar {
+  display: flex;
+  align-items: center;
+  gap: @spacing-md;
+  padding: @spacing-sm @spacing-md;
+  background: @bg-color-base;
+  border-radius: 8px;
 }
 
 .taskGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  gap: @spacing-md;
+  padding: @spacing-md;
+  padding-top: 0;
 }
 
 .reviewCard {
-  border-radius: 8px;
+  border-radius: 12px;
   transition: all 0.3s;
+  position: relative;
 
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
   :global(.ant-card-body) {
-    padding: 16px;
+    padding: @spacing-md;
   }
+}
+
+.reviewCardSelected {
+  border-color: @primary-color;
+  background: rgba(@primary-color, 0.02);
+
+  &:hover {
+    background: rgba(@primary-color, 0.04);
+  }
+}
+
+.checkboxWrapper {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
 }
 
 .cardHeader {
@@ -42,7 +112,7 @@
 .consumerName {
   font-size: 16px;
   font-weight: 600;
-  color: #262626;
+  color: @text-color-primary;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -53,9 +123,9 @@
   display: flex;
   justify-content: space-between;
   margin-bottom: 12px;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-radius: 6px;
+  padding: @spacing-section;
+  background-color: @bg-color-base;
+  border-radius: @border-radius-base;
 }
 
 .infoItem {
@@ -66,12 +136,12 @@
 
 .label {
   font-size: 12px;
-  color: #8c8c8c;
+  color: @text-color-secondary;
 }
 
 .value {
   font-size: 14px;
-  color: #262626;
+  color: @text-color-primary;
 }
 
 .amount {
@@ -82,9 +152,9 @@
 
 .delayInfo {
   margin-bottom: 12px;
-  padding: 10px;
+  padding: @spacing-section;
   background-color: #e6f7ff;
-  border-radius: 6px;
+  border-radius: @border-radius-base;
 }
 
 .delayItem {
@@ -95,11 +165,11 @@
 
 .evidenceSection {
   display: flex;
-  gap: 16px;
+  gap: @spacing-md;
   margin-bottom: 12px;
-  padding: 10px;
-  background-color: #f6ffed;
-  border-radius: 6px;
+  padding: @spacing-section;
+  background-color: @warning-normal-bg;
+  border-radius: @border-radius-base;
 }
 
 .evidenceItem {
@@ -117,7 +187,7 @@
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: @spacing-md;
 
   :global(.ant-btn) {
     display: flex;
@@ -132,24 +202,64 @@
 }
 
 // 移动端适配
-@media (max-width: 768px) {
-  .reviewTaskList {
-    padding: 8px 0;
+@media (max-width: @screen-md) {
+  .toolbar {
+    padding: @spacing-sm;
+    padding-bottom: 0;
+  }
+
+  .filterSegment {
+    :global {
+      .ant-segmented-item {
+        padding: 6px 12px;
+        min-height: @touch-target-size;
+      }
+    }
+  }
+
+  .filterLabel {
+    font-size: 13px;
+    padding: 2px 8px;
+  }
+
+  .batchToolbar {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: @spacing-xs @spacing-sm;
+
+    :global(.ant-checkbox-wrapper) {
+      min-height: @touch-target-size;
+      display: flex;
+      align-items: center;
+    }
+
+    :global(.ant-btn) {
+      min-height: @touch-target-size;
+    }
   }
 
   .taskGrid {
     grid-template-columns: 1fr;
     gap: 12px;
+    padding: @spacing-sm;
+    padding-top: 0;
   }
 
   .reviewCard {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+
+    &:active {
+      transform: scale(0.99);
+    }
+
     :global(.ant-card-body) {
-      padding: 12px;
+      padding: @spacing-section;
     }
   }
 
   .cardHeader {
-    margin-bottom: 8px;
+    margin-bottom: @spacing-sm;
   }
 
   .consumerName {
@@ -160,7 +270,7 @@
   .delayInfo,
   .evidenceSection {
     margin-bottom: 10px;
-    padding: 8px;
+    padding: @spacing-sm;
   }
 
   .evidenceSection {
@@ -171,13 +281,26 @@
     position: sticky;
     bottom: 0;
     background-color: #fff;
-    padding: 12px 0;
-    margin: 0 -12px -12px;
-    border-top: 1px solid #f0f0f0;
+    padding: @spacing-md 0;
+    margin: 0 -@spacing-section -@spacing-section;
+    border-top: 1px solid @border-color-split;
 
     :global(.ant-btn) {
       flex: 1;
       justify-content: center;
+      min-height: @touch-target-size;
+      font-size: 14px;
+    }
+  }
+
+  .checkboxWrapper {
+    :global(.ant-checkbox) {
+      transform: scale(1.2);
+    }
+
+    :global(.ant-checkbox-inner) {
+      width: 22px;
+      height: 22px;
     }
   }
 }

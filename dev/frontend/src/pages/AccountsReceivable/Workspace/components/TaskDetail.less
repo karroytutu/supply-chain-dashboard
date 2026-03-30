@@ -1,15 +1,17 @@
 /**
  * 任务详情组件样式
  */
+@import '~@/styles/variables.less';
+
 .taskDetail {
   :global(.ant-drawer-body) {
-    padding: 16px;
-    background-color: #f5f5f5;
+    padding: @spacing-md;
+    background-color: @bg-color-base;
   }
 }
 
 .infoCard {
-  margin-bottom: 16px;
+  margin-bottom: @spacing-md;
 
   :global(.ant-card-head) {
     background-color: #e6f7ff;
@@ -17,7 +19,7 @@
   }
 
   :global(.ant-card-head-title) {
-    color: #096dd9;
+    color: @primary-dark;
     font-weight: 600;
   }
 }
@@ -29,13 +31,13 @@
 }
 
 .overdue {
-  color: #ff4d4f;
+  color: @error-color;
   font-weight: 600;
 }
 
 .timelineCard {
   :global(.ant-card-head) {
-    background-color: #f6ffed;
+    background-color: @warning-normal-bg;
     border-bottom: 1px solid #b7eb8f;
   }
 
@@ -46,39 +48,39 @@
 }
 
 .timelineItem {
-  padding: 8px 0;
+  padding: @spacing-sm 0;
 }
 
 .timelineHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: @spacing-md;
+  margin-bottom: @spacing-sm;
 }
 
 .timelineTime {
-  color: #8c8c8c;
+  color: @text-color-secondary;
   font-size: 12px;
 }
 
 .timelineContent {
-  padding-left: 8px;
+  padding-left: @spacing-sm;
 }
 
 .operator {
   color: #595959;
   font-size: 13px;
-  margin-bottom: 8px;
+  margin-bottom: @spacing-sm;
 }
 
 .details {
-  background-color: #f5f5f5;
-  padding: 12px;
+  background-color: @bg-color-base;
+  padding: @spacing-section;
   border-radius: 4px;
   font-size: 13px;
 
   p {
-    margin-bottom: 8px;
+    margin-bottom: @spacing-sm;
 
     &:last-child {
       margin-bottom: 0;
@@ -88,16 +90,16 @@
 
 .evidence,
 .signature {
-  margin-top: 8px;
+  margin-top: @spacing-sm;
 
   p {
-    color: #8c8c8c;
+    color: @text-color-secondary;
     margin-bottom: 4px;
   }
 }
 
 // 移动端适配
-@media (max-width: 768px) {
+@media (max-width: @screen-md) {
   .taskDetail {
     :global(.ant-drawer-content-wrapper) {
       width: 100% !important;
@@ -106,10 +108,10 @@
 
   .timelineHeader {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: @spacing-sm;
   }
 
   .details {
-    padding: 8px;
+    padding: @spacing-sm;
   }
 }

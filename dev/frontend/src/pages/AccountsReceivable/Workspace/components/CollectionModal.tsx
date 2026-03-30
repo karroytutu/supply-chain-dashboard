@@ -1,6 +1,7 @@
 /**
  * 催收结果提交弹窗
  * PC端使用Modal，移动端使用Drawer
+ * 支持从快速操作按钮直接打开特定类型
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -11,12 +12,21 @@ import {
   Upload,
   Input,
   Button,
-  Segmented,
+  Radio,
+  Space,
   message,
   Spin,
   Image,
 } from 'antd';
-import { UploadOutlined, CameraOutlined } from '@ant-design/icons';
+import {
+  UploadOutlined,
+  CameraOutlined,
+  CalendarOutlined,
+  SafetyCertificateOutlined,
+  CheckCircleOutlined,
+  RiseOutlined,
+} from '@ant-design/icons';
+import dayjs from 'dayjs';
 import type { ArCollectionTask, ArUserSignature } from '@/types/accounts-receivable';
 import {
   submitCollectionResult,
@@ -33,9 +43,64 @@ interface CollectionModalProps {
   onCancel: () => void;
   onSuccess: () => void;
   isMobile?: boolean;
+  /** 初始操作类型（从快速操作按钮传入） */
+  initialAction?: 'customer_delay' | 'guarantee' | 'paidOff' | 'escalate';
 }
 
 type ResultType = 'customer_delay' | 'guarantee_delay' | 'paid_off' | 'escalate';
+
+// 快捷日期选项
+const QUICK_DATE_OPTIONS = [
+  { label: '明天', days: 1 },
+  { label: '3天后', days: 3 },
+  { label: '7天后', days: 7 },
+];
+
+// 升级催收常用理由
+const ESCALATE_REASONS = [
+  '客户失联，无法联系',
+  '客户拒绝付款',
+  '客户经营困难，无力偿还',
+  '其他原因',
+];
+
+// 结果类型配置
+const RESULT_TYPE_OPTIONS: Array<{
+  value: ResultType;
+  label: string;
+  icon: React.ReactNode;
+  description: string;
+  recommended?: boolean;
+}> = [
+  {
+    value: 'customer_delay',
+    label: '客户确认延期',
+    icon: <CalendarOutlined />,
+    description: '客户同意延期付款',
+    recommended: true,
+  },
+  {
+    value: 'guarantee_delay',
+    label: '营销担保延期',
+    icon: <SafetyCertificateOutlined />,
+    description: '需要手写签名担保',
+  },
+  {
+    value: 'paid_off',
+    label: '已回款/核销',
+    icon: <CheckCircleOutlined />,
+    description: '确认收到款项',
+  },
+  {
+    value: 'escalate',
+    label: '升级催收',
+    icon: <RiseOutlined />,
+    description: '需要上级介入处理',
+  },
+];
+
+// localStorage key for remembering last result type
+const LAST_RESULT_TYPE_KEY = 'ar_last_result_type';
 
 const CollectionModal: React.FC<CollectionModalProps> = ({
   task,
@@ -43,6 +108,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   onCancel,
   onSuccess,
   isMobile = false,
+  initialAction,
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -52,6 +118,19 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   const [signatureData, setSignatureData] = useState<string>('');
   const [evidenceUrl, setEvidenceUrl] = useState<string>('');
   const [uploadLoading, setUploadLoading] = useState(false);
+
+  // 获取初始结果类型
+  const getInitialResultType = useCallback((): ResultType => {
+    if (initialAction === 'guarantee') return 'guarantee_delay';
+    if (initialAction === 'paidOff') return 'paid_off';
+    if (initialAction === 'escalate') return 'escalate';
+    // 从 localStorage 获取上次选择
+    const lastType = localStorage.getItem(LAST_RESULT_TYPE_KEY) as ResultType | null;
+    if (lastType && ['customer_delay', 'guarantee_delay', 'paid_off', 'escalate'].includes(lastType)) {
+      return lastType;
+    }
+    return 'customer_delay';
+  }, [initialAction]);
 
   // 加载历史签名
   const loadSignatures = useCallback(async () => {
@@ -68,11 +147,12 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       loadSignatures();
       // 重置表单
       form.resetFields();
-      setResultType('customer_delay');
+      const initialType = getInitialResultType();
+      setResultType(initialType);
       setSignatureData('');
       setEvidenceUrl('');
     }
-  }, [visible, form, loadSignatures]);
+  }, [visible, form, loadSignatures, getInitialResultType]);
 
   // 处理文件上传
   const handleUpload = async (file: File) => {
@@ -87,6 +167,17 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       setUploadLoading(false);
     }
     return false; // 阻止默认上传行为
+  };
+
+  // 快捷日期选择
+  const handleQuickDate = (days: number) => {
+    const date = dayjs().add(days, 'day');
+    form.setFieldValue('latestPayDate', date);
+  };
+
+  // 快捷理由选择
+  const handleQuickReason = (reason: string) => {
+    form.setFieldValue('escalateReason', reason);
   };
 
   // 提交表单
@@ -112,10 +203,13 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       if (resultType === 'guarantee_delay' && signatureData && !signatures.some(s => s.signature_data === signatureData)) {
         try {
           await saveSignature({ signatureData, isDefault: false });
-        } catch (e) {
+        } catch {
           // 忽略保存签名错误
         }
       }
+
+      // 记住用户选择
+      localStorage.setItem(LAST_RESULT_TYPE_KEY, resultType);
 
       message.success('提交成功');
       onSuccess();
@@ -128,32 +222,99 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     }
   };
 
+  // 渲染快捷日期按钮
+  const renderQuickDateButtons = () => (
+    <div className={styles.quickButtons}>
+      <span className={styles.quickLabel}>快捷选择：</span>
+      <Space size="small">
+        {QUICK_DATE_OPTIONS.map((option) => (
+          <Button
+            key={option.days}
+            size="small"
+            onClick={() => handleQuickDate(option.days)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </Space>
+    </div>
+  );
+
+  // 渲染快捷理由按钮
+  const renderQuickReasonButtons = () => (
+    <div className={styles.quickButtons}>
+      <span className={styles.quickLabel}>常用理由：</span>
+      <Space size="small" wrap>
+        {ESCALATE_REASONS.map((reason) => (
+          <Button
+            key={reason}
+            size="small"
+            onClick={() => handleQuickReason(reason)}
+          >
+            {reason}
+          </Button>
+        ))}
+      </Space>
+    </div>
+  );
+
+  // 渲染结果类型选择器
+  const renderResultTypeSelector = () => (
+    <div className={styles.typeSelector}>
+      {RESULT_TYPE_OPTIONS.map((option) => (
+        <div
+          key={option.value}
+          className={`${styles.typeCard} ${resultType === option.value ? styles.typeCardActive : ''}`}
+          onClick={() => setResultType(option.value)}
+        >
+          <div className={styles.typeIcon}>{option.icon}</div>
+          <div className={styles.typeContent}>
+            <div className={styles.typeLabel}>
+              {option.label}
+              {option.recommended && (
+                <span className={styles.recommendedTag}>最常用</span>
+              )}
+            </div>
+            <div className={styles.typeDesc}>{option.description}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   // 渲染表单内容
   const renderFormContent = () => (
     <Spin spinning={loading}>
+      {/* 任务信息摘要 */}
+      {task && (
+        <div className={styles.taskSummary}>
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>客户：</span>
+            <span className={styles.summaryValue}>{task.consumer_name}</span>
+          </div>
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>欠款：</span>
+            <span className={styles.summaryAmount}>
+              ¥{(task.owed_amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+      )}
+
       <Form
         form={form}
         layout="vertical"
         className={styles.form}
       >
         {/* 结果类型选择 */}
-        <Form.Item label="处理结果" required>
-          <Segmented
-            value={resultType}
-            onChange={(value) => setResultType(value as ResultType)}
-            block
-            options={[
-              { label: '客户确认延期', value: 'customer_delay' },
-              { label: '营销担保延期', value: 'guarantee_delay' },
-              { label: '已回款/核销', value: 'paid_off' },
-              { label: '升级催收', value: 'escalate' },
-            ]}
-          />
+        <Form.Item label="选择处理结果" required>
+          {renderResultTypeSelector()}
         </Form.Item>
 
         {/* 客户确认延期：日期选择 + 图片上传 */}
         {resultType === 'customer_delay' && (
           <>
+            {renderQuickDateButtons()}
             <Form.Item
               name="latestPayDate"
               label="约定付款日期"
@@ -163,16 +324,13 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                 style={{ width: '100%' }}
                 placeholder="请选择日期（30天内）"
                 disabledDate={(current) => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const maxDate = new Date();
-                  maxDate.setDate(today.getDate() + 30);
-                  maxDate.setHours(23, 59, 59, 999);
-                  return current ? (current.valueOf() < today.valueOf() || current.valueOf() > maxDate.valueOf()) : false;
+                  const today = dayjs().startOf('day');
+                  const maxDate = today.add(30, 'day');
+                  return current ? (current < today || current > maxDate) : false;
                 }}
               />
             </Form.Item>
-            <Form.Item label="上传凭证">
+            <Form.Item label="上传凭证（选填）">
               <Upload
                 accept="image/*"
                 beforeUpload={handleUpload}
@@ -197,12 +355,19 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                 </div>
               )}
             </Form.Item>
+            <Form.Item name="remark" label="备注（选填）">
+              <Input.TextArea
+                rows={2}
+                placeholder="其他需要说明的内容"
+              />
+            </Form.Item>
           </>
         )}
 
         {/* 营销担保延期：日期选择 + 签名 */}
         {resultType === 'guarantee_delay' && (
           <>
+            {renderQuickDateButtons()}
             <Form.Item
               name="latestPayDate"
               label="约定付款日期"
@@ -212,12 +377,9 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                 style={{ width: '100%' }}
                 placeholder="请选择日期（30天内）"
                 disabledDate={(current) => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const maxDate = new Date();
-                  maxDate.setDate(today.getDate() + 30);
-                  maxDate.setHours(23, 59, 59, 999);
-                  return current ? (current.valueOf() < today.valueOf() || current.valueOf() > maxDate.valueOf()) : false;
+                  const today = dayjs().startOf('day');
+                  const maxDate = today.add(30, 'day');
+                  return current ? (current < today || current > maxDate) : false;
                 }}
               />
             </Form.Item>
@@ -226,6 +388,12 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                 value={signatureData}
                 onChange={setSignatureData}
                 signatures={signatures}
+              />
+            </Form.Item>
+            <Form.Item name="remark" label="备注（选填）">
+              <Input.TextArea
+                rows={2}
+                placeholder="其他需要说明的内容"
               />
             </Form.Item>
           </>
@@ -247,26 +415,19 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
 
         {/* 升级催收：理由（必填） */}
         {resultType === 'escalate' && (
-          <Form.Item
-            name="escalateReason"
-            label="升级理由"
-            rules={[{ required: true, message: '请填写升级理由' }]}
-          >
-            <Input.TextArea
-              rows={4}
-              placeholder="请详细说明升级催收的原因"
-            />
-          </Form.Item>
-        )}
-
-        {/* 通用备注 */}
-        {resultType !== 'escalate' && resultType !== 'paid_off' && (
-          <Form.Item name="remark" label="备注">
-            <Input.TextArea
-              rows={2}
-              placeholder="选填：其他需要说明的内容"
-            />
-          </Form.Item>
+          <>
+            {renderQuickReasonButtons()}
+            <Form.Item
+              name="escalateReason"
+              label="升级理由"
+              rules={[{ required: true, message: '请填写升级理由' }]}
+            >
+              <Input.TextArea
+                rows={4}
+                placeholder="请详细说明升级催收的原因"
+              />
+            </Form.Item>
+          </>
         )}
       </Form>
     </Spin>
@@ -311,8 +472,9 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       onCancel={onCancel}
       onOk={handleSubmit}
       confirmLoading={submitting}
-      width={600}
+      width={640}
       className={styles.collectionModal}
+      footer={renderFooter()}
     >
       {renderFormContent()}
     </Modal>

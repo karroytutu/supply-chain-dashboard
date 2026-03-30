@@ -185,6 +185,8 @@ export async function getPreWarningData(): Promise<{
   preWarn2: any[];
   preWarn5Count: number;
   preWarn2Count: number;
+  preWarn5Total: number;
+  preWarn2Total: number;
 }> {
   // 逾期前5天预警
   const preWarn5Sql = `
@@ -236,11 +238,23 @@ export async function getPreWarningData(): Promise<{
   `;
   const preWarn2Result = await appQuery(preWarn2Sql);
 
+  // 计算金额汇总
+  const preWarn5Total = preWarn5Result.rows.reduce(
+    (sum, row) => sum + (parseFloat(row.left_amount) || 0),
+    0
+  );
+  const preWarn2Total = preWarn2Result.rows.reduce(
+    (sum, row) => sum + (parseFloat(row.left_amount) || 0),
+    0
+  );
+
   return {
     preWarn5: preWarn5Result.rows,
     preWarn2: preWarn2Result.rows,
     preWarn5Count: preWarn5Result.rows.length,
     preWarn2Count: preWarn2Result.rows.length,
+    preWarn5Total,
+    preWarn2Total,
   };
 }
 

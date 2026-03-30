@@ -1,21 +1,23 @@
 /**
  * 催收与审核工作台样式
  */
+@import '~@/styles/variables.less';
+
 .workspace {
-  padding: 24px;
+  padding: @spacing-lg;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: @bg-color-base;
 }
 
 .header {
-  margin-bottom: 24px;
+  margin-bottom: @spacing-lg;
 }
 
 .title {
   font-size: 24px;
   font-weight: 600;
-  color: #262626;
-  margin-bottom: 8px;
+  color: @text-color-primary;
+  margin-bottom: @spacing-sm;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -32,25 +34,25 @@
 
 .subtitle {
   font-size: 14px;
-  color: #8c8c8c;
+  color: @text-color-secondary;
   margin: 0;
 }
 
 .statsRow {
-  margin-bottom: 24px;
+  margin-bottom: @spacing-lg;
 }
 
 .statCard {
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  box-shadow: @box-shadow-card;
 
   :global(.ant-card-body) {
-    padding: 20px;
+    padding: @spacing-card;
   }
 
   :global(.ant-statistic-title) {
     font-size: 14px;
-    color: #8c8c8c;
+    color: @text-color-secondary;
   }
 
   :global(.ant-statistic-content) {
@@ -60,86 +62,142 @@
 }
 
 .statCardWarning {
-  border-left: 4px solid #faad14;
+  border-left: 4px solid @warning-color;
 }
 
 .statCardDanger {
-  border-left: 4px solid #ff4d4f;
+  border-left: 4px solid @error-color;
 }
 
 .statCardInfo {
-  border-left: 4px solid #1890ff;
+  border-left: 4px solid @primary-color;
 }
 
 .statDesc {
-  margin-top: 8px;
+  margin-top: @spacing-sm;
   font-size: 12px;
-  color: #8c8c8c;
+  color: @text-color-secondary;
+}
+
+.statClickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: @primary-color;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.statClickHint {
+  margin-top: @spacing-xs;
+  font-size: 11px;
+  color: @primary-color;
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  .statClickable:hover & {
+    opacity: 1;
+  }
 }
 
 .warningText {
-  margin-top: 8px;
+  margin-top: @spacing-sm;
   font-size: 12px;
-  color: #ff4d4f;
+  color: @error-color;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.tabCard {
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-
-  :global(.ant-card-body) {
-    padding: 0;
-  }
-}
-
 .tabs {
+  background: @component-background;
+  border-radius: 12px;
+  box-shadow: @box-shadow-card;
+  overflow: hidden;
+
   :global(.ant-tabs-nav) {
-    padding: 0 16px;
     margin-bottom: 0;
-    background-color: #fafafa;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid @border-color-split;
   }
 
+  // Tab 切换过渡动画（业务增强）
+  :global(.ant-tabs-tabpane) {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  :global(.ant-tabs-tabpane-active) {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  // 内容区不设 padding，由子组件自行控制
   :global(.ant-tabs-content) {
-    padding: 16px;
-  }
-
-  :global(.ant-tabs-tab) {
-    padding: 12px 16px;
+    padding: 0;
   }
 }
 
 .tabLabel {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: @spacing-sm;
 }
 
 .tabBadge {
   :global(.ant-badge-count) {
-    background-color: #ff4d4f;
+    background-color: @error-color;
     box-shadow: none;
   }
 }
 
 .tabBadgeWarning {
   :global(.ant-badge-count) {
-    background-color: #faad14;
+    background-color: @warning-color;
     box-shadow: none;
   }
 }
 
+// 统计数值颜色
+.statValueWarning {
+  :global(.ant-statistic-content-value) {
+    color: @warning-color;
+  }
+}
+
+.statValueDanger {
+  :global(.ant-statistic-content-value) {
+    color: @error-color;
+  }
+}
+
+.statValueInfo {
+  :global(.ant-statistic-content-value) {
+    color: @primary-color;
+  }
+}
+
+.statValueDefault {
+  :global(.ant-statistic-content-value) {
+    color: @text-color-primary;
+  }
+}
+
 // 移动端适配
-@media (max-width: 768px) {
+@media (max-width: @screen-md) {
   .workspace {
-    padding: 12px;
+    padding: @spacing-md;
   }
 
   .header {
-    margin-bottom: 16px;
+    margin-bottom: @spacing-md;
   }
 
   .title {
@@ -147,12 +205,12 @@
   }
 
   .statsRow {
-    margin-bottom: 16px;
+    margin-bottom: @spacing-md;
   }
 
   .statCard {
     :global(.ant-card-body) {
-      padding: 16px;
+      padding: @spacing-md;
     }
 
     :global(.ant-statistic-content) {
@@ -160,18 +218,44 @@
     }
   }
 
+  // 统计卡片移动端触摸反馈
+  .statClickable {
+    &:active {
+      transform: scale(0.98);
+      background: @bg-color-hover;
+    }
+  }
+
+  // Tab 滚动支持
   .tabs {
     :global(.ant-tabs-nav) {
       padding: 0;
     }
 
-    :global(.ant-tabs-content) {
-      padding: 12px;
+    :global(.ant-tabs-nav-list) {
+      width: max-content;
     }
 
     :global(.ant-tabs-tab) {
-      padding: 10px 12px;
+      padding: 10px @spacing-md;
       font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    // 启用横向滚动
+    :global(.ant-tabs-nav-wrap) {
+      overflow-x: auto;
+      scrollbar-width: none;  // Firefox
+      -ms-overflow-style: none;  // IE/Edge
+
+      &::-webkit-scrollbar {
+        display: none;  // Chrome/Safari
+      }
+    }
+
+    // 隐藏滚动指示器但保留滚动功能
+    :global(.ant-tabs-nav-operations) {
+      display: none;
     }
   }
 

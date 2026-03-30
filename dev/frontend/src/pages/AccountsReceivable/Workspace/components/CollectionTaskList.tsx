@@ -1,47 +1,109 @@
 /**
  * 催收任务列表组件
- * 表格布局，支持分页
+ * 桌面端：表格布局
+ * 移动端：卡片视图 + 无限滚动
  */
-import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Empty, Spin, Tag, Tooltip } from 'antd';
-import { ExclamationCircleFilled, ClockCircleOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
+import { Table, Button, Empty, Spin, Tag, Tooltip, Dropdown, message } from 'antd';
+import type { MenuProps } from 'antd';
+import {
+  ExclamationCircleFilled,
+  ClockCircleOutlined,
+  SafetyCertificateOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { ArCollectionTask } from '@/types/accounts-receivable';
-import { getMyTasks } from '@/services/api/accounts-receivable';
+import { getMyTasks, submitCollectionResult } from '@/services/api/accounts-receivable';
+import { WorkspaceContext } from '../index';
 import styles from './CollectionTaskList.less';
 
 interface CollectionTaskListProps {
-  onTaskClick: (task: ArCollectionTask) => void;
+  onTaskClick: (task: ArCollectionTask, action?: 'guarantee' | 'paidOff' | 'escalate') => void;
   onViewDetail: (arId: number) => void;
+  onRefresh?: () => void;
 }
+
+// 快捷日期选项配置
+const QUICK_DATE_OPTIONS = [
+  { label: '明天', days: 1 },
+  { label: '3天后', days: 3 },
+  { label: '7天后', days: 7 },
+];
 
 const CollectionTaskList: React.FC<CollectionTaskListProps> = ({
   onTaskClick,
   onViewDetail,
+  onRefresh,
 }) => {
+  const { isMobile } = useContext(WorkspaceContext);
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<ArCollectionTask[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize] = useState(20);
+  const [submittingId, setSubmittingId] = useState<number | null>(null);
+  
+  // 无限滚动相关状态
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // 加载任务数据
-  const loadTasks = useCallback(async () => {
-    setLoading(true);
+  const loadTasks = useCallback(async (pageNum: number = page, append: boolean = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
-      const result = await getMyTasks({ page, pageSize });
-      setTasks(result.list || []);
+      const result = await getMyTasks({ page: pageNum, pageSize });
+      const newTasks = result.list || [];
+      
+      if (append) {
+        setTasks(prev => [...prev, ...newTasks]);
+      } else {
+        setTasks(newTasks);
+      }
+      
       setTotal(result.total || 0);
+      setHasMore(newTasks.length === pageSize && (pageNum * pageSize) < (result.total || 0));
     } catch (error) {
       console.error('加载催收任务失败:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [page, pageSize]);
 
+  // 加载更多
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadTasks(nextPage, true);
+  }, [hasMore, loadingMore, page, loadTasks]);
+
+  // 无限滚动检测
+  useEffect(() => {
+    if (!isMobile || !loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [isMobile, hasMore, loadingMore, handleLoadMore]);
+
   useEffect(() => {
     loadTasks();
-  }, [loadTasks]);
+  }, []);
 
   // 格式化金额
   const formatAmount = (amount?: number): string => {
@@ -71,6 +133,41 @@ const CollectionTaskList: React.FC<CollectionTaskListProps> = ({
     return { text: `剩余 ${days} 天`, isWarning: false };
   };
 
+  // 计算快捷日期
+  const getQuickDate = (days: number): string => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split('T')[0];
+  };
+
+  // 格式化日期显示
+  const formatDateDisplay = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  };
+
+  // 快速提交客户延期
+  const handleQuickDelay = async (task: ArCollectionTask, days: number) => {
+    const payDate = getQuickDate(days);
+    setSubmittingId(task.id);
+
+    try {
+      await submitCollectionResult(task.ar_id, {
+        resultType: 'customer_delay',
+        latestPayDate: payDate,
+      });
+      message.success(`已提交延期至 ${formatDateDisplay(payDate)}`);
+      // 刷新列表
+      loadTasks();
+      onRefresh?.();
+    } catch (error) {
+      console.error('提交延期失败:', error);
+      message.error('提交失败，请重试');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
   // 状态映射
   const statusMap: Record<string, { text: string; color: string }> = {
     pending: { text: '待处理', color: 'blue' },
@@ -80,23 +177,42 @@ const CollectionTaskList: React.FC<CollectionTaskListProps> = ({
     escalated: { text: '已升级', color: 'purple' },
   };
 
-  // 角色映射
-  const roleMap: Record<string, string> = {
-    marketing: '营销师',
-    supervisor: '主管',
-    finance: '财务',
-  };
+  // 获取延期下拉菜单项
+  const getDelayMenuItems = (task: ArCollectionTask): MenuProps['items'] => {
+    const quickDateItems = QUICK_DATE_OPTIONS.map((option) => ({
+      key: `quick-${option.days}`,
+      label: (
+        <div className={styles.menuItem}>
+          <span>{option.label}</span>
+          <span className={styles.menuItemDate}>{formatDateDisplay(getQuickDate(option.days))}</span>
+        </div>
+      ),
+      onClick: () => handleQuickDelay(task, option.days),
+    }));
 
-  // 结算方式映射
-  const settleMethodMap: Record<number, string> = {
-    1: '现结',
-    2: '挂账',
-  };
-
-  // 格式化日期
-  const formatDate = (date?: string): string => {
-    if (!date) return '-';
-    return new Date(date).toISOString().split('T')[0];
+    return [
+      {
+        type: 'group',
+        label: '客户确认延期',
+        children: quickDateItems,
+      },
+      {
+        key: 'custom',
+        label: '自定义日期...',
+        onClick: () => onTaskClick(task),
+      },
+      { type: 'divider' },
+      {
+        key: 'guarantee',
+        label: (
+          <div className={styles.menuItem}>
+            <SafetyCertificateOutlined style={{ marginRight: 8 }} />
+            营销担保延期
+          </div>
+        ),
+        onClick: () => onTaskClick(task, 'guarantee'),
+      },
+    ];
   };
 
   // 表格列定义
@@ -105,8 +221,9 @@ const CollectionTaskList: React.FC<CollectionTaskListProps> = ({
       title: '客户名称',
       dataIndex: 'consumer_name',
       key: 'consumer_name',
-      width: 160,
+      width: 140,
       fixed: 'left',
+      ellipsis: true,
       render: (text: string, record) => {
         const timeout = isTimeout(record);
         return (
@@ -125,30 +242,19 @@ const CollectionTaskList: React.FC<CollectionTaskListProps> = ({
       title: '订单号',
       dataIndex: 'order_no',
       key: 'order_no',
-      width: 120,
-      render: (text: string) => text || '-',
-    },
-    {
-      title: '单据日期',
-      dataIndex: 'bill_order_time',
-      key: 'bill_order_time',
-      width: 100,
-      align: 'center',
-      render: (date: string) => formatDate(date),
-    },
-    {
-      title: '结算方式',
-      dataIndex: 'settle_method',
-      key: 'settle_method',
-      width: 80,
-      align: 'center',
-      render: (method: number) => settleMethodMap[method] || '-',
+      width: 130,
+      ellipsis: true,
+      render: (text: string) => (
+        <Tooltip title={text}>
+          <span className={styles.orderNo}>{text || '-'}</span>
+        </Tooltip>
+      ),
     },
     {
       title: '欠款金额',
       dataIndex: 'owed_amount',
       key: 'owed_amount',
-      width: 120,
+      width: 110,
       align: 'right',
       render: (amount: number) => (
         <span className={styles.amount}>{formatAmount(amount)}</span>
@@ -170,26 +276,10 @@ const CollectionTaskList: React.FC<CollectionTaskListProps> = ({
       },
     },
     {
-      title: '最大欠款天数',
-      dataIndex: 'max_debt_days',
-      key: 'max_debt_days',
-      width: 110,
-      align: 'center',
-      render: (days: number) => `${days || 0} 天`,
-    },
-    {
-      title: '账龄',
-      dataIndex: 'aging_days',
-      key: 'aging_days',
-      width: 80,
-      align: 'center',
-      render: (days: number) => `${days || 0} 天`,
-    },
-    {
       title: '催收状态',
       dataIndex: 'status',
       key: 'status',
-      width: 90,
+      width: 100,
       align: 'center',
       render: (status: string) => {
         const config = statusMap[status] || { text: status, color: 'default' };
@@ -199,8 +289,8 @@ const CollectionTaskList: React.FC<CollectionTaskListProps> = ({
     {
       title: '剩余时间',
       key: 'remaining_time',
-      width: 120,
-      render: (_: any, record) => {
+      width: 100,
+      render: (_: unknown, record) => {
         const { text, isWarning } = getRemainingTimeDisplay(record);
         return (
           <span className={isWarning ? styles.warningText : ''}>
@@ -211,72 +301,181 @@ const CollectionTaskList: React.FC<CollectionTaskListProps> = ({
       },
     },
     {
-      title: '催收人',
-      key: 'collector',
-      width: 130,
-      render: (_: any, record) => (
-        <span>
-          <Tag color="blue">{record.collector_name || '-'}</Tag>
-          <span className={styles.roleTag}>
-            {roleMap[record.collector_role] || record.collector_role}
-          </span>
-        </span>
-      ),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 90,
-      align: 'center',
+      title: '快速操作',
+      key: 'quick_action',
+      width: 180,
       fixed: 'right',
-      render: (_: any, record) => (
-        <Button
-          type="primary"
-          size="small"
-          onClick={() => onTaskClick(record)}
-        >
-          立即处理
-        </Button>
-      ),
+      render: (_: unknown, record) => {
+        const isSubmitting = submittingId === record.id;
+
+        return (
+          <div className={styles.quickActions}>
+            <Dropdown
+              menu={{ items: getDelayMenuItems(record) }}
+              trigger={['click']}
+              disabled={isSubmitting}
+            >
+              <Button
+                type="primary"
+                size="small"
+                loading={isSubmitting}
+                className={styles.delayBtn}
+              >
+                延期 <span className={styles.dropdownArrow}>▾</span>
+              </Button>
+            </Dropdown>
+            <Button
+              size="small"
+              className={styles.paidOffBtn}
+              onClick={() => onTaskClick(record, 'paidOff')}
+            >
+              已回款
+            </Button>
+            <Button
+              size="small"
+              className={styles.escalateBtn}
+              onClick={() => onTaskClick(record, 'escalate')}
+            >
+              升级
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
+  // 渲染移动端卡片
+  const renderMobileCard = (task: ArCollectionTask) => {
+    const timeout = isTimeout(task);
+    const { text: timeText, isWarning } = getRemainingTimeDisplay(task);
+    const statusConfig = statusMap[task.status] || { text: task.status, color: 'default' };
+    const isSubmitting = submittingId === task.id;
+
+    return (
+      <div
+        key={task.id}
+        className={`${styles.mobileCard} ${timeout ? styles.mobileCardTimeout : ''}`}
+        onClick={() => onViewDetail(task.ar_id)}
+      >
+        <div className={styles.mobileCardHeader}>
+          <div className={styles.mobileCardTitle}>
+            {timeout && <ExclamationCircleFilled className={styles.timeoutIcon} />}
+            <span>{task.consumer_name}</span>
+          </div>
+          <Tag color={statusConfig.color}>{statusConfig.text}</Tag>
+        </div>
+        
+        <div className={styles.mobileCardInfo}>
+          <div className={styles.mobileInfoItem}>
+            <span className={styles.mobileInfoLabel}>欠款金额</span>
+            <span className={styles.mobileInfoValueAmount}>{formatAmount(task.owed_amount)}</span>
+          </div>
+          <div className={styles.mobileInfoItem}>
+            <span className={styles.mobileInfoLabel}>逾期/剩余</span>
+            <span className={`${styles.mobileInfoValue} ${isWarning ? styles.warningText : ''}`}>
+              {task.overdue_days || 0}天 / {timeText}
+            </span>
+          </div>
+        </div>
+
+        <div className={styles.mobileCardActions} onClick={(e) => e.stopPropagation()}>
+          <Dropdown
+            menu={{ items: getDelayMenuItems(task) }}
+            trigger={['click']}
+            disabled={isSubmitting}
+          >
+            <Button type="primary" loading={isSubmitting} className={styles.mobileActionBtn}>
+              延期 ▾
+            </Button>
+          </Dropdown>
+          <Button
+            className={styles.mobileActionBtn}
+            onClick={() => onTaskClick(task, 'paidOff')}
+          >
+            已回款
+          </Button>
+          <Button
+            className={styles.mobileActionBtn}
+            onClick={() => onTaskClick(task, 'escalate')}
+          >
+            升级
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // 渲染移动端视图
+  if (isMobile) {
+    return (
+      <div className={styles.collectionTaskList}>
+        <div className={styles.mobileContainer}>
+          <Spin spinning={loading && tasks.length === 0}>
+            {tasks.length > 0 ? (
+              <>
+                {tasks.map(renderMobileCard)}
+                <div ref={loadMoreRef} className={styles.loadMoreTrigger}>
+                  {loadingMore && <Spin size="small" />}
+                  {!hasMore && tasks.length > 0 && (
+                    <span className={styles.noMore}>已加载全部 {total} 条记录</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              !loading && (
+                <Empty description="暂无催收任务" className={styles.empty}>
+                  <Button type="primary" onClick={() => loadTasks()}>
+                    刷新
+                  </Button>
+                </Empty>
+              )
+            )}
+          </Spin>
+        </div>
+      </div>
+    );
+  }
+
+  // 渲染桌面端表格视图
   return (
     <div className={styles.collectionTaskList}>
-      <Spin spinning={loading}>
-        {tasks.length > 0 ? (
-          <Table
-            columns={columns}
-            dataSource={tasks}
-            rowKey="id"
-            pagination={{
-              current: page,
-              pageSize,
-              total,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (t) => `共 ${t} 条记录`,
-              onChange: (p, ps) => {
-                setPage(p);
-                setPageSize(ps);
-              },
-            }}
-            rowClassName={(record) =>
-              isTimeout(record) ? styles.timeoutRow : ''
-            }
-            scroll={{ x: 1400 }}
-          />
-        ) : (
-          <Empty
-            description="暂无催收任务"
-            className={styles.empty}
-          >
-            <Button type="primary" onClick={loadTasks}>
-              刷新
-            </Button>
-          </Empty>
-        )}
-      </Spin>
+      <div className={styles.tableContainer}>
+        <Spin spinning={loading}>
+          {tasks.length > 0 ? (
+            <Table
+              columns={columns}
+              dataSource={tasks}
+              rowKey="id"
+              pagination={{
+                current: page,
+                pageSize,
+                total,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (t) => `共 ${t} 条记录`,
+                onChange: (p) => {
+                  setPage(p);
+                  loadTasks(p, false);
+                },
+              }}
+              rowClassName={(record) =>
+                isTimeout(record) ? styles.timeoutRow : ''
+              }
+              scroll={{ x: 850 }}
+              size="small"
+            />
+          ) : (
+            <Empty
+              description="暂无催收任务"
+              className={styles.empty}
+            >
+              <Button type="primary" onClick={() => loadTasks()}>
+                刷新
+              </Button>
+            </Empty>
+          )}
+        </Spin>
+      </div>
     </div>
   );
 };
