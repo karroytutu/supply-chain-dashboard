@@ -18,6 +18,8 @@ export interface ReturnOrderRow {
   expire_date: Date | null;
   shelf_life: number | null;
   days_to_expire: number | null;
+  days_to_expire_at_return: number | null;  // 退货时剩余保质期
+  calculated_days_to_expire?: number | null;  // 动态计算的当前剩余保质期
   status: ReturnOrderStatus;
   source_bill_no: string | null;
   consumer_name: string | null;
@@ -55,7 +57,8 @@ export function mapRowToReturnOrder(row: ReturnOrderRow): ReturnOrder {
     returnDate: row.return_date,
     expireDate: row.expire_date,
     shelfLife: row.shelf_life,
-    daysToExpire: row.days_to_expire,
+    daysToExpire: row.calculated_days_to_expire ?? row.days_to_expire,
+    daysToExpireAtReturn: row.days_to_expire_at_return,
     status: row.status,
     sourceBillNo: row.source_bill_no,
     consumerName: row.consumer_name,

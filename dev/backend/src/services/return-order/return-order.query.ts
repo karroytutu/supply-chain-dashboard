@@ -55,14 +55,19 @@ export async function getReturnOrders(
   );
   const total = parseInt(countResult.rows[0]?.total as any) || 0;
 
-  // 查询列表
+  // 查询列表 - 动态计算当前剩余保质期
   const listParams = [...queryParams, pageSize, offset];
   const result = await appQuery<ListRow>(
     `SELECT 
       ro.*,
       eu.name as erp_filler_name,
       wu.name as warehouse_executor_name,
-      mu.name as marketing_completer_name
+      mu.name as marketing_completer_name,
+      CASE 
+        WHEN ro.batch_date IS NOT NULL AND ro.shelf_life IS NOT NULL THEN 
+          EXTRACT(DAY FROM (ro.batch_date + ro.shelf_life * INTERVAL '1 day') - CURRENT_DATE)::int
+        ELSE NULL
+      END as calculated_days_to_expire
     FROM expiring_return_orders ro
     LEFT JOIN users eu ON ro.erp_filled_by = eu.id
     LEFT JOIN users wu ON ro.warehouse_executed_by = wu.id
@@ -91,7 +96,12 @@ export async function getReturnOrderById(id: number): Promise<ReturnOrder | null
       ro.*,
       eu.name as erp_filler_name,
       wu.name as warehouse_executor_name,
-      mu.name as marketing_completer_name
+      mu.name as marketing_completer_name,
+      CASE 
+        WHEN ro.batch_date IS NOT NULL AND ro.shelf_life IS NOT NULL THEN 
+          EXTRACT(DAY FROM (ro.batch_date + ro.shelf_life * INTERVAL '1 day') - CURRENT_DATE)::int
+        ELSE NULL
+      END as calculated_days_to_expire
     FROM expiring_return_orders ro
     LEFT JOIN users eu ON ro.erp_filled_by = eu.id
     LEFT JOIN users wu ON ro.warehouse_executed_by = wu.id
@@ -153,6 +163,7 @@ export async function getPendingErpOrders(): Promise<ReturnOrder[]> {
     expire_date: Date | null;
     shelf_life: number | null;
     days_to_expire: number | null;
+    days_to_expire_at_return: number | null;
     status: ReturnOrderStatus;
     source_bill_no: string | null;
     consumer_name: string | null;
@@ -162,7 +173,7 @@ export async function getPendingErpOrders(): Promise<ReturnOrder[]> {
   }>(
     `SELECT 
       id, return_no, goods_id, goods_name, quantity, unit,
-      batch_date, return_date, expire_date, shelf_life, days_to_expire,
+      batch_date, return_date, expire_date, shelf_life, days_to_expire, days_to_expire_at_return,
       status, source_bill_no, consumer_name, marketing_manager, created_at, updated_at
     FROM expiring_return_orders
     WHERE status = 'pending_erp_fill'
@@ -181,6 +192,7 @@ export async function getPendingErpOrders(): Promise<ReturnOrder[]> {
     expireDate: row.expire_date,
     shelfLife: row.shelf_life,
     daysToExpire: row.days_to_expire,
+    daysToExpireAtReturn: row.days_to_expire_at_return,
     status: row.status,
     sourceBillNo: row.source_bill_no,
     consumerName: row.consumer_name,

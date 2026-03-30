@@ -31,23 +31,26 @@ export async function createReturnOrder(
 ): Promise<ReturnOrder> {
   const {
     returnNo, goodsId, goodsName, quantity, unit,
-    batchDate, returnDate, expireDate, shelfLife, daysToExpire,
+    batchDate, returnDate, expireDate, shelfLife, daysToExpire, daysToExpireAtReturn,
     sourceBillNo, consumerName, marketingManager, status,
   } = params;
 
   // 如果未传入status，使用默认值 'pending_confirm'
   const orderStatus = status || 'pending_confirm';
 
+  // daysToExpireAtReturn 默认使用 daysToExpire 的值
+  const daysAtReturn = daysToExpireAtReturn ?? daysToExpire;
+
   const result = await appQuery<ReturnOrderRow>(
     `INSERT INTO expiring_return_orders 
      (return_no, goods_id, goods_name, quantity, unit, batch_date, return_date,
-      expire_date, shelf_life, days_to_expire, source_bill_no, consumer_name, marketing_manager, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      expire_date, shelf_life, days_to_expire, days_to_expire_at_return, source_bill_no, consumer_name, marketing_manager, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING *`,
     [
       returnNo, goodsId, goodsName, quantity, unit || null,
       batchDate || null, returnDate || null, expireDate || null,
-      shelfLife || null, daysToExpire || null,
+      shelfLife || null, daysToExpire || null, daysAtReturn || null,
       sourceBillNo || null, consumerName || null, marketingManager || null,
       orderStatus,
     ]

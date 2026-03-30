@@ -25,7 +25,8 @@ export interface ReturnOrder {
   returnDate: string | null;
   expireDate: string | null;
   shelfLife: number | null;
-  daysToExpire: number | null;
+  daysToExpire: number | null;           // 当前剩余保质期（动态计算）
+  daysToExpireAtReturn: number | null;   // 退货时剩余保质期（静态历史）
   status: ReturnOrderStatus;
   sourceBillNo: string | null;
   consumerName: string | null;

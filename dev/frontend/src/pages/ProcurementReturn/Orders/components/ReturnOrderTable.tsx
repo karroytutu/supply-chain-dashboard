@@ -23,6 +23,11 @@ const statusTagConfig: Record<ReturnOrderStatus, { color: string; text: string }
 const getDaysToExpireTag = (days: number | null) => {
   if (days === null) return '-';
   
+  // 已过期：显示"过期X天"
+  if (days < 0) {
+    return <Tag color="red">过期{-days}天</Tag>;
+  }
+  
   let color = 'green';
   if (days <= 7) color = 'red';
   else if (days <= 15) color = 'orange';
@@ -96,10 +101,17 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       render: (date: string | null) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
     },
     {
-      title: '剩余保质期',
+      title: '退货时保质期',
+      dataIndex: 'daysToExpireAtReturn',
+      key: 'daysToExpireAtReturn',
+      width: 110,
+      render: getDaysToExpireTag,
+    },
+    {
+      title: '当前剩余保质期',
       dataIndex: 'daysToExpire',
       key: 'daysToExpire',
-      width: 100,
+      width: 120,
       render: getDaysToExpireTag,
     },
     {
@@ -176,7 +188,7 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       dataSource={dataSource}
       rowKey="id"
       loading={loading}
-      scroll={{ x: 1200 }}
+      scroll={{ x: 1350 }}
       rowSelection={{
         selectedRowKeys,
         onChange: (keys) => onSelectChange(keys as number[]),
