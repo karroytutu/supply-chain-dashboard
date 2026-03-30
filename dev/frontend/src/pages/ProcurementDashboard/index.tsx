@@ -1,22 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Row, Col, Spin } from 'antd';
+import { Row, Col, Spin, Button } from 'antd';
 import {
   InboxOutlined,
   SyncOutlined,
   AlertOutlined,
   BarChartOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import type { DashboardOverview } from '@/types/dashboard';
 import { getDashboardData } from '@/services/api/dashboard';
 import { dataCache, CACHE_KEYS, CACHE_TTL } from '@/utils/dataCache';
 import SummaryCard from '@/components/SummaryCard';
 import WarningPanel from '@/components/WarningPanel';
+import MonthlyArchiveModal from '@/components/MonthlyArchiveModal';
 import CategoryAvailabilityCard from './components/CategoryAvailabilityCard';
 import styles from './index.less';
 
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardOverview | null>(null);
+  const [archiveModalVisible, setArchiveModalVisible] = useState(false);
 
   const loadData = useCallback(async () => {
     console.log('[Dashboard] 开始加载数据...');
@@ -73,6 +76,15 @@ const Dashboard: React.FC = () => {
           <span className={styles.subtitle}>
             数据周期：{data.period.current}
           </span>
+        </div>
+        <div className={styles.headerActions}>
+          <Button
+            type="link"
+            icon={<HistoryOutlined />}
+            onClick={() => setArchiveModalVisible(true)}
+          >
+            月度存档
+          </Button>
         </div>
       </div>
 
@@ -153,6 +165,12 @@ const Dashboard: React.FC = () => {
           slowMovingWarnings={data.slowMoving.warningStats}
         />
       </div>
+
+      {/* 月度存档弹窗 */}
+      <MonthlyArchiveModal
+        open={archiveModalVisible}
+        onClose={() => setArchiveModalVisible(false)}
+      />
     </div>
   );
 };
