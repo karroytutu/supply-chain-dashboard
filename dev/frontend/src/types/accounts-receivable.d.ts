@@ -31,6 +31,7 @@ export type NotificationStatus = 'none' | 'pre_warn_5_sent' | 'pre_warn_2_sent' 
 export interface ArReceivable {
   id: number;
   erp_bill_id: string;
+  order_no: string | null;       // 订单号(ERP bizStr)
   consumer_name: string;
   consumer_code: string;
   salesman_name: string;
@@ -246,4 +247,37 @@ export interface UploadEvidenceResponse {
 /** 签名保存响应 */
 export interface SaveSignatureResponse {
   id: number;
+}
+
+// ==================== 推送记录类型 ====================
+
+/** 推送通知类型 */
+export type NotificationType =
+  | 'pre_warn_5'
+  | 'pre_warn_2'
+  | 'overdue_collect'
+  | 'timeout_penalty'
+  | 'escalate'
+  | 'auto_escalate'
+  | 'pending_review'
+  | 'review_result'
+  | 'payment_confirmed'
+  | 'guarantee_notify'
+  | 'daily_summary';
+
+/** 推送记录 */
+export interface ArNotificationRecord {
+  id: number;
+  ar_ids: number[];
+  notification_type: NotificationType;
+  recipient_id: number;
+  recipient_name: string | null;
+  consumer_name: string | null;
+  bill_count: number;
+  message_content: string | null;
+  status: 'pending' | 'sent' | 'failed';
+  sent_at: string | null;
+  dingtalk_task_id: string | null;
+  error_message: string | null;
+  created_at: string;
 }
