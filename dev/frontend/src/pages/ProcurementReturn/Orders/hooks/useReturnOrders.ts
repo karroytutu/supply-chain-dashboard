@@ -8,7 +8,6 @@ import {
   getReturnOrders,
   getReturnOrderStats,
   batchConfirmReturnOrders,
-  cancelReturnOrder,
 } from '@/services/api/procurement-return';
 import type {
   ReturnOrder,
@@ -113,6 +112,17 @@ export function useReturnOrders() {
       return false;
     }
 
+    // 校验选中订单是否都是待确认状态
+    const selectedOrders = dataSource.filter(item => selectedRowKeys.includes(item.id));
+    const nonPendingOrders = selectedOrders.filter(item => item.status !== 'pending_confirm');
+    
+    if (nonPendingOrders.length > 0) {
+      message.warning(
+        `所选订单中有 ${nonPendingOrders.length} 条非待确认状态，批量确认仅对待确认状态订单生效`
+      );
+      return false;
+    }
+
     setBatchLoading(true);
     try {
       const result = await batchConfirmReturnOrders({
@@ -134,21 +144,7 @@ export function useReturnOrders() {
     } finally {
       setBatchLoading(false);
     }
-  }, [selectedRowKeys, fetchReturnOrders, fetchStats]);
-
-  // 取消退货单
-  const handleCancel = useCallback(async (id: number, comment?: string) => {
-    try {
-      await cancelReturnOrder(id, { comment });
-      message.success('取消成功');
-      fetchReturnOrders();
-      fetchStats();
-      return true;
-    } catch (error) {
-      message.error('取消失败');
-      return false;
-    }
-  }, [fetchReturnOrders, fetchStats]);
+  }, [selectedRowKeys, dataSource, fetchReturnOrders, fetchStats]);
 
   // 初始加载
   useEffect(() => {
@@ -185,7 +181,6 @@ export function useReturnOrders() {
     handleStatusChange,
     handleDateRangeChange,
     handleBatchConfirm,
-    handleCancel,
     handlePageChange,
   };
 }

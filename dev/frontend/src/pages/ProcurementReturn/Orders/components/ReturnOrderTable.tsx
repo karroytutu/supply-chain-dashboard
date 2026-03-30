@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Table, Tag, Button, Space, Tooltip } from 'antd';
-import { CloseCircleOutlined, EditOutlined, ShoppingOutlined } from '@ant-design/icons';
+import { EditOutlined, ShoppingOutlined } from '@ant-design/icons';
 import type { ReturnOrder, ReturnOrderStatus } from '@/types/procurement-return';
 import type { TablePaginationConfig } from 'antd';
 import dayjs from 'dayjs';
@@ -42,7 +42,6 @@ interface ReturnOrderTableProps {
     total: number;
   };
   onPageChange: (page: number, pageSize: number) => void;
-  onCancel?: (record: ReturnOrder) => void;
   onErpFill?: (record: ReturnOrder) => void;
   onWarehouseExecute?: (record: ReturnOrder) => void;
 }
@@ -54,7 +53,6 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
   onSelectChange,
   pagination,
   onPageChange,
-  onCancel,
   onErpFill,
   onWarehouseExecute,
 }) => {
@@ -126,17 +124,6 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       fixed: 'right' as const,
       render: (_: any, record: ReturnOrder) => (
         <Space size="small">
-          {record.status === 'pending_confirm' && (
-            <Tooltip title="取消">
-              <Button
-                type="link"
-                size="small"
-                danger
-                icon={<CloseCircleOutlined />}
-                onClick={() => onCancel?.(record)}
-              />
-            </Tooltip>
-          )}
           {record.status === 'pending_erp_fill' && (
             <Tooltip title="填写ERP">
               <Button

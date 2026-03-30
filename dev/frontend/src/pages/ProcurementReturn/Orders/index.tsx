@@ -46,7 +46,6 @@ export default function ReturnOrderList() {
     handleStatusChange,
     handleDateRangeChange,
     handleBatchConfirm,
-    handleCancel,
     handlePageChange,
     fetchReturnOrders,
     fetchStats,
@@ -54,11 +53,6 @@ export default function ReturnOrderList() {
 
   // 全选状态
   const [selectAll, setSelectAll] = useState(false);
-
-  // 取消弹窗
-  const [cancelModalVisible, setCancelModalVisible] = useState(false);
-  const [cancelingOrder, setCancelingOrder] = useState<ReturnOrder | null>(null);
-  const [cancelComment, setCancelComment] = useState('');
 
   // 流程操作弹窗状态
   const [modalType, setModalType] = useState<'erpFill' | 'warehouseExecute' | null>(null);
@@ -93,13 +87,6 @@ export default function ReturnOrderList() {
     }
   }, [handleBatchConfirm]);
 
-  // 取消退货单
-  const onCancel = useCallback((record: ReturnOrder) => {
-    setCancelingOrder(record);
-    setCancelComment('');
-    setCancelModalVisible(true);
-  }, []);
-
   // 打开ERP填写弹窗
   const onErpFill = useCallback((record: ReturnOrder) => {
     setCurrentRecord(record);
@@ -117,18 +104,6 @@ export default function ReturnOrderList() {
     setModalType(null);
     setCurrentRecord(null);
   }, []);
-
-  // 确认取消
-  const confirmCancel = useCallback(async () => {
-    if (!cancelingOrder) return;
-    
-    const success = await handleCancel(cancelingOrder.id, cancelComment);
-    if (success) {
-      setCancelModalVisible(false);
-      setCancelingOrder(null);
-      setCancelComment('');
-    }
-  }, [cancelingOrder, cancelComment, handleCancel]);
 
   // 刷新
   const onRefresh = useCallback(() => {
@@ -200,7 +175,6 @@ export default function ReturnOrderList() {
           onCheckChange={onSelectAllChange}
           onBatchConfirm={onBatchConfirm}
           loading={batchLoading}
-          showBatchActions={statusFilter === 'pending_confirm'}
         />
 
         {/* 表格 */}
@@ -215,33 +189,10 @@ export default function ReturnOrderList() {
             total,
           }}
           onPageChange={handlePageChange}
-          onCancel={onCancel}
           onErpFill={onErpFill}
           onWarehouseExecute={onWarehouseExecute}
         />
       </Card>
-
-      {/* 取消确认弹窗 */}
-      <Modal
-        title="取消退货单"
-        open={cancelModalVisible}
-        onOk={confirmCancel}
-        onCancel={() => {
-          setCancelModalVisible(false);
-          setCancelingOrder(null);
-          setCancelComment('');
-        }}
-        okText="确认取消"
-        cancelText="返回"
-      >
-        <p>确定要取消退货单 <strong>{cancelingOrder?.returnNo}</strong> 吗？</p>
-        <Input.TextArea
-          placeholder="请输入取消原因（可选）"
-          value={cancelComment}
-          onChange={e => setCancelComment(e.target.value)}
-          rows={3}
-        />
-      </Modal>
 
       {/* ERP填写弹窗 */}
       <ErpFillModal
