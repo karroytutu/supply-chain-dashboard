@@ -28,22 +28,62 @@
 // 统计卡片行
 .statsRow {
   flex-shrink: 0;
+  display: flex;
+  gap: 12px;
 }
 
 .statsCard {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  background: #fff;
+  border: 2px solid #f0f0f0;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  position: relative;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #d9d9d9;
   }
 }
 
 .statsCardActive {
-  border-width: 2px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.statsCardIcon {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.statsCardValue {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.statsCardTitle {
+  font-size: 11px;
+  color: #8c8c8c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  margin-top: 2px;
+}
+
+// 统计卡片底部选中指示条
+.statsCardIndicator {
+  position: absolute;
+  bottom: 0;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
 }
 
 // 主卡片
@@ -145,16 +185,20 @@
 
 // 响应式适配
 @media (max-width: @screen-sm) {
-  .statsCard {
-    :global {
-      .ant-statistic-title {
-        font-size: 12px;
-      }
+  .statsRow {
+    gap: 8px;
+  }
 
-      .ant-statistic-content {
-        font-size: 18px;
-      }
-    }
+  .statsCard {
+    padding: 8px 4px;
+  }
+
+  .statsCardValue {
+    font-size: 16px;
+  }
+
+  .statsCardTitle {
+    font-size: 10px;
   }
 
   .batchActionBar {
@@ -168,3 +212,409 @@
     }
   }
 }
+
+// 展开详情面板
+.expandedDetail {
+  padding: 12px 16px;
+  background: #fafafa;
+  border-radius: 4px;
+}
+
+.expandedDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.expandedDetailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.expandedDetailLabel {
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+.expandedDetailValue {
+  font-size: 14px;
+  color: #262626;
+  font-weight: 500;
+}
+
+// 移动端卡片列表
+.mobileCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobileCard {
+  background: var(--component-background, #fff);
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.mobileCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+// 主标题：商品名称（支持两行）
+.mobileCardTitle {
+  font-weight: 600;
+  font-size: 15px;
+  color: #262626;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// 副标题：退货单号
+.mobileCardSubtitle {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-top: 4px;
+}
+
+.mobileCardBody {
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 8px 0;
+  margin-bottom: 12px;
+}
+
+.mobileCardRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+
+  & > span:first-child {
+    color: #8c8c8c;
+  }
+
+  & > span:last-child {
+    color: #262626;
+    font-weight: 500;
+  }
+}
+
+.mobileCardActions {
+  display: flex;
+  gap: 8px;
+}
+
+// 移动端分页
+.mobilePagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  font-size: 13px;
+  color: #8c8c8c;
+}
+
+// 空状态
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: #8c8c8c;
+  font-size: 14px;
+}
+
+// 移动端统计卡片横向滚动
+@media (max-width: @screen-md) {
+  .statsRow {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    margin-left: -@spacing-md;
+    margin-right: -@spacing-md;
+    padding: 0 @spacing-md;
+    gap: 8px;
+
+    & > div {
+      flex: 0 0 auto;
+      min-width: 70px;
+    }
+  }
+
+  .statsCard {
+    min-width: 70px;
+    padding: 8px 6px;
+  }
+
+  .statsCardValue {
+    font-size: 18px;
+  }
+
+  .statsCardTitle {
+    font-size: 10px;
+  }
+}
+
+// ========== 移动端筛选相关样式 ==========
+
+// 移动端工具栏
+.mobileToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: @spacing-sm;
+  padding-bottom: @spacing-sm;
+}
+
+// 筛选按钮激活状态
+.filterButtonActive {
+  border-color: @primary-color;
+  color: @primary-color;
+}
+
+// 移动端筛选抽屉
+.mobileFilterDrawer {
+  :global {
+    .ant-drawer-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .ant-drawer-footer {
+      padding: 12px 16px;
+    }
+  }
+}
+
+.mobileFilterItem {
+  margin-bottom: 12px;
+}
+
+.mobileFilterLabel {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+}
+
+.mobileStatusTags {
+  display: flex;
+  flex-wrap: wrap;
+  margin: -4px;
+}
+
+// ========== 统计区域优化 ==========
+
+// 统计行包装器
+.statsRowWrapper {
+  position: relative;
+}
+
+// 滚动指示器
+.scrollIndicator {
+  display: none;
+  height: 3px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+  
+  @media (max-width: @screen-md) {
+    display: block;
+  }
+}
+
+.scrollIndicatorBar {
+  height: 100%;
+  background: @primary-color;
+  border-radius: 2px;
+  transition: transform 0.1s ease;
+  min-width: 20%;
+}
+
+// 移动端统计卡片增大触摸区域
+@media (max-width: @screen-md) {
+  .statsCard {
+    min-width: 80px;
+    min-height: 64px;
+    padding: 12px 8px;
+    
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+  
+  .statsCardActive {
+    .statsCardIndicator {
+      height: 3px;
+      left: 0;
+      right: 0;
+    }
+  }
+}
+
+// ========== 移动端卡片优化 ==========
+
+.mobileCardHeaderLeft {
+  flex: 1;
+  min-width: 0;
+  margin-right: 8px;
+}
+
+.mobileCardStatus {
+  flex-shrink: 0;
+}
+
+// 卡片信息网格
+.mobileCardGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
+.mobileCardGridItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobileCardLabel {
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+.mobileCardValue {
+  font-size: 14px;
+  color: #262626;
+  font-weight: 500;
+}
+
+// 卡片展开详情
+.mobileCardDetail {
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.mobileCardDetailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+// 展开按钮
+.mobileCardExpand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0;
+  color: @primary-color;
+  font-size: 12px;
+  cursor: pointer;
+  
+  &:hover {
+    color: @primary-color-hover;
+  }
+}
+
+// 操作按钮
+.mobileActionButton {
+  flex: 1;
+  min-height: 44px !important;
+}
+
+.mobileActionButtonFull {
+  width: 100%;
+  min-height: 44px !important;
+}
+
+// ========== 移动端分页优化 ==========
+
+.mobilePaginationWrapper {
+  padding: 16px 0;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 12px;
+}
+
+.mobilePaginationInfo {
+  text-align: center;
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-bottom: 12px;
+}
+
+.mobilePaginationButtons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobilePageButton {
+  min-height: 40px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+.mobilePageIndicators {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.mobilePageDot {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #8c8c8c;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #f5f5f5;
+  }
+}
+
+.mobilePageDotActive {
+  background: @primary-color;
+  color: #fff;
+  font-weight: 600;
+  
+  &:hover {
+    background: @primary-color;
+  }
+}
+
+// ========== 骨架屏样式 ==========
+
+.skeletonHeader {
+  flex: 1;
+}
+
+.skeletonExpand {
+  text-align: center;
+  padding: 8px 0;
+}
+
