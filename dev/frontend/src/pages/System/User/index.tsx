@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Table, Card, Button, Input, Space, Tag, Modal, message, Drawer, List, Badge } from 'antd';
 import { SearchOutlined, UserOutlined, CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { getUserList, updateUserStatus, getAllRoles, assignUserRoles } from '@/services/api/auth';
+import { Authorized } from '@/components/Authorized';
+import { PERMISSIONS } from '@/constants/permissions';
 import styles from './index.less';
 
 interface UserItem {
@@ -157,18 +159,20 @@ export default function UserManage() {
       title: '操作',
       key: 'action',
       render: (_: any, record: UserItem) => (
-        <Space>
-          <Button type="link" onClick={() => openAssignModal(record)}>
-            分配角色
-          </Button>
-          <Button 
-            type="link" 
-            danger={record.status === 1}
-            onClick={() => handleToggleStatus(record)}
-          >
-            {record.status === 1 ? '禁用' : '启用'}
-          </Button>
-        </Space>
+        <Authorized permission={PERMISSIONS.SYSTEM.USER.WRITE}>
+          <Space>
+            <Button type="link" onClick={() => openAssignModal(record)}>
+              分配角色
+            </Button>
+            <Button 
+              type="link" 
+              danger={record.status === 1}
+              onClick={() => handleToggleStatus(record)}
+            >
+              {record.status === 1 ? '禁用' : '启用'}
+            </Button>
+          </Space>
+        </Authorized>
       ),
     },
   ];

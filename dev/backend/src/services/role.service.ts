@@ -1,4 +1,5 @@
 import { appQuery, getAppClient } from '../db/appPool';
+import { invalidateRolePermissionCache, invalidateUserPermissionCache } from './permission-cache.service';
 
 export interface Role {
   id: number;
@@ -146,13 +147,27 @@ export async function createRole(data: { code: string; name: string; description
 
 /**
  * 更新角色
+ * 系统角色只允许修改 description 字段
  */
 export async function updateRole(id: number, data: Partial<Role>): Promise<Role | null> {
+  // 检查是否为系统角色
+  const roleCheck = await appQuery<{ is_system: boolean }>(
+    'SELECT is_system FROM roles WHERE id = $1',
+    [id]
+  );
+  
+  if (roleCheck.rows.length === 0) {
+    return null;
+  }
+  
+  // 系统角色只允许修改 description
+  const allowedFields = roleCheck.rows[0].is_system 
+    ? ['description'] 
+    : ['name', 'description'];
+  
   const fields: string[] = [];
   const values: any[] = [];
   let paramIndex = 1;
-  
-  const allowedFields = ['name', 'description'];
   
   for (const field of allowedFields) {
     if (data[field as keyof Role] !== undefined) {
@@ -206,6 +221,10 @@ export async function deleteRole(id: number): Promise<boolean> {
     await client.query('DELETE FROM roles WHERE id = $1', [id]);
     
     await client.query('COMMIT');
+    
+    // 清除该角色下所有用户的权限缓存
+    await invalidateRolePermissionCache(id);
+    
     return true;
   } catch (error) {
     await client.query('ROLLBACK');
@@ -217,8 +236,24 @@ export async function deleteRole(id: number): Promise<boolean> {
 
 /**
  * 分配角色权限
+ * 包含权限ID验证和缓存失效
  */
 export async function assignRolePermissions(roleId: number, permissionIds: number[]): Promise<boolean> {
+  // 验证权限ID是否存在
+  if (permissionIds.length > 0) {
+    const validPermissionsResult = await appQuery<{ id: number }>(
+      'SELECT id FROM permissions WHERE id = ANY($1)',
+      [permissionIds]
+    );
+    
+    const validIds = validPermissionsResult.rows.map(r => r.id);
+    const invalidIds = permissionIds.filter(id => !validIds.includes(id));
+    
+    if (invalidIds.length > 0) {
+      throw new Error(`以下权限ID不存在: ${invalidIds.join(', ')}`);
+    }
+  }
+  
   const client = await getAppClient();
   
   try {
@@ -236,6 +271,10 @@ export async function assignRolePermissions(roleId: number, permissionIds: numbe
     }
     
     await client.query('COMMIT');
+    
+    // 清除该角色下所有用户的权限缓存
+    await invalidateRolePermissionCache(roleId);
+    
     return true;
   } catch (error) {
     await client.query('ROLLBACK');

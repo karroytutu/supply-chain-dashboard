@@ -257,8 +257,10 @@ async function createOrUpdateUser(
 
 /**
  * 获取用户角色和权限
+ * @param userId 用户ID
+ * @returns 角色列表和权限编码数组
  */
-async function getUserRolesAndPermissions(userId: number): Promise<{ roles: RoleInfo[]; permissions: string[] }> {
+export async function getUserRolesAndPermissions(userId: number): Promise<{ roles: RoleInfo[]; permissions: string[] }> {
   // 获取用户角色
   const rolesResult = await appQuery<RoleInfo>(
     `SELECT r.id, r.code, r.name

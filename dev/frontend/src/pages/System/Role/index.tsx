@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { Table, Card, Button, Input, Space, Tag, Modal, message, Form, Input as AntInput, Tree, Badge } from 'antd';
 import { SearchOutlined, PlusOutlined } from '@ant-design/icons';
 import { getRoleList, createRole, updateRole, deleteRole, getPermissionTree, assignRolePermissions } from '@/services/api/auth';
+import { Authorized } from '@/components/Authorized';
+import { PERMISSIONS, ROLES } from '@/constants/permissions';
+import { usePermission } from '@/hooks/usePermission';
 import styles from './index.less';
 
 interface RoleItem {
@@ -22,6 +25,9 @@ interface PermissionItem {
 }
 
 export default function RoleManage() {
+  const { hasRole } = usePermission();
+  const isAdmin = hasRole(ROLES.ADMIN);
+  
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<RoleItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -201,13 +207,15 @@ export default function RoleManage() {
       key: 'action',
       render: (_: any, record: RoleItem) => (
         <Space>
-          <Button type="link" onClick={() => openPermissionModal(record)}>
-            分配权限
-          </Button>
-          <Button type="link" onClick={() => openEditModal(record)}>
-            编辑
-          </Button>
-          {!record.is_system && (
+          <Authorized permission={PERMISSIONS.SYSTEM.ROLE.WRITE}>
+            <Button type="link" onClick={() => openPermissionModal(record)}>
+              分配权限
+            </Button>
+            <Button type="link" onClick={() => openEditModal(record)}>
+              编辑
+            </Button>
+          </Authorized>
+          {isAdmin && !record.is_system && (
             <Button type="link" danger onClick={() => handleDelete(record)}>
               删除
             </Button>
@@ -232,9 +240,11 @@ export default function RoleManage() {
             />
             <Button type="primary" onClick={handleSearch}>搜索</Button>
           </Space>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-            新建角色
-          </Button>
+          {isAdmin && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+              新建角色
+            </Button>
+          )}
         </div>
         
         <Table

@@ -1,4 +1,5 @@
 import { appQuery, getAppClient } from '../db/appPool';
+import { invalidateUserPermissionCache } from './permission-cache.service';
 
 export interface User {
   id: number;
@@ -194,6 +195,10 @@ export async function assignUserRoles(userId: number, roleIds: number[]): Promis
     }
     
     await client.query('COMMIT');
+    
+    // 清除用户权限缓存
+    invalidateUserPermissionCache(userId);
+    
     return true;
   } catch (error) {
     await client.query('ROLLBACK');
