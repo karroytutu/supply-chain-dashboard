@@ -40,6 +40,7 @@ export interface ReturnOrderRow {
   erp_filler_name?: string | null;
   warehouse_executor_name?: string | null;
   marketing_completer_name?: string | null;
+  current_stock?: number | null;  // 当前残次品库存
 }
 
 /**
@@ -81,6 +82,7 @@ export function mapRowToReturnOrder(row: ReturnOrderRow): ReturnOrder {
     erpFillerName: row.erp_filler_name || undefined,
     warehouseExecutorName: row.warehouse_executor_name || undefined,
     marketingCompleterName: row.marketing_completer_name || undefined,
+    currentStock: row.current_stock ?? null,
   };
 }
 

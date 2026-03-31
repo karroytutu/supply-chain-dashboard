@@ -2,6 +2,7 @@
  * 退货单查询服务
  */
 
+import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
 import { mapRowToReturnOrder, type ReturnOrderRow } from './return-order-utils';
 import type {
@@ -58,13 +59,13 @@ export async function getReturnOrders(
   // 查询列表 - 动态计算当前剩余保质期
   const listParams = [...queryParams, pageSize, offset];
   const result = await appQuery<ListRow>(
-    `SELECT 
+    `SELECT
       ro.*,
       eu.name as erp_filler_name,
       wu.name as warehouse_executor_name,
       mu.name as marketing_completer_name,
-      CASE 
-        WHEN ro.batch_date IS NOT NULL AND ro.shelf_life IS NOT NULL THEN 
+      CASE
+        WHEN ro.batch_date IS NOT NULL AND ro.shelf_life IS NOT NULL THEN
           EXTRACT(DAY FROM (ro.batch_date + ro.shelf_life * INTERVAL '1 day') - CURRENT_DATE)::int
         ELSE NULL
       END as calculated_days_to_expire
@@ -78,8 +79,43 @@ export async function getReturnOrders(
     listParams
   );
 
+  // 批量查询残次品库存
+  const rows = result.rows;
+  const stockMap = new Map<string, number>();
+
+  if (rows.length > 0) {
+    const goodsNames = rows.map(row => row.goods_name);
+
+    try {
+      const stockResult = await query<{
+        goodsName: string;
+        total_quantity: number;
+      }>(
+        `SELECT "goodsName", SUM("quantity") as total_quantity
+         FROM "独山云仓批次库存表"
+         WHERE "goodsName" = ANY($1)
+           AND "qualityTypeStr" = '残次品'
+         GROUP BY "goodsName"`,
+        [goodsNames]
+      );
+
+      stockResult.rows.forEach(row => {
+        stockMap.set(row.goodsName, parseFloat(row.total_quantity as any) || 0);
+      });
+    } catch (error) {
+      console.error('[ReturnOrder] 查询库存失败:', error);
+      // 库存查询失败不影响主流程，继续返回数据
+    }
+  }
+
+  // 合并库存数据到退货单
+  const data = rows.map(row => {
+    row.current_stock = stockMap.get(row.goods_name) ?? null;
+    return mapRowToReturnOrder(row);
+  });
+
   return {
-    data: result.rows.map(mapRowToReturnOrder),
+    data,
     total,
     page,
     pageSize,
@@ -210,6 +246,7 @@ export async function getPendingErpOrders(): Promise<ReturnOrder[]> {
     marketingCompletedAt: null,
     marketingComment: null,
     ruleId: null,
+    currentStock: null,
   }));
 }
 

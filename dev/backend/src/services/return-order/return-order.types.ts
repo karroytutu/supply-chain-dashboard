@@ -48,6 +48,8 @@ export interface ReturnOrder {
   erpFillerName?: string;
   warehouseExecutorName?: string;
   marketingCompleterName?: string;
+  // 库存信息
+  currentStock: number | null;  // 当前残次品库存
 }
 
 /** 退货单列表查询参数 */

@@ -87,6 +87,23 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       ),
     },
     {
+      title: '当前库存',
+      key: 'currentStock',
+      width: 100,
+      render: (_: any, record: ReturnOrder) => {
+        const stock = record.currentStock;
+        if (stock === null || stock === undefined) {
+          return <span style={{ color: '#999' }}>-</span>;
+        }
+        // 库存为0时显示灰色"已清零"
+        if (stock === 0) {
+          return <span style={{ color: '#52c41a' }}>已清零</span>;
+        }
+        // 库存大于0时显示数量
+        return <span>{stock} {record.unit || '件'}</span>;
+      },
+    },
+    {
       title: '生产日期',
       dataIndex: 'batchDate',
       key: 'batchDate',
@@ -199,7 +216,7 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       dataSource={dataSource}
       rowKey="id"
       loading={loading}
-      scroll={{ x: 1350 }}
+      scroll={{ x: 1450 }}
       rowSelection={{
         selectedRowKeys,
         onChange: (keys) => onSelectChange(keys as number[]),
