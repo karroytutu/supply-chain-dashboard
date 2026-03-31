@@ -6,6 +6,8 @@ import {
   updateUserStatus,
   assignUserRoles,
   getUserLoginLogs,
+  batchUpdateUserStatus as batchUpdateStatus,
+  batchAssignUserRoles as batchAssignRoles,
 } from '../services/user.service';
 
 /**
@@ -16,8 +18,9 @@ export async function listUsers(req: Request, res: Response) {
   const pageSize = parseInt(req.query.pageSize as string) || 10;
   const keyword = req.query.keyword as string;
   const status = req.query.status !== undefined ? parseInt(req.query.status as string) : undefined;
+  const roleId = req.query.roleId !== undefined ? parseInt(req.query.roleId as string) : undefined;
   
-  const result = await getUserList({ page, pageSize, keyword, status });
+  const result = await getUserList({ page, pageSize, keyword, status, roleId });
   
   res.json({
     success: true,
@@ -141,5 +144,54 @@ export async function getLoginLogs(req: Request, res: Response) {
     total: result.total,
     page,
     pageSize,
+  });
+}
+
+/**
+ * 批量更新用户状态
+ */
+export async function batchUpdateUserStatus(req: Request, res: Response) {
+  const { userIds, status } = req.body;
+  
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    res.status(400).json({ success: false, message: '用户ID列表不能为空' });
+    return;
+  }
+  
+  if (status === undefined || ![0, 1].includes(status)) {
+    res.status(400).json({ success: false, message: '无效的状态值' });
+    return;
+  }
+  
+  const count = await batchUpdateStatus(userIds, status);
+  
+  res.json({ 
+    success: true, 
+    message: status === 1 ? `成功启用 ${count} 个用户` : `成功禁用 ${count} 个用户`,
+    affectedCount: count,
+  });
+}
+
+/**
+ * 批量分配用户角色
+ */
+export async function batchAssignUserRoles(req: Request, res: Response) {
+  const { userIds, roleIds } = req.body;
+  
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    res.status(400).json({ success: false, message: '用户ID列表不能为空' });
+    return;
+  }
+  
+  if (!Array.isArray(roleIds)) {
+    res.status(400).json({ success: false, message: '角色ID列表格式错误' });
+    return;
+  }
+  
+  await batchAssignRoles(userIds, roleIds);
+  
+  res.json({ 
+    success: true, 
+    message: `成功为 ${userIds.length} 个用户分配角色` 
   });
 }

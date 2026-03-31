@@ -6,6 +6,8 @@ import {
   updateUserStatusHandler,
   assignRoles,
   getLoginLogs,
+  batchUpdateUserStatus,
+  batchAssignUserRoles,
 } from '../controllers/user.controller';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
@@ -17,6 +19,10 @@ router.use(authMiddleware);
 
 // 用户列表
 router.get('/', requirePermission('system:user:read'), listUsers);
+
+// 批量操作路由（放在 /:id 路由之前）
+router.put('/batch/status', requirePermission('system:user:write'), batchUpdateUserStatus);
+router.put('/batch/roles', requirePermission('system:user:write'), batchAssignUserRoles);
 
 // 用户详情
 router.get('/:id', requirePermission('system:user:read'), getUser);

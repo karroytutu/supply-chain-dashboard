@@ -26,6 +26,7 @@ export interface UserListParams {
   pageSize: number;
   keyword?: string;
   status?: number;
+  roleId?: number;
 }
 
 export interface UserListResult {
@@ -37,7 +38,7 @@ export interface UserListResult {
  * 获取用户列表
  */
 export async function getUserList(params: UserListParams): Promise<UserListResult> {
-  const { page, pageSize, keyword, status } = params;
+  const { page, pageSize, keyword, status, roleId } = params;
   const offset = (page - 1) * pageSize;
   
   let whereClause = '1=1';
@@ -56,9 +57,17 @@ export async function getUserList(params: UserListParams): Promise<UserListResul
     paramIndex++;
   }
   
+  // 角色筛选：使用子查询
+  let roleJoinClause = '';
+  if (roleId) {
+    roleJoinClause = ` AND id IN (SELECT user_id FROM user_roles WHERE role_id = $${paramIndex})`;
+    queryParams.push(roleId);
+    paramIndex++;
+  }
+  
   // 查询总数
   const countResult = await appQuery<{ count: string }>(
-    `SELECT COUNT(*) as count FROM users WHERE ${whereClause}`,
+    `SELECT COUNT(*) as count FROM users WHERE ${whereClause}${roleJoinClause}`,
     queryParams
   );
   const total = parseInt(countResult.rows[0].count, 10);
@@ -66,7 +75,7 @@ export async function getUserList(params: UserListParams): Promise<UserListResul
   // 查询列表
   queryParams.push(pageSize, offset);
   const listResult = await appQuery<User>(
-    `SELECT * FROM users WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    `SELECT * FROM users WHERE ${whereClause}${roleJoinClause} ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
     queryParams
   );
   
@@ -221,4 +230,48 @@ export async function getUserLoginLogs(userId: number, page: number, pageSize: n
   );
   
   return { list: listResult.rows, total };
+}
+
+/**
+ * 批量更新用户状态
+ */
+export async function batchUpdateUserStatus(userIds: number[], status: number): Promise<number> {
+  const result = await appQuery(
+    `UPDATE users SET status = $1, updated_at = NOW() WHERE id = ANY($2)`,
+    [status, userIds]
+  );
+  
+  return result.rowCount ?? 0;
+}
+
+/**
+ * 批量分配用户角色
+ */
+export async function batchAssignUserRoles(userIds: number[], roleIds: number[]): Promise<boolean> {
+  const client = await getAppClient();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // 删除现有角色
+    await client.query('DELETE FROM user_roles WHERE user_id = ANY($1)', [userIds]);
+    
+    // 批量添加新角色
+    for (const userId of userIds) {
+      for (const roleId of roleIds) {
+        await client.query(
+          'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)',
+          [userId, roleId]
+        );
+      }
+    }
+    
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }

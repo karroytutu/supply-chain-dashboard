@@ -24,6 +24,8 @@ export interface RoleInfo {
   id: number;
   code: string;
   name: string;
+  description?: string;
+  is_system?: boolean;
 }
 
 export interface QrcodeConfig {
@@ -96,6 +98,7 @@ export async function getUserList(params: {
   pageSize?: number;
   keyword?: string;
   status?: number;
+  roleId?: number;
 }): Promise<{ data: any[]; total: number }> {
   return request.get('/users', { params });
 }
@@ -179,4 +182,18 @@ export async function createPermission(data: {
   parent_id?: number;
 }): Promise<{ data: any }> {
   return request.post('/permissions', data);
+}
+
+/**
+ * 批量更新用户状态
+ */
+export async function batchUpdateUserStatus(userIds: number[], status: number): Promise<{ success: boolean }> {
+  return request.put('/users/batch/status', { userIds, status });
+}
+
+/**
+ * 批量分配用户角色
+ */
+export async function batchAssignUserRoles(userIds: number[], roleIds: number[]): Promise<{ success: boolean }> {
+  return request.put('/users/batch/roles', { userIds, roleIds });
 }
