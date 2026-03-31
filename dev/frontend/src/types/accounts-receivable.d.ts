@@ -257,3 +257,124 @@ export interface UploadEvidenceResponse {
 export interface SaveSignatureResponse {
   id: number;
 }
+
+// ==================== 客户维度催收任务类型 ====================
+
+/** 客户催收结果类型（包含混合） */
+export type CustomerCollectionResultType = CollectionResultType | 'mixed';
+
+/** 客户催收任务 */
+export interface ArCustomerCollectionTask {
+  id: number;
+  task_no: string;
+  consumer_name: string;
+  consumer_code?: string;
+  ar_ids: number[];
+  total_amount: number;
+  bill_count: number;
+  collector_id: number;
+  collector_role: CollectorLevel;
+  collector_name?: string;
+  deadline_at: string;
+  status: CollectionTaskStatus;
+  result_type: CustomerCollectionResultType | null;
+  latest_pay_date: string | null;
+  evidence_url: string | null;
+  signature_data: string | null;
+  escalate_reason: string | null;
+  reviewed_by: number | null;
+  reviewer_name?: string;
+  review_status: ReviewStatus | null;
+  review_comment: string | null;
+  completed_at: string | null;
+  timeout_days?: number;
+  penalty_amount?: number;
+  remaining_hours?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 单据催收结果（用于混合操作） */
+export interface ArBillResult {
+  id?: number;
+  customer_task_id: number;
+  ar_id: number;
+  result_type: CollectionResultType;
+  latest_pay_date?: string;
+  erp_bill_id?: string;
+  left_amount?: number;
+  due_date?: string;
+  overdue_days?: number;
+}
+
+/** 客户任务明细（含单据列表） */
+export interface CustomerTaskDetail extends ArCustomerCollectionTask {
+  bills: CustomerTaskBill[];
+}
+
+/** 客户任务关联的单据信息 */
+export interface CustomerTaskBill {
+  ar_id: number;
+  erp_bill_id: string;
+  order_no: string | null;
+  left_amount: number;
+  due_date: string;
+  overdue_days: number;
+  bill_order_time?: string;
+  settle_method?: number;
+  max_debt_days?: number;
+  result_type?: CollectionResultType;
+  latest_pay_date?: string;
+}
+
+/** 客户任务查询参数 */
+export interface CustomerTaskQueryParams {
+  status?: string;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** 客户催收结果提交参数（统一操作） */
+export interface CustomerCollectionSubmitParams {
+  resultType: CollectionResultType;
+  latestPayDate?: string;
+  evidenceUrl?: string;
+  signatureData?: string;
+  escalateReason?: string;
+  remark?: string;
+}
+
+/** 客户催收混合结果提交参数 */
+export interface CustomerMixedSubmitParams {
+  bills: Array<{
+    arId: number;
+    resultType: CollectionResultType;
+    latestPayDate?: string;
+  }>;
+  evidenceUrl?: string;
+  signatureData?: string;
+}
+
+/** 客户快速延期参数 */
+export interface CustomerQuickDelayParams {
+  days: number;
+}
+
+/** 客户任务升级参数 */
+export interface CustomerEscalateParams {
+  escalateReason: string;
+}
+
+/** 客户审核任务查询参数 */
+export interface CustomerReviewQueryParams {
+  reviewType?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** 客户审核操作参数 */
+export interface CustomerReviewActionParams {
+  action: 'approve' | 'reject';
+  comment?: string;
+}

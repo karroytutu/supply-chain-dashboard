@@ -34,6 +34,17 @@ import {
   manualSync,
   // 推送记录
   getArNotifications,
+  // 客户维度催收任务
+  getCustomerTasksList,
+  getCustomerTask,
+  submitCustomerCollectResult,
+  submitCustomerCollectBatch,
+  quickDelayCustomerTaskAction,
+  escalateCustomerTaskAction,
+  // 客户维度审核
+  getCustomerReviewList,
+  reviewCustomerTask,
+  getCustomerHistory,
 } from '../controllers/accounts-receivable.controller';
 
 const router = Router();
@@ -204,6 +215,109 @@ router.post(
   requirePermission('finance:ar:collect'),
   uploadEvidence.single('file'),
   uploadEvidenceFile
+);
+
+// ==================== 客户维度催收任务 ====================
+
+/**
+ * 获取客户催收任务列表
+ * GET /api/ar/customer-tasks
+ * 权限: finance:ar:collect
+ */
+router.get(
+  '/customer-tasks',
+  requirePermission('finance:ar:collect'),
+  getCustomerTasksList
+);
+
+/**
+ * 获取客户催收任务详情
+ * GET /api/ar/customer-tasks/:id
+ * 权限: finance:ar:collect
+ */
+router.get(
+  '/customer-tasks/:id',
+  requirePermission('finance:ar:collect'),
+  getCustomerTask
+);
+
+/**
+ * 提交客户催收结果（统一操作）
+ * POST /api/ar/customer-tasks/:id/collect
+ * 权限: finance:ar:collect
+ */
+router.post(
+  '/customer-tasks/:id/collect',
+  requirePermission('finance:ar:collect'),
+  submitCustomerCollectResult
+);
+
+/**
+ * 提交客户催收结果（混合操作）
+ * POST /api/ar/customer-tasks/:id/collect-batch
+ * 权限: finance:ar:collect
+ */
+router.post(
+  '/customer-tasks/:id/collect-batch',
+  requirePermission('finance:ar:collect'),
+  submitCustomerCollectBatch
+);
+
+/**
+ * 客户任务快速延期
+ * POST /api/ar/customer-tasks/:id/quick-delay
+ * 权限: finance:ar:collect
+ */
+router.post(
+  '/customer-tasks/:id/quick-delay',
+  requirePermission('finance:ar:collect'),
+  quickDelayCustomerTaskAction
+);
+
+/**
+ * 客户任务升级
+ * POST /api/ar/customer-tasks/:id/escalate
+ * 权限: finance:ar:collect
+ */
+router.post(
+  '/customer-tasks/:id/escalate',
+  requirePermission('finance:ar:collect'),
+  escalateCustomerTaskAction
+);
+
+// ==================== 客户维度审核 ====================
+
+/**
+ * 获取客户维度待审核任务
+ * GET /api/ar/customer-review
+ * 权限: finance:ar:review
+ */
+router.get(
+  '/customer-review',
+  requirePermission('finance:ar:review'),
+  getCustomerReviewList
+);
+
+/**
+ * 客户任务审核
+ * POST /api/ar/customer-review/:id/review
+ * 权限: finance:ar:review
+ */
+router.post(
+  '/customer-review/:id/review',
+  requirePermission('finance:ar:review'),
+  reviewCustomerTask
+);
+
+/**
+ * 获取客户维度历史记录
+ * GET /api/ar/customer-history
+ * 权限: finance:ar:read
+ */
+router.get(
+  '/customer-history',
+  requirePermission('finance:ar:read'),
+  getCustomerHistory
 );
 
 // ==================== 详情（放在参数路由之前）====================

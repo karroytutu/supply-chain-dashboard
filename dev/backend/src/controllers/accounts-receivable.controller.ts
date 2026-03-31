@@ -23,12 +23,27 @@ import {
   approveReview,
   rejectReview,
   getHistoryRecords,
+  getCustomerReviewTasks,
+  approveCustomerTaskReview,
+  rejectCustomerTaskReview,
+  getCustomerHistoryRecords,
 } from '../services/accounts-receivable/ar-review.service';
+
+import {
+  getCustomerTasks,
+  getCustomerTaskDetail,
+  submitUnifiedResult,
+  submitMixedResults,
+  escalateCustomerTask,
+  quickDelayCustomerTask,
+} from '../services/accounts-receivable/ar-customer-task.service';
 
 import {
   saveSignature,
   getUserSignatures,
 } from '../services/accounts-receivable/ar-signature.service';
+
+import type { CollectionTaskStatus } from '../services/accounts-receivable/ar.types';
 
 import {
   getPreWarningData,
@@ -1027,6 +1042,333 @@ export const getArNotifications = async (req: Request, res: Response) => {
     console.error('获取推送记录失败:', error);
     res.status(500).json({
       error: '获取推送记录失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+// ==================== 客户维度催收任务 Controller ====================
+
+/**
+ * 获取客户催收任务列表
+ * GET /api/ar/customer-tasks
+ * 权限: finance:ar:collect
+ */
+export const getCustomerTasksList = async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    const { status, keyword, page, pageSize } = req.query;
+
+    // 非管理员只能看自己的任务
+    const userId = isAdminOrFinance(user.roles) ? undefined : user.userId;
+
+    const result = await getCustomerTasks({
+      userId,
+      status: status as CollectionTaskStatus | undefined,
+      keyword: keyword as string,
+      page: page ? parseInt(page as string, 10) : 1,
+      pageSize: pageSize ? parseInt(pageSize as string, 10) : 20,
+    });
+
+    res.json({
+      code: 200,
+      data: result,
+    });
+  } catch (error) {
+    console.error('获取客户催收任务列表失败:', error);
+    res.status(500).json({
+      error: '获取任务列表失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 获取客户催收任务详情
+ * GET /api/ar/customer-tasks/:id
+ * 权限: finance:ar:collect
+ */
+export const getCustomerTask = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const taskId = parseInt(id, 10);
+
+    if (isNaN(taskId)) {
+      res.status(400).json({ error: '参数错误', message: '无效的任务ID' });
+      return;
+    }
+
+    const detail = await getCustomerTaskDetail(taskId);
+
+    res.json({
+      code: 200,
+      data: detail,
+    });
+  } catch (error) {
+    console.error('获取客户任务详情失败:', error);
+    res.status(500).json({
+      error: '获取任务详情失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 提交客户催收结果（统一操作）
+ * POST /api/ar/customer-tasks/:id/collect
+ * 权限: finance:ar:collect
+ */
+export const submitCustomerCollectResult = async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    const { id } = req.params;
+    const customerTaskId = parseInt(id, 10);
+
+    if (isNaN(customerTaskId)) {
+      res.status(400).json({ error: '参数错误', message: '无效的任务ID' });
+      return;
+    }
+
+    const { resultType, latestPayDate, evidenceUrl, signatureData, escalateReason, remark } = req.body;
+
+    if (!resultType) {
+      res.status(400).json({ error: '参数错误', message: 'resultType 不能为空' });
+      return;
+    }
+
+    await submitUnifiedResult({
+      customerTaskId,
+      collectorId: user.userId,
+      resultType,
+      latestPayDate: latestPayDate ? new Date(latestPayDate) : undefined,
+      evidenceUrl,
+      signatureData,
+      escalateReason,
+      remark,
+    });
+
+    res.json({ success: true, message: '催收结果提交成功' });
+  } catch (error) {
+    console.error('提交客户催收结果失败:', error);
+    res.status(500).json({
+      error: '提交失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 提交客户催收结果（混合操作）
+ * POST /api/ar/customer-tasks/:id/collect-batch
+ * 权限: finance:ar:collect
+ */
+export const submitCustomerCollectBatch = async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    const { id } = req.params;
+    const customerTaskId = parseInt(id, 10);
+
+    if (isNaN(customerTaskId)) {
+      res.status(400).json({ error: '参数错误', message: '无效的任务ID' });
+      return;
+    }
+
+    const { bills, evidenceUrl, signatureData } = req.body;
+
+    if (!bills || !Array.isArray(bills) || bills.length === 0) {
+      res.status(400).json({ error: '参数错误', message: 'bills 不能为空' });
+      return;
+    }
+
+    await submitMixedResults({
+      customerTaskId,
+      collectorId: user.userId,
+      bills,
+      evidenceUrl,
+      signatureData,
+    });
+
+    res.json({ success: true, message: '催收结果提交成功' });
+  } catch (error) {
+    console.error('提交混合催收结果失败:', error);
+    res.status(500).json({
+      error: '提交失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 客户任务快速延期
+ * POST /api/ar/customer-tasks/:id/quick-delay
+ * 权限: finance:ar:collect
+ */
+export const quickDelayCustomerTaskAction = async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    const { id } = req.params;
+    const customerTaskId = parseInt(id, 10);
+    const { days } = req.body;
+
+    if (isNaN(customerTaskId) || !days) {
+      res.status(400).json({ error: '参数错误', message: '参数不完整' });
+      return;
+    }
+
+    await quickDelayCustomerTask({
+      customerTaskId,
+      collectorId: user.userId,
+      days: parseInt(days, 10),
+    });
+
+    res.json({ success: true, message: '延期成功' });
+  } catch (error) {
+    console.error('快速延期失败:', error);
+    res.status(500).json({
+      error: '延期失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 客户任务升级
+ * POST /api/ar/customer-tasks/:id/escalate
+ * 权限: finance:ar:collect
+ */
+export const escalateCustomerTaskAction = async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    const { id } = req.params;
+    const customerTaskId = parseInt(id, 10);
+    const { escalateReason } = req.body;
+
+    if (isNaN(customerTaskId) || !escalateReason) {
+      res.status(400).json({ error: '参数错误', message: '参数不完整' });
+      return;
+    }
+
+    const result = await escalateCustomerTask({
+      customerTaskId,
+      collectorId: user.userId,
+      escalateReason,
+    });
+
+    res.json({ success: true, message: '升级成功', newTaskId: result.newTaskId });
+  } catch (error) {
+    console.error('客户任务升级失败:', error);
+    res.status(500).json({
+      error: '升级失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 获取客户维度待审核任务
+ * GET /api/ar/customer-review
+ * 权限: finance:ar:review
+ */
+export const getCustomerReviewList = async (req: Request, res: Response) => {
+  try {
+    const { reviewType, page, pageSize } = req.query;
+
+    const result = await getCustomerReviewTasks({
+      reviewType: reviewType as string,
+      page: page ? parseInt(page as string, 10) : 1,
+      pageSize: pageSize ? parseInt(pageSize as string, 10) : 10,
+    });
+
+    res.json({
+      code: 200,
+      data: result,
+    });
+  } catch (error) {
+    console.error('获取客户待审核任务失败:', error);
+    res.status(500).json({
+      error: '获取待审核任务失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 客户任务审核
+ * POST /api/ar/customer-review/:id/review
+ * 权限: finance:ar:review
+ */
+export const reviewCustomerTask = async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    const { id } = req.params;
+    const customerTaskId = parseInt(id, 10);
+    const { action, comment } = req.body;
+
+    if (isNaN(customerTaskId) || !action) {
+      res.status(400).json({ error: '参数错误', message: '参数不完整' });
+      return;
+    }
+
+    if (action === 'approve') {
+      await approveCustomerTaskReview({
+        customerTaskId,
+        reviewerId: user.userId,
+        reviewerName: user.realName || user.username || '',
+        reviewComment: comment,
+      });
+    } else if (action === 'reject') {
+      if (!comment) {
+        res.status(400).json({ error: '参数错误', message: '拒绝审核需要提供原因' });
+        return;
+      }
+      await rejectCustomerTaskReview({
+        customerTaskId,
+        reviewerId: user.userId,
+        reviewerName: user.realName || user.username || '',
+        rejectComment: comment,
+      });
+    } else {
+      res.status(400).json({ error: '参数错误', message: '无效的 action' });
+      return;
+    }
+
+    res.json({ success: true, message: '审核完成' });
+  } catch (error) {
+    console.error('客户任务审核失败:', error);
+    res.status(500).json({
+      error: '审核失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
+ * 获取客户维度历史记录
+ * GET /api/ar/customer-history
+ * 权限: finance:ar:read
+ */
+export const getCustomerHistory = async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    const { page, pageSize } = req.query;
+
+    // 非管理员只能看自己的历史
+    const userId = isAdminOrFinance(user.roles) ? undefined : user.userId;
+
+    const result = await getCustomerHistoryRecords({
+      userId,
+      page: page ? parseInt(page as string, 10) : 1,
+      pageSize: pageSize ? parseInt(pageSize as string, 10) : 10,
+    });
+
+    res.json({
+      code: 200,
+      data: result,
+    });
+  } catch (error) {
+    console.error('获取客户历史记录失败:', error);
+    res.status(500).json({
+      error: '获取历史记录失败',
       message: error instanceof Error ? error.message : '未知错误',
     });
   }

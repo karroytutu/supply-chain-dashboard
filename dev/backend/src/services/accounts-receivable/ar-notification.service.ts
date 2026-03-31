@@ -23,6 +23,7 @@ import {
   getNotificationTitle,
 } from './ar-notification-templates';
 import type { NotificationType, CollectorLevel, PreWarnTypeData, AggregatedPreWarnData } from './ar.types';
+import { createCustomerTask } from './ar-customer-task.service';
 
 /** 系统基础URL */
 const SYSTEM_BASE_URL = process.env.SYSTEM_BASE_URL || 'http://localhost:3100';
@@ -303,12 +304,13 @@ async function sendOverdueCollectNotifications(): Promise<void> {
   const result = await appQuery<{
     id: number;
     consumer_name: string;
+    consumer_code: string | null;
     manager_users: string;
     erp_bill_id: string;
     left_amount: number;
     due_date: Date;
   }>(
-    `SELECT id, consumer_name, manager_users, erp_bill_id, left_amount, due_date
+    `SELECT id, consumer_name, consumer_code, manager_users, erp_bill_id, left_amount, due_date
      FROM ar_receivables
      WHERE due_date <= CURRENT_DATE
        AND ar_status IN ('synced', 'pre_warning_5', 'pre_warning_2')
@@ -329,22 +331,17 @@ async function sendOverdueCollectNotifications(): Promise<void> {
     const marketingUser = await matchMarketingUser(managerUsers);
     if (!marketingUser) continue;
 
-    // 更新状态为逾期
     const arIds = bills.map(b => b.id);
-    await updateArStatus(arIds, 'overdue', 'overdue_sent');
 
-    // 为每张单据创建催收任务
-    for (const bill of bills) {
-      await createCollectionTask(bill.id, marketingUser.userId, 'marketing');
-    }
-
-    // 更新催收人信息
-    await appQuery(
-      `UPDATE ar_receivables
-       SET current_collector_id = $1, collector_level = 'marketing', updated_at = NOW()
-       WHERE id = ANY($2)`,
-      [marketingUser.userId, arIds]
-    );
+    // 创建客户维度催收任务（替代为每张单据单独创建任务）
+    await createCustomerTask({
+      consumerName,
+      consumerCode: bills[0].consumer_code || undefined,
+      managerUsers: managerUsers || undefined,
+      arIds,
+      collectorId: marketingUser.userId,
+      collectorRole: 'marketing',
+    });
 
     // 计算催收截止日期
     const deadlineDate = new Date();
@@ -376,26 +373,24 @@ async function sendOverdueCollectNotifications(): Promise<void> {
 }
 
 /**
- * 任务4: 超时检查与考核
+ * 任务4: 超时检查与考核（客户任务维度）
  */
 async function checkTimeoutAndPenalty(): Promise<void> {
   console.log('[AR-Notification] 执行超时检查与考核...');
 
+  // 查询客户任务维度的超时任务
   const result = await appQuery<{
     task_id: number;
-    ar_id: number;
     collector_id: number;
     collector_role: CollectorLevel;
     consumer_name: string;
-    left_amount: number;
-    erp_bill_id: string;
+    total_amount: number;
     deadline_at: Date;
-    due_date: Date;
+    ar_ids: number[];
   }>(
-    `SELECT t.id as task_id, t.collector_id, t.collector_role, t.deadline_at,
-            r.id as ar_id, r.consumer_name, r.left_amount, r.erp_bill_id, r.due_date
-     FROM ar_collection_tasks t
-     JOIN ar_receivables r ON t.ar_id = r.id
+    `SELECT t.id as task_id, t.collector_id, t.collector_role, t.consumer_name,
+            t.total_amount, t.deadline_at, t.ar_ids
+     FROM ar_customer_collection_tasks t
      WHERE t.status IN ('pending', 'in_progress')
        AND t.deadline_at < NOW()`
   );
@@ -418,9 +413,8 @@ async function checkTimeoutAndPenalty(): Promise<void> {
     if (userResult.rows.length === 0 || !userResult.rows[0].dingtalk_user_id) continue;
 
     const collector = userResult.rows[0];
-    const consumerName = tasks[0].consumer_name;
 
-    // 计算考核金额
+    // 计算考核金额（按客户任务粒度）
     let totalPenalty = 0;
     const billDetails: BillDetail[] = [];
 
@@ -434,7 +428,7 @@ async function checkTimeoutAndPenalty(): Promise<void> {
 
       if (task.collector_role === 'marketing' || task.collector_role === 'finance') {
         if (timeoutDays >= 7) {
-          penaltyAmount = task.left_amount;
+          penaltyAmount = task.total_amount;
           penaltyLevel = 'full';
         } else if (timeoutDays >= 4) {
           penaltyAmount = 20;
@@ -445,7 +439,7 @@ async function checkTimeoutAndPenalty(): Promise<void> {
         }
       } else if (task.collector_role === 'supervisor') {
         if (timeoutDays >= 7) {
-          penaltyAmount = task.left_amount;
+          penaltyAmount = task.total_amount;
           penaltyLevel = 'full';
         } else if (timeoutDays >= 4) {
           penaltyAmount = 100;
@@ -459,20 +453,19 @@ async function checkTimeoutAndPenalty(): Promise<void> {
       totalPenalty += penaltyAmount;
 
       billDetails.push({
-        billNo: task.erp_bill_id,
-        amount: task.left_amount,
-        overdueDays: Math.floor((Date.now() - new Date(task.due_date).getTime()) / (1000 * 60 * 60 * 24)),
+        billNo: task.consumer_name,
+        amount: task.total_amount,
+        overdueDays: timeoutDays,
         penaltyAmount,
       });
 
-      // 保存/更新考核记录
+      // 保存考核记录（按客户任务）
       if (penaltyAmount > 0) {
         await appQuery(
-          `INSERT INTO ar_penalty_records (ar_id, task_id, user_id, penalty_level, overdue_days, penalty_amount, status)
+          `INSERT INTO ar_penalty_records (ar_id, customer_task_id, user_id, penalty_level, overdue_days, penalty_amount, status)
            VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-           ON CONFLICT (ar_id, task_id) DO UPDATE
-           SET penalty_level = $4, penalty_amount = $6, updated_at = NOW()`,
-          [task.ar_id, task.task_id, collectorId, penaltyLevel, timeoutDays, penaltyAmount]
+           ON CONFLICT DO NOTHING`,
+          [task.ar_ids[0], task.task_id, collectorId, penaltyLevel, timeoutDays, penaltyAmount]
         );
       }
     }
@@ -482,16 +475,16 @@ async function checkTimeoutAndPenalty(): Promise<void> {
         ...tasks.map(t => Math.floor((Date.now() - new Date(t.deadline_at).getTime()) / (1000 * 60 * 60 * 24)))
       );
 
-      const content = buildTimeoutPenaltyMessage(consumerName, maxTimeout, totalPenalty, billDetails);
-      const title = getNotificationTitle('timeout_penalty', consumerName);
+      const content = buildTimeoutPenaltyMessage('多客户', maxTimeout, totalPenalty, billDetails);
+      const title = getNotificationTitle('timeout_penalty', '催收任务超时');
 
       await sendAndRecordNotification({
-        arIds: tasks.map(t => t.ar_id),
+        arIds: tasks.flatMap(t => t.ar_ids),
         notificationType: 'timeout_penalty',
         recipientId: collectorId,
         recipientName: collector.name,
         recipientDingtalkId: collector.dingtalk_user_id,
-        consumerName,
+        consumerName: '多客户',
         billCount: tasks.length,
         title,
         markdownContent: content,
@@ -501,55 +494,60 @@ async function checkTimeoutAndPenalty(): Promise<void> {
 }
 
 /**
- * 任务5: 延期到期自动升级
+ * 任务5: 延期到期自动升级（客户任务维度）
  */
 async function processAutoEscalate(): Promise<void> {
   console.log('[AR-Notification] 执行延期到期自动升级...');
 
+  // 查询客户任务维度的延期到期任务
   const result = await appQuery<{
     task_id: number;
-    ar_id: number;
     collector_id: number;
     collector_role: CollectorLevel;
     result_type: string;
     latest_pay_date: Date;
     consumer_name: string;
-    left_amount: number;
-    erp_bill_id: string;
-    due_date: Date;
+    total_amount: number;
+    ar_ids: number[];
   }>(
-    `SELECT t.id as task_id, t.collector_id, t.collector_role, t.result_type, t.latest_pay_date,
-            r.id as ar_id, r.consumer_name, r.left_amount, r.erp_bill_id, r.due_date
-     FROM ar_collection_tasks t
-     JOIN ar_receivables r ON t.ar_id = r.id
+    `SELECT t.id as task_id, t.collector_id, t.collector_role, t.result_type, 
+            t.latest_pay_date, t.consumer_name, t.total_amount, t.ar_ids
+     FROM ar_customer_collection_tasks t
      WHERE t.result_type IN ('customer_delay', 'guarantee_delay')
        AND t.latest_pay_date <= CURRENT_DATE
        AND t.status = 'completed'
-       AND r.ar_status = 'collecting'
-       AND r.left_amount > 0`
+       AND EXISTS (
+         SELECT 1 FROM ar_receivables r 
+         WHERE r.id = ANY(t.ar_ids) 
+           AND r.ar_status = 'collecting' 
+           AND r.left_amount > 0
+       )`
   );
 
   for (const row of result.rows) {
     // 确定升级目标
     let newCollectorRole: CollectorLevel;
+    let targetRoleCode: string;
+    
     if (row.collector_role === 'marketing') {
       newCollectorRole = 'supervisor';
+      targetRoleCode = 'marketing_supervisor';
     } else if (row.collector_role === 'supervisor') {
       newCollectorRole = 'finance';
+      targetRoleCode = 'finance_staff';
     } else {
       continue; // 财务不再升级
     }
 
-    // 查找新催收人（这里需要根据业务逻辑找到对应角色的用户）
-    // 简化处理：查找有管理角色的用户
+    // 查找新催收人
     const adminResult = await appQuery<{ id: number; dingtalk_user_id: string; name: string }>(
       `SELECT u.id, u.dingtalk_user_id, u.name
        FROM users u
-       JOIN role_user ru ON u.id = ru.user_id
-       JOIN roles r ON ru.role_id = r.id
-       WHERE r.code = $1 AND u.status = 1
+       JOIN user_roles ur ON u.id = ur.user_id
+       JOIN roles r ON ur.role_id = r.id
+       WHERE r.code = $1 AND u.status = 'active'
        LIMIT 1`,
-      [newCollectorRole === 'supervisor' ? 'supervisor' : 'finance']
+      [targetRoleCode]
     );
 
     if (adminResult.rows.length === 0 || !adminResult.rows[0].dingtalk_user_id) {
@@ -566,29 +564,70 @@ async function processAutoEscalate(): Promise<void> {
     );
     const oldCollectorName = oldCollectorResult.rows[0]?.name || '未知';
 
+    // 获取关联AR的详情用于通知
+    const arDetailsResult = await appQuery<{ erp_bill_id: string; left_amount: number; due_date: Date }>(
+      `SELECT erp_bill_id, left_amount, due_date 
+       FROM ar_receivables 
+       WHERE id = ANY($1) AND left_amount > 0`,
+      [row.ar_ids]
+    );
+
+    const billDetails: BillDetail[] = arDetailsResult.rows.map(ar => ({
+      billNo: ar.erp_bill_id,
+      amount: ar.left_amount,
+      dueDate: new Date(ar.due_date).toISOString().split('T')[0],
+      overdueDays: Math.floor((Date.now() - new Date(ar.due_date).getTime()) / (1000 * 60 * 60 * 24)),
+    }));
+
     // 标记原任务已升级
     await appQuery(
-      `UPDATE ar_collection_tasks SET status = 'escalated', updated_at = NOW() WHERE id = $1`,
+      `UPDATE ar_customer_collection_tasks SET status = 'escalated', updated_at = NOW() WHERE id = $1`,
       [row.task_id]
     );
 
-    // 创建新催收任务
-    await createCollectionTask(row.ar_id, newCollector.id, newCollectorRole);
+    // 创建新的客户催收任务
+    const client = await getAppClient();
+    try {
+      // 生成新任务编号
+      const date = new Date();
+      const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+      const countResult = await client.query(
+        `SELECT COUNT(*)::text FROM ar_customer_collection_tasks WHERE task_no LIKE $1`,
+        [`AR-CUST-${dateStr}-%`]
+      );
+      const seq = (parseInt(countResult.rows[0].count) + 1).toString().padStart(4, '0');
+      const newTaskNo = `AR-CUST-${dateStr}-${seq}`;
 
-    // 更新应收账款
-    await appQuery(
-      `UPDATE ar_receivables
-       SET current_collector_id = $1, collector_level = $2, updated_at = NOW()
-       WHERE id = $3`,
-      [newCollector.id, newCollectorRole, row.ar_id]
-    );
+      // 计算新的截止日期
+      const deadlineAt = new Date();
+      deadlineAt.setDate(deadlineAt.getDate() + 3);
 
-    const billDetail: BillDetail = {
-      billNo: row.erp_bill_id,
-      amount: row.left_amount,
-      dueDate: new Date(row.due_date).toISOString().split('T')[0],
-      overdueDays: Math.floor((Date.now() - new Date(row.due_date).getTime()) / (1000 * 60 * 60 * 24)),
-    };
+      // 创建新任务
+      const newTaskResult = await client.query(
+        `INSERT INTO ar_customer_collection_tasks 
+         (task_no, consumer_name, consumer_code, manager_users, ar_ids, 
+          total_amount, bill_count, collector_id, collector_role, 
+          assigned_at, deadline_at, status, created_at, updated_at)
+         SELECT $1, consumer_name, consumer_code, manager_users, ar_ids,
+                total_amount, bill_count, $2, $3,
+                NOW(), $4, 'pending', NOW(), NOW()
+         FROM ar_customer_collection_tasks WHERE id = $5
+         RETURNING id`,
+        [newTaskNo, newCollector.id, newCollectorRole, deadlineAt, row.task_id]
+      );
+
+      const newTaskId = newTaskResult.rows[0].id;
+
+      // 更新关联的AR记录
+      await client.query(
+        `UPDATE ar_receivables 
+         SET current_collector_id = $1, collector_level = $2, customer_task_id = $3, updated_at = NOW()
+         WHERE id = ANY($4) AND left_amount > 0`,
+        [newCollector.id, newCollectorRole, newTaskId, row.ar_ids]
+      );
+    } finally {
+      client.release();
+    }
 
     const delayType = row.result_type === 'customer_delay' ? '客户延期' : '营销担保延期';
     const content = buildAutoEscalateMessage(
@@ -596,18 +635,18 @@ async function processAutoEscalate(): Promise<void> {
       delayType,
       new Date(row.latest_pay_date).toISOString().split('T')[0],
       oldCollectorName,
-      [billDetail]
+      billDetails
     );
     const title = getNotificationTitle('auto_escalate', row.consumer_name);
 
     await sendAndRecordNotification({
-      arIds: [row.ar_id],
+      arIds: row.ar_ids,
       notificationType: 'auto_escalate',
       recipientId: newCollector.id,
       recipientName: newCollector.name,
       recipientDingtalkId: newCollector.dingtalk_user_id,
       consumerName: row.consumer_name,
-      billCount: 1,
+      billCount: row.ar_ids.length,
       title,
       markdownContent: content,
     });

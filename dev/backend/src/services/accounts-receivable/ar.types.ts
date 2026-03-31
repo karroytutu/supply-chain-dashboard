@@ -224,3 +224,118 @@ export interface AggregatedPreWarnData {
   warn2Data: PreWarnTypeData | null;
   allArIds: number[];
 }
+
+// ==================== 客户维度催收任务 ====================
+
+/** 客户催收结果类型（包含混合结果） */
+export type CustomerCollectionResultType = CollectionResultType | 'mixed';
+
+/** 客户催收任务实体 */
+export interface ArCustomerCollectionTask {
+  id: number;
+  task_no: string;
+  consumer_name: string;
+  consumer_code: string | null;
+  manager_users: string | null;
+  ar_ids: number[];
+  total_amount: number;
+  bill_count: number;
+  collector_id: number;
+  collector_role: CollectorLevel;
+  assigned_at: Date;
+  deadline_at: Date;
+  status: CollectionTaskStatus;
+  result_type: CustomerCollectionResultType | null;
+  latest_pay_date: Date | null;
+  evidence_url: string | null;
+  signature_data: string | null;
+  escalate_reason: string | null;
+  remark: string | null;
+  reviewed_by: number | null;
+  review_status: ReviewStatus | null;
+  review_comment: string | null;
+  completed_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** 单据级别催收结果实体 */
+export interface ArBillResult {
+  id: number;
+  customer_task_id: number;
+  ar_id: number;
+  result_type: CollectionResultType;
+  latest_pay_date: Date | null;
+  evidence_url: string | null;
+  remark: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** 客户催收任务关联的单据详情 */
+export interface ArCustomerTaskBill {
+  ar_id: number;
+  erp_bill_id: string;
+  order_no: string | null;
+  left_amount: number;
+  due_date: Date;
+  overdue_days: number;
+  ar_status: ArStatus;
+  bill_result_type?: CollectionResultType;
+  bill_latest_pay_date?: Date;
+}
+
+/** 创建客户催收任务参数 */
+export interface CreateCustomerTaskParams {
+  consumerName: string;
+  consumerCode?: string;
+  managerUsers?: string;
+  arIds: number[];
+  collectorId: number;
+  collectorRole: CollectorLevel;
+}
+
+/** 客户任务查询参数 */
+export interface CustomerTaskQueryParams {
+  userId?: number;
+  status?: CollectionTaskStatus;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** 统一提交催收结果参数 */
+export interface SubmitUnifiedResultParams {
+  customerTaskId: number;
+  collectorId: number;
+  resultType: CollectionResultType;
+  latestPayDate?: Date;
+  evidenceUrl?: string;
+  signatureData?: string;
+  escalateReason?: string;
+  remark?: string;
+}
+
+/** 混合提交单据结果项 */
+export interface MixedBillResultItem {
+  arId: number;
+  resultType: CollectionResultType;
+  latestPayDate?: string;
+  remark?: string;
+}
+
+/** 混合提交催收结果参数 */
+export interface SubmitMixedResultsParams {
+  customerTaskId: number;
+  collectorId: number;
+  bills: MixedBillResultItem[];
+  evidenceUrl?: string;
+  signatureData?: string;
+}
+
+/** 客户任务升级参数 */
+export interface EscalateCustomerTaskParams {
+  customerTaskId: number;
+  collectorId: number;
+  escalateReason: string;
+}

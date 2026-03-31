@@ -1,0 +1,300 @@
+/**
+ * 客户催收任务列表样式
+ */
+@import '~@/styles/variables.less';
+@import '../shared/table-common.less';
+
+.customerTaskList {
+  padding: 0;
+}
+
+.filterBar {
+  padding: @spacing-md;
+  padding-bottom: 0;
+}
+
+.tableContainer {
+  padding: @spacing-md;
+}
+
+// 下拉菜单项样式
+.menuItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 140px;
+}
+
+.menuItemDate {
+  color: @text-color-secondary;
+  font-size: 12px;
+}
+
+// 空状态
+.empty {
+  padding: 60px 0;
+}
+
+// 展开按钮
+.expandBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.billCount {
+  font-size: 12px;
+  color: @primary-color;
+}
+
+// 单据明细表格
+.billsTable {
+  :global(.ant-table-thead > tr > th) {
+    background: @bg-color-base;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+}
+
+// ====== 桌面端表格样式 ======
+.consumerName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.timeoutText {
+  color: @error-color;
+}
+
+.timeoutIcon {
+  color: @error-color;
+  font-size: 14px;
+}
+
+.amount {
+  font-weight: 600;
+  color: @error-color;
+}
+
+.overdue {
+  color: @error-color;
+  font-weight: 500;
+}
+
+.warningText {
+  color: @warning-color;
+}
+
+.timeoutRow {
+  background: rgba(@error-color, 0.02);
+
+  &:hover {
+    background: rgba(@error-color, 0.04) !important;
+  }
+}
+
+// 快速操作按钮组
+.quickActions {
+  display: flex;
+  gap: 8px;
+}
+
+.delayBtn {
+  min-width: 72px;
+}
+
+.dropdownArrow {
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.paidOffBtn {
+  min-width: 72px;
+}
+
+.escalateBtn {
+  min-width: 56px;
+}
+
+// ====== 移动端卡片样式 ======
+.mobileContainer {
+  padding: @spacing-sm;
+}
+
+.mobileCard {
+  background: @component-background;
+  border-radius: 12px;
+  padding: @spacing-md;
+  margin-bottom: @spacing-sm;
+  border: 1px solid @border-color-base;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.99);
+    background: @bg-color-hover;
+  }
+}
+
+.mobileCardTimeout {
+  background: rgba(@error-color, 0.05);
+  border-color: rgba(@error-color, 0.2);
+}
+
+.mobileCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: @spacing-sm;
+}
+
+.mobileCardTitle {
+  display: flex;
+  align-items: center;
+  gap: @spacing-xs;
+  font-size: 15px;
+  font-weight: 600;
+  color: @text-color-primary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.billTag {
+  margin-left: 8px;
+}
+
+.mobileCardInfo {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: @spacing-sm;
+  padding: @spacing-sm;
+  background: @bg-color-base;
+  border-radius: @border-radius-base;
+  margin-bottom: @spacing-sm;
+}
+
+.mobileInfoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobileInfoLabel {
+  font-size: 11px;
+  color: @text-color-secondary;
+}
+
+.mobileInfoValue {
+  font-size: 13px;
+  color: @text-color-primary;
+
+  &.warningText {
+    color: @warning-color;
+  }
+}
+
+.mobileInfoValueAmount {
+  font-size: 14px;
+  font-weight: 600;
+  color: @error-color;
+}
+
+// 移动端单据列表
+.mobileBillsList {
+  background: @bg-color-base;
+  border-radius: 8px;
+  margin-bottom: @spacing-sm;
+  overflow: hidden;
+}
+
+.mobileBillItem {
+  padding: @spacing-sm;
+  border-bottom: 1px solid @border-color-split;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.mobileBillHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.mobileBillNo {
+  font-size: 13px;
+  color: @primary-color;
+  font-weight: 500;
+}
+
+.mobileBillAmount {
+  font-size: 13px;
+  font-weight: 600;
+  color: @error-color;
+}
+
+.mobileBillMeta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: @text-color-secondary;
+}
+
+.mobileCardActions {
+  display: flex;
+  gap: @spacing-sm;
+  padding-top: @spacing-sm;
+  border-top: 1px solid @border-color-split;
+
+  :global(.ant-btn) {
+    flex: 1;
+    min-height: @touch-target-size;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.mobileActionBtn {
+  font-size: 13px;
+}
+
+.loadMoreTrigger {
+  padding: @spacing-lg;
+  text-align: center;
+  color: @text-color-secondary;
+}
+
+.noMore {
+  font-size: 12px;
+}
+
+// 移动端适配
+@media (max-width: @screen-md) {
+  .filterBar {
+    padding: @spacing-sm;
+    padding-bottom: 0;
+  }
+
+  .tableContainer {
+    padding: @spacing-sm;
+  }
+
+  .customerTaskList {
+    :global(.ant-table) {
+      font-size: 13px;
+    }
+  }
+}

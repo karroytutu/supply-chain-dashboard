@@ -13,20 +13,20 @@ import {
   TeamOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import type { ArCollectionTask } from '@/types/accounts-receivable';
+import type { ArCustomerCollectionTask } from '@/types/accounts-receivable';
 import {
-  getMyTasks,
-  getReviewTasks,
-  getHistoryRecords,
+  getCustomerTasks,
+  getCustomerReviewTasks,
+  getCustomerHistoryRecords,
   getAllTasks,
   getPreWarningData,
 } from '@/services/api/accounts-receivable';
 import useAuth from '@/models/auth';
 import { useMobileDetect } from './shared/hooks/useMobileDetect';
-import CollectionTaskList from './components/CollectionTaskList';
+import CustomerTaskList from './components/CustomerTaskList';
 import ReviewTaskList from './components/ReviewTaskList';
 import HistoryList from './components/HistoryList';
-import CollectionModal from './components/CollectionModal';
+import CustomerCollectionModal from './components/CustomerCollectionModal';
 import TaskDetail from './components/TaskDetail';
 import AllCollectionTasks from './components/AllCollectionTasks';
 import PreWarningList from './components/PreWarningList';
@@ -71,7 +71,7 @@ const Workspace: React.FC = () => {
 
   // 催收弹窗状态
   const [collectionModalVisible, setCollectionModalVisible] = useState(false);
-  const [currentTask, setCurrentTask] = useState<ArCollectionTask | null>(null);
+  const [currentTask, setCurrentTask] = useState<ArCustomerCollectionTask | null>(null);
   const [initialAction, setInitialAction] = useState<QuickAction>(undefined);
 
   // 详情抽屉状态
@@ -83,9 +83,9 @@ const Workspace: React.FC = () => {
     setLoading(true);
     try {
       const promises: Promise<any>[] = [
-        getMyTasks({ page: 1, pageSize: 1 }),
-        getReviewTasks({ page: 1, pageSize: 1 }),
-        getHistoryRecords({ page: 1, pageSize: 1 }),
+        getCustomerTasks({ page: 1, pageSize: 1 }),
+        getCustomerReviewTasks({ page: 1, pageSize: 1 }),
+        getCustomerHistoryRecords({ page: 1, pageSize: 1 }),
       ];
 
       // 管理员加载额外统计
@@ -97,14 +97,14 @@ const Workspace: React.FC = () => {
       const results = await Promise.all(promises);
 
       const newCounts = {
-        collection: results[0].total,
-        review: results[1].total,
-        history: results[2].total,
-        allTasks: isAdmin ? results[3].total : 0,
-        preWarn2: isAdmin ? results[4].preWarn2Count : 0,
-        preWarn5: isAdmin ? results[4].preWarn5Count : 0,
-        preWarn2Total: isAdmin ? results[4].preWarn2Total : 0,
-        preWarn5Total: isAdmin ? results[4].preWarn5Total : 0,
+        collection: results[0]?.data?.total || results[0]?.total || 0,
+        review: results[1]?.data?.total || results[1]?.total || 0,
+        history: results[2]?.data?.total || results[2]?.total || 0,
+        allTasks: isAdmin ? (results[3]?.total || 0) : 0,
+        preWarn2: isAdmin ? (results[4]?.preWarn2Count || 0) : 0,
+        preWarn5: isAdmin ? (results[4]?.preWarn5Count || 0) : 0,
+        preWarn2Total: isAdmin ? (results[4]?.preWarn2Total || 0) : 0,
+        preWarn5Total: isAdmin ? (results[4]?.preWarn5Total || 0) : 0,
       };
 
       setCounts(newCounts);
@@ -120,7 +120,7 @@ const Workspace: React.FC = () => {
   }, [loadCounts]);
 
   // 打开催收弹窗（支持指定操作类型）
-  const handleTaskClick = (task: ArCollectionTask, action?: QuickAction) => {
+  const handleTaskClick = (task: ArCustomerCollectionTask, action?: QuickAction) => {
     setCurrentTask(task);
     setInitialAction(action);
     setCollectionModalVisible(true);
@@ -206,7 +206,7 @@ const Workspace: React.FC = () => {
         </span>
       ),
       children: (
-        <CollectionTaskList
+        <CustomerTaskList
           onTaskClick={handleTaskClick}
           onViewDetail={handleViewDetail}
           onRefresh={handleRefreshCounts}
@@ -359,7 +359,7 @@ const Workspace: React.FC = () => {
       />
 
       {/* 催收弹窗 */}
-      <CollectionModal
+      <CustomerCollectionModal
         task={currentTask}
         visible={collectionModalVisible}
         onCancel={() => {

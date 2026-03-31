@@ -21,6 +21,16 @@ import type {
   UploadEvidenceResponse,
   SaveSignatureResponse,
   ArNotificationRecord,
+  // 客户维度类型
+  ArCustomerCollectionTask,
+  CustomerTaskDetail,
+  CustomerTaskQueryParams,
+  CustomerCollectionSubmitParams,
+  CustomerMixedSubmitParams,
+  CustomerQuickDelayParams,
+  CustomerEscalateParams,
+  CustomerReviewQueryParams,
+  CustomerReviewActionParams,
 } from '@/types/accounts-receivable';
 
 // ==================== 数据查询 ====================
@@ -194,6 +204,73 @@ export const getArNotifications = (arId: number): Promise<{ code: number; data: 
   return request<{ code: number; data: ArNotificationRecord[] }>(`/ar/${arId}/notifications`);
 };
 
+// ==================== 客户维度催收任务 ====================
+
+/**
+ * 获取客户催收任务列表
+ */
+export const getCustomerTasks = (params?: CustomerTaskQueryParams): Promise<{ code: number; data: ArPaginatedResult<ArCustomerCollectionTask> }> => {
+  return request<{ code: number; data: ArPaginatedResult<ArCustomerCollectionTask> }>('/ar/customer-tasks', { params });
+};
+
+/**
+ * 获取客户催收任务详情
+ */
+export const getCustomerTaskDetail = (taskId: number): Promise<{ code: number; data: CustomerTaskDetail }> => {
+  return request<{ code: number; data: CustomerTaskDetail }>(`/ar/customer-tasks/${taskId}`);
+};
+
+/**
+ * 提交客户催收结果（统一操作）
+ */
+export const submitCustomerCollectResult = (taskId: number, data: CustomerCollectionSubmitParams): Promise<{ success: boolean; message: string }> => {
+  return request.post<{ success: boolean; message: string }>(`/ar/customer-tasks/${taskId}/collect`, data);
+};
+
+/**
+ * 提交客户催收结果（混合操作）
+ */
+export const submitCustomerMixedResult = (taskId: number, data: CustomerMixedSubmitParams): Promise<{ success: boolean; message: string }> => {
+  return request.post<{ success: boolean; message: string }>(`/ar/customer-tasks/${taskId}/collect-batch`, data);
+};
+
+/**
+ * 客户任务快速延期
+ */
+export const quickDelayCustomerTask = (taskId: number, data: CustomerQuickDelayParams): Promise<{ success: boolean; message: string }> => {
+  return request.post<{ success: boolean; message: string }>(`/ar/customer-tasks/${taskId}/quick-delay`, data);
+};
+
+/**
+ * 客户任务升级
+ */
+export const escalateCustomerTask = (taskId: number, data: CustomerEscalateParams): Promise<{ success: boolean; message: string; newTaskId?: number }> => {
+  return request.post<{ success: boolean; message: string; newTaskId?: number }>(`/ar/customer-tasks/${taskId}/escalate`, data);
+};
+
+// ==================== 客户维度审核 ====================
+
+/**
+ * 获取客户维度待审核任务
+ */
+export const getCustomerReviewTasks = (params?: CustomerReviewQueryParams): Promise<{ code: number; data: ArPaginatedResult<ArCustomerCollectionTask> }> => {
+  return request<{ code: number; data: ArPaginatedResult<ArCustomerCollectionTask> }>('/ar/customer-review', { params });
+};
+
+/**
+ * 客户任务审核
+ */
+export const reviewCustomerTask = (taskId: number, data: CustomerReviewActionParams): Promise<{ success: boolean; message: string }> => {
+  return request.post<{ success: boolean; message: string }>(`/ar/customer-review/${taskId}/review`, data);
+};
+
+/**
+ * 获取客户维度历史记录
+ */
+export const getCustomerHistoryRecords = (params?: { page?: number; pageSize?: number }): Promise<{ code: number; data: ArPaginatedResult<ArCustomerCollectionTask> }> => {
+  return request<{ code: number; data: ArPaginatedResult<ArCustomerCollectionTask> }>('/ar/customer-history', { params });
+};
+
 // ==================== 默认导出 ====================
 
 export default {
@@ -215,4 +292,14 @@ export default {
   getPenalties,
   getMyPenalties,
   getArNotifications,
+  // 客户维度 API
+  getCustomerTasks,
+  getCustomerTaskDetail,
+  submitCustomerCollectResult,
+  submitCustomerMixedResult,
+  quickDelayCustomerTask,
+  escalateCustomerTask,
+  getCustomerReviewTasks,
+  reviewCustomerTask,
+  getCustomerHistoryRecords,
 };
