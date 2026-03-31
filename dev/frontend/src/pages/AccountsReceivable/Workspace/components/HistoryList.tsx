@@ -151,8 +151,8 @@ const HistoryList: React.FC<HistoryListProps> = ({ onViewDetail }) => {
       title: '客户名称',
       dataIndex: 'consumer_name',
       key: 'consumer_name',
-      render: (text: string, record: ArCollectionTask) => (
-        <a onClick={() => onViewDetail(record.ar_id)}>{text}</a>
+      render: (text: string | null, record: ArCollectionTask) => (
+        <a onClick={() => onViewDetail(record.ar_id)}>{text || '-'}</a>
       ),
     },
     {
@@ -187,7 +187,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ onViewDetail }) => {
       title: '完成时间',
       dataIndex: 'completed_at',
       key: 'completed_at',
-      render: (date?: string) => formatDate(date),
+      render: (date: string | null | undefined) => formatDate(date ?? undefined),
     },
   ];
 
@@ -214,7 +214,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ onViewDetail }) => {
           </div>
           <div className={styles.mobileInfoItem}>
             <span className={styles.mobileInfoLabel}>处理结果</span>
-            <span className={styles.mobileInfoValue}>{getResultTypeTag(record.result_type)}</span>
+            <span className={styles.mobileInfoValue}>{getResultTypeTag(record.result_type ?? undefined)}</span>
           </div>
         </div>
 
@@ -226,7 +226,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ onViewDetail }) => {
         </div>
 
         <div className={styles.mobileCardTime}>
-          {formatDate(record.completed_at)}
+          {formatDate(record.completed_at ?? undefined)}
           <span className={styles.viewDetail}>详情 →</span>
         </div>
       </div>
