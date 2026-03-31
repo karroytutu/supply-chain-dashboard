@@ -2,31 +2,23 @@
  * 退货单列表页面
  */
 import React, { useCallback, useState } from 'react';
-import { Card, Input, Select, DatePicker, Button, Space, Breadcrumb, Modal, message } from 'antd';
+import { Card, Input, DatePicker, Button, Space, Breadcrumb, Modal, message } from 'antd';
 import { SearchOutlined, ReloadOutlined, HomeOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { ReturnOrder, ReturnOrderStatus } from '@/types/procurement-return';
 import { useReturnOrders } from './hooks/useReturnOrders';
+import { useMobileDetect } from './hooks/useMobileDetect';
 import ReturnOrderStats from './components/ReturnOrderStats';
 import ReturnOrderTable from './components/ReturnOrderTable';
 import BatchActionBar from './components/BatchActionBar';
 import ErpFillModal from './components/ErpFillModal';
 import WarehouseExecuteModal from './components/WarehouseExecuteModal';
+import { MobileFilters, MobileFilterButton, getStatusText } from './components/MobileFilters';
+import { OperationGuide } from './components/OperationGuide';
 import { rollbackReturnOrder } from '@/services/api/procurement-return';
 import styles from './index.less';
 
 const { RangePicker } = DatePicker;
-
-// 状态筛选选项
-const statusOptions = [
-  { value: undefined, label: '全部状态' },
-  { value: 'pending_confirm', label: '待确认' },
-  { value: 'pending_erp_fill', label: '待填ERP' },
-  { value: 'pending_warehouse_execute', label: '待仓储退货' },
-  { value: 'pending_marketing_sale', label: '待营销销售' },
-  { value: 'completed', label: '已完成' },
-  { value: 'cancelled', label: '已取消' },
-];
 
 export default function ReturnOrderList() {
   const {
@@ -51,6 +43,12 @@ export default function ReturnOrderList() {
     fetchReturnOrders,
     fetchStats,
   } = useReturnOrders();
+
+  // 移动端检测
+  const isMobile = useMobileDetect();
+
+  // 移动端筛选抽屉状态
+  const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
 
   // 全选状态
   const [selectAll, setSelectAll] = useState(false);
@@ -120,7 +118,7 @@ export default function ReturnOrderList() {
       content: (
         <div>
           <p>确定要将退货单 <strong>{record.sourceBillNo}</strong> 回退到待确认状态吗？</p>
-          <p>回退后可以重新选择"可退货"或"不可退货"。</p>
+          <p>回退后可以重新选择「可退货」或「不可退货」。</p>
         </div>
       ),
       okText: '确认回退',
@@ -136,6 +134,23 @@ export default function ReturnOrderList() {
       },
     });
   }, [onRefresh]);
+
+  // 移动端筛选相关
+  const hasFilters = Boolean(keyword || statusFilter || dateRange);
+  const activeStatusText = getStatusText(statusFilter);
+
+  // 清除筛选
+  const onClearFilters = useCallback(() => {
+    setKeyword('');
+    handleStatusChange(undefined);
+    handleDateRangeChange(null);
+  }, [setKeyword, handleStatusChange, handleDateRangeChange]);
+
+  // 应用移动端筛选
+  const onApplyMobileFilters = useCallback(() => {
+    setFilterDrawerVisible(false);
+    handleSearch();
+  }, [handleSearch]);
 
   return (
     <div className={styles.container}>
@@ -159,39 +174,54 @@ export default function ReturnOrderList() {
       {/* 主内容区 */}
       <Card className={styles.mainCard}>
         {/* 搜索筛选区 */}
-        <div className={styles.toolbar}>
-          <Space size="middle" wrap>
-            <Input
-              placeholder="搜索退货单号/商品名称"
-              value={keyword}
-              onChange={e => setKeyword(e.target.value)}
-              onPressEnter={handleSearch}
-              prefix={<SearchOutlined />}
-              style={{ width: 220 }}
-              allowClear
+        {isMobile ? (
+          <div className={styles.mobileToolbar}>
+            <MobileFilterButton
+              hasFilters={hasFilters}
+              activeStatusText={activeStatusText}
+              onClick={() => setFilterDrawerVisible(true)}
             />
-            <Select
-              value={statusFilter}
-              onChange={handleStatusChange}
-              options={statusOptions}
-              style={{ width: 150 }}
-              placeholder="选择状态"
-              allowClear
-            />
-            <RangePicker
-              value={dateRange}
-              onChange={dates => handleDateRangeChange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null] | null)}
-              style={{ width: 260 }}
-              placeholder={['开始日期', '结束日期']}
-            />
-            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-              搜索
-            </Button>
             <Button icon={<ReloadOutlined />} onClick={onRefresh}>
               刷新
             </Button>
-          </Space>
-        </div>
+          </div>
+        ) : (
+          <div className={styles.toolbar}>
+            <Space size="middle" wrap>
+              <Input
+                placeholder="搜索退货单号/商品名称"
+                value={keyword}
+                onChange={e => setKeyword(e.target.value)}
+                onPressEnter={handleSearch}
+                prefix={<SearchOutlined />}
+                style={{ width: 220 }}
+                allowClear
+              />
+              <RangePicker
+                value={dateRange}
+                onChange={dates => handleDateRangeChange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null] | null)}
+                style={{ width: 260 }}
+                placeholder={['开始日期', '结束日期']}
+              />
+              <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+                搜索
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={onRefresh}>
+                刷新
+              </Button>
+            </Space>
+          </div>
+        )}
+
+        {/* 操作引导 */}
+        {!isMobile && (
+          <OperationGuide
+            activeStatus={statusFilter}
+            selectedCount={selectAll ? total : selectedRowKeys.length}
+            onBatchConfirm={onBatchConfirm}
+            loading={batchLoading}
+          />
+        )}
 
         {/* 批量操作栏 */}
         <BatchActionBar
@@ -235,6 +265,24 @@ export default function ReturnOrderList() {
         record={currentRecord}
         onClose={closeModal}
         onSuccess={onRefresh}
+      />
+
+      {/* 移动端筛选抽屉 */}
+      <MobileFilters
+        visible={filterDrawerVisible}
+        onClose={() => setFilterDrawerVisible(false)}
+        onApply={onApplyMobileFilters}
+        onClear={onClearFilters}
+        value={{
+          keyword,
+          status: statusFilter,
+          dateRange,
+        }}
+        onChange={(filters) => {
+          setKeyword(filters.keyword);
+          handleStatusChange(filters.status);
+          handleDateRangeChange(filters.dateRange);
+        }}
       />
     </div>
   );
