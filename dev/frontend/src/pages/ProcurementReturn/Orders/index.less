@@ -618,3 +618,27 @@
   padding: 8px 0;
 }
 
+// ========== 操作引导组件样式 ==========
+
+.operationGuide {
+  margin-bottom: @spacing-sm;
+}
+
+.operationGuideContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: @spacing-sm;
+
+  @media (max-width: @screen-md) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.operationGuideHint {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+

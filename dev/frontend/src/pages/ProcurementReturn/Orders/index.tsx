@@ -14,6 +14,7 @@ import BatchActionBar from './components/BatchActionBar';
 import ErpFillModal from './components/ErpFillModal';
 import WarehouseExecuteModal from './components/WarehouseExecuteModal';
 import { MobileFilters, MobileFilterButton, getStatusText } from './components/MobileFilters';
+import { OperationGuide } from './components/OperationGuide';
 import { rollbackReturnOrder } from '@/services/api/procurement-return';
 import styles from './index.less';
 
@@ -210,6 +211,16 @@ export default function ReturnOrderList() {
               </Button>
             </Space>
           </div>
+        )}
+
+        {/* 操作引导 */}
+        {!isMobile && (
+          <OperationGuide
+            activeStatus={statusFilter}
+            selectedCount={selectAll ? total : selectedRowKeys.length}
+            onBatchConfirm={onBatchConfirm}
+            loading={batchLoading}
+          />
         )}
 
         {/* 批量操作栏 */}
