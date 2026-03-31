@@ -9,7 +9,6 @@ import {
   notifyPendingErpFill,
   notifyPendingMarketingSale,
   notifyPendingWarehouseExecute,
-  notifyReturnOrderCompleted,
 } from './return-order-notify';
 import type {
   ReturnOrder,
@@ -325,11 +324,6 @@ export async function warehouseExecute(
 
   const returnOrder = mapRowToReturnOrder(result.rows[0]);
 
-  // 发送钉钉通知（异步执行，不影响主流程）
-  notifyReturnOrderCompleted(returnOrder).catch(error => {
-    console.error('[DingTalk] 退货单完成通知失败:', error);
-  });
-
   return returnOrder;
 }
 
@@ -382,11 +376,6 @@ export async function marketingSaleComplete(
   });
 
   const returnOrder = mapRowToReturnOrder(result.rows[0]);
-
-  // 发送钉钉通知（可选，异步执行不影响主流程）
-  notifyReturnOrderCompleted(returnOrder).catch(error => {
-    console.error('[DingTalk] 退货单完成通知失败:', error);
-  });
 
   return returnOrder;
 }
@@ -475,22 +464,6 @@ export async function autoCompleteMarketingSale(): Promise<{
 
         completedCount++;
         console.log(`[AutoComplete] 自动完成销售: ${order.return_no}`);
-
-        // 发送完成通知（异步）
-        try {
-          const completedOrder = await appQuery<any>(
-            'SELECT * FROM expiring_return_orders WHERE id = $1',
-            [order.id]
-          );
-          if (completedOrder.rows.length > 0) {
-            const returnOrder = mapRowToReturnOrder(completedOrder.rows[0]);
-            notifyReturnOrderCompleted(returnOrder).catch(error => {
-              console.error('[DingTalk] 自动完成通知失败:', error);
-            });
-          }
-        } catch (notifyError) {
-          console.error('[AutoComplete] 发送通知失败:', notifyError);
-        }
       } catch (updateError) {
         console.error(`[AutoComplete] 更新退货单失败: ${order.return_no}`, updateError);
       }

@@ -364,38 +364,6 @@ ${greeting}
   }
 }
 
-/**
- * 通知：退货单已完成
- * 接收者：相关操作人员
- */
-export async function notifyReturnOrderCompleted(order: ReturnOrder): Promise<void> {
-  try {
-    console.log('[DingTalk] 准备发送退货单完成通知:', order.returnNo);
-
-    // 获取相关用户（采购主管）
-    const userIdList = await getDingtalkUserIdsByRole('procurement_manager');
-    if (userIdList.length === 0) {
-      console.log('[DingTalk] 没有可用的通知接收者');
-      return;
-    }
-
-    const title = '退货单已完成';
-    const content = `## 退货单已完成
-
-${buildOrderInfoMarkdown(order)}
-
----
-该临期退货单已全部处理完成。
-
-推送时间：${formatTimestamp()}`;
-
-    const result = await sendWorkNotification(userIdList, title, content);
-    console.log('[DingTalk] 完成通知发送结果:', result);
-  } catch (error) {
-    console.error('[DingTalk] 完成通知发送失败:', error);
-  }
-}
-
 // ============================================================
 // 兼容旧接口（保持向后兼容）
 // ============================================================
