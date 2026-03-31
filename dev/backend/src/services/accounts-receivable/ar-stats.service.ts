@@ -4,6 +4,23 @@
  */
 
 import { appQuery } from '../../db/appPool';
+import { config } from '../../config';
+
+/**
+ * 获取催收日期筛选 SQL 片段
+ * 当配置了 AR_COLLECTION_START_DATE 时，筛选 work_time >= 配置日期的记录
+ * work_time 为 NULL 的记录默认包含（兼容历史数据）
+ */
+function getCollectionDateFilter(): { clause: string; params: string[] } {
+  const startDate = config.arCollection?.startDate;
+  if (!startDate) {
+    return { clause: '', params: [] };
+  }
+  return {
+    clause: `AND (work_time IS NULL OR work_time >= $1)`,
+    params: [startDate],
+  };
+}
 
 /** 每日统计快照数据结构 */
 export interface ArDailyStats {
@@ -188,6 +205,9 @@ export async function getPreWarningData(): Promise<{
   preWarn5Total: number;
   preWarn2Total: number;
 }> {
+  // 获取日期筛选条件
+  const dateFilter = getCollectionDateFilter();
+
   // 逾期前5天预警
   const preWarn5Sql = `
     SELECT
@@ -209,9 +229,10 @@ export async function getPreWarningData(): Promise<{
     FROM ar_receivables
     WHERE due_date::date - CURRENT_DATE = 5
       AND left_amount > 0
+      ${dateFilter.clause}
     ORDER BY left_amount DESC
   `;
-  const preWarn5Result = await appQuery(preWarn5Sql);
+  const preWarn5Result = await appQuery(preWarn5Sql, dateFilter.params);
 
   // 逾期前2天预警
   const preWarn2Sql = `
@@ -234,9 +255,10 @@ export async function getPreWarningData(): Promise<{
     FROM ar_receivables
     WHERE due_date::date - CURRENT_DATE = 2
       AND left_amount > 0
+      ${dateFilter.clause}
     ORDER BY left_amount DESC
   `;
-  const preWarn2Result = await appQuery(preWarn2Sql);
+  const preWarn2Result = await appQuery(preWarn2Sql, dateFilter.params);
 
   // 计算金额汇总
   const preWarn5Total = preWarn5Result.rows.reduce(

@@ -52,4 +52,10 @@ export const config = {
   app: {
     baseUrl: process.env.APP_BASE_URL || 'http://localhost:3100',
   },
+
+  // 催收管理配置
+  arCollection: {
+    // 催收管理起始日期（work_time >= 该日期的单据才进入催收）
+    startDate: process.env.AR_COLLECTION_START_DATE || null,
+  },
 };

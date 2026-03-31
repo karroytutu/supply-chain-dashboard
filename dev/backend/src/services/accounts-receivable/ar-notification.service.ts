@@ -5,6 +5,7 @@
 
 import { appQuery, getAppClient } from '../../db/appPool';
 import { sendWorkNotification } from '../dingtalk.service';
+import { config } from '../../config';
 import {
   BillDetail,
   DailySummaryStats,
@@ -70,6 +71,22 @@ export async function matchMarketingUser(managerUsers: string): Promise<Marketin
     console.error('[AR-Notification] 匹配营销师失败:', error);
     return null;
   }
+}
+
+/**
+ * 获取催收日期筛选 SQL 片段
+ * 当配置了 AR_COLLECTION_START_DATE 时，筛选 work_time >= 配置日期的记录
+ * work_time 为 NULL 的记录默认包含（兼容历史数据）
+ */
+function getCollectionDateFilter(): { clause: string; params: string[] } {
+  const startDate = config.arCollection?.startDate;
+  if (!startDate) {
+    return { clause: '', params: [] };
+  }
+  return {
+    clause: `AND (work_time IS NULL OR work_time >= $1)`,
+    params: [startDate],
+  };
 }
 
 /**
@@ -301,6 +318,8 @@ async function createCollectionTask(
 async function sendOverdueCollectNotifications(): Promise<void> {
   console.log('[AR-Notification] 执行逾期触发催收...');
 
+  const dateFilter = getCollectionDateFilter();
+
   const result = await appQuery<{
     id: number;
     consumer_name: string;
@@ -314,7 +333,9 @@ async function sendOverdueCollectNotifications(): Promise<void> {
      FROM ar_receivables
      WHERE due_date <= CURRENT_DATE
        AND ar_status IN ('synced', 'pre_warning_5', 'pre_warning_2')
-       AND left_amount > 0`
+       AND left_amount > 0
+       ${dateFilter.clause}`,
+    dateFilter.params
   );
 
   const grouped = new Map<string, typeof result.rows>();
@@ -725,6 +746,9 @@ async function sendDailySummary(): Promise<void> {
 async function sendAggregatedPreWarnNotifications(): Promise<void> {
   console.log('[AR-Notification] 执行聚合预警推送...');
 
+  // 获取日期筛选条件
+  const dateFilter = getCollectionDateFilter();
+
   // 1. 并行查询两类预警数据
   const [warn5Result, warn2Result] = await Promise.all([
     appQuery<{
@@ -740,7 +764,9 @@ async function sendAggregatedPreWarnNotifications(): Promise<void> {
        FROM ar_receivables
        WHERE due_date::date - CURRENT_DATE = 5
          AND ar_status IN ('synced', 'pre_warning_5')
-         AND notification_status NOT IN ('pre_warn_5_sent', 'pre_warn_2_sent', 'overdue_sent')`
+         AND notification_status NOT IN ('pre_warn_5_sent', 'pre_warn_2_sent', 'overdue_sent')
+         ${dateFilter.clause}`,
+      dateFilter.params
     ),
     appQuery<{
       id: number;
@@ -755,7 +781,9 @@ async function sendAggregatedPreWarnNotifications(): Promise<void> {
        FROM ar_receivables
        WHERE due_date::date - CURRENT_DATE = 2
          AND ar_status IN ('synced', 'pre_warning_5', 'pre_warning_2')
-         AND notification_status NOT IN ('pre_warn_2_sent', 'overdue_sent')`
+         AND notification_status NOT IN ('pre_warn_2_sent', 'overdue_sent')
+         ${dateFilter.clause}`,
+      dateFilter.params
     )
   ]);
 
