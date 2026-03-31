@@ -6,6 +6,7 @@ export default defineConfig({
     '@umijs/plugins/dist/request',
     '@umijs/plugins/dist/layout',
   ],
+  model: {},
   layout: {
     title: '鑫链云供应链数据管理系统',
   },

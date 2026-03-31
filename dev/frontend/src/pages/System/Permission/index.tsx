@@ -1,7 +1,13 @@
+/**
+ * 权限管理页面
+ */
 import { useState, useEffect } from 'react';
-import { Table, Card, Button, Space, Tag, Modal, message, Form, Input as AntInput, Select } from 'antd';
+import { Card, Button, Space, Modal, message, Form, Input as AntInput, Select } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { getPermissionTree, createPermission } from '@/services/api/auth';
+import Authorized from '@/components/Authorized';
+import { PERMISSIONS } from '@/constants/permissions';
+import PermissionTable from './components/PermissionTable';
 import styles from './index.less';
 
 interface PermissionItem {
@@ -18,10 +24,8 @@ interface PermissionItem {
 export default function PermissionManage() {
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<PermissionItem[]>([]);
-  
-  // 创建弹窗
-  const [createModalVisible, setCreateModalVisible] = useState(false);
   const [form] = Form.useForm();
+  const [createModalVisible, setCreateModalVisible] = useState(false);
 
   // 加载权限树
   const loadPermissions = async () => {
@@ -59,86 +63,19 @@ export default function PermissionManage() {
     }
   };
 
-  // 将树形数据扁平化展示
-  const flattenTree = (items: PermissionItem[], level: number = 0): any[] => {
-    let result: any[] = [];
-    items.forEach(item => {
-      result.push({ ...item, level });
-      if (item.children && item.children.length > 0) {
-        result = result.concat(flattenTree(item.children, level + 1));
-      }
-    });
-    return result;
-  };
-
-  const flattenedData = flattenTree(dataSource);
-
-  const columns = [
-    {
-      title: '权限名称',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: any) => (
-        <span style={{ paddingLeft: record.level * 20 }}>{text}</span>
-      ),
-    },
-    {
-      title: '权限编码',
-      dataIndex: 'code',
-      key: 'code',
-      render: (code: string) => <Tag color="blue">{code}</Tag>,
-    },
-    {
-      title: '资源类型',
-      dataIndex: 'resource_type',
-      key: 'resource_type',
-      render: (type: string) => {
-        const colorMap: Record<string, string> = {
-          menu: 'green',
-          api: 'orange',
-          button: 'purple',
-        };
-        return <Tag color={colorMap[type] || 'default'}>{type}</Tag>;
-      },
-    },
-    {
-      title: '资源标识',
-      dataIndex: 'resource_key',
-      key: 'resource_key',
-    },
-    {
-      title: '操作',
-      dataIndex: 'action',
-      key: 'action',
-      render: (action: string) => {
-        const colorMap: Record<string, string> = {
-          read: 'green',
-          write: 'orange',
-          delete: 'red',
-        };
-        return <Tag color={colorMap[action] || 'default'}>{action}</Tag>;
-      },
-    },
-  ];
-
   return (
     <div className={styles.container}>
       <Card>
         <div className={styles.toolbar}>
-          <span>权限管理</span>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-            新建权限
-          </Button>
+          <span style={{ fontSize: 16, fontWeight: 500 }}>权限管理</span>
+          <Authorized config={{ permission: PERMISSIONS.SYSTEM.PERMISSION.WRITE }}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+              新建权限
+            </Button>
+          </Authorized>
         </div>
-        
-        <Table
-          columns={columns}
-          dataSource={flattenedData}
-          rowKey="id"
-          loading={loading}
-          pagination={false}
-          defaultExpandAllRows
-        />
+
+        <PermissionTable dataSource={dataSource} loading={loading} />
       </Card>
 
       {/* 创建弹窗 */}
@@ -191,6 +128,7 @@ export default function PermissionManage() {
               <Select.Option value="read">读取</Select.Option>
               <Select.Option value="write">写入</Select.Option>
               <Select.Option value="delete">删除</Select.Option>
+              <Select.Option value="confirm">确认</Select.Option>
             </Select>
           </Form.Item>
         </Form>

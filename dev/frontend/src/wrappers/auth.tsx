@@ -1,4 +1,4 @@
-import { history, Outlet } from 'umi';
+import { history, Outlet, useModel } from 'umi';
 import { Spin } from 'antd';
 import { useEffect, useState } from 'react';
 import { getCurrentUser, UserInfo } from '@/services/api/auth';
@@ -8,7 +8,9 @@ const TOKEN_KEY = 'auth_token';
 export default function AuthWrapper() {
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
+  
+  // 使用 umi model 共享用户信息
+  const { currentUser, setCurrentUser } = useModel('auth');
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -25,11 +27,9 @@ export default function AuthWrapper() {
         console.log('[AuthWrapper] 正在验证用户信息...');
         const user = await getCurrentUser();
         console.log('[AuthWrapper] 用户验证成功:', user?.name);
-        setCurrentUser(user);
+        setCurrentUser(user);  // 设置到全局 model
         setAuthenticated(true);
       } catch (error) {
-        // 只在 token 确实无效时才清除（401 错误）
-        // 其他错误（网络问题等）不清除 token，让用户可以刷新重试
         console.error('[AuthWrapper] 获取用户信息失败:', error);
         localStorage.removeItem(TOKEN_KEY);
         history.push('/login');
@@ -39,7 +39,7 @@ export default function AuthWrapper() {
     };
 
     checkAuth();
-  }, []);
+  }, [setCurrentUser]);
 
   if (loading) {
     return (

@@ -90,6 +90,11 @@ export default function useAuth() {
     return requiredRoles.some(r => roles.includes(r));
   }, [currentUser]);
 
+  // 设置当前用户信息（供外部调用，如 AuthWrapper）
+  const updateCurrentUser = useCallback((user: UserInfo | null) => {
+    setCurrentUser(user);
+  }, []);
+
   return {
     currentUser,
     loading,
@@ -102,5 +107,6 @@ export default function useAuth() {
     isLoggedIn,
     hasPermission,
     hasRole,
+    setCurrentUser: updateCurrentUser,
   };
 }
