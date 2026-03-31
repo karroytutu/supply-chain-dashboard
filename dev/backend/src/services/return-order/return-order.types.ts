@@ -42,6 +42,9 @@ export interface ReturnOrder {
   marketingCompletedAt: Date | null;
   marketingComment: string | null;
   ruleId: number | null;
+  purchasePrice: number | null;          // 商品进价（用于考核计算）
+  ruleConfirmedAt: Date | null;          // 规则确认时间（用于ERP录入超时考核）
+  ruleConfirmedBy: number | null;        // 规则确认人
   createdAt: Date;
   updatedAt: Date;
   // 关联信息
@@ -111,6 +114,7 @@ export interface CreateReturnOrderParams {
   consumerName?: string;
   marketingManager?: string;
   status?: ReturnOrderStatus;
+  purchasePrice?: number;  // 商品进价（用于考核计算）
 }
 
 /** 批量确认参数 */

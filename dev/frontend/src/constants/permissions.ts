@@ -43,6 +43,10 @@ export const PERMISSIONS = {
   RETURN: {
     READ: 'return:read',
     WRITE: 'return:write',
+    PENALTY: {
+      READ: 'return:penalty:read',
+      WRITE: 'return:penalty:write',
+    },
   },
 
   // 退货规则模块

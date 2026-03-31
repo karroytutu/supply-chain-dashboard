@@ -10,6 +10,7 @@ import {
   notifyPendingMarketingSale,
   notifyPendingWarehouseExecute,
 } from './return-order-notify';
+import { createReturnExpireInsufficientPenalty } from '../return-penalty';
 import type {
   ReturnOrder,
   ReturnOrderStatus,
@@ -32,7 +33,7 @@ export async function createReturnOrder(
   const {
     returnNo, goodsId, goodsName, quantity, unit,
     batchDate, returnDate, expireDate, shelfLife, daysToExpire, daysToExpireAtReturn,
-    sourceBillNo, consumerName, marketingManager, status,
+    sourceBillNo, consumerName, marketingManager, status, purchasePrice,
   } = params;
 
   // 如果未传入status，使用默认值 'pending_confirm'
@@ -44,15 +45,16 @@ export async function createReturnOrder(
   const result = await appQuery<ReturnOrderRow>(
     `INSERT INTO expiring_return_orders 
      (return_no, goods_id, goods_name, quantity, unit, batch_date, return_date,
-      expire_date, shelf_life, days_to_expire, days_to_expire_at_return, source_bill_no, consumer_name, marketing_manager, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      expire_date, shelf_life, days_to_expire, days_to_expire_at_return, source_bill_no, 
+      consumer_name, marketing_manager, status, purchase_price)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      RETURNING *`,
     [
       returnNo, goodsId, goodsName, quantity, unit || null,
       batchDate || null, returnDate || null, expireDate || null,
       shelfLife || null, daysToExpire || null, daysAtReturn || null,
       sourceBillNo || null, consumerName || null, marketingManager || null,
-      orderStatus,
+      orderStatus, purchasePrice || null,
     ]
   );
 
@@ -123,13 +125,13 @@ export async function batchConfirmReturnOrders(
   const newStatus: ReturnOrderStatus =
     ruleDecision === 'can_return' ? 'pending_erp_fill' : 'pending_marketing_sale';
 
-  // 批量更新状态
+  // 批量更新状态，同时记录确认时间和确认人
   const result = await appQuery<{ id: number }>(
     `UPDATE expiring_return_orders 
-     SET status = $1, updated_at = NOW()
-     WHERE id = ANY($2) AND status = 'pending_confirm'
+     SET status = $1, rule_confirmed_at = NOW(), rule_confirmed_by = $2, updated_at = NOW()
+     WHERE id = ANY($3) AND status = 'pending_confirm'
      RETURNING id`,
-    [newStatus, orderIds]
+    [newStatus, operatorId, orderIds]
   );
 
   const successCount = result.rowCount ?? 0;
@@ -149,6 +151,21 @@ export async function batchConfirmReturnOrders(
       );
       if (orderResult.rows.length > 0) {
         const order = mapRowToReturnOrder(orderResult.rows[0]);
+
+        // 检查规则3：退货时保质期不足考核
+        if (order.daysToExpireAtReturn && order.daysToExpireAtReturn < 15) {
+          createReturnExpireInsufficientPenalty({
+            id: order.id,
+            returnNo: order.returnNo,
+            goodsName: order.goodsName,
+            marketingManager: order.marketingManager,
+            purchasePrice: order.purchasePrice || 0,
+            daysToExpireAtReturn: order.daysToExpireAtReturn,
+          }).catch(error => {
+            console.error('[ReturnPenalty] 规则3考核创建失败:', error);
+          });
+        }
+
         if (newStatus === 'pending_erp_fill') {
           notifyPendingErpFill(order).catch(error => {
             console.error('[DingTalk] 待填写ERP通知失败:', error);
