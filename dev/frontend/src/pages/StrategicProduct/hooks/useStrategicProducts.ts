@@ -10,6 +10,7 @@ import {
   confirmStrategicProduct,
   batchConfirmStrategicProducts,
   batchDeleteStrategicProducts,
+  syncCategoryPath,
 } from '@/services/api/strategic-product';
 import type {
   StrategicProduct,
@@ -40,6 +41,9 @@ export function useStrategicProducts() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [batchLoading, setBatchLoading] = useState(false);
   const [selectAll, setSelectAll] = useState(false);
+  
+  // 同步品类相关
+  const [syncLoading, setSyncLoading] = useState(false);
 
   // 加载统计信息
   const loadStats = useCallback(async () => {
@@ -161,6 +165,21 @@ export function useStrategicProducts() {
     }
   }, [selectAll, selectedRowKeys, statusFilter, keyword]);
 
+  // 同步品类路径
+  const handleSyncCategory = useCallback(async (): Promise<{ updatedCount: number; totalCount: number } | null> => {
+    setSyncLoading(true);
+    try {
+      const result = await syncCategoryPath();
+      message.success(result.message);
+      return result.data;
+    } catch (error) {
+      message.error('同步品类失败');
+      return null;
+    } finally {
+      setSyncLoading(false);
+    }
+  }, []);
+
   // 初始加载统计
   useEffect(() => {
     loadStats();
@@ -179,6 +198,7 @@ export function useStrategicProducts() {
     selectedRowKeys,
     batchLoading,
     selectAll,
+    syncLoading,
     // 设置函数
     setPage,
     setPageSize,
@@ -193,5 +213,6 @@ export function useStrategicProducts() {
     handleConfirm,
     handleBatchConfirm,
     handleBatchDelete,
+    handleSyncCategory,
   };
 }

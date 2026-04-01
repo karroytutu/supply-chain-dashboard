@@ -15,6 +15,7 @@ import {
   batchDeleteStrategicProductsController,
   getCategoryTreeController,
   getProductsForSelectionController,
+  syncCategoryPathController,
 } from '../controllers/strategic-product.controller';
 
 const router = Router();
@@ -55,6 +56,13 @@ router.post(
   '/',
   requirePermission('strategic:write'),
   addStrategicProductsController
+);
+
+// 同步品类路径
+router.post(
+  '/sync-category',
+  requirePermission('strategic:write'),
+  syncCategoryPathController
 );
 
 // 批量确认战略商品

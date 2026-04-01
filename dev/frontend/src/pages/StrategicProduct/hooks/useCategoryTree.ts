@@ -12,9 +12,9 @@ export function useCategoryTree() {
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
 
   // 加载品类树
-  const loadCategoryTree = useCallback(async () => {
+  const loadCategoryTree = useCallback(async (forceRefresh = false) => {
     try {
-      const result = await getCategoryTree();
+      const result = await getCategoryTree(forceRefresh);
       setCategoryTree(result);
       // 默认展开第一级
       const firstLevelKeys = result.map(node => node.key);

@@ -324,6 +324,58 @@ export async function batchConfirmStrategicProducts(
 }
 
 /**
+ * 同步战略商品品类路径
+ * 从 ERP 商品档案更新所有战略商品的 category_path
+ */
+export async function syncCategoryPath(): Promise<{ updatedCount: number; totalCount: number }> {
+  // 获取所有战略商品的 goods_id
+  const strategicResult = await appQuery<{ id: number; goods_id: string }>(
+    'SELECT id, goods_id FROM strategic_products'
+  );
+
+  const totalCount = strategicResult.rows.length;
+  
+  if (totalCount === 0) {
+    return { updatedCount: 0, totalCount: 0 };
+  }
+
+  // 获取所有商品 ID
+  const goodsIds = strategicResult.rows.map(r => r.goods_id);
+
+  // 从 ERP 查询最新的品类信息
+  const goodsResult = await query<{
+    goodsId: string;
+    categoryChainName: string;
+  }>(
+    `SELECT "goodsId", "categoryChainName" 
+     FROM "商品档案" 
+     WHERE "goodsId" = ANY($1) AND "state" = 0`,
+    [goodsIds]
+  );
+
+  // 构建 goods_id -> category_path 映射
+  const categoryMap = new Map<string, string>();
+  goodsResult.rows.forEach(row => {
+    categoryMap.set(row.goodsId, row.categoryChainName || '');
+  });
+
+  // 批量更新战略商品的品类路径
+  let updatedCount = 0;
+  for (const row of strategicResult.rows) {
+    const newCategoryPath = categoryMap.get(row.goods_id);
+    if (newCategoryPath !== undefined) {
+      await appQuery(
+        'UPDATE strategic_products SET category_path = $1, updated_at = NOW() WHERE id = $2',
+        [newCategoryPath, row.id]
+      );
+      updatedCount++;
+    }
+  }
+
+  return { updatedCount, totalCount };
+}
+
+/**
  * 批量删除战略商品
  */
 export async function batchDeleteStrategicProducts(

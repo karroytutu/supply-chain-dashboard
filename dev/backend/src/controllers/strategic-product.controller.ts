@@ -13,6 +13,7 @@ import {
   batchDeleteStrategicProducts,
   getCategoryTree,
   getProductsForSelection,
+  syncCategoryPath,
 } from '../services/strategic-product';
 
 /**
@@ -308,6 +309,27 @@ export async function batchDeleteStrategicProductsController(req: Request, res: 
     res.status(500).json({
       success: false,
       message: '批量删除战略商品失败',
+    });
+  }
+}
+
+/**
+ * 同步战略商品品类路径
+ */
+export async function syncCategoryPathController(req: Request, res: Response) {
+  try {
+    const result = await syncCategoryPath();
+
+    res.json({
+      success: true,
+      message: `成功同步 ${result.updatedCount}/${result.totalCount} 个战略商品的品类`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('同步品类路径失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '同步品类路径失败',
     });
   }
 }

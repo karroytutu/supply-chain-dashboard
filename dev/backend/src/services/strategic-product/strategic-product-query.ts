@@ -221,6 +221,12 @@ export async function getCategoryTree(): Promise<CategoryTreeNode[]> {
     }
   });
 
+  // 调试：打印一级品类
+  console.log('[CategoryTree] 一级品类数量:', rootNodes.length);
+  console.log('[CategoryTree] 一级品类列表:', rootNodes.map(n => n.name).sort().join(', '));
+  console.log('[CategoryTree] 前5个一级品类详情:', JSON.stringify(rootNodes.slice(0, 5).map(n => ({ name: n.name, key: n.key, count: n.count }))));
+  console.log('[CategoryTree] ERP原始数据前5条:', JSON.stringify(result.rows.slice(0, 5)));
+
   return rootNodes;
 }
 

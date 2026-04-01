@@ -48,6 +48,7 @@ export default function StrategicProductManage() {
     selectedRowKeys,
     batchLoading,
     selectAll,
+    syncLoading,
     setPage,
     setPageSize,
     setKeyword,
@@ -60,6 +61,7 @@ export default function StrategicProductManage() {
     handleConfirm,
     handleBatchConfirm,
     handleBatchDelete,
+    handleSyncCategory,
   } = useStrategicProducts();
 
   // 品类树
@@ -69,6 +71,7 @@ export default function StrategicProductManage() {
     expandedKeys,
     setExpandedKeys,
     handleCategorySelect,
+    loadCategoryTree,
   } = useCategoryTree();
 
   // 商品选择（添加弹窗）
@@ -130,6 +133,18 @@ export default function StrategicProductManage() {
       loadStats();
     }
   }, [handleBatchDelete, loadStrategicProducts, loadStats, selectedCategoryPath, statusFilter, keyword, selectAll, selectedRowKeys.length, total]);
+
+  // 同步品类
+  const onSyncCategory = useCallback(async () => {
+    const result = await handleSyncCategory();
+    if (result) {
+      // 强制刷新品类树（绕过缓存）
+      loadCategoryTree(true);
+      // 刷新列表和统计
+      loadStrategicProducts(selectedCategoryPath, statusFilter, keyword);
+      loadStats();
+    }
+  }, [handleSyncCategory, loadCategoryTree, loadStrategicProducts, loadStats, selectedCategoryPath, statusFilter, keyword]);
 
   return (
     <div className={styles.container}>
@@ -193,6 +208,7 @@ export default function StrategicProductManage() {
             batchLoading={batchLoading}
             selectAll={selectAll}
             selectedRowKeys={selectedRowKeys}
+            syncLoading={syncLoading}
             onKeywordChange={setKeyword}
             onSearch={handleSearch}
             onStatusFilterChange={setStatusFilter}
@@ -208,6 +224,7 @@ export default function StrategicProductManage() {
             onBatchDelete={onBatchDelete}
             onAddClick={productSelection.openModal}
             onRefresh={() => loadStrategicProducts(selectedCategoryPath, statusFilter, keyword)}
+            onSyncCategory={onSyncCategory}
           />
         </Card>
       </div>

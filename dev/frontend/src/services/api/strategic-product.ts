@@ -76,8 +76,9 @@ export const batchDeleteStrategicProducts = (
 /**
  * 获取品类树
  */
-export const getCategoryTree = (): Promise<CategoryNode[]> => {
-  return request.get<CategoryNode[]>('/strategic-products/categories/tree');
+export const getCategoryTree = (forceRefresh = false): Promise<CategoryNode[]> => {
+  const params = forceRefresh ? { _t: Date.now() } : undefined;
+  return request.get<CategoryNode[]>('/strategic-products/categories/tree', { params });
 };
 
 /**
@@ -98,6 +99,13 @@ export const getStrategicLevels = (): Promise<StrategicLevelData[]> => {
   return request.get<StrategicLevelData[]>('/strategic-products/levels');
 };
 
+/**
+ * 同步战略商品品类路径
+ */
+export const syncCategoryPath = (): Promise<{ success: boolean; message: string; data: { updatedCount: number; totalCount: number } }> => {
+  return request.post('/strategic-products/sync-category');
+};
+
 export default {
   getStrategicProducts,
   getStrategicProductStats,
@@ -109,4 +117,5 @@ export default {
   getCategoryTree,
   getProductsForSelection,
   getStrategicLevels,
+  syncCategoryPath,
 };

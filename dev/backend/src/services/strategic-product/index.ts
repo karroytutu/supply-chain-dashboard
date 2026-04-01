@@ -19,6 +19,7 @@ export {
   confirmStrategicProduct,
   batchConfirmStrategicProducts,
   batchDeleteStrategicProducts,
+  syncCategoryPath,
 } from './strategic-product-mutation';
 
 // 类型定义

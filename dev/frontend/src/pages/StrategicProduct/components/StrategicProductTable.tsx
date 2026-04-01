@@ -3,7 +3,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Button, Space, Badge, Dropdown, Segmented, Select } from 'antd';
-import { SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, DownOutlined } from '@ant-design/icons';
+import { SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, DownOutlined, SyncOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import type { StrategicProduct, StrategicProductStatus } from '@/types/strategic-product';
 import { getColumns } from '../utils/columns';
@@ -20,6 +20,7 @@ interface StrategicProductTableProps {
   batchLoading: boolean;
   selectAll: boolean;
   selectedRowKeys: number[];
+  syncLoading: boolean;
   onKeywordChange: (keyword: string) => void;
   onSearch: () => void;
   onStatusFilterChange: (status?: StrategicProductStatus) => void;
@@ -32,6 +33,7 @@ interface StrategicProductTableProps {
   onBatchDelete: () => void;
   onAddClick: () => void;
   onRefresh: () => void;
+  onSyncCategory: () => void;
 }
 
 const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
@@ -45,6 +47,7 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
   batchLoading,
   selectAll,
   selectedRowKeys,
+  syncLoading,
   onKeywordChange,
   onSearch,
   onStatusFilterChange,
@@ -57,6 +60,7 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
   onBatchDelete,
   onAddClick,
   onRefresh,
+  onSyncCategory,
 }) => {
   const columns = getColumns(onConfirm, onDelete);
 
@@ -125,6 +129,14 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
           <Button type="primary" onClick={onSearch} block={isMobile}>搜索</Button>
         </div>
         <div className={styles.toolbarRight}>
+          <Button
+            icon={<SyncOutlined />}
+            onClick={onSyncCategory}
+            loading={syncLoading}
+            block={isMobile}
+          >
+            同步品类
+          </Button>
           <Dropdown
             menu={{ items: batchMenuItems, onClick: handleBatchMenuClick }}
             disabled={selectedRowKeys.length === 0 && !selectAll}
