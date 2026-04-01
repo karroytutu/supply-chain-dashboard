@@ -40,14 +40,30 @@
 
 .statsRow {
   margin-bottom: @spacing-lg;
+
+  // 让所有 Col 内的卡片等高
+  :global(.ant-col) {
+    display: flex;
+  }
 }
 
 .statCard {
   border-radius: 12px;
   box-shadow: @box-shadow-card;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 
   :global(.ant-card-body) {
     padding: @spacing-card;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  :global(.ant-statistic) {
+    flex-shrink: 0;
   }
 
   :global(.ant-statistic-title) {
@@ -77,6 +93,8 @@
   margin-top: @spacing-sm;
   font-size: 12px;
   color: @text-color-secondary;
+  min-height: 32px;
+  flex-shrink: 0;
 }
 
 .statClickable {
@@ -96,11 +114,13 @@
 }
 
 .statClickHint {
-  margin-top: @spacing-xs;
+  margin-top: auto;
+  padding-top: @spacing-sm;
   font-size: 11px;
   color: @primary-color;
   opacity: 0;
   transition: opacity 0.2s;
+  flex-shrink: 0;
 
   .statClickable:hover & {
     opacity: 1;
@@ -114,6 +134,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  min-height: 32px;
+  flex-shrink: 0;
 }
 
 .tabs {
@@ -261,5 +283,78 @@
 
   .tabLabel {
     gap: 4px;
+  }
+}
+
+// 小屏幕适配（手机横屏 / 大屏手机）
+@media (max-width: @screen-sm) {
+  .workspace {
+    padding: @spacing-sm;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .statCard {
+    :global(.ant-card-body) {
+      padding: @spacing-sm;
+    }
+
+    :global(.ant-statistic-title) {
+      font-size: 13px;
+    }
+
+    :global(.ant-statistic-content) {
+      font-size: 20px;
+    }
+  }
+
+  .statDesc,
+  .warningText {
+    font-size: 11px;
+    min-height: 28px;
+    white-space: normal;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .statClickHint {
+    font-size: 10px;
+  }
+}
+
+// 超小屏幕适配（小屏手机）
+@media (max-width: @screen-xs) {
+  .title {
+    font-size: 16px;
+  }
+
+  .adminBadge {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+
+  .statCard {
+    :global(.ant-card-body) {
+      padding: @spacing-xs @spacing-sm;
+    }
+
+    :global(.ant-statistic-content) {
+      font-size: 18px;
+    }
+  }
+
+  .statDesc,
+  .warningText {
+    font-size: 10px;
+    min-height: 24px;
+    // 长文本省略处理
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
   }
 }
