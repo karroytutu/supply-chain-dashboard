@@ -4,6 +4,23 @@
  */
 
 import { appQuery, getAppClient } from '../../db/appPool';
+import { config } from '../../config';
+
+/**
+ * 获取催收日期筛选 SQL 片段
+ * 当配置了 AR_COLLECTION_START_DATE 时，筛选 work_time >= 配置日期的记录
+ * work_time 为 NULL 的记录默认包含（兼容历史数据）
+ */
+function getCollectionDateFilter(): { clause: string; params: string[] } {
+  const startDate = config.arCollection?.startDate;
+  if (!startDate) {
+    return { clause: '', params: [] };
+  }
+  return {
+    clause: `AND (r.work_time IS NULL OR r.work_time >= $1)`,
+    params: [startDate],
+  };
+}
 import { saveSignature } from './ar-signature.service';
 import type { CollectionTaskStatus, CollectionResultType, ReviewStatus } from './ar.types';
 
@@ -45,23 +62,37 @@ export async function getCollectionTasks(params: {
   const { userId, status, page = 1, pageSize = 10 } = params;
   const offset = (page - 1) * pageSize;
 
+  // 获取日期过滤条件
+  const dateFilter = getCollectionDateFilter();
+
   let whereClause = 'WHERE 1=1';
   const queryParams: any[] = [];
 
+  // 添加日期过滤参数（放在最前面，因为 dateFilter 使用 $1）
+  let paramIndex = 1;
+  if (dateFilter.params.length > 0) {
+    queryParams.push(dateFilter.params[0]);
+    whereClause += ` AND (r.work_time IS NULL OR r.work_time >= $${paramIndex})`;
+    paramIndex++;
+  }
+
   if (userId !== undefined && userId !== null) {
     queryParams.push(userId);
-    whereClause += ` AND t.collector_id = $${queryParams.length}`;
+    whereClause += ` AND t.collector_id = $${paramIndex}`;
+    paramIndex++;
   }
 
   if (status) {
     queryParams.push(status);
-    whereClause += ` AND t.status = $${queryParams.length}`;
+    whereClause += ` AND t.status = $${paramIndex}`;
+    paramIndex++;
   }
 
   // 查询总数
   const countSql = `
     SELECT COUNT(*) as total
     FROM ar_collection_tasks t
+    JOIN ar_receivables r ON t.ar_id = r.id
     ${whereClause}
   `;
   const countResult = await appQuery(countSql, queryParams);
@@ -106,7 +137,7 @@ export async function getCollectionTasks(params: {
     LEFT JOIN users u ON t.collector_id = u.id
     ${whereClause}
     ORDER BY t.deadline_at ASC
-    LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
 
   const listResult = await appQuery(listSql, [...queryParams, pageSize, offset]);

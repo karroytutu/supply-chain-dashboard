@@ -4,6 +4,7 @@
  */
 
 import { appQuery, getAppClient } from '../../db/appPool';
+import { config } from '../../config';
 import type {
   CollectorLevel,
   CollectionTaskStatus,
@@ -16,6 +17,26 @@ import type {
   SubmitMixedResultsParams,
   EscalateCustomerTaskParams,
 } from './ar.types';
+
+/**
+ * 获取催收日期筛选 SQL 片段
+ * 当配置了 AR_COLLECTION_START_DATE 时，通过 EXISTS 子查询过滤
+ * 只要客户任务中有一个单据符合日期条件，该任务就显示
+ */
+function getCollectionDateFilter(): { clause: string; params: string[] } {
+  const startDate = config.arCollection?.startDate;
+  if (!startDate) {
+    return { clause: '', params: [] };
+  }
+  return {
+    clause: `AND EXISTS (
+      SELECT 1 FROM ar_receivables r 
+      WHERE r.id = ANY(t.ar_ids) 
+      AND (r.work_time IS NULL OR r.work_time >= $1)
+    )`,
+    params: [startDate],
+  };
+}
 
 /**
  * 生成客户催收任务编号: AR-CUST-YYYYMMDD-XXXX
@@ -140,22 +161,40 @@ export async function getCustomerTasks(
   const { userId, status, keyword, page = 1, pageSize = 20 } = params;
   const offset = (page - 1) * pageSize;
 
+  // 获取日期过滤条件
+  const dateFilter = getCollectionDateFilter();
+
   let whereClause = 'WHERE 1=1';
   const queryParams: any[] = [];
 
+  // 添加日期过滤参数（放在最前面，因为 dateFilter 使用 $1）
+  let paramIndex = 1;
+  if (dateFilter.params.length > 0) {
+    queryParams.push(dateFilter.params[0]);
+    whereClause += ` AND EXISTS (
+      SELECT 1 FROM ar_receivables r 
+      WHERE r.id = ANY(t.ar_ids) 
+      AND (r.work_time IS NULL OR r.work_time >= $${paramIndex})
+    )`;
+    paramIndex++;
+  }
+
   if (userId !== undefined && userId !== null) {
     queryParams.push(userId);
-    whereClause += ` AND t.collector_id = $${queryParams.length}`;
+    whereClause += ` AND t.collector_id = $${paramIndex}`;
+    paramIndex++;
   }
 
   if (status) {
     queryParams.push(status);
-    whereClause += ` AND t.status = $${queryParams.length}`;
+    whereClause += ` AND t.status = $${paramIndex}`;
+    paramIndex++;
   }
 
   if (keyword) {
     queryParams.push(`%${keyword}%`);
-    whereClause += ` AND t.consumer_name ILIKE $${queryParams.length}`;
+    whereClause += ` AND t.consumer_name ILIKE $${paramIndex}`;
+    paramIndex++;
   }
 
   // 查询总数
@@ -203,7 +242,7 @@ export async function getCustomerTasks(
     LEFT JOIN users u ON t.collector_id = u.id
     ${whereClause}
     ORDER BY t.deadline_at ASC
-    LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
 
   const listResult = await appQuery(listSql, [...queryParams, pageSize, offset]);
