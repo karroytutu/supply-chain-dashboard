@@ -23,6 +23,7 @@ import type { ArReceivable, ArStatus, ArQueryParams } from '@/types/accounts-rec
 import { getArList } from '@/services/api/accounts-receivable';
 import dayjs from 'dayjs';
 import styles from '../index.less';
+import TaskDetail from '../../Workspace/components/TaskDetail';
 
 const { Option } = Select;
 
@@ -107,6 +108,8 @@ const CustomerDebtTable: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [isMobile, setIsMobile] = useState(false);
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [selectedArId, setSelectedArId] = useState<number | null>(null);
 
   // 筛选条件
   const [filters, setFilters] = useState<ArQueryParams>({
@@ -268,8 +271,16 @@ const CustomerDebtTable: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: () => (
-        <Button type="link" size="small" icon={<EyeOutlined />}>
+      render: (_: unknown, record: ArReceivable) => (
+        <Button
+          type="link"
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setSelectedArId(record.id);
+            setDetailVisible(true);
+          }}
+        >
           查看
         </Button>
       ),
@@ -511,6 +522,16 @@ const CustomerDebtTable: React.FC = () => {
           }}
         />
       </div>
+
+      {/* 任务详情抽屉 */}
+      <TaskDetail
+        arId={selectedArId}
+        visible={detailVisible}
+        onClose={() => {
+          setDetailVisible(false);
+          setSelectedArId(null);
+        }}
+      />
     </Card>
   );
 };
