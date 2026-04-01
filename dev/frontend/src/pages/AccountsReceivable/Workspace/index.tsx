@@ -268,9 +268,6 @@ const Workspace: React.FC = () => {
                     value={counts.preWarn5 + counts.preWarn2}
                     prefix={<WarningOutlined />}
                   />
-                  <div className={styles.statDesc}>
-                    5天: {counts.preWarn5}笔 {formatAmountWan(counts.preWarn5Total)} | 2天: {counts.preWarn2}笔 {formatAmountWan(counts.preWarn2Total)}
-                  </div>
                   <div className={styles.statClickHint}>点击查看 →</div>
                 </Card>
               </Col>
@@ -284,7 +281,6 @@ const Workspace: React.FC = () => {
                     value={counts.allTasks}
                     prefix={<TeamOutlined />}
                   />
-                  <div className={styles.statDesc}>所有进行中的任务</div>
                   <div className={styles.statClickHint}>点击查看 →</div>
                 </Card>
               </Col>
