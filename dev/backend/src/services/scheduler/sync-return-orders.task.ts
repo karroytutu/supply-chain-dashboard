@@ -114,10 +114,13 @@ export async function syncReturnOrders(): Promise<{
       // 7. 关联责任营销师
       const marketingManager = await queryMarketingManager(record.sourceBillNo);
 
-      // 8. 生成退货单号
+      // 8. 获取商品进价（用于考核计算）
+      const purchasePrice = await queryPurchasePrice(record.goodsName);
+
+      // 9. 生成退货单号
       const returnNo = generateReturnNo();
 
-      // 9. 创建退货单
+      // 10. 创建退货单
       await createReturnOrder({
         returnNo,
         goodsId: record.goodsId,
@@ -133,6 +136,7 @@ export async function syncReturnOrders(): Promise<{
         consumerName: (await queryConsumerName(record.sourceBillNo)) || undefined,
         marketingManager: marketingManager || undefined,
         status: status as any,
+        purchasePrice: purchasePrice || undefined,
       });
 
       createdCount++;
@@ -406,4 +410,30 @@ function getTodayRange(): { start: string; end: string } {
     start: formatDateTime(start),
     end: formatDateTime(end),
   };
+}
+
+/**
+ * 查询商品平均进价
+ * 从实时库存表获取加权平均进价
+ */
+async function queryPurchasePrice(goodsName: string): Promise<number | null> {
+  try {
+    const result = await query<{ avg_price: string }>(
+      `SELECT
+        SUM(r."baseCostPrice" * r."availableBaseQuantity") /
+        NULLIF(SUM(r."availableBaseQuantity"), 0) as avg_price
+       FROM "实时库存表" r
+       WHERE r."goodsName" = $1`,
+      [goodsName]
+    );
+
+    if (result.rows.length === 0 || !result.rows[0].avg_price) {
+      return null;
+    }
+
+    return parseFloat(result.rows[0].avg_price);
+  } catch (error) {
+    console.error(`[SyncReturnOrders] 查询商品进价失败: ${goodsName}`, error);
+    return null;
+  }
 }

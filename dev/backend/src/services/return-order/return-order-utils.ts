@@ -35,6 +35,9 @@ export interface ReturnOrderRow {
   marketing_completed_at: Date | null;
   marketing_comment: string | null;
   rule_id: number | null;
+  purchase_price: number | null;           // 商品进价
+  rule_confirmed_at: Date | null;          // 规则确认时间
+  rule_confirmed_by: number | null;        // 规则确认人
   created_at: Date;
   updated_at: Date;
   erp_filler_name?: string | null;
@@ -77,6 +80,9 @@ export function mapRowToReturnOrder(row: ReturnOrderRow): ReturnOrder {
     marketingCompletedAt: row.marketing_completed_at,
     marketingComment: row.marketing_comment,
     ruleId: row.rule_id,
+    purchasePrice: row.purchase_price ? parseFloat(row.purchase_price as any) : null,
+    ruleConfirmedAt: row.rule_confirmed_at,
+    ruleConfirmedBy: row.rule_confirmed_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     erpFillerName: row.erp_filler_name || undefined,

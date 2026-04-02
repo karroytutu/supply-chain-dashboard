@@ -60,6 +60,11 @@ export default defineConfig({
               component: '@/pages/ProcurementReturn/GoodsRules',
               name: '采购退货规则',
             },
+            {
+              path: 'penalty',
+              component: '@/pages/ProcurementReturn/Penalty',
+              name: '考核管理',
+            },
           ],
         },
       ],

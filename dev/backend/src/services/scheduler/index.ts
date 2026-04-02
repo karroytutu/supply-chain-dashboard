@@ -10,6 +10,7 @@ import { getPendingErpOrders } from '../return-order/return-order.query';
 import { syncArReceivables } from '../accounts-receivable';
 import { runDailyNotificationTask } from '../accounts-receivable/ar-scheduler.task';
 import { saveDailySnapshot } from '../accounts-receivable/ar-stats.service';
+import { calculateReturnPenalties, notifyPenaltyCreated } from '../return-penalty';
 
 /**
  * 启动所有定时任务
@@ -114,10 +115,36 @@ export function startScheduler(): void {
     }
   );
 
+  // 注册退货考核计算任务
+  // 每天08:45执行: 0 45 8 * * *
+  // 在退货数据同步(08:30)和待填ERP提醒(08:35)之后
+  cron.schedule(
+    '0 45 8 * * *',
+    async () => {
+      console.log('[Scheduler] 执行退货考核计算任务...');
+      try {
+        const results = await calculateReturnPenalties();
+        const totalCreated = results.reduce((sum, r) => sum + r.createdCount, 0);
+        console.log(`[Scheduler] 退货考核计算完成，共创建 ${totalCreated} 条考核记录`);
+        
+        // 发送考核通知
+        if (totalCreated > 0) {
+          await notifyPenaltyCreated(totalCreated);
+        }
+      } catch (error) {
+        console.error('[Scheduler] 退货考核计算失败:', error);
+      }
+    },
+    {
+      timezone: 'Asia/Shanghai',
+    }
+  );
+
   console.log('[Scheduler] 定时任务已注册:');
   console.log('  - 应收账款ERP同步: 每2小时 (06:00-22:00, Asia/Shanghai)');
   console.log('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
   console.log('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
+  console.log('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');
   console.log('  - 应收账款通知推送: 每天 20:00 (Asia/Shanghai)');
   console.log('  - 应收账款统计快照: 每天 00:10 (Asia/Shanghai)');
   console.log('[Scheduler] 定时任务调度器启动完成');

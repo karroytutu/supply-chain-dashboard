@@ -247,6 +247,9 @@ export async function getPendingErpOrders(): Promise<ReturnOrder[]> {
     marketingComment: null,
     ruleId: null,
     currentStock: null,
+    purchasePrice: null,
+    ruleConfirmedAt: null,
+    ruleConfirmedBy: null,
   }));
 }
 
