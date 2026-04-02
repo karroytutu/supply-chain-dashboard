@@ -5,8 +5,9 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Input, Space, Modal, message, Form, Input as AntInput } from 'antd';
 import { SearchOutlined, PlusOutlined } from '@ant-design/icons';
 import { getRoleList, createRole, updateRole, deleteRole, getPermissionTree } from '@/services/api/auth';
-import Authorized from '@/components/Authorized';
-import { PERMISSIONS } from '@/constants/permissions';
+import { Authorized } from '@/components/Authorized';
+import { PERMISSIONS, ROLES } from '@/constants/permissions';
+import { usePermission } from '@/hooks/usePermission';
 import RoleTable from './components/RoleTable';
 import PermissionAssignModal from './components/PermissionAssignModal';
 import styles from './index.less';
@@ -29,6 +30,9 @@ interface PermissionItem {
 }
 
 export default function RoleManage() {
+  const { hasRole } = usePermission();
+  const isAdmin = hasRole(ROLES.ADMIN);
+  
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<RoleItem[]>([]);
   const [keyword, setKeyword] = useState('');
@@ -148,11 +152,11 @@ export default function RoleManage() {
               搜索
             </Button>
           </Space>
-          <Authorized config={{ permission: PERMISSIONS.SYSTEM.ROLE.WRITE }}>
+          {isAdmin && (
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
               新建角色
             </Button>
-          </Authorized>
+          )}
         </div>
 
         <RoleTable

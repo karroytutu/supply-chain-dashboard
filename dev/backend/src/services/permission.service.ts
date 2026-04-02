@@ -1,4 +1,9 @@
 import { appQuery } from '../db/appPool';
+import {
+  getPermissionTreeCache,
+  setPermissionTreeCache,
+  invalidatePermissionTreeCache,
+} from './permission-cache.service';
 
 export interface Permission {
   id: number;
@@ -27,9 +32,15 @@ export async function getAllPermissions(): Promise<Permission[]> {
 }
 
 /**
- * 获取权限树
+ * 获取权限树（带缓存）
  */
 export async function getPermissionTree(): Promise<PermissionTreeNode[]> {
+  // 尝试从缓存获取
+  const cached = getPermissionTreeCache<PermissionTreeNode[]>();
+  if (cached) {
+    return cached;
+  }
+  
   const permissions = await getAllPermissions();
   
   // 构建树形结构
@@ -42,7 +53,12 @@ export async function getPermissionTree(): Promise<PermissionTreeNode[]> {
       }));
   };
   
-  return buildTree(null);
+  const tree = buildTree(null);
+  
+  // 缓存5分钟
+  setPermissionTreeCache(tree, 5 * 60 * 1000);
+  
+  return tree;
 }
 
 /**
@@ -74,6 +90,10 @@ export async function createPermission(data: {
     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
     [data.code, data.name, data.resource_type, data.resource_key, data.action, data.parent_id || null, data.sort_order || 0]
   );
+  
+  // 清除权限树缓存
+  invalidatePermissionTreeCache();
+  
   return result.rows[0];
 }
 
@@ -106,11 +126,15 @@ export async function updatePermission(id: number, data: Partial<Permission>): P
     values
   );
   
+  // 清除权限树缓存
+  invalidatePermissionTreeCache();
+  
   return result.rows.length > 0 ? result.rows[0] : null;
 }
 
 /**
  * 删除权限
+ * 检查是否被角色使用，若有则返回使用的角色列表
  */
 export async function deletePermission(id: number): Promise<boolean> {
   // 检查是否有子权限
@@ -123,11 +147,28 @@ export async function deletePermission(id: number): Promise<boolean> {
     throw new Error('存在子权限，无法删除');
   }
   
+  // 检查是否被角色使用
+  const rolesResult = await appQuery<{ role_name: string }>(
+    `SELECT DISTINCT r.name as role_name
+    FROM roles r
+    JOIN role_permissions rp ON r.id = rp.role_id
+    WHERE rp.permission_id = $1`,
+    [id]
+  );
+  
+  if (rolesResult.rows.length > 0) {
+    const roleNames = rolesResult.rows.map(r => r.role_name).join('、');
+    throw new Error(`该权限已被以下角色使用，无法删除: ${roleNames}`);
+  }
+  
   // 删除权限
   const result = await appQuery(
     'DELETE FROM permissions WHERE id = $1',
     [id]
   );
+  
+  // 清除权限树缓存
+  invalidatePermissionTreeCache();
   
   return (result.rowCount ?? 0) > 0;
 }
