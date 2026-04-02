@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from 'antd';
 import SelectionCard from '@/components/SelectionCard';
+import { usePermission } from '@/hooks/usePermission';
 import type { UserItem, RoleInfo } from '../types';
 
 interface RoleAssignModalProps {
@@ -29,12 +30,16 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   mode = 'single',
 }) => {
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
+  const { hasRole } = usePermission();
+  const isAdmin = hasRole('admin');
 
   // 初始化选中角色
   useEffect(() => {
     if (visible) {
       if (mode === 'single' && user) {
-        setSelectedRoleIds(user.roles?.map(r => r.id) || []);
+        // 单角色模式：只取第一个角色
+        const firstRole = user.roles?.[0];
+        setSelectedRoleIds(firstRole ? [firstRole.id] : []);
       } else {
         setSelectedRoleIds([]);
       }
@@ -55,7 +60,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   const getHint = () => {
     return mode === 'batch'
       ? '选择要分配给这些用户的角色：'
-      : '选择用户的角色（可多选）：';
+      : '选择用户的角色：';
   };
 
   return (
@@ -81,8 +86,9 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
           descriptionKey: 'description',
           codeKey: 'code',
           tagKey: 'is_system',
-          disabledKey: item => item.is_system === true,
-          disabledTooltip: '系统角色不可修改，由系统自动分配',
+          mode: 'single',
+          disabledKey: item => !isAdmin && item.is_system === true,
+          disabledTooltip: '系统角色仅管理员可分配',
           columns: 2,
         }}
       />

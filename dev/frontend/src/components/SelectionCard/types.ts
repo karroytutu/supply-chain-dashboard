@@ -22,6 +22,8 @@ export interface SelectionCardFieldConfig<T> {
   disabledTooltip?: string;
   /** 网格列数 */
   columns?: number;
+  /** 选择模式：multiple 多选（默认），single 单选 */
+  mode?: 'multiple' | 'single';
 }
 
 // 组件属性

@@ -24,6 +24,7 @@ function SelectionCard<T extends Record<string, any>>({
     disabledKey,
     disabledTooltip = '系统角色不可修改，由系统自动分配',
     columns = 2,
+    mode = 'multiple',
   } = config;
 
   const handleToggle = (item: T) => {
@@ -32,6 +33,14 @@ function SelectionCard<T extends Record<string, any>>({
 
     if (isDisabled) return;
 
+    // 单选模式：直接替换为当前选中项（若已选中则取消）
+    if (mode === 'single') {
+      const newKey = selectedKeys.includes(key) ? [] : [key];
+      onChange(newKey);
+      return;
+    }
+
+    // 多选模式：原有逻辑
     const newSelectedKeys = selectedKeys.includes(key)
       ? selectedKeys.filter(k => k !== key)
       : [...selectedKeys, key];
