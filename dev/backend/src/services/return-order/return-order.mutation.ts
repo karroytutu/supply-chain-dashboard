@@ -11,6 +11,7 @@ import {
   notifyPendingWarehouseExecute,
 } from './return-order-notify';
 import { createReturnExpireInsufficientPenalty } from '../return-penalty';
+import { createGoodsReturnRule } from '../goods-return-rules';
 import type {
   ReturnOrder,
   ReturnOrderStatus,
@@ -126,15 +127,31 @@ export async function batchConfirmReturnOrders(
     ruleDecision === 'can_return' ? 'pending_erp_fill' : 'pending_marketing_sale';
 
   // 批量更新状态，同时记录确认时间和确认人
-  const result = await appQuery<{ id: number }>(
+  const result = await appQuery<{ id: number; goods_id: string; goods_name: string }>(
     `UPDATE expiring_return_orders 
      SET status = $1, rule_confirmed_at = NOW(), rule_confirmed_by = $2, updated_at = NOW()
      WHERE id = ANY($3) AND status = 'pending_confirm'
-     RETURNING id`,
+     RETURNING id, goods_id, goods_name`,
     [newStatus, operatorId, orderIds]
   );
 
   const successCount = result.rowCount ?? 0;
+
+  // 为每个确认的退货单创建商品退货规则
+  for (const row of result.rows) {
+    try {
+      await createGoodsReturnRule({
+        goodsId: row.goods_id,
+        goodsName: row.goods_name,
+        canReturnToSupplier: ruleDecision === 'can_return',
+        userId: operatorId,
+        comment: ruleDecision === 'can_return' ? '可采购退货' : '不可采购退货',
+      });
+    } catch (ruleError) {
+      console.error(`[ReturnOrder] 创建商品退货规则失败: ${row.goods_id}`, ruleError);
+      // 规则创建失败不影响退货单确认，继续处理
+    }
+  }
 
   // 批量记录操作日志并发送通知
   for (const row of result.rows) {
