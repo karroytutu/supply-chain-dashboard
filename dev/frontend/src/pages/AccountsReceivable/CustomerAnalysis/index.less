@@ -1,0 +1,141 @@
+/**
+ * 客户逾期分析页面样式
+ */
+
+@import '~@/styles/variables.less';
+
+.customerAnalysis {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: @spacing-lg;
+  background-color: @bg-color-base;
+  min-height: 100vh;
+
+  @media (max-width: @screen-md) {
+    padding: @spacing-md;
+  }
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+// ==================== 页面头部 ====================
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: @spacing-md;
+  background: #fff;
+  padding: 12px @spacing-md;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  @media (max-width: @screen-md) {
+    padding: 10px 12px;
+
+    h3 {
+      font-size: 14px;
+    }
+  }
+}
+
+// ==================== 统计卡片 ====================
+.statsCards {
+  margin-bottom: @spacing-md;
+
+  @media (max-width: @screen-md) {
+    margin-bottom: 12px;
+  }
+}
+
+.statsCard {
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+
+  :global(.ant-statistic-title) {
+    font-size: 13px;
+    color: @text-color-secondary;
+  }
+
+  :global(.ant-statistic-content) {
+    font-size: 24px;
+
+    @media (max-width: @screen-md) {
+      font-size: 20px;
+    }
+  }
+}
+
+.statIcon {
+  color: @primary-color;
+  margin-right: 8px;
+}
+
+.statIconDanger {
+  color: #cf1322;
+  margin-right: 8px;
+}
+
+.statIconWarning {
+  color: #fa8c16;
+  margin-right: 8px;
+}
+
+// ==================== 表格区域 ====================
+.tableSection {
+  background: #fff;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+  padding: @spacing-md;
+
+  @media (max-width: @screen-md) {
+    padding: 12px;
+  }
+}
+
+.tableWrapper {
+  margin-top: @spacing-md;
+
+  @media (max-width: @screen-md) {
+    margin-top: 12px;
+    overflow-x: auto;
+  }
+}
+
+// ==================== 筛选区域 ====================
+.filterSection {
+  padding: @spacing-sm 0;
+  border-bottom: 1px solid @border-color-split;
+
+  @media (max-width: @screen-md) {
+    padding: 8px 0;
+  }
+}
+
+// ==================== 金额高亮 ====================
+.amountHighlight {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+// ==================== 天数颜色 ====================
+.daysDanger {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+.daysWarning {
+  color: #fa8c16;
+  font-weight: 500;
+}

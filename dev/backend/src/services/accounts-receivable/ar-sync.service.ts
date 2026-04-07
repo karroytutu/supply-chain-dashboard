@@ -6,6 +6,7 @@
 import { query } from '../../db/pool';
 import { appQuery, getAppClient } from '../../db/appPool';
 import type { ArSyncResult } from './ar.types';
+import { updateOverdueLevels } from './overdue';
 
 /** ERP欠款明细记录（字段类型与ERP表一致） */
 interface ErpDebtRecord {
@@ -253,6 +254,15 @@ export async function syncArReceivables(): Promise<ArSyncResult> {
 
     // 3. 清理已不存在于 ERP 的记录（孤儿数据）
     await cleanupOrphanRecords(erpRecords.map(r => r.billId), result);
+
+    // 4. 更新逾期等级
+    try {
+      const levelResult = await updateOverdueLevels();
+      console.log(`[AR Sync] 已更新 ${levelResult.updated} 条记录的逾期等级`);
+    } catch (error) {
+      console.error('[AR Sync] 更新逾期等级失败:', error);
+      // 不抛出错误，仅记录日志
+    }
 
   } catch (error) {
     console.error('[AR Sync] 同步失败:', error);

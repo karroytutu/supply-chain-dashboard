@@ -132,11 +132,11 @@ export async function createCustomerTask(
 
     // 记录操作日志
     await client.query(
-      `INSERT INTO ar_action_logs 
+      `INSERT INTO ar_action_logs
        (ar_id, customer_task_id, action_type, action_by, action_data, remark, created_at)
-       SELECT 
+       SELECT
          id, $1, 'customer_task_created', $2, 
-         jsonb_build_object('taskNo', $3, 'arCount', $4, 'totalAmount', $5),
+         jsonb_build_object('taskNo', $3::text, 'arCount', $4::integer, 'totalAmount', $5::numeric),
          '创建客户催收任务', NOW()
        FROM ar_receivables WHERE id = ANY($6)`,
       [taskId, collectorId, taskNo, arIds.length, totalAmount, arIds]
@@ -395,11 +395,11 @@ export async function submitUnifiedResult(
 
     // 记录操作日志
     await client.query(
-      `INSERT INTO ar_action_logs 
+      `INSERT INTO ar_action_logs
        (ar_id, customer_task_id, action_type, action_by, action_data, remark, created_at)
-       SELECT 
+       SELECT
          id, $1, 'submit_result', $2,
-         jsonb_build_object('resultType', $3, 'latestPayDate', $4),
+         jsonb_build_object('resultType', $3::text, 'latestPayDate', $4::date),
          $5, NOW()
        FROM ar_receivables WHERE id = ANY($6)`,
       [customerTaskId, collectorId, resultType, latestPayDate || null, remark || '提交催收结果', ar_ids]
@@ -662,11 +662,11 @@ export async function escalateCustomerTask(
 
     // 记录操作日志
     await client.query(
-      `INSERT INTO ar_action_logs 
+      `INSERT INTO ar_action_logs
        (ar_id, customer_task_id, action_type, action_by, action_data, remark, created_at)
-       SELECT 
+       SELECT
          id, $1, 'escalate', $2,
-         jsonb_build_object('fromRole', $3, 'newTaskId', $4, 'reason', $5),
+         jsonb_build_object('fromRole', $3::text, 'newTaskId', $4::integer, 'reason', $5::text),
          '客户任务升级', NOW()
        FROM ar_receivables WHERE id = ANY($6)`,
       [customerTaskId, collectorId, collector_role, result.newTaskId, escalateReason, ar_ids]

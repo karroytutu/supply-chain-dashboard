@@ -31,6 +31,22 @@ import type {
   CustomerEscalateParams,
   CustomerReviewQueryParams,
   CustomerReviewActionParams,
+  // 逾期管理类型
+  OverdueStatsResponse,
+  OverdueTaskItem,
+  TimeoutWarningItem,
+  TimeEfficiencyResponse,
+  CustomerOverdueItem,
+  PerformanceStatsResponse,
+  AvailableCollector,
+  ArDeadlineConfig,
+  OverdueTaskQueryParams,
+  TimeEfficiencyQueryParams,
+  PerformanceQueryParams,
+  StartPreprocessingParams,
+  CompletePreprocessingParams,
+  AssignOverdueTaskParams,
+  UpdateDeadlineConfigParams,
 } from '@/types/accounts-receivable';
 
 // ==================== 数据查询 ====================
@@ -273,6 +289,99 @@ export const getCustomerHistoryRecords = (params?: { page?: number; pageSize?: n
 
 // ==================== 默认导出 ====================
 
+// ==================== 逾期管理 API ====================
+
+/**
+ * 获取逾期统计
+ */
+export const getOverdueStats = (): Promise<OverdueStatsResponse> => {
+  return request<OverdueStatsResponse>('/ar/overdue/stats');
+};
+
+/**
+ * 获取待预处理列表
+ */
+export const getPreprocessingList = (params?: OverdueTaskQueryParams): Promise<ArPaginatedResult<OverdueTaskItem>> => {
+  return request<ArPaginatedResult<OverdueTaskItem>>('/ar/overdue/preprocessing', { params });
+};
+
+/**
+ * 开始预处理
+ */
+export const startPreprocessing = (data: StartPreprocessingParams): Promise<{ success: boolean; message: string }> => {
+  return request.post<{ success: boolean; message: string }>('/ar/overdue/preprocessing/start', data);
+};
+
+/**
+ * 完成预处理
+ */
+export const completePreprocessing = (data: CompletePreprocessingParams): Promise<{ success: boolean; message: string }> => {
+  return request.post<{ success: boolean; message: string }>('/ar/overdue/preprocessing/complete', data);
+};
+
+/**
+ * 获取待分配列表
+ */
+export const getAssignmentList = (params?: OverdueTaskQueryParams): Promise<ArPaginatedResult<OverdueTaskItem>> => {
+  return request<ArPaginatedResult<OverdueTaskItem>>('/ar/overdue/assignment', { params });
+};
+
+/**
+ * 分配任务
+ */
+export const assignOverdueTask = (data: AssignOverdueTaskParams): Promise<{ success: boolean; message: string }> => {
+  return request.post<{ success: boolean; message: string }>('/ar/overdue/assignment/assign', data);
+};
+
+/**
+ * 获取可分配催收人员列表
+ */
+export const getAvailableCollectors = (): Promise<AvailableCollector[]> => {
+  return request<AvailableCollector[]>('/ar/overdue/collectors');
+};
+
+/**
+ * 获取时限配置
+ */
+export const getDeadlineConfigs = (): Promise<ArDeadlineConfig[]> => {
+  return request<ArDeadlineConfig[]>('/ar/overdue/deadline-configs');
+};
+
+/**
+ * 更新时限配置
+ */
+export const updateDeadlineConfig = (id: number, data: UpdateDeadlineConfigParams): Promise<{ success: boolean; message: string }> => {
+  return request.put<{ success: boolean; message: string }>(`/ar/overdue/deadline-configs/${id}`, data);
+};
+
+/**
+ * 获取超时预警列表
+ */
+export const getTimeoutWarnings = (params?: { page?: number; pageSize?: number }): Promise<ArPaginatedResult<TimeoutWarningItem>> => {
+  return request<ArPaginatedResult<TimeoutWarningItem>>('/ar/overdue/timeout-warnings', { params });
+};
+
+/**
+ * 获取时效分析
+ */
+export const getTimeEfficiency = (params?: TimeEfficiencyQueryParams): Promise<TimeEfficiencyResponse> => {
+  return request<TimeEfficiencyResponse>('/ar/overdue/time-efficiency', { params });
+};
+
+/**
+ * 获取客户逾期列表
+ */
+export const getCustomerOverdueList = (params?: OverdueTaskQueryParams): Promise<ArPaginatedResult<CustomerOverdueItem>> => {
+  return request<ArPaginatedResult<CustomerOverdueItem>>('/ar/overdue/customers', { params });
+};
+
+/**
+ * 获取绩效统计
+ */
+export const getPerformanceStats = (params?: PerformanceQueryParams): Promise<PerformanceStatsResponse> => {
+  return request<PerformanceStatsResponse>('/ar/overdue/performance', { params });
+};
+
 export default {
   syncArData,
   getArList,
@@ -302,4 +411,18 @@ export default {
   getCustomerReviewTasks,
   reviewCustomerTask,
   getCustomerHistoryRecords,
+  // 逾期管理 API
+  getOverdueStats,
+  getPreprocessingList,
+  startPreprocessing,
+  completePreprocessing,
+  getAssignmentList,
+  assignOverdueTask,
+  getAvailableCollectors,
+  getDeadlineConfigs,
+  updateDeadlineConfig,
+  getTimeoutWarnings,
+  getTimeEfficiency,
+  getCustomerOverdueList,
+  getPerformanceStats,
 };

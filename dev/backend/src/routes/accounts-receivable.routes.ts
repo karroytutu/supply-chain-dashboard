@@ -45,6 +45,19 @@ import {
   getCustomerReviewList,
   reviewCustomerTask,
   getCustomerHistory,
+  // 逾期管理
+  getOverdueStatsHandler,
+  getPreprocessingListHandler,
+  startPreprocessingHandler,
+  completePreprocessingHandler,
+  getAssignmentListHandler,
+  assignTaskHandler,
+  getDeadlineConfigsHandler,
+  updateDeadlineConfigHandler,
+  getTimeoutWarningsHandler,
+  getTimeEfficiencyHandler,
+  getCustomerOverdueHandler,
+  getPerformanceHandler,
 } from '../controllers/accounts-receivable.controller';
 
 const router = Router();
@@ -318,6 +331,140 @@ router.get(
   '/customer-history',
   requirePermission('finance:ar:read'),
   getCustomerHistory
+);
+
+// ==================== 逾期管理路由 ====================
+
+/**
+ * 获取逾期统计
+ * GET /api/ar/overdue/stats
+ * 权限: finance:ar:overdue:read
+ */
+router.get(
+  '/overdue/stats',
+  requirePermission('finance:ar:overdue:read'),
+  getOverdueStatsHandler
+);
+
+/**
+ * 获取待预处理列表
+ * GET /api/ar/overdue/preprocessing
+ * 权限: finance:ar:overdue:preprocess
+ */
+router.get(
+  '/overdue/preprocessing',
+  requirePermission('finance:ar:overdue:preprocess'),
+  getPreprocessingListHandler
+);
+
+/**
+ * 开始预处理
+ * POST /api/ar/overdue/preprocessing/start
+ * 权限: finance:ar:overdue:preprocess
+ */
+router.post(
+  '/overdue/preprocessing/start',
+  requirePermission('finance:ar:overdue:preprocess'),
+  startPreprocessingHandler
+);
+
+/**
+ * 完成预处理
+ * POST /api/ar/overdue/preprocessing/complete
+ * 权限: finance:ar:overdue:preprocess
+ */
+router.post(
+  '/overdue/preprocessing/complete',
+  requirePermission('finance:ar:overdue:preprocess'),
+  completePreprocessingHandler
+);
+
+/**
+ * 获取待分配列表
+ * GET /api/ar/overdue/assignment
+ * 权限: finance:ar:overdue:assign
+ */
+router.get(
+  '/overdue/assignment',
+  requirePermission('finance:ar:overdue:assign'),
+  getAssignmentListHandler
+);
+
+/**
+ * 分配任务
+ * POST /api/ar/overdue/assignment/assign
+ * 权限: finance:ar:overdue:assign
+ */
+router.post(
+  '/overdue/assignment/assign',
+  requirePermission('finance:ar:overdue:assign'),
+  assignTaskHandler
+);
+
+/**
+ * 获取时限配置
+ * GET /api/ar/overdue/deadline-configs
+ * 权限: finance:ar:overdue:read
+ */
+router.get(
+  '/overdue/deadline-configs',
+  requirePermission('finance:ar:overdue:read'),
+  getDeadlineConfigsHandler
+);
+
+/**
+ * 更新时限配置
+ * PUT /api/ar/overdue/deadline-configs/:id
+ * 权限: finance:ar:overdue:config
+ */
+router.put(
+  '/overdue/deadline-configs/:id',
+  requirePermission('finance:ar:overdue:config'),
+  updateDeadlineConfigHandler
+);
+
+/**
+ * 获取超时预警列表
+ * GET /api/ar/overdue/timeout-warnings
+ * 权限: finance:ar:overdue:read
+ */
+router.get(
+  '/overdue/timeout-warnings',
+  requirePermission('finance:ar:overdue:read'),
+  getTimeoutWarningsHandler
+);
+
+/**
+ * 获取时效分析
+ * GET /api/ar/overdue/time-efficiency
+ * 权限: finance:ar:efficiency:read
+ */
+router.get(
+  '/overdue/time-efficiency',
+  requirePermission('finance:ar:efficiency:read'),
+  getTimeEfficiencyHandler
+);
+
+/**
+ * 获取客户逾期列表
+ * GET /api/ar/overdue/customers
+ * 权限: finance:ar:customer:read
+ */
+router.get(
+  '/overdue/customers',
+  requirePermission('finance:ar:customer:read'),
+  getCustomerOverdueHandler
+);
+
+/**
+ * 获取绩效统计
+ * GET /api/ar/overdue/performance
+ * 权限: finance:ar:performance:read
+ */
+router.get(
+  '/overdue/performance',
+  requirePermission('finance:ar:performance:read'),
+  getPerformanceHandler
 );
 
 // ==================== 详情（放在参数路由之前）====================

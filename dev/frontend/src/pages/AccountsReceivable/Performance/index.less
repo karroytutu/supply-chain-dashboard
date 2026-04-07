@@ -1,0 +1,222 @@
+/**
+ * 催收绩效报表页面样式
+ * 响应式布局
+ */
+
+@import '~@/styles/variables.less';
+
+// 排名颜色
+@rank-gold: #faad14;
+@rank-silver: #8c8c8c;
+@rank-bronze: #d48806;
+
+.performance {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: @spacing-lg;
+  background-color: @bg-color-base;
+  min-height: 100vh;
+
+  @media (max-width: @screen-md) {
+    padding: @spacing-md;
+  }
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+// ==================== 页面头部 ====================
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: @spacing-md;
+  background: #fff;
+  padding: 12px @spacing-md;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  @media (max-width: @screen-md) {
+    padding: 10px 12px;
+
+    h3 {
+      font-size: 14px;
+    }
+  }
+}
+
+// ==================== 绩效卡片区域 ====================
+.cardsSection {
+  margin-bottom: @spacing-md;
+
+  @media (max-width: @screen-md) {
+    margin-bottom: 12px;
+  }
+}
+
+.metricCard {
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+
+  :global(.ant-card-body) {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+
+    @media (max-width: @screen-md) {
+      padding: 12px;
+    }
+  }
+}
+
+.metricIcon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 24px;
+  margin-right: 12px;
+  flex-shrink: 0;
+
+  @media (max-width: @screen-md) {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    margin-right: 10px;
+  }
+}
+
+.metricContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.metricTitle {
+  font-size: 13px;
+  color: @text-color-secondary;
+  margin-bottom: 4px;
+
+  @media (max-width: @screen-md) {
+    font-size: 12px;
+  }
+}
+
+.metricValue {
+  font-size: 24px;
+  font-weight: 600;
+  color: @text-color-primary;
+  line-height: 1.2;
+
+  @media (max-width: @screen-md) {
+    font-size: 20px;
+  }
+}
+
+.metricUnit {
+  font-size: 13px;
+  font-weight: 400;
+  color: @text-color-secondary;
+  margin-left: 2px;
+
+  @media (max-width: @screen-md) {
+    font-size: 12px;
+  }
+}
+
+// ==================== 排名表区域 ====================
+.rankingSection {
+  background: #fff;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+
+  :global(.ant-card-body) {
+    padding: 16px;
+
+    @media (max-width: @screen-md) {
+      padding: 12px;
+    }
+  }
+}
+
+.rankingHeader {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid @border-color-split;
+
+  @media (max-width: @screen-md) {
+    font-size: 14px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+  }
+}
+
+// 排名徽章
+.rankBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 13px;
+
+  &.gold {
+    background-color: @rank-gold;
+    color: #fff;
+  }
+
+  &.silver {
+    background-color: @rank-silver;
+    color: #fff;
+  }
+
+  &.bronze {
+    background-color: @rank-bronze;
+    color: #fff;
+  }
+
+  &.normal {
+    background-color: @bg-color-hover;
+    color: @text-color-secondary;
+  }
+}
+
+// 成功率进度条
+.successRateWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  :global(.ant-progress) {
+    flex: 1;
+    min-width: 60px;
+  }
+}
+
+.successRateText {
+  font-weight: 500;
+  min-width: 45px;
+  text-align: right;
+}
+
+// 超时次数高亮
+.timeoutHighlight {
+  color: @error-color;
+  font-weight: 600;
+}

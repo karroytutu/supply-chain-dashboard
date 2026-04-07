@@ -98,14 +98,28 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
   }
 
   const result = await response.json();
-  
-  // 如果响应包含 success 和 data 字段，说明是标准响应格式，返回 data 部分
-  if (result && typeof result === 'object' && 'success' in result && 'data' in result) {
-    // 保留其他字段如 total, page, pageSize 等
-    const { success, message: respMessage, ...dataPart } = result;
-    return dataPart as T;
+
+  // 处理标准响应格式
+  // 格式1: { success: true, data: {...} }
+  // 格式2: { code: 200, message: 'success', data: {...} }
+  if (result && typeof result === 'object') {
+    // 格式1: success + data 格式
+    if ('success' in result && 'data' in result) {
+      const { success, message: respMessage, ...dataPart } = result;
+      return dataPart as T;
+    }
+    // 格式2: code + data 格式
+    if ('code' in result && 'data' in result) {
+      const { code, message: respMessage, data } = result;
+      // code 为 200 时正常返回 data
+      if (code === 200) {
+        return data as T;
+      }
+      // code 非 200 时视为错误
+      throw new Error(respMessage || `请求失败: code ${code}`);
+    }
   }
-  
+
   return result;
 }
 

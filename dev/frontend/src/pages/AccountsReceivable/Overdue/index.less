@@ -1,0 +1,298 @@
+/**
+ * 逾期管理总览页面样式
+ */
+
+@import '~@/styles/variables.less';
+
+.overduePage {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: @spacing-lg;
+  background-color: @bg-color-base;
+  min-height: 100vh;
+
+  @media (max-width: @screen-md) {
+    padding: @spacing-md;
+  }
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+// ==================== 页面头部 ====================
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: @spacing-md;
+  background: #fff;
+  padding: 12px @spacing-md;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  @media (max-width: @screen-md) {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    h3 {
+      font-size: 14px;
+    }
+  }
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+
+  @media (max-width: @screen-md) {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+// ==================== 统计卡片 ====================
+.statsCardsContainer {
+  margin-bottom: @spacing-md;
+
+  @media (max-width: @screen-md) {
+    margin-bottom: 12px;
+  }
+}
+
+.clickableCard {
+  cursor: pointer;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+}
+
+// ==================== 流程状态面板 ====================
+.flowStatusPanel {
+  margin-bottom: @spacing-md;
+  background: #fff;
+  padding: 16px;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+
+  @media (max-width: @screen-md) {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+}
+
+.flowNodes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  @media (max-width: @screen-md) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.flowNode {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 160px;
+
+  &:hover {
+    background: #e6f7ff;
+  }
+
+  &.active {
+    background: #e6f7ff;
+    border: 1px solid #1890ff;
+
+    .nodeLabel {
+      color: #1890ff;
+    }
+  }
+
+  @media (max-width: @screen-md) {
+    min-width: auto;
+    padding: 10px 16px;
+  }
+}
+
+.nodeIcon {
+  font-size: 20px;
+  color: #1890ff;
+  margin-right: 12px;
+
+  @media (max-width: @screen-md) {
+    font-size: 18px;
+    margin-right: 8px;
+  }
+}
+
+.nodeContent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nodeLabel {
+  font-size: 13px;
+  color: #666;
+
+  @media (max-width: @screen-md) {
+    font-size: 12px;
+  }
+}
+
+.nodeBadge {
+  :global(.ant-badge-count) {
+    font-size: 12px;
+    height: 18px;
+    line-height: 18px;
+    min-width: 18px;
+    padding: 0 5px;
+  }
+}
+
+.flowArrow {
+  font-size: 20px;
+  color: #d9d9d9;
+  font-weight: bold;
+  padding: 0 8px;
+
+  @media (max-width: @screen-md) {
+    display: none;
+  }
+}
+
+// ==================== Tab 区域 ====================
+.tabsContainer {
+  background: #fff;
+  padding: @spacing-md;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+
+  @media (max-width: @screen-md) {
+    padding: 12px;
+  }
+
+  :global(.ant-tabs-nav) {
+    margin-bottom: 16px;
+
+    @media (max-width: @screen-md) {
+      margin-bottom: 12px;
+    }
+  }
+
+  :global(.ant-tabs-tab) {
+    @media (max-width: @screen-md) {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+  }
+}
+
+// ==================== 列表区域 ====================
+.listContainer {
+  width: 100%;
+}
+
+.filterSection {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+
+  @media (max-width: @screen-md) {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+}
+
+// ==================== 逾期等级标签 ====================
+.levelTag {
+  &.light {
+    color: #52c41a;
+    background: #f6ffed;
+    border-color: #b7eb8f;
+  }
+
+  &.medium {
+    color: #fa8c16;
+    background: #fff7e6;
+    border-color: #ffd591;
+  }
+
+  &.severe {
+    color: #ff4d4f;
+    background: #fff1f0;
+    border-color: #ffa39e;
+  }
+}
+
+// ==================== 超时高亮 ====================
+.timeoutHighlight {
+  color: #ff4d4f;
+  font-weight: 600;
+}
+
+// ==================== 剩余时间单元格 ====================
+.remainingTimeCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.remainingProgress {
+  width: 100%;
+
+  :global(.ant-progress-inner) {
+    background-color: #f0f0f0;
+  }
+}
+
+// ==================== 表格响应式 ====================
+:global(.ant-table) {
+  @media (max-width: @screen-md) {
+    font-size: 12px;
+
+    .ant-table-thead > tr > th,
+    .ant-table-tbody > tr > td {
+      padding: 8px;
+    }
+  }
+}
+
+// ==================== 按钮组 ====================
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  @media (max-width: @screen-md) {
+    gap: 4px;
+
+    .ant-btn {
+      padding: 0 8px;
+      font-size: 12px;
+    }
+  }
+}

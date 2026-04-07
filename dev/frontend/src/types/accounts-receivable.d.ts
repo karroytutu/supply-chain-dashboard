@@ -378,3 +378,194 @@ export interface CustomerReviewActionParams {
   action: 'approve' | 'reject';
   comment?: string;
 }
+
+// ==================== 逾期应收账款管理 ====================
+
+/** 逾期等级 */
+export type OverdueLevel = 'light' | 'medium' | 'severe';
+
+/** 流程状态 */
+export type FlowStatus = 'initial' | 'preprocessing' | 'assigned' | 'collecting' | 'completed';
+
+/** 流程节点类型 */
+export type FlowNodeType = 'preprocessing' | 'assignment' | 'collection' | 'review';
+
+/** 流程节点状态 */
+export type FlowNodeStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'timeout';
+
+/** 逾期等级标签映射 */
+export interface OverdueLevelMap {
+  light: string;
+  medium: string;
+  severe: string;
+}
+
+/** 时限配置 */
+export interface ArDeadlineConfig {
+  id: number;
+  nodeType: string;
+  overdueLevel: OverdueLevel;
+  deadlineHours: number;
+  warningHours: number;
+  isActive: boolean;
+}
+
+/** 逾期统计响应 */
+export interface OverdueStatsResponse {
+  totalCustomerCount: number;
+  totalOverdueAmount: number;
+  totalBillCount: number;
+  avgOverdueDays: number;
+  timeoutWarningCount: number;
+  levelDistribution: {
+    light: { customerCount: number; amount: number; billCount: number };
+    medium: { customerCount: number; amount: number; billCount: number };
+    severe: { customerCount: number; amount: number; billCount: number };
+  };
+  flowStatus: {
+    preprocessingPending: number;
+    assignmentPending: number;
+    collecting: number;
+    reviewPending: number;
+  };
+}
+
+/** 逾期任务列表项 */
+export interface OverdueTaskItem {
+  id: number;
+  taskNo: string;
+  consumerName: string;
+  consumerCode: string | null;
+  managerUsers: string | null;
+  billCount: number;
+  totalAmount: number;
+  overdueLevel: OverdueLevel;
+  flowStatus: FlowStatus;
+  preprocessingStatus: string | null;
+  collectorName: string | null;
+  deadlineAt: string | null;
+  createdAt: string;
+}
+
+/** 超时预警项 */
+export interface TimeoutWarningItem {
+  customerTaskId: number;
+  taskNo: string;
+  consumerName: string;
+  overdueLevel: OverdueLevel;
+  currentNode: FlowNodeType;
+  deadlineAt: string;
+  overdueSinceHours: number;
+  collectorName: string | null;
+}
+
+/** 时效分析项 */
+export interface TimeEfficiencyItem {
+  id: number;
+  customerTaskId: number;
+  taskNo: string;
+  consumerName: string;
+  preprocessingHours: number | null;
+  assignmentHours: number | null;
+  collectionHours: number | null;
+  totalHours: number | null;
+  preprocessingOnTime: boolean | null;
+  assignmentOnTime: boolean | null;
+  collectionOnTime: boolean | null;
+  statDate: string | null;
+}
+
+/** 时效分析响应 */
+export interface TimeEfficiencyResponse {
+  avgTotalHours: number;
+  onTimeRate: number;
+  timeoutCount: number;
+  list: TimeEfficiencyItem[];
+  total: number;
+}
+
+/** 客户逾期分析项 */
+export interface CustomerOverdueItem {
+  consumerName: string;
+  consumerCode: string | null;
+  billCount: number;
+  totalAmount: number;
+  maxOverdueLevel: OverdueLevel;
+  maxOverdueDays: number;
+  collectorName: string | null;
+  flowStatus: FlowStatus;
+}
+
+/** 催收人员绩效 */
+export interface CollectorPerformance {
+  collectorId: number;
+  collectorName: string;
+  taskCount: number;
+  completedCount: number;
+  successRate: number;
+  avgHours: number;
+  timeoutCount: number;
+}
+
+/** 绩效统计响应 */
+export interface PerformanceStatsResponse {
+  totalTasks: number;
+  completedTasks: number;
+  avgCollectionHours: number;
+  successRate: number;
+  collectors: CollectorPerformance[];
+}
+
+/** 可分配催收人员 */
+export interface AvailableCollector {
+  id: number;
+  name: string;
+  taskCount: number;
+}
+
+/** 逾期任务查询参数 */
+export interface OverdueTaskQueryParams {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  overdueLevel?: OverdueLevel;
+}
+
+/** 时效分析查询参数 */
+export interface TimeEfficiencyQueryParams {
+  page?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+  overdueLevel?: OverdueLevel;
+}
+
+/** 绩效统计查询参数 */
+export interface PerformanceQueryParams {
+  startDate?: string;
+  endDate?: string;
+}
+
+/** 开始预处理参数 */
+export interface StartPreprocessingParams {
+  customerTaskId: number;
+}
+
+/** 完成预处理参数 */
+export interface CompletePreprocessingParams {
+  customerTaskId: number;
+  remark?: string;
+}
+
+/** 分配任务参数 */
+export interface AssignOverdueTaskParams {
+  customerTaskId: number;
+  collectorId: number;
+}
+
+/** 更新时限配置参数 */
+export interface UpdateDeadlineConfigParams {
+  deadlineHours: number;
+  warningHours?: number;
+  isActive?: boolean;
+}

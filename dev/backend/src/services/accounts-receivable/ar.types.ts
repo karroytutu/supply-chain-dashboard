@@ -339,3 +339,205 @@ export interface EscalateCustomerTaskParams {
   collectorId: number;
   escalateReason: string;
 }
+
+// ==================== 逾期应收账款管理 ====================
+
+/** 逾期等级 */
+export type OverdueLevel = 'light' | 'medium' | 'severe';
+
+/** 流程状态 */
+export type FlowStatus = 'initial' | 'preprocessing' | 'assigned' | 'collecting' | 'completed';
+
+/** 流程节点类型 */
+export type FlowNodeType = 'preprocessing' | 'assignment' | 'collection' | 'review';
+
+/** 流程节点状态 */
+export type FlowNodeStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'timeout';
+
+/** 时限配置实体 */
+export interface ArDeadlineConfig {
+  id: number;
+  node_type: FlowNodeType;
+  overdue_level: OverdueLevel;
+  deadline_hours: number;
+  warning_hours: number;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** 流程节点记录实体 */
+export interface ArFlowNode {
+  id: number;
+  customer_task_id: number;
+  node_type: FlowNodeType;
+  node_status: FlowNodeStatus;
+  operator_id: number | null;
+  started_at: Date | null;
+  completed_at: Date | null;
+  deadline_at: Date | null;
+  actual_hours: number | null;
+  is_timeout: boolean;
+  node_data: Record<string, any> | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** 逾期统计快照实体 */
+export interface ArOverdueStats {
+  id: number;
+  stat_date: Date;
+  total_customer_count: number;
+  total_overdue_amount: number;
+  total_bill_count: number;
+  light_customer_count: number;
+  light_amount: number;
+  medium_customer_count: number;
+  medium_amount: number;
+  severe_customer_count: number;
+  severe_amount: number;
+  preprocessing_pending_count: number;
+  assignment_pending_count: number;
+  collection_pending_count: number;
+}
+
+/** 时效分析实体 */
+export interface ArTimeEfficiency {
+  id: number;
+  customer_task_id: number;
+  preprocessing_hours: number | null;
+  assignment_hours: number | null;
+  collection_hours: number | null;
+  total_hours: number | null;
+  preprocessing_on_time: boolean | null;
+  assignment_on_time: boolean | null;
+  collection_on_time: boolean | null;
+  stat_date: Date | null;
+}
+
+/** 逾期统计响应 */
+export interface OverdueStatsResponse {
+  totalCustomerCount: number;
+  totalOverdueAmount: number;
+  totalBillCount: number;
+  avgOverdueDays: number;
+  timeoutWarningCount: number;
+  levelDistribution: {
+    light: { customerCount: number; amount: number; billCount: number };
+    medium: { customerCount: number; amount: number; billCount: number };
+    severe: { customerCount: number; amount: number; billCount: number };
+  };
+  flowStatus: {
+    preprocessingPending: number;
+    assignmentPending: number;
+    collecting: number;
+    reviewPending: number;
+  };
+}
+
+/** 逾期查询参数 */
+export interface OverdueQueryParams {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  overdueLevel?: OverdueLevel;
+  flowStatus?: FlowStatus;
+}
+
+/** 预处理操作参数 */
+export interface PreprocessingStartParams {
+  customerTaskId: number;
+  operatorId: number;
+}
+
+/** 预处理完成参数 */
+export interface PreprocessingCompleteParams {
+  customerTaskId: number;
+  operatorId: number;
+  remark?: string;
+}
+
+/** 任务分配参数 */
+export interface AssignmentParams {
+  customerTaskId: number;
+  collectorId: number;
+  assignedBy: number;
+}
+
+/** 时限配置更新参数 */
+export interface DeadlineConfigUpdateParams {
+  deadlineHours: number;
+  warningHours?: number;
+  isActive?: boolean;
+}
+
+/** 超时预警项 */
+export interface TimeoutWarningItem {
+  customerTaskId: number;
+  taskNo: string;
+  consumerName: string;
+  overdueLevel: OverdueLevel;
+  currentNode: FlowNodeType;
+  deadlineAt: Date;
+  overdueSinceHours: number;
+  collectorName: string | null;
+}
+
+/** 时效分析查询参数 */
+export interface TimeEfficiencyQueryParams {
+  page?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+  overdueLevel?: OverdueLevel;
+  nodeType?: FlowNodeType;
+}
+
+/** 时效分析响应 */
+export interface TimeEfficiencyResponse {
+  avgTotalHours: number;
+  onTimeRate: number;
+  timeoutCount: number;
+  list: ArTimeEfficiency[];
+  total: number;
+}
+
+/** 客户逾期分析项 */
+export interface CustomerOverdueItem {
+  consumerName: string;
+  consumerCode: string | null;
+  billCount: number;
+  totalAmount: number;
+  maxOverdueLevel: OverdueLevel;
+  maxOverdueDays: number;
+  collectorName: string | null;
+  flowStatus: FlowStatus;
+}
+
+/** 客户逾期分析查询参数 */
+export interface CustomerOverdueQueryParams {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  overdueLevel?: OverdueLevel;
+}
+
+/** 绩效统计响应 */
+export interface PerformanceStatsResponse {
+  totalTasks: number;
+  completedTasks: number;
+  avgCollectionHours: number;
+  successRate: number;
+  collectors: CollectorPerformance[];
+}
+
+/** 催收人员绩效 */
+export interface CollectorPerformance {
+  collectorId: number;
+  collectorName: string;
+  taskCount: number;
+  completedCount: number;
+  successRate: number;
+  avgHours: number;
+  timeoutCount: number;
+}

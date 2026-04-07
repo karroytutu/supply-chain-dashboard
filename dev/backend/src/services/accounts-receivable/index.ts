@@ -86,3 +86,61 @@ export {
   getArStatsWithComparison,
 } from './ar-stats.service';
 export type { ArDailyStats, ArStatsResponse } from './ar-stats.service';
+
+// 逾期管理类型导出
+export type {
+  OverdueLevel,
+  FlowStatus,
+  FlowNodeType,
+  FlowNodeStatus,
+  ArDeadlineConfig,
+  ArFlowNode,
+  ArOverdueStats,
+  ArTimeEfficiency,
+  OverdueStatsResponse,
+  OverdueQueryParams,
+  PreprocessingStartParams,
+  PreprocessingCompleteParams,
+  AssignmentParams,
+  DeadlineConfigUpdateParams,
+  TimeoutWarningItem,
+  TimeEfficiencyQueryParams,
+  TimeEfficiencyResponse,
+  CustomerOverdueItem,
+  CustomerOverdueQueryParams,
+  PerformanceStatsResponse,
+  CollectorPerformance,
+} from './ar.types';
+
+// 逾期管理服务
+export {
+  calculateOverdueLevel,
+  updateOverdueLevels,
+  getCustomerOverdueLevel,
+  getBatchCustomerOverdueLevels,
+  getDeadlineConfigs,
+  updateDeadlineConfig,
+  calculateNodeDeadline,
+  getDeadlineHours,
+  calculateBatchNodeDeadlines,
+  getWarningHours,
+  clearDeadlineConfigCache,
+  getOverdueStats,
+  saveOverdueSnapshot,
+  getOverdueSnapshots,
+  // 预处理服务
+  getPreprocessingList,
+  startPreprocessing,
+  completePreprocessing,
+  batchStartPreprocessing,
+  batchCompletePreprocessing,
+  // 任务分配服务
+  getAssignmentList,
+  assignTask,
+  batchAssignTasks,
+  getAvailableCollectors,
+  // 超时预警服务
+  checkTimeoutTasks,
+  getTimeoutWarnings,
+  processTimeoutWarnings,
+} from './overdue';
