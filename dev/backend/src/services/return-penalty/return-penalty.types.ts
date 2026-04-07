@@ -111,7 +111,7 @@ export const PENALTY_RULES: Record<PenaltyType, PenaltyRuleConfig> = {
   procurement_confirm_timeout: {
     type: 'procurement_confirm_timeout',
     name: '采购确认超时考核',
-    description: '退货单创建后，采购主管未在当天确认规则，每延迟1天考核10元',
+    description: '退货单创建后，采购主管未在当天确认规则，超时期间按 10元/天/单 累计考核',
     deadlineDays: 0,
     penaltyPerDay: 10,
     penaltyFullAmount: false,
@@ -119,7 +119,7 @@ export const PENALTY_RULES: Record<PenaltyType, PenaltyRuleConfig> = {
   marketing_sale_timeout: {
     type: 'marketing_sale_timeout',
     name: '营销未完成销售考核',
-    description: '无法采购退货的商品过期前未清仓，按商品进价考核',
+    description: '无法采购退货的商品过期前未清仓，按商品进价全额考核营销师',
     deadlineDays: 0,
     penaltyPerDay: 0,
     penaltyFullAmount: true,
@@ -127,7 +127,7 @@ export const PENALTY_RULES: Record<PenaltyType, PenaltyRuleConfig> = {
   return_expire_insufficient: {
     type: 'return_expire_insufficient',
     name: '退货时保质期不足考核',
-    description: '退货时剩余保质期低于15天，按商品进价考核营销师',
+    description: '退货时剩余保质期低于15天，按商品进价全额考核营销师',
     deadlineDays: 15,
     penaltyPerDay: 0,
     penaltyFullAmount: true,
@@ -135,7 +135,7 @@ export const PENALTY_RULES: Record<PenaltyType, PenaltyRuleConfig> = {
   erp_fill_timeout: {
     type: 'erp_fill_timeout',
     name: 'ERP录入超时考核',
-    description: '采购确认后30天内未录入ERP，每延迟1天考核10元',
+    description: '采购确认后30天内未录入ERP，超时期间按 10元/天/单 累计考核',
     deadlineDays: 30,
     penaltyPerDay: 10,
     penaltyFullAmount: false,
@@ -143,7 +143,7 @@ export const PENALTY_RULES: Record<PenaltyType, PenaltyRuleConfig> = {
   warehouse_execute_timeout: {
     type: 'warehouse_execute_timeout',
     name: '仓储执行超时考核',
-    description: 'ERP录入后7天内未完成退货执行，每延迟1天，每条商品记录考核10元',
+    description: 'ERP录入后7天内未完成退货执行，超时期间按 10元/天/单/商品 累计考核',
     deadlineDays: 7,
     penaltyPerDay: 10,
     penaltyFullAmount: false,
