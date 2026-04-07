@@ -171,26 +171,42 @@ export async function getStrategicMonthlyAvailability(
 
   const totalStrategic = strategicGoodsNames.length;
 
-  // 计算当月月初日期
+  // 计算当月月初日期（使用北京时间）
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthStartStr = monthStart.toISOString().split('T')[0];
+  // 转换为北京时间字符串
+  const beijingTimeStr = now.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' });
+  const beijingTime = new Date(beijingTimeStr);
+  // 获取北京时间的年月
+  const year = beijingTime.getFullYear();
+  const month = beijingTime.getMonth(); // 0-based
+  // 构建月初日期字符串
+  const monthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  
+  console.log('[getStrategicMonthlyAvailability] Debug:', {
+    now: now.toISOString(),
+    beijingTimeStr,
+    year,
+    month,
+    monthStartStr,
+  });
 
   // 查询每日战略商品库存状态（使用商品名称匹配）
+  // 注意："数据日期" 字段直接转为日期类型进行比较
+  // 使用 to_char 返回日期字符串，避免时区转换问题
   const dailyStockResult = await query<{
-    stock_date: Date;
+    stock_date_str: string;
     in_stock_count: number;
   }>(`
     SELECT
-      "数据日期"::date as stock_date,
+      to_char("数据日期"::date, 'YYYY-MM-DD') as stock_date_str,
       COUNT(DISTINCT "goodsName") as in_stock_count
     FROM "实时库存表_每天"
     WHERE "goodsName" = ANY($1)
       AND "availableBaseQuantity" > 0
-      AND "数据日期" >= $2
-      AND "数据日期" <= CURRENT_DATE
+      AND "数据日期"::date >= $2::date
+      AND "数据日期"::date <= CURRENT_DATE
     GROUP BY "数据日期"::date
-    ORDER BY stock_date
+    ORDER BY "数据日期"::date
   `, [strategicGoodsNames, monthStartStr]);
 
   // 构建每日齐全率数据
@@ -198,10 +214,18 @@ export async function getStrategicMonthlyAvailability(
     const inStockCount = parseInt(row.in_stock_count as any) || 0;
     const rate = Math.round((inStockCount / totalStrategic) * 1000) / 10;
     return {
-      date: (row.stock_date as Date).toISOString().split('T')[0],
+      date: row.stock_date_str,
       rate,
       inStockCount,
     };
+  });
+  
+  console.log('[getStrategicMonthlyAvailability] 查询结果:', {
+    monthStartStr,
+    daysInMonth: dailyRates.length,
+    dateRange: dailyRates.length > 0 
+      ? `${dailyRates[0].date} ~ ${dailyRates[dailyRates.length - 1].date}`
+      : '无数据',
   });
 
   // 计算月度平均齐全率
