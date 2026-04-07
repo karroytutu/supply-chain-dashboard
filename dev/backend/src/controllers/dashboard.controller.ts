@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getDashboardData, getWarningProducts, getCategoryTreeData, getOutOfStockProductsByCategory } from '../services/dashboard.service';
+import type { StrategicLevel } from '../services/warning/warning.types';
 
 /**
  * 健康检查
@@ -35,7 +36,18 @@ export const getWarningProductsController = async (req: Request, res: Response) 
     const { type } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = parseInt(req.query.pageSize as string) || 20;
-    const products = await getWarningProducts(type, { page, pageSize });
+    const strategicLevel = req.query.strategicLevel as StrategicLevel | undefined;
+
+    // 验证 strategicLevel 参数
+    if (strategicLevel && strategicLevel !== 'strategic' && strategicLevel !== 'normal') {
+      res.status(400).json({
+        error: '参数错误',
+        message: 'strategicLevel 必须是 strategic 或 normal',
+      });
+      return;
+    }
+
+    const products = await getWarningProducts(type, { page, pageSize, strategicLevel });
     res.json(products);
   } catch (error) {
     console.error('获取预警商品列表失败:', error);

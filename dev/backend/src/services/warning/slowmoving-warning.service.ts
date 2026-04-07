@@ -5,7 +5,13 @@
 import { query } from '../../db/pool';
 import { convertStockUnits, parseUnitFactor, parseQuantity } from '../../utils/unitConverter';
 import { getStrategicGoodsIds } from './warning-cache';
-import type { WarningProduct, PaginatedResult } from './warning.types';
+import type { WarningProduct, PaginatedResult, StrategicLevel } from './warning.types';
+
+interface WarningParams {
+  page: number;
+  pageSize: number;
+  strategicLevel?: StrategicLevel;
+}
 
 /**
  * 获取滞销商品
@@ -13,14 +19,29 @@ import type { WarningProduct, PaginatedResult } from './warning.types';
 export async function getSlowMovingProducts(
   minDays: number,
   maxDays: number | null,
-  page: number,
-  pageSize: number
+  params: WarningParams
 ): Promise<PaginatedResult<WarningProduct>> {
+  const { page, pageSize, strategicLevel } = params;
   const maxCondition = maxDays ? `AND days_without_sale <= ${maxDays}` : '';
   const offset = (page - 1) * pageSize;
 
   // 获取战略商品 ID 集合
   const strategicIds = await getStrategicGoodsIds();
+
+  // 构建战略等级筛选条件（使用已获取的战略商品 ID 列表）
+  let strategicFilter = '';
+  if (strategicLevel === 'strategic') {
+    if (strategicIds.size === 0) {
+      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+    const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+    strategicFilter = `AND g."goodsId" IN (${ids})`;
+  } else if (strategicLevel === 'normal') {
+    if (strategicIds.size > 0) {
+      const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+      strategicFilter = `AND g."goodsId" NOT IN (${ids})`;
+    }
+  }
 
   const result = await query<{
     total_count: number;
@@ -85,6 +106,7 @@ export async function getSlowMovingProducts(
     WHERE g."state" = 0
       AND t.days_without_sale > ${minDays}
       ${maxCondition}
+      ${strategicFilter}
     ORDER BY t.days_without_sale DESC
     LIMIT ${pageSize} OFFSET ${offset}
   `);

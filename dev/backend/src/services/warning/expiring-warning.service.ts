@@ -5,7 +5,13 @@
 import { query } from '../../db/pool';
 import { convertStockUnits, parseUnitFactor, parseQuantity } from '../../utils/unitConverter';
 import { getStrategicGoodsIds } from './warning-cache';
-import type { WarningProduct, PaginatedResult } from './warning.types';
+import type { WarningProduct, PaginatedResult, StrategicLevel } from './warning.types';
+
+interface WarningParams {
+  page: number;
+  pageSize: number;
+  strategicLevel?: StrategicLevel;
+}
 
 /**
  * 获取临期商品
@@ -13,13 +19,28 @@ import type { WarningProduct, PaginatedResult } from './warning.types';
 export async function getExpiringProducts(
   minDays: number,
   maxDays: number,
-  page: number,
-  pageSize: number
+  params: WarningParams
 ): Promise<PaginatedResult<WarningProduct>> {
+  const { page, pageSize, strategicLevel } = params;
   const offset = (page - 1) * pageSize;
 
   // 获取战略商品 ID 集合
   const strategicIds = await getStrategicGoodsIds();
+
+  // 构建战略等级筛选条件（使用已获取的战略商品 ID 列表）
+  let strategicFilter = '';
+  if (strategicLevel === 'strategic') {
+    if (strategicIds.size === 0) {
+      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+    const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+    strategicFilter = `AND g."goodsId" IN (${ids})`;
+  } else if (strategicLevel === 'normal') {
+    if (strategicIds.size > 0) {
+      const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+      strategicFilter = `AND g."goodsId" NOT IN (${ids})`;
+    }
+  }
 
   const result = await query<{
     total_count: number;
@@ -114,6 +135,9 @@ export async function getExpiringProducts(
       s.min_days_to_expire as days_to_expire,
       s.nearest_expire_date as expiry_date
     FROM expiring_summary s
+    JOIN "商品档案" g ON s."goodsId" = g."goodsId"
+    WHERE g."state" = 0
+      ${strategicFilter}
     ORDER BY s.min_days_to_expire ASC
     LIMIT ${pageSize} OFFSET ${offset}
   `);

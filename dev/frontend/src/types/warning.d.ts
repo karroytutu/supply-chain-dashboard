@@ -61,6 +61,8 @@ export interface PaginationParams {
   page: number;
   pageSize: number;
   keyword?: string;
+  /** 战略等级筛选（可选） */
+  strategicLevel?: StrategicLevel;
 }
 
 /**

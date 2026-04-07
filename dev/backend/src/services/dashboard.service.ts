@@ -43,6 +43,7 @@ export type {
 
 export type {
   WarningProduct,
+  StrategicLevel,
 } from './warning';
 
 // 重导出业务模块函数（保持向后兼容）

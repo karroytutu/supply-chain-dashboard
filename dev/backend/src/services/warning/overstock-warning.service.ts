@@ -6,7 +6,13 @@ import { query } from '../../db/pool';
 import { convertStockUnits, parseUnitFactor, parseQuantity } from '../../utils/unitConverter';
 import { OVERSTOCK_MILD_DAYS, OVERSTOCK_MODERATE_DAYS, OVERSTOCK_SERIOUS_DAYS, STANDARD_CALC_DAYS } from '../../utils/constants';
 import { getStrategicGoodsIds } from './warning-cache';
-import type { WarningProduct, PaginatedResult } from './warning.types';
+import type { WarningProduct, PaginatedResult, StrategicLevel } from './warning.types';
+
+interface WarningParams {
+  page: number;
+  pageSize: number;
+  strategicLevel?: StrategicLevel;
+}
 
 /**
  * 获取库存积压商品
@@ -14,14 +20,29 @@ import type { WarningProduct, PaginatedResult } from './warning.types';
 export async function getOverstockProducts(
   minDays: number,
   maxDays: number | null,
-  page: number,
-  pageSize: number
+  params: WarningParams
 ): Promise<PaginatedResult<WarningProduct>> {
+  const { page, pageSize, strategicLevel } = params;
   const maxCondition = maxDays ? `AND r.total_quantity / s.avg_daily <= ${maxDays}` : '';
   const offset = (page - 1) * pageSize;
 
   // 获取战略商品 ID 集合
   const strategicIds = await getStrategicGoodsIds();
+
+  // 构建战略等级筛选条件（使用已获取的战略商品 ID 列表）
+  let strategicFilter = '';
+  if (strategicLevel === 'strategic') {
+    if (strategicIds.size === 0) {
+      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+    const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+    strategicFilter = `AND g."goodsId" IN (${ids})`;
+  } else if (strategicLevel === 'normal') {
+    if (strategicIds.size > 0) {
+      const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+      strategicFilter = `AND g."goodsId" NOT IN (${ids})`;
+    }
+  }
 
   const result = await query<{
     total_count: number;
@@ -70,6 +91,7 @@ export async function getOverstockProducts(
       AND s.avg_daily > 0
       AND r.total_quantity / s.avg_daily > ${minDays}
       ${maxCondition}
+      ${strategicFilter}
     ORDER BY sellable_days DESC
     LIMIT ${pageSize} OFFSET ${offset}
   `);

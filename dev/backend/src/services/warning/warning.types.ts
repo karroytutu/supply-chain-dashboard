@@ -2,10 +2,15 @@
  * 预警商品服务模块类型定义
  */
 
+/** 战略等级类型 */
+export type StrategicLevel = 'strategic' | 'normal';
+
 /** 分页参数 */
 export interface PaginationParams {
   page: number;
   pageSize: number;
+  /** 战略等级筛选（可选） */
+  strategicLevel?: StrategicLevel;
 }
 
 /** 分页返回结果 */

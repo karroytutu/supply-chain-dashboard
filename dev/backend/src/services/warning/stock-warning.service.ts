@@ -6,19 +6,41 @@ import { query } from '../../db/pool';
 import { convertStockUnits, parseUnitFactor, parseQuantity } from '../../utils/unitConverter';
 import { LOW_STOCK_DAYS, STANDARD_CALC_DAYS } from '../../utils/constants';
 import { getStrategicGoodsIds } from './warning-cache';
-import type { WarningProduct, PaginatedResult } from './warning.types';
+import type { WarningProduct, PaginatedResult, StrategicLevel } from './warning.types';
+
+interface WarningParams {
+  page: number;
+  pageSize: number;
+  strategicLevel?: StrategicLevel;
+}
 
 /**
  * 获取缺货商品
  */
 export async function getOutOfStockProducts(
-  page: number,
-  pageSize: number
+  params: WarningParams
 ): Promise<PaginatedResult<WarningProduct>> {
+  const { page, pageSize, strategicLevel } = params;
   const offset = (page - 1) * pageSize;
 
   // 获取战略商品 ID 集合
   const strategicIds = await getStrategicGoodsIds();
+
+  // 构建战略等级筛选条件（使用已获取的战略商品 ID 列表）
+  let strategicFilter = '';
+  if (strategicLevel === 'strategic') {
+    if (strategicIds.size === 0) {
+      // 没有战略商品，返回空结果
+      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+    const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+    strategicFilter = `AND g."goodsId" IN (${ids})`;
+  } else if (strategicLevel === 'normal') {
+    if (strategicIds.size > 0) {
+      const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+      strategicFilter = `AND g."goodsId" NOT IN (${ids})`;
+    }
+  }
 
   const result = await query<{
     total_count: number;
@@ -55,6 +77,7 @@ export async function getOutOfStockProducts(
     LEFT JOIN daily_sales s ON g."name" = s."goodsName"
     WHERE g."state" = 0
       AND (r.total_quantity = 0 OR r.total_quantity IS NULL)
+      ${strategicFilter}
     ORDER BY avg_daily_sales DESC
     LIMIT ${pageSize} OFFSET ${offset}
   `);
@@ -101,13 +124,29 @@ export async function getOutOfStockProducts(
  * 获取低库存商品
  */
 export async function getLowStockProducts(
-  page: number,
-  pageSize: number
+  params: WarningParams
 ): Promise<PaginatedResult<WarningProduct>> {
+  const { page, pageSize, strategicLevel } = params;
   const offset = (page - 1) * pageSize;
 
   // 获取战略商品 ID 集合
   const strategicIds = await getStrategicGoodsIds();
+
+  // 构建战略等级筛选条件（使用已获取的战略商品 ID 列表）
+  let strategicFilter = '';
+  if (strategicLevel === 'strategic') {
+    if (strategicIds.size === 0) {
+      // 没有战略商品，返回空结果
+      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+    const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+    strategicFilter = `AND g."goodsId" IN (${ids})`;
+  } else if (strategicLevel === 'normal') {
+    if (strategicIds.size > 0) {
+      const ids = Array.from(strategicIds).map(id => `'${id}'`).join(',');
+      strategicFilter = `AND g."goodsId" NOT IN (${ids})`;
+    }
+  }
 
   const result = await query<{
     total_count: number;
@@ -157,6 +196,7 @@ export async function getLowStockProducts(
       AND s.avg_daily IS NOT NULL
       AND s.avg_daily > 0
       AND r.total_quantity / s.avg_daily <= ${LOW_STOCK_DAYS}
+      ${strategicFilter}
     ORDER BY turnover_days ASC, avg_daily_sales DESC
     LIMIT ${pageSize} OFFSET ${offset}
   `);

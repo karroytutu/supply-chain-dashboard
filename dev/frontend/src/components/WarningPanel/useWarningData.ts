@@ -90,14 +90,14 @@ export function useWarningData({
       setLoading(true);
       try {
         const apiType = warningTypeMap[selectedKey];
-        const result = await getWarningProducts(apiType, { page: pagination.page, pageSize: pagination.pageSize });
-        let filteredData = result.data || [];
+        // 将战略等级筛选参数传给后端
+        const result = await getWarningProducts(apiType, {
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          strategicLevel: strategicLevelFilter,
+        });
 
-        if (strategicLevelFilter) {
-          filteredData = filteredData.filter(product => product.strategicLevel === strategicLevelFilter);
-        }
-
-        setProducts(filteredData);
+        setProducts(result.data || []);
         setPagination(prev => ({ ...prev, total: result.total || 0 }));
       } catch (error) {
         console.error('加载预警商品数据失败:', error);

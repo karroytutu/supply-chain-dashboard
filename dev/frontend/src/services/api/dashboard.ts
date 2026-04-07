@@ -13,7 +13,7 @@ export const getDashboardData = (): Promise<DashboardOverview> => {
 };
 
 /**
- * 获取预警商品列表（支持分页）
+ * 获取预警商品列表（支持分页和战略等级筛选）
  */
 export const getWarningProducts = (
   type: string,
@@ -23,6 +23,9 @@ export const getWarningProducts = (
   if (pagination) {
     params.append('page', String(pagination.page));
     params.append('pageSize', String(pagination.pageSize));
+    if (pagination.strategicLevel) {
+      params.append('strategicLevel', pagination.strategicLevel);
+    }
   }
   const queryString = params.toString();
   const url = queryString ? `/warnings/${type}?${queryString}` : `/warnings/${type}`;
