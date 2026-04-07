@@ -36,7 +36,8 @@ export interface ReturnOrder {
   erpFilledAt: string | null;
   warehouseExecutedBy: number | null;
   warehouseExecutedAt: string | null;
-  warehouseReturnQuantity: number | null;
+  warehouseReturnQuantity: number | null;  // 历史字段保留
+  warehouseEvidenceUrl: string | null;     // 仓储退货凭证图片URL
   warehouseComment: string | null;
   marketingCompletedBy: number | null;
   marketingCompletedAt: string | null;
@@ -126,8 +127,16 @@ export interface FillErpReturnNoParams {
  * 仓储执行参数
  */
 export interface WarehouseExecuteParams {
-  returnQuantity: number;
+  evidenceUrl: string;  // 仓储退货凭证图片URL
   comment?: string;
+}
+
+/**
+ * 上传凭证响应
+ */
+export interface UploadReturnEvidenceResponse {
+  success: boolean;
+  url: string;
 }
 
 /**

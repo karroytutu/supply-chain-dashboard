@@ -241,6 +241,7 @@ export async function getPendingErpOrders(): Promise<ReturnOrder[]> {
     warehouseExecutedBy: null,
     warehouseExecutedAt: null,
     warehouseReturnQuantity: null,
+    warehouseEvidenceUrl: null,
     warehouseComment: null,
     marketingCompletedBy: null,
     marketingCompletedAt: null,

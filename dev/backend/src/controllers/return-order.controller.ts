@@ -235,13 +235,36 @@ export const fillErpReturnNoController = async (req: Request, res: Response) => 
 };
 
 /**
+ * 上传退货凭证图片
+ * POST /api/return-orders/upload-evidence
+ */
+export const uploadReturnEvidenceController = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: '参数错误', message: '未上传文件' });
+      return;
+    }
+
+    const url = `/uploads/return-evidence/${req.file.filename}`;
+    res.json({ success: true, url });
+  } catch (error) {
+    console.error('上传退货凭证失败:', error);
+    res.status(500).json({
+      error: '上传退货凭证失败',
+      message: error instanceof Error ? error.message : '未知错误',
+    });
+  }
+};
+
+/**
  * 仓储执行退货
  * POST /api/return-orders/:id/warehouse
+ * 改为上传凭证图片
  */
 export const warehouseExecuteController = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { returnQuantity, comment } = req.body;
+    const { evidenceUrl, comment } = req.body;
     const operatorId = req.user?.userId;
     const operatorName = req.user?.name;
 
@@ -253,17 +276,17 @@ export const warehouseExecuteController = async (req: Request, res: Response) =>
       return;
     }
 
-    if (returnQuantity === undefined || returnQuantity === null || isNaN(Number(returnQuantity))) {
+    if (!evidenceUrl || typeof evidenceUrl !== 'string') {
       res.status(400).json({
         error: '参数错误',
-        message: '退货数量不能为空且必须是数字',
+        message: '请先上传退货凭证图片',
       });
       return;
     }
 
     const result = await warehouseExecute({
       id,
-      returnQuantity: Number(returnQuantity),
+      evidenceUrl,
       comment,
       operatorId,
       operatorName,

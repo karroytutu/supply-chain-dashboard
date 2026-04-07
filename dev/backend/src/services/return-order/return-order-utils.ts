@@ -29,7 +29,8 @@ export interface ReturnOrderRow {
   erp_filled_at: Date | null;
   warehouse_executed_by: number | null;
   warehouse_executed_at: Date | null;
-  warehouse_return_quantity: number | null;
+  warehouse_return_quantity: number | null;  // 历史字段保留
+  warehouse_evidence_url: string | null;     // 仓储退货凭证图片URL
   warehouse_comment: string | null;
   marketing_completed_by: number | null;
   marketing_completed_at: Date | null;
@@ -75,6 +76,7 @@ export function mapRowToReturnOrder(row: ReturnOrderRow): ReturnOrder {
     warehouseReturnQuantity: row.warehouse_return_quantity
       ? parseFloat(row.warehouse_return_quantity as any)
       : null,
+    warehouseEvidenceUrl: row.warehouse_evidence_url,
     warehouseComment: row.warehouse_comment,
     marketingCompletedBy: row.marketing_completed_by,
     marketingCompletedAt: row.marketing_completed_at,

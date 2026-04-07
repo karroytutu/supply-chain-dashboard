@@ -309,11 +309,12 @@ export async function fillErpReturnNo(
 /**
  * 仓储执行退货
  * 状态: pending_warehouse_execute -> completed
+ * 改为上传凭证图片
  */
 export async function warehouseExecute(
   params: WarehouseExecuteParams
 ): Promise<ReturnOrder> {
-  const { id, returnQuantity, comment, operatorId, operatorName } = params;
+  const { id, evidenceUrl, comment, operatorId, operatorName } = params;
 
   // 验证退货单存在且状态为 pending_warehouse_execute
   const currentResult = await appQuery<{ status: string }>(
@@ -336,13 +337,13 @@ export async function warehouseExecute(
     `UPDATE expiring_return_orders 
      SET warehouse_executed_by = $1,
          warehouse_executed_at = NOW(),
-         warehouse_return_quantity = $2,
+         warehouse_evidence_url = $2,
          warehouse_comment = $3,
          status = 'completed',
          updated_at = NOW()
      WHERE id = $4
      RETURNING *`,
-    [operatorId, returnQuantity, comment || null, id]
+    [operatorId, evidenceUrl, comment || null, id]
   );
 
   if (result.rows.length === 0) {
@@ -351,7 +352,7 @@ export async function warehouseExecute(
 
   // 记录操作日志
   await recordAction(id, 'warehouse_execute', operatorId, operatorName, comment, {
-    returnQuantity,
+    evidenceUrl,
     previousStatus: currentStatus,
     newStatus: 'completed',
   });

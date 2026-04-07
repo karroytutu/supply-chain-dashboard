@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
+import { uploadReturnEvidence } from '../middleware/return-evidence-upload';
 import {
   getReturnOrdersController,
   getReturnOrderByIdController,
@@ -15,6 +16,7 @@ import {
   cancelReturnOrderController,
   fillErpReturnNoController,
   warehouseExecuteController,
+  uploadReturnEvidenceController,
   marketingSaleCompleteController,
   triggerSyncController,
   rollbackReturnOrderController,
@@ -51,6 +53,14 @@ router.post(
   '/sync',
   requirePermission('return:write'),
   triggerSyncController
+);
+
+// 上传退货凭证图片
+router.post(
+  '/upload-evidence',
+  requirePermission('return:write'),
+  uploadReturnEvidence.single('file'),
+  uploadReturnEvidenceController
 );
 
 // 获取退货单详情

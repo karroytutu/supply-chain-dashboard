@@ -13,6 +13,7 @@ import type {
   FillErpReturnNoParams,
   WarehouseExecuteParams,
   CancelReturnOrderParams,
+  UploadReturnEvidenceResponse,
 } from '@/types/procurement-return';
 
 /**
@@ -79,6 +80,29 @@ export const fillErpReturnNo = (
   data: FillErpReturnNoParams
 ): Promise<ReturnOrder> => {
   return request.post<ReturnOrder>(`/return-orders/${id}/erp-fill`, data);
+};
+
+/**
+ * 上传退货凭证图片
+ */
+export const uploadReturnEvidence = async (file: File): Promise<UploadReturnEvidenceResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch('/api/return-orders/upload-evidence', {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`上传失败: ${response.status}`);
+  }
+
+  return response.json();
 };
 
 /**
