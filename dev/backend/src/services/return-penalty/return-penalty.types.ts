@@ -143,7 +143,7 @@ export const PENALTY_RULES: Record<PenaltyType, PenaltyRuleConfig> = {
   warehouse_execute_timeout: {
     type: 'warehouse_execute_timeout',
     name: '仓储执行超时考核',
-    description: 'ERP录入后7天内未完成退货执行，超时期间按 10元/天/单/商品 累计考核',
+    description: 'ERP录入后7天内未完成退货执行，超时期间按 10元/天/SKU 累计考核',
     deadlineDays: 7,
     penaltyPerDay: 10,
     penaltyFullAmount: false,
