@@ -111,7 +111,7 @@ export const PENALTY_RULES: Record<PenaltyType, PenaltyRuleConfig> = {
   procurement_confirm_timeout: {
     type: 'procurement_confirm_timeout',
     name: '采购确认超时考核',
-    description: '退货单创建后，采购主管未在当天确认规则，超时期间按 10元/天/单 累计考核',
+    description: '退货单创建后，采购主管未在当天确认规则，超时期间按 10元/天/SKU 累计考核',
     deadlineDays: 0,
     penaltyPerDay: 10,
     penaltyFullAmount: false,
@@ -135,7 +135,7 @@ export const PENALTY_RULES: Record<PenaltyType, PenaltyRuleConfig> = {
   erp_fill_timeout: {
     type: 'erp_fill_timeout',
     name: 'ERP录入超时考核',
-    description: '采购确认后30天内未录入ERP，超时期间按 10元/天/单 累计考核',
+    description: '采购确认后30天内未录入ERP，超时期间按 10元/天/SKU 累计考核',
     deadlineDays: 30,
     penaltyPerDay: 10,
     penaltyFullAmount: false,
