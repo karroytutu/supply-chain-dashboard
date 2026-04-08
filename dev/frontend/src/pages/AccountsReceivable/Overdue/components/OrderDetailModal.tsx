@@ -266,7 +266,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ visible, taskId, on
                     >
                       <div style={{ width: '100%' }}>
                         <Text strong style={{ fontSize: 13 }}>
-                          {bill.receivable.erp_bill_id}
+                          {bill.receivable.order_no || bill.receivable.erp_bill_id}
                         </Text>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                           <Text type="secondary" style={{ fontSize: 12 }}>
