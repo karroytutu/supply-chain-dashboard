@@ -315,3 +315,166 @@ export async function batchCompletePreprocessing(
   console.log(`[PreprocessingService] 批量完成预处理完成: 成功 ${success}, 失败 ${failed}`);
   return { success, failed };
 }
+
+/**
+ * 获取预处理任务关联的订单明细
+ * 批量查询任务关联的所有应收账款及各自的催收历史
+ * @param taskId 客户任务ID
+ * @returns 任务信息和订单明细列表
+ */
+export async function getPreprocessingTaskBills(taskId: number): Promise<{
+  taskInfo: any;
+  bills: any[];
+}> {
+  try {
+    // 1. 查询任务信息
+    const taskResult = await appQuery(
+      `SELECT id, task_no, consumer_name, total_amount, bill_count, overdue_level, ar_ids
+       FROM ar_customer_collection_tasks
+       WHERE id = $1`,
+      [taskId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      throw new Error('任务不存在');
+    }
+
+    const task = taskResult.rows[0];
+    const arIds = task.ar_ids;
+
+    if (!arIds || arIds.length === 0) {
+      return {
+        taskInfo: {
+          id: task.id,
+          taskNo: task.task_no,
+          consumerName: task.consumer_name,
+          totalAmount: parseFloat(task.total_amount),
+          billCount: task.bill_count,
+          overdueLevel: task.overdue_level,
+        },
+        bills: [],
+      };
+    }
+
+    // 2. 批量查询关联的应收账款记录
+    const receivablesResult = await appQuery(
+      `SELECT 
+         id, erp_bill_id, consumer_name, consumer_code, salesman_name, dept_name,
+         manager_users, settle_method, max_debt_days, total_amount, left_amount,
+         paid_amount, write_off_amount, bill_order_time, order_no, expire_day,
+         overdue_days, last_pay_day, due_date, work_time, ar_status,
+         current_collector_id, collector_level, notification_status,
+         last_notified_at, last_synced_at, created_at, updated_at
+       FROM ar_receivables
+       WHERE id = ANY($1)
+       ORDER BY left_amount DESC`,
+      [arIds]
+    );
+
+    // 3. 批量查询每条应收账款的操作日志和通知记录
+    const bills = await Promise.all(
+      receivablesResult.rows.map(async (receivable) => {
+        const arId = receivable.id;
+
+        // 查询操作日志
+        const logsResult = await appQuery(
+          `SELECT 
+             l.id, l.ar_id, l.action_type, l.action_by, l.action_data,
+             l.remark, u.name as action_by_name, l.created_at
+           FROM ar_action_logs l
+           LEFT JOIN users u ON l.action_by = u.id
+           WHERE l.ar_id = $1
+           ORDER BY l.created_at DESC`,
+          [arId]
+        );
+
+        // 查询通知记录
+        const notificationsResult = await appQuery(
+          `SELECT 
+             id, ar_ids, notification_type, recipient_id, recipient_name,
+             consumer_name, bill_count, message_content, status,
+             sent_at, created_at
+           FROM ar_notification_records
+           WHERE $1 = ANY(ar_ids)
+           ORDER BY created_at DESC`,
+          [arId]
+        );
+
+        // 合并操作日志和通知记录为统一的 actionLogs 格式
+        const actionLogs = [
+          ...logsResult.rows.map((log) => ({
+            id: `log_${log.id}`,
+            type: log.action_type,
+            actionBy: log.action_by_name || '系统',
+            actionData: log.action_data,
+            remark: log.remark,
+            createdAt: log.created_at,
+            source: 'action_log',
+          })),
+          ...notificationsResult.rows.map((notif) => ({
+            id: `notif_${notif.id}`,
+            type: notif.notification_type,
+            actionBy: notif.recipient_name || '系统',
+            actionData: {
+              billCount: notif.bill_count,
+              messageContent: notif.message_content,
+              status: notif.status,
+            },
+            remark: notif.message_content,
+            createdAt: notif.created_at,
+            source: 'notification',
+          })),
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        return {
+          receivable: {
+            id: receivable.id,
+            erp_bill_id: receivable.erp_bill_id,
+            consumer_name: receivable.consumer_name,
+            consumer_code: receivable.consumer_code,
+            salesman_name: receivable.salesman_name,
+            dept_name: receivable.dept_name,
+            manager_users: receivable.manager_users,
+            settle_method: receivable.settle_method,
+            max_debt_days: receivable.max_debt_days,
+            total_amount: parseFloat(receivable.total_amount),
+            left_amount: parseFloat(receivable.left_amount),
+            paid_amount: parseFloat(receivable.paid_amount),
+            write_off_amount: parseFloat(receivable.write_off_amount),
+            bill_order_time: receivable.bill_order_time,
+            order_no: receivable.order_no,
+            expire_day: receivable.expire_day,
+            overdue_days: receivable.overdue_days,
+            last_pay_day: receivable.last_pay_day,
+            due_date: receivable.due_date,
+            work_time: receivable.work_time,
+            ar_status: receivable.ar_status,
+            current_collector_id: receivable.current_collector_id,
+            collector_level: receivable.collector_level,
+            notification_status: receivable.notification_status,
+            last_notified_at: receivable.last_notified_at,
+            last_synced_at: receivable.last_synced_at,
+            created_at: receivable.created_at,
+            updated_at: receivable.updated_at,
+          },
+          actionLogs,
+        };
+      })
+    );
+
+    return {
+      taskInfo: {
+        id: task.id,
+        taskNo: task.task_no,
+        consumerName: task.consumer_name,
+        totalAmount: parseFloat(task.total_amount),
+        billCount: task.bill_count,
+        overdueLevel: task.overdue_level,
+      },
+      bills,
+    };
+  } catch (error) {
+    console.error('[PreprocessingService] 获取订单明细失败:', error);
+    throw new Error('获取订单明细失败');
+  }
+}
