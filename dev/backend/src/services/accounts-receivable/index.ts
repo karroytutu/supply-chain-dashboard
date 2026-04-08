@@ -135,6 +135,11 @@ export {
   batchStartPreprocessing,
   batchCompletePreprocessing,
   getPreprocessingTaskBills,
+  // 凭证标记服务
+  markVoucherStatus,
+  batchMarkVoucherStatus,
+  getVoucherStats,
+  getBillVoucherMarks,
   // 任务分配服务
   getAssignmentList,
   assignTask,

@@ -328,6 +328,26 @@ export const getPreprocessingTaskBills = (taskId: number): Promise<Preprocessing
 };
 
 /**
+ * 标记单据凭证状态
+ */
+export const markVoucherStatus = (
+  taskId: number,
+  data: { arId: number; voucherStatus: string; remark?: string }
+): Promise<{ code: number; message: string; data: any }> => {
+  return request.post(`/ar/overdue/preprocessing/${taskId}/voucher-mark`, data);
+};
+
+/**
+ * 批量标记凭证状态
+ */
+export const batchMarkVoucherStatus = (
+  taskId: number,
+  data: { marks: Array<{ arId: number; voucherStatus: string; remark?: string }> }
+): Promise<{ code: number; message: string; data: { success: number; failed: number } }> => {
+  return request.post(`/ar/overdue/preprocessing/${taskId}/voucher-mark/batch`, data);
+};
+
+/**
  * 获取待分配列表
  */
 export const getAssignmentList = (params?: OverdueTaskQueryParams): Promise<ArPaginatedResult<OverdueTaskItem>> => {
@@ -425,6 +445,8 @@ export default {
   startPreprocessing,
   completePreprocessing,
   getPreprocessingTaskBills,
+  markVoucherStatus,
+  batchMarkVoucherStatus,
   getAssignmentList,
   assignOverdueTask,
   getAvailableCollectors,

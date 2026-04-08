@@ -541,3 +541,50 @@ export interface CollectorPerformance {
   avgHours: number;
   timeoutCount: number;
 }
+
+// ==================== 单据凭证标记 ====================
+
+/** 凭证标记状态 */
+export type VoucherStatus = 'has_voucher' | 'no_voucher' | 'voucher_unqualified';
+
+/** 单据凭证标记实体 */
+export interface ArBillVoucherMark {
+  id: number;
+  customer_task_id: number;
+  ar_id: number;
+  voucher_status: VoucherStatus;
+  voucher_marked_at: Date;
+  voucher_marked_by: number;
+  voucher_remark: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** 标记凭证状态参数 */
+export interface MarkVoucherStatusParams {
+  customerTaskId: number;
+  arId: number;
+  voucherStatus: VoucherStatus;
+  operatorId: number;
+  remark?: string;
+}
+
+/** 批量标记凭证状态参数 */
+export interface BatchMarkVoucherStatusParams {
+  customerTaskId: number;
+  marks: Array<{
+    arId: number;
+    voucherStatus: VoucherStatus;
+    remark?: string;
+  }>;
+  operatorId: number;
+}
+
+/** 凭证统计 */
+export interface VoucherStats {
+  hasVoucher: number;
+  noVoucher: number;
+  voucherUnqualified: number;
+  unmarked: number;
+  total: number;
+}

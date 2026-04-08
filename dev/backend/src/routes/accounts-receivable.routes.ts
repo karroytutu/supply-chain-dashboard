@@ -51,6 +51,8 @@ import {
   startPreprocessingHandler,
   completePreprocessingHandler,
   getPreprocessingTaskBillsHandler,
+  markVoucherStatusHandler,
+  batchMarkVoucherStatusHandler,
   getAssignmentListHandler,
   assignTaskHandler,
   getDeadlineConfigsHandler,
@@ -389,6 +391,28 @@ router.get(
   '/overdue/preprocessing/:taskId/bills',
   requirePermission('finance:ar:overdue:preprocess'),
   getPreprocessingTaskBillsHandler
+);
+
+/**
+ * 标记单据凭证状态
+ * POST /api/ar/overdue/preprocessing/:taskId/voucher-mark
+ * 权限: finance:ar:overdue:preprocess
+ */
+router.post(
+  '/overdue/preprocessing/:taskId/voucher-mark',
+  requirePermission('finance:ar:overdue:preprocess'),
+  markVoucherStatusHandler
+);
+
+/**
+ * 批量标记凭证状态
+ * POST /api/ar/overdue/preprocessing/:taskId/voucher-mark/batch
+ * 权限: finance:ar:overdue:preprocess
+ */
+router.post(
+  '/overdue/preprocessing/:taskId/voucher-mark/batch',
+  requirePermission('finance:ar:overdue:preprocess'),
+  batchMarkVoucherStatusHandler
 );
 
 /**

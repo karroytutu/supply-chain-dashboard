@@ -73,6 +73,8 @@ import {
   getDeadlineConfigs,
   updateDeadlineConfig,
   getTimeoutWarnings,
+  markVoucherStatus,
+  batchMarkVoucherStatus,
 } from '../services/accounts-receivable';
 
 // ==================== 类型定义 ====================
@@ -1862,6 +1864,72 @@ export const getPreprocessingTaskBillsHandler = async (req: Request, res: Respon
   } catch (error) {
     console.error('获取订单明细失败:', error);
     const message = error instanceof Error ? error.message : '获取订单明细失败';
+    res.status(500).json({ code: 500, message });
+  }
+};
+
+/**
+ * 标记单据凭证状态
+ * POST /api/ar/overdue/preprocessing/:taskId/voucher-mark
+ */
+export const markVoucherStatusHandler = async (req: Request, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.taskId, 10);
+    const { arId, voucherStatus, remark } = req.body;
+
+    if (isNaN(taskId) || !arId || !voucherStatus) {
+      return res.status(400).json({ code: 400, message: '参数不完整' });
+    }
+
+    const operatorId = (req as any).user?.id;
+    if (!operatorId) {
+      return res.status(401).json({ code: 401, message: '未认证' });
+    }
+
+    const result = await markVoucherStatus({
+      customerTaskId: taskId,
+      arId,
+      voucherStatus,
+      operatorId,
+      remark,
+    });
+
+    res.json({ code: 200, message: '标记成功', data: result });
+  } catch (error) {
+    console.error('标记凭证状态失败:', error);
+    const message = error instanceof Error ? error.message : '标记凭证状态失败';
+    res.status(500).json({ code: 500, message });
+  }
+};
+
+/**
+ * 批量标记凭证状态
+ * POST /api/ar/overdue/preprocessing/:taskId/voucher-mark/batch
+ */
+export const batchMarkVoucherStatusHandler = async (req: Request, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.taskId, 10);
+    const { marks } = req.body;
+
+    if (isNaN(taskId) || !marks || !Array.isArray(marks)) {
+      return res.status(400).json({ code: 400, message: '参数不完整' });
+    }
+
+    const operatorId = (req as any).user?.id;
+    if (!operatorId) {
+      return res.status(401).json({ code: 401, message: '未认证' });
+    }
+
+    const result = await batchMarkVoucherStatus({
+      customerTaskId: taskId,
+      marks,
+      operatorId,
+    });
+
+    res.json({ code: 200, message: '批量标记完成', data: result });
+  } catch (error) {
+    console.error('批量标记凭证状态失败:', error);
+    const message = error instanceof Error ? error.message : '批量标记凭证状态失败';
     res.status(500).json({ code: 500, message });
   }
 };

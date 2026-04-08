@@ -5,6 +5,7 @@
 
 import { appQuery, getAppClient } from '../../../db/appPool';
 import { calculateNodeDeadline } from './deadline.service';
+import { getBillVoucherMarks } from './voucher-mark.service';
 import type {
   OverdueQueryParams,
   PreprocessingStartParams,
@@ -371,10 +372,16 @@ export async function getPreprocessingTaskBills(taskId: number): Promise<{
       [arIds]
     );
 
-    // 3. 批量查询每条应收账款的操作日志和通知记录
+    // 3. 批量查询凭证标记（避免 N+1 查询）
+    const voucherMarksMap = await getBillVoucherMarks(taskId, arIds);
+
+    // 4. 批量查询每条应收账款的操作日志和通知记录
     const bills = await Promise.all(
       receivablesResult.rows.map(async (receivable) => {
         const arId = receivable.id;
+
+        // 获取该单据的凭证标记
+        const voucherMark = voucherMarksMap.get(arId);
 
         // 查询操作日志
         const logsResult = await appQuery(
@@ -456,6 +463,11 @@ export async function getPreprocessingTaskBills(taskId: number): Promise<{
             last_synced_at: receivable.last_synced_at,
             created_at: receivable.created_at,
             updated_at: receivable.updated_at,
+            // 凭证标记信息
+            voucher_status: voucherMark?.voucher_status || null,
+            voucher_marked_at: voucherMark?.voucher_marked_at || null,
+            voucher_marked_by: voucherMark?.voucher_marked_by || null,
+            voucher_remark: voucherMark?.voucher_remark || null,
           },
           actionLogs,
         };

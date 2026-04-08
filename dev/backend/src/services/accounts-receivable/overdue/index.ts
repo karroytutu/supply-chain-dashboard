@@ -45,6 +45,14 @@ export {
   getPreprocessingTaskBills,
 } from './preprocessing.service';
 
+// 凭证标记服务
+export {
+  markVoucherStatus,
+  batchMarkVoucherStatus,
+  getVoucherStats,
+  getBillVoucherMarks,
+} from './voucher-mark.service';
+
 // 任务分配服务
 export {
   getAssignmentList,

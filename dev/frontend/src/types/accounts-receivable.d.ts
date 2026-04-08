@@ -590,3 +590,55 @@ export interface PreprocessingTaskBillsResponse {
   };
   bills: PreprocessingBillDetail[];
 }
+
+// ==================== 凭证标记类型 ====================
+
+/** 凭证标记状态 */
+export type VoucherStatus = 'has_voucher' | 'no_voucher' | 'voucher_unqualified';
+
+/** 单据凭证标记 */
+export interface BillVoucherMark {
+  id: number;
+  customerTaskId: number;
+  arId: number;
+  voucherStatus: VoucherStatus;
+  voucherMarkedAt: string;
+  voucherMarkedBy: number;
+  voucherRemark: string | null;
+}
+
+/** 凭证统计 */
+export interface VoucherStats {
+  hasVoucher: number;
+  noVoucher: number;
+  voucherUnqualified: number;
+  unmarked: number;
+  total: number;
+}
+
+/** 标记凭证状态参数 */
+export interface MarkVoucherStatusParams {
+  arId: number;
+  voucherStatus: VoucherStatus;
+  remark?: string;
+}
+
+/** 批量标记凭证状态参数 */
+export interface BatchMarkVoucherStatusParams {
+  marks: Array<{
+    arId: number;
+    voucherStatus: VoucherStatus;
+    remark?: string;
+  }>;
+}
+
+/** 扩展 PreprocessingBillDetail 包含凭证信息 */
+export interface PreprocessingBillDetailWithVoucher extends PreprocessingBillDetail {
+  receivable: ArReceivable & {
+    overdue_days: number;
+    voucher_status?: VoucherStatus | null;
+    voucher_marked_at?: string | null;
+    voucher_marked_by?: number | null;
+    voucher_remark?: string | null;
+  };
+}
