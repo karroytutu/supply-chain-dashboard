@@ -47,6 +47,7 @@ import type {
   CompletePreprocessingParams,
   AssignOverdueTaskParams,
   UpdateDeadlineConfigParams,
+  PreprocessingTaskBillsResponse,
 } from '@/types/accounts-receivable';
 
 // ==================== 数据查询 ====================
@@ -320,6 +321,13 @@ export const completePreprocessing = (data: CompletePreprocessingParams): Promis
 };
 
 /**
+ * 获取预处理任务关联的订单明细
+ */
+export const getPreprocessingTaskBills = (taskId: number): Promise<PreprocessingTaskBillsResponse> => {
+  return request<PreprocessingTaskBillsResponse>(`/ar/overdue/preprocessing/${taskId}/bills`);
+};
+
+/**
  * 获取待分配列表
  */
 export const getAssignmentList = (params?: OverdueTaskQueryParams): Promise<ArPaginatedResult<OverdueTaskItem>> => {
@@ -416,6 +424,7 @@ export default {
   getPreprocessingList,
   startPreprocessing,
   completePreprocessing,
+  getPreprocessingTaskBills,
   getAssignmentList,
   assignOverdueTask,
   getAvailableCollectors,

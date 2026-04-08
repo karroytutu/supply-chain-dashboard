@@ -42,6 +42,7 @@ export {
   completePreprocessing,
   batchStartPreprocessing,
   batchCompletePreprocessing,
+  getPreprocessingTaskBills,
 } from './preprocessing.service';
 
 // 任务分配服务

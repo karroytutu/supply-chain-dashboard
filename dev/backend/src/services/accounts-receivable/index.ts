@@ -134,6 +134,7 @@ export {
   completePreprocessing,
   batchStartPreprocessing,
   batchCompletePreprocessing,
+  getPreprocessingTaskBills,
   // 任务分配服务
   getAssignmentList,
   assignTask,

@@ -67,6 +67,7 @@ import {
   getPreprocessingList,
   startPreprocessing,
   completePreprocessing,
+  getPreprocessingTaskBills,
   getAssignmentList,
   assignTask,
   getDeadlineConfigs,
@@ -1842,5 +1843,25 @@ export const getPerformanceHandler = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('获取绩效统计失败:', error);
     res.status(500).json({ code: 500, message: '获取绩效统计失败' });
+  }
+};
+
+/**
+ * 获取预处理任务关联的订单明细
+ * GET /api/ar/overdue/preprocessing/:taskId/bills
+ */
+export const getPreprocessingTaskBillsHandler = async (req: Request, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.taskId, 10);
+    if (isNaN(taskId)) {
+      return res.status(400).json({ code: 400, message: '无效的任务ID' });
+    }
+
+    const result = await getPreprocessingTaskBills(taskId);
+    res.json({ code: 200, message: 'success', data: result });
+  } catch (error) {
+    console.error('获取订单明细失败:', error);
+    const message = error instanceof Error ? error.message : '获取订单明细失败';
+    res.status(500).json({ code: 500, message });
   }
 };

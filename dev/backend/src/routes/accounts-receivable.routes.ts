@@ -50,6 +50,7 @@ import {
   getPreprocessingListHandler,
   startPreprocessingHandler,
   completePreprocessingHandler,
+  getPreprocessingTaskBillsHandler,
   getAssignmentListHandler,
   assignTaskHandler,
   getDeadlineConfigsHandler,
@@ -377,6 +378,17 @@ router.post(
   '/overdue/preprocessing/complete',
   requirePermission('finance:ar:overdue:preprocess'),
   completePreprocessingHandler
+);
+
+/**
+ * 获取预处理任务关联的订单明细
+ * GET /api/ar/overdue/preprocessing/:taskId/bills
+ * 权限: finance:ar:overdue:preprocess
+ */
+router.get(
+  '/overdue/preprocessing/:taskId/bills',
+  requirePermission('finance:ar:overdue:preprocess'),
+  getPreprocessingTaskBillsHandler
 );
 
 /**

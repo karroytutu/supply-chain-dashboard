@@ -14,12 +14,13 @@ import {
   Row,
   Col,
 } from 'antd';
-import { SearchOutlined, PlayCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { SearchOutlined, PlayCircleOutlined, CheckCircleOutlined, EyeOutlined } from '@ant-design/icons';
 import type { OverdueTaskItem, OverdueLevel, ArPaginatedResult } from '@/types/accounts-receivable';
 import { getPreprocessingList, startPreprocessing } from '@/services/api/accounts-receivable';
 import { PERMISSIONS } from '@/constants/permissions';
 import { usePermission } from '@/hooks/usePermission';
 import PreprocessingModal from './PreprocessingModal';
+import OrderDetailModal from './OrderDetailModal';
 import styles from '../index.less';
 
 const { Option } = Select;
@@ -53,6 +54,8 @@ const PreprocessingList: React.FC<PreprocessingListProps> = ({ onRefreshStats })
   const [modalVisible, setModalVisible] = useState(false);
   const [modalTask, setModalTask] = useState<OverdueTaskItem | null>(null);
   const [modalMode, setModalMode] = useState<'start' | 'complete'>('start');
+  const [orderDetailVisible, setOrderDetailVisible] = useState(false);
+  const [orderDetailTaskId, setOrderDetailTaskId] = useState<number | null>(null);
 
   const canPreprocess = hasPermission(PERMISSIONS.FINANCE.AR.OVERDUE.PREPROCESS);
 
@@ -88,6 +91,11 @@ const PreprocessingList: React.FC<PreprocessingListProps> = ({ onRefreshStats })
     setModalTask(record);
     setModalMode('complete');
     setModalVisible(true);
+  };
+
+  const handleViewOrderDetail = (record: OverdueTaskItem) => {
+    setOrderDetailTaskId(record.id);
+    setOrderDetailVisible(true);
   };
 
   const handleModalSuccess = () => {
@@ -145,6 +153,15 @@ const PreprocessingList: React.FC<PreprocessingListProps> = ({ onRefreshStats })
       width: 200,
       render: (_: any, record: OverdueTaskItem) => (
         <Space>
+          {canPreprocess && (
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewOrderDetail(record)}
+            >
+              查看明细
+            </Button>
+          )}
           {canPreprocess && record.preprocessingStatus !== 'in_progress' && (
             <Button
               type="primary"
@@ -244,6 +261,15 @@ const PreprocessingList: React.FC<PreprocessingListProps> = ({ onRefreshStats })
         mode={modalMode}
         onCancel={() => setModalVisible(false)}
         onSuccess={handleModalSuccess}
+      />
+
+      <OrderDetailModal
+        visible={orderDetailVisible}
+        taskId={orderDetailTaskId}
+        onCancel={() => {
+          setOrderDetailVisible(false);
+          setOrderDetailTaskId(null);
+        }}
       />
     </div>
   );

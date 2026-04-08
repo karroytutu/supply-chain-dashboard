@@ -569,3 +569,24 @@ export interface UpdateDeadlineConfigParams {
   warningHours?: number;
   isActive?: boolean;
 }
+
+// ==================== 预处理订单明细类型 ====================
+
+/** 预处理订单明细 */
+export interface PreprocessingBillDetail {
+  receivable: ArReceivable & { overdue_days: number };
+  actionLogs: ArActionLog[];
+}
+
+/** 预处理任务订单明细响应 */
+export interface PreprocessingTaskBillsResponse {
+  taskInfo: {
+    id: number;
+    taskNo: string;
+    consumerName: string;
+    totalAmount: number;
+    billCount: number;
+    overdueLevel: OverdueLevel;
+  };
+  bills: PreprocessingBillDetail[];
+}
