@@ -75,56 +75,6 @@ export default defineConfig({
       ],
     },
     {
-      path: '/finance',
-      name: '财务管理',
-      icon: 'AccountBookOutlined',
-      wrappers: ['@/wrappers/auth'],
-      routes: [
-        {
-          path: 'ar/overview',
-          name: '应收总览',
-          component: '@/pages/AccountsReceivable/Overview',
-          permission: 'finance:ar:read',
-        },
-        {
-          path: 'ar/workspace',
-          name: '催收工作台',
-          component: '@/pages/AccountsReceivable/Workspace',
-          permission: 'finance:ar:read',
-        },
-        {
-          path: 'ar/penalty',
-          name: '考核管理',
-          component: '@/pages/AccountsReceivable/Penalty',
-          permission: 'finance:ar:penalty',
-        },
-        {
-          path: 'ar/overdue',
-          name: '逾期管理',
-          component: '@/pages/AccountsReceivable/Overdue',
-          permission: 'finance:ar:overdue:read',
-        },
-        {
-          path: 'ar/time-efficiency',
-          name: '时效分析',
-          component: '@/pages/AccountsReceivable/TimeEfficiency',
-          permission: 'finance:ar:efficiency:read',
-        },
-        {
-          path: 'ar/customer-analysis',
-          name: '客户分析',
-          component: '@/pages/AccountsReceivable/CustomerAnalysis',
-          permission: 'finance:ar:customer:read',
-        },
-        {
-          path: 'ar/performance',
-          name: '催收绩效',
-          component: '@/pages/AccountsReceivable/Performance',
-          permission: 'finance:ar:performance:read',
-        },
-      ],
-    },
-    {
       path: '/system',
       name: '系统管理',
       icon: 'setting',

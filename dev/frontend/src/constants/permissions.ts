@@ -51,37 +51,6 @@ export const PERMISSIONS = {
     },
   },
 
-  // 财务模块 - 应收账款
-  FINANCE: {
-    AR: {
-      READ: 'finance:ar:read',
-      WRITE: 'finance:ar:write',
-      MANAGE: 'finance:ar:manage',
-      COLLECT: 'finance:ar:collect',
-      REVIEW: 'finance:ar:review',
-      PENALTY: 'finance:ar:penalty',
-      // 逾期管理
-      OVERDUE: {
-        READ: 'finance:ar:overdue:read',
-        PREPROCESS: 'finance:ar:overdue:preprocess',
-        ASSIGN: 'finance:ar:overdue:assign',
-        CONFIG: 'finance:ar:overdue:config',
-      },
-      // 时效分析
-      EFFICIENCY: {
-        READ: 'finance:ar:efficiency:read',
-      },
-      // 客户分析
-      CUSTOMER: {
-        READ: 'finance:ar:customer:read',
-      },
-      // 绩效报表
-      PERFORMANCE: {
-        READ: 'finance:ar:performance:read',
-      },
-    },
-  },
-
   // 采购模块
   PROCUREMENT: {
     ARCHIVE: {
@@ -132,11 +101,6 @@ export type PermissionCode = typeof PERMISSIONS[keyof typeof PERMISSIONS] |
   typeof PERMISSIONS.SYSTEM[keyof typeof PERMISSIONS.SYSTEM][keyof typeof PERMISSIONS.SYSTEM.USER] |
   typeof PERMISSIONS.STRATEGIC[keyof typeof PERMISSIONS.STRATEGIC] |
   typeof PERMISSIONS.STRATEGIC.CONFIRM[keyof typeof PERMISSIONS.STRATEGIC.CONFIRM] |
-  typeof PERMISSIONS.FINANCE.AR[keyof typeof PERMISSIONS.FINANCE.AR] |
-  typeof PERMISSIONS.FINANCE.AR.OVERDUE[keyof typeof PERMISSIONS.FINANCE.AR.OVERDUE] |
-  typeof PERMISSIONS.FINANCE.AR.EFFICIENCY[keyof typeof PERMISSIONS.FINANCE.AR.EFFICIENCY] |
-  typeof PERMISSIONS.FINANCE.AR.CUSTOMER[keyof typeof PERMISSIONS.FINANCE.AR.CUSTOMER] |
-  typeof PERMISSIONS.FINANCE.AR.PERFORMANCE[keyof typeof PERMISSIONS.FINANCE.AR.PERFORMANCE] |
   typeof PERMISSIONS.PROCUREMENT[keyof typeof PERMISSIONS.PROCUREMENT] |
   typeof PERMISSIONS.PROCUREMENT.RETURN[keyof typeof PERMISSIONS.PROCUREMENT.RETURN] |
   typeof PERMISSIONS.RETURN[keyof typeof PERMISSIONS.RETURN] |

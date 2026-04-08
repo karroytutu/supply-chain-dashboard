@@ -12,7 +12,6 @@ import styles from './ModuleGroup.less';
 // 模块名称映射
 const moduleNames: Record<string, string> = {
   system: '系统管理',
-  finance: '财务管理',
   procurement: '采购管理',
   return: '退货管理',
   'goods-rules': '退货规则',
@@ -22,7 +21,6 @@ const moduleNames: Record<string, string> = {
 // 模块颜色映射
 const moduleColors: Record<string, string> = {
   system: '#1677ff',
-  finance: '#52c41a',
   procurement: '#fa8c16',
   return: '#13c2c2',
   'goods-rules': '#722ed1',

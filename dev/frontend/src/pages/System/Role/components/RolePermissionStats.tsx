@@ -8,7 +8,6 @@ import { Tag } from 'antd';
 // 模块名称映射
 const moduleNames: Record<string, string> = {
   system: '系统',
-  finance: '财务',
   procurement: '采购',
   return: '退货',
   'goods-rules': '规则',
@@ -18,7 +17,6 @@ const moduleNames: Record<string, string> = {
 // 模块配色映射
 const moduleColors: Record<string, string> = {
   system: '#1677ff',
-  finance: '#52c41a',
   procurement: '#fa8c16',
   return: '#13c2c2',
   'goods-rules': '#722ed1',

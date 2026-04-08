@@ -19,7 +19,6 @@ const actionColorMap: Record<string, { bg: string; color: string }> = {
 // 模块名称映射
 const moduleNameMap: Record<string, string> = {
   system: '系统管理',
-  finance: '财务管理',
   procurement: '采购管理',
   return: '退货管理',
   'goods-rules': '退货规则',
