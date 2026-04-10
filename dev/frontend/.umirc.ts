@@ -75,6 +75,27 @@ export default defineConfig({
       ],
     },
     {
+      path: '/collection',
+      name: '催收管理',
+      icon: 'AlertOutlined',
+      wrappers: ['@/wrappers/auth'],
+      routes: [
+        {
+          path: 'overview',
+          component: '@/pages/Collection/Overview',
+          name: '催收总览',
+          permission: 'ar:collection:read',
+        },
+        {
+          path: 'task/:id',
+          component: '@/pages/Collection/TaskDetail',
+          name: '任务详情',
+          hideInMenu: true,
+          permission: 'ar:collection:read',
+        },
+      ],
+    },
+    {
       path: '/system',
       name: '系统管理',
       icon: 'setting',

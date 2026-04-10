@@ -77,6 +77,17 @@ export const PERMISSIONS = {
     READ: 'goods-rules:read',
     WRITE: 'goods-rules:write',
   },
+
+  // 应收账款模块
+  AR: {
+    // 催收管理
+    COLLECTION: {
+      READ: 'ar:collection:read',
+      WRITE: 'ar:collection:write',
+      VERIFY: 'ar:collection:verify',
+      ESCALATE: 'ar:collection:escalate',
+    },
+  },
 } as const;
 
 /**
@@ -105,7 +116,8 @@ export type PermissionCode = typeof PERMISSIONS[keyof typeof PERMISSIONS] |
   typeof PERMISSIONS.PROCUREMENT.RETURN[keyof typeof PERMISSIONS.PROCUREMENT.RETURN] |
   typeof PERMISSIONS.RETURN[keyof typeof PERMISSIONS.RETURN] |
   typeof PERMISSIONS.RETURN.PENALTY[keyof typeof PERMISSIONS.RETURN.PENALTY] |
-  typeof PERMISSIONS.GOODS_RULES[keyof typeof PERMISSIONS.GOODS_RULES];
+  typeof PERMISSIONS.GOODS_RULES[keyof typeof PERMISSIONS.GOODS_RULES] |
+  typeof PERMISSIONS.AR.COLLECTION[keyof typeof PERMISSIONS.AR.COLLECTION];
 
 /**
  * 角色类型定义

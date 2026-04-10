@@ -1,0 +1,92 @@
+/* 移动端预警卡片样式 */
+
+.warning-item-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-left: 3px solid #faad14;
+  transition: all 0.2s;
+
+  &:active {
+    background: #fafafa;
+  }
+
+  &-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  &-no {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 13px;
+    color: #262626;
+    font-weight: 500;
+  }
+
+  &-body {
+    .customer-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #262626;
+      margin-bottom: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      color: #8c8c8c;
+      margin-bottom: 4px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+
+        &.amount {
+          color: #ff4d4f;
+          font-weight: 600;
+        }
+
+        &.days-warning {
+          color: #ff4d4f;
+          font-weight: 500;
+        }
+      }
+    }
+  }
+}
+
+/* 超小屏适配 */
+@media (max-width: 480px) {
+  .warning-item-card {
+    padding: 10px;
+
+    &-no {
+      font-size: 12px;
+    }
+
+    &-body {
+      .customer-name {
+        font-size: 14px;
+      }
+
+      .meta-row {
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 11px;
+      }
+    }
+  }
+}

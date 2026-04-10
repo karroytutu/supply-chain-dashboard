@@ -8,6 +8,16 @@ import { syncReturnOrders, sendNewReturnReminder } from './sync-return-orders.ta
 import { sendDailyPendingErpReminder } from '../return-order/return-order-notify';
 import { getPendingErpOrders } from '../return-order/return-order.query';
 import { calculateReturnPenalties, notifyPenaltyCreated } from '../return-penalty';
+import {
+  syncERPDebts,
+  generateCollectionTasks,
+  checkExtensionExpiry,
+} from '../ar-collection/ar-collection-sync.task';
+import {
+  checkOverdueReminders,
+  checkExtensionExpiryReminders,
+} from '../ar-collection/ar-collection-reminder.task';
+import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
 
 /**
  * 启动所有定时任务
@@ -81,10 +91,86 @@ export function startScheduler(): void {
     }
   );
 
+  // 催收数据同步 - 每日06:00
+  cron.schedule(
+    '0 6 * * *',
+    async () => {
+      console.log('[Scheduler] 执行催收ERP数据同步...');
+      try {
+        await syncERPDebts();
+        console.log('[Scheduler] 催收ERP数据同步完成');
+      } catch (error) {
+        console.error('[Scheduler] 催收ERP数据同步失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // 催收任务生成 - 每日20:00
+  cron.schedule(
+    '0 20 * * *',
+    async () => {
+      console.log('[Scheduler] 执行催收任务生成...');
+      try {
+        await generateCollectionTasks();
+        console.log('[Scheduler] 催收任务生成完成');
+      } catch (error) {
+        console.error('[Scheduler] 催收任务生成失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // 延期到期检查 - 每2小时
+  cron.schedule(
+    '0 */2 * * *',
+    async () => {
+      console.log('[Scheduler] 执行延期到期检查...');
+      try {
+        await checkExtensionExpiry();
+        console.log('[Scheduler] 延期到期检查完成');
+      } catch (error) {
+        console.error('[Scheduler] 延期到期检查失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // 催收提醒检查 - 每天晚上 20:00
+  cron.schedule(
+    '0 20 * * *',
+    async () => {
+      console.log('[Scheduler] 执行催收提醒检查...');
+      try {
+        await checkOverdueReminders();
+        console.log('[Scheduler] 逾期催收提醒检查完成');
+      } catch (error) {
+        console.error('[Scheduler] 逾期催收提醒检查失败:', error);
+      }
+      try {
+        await checkExtensionExpiryReminders();
+        console.log('[Scheduler] 延期到期提醒检查完成');
+      } catch (error) {
+        console.error('[Scheduler] 延期到期提醒检查失败:', error);
+      }
+      try {
+        await checkUpcomingOverdueReminders();
+        console.log('[Scheduler] 逾期前预警提醒检查完成');
+      } catch (error) {
+        console.error('[Scheduler] 逾期前预警提醒检查失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   console.log('[Scheduler] 定时任务已注册:');
   console.log('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
   console.log('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
   console.log('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');
+  console.log('  - 催收ERP数据同步: 每天 06:00 (Asia/Shanghai)');
+  console.log('  - 催收任务生成: 每天 20:00 (Asia/Shanghai)');
+  console.log('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
+  console.log('  - 催收提醒检查: 每天 20:00 (Asia/Shanghai) [含逾期前预警]');
   console.log('[Scheduler] 定时任务调度器启动完成');
 }
 
