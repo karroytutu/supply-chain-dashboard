@@ -32,10 +32,11 @@ export type RoleView = 'marketer' | 'supervisor' | 'finance' | 'cashier' | 'admi
  */
 function getCollectionRole(roles: string[]): RoleView {
   if (roles.includes(ROLES.ADMIN) || roles.includes(ROLES.MANAGER)) return 'admin';
-  if (roles.includes(ROLES.MARKETING_SUPERVISOR)) return 'supervisor';
-  if (roles.includes(ROLES.FINANCE_STAFF)) return 'finance';
+  if (roles.includes(ROLES.MARKETING_MANAGER)) return 'supervisor';
+  if (roles.includes(ROLES.CURRENT_ACCOUNTANT) || roles.includes(ROLES.FINANCE_STAFF)) return 'finance';
   if (roles.includes(ROLES.CASHIER)) return 'cashier';
-  return 'marketer'; // operator 或其他默认营销师
+  if (roles.includes(ROLES.MARKETER)) return 'marketer';
+  return 'marketer'; // 默认营销师视图
 }
 
 /** 快捷筛选类型 */

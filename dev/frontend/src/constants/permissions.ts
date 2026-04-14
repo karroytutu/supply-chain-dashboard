@@ -101,8 +101,10 @@ export const ROLES = {
   PROCUREMENT_MANAGER: 'procurement_manager',
   WAREHOUSE_MANAGER: 'warehouse_manager',
   FINANCE_STAFF: 'finance_staff',
+  CURRENT_ACCOUNTANT: 'current_accountant',
   CASHIER: 'cashier',
-  MARKETING_SUPERVISOR: 'marketing_supervisor',
+  MARKETING_MANAGER: 'marketing_manager',
+  MARKETER: 'marketer',
 } as const;
 
 /**

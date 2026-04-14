@@ -77,14 +77,14 @@ export async function getMyTasks(userId: number, role: string) {
   try {
     if (role === 'marketer') {
       return await getMarketerTasks(userId);
-    } else if (role === 'marketing_supervisor') {
+    } else if (role === 'marketing_manager' || role === 'marketing_supervisor') {
       return await getSupervisorTasks(userId);
-    } else if (role === 'finance_staff') {
+    } else if (role === 'current_accountant' || role === 'finance_staff') {
       return await getFinanceTasks(userId);
     } else if (role === 'cashier') {
       return await getCashierTasks(userId);
     }
-    // admin/manager 返回总览
+    // admin/manager/operations_manager 返回总览
     return await getAdminTasks();
   } catch (error) {
     console.error('[ArCollection] 获取我的待办失败:', error);
@@ -129,7 +129,7 @@ async function getSupervisorTasks(userId: number) {
   );
   const r = result.rows[0];
   return {
-    role: 'marketing_supervisor',
+    role: 'marketing_manager',
     categories: [
       { key: 'pending_escalated', label: '待处理升级', count: parseInt(r.pending_escalated) || 0, amount: parseFloat(r.pending_escalated_amount) || 0, urgent: true },
       { key: 'today_due', label: '今日到期', count: parseInt(r.today_due) || 0, amount: 0, urgent: false },
@@ -150,7 +150,7 @@ async function getFinanceTasks(userId: number) {
   );
   const r = result.rows[0];
   return {
-    role: 'finance_staff',
+    role: 'current_accountant',
     categories: [
       { key: 'difference', label: '差异待处理', count: parseInt(r.difference) || 0, amount: parseFloat(r.difference_amount) || 0, urgent: true },
       { key: 'legal_pending', label: '待法务处理', count: parseInt(r.legal_pending) || 0, amount: parseFloat(r.legal_pending_amount) || 0, urgent: false },

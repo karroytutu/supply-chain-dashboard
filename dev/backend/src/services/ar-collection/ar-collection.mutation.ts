@@ -298,8 +298,8 @@ export async function escalateTask(
 
     // 确定目标处理角色
     const handlerRoleMap: Record<number, string> = {
-      1: 'marketing_supervisor',
-      2: 'finance_staff',
+      1: 'marketing_manager',
+      2: 'current_accountant',
     };
     const targetRole = handlerRoleMap[targetLevel];
 

@@ -359,8 +359,8 @@ function formatCreatedDate(dateStr: string): string {
 function getRoleCode(role: RoleView): string {
   const map: Record<RoleView, string> = {
     marketer: 'marketer',
-    supervisor: 'marketing_supervisor',
-    finance: 'finance_staff',
+    supervisor: 'marketing_manager',
+    finance: 'current_accountant',
     cashier: 'cashier',
     admin: 'admin',
   };

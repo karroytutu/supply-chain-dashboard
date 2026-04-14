@@ -27,13 +27,15 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
         params: [userId],
         nextIndex: paramIndex + 1,
       };
-    case 'marketing_supervisor':
+    case 'marketing_manager':
+    case 'marketing_supervisor': // 兼容旧角色编码
       return {
         sql: `(t.status = 'escalated' AND t.escalation_level = 1)`,
         params: [],
         nextIndex: paramIndex,
       };
-    case 'finance_staff':
+    case 'current_accountant':
+    case 'finance_staff': // 兼容旧角色编码
       return {
         sql: `(t.status = 'difference_processing' OR (t.status = 'escalated' AND t.escalation_level = 2))`,
         params: [],
@@ -46,7 +48,7 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
         nextIndex: paramIndex,
       };
     default:
-      // admin / manager: 全部
+      // admin / manager / operations_manager: 全部
       return { sql: '1=1', params: [], nextIndex: paramIndex };
   }
 }

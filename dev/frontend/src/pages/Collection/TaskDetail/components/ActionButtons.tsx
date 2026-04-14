@@ -35,7 +35,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
 
   /** 营销主管视角: 已升级 + level=1 */
   const isSupervisorView =
-    hasRole(ROLES.MARKETING_SUPERVISOR) &&
+    hasRole(ROLES.MARKETING_MANAGER) &&
     status === 'escalated' &&
     escalationLevel === 1;
 
