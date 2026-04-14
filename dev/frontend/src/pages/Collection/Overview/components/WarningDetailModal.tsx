@@ -1,7 +1,7 @@
 /**
  * 预警明细弹窗组件
  * 显示对应预警等级的详细数据
- * 简化为2级预警：高危(1-2天)、关注(3-5天)
+ * 3级预警：今日到期(0天)、高危(1-2天)、关注(3-5天)
  * 支持响应式：桌面端 Modal + 表格，移动端 Drawer + 卡片列表
  */
 import React from 'react';
@@ -20,8 +20,9 @@ interface WarningDetailModalProps {
   onClose: () => void;
 }
 
-// 简化为2级预警配置
+// 3级预警配置
 const levelConfig: Record<WarningLevel, { title: string; badge: string; tagColor: string; levelText: string }> = {
+  today: { title: '今日到期明细', badge: '今日到期', tagColor: 'red', levelText: '今日到期' },
   high: { title: '高危预警明细', badge: '1-2天内到期', tagColor: 'orange', levelText: '高危' },
   medium: { title: '关注预警明细', badge: '3-5天内到期', tagColor: 'gold', levelText: '关注' },
 };

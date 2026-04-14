@@ -59,9 +59,10 @@ const DetailTable: React.FC<DetailTableProps> = ({
   const columns: ColumnsType<CollectionDetail> = [
     {
       title: '单据号',
-      dataIndex: 'erpBillId',
+      dataIndex: 'billNo',
       width: 140,
       ellipsis: true,
+      render: (billNo: string, record: CollectionDetail) => billNo || record.erpBillId,
     },
     {
       title: '类型',

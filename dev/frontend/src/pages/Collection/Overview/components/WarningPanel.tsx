@@ -1,7 +1,7 @@
 /**
  * 逾期前预警面板组件
  * 显示汇总统计卡片，点击后弹出明细弹窗
- * 简化为2级预警：高危(1-2天)、关注(3-5天)
+ * 3级预警：今日到期(0天)、高危(1-2天)、关注(3-5天)
  */
 import React from 'react';
 import { Tag } from 'antd';
@@ -24,7 +24,9 @@ const WarningPanel: React.FC<WarningPanelProps> = ({ summary, onCardClick }) => 
     return `¥${amount.toLocaleString()}`;
   };
 
-  // 计算关注(3-5天)的数量和金额
+  // 计算各级别的数量和金额
+  const todayCount = summary.today.count;
+  const todayAmount = summary.today.amount;
   const mediumCount = summary.within5Days.count;
   const mediumAmount = summary.within5Days.amount;
 
@@ -38,6 +40,22 @@ const WarningPanel: React.FC<WarningPanelProps> = ({ summary, onCardClick }) => 
         <span className="warning-tip">系统每日 20:00 自动检查并推送</span>
       </div>
       <div className="warning-cards">
+        {/* 今日到期 */}
+        <div
+          className="warning-card warning-card--today"
+          onClick={() => onCardClick('today')}
+        >
+          <div className="warning-card-label">
+            <Tag color="red">今日到期</Tag>
+            <span className="days-range">0天</span>
+          </div>
+          <div className="warning-card-content">
+            <span className="warning-card-value">{todayCount}</span>
+            <span className="warning-card-amount">{formatAmount(todayAmount)}</span>
+          </div>
+          <RightOutlined className="warning-card-arrow" />
+        </div>
+        {/* 高危预警 */}
         <div
           className="warning-card warning-card--high"
           onClick={() => onCardClick('high')}
@@ -52,6 +70,7 @@ const WarningPanel: React.FC<WarningPanelProps> = ({ summary, onCardClick }) => 
           </div>
           <RightOutlined className="warning-card-arrow" />
         </div>
+        {/* 关注预警 */}
         <div
           className="warning-card warning-card--medium"
           onClick={() => onCardClick('medium')}

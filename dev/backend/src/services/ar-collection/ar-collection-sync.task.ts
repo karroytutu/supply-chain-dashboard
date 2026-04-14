@@ -12,6 +12,7 @@ import type { Priority, BatchType, TaskStatus } from './ar-collection.types';
 /** ERP欠款记录 */
 interface ERPDebtRecord {
   billId: string;
+  bizOrderStr: string;  // 订单号（单据编号）
   consumerName: string;
   managerUsers: string;
   totalAmount: number;
@@ -50,7 +51,7 @@ export async function syncERPDebts(): Promise<void> {
 
   try {
     // 1. 从ERP查询所有客户欠款明细
-    const erpSql = `SELECT "billId", "consumerName", "managerUsers",
+    const erpSql = `SELECT "billId", "bizOrderStr", "consumerName", "managerUsers",
       "totalAmount", "leftAmount", "settleMethod",
       "consumerExpireDay", "billTypeName", "workTime"
       FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
@@ -114,7 +115,7 @@ export async function generateCollectionTasks(): Promise<void> {
 
   try {
     // 1. 查询ERP中所有已逾期且未生成任务的欠款
-    const erpSql = `SELECT "billId", "consumerName", "managerUsers",
+    const erpSql = `SELECT "billId", "bizOrderStr", "consumerName", "managerUsers",
       "totalAmount", "leftAmount", "settleMethod",
       "consumerExpireDay", "billTypeName", "workTime"
       FROM "客户欠款明细"
@@ -225,10 +226,10 @@ export async function generateCollectionTasks(): Promise<void> {
 
           await client.query(
             `INSERT INTO ar_collection_details
-              (task_id, erp_bill_id, bill_type_name, total_amount, left_amount,
+              (task_id, erp_bill_id, bill_no, bill_type_name, total_amount, left_amount,
                bill_order_time, expire_time, overdue_days, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')`,
-            [taskId, debt.billId, debt.billTypeName, debt.totalAmount,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')`,
+            [taskId, debt.billId, debt.bizOrderStr || debt.billId, debt.billTypeName, debt.totalAmount,
              debt.leftAmount, debt.workTime, expireDate.toISOString(), ageDays - maxDays]
           );
         }

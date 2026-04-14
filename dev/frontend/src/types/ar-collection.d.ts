@@ -81,6 +81,7 @@ export interface CollectionDetail {
   taskId: number;
   debtId: number;
   erpBillId: string;
+  billNo: string;              // 单据编号(订单号)
   billTypeName: string;
   totalAmount: number;
   leftAmount: number;
@@ -264,9 +265,9 @@ export interface Handler {
 }
 
 /**
- * 逾期前预警等级（简化为2级：high=1-2天, medium=3-5天）
+ * 逾期前预警等级（3级：today=今日到期, high=1-2天, medium=3-5天）
  */
-export type WarningLevel = 'high' | 'medium';
+export type WarningLevel = 'today' | 'high' | 'medium';
 
 /**
  * 逾期前预警数据(即将逾期的欠款)
@@ -287,9 +288,10 @@ export interface UpcomingWarning {
 }
 
 /**
- * 预警汇总数据（简化为2级）
+ * 预警汇总数据（3级）
  */
 export interface WarningSummary {
+  today: { count: number; amount: number };        // 今日到期（0天）
   within2Days: { count: number; amount: number };  // 1-2天内到期
   within5Days: { count: number; amount: number };  // 3-5天内到期
   totalCount: number;

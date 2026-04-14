@@ -11,8 +11,8 @@ import { appQuery } from '../../db/appPool';
 // 类型定义
 // ============================================
 
-/** 预警等级（简化为2级：high=1-2天, medium=3-5天） */
-export type WarningLevel = 'high' | 'medium';
+/** 预警等级（3级：today=今日到期, high=1-2天, medium=3-5天） */
+export type WarningLevel = 'today' | 'high' | 'medium';
 
 /** 即将逾期预警明细 */
 export interface UpcomingWarningDetail {
@@ -30,8 +30,9 @@ export interface UpcomingWarningDetail {
   consumerExpireDay: number;   // 最大欠款天数
 }
 
-/** 预警汇总（简化为2级） */
+/** 预警汇总（3级） */
 export interface WarningSummary {
+  today: { count: number; amount: number };        // 今日到期（0天）
   within2Days: { count: number; amount: number };  // 1-2天内到期
   within5Days: { count: number; amount: number };  // 3-5天内到期
   totalCount: number;
@@ -85,6 +86,7 @@ export interface ReminderQueryParams {
 interface ERPDebtRecord {
   billId: string;
   bizStr: string;
+  bizOrderStr: string;  // 订单号（单据编号）
   consumerName: string;
   managerUsers: string;
   totalAmount: number;
@@ -109,7 +111,7 @@ export async function getUpcomingWarnings(
   const { page = 1, pageSize = 20, warningLevel, managerUserId } = params;
 
   // 1. 从ERP查询所有未收款的欠款
-  const erpSql = `SELECT "billId", "bizStr", "consumerName", "managerUsers",
+  const erpSql = `SELECT "billId", "bizStr", "bizOrderStr", "consumerName", "managerUsers",
     "totalAmount", "leftAmount", "settleMethod",
     "consumerExpireDay", "billTypeName", "workTime"
     FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
@@ -131,10 +133,10 @@ export async function getUpcomingWarnings(
     const expireDate = new Date(workDate.getTime() + maxDays * 86400000);
     const daysToExpire = Math.ceil((expireDate.getTime() - now.getTime()) / 86400000);
 
-    // 筛选: 未逾期且5天内到期
-    if (daysToExpire > 0 && daysToExpire <= 5) {
-      // 计算预警等级（简化为2级：high=1-2天, medium=3-5天）
-      const level: WarningLevel = daysToExpire <= 2 ? 'high' : 'medium';
+    // 筛选: 未逾期且5天内到期（包含今天到期）
+    if (daysToExpire >= 0 && daysToExpire <= 5) {
+      // 计算预警等级（3级：today=今日到期, high=1-2天, medium=3-5天）
+      const level: WarningLevel = daysToExpire === 0 ? 'today' : (daysToExpire <= 2 ? 'high' : 'medium');
 
       upcomingDebts.push({
         ...debt,
@@ -183,7 +185,7 @@ export async function getUpcomingWarnings(
   // 5. 构建明细数据
   let details: UpcomingWarningDetail[] = upcomingDebts.map((debt) => ({
     erpBillId: debt.billId,
-    billNo: debt.bizStr || debt.billId,
+    billNo: debt.bizOrderStr || debt.billId,  // 使用订单号作为单据编号
     consumerName: debt.consumerName,
     managerUserName: debt.managerUsers || '',
     managerUserId: debt.managerUsers ? managerIdMap.get(debt.managerUsers) || null : null,
@@ -209,8 +211,9 @@ export async function getUpcomingWarnings(
   // 7. 排序：按剩余天数升序
   details.sort((a, b) => a.daysToExpire - b.daysToExpire);
 
-  // 8. 计算汇总（简化为2级）
+  // 8. 计算汇总（3级）
   const summary: WarningSummary = {
+    today: { count: 0, amount: 0 },         // 今日到期（0天）
     within2Days: { count: 0, amount: 0 },  // 1-2天内到期
     within5Days: { count: 0, amount: 0 },  // 3-5天内到期
     totalCount: 0,
@@ -222,7 +225,10 @@ export async function getUpcomingWarnings(
     summary.totalCount++;
     summary.totalAmount += amount;
 
-    if (debt.daysToExpire <= 2) {
+    if (debt.daysToExpire === 0) {
+      summary.today.count++;
+      summary.today.amount += amount;
+    } else if (debt.daysToExpire <= 2) {
       summary.within2Days.count++;
       summary.within2Days.amount += amount;
     } else {

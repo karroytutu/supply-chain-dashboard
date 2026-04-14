@@ -78,6 +78,7 @@ export function transformDetail(detail: any): any {
     id: detail.id,
     taskId: detail.task_id,
     erpBillId: detail.erp_bill_id,
+    billNo: detail.bill_no,  // 单据编号(订单号)
     billTypeName: detail.bill_type_name,
     totalAmount: Number(detail.total_amount) || 0,
     leftAmount: Number(detail.left_amount) || 0,

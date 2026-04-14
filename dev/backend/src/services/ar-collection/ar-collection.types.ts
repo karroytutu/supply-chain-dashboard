@@ -123,6 +123,7 @@ export interface CollectionDetail {
 
   // 单据信息
   erp_bill_id: string | null;
+  bill_no: string | null;          // 单据编号(订单号)
   bill_type_name: string | null;
   total_amount: number | null;
   left_amount: number | null;
