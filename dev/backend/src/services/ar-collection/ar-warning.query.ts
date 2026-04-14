@@ -6,7 +6,6 @@
 
 import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
-import { config } from '../../config';
 
 // ============================================
 // 类型定义
@@ -108,21 +107,14 @@ export async function getUpcomingWarnings(
   params: WarningQueryParams = {},
 ): Promise<UpcomingWarningData> {
   const { page = 1, pageSize = 20, warningLevel, managerUserId } = params;
-  const startDateFilter = config.arCollection.startDate;
 
   // 1. 从ERP查询所有未收款的欠款
-  let erpSql = `SELECT "billId", "bizStr", "consumerName", "managerUsers",
+  const erpSql = `SELECT "billId", "bizStr", "consumerName", "managerUsers",
     "totalAmount", "leftAmount", "settleMethod",
     "consumerExpireDay", "billTypeName", "workTime"
     FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
-  const erpParams: any[] = [];
 
-  if (startDateFilter) {
-    erpSql += ` AND "workTime" >= $${erpParams.length + 1}`;
-    erpParams.push(startDateFilter);
-  }
-
-  const erpResult = await query<ERPDebtRecord>(erpSql, erpParams);
+  const erpResult = await query<ERPDebtRecord>(erpSql, []);
   const now = new Date();
 
   // 2. 计算每条记录的到期日期和剩余天数

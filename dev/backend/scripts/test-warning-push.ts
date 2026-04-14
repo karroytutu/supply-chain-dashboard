@@ -4,29 +4,20 @@
  */
 import { query } from '../src/db/pool';
 import { appQuery } from '../src/db/appPool';
-import { config } from '../src/config';
 import { sendWorkNotification } from '../src/services/dingtalk.service';
 import { buildMergedWarningMessage } from '../src/services/ar-collection/ar-collection-notify';
 
 async function testMergedWarningPush() {
   console.log('=== 逾期预警合并推送测试（新模板 → 文昌盛）===\n');
 
-  const startDateFilter = config.arCollection.startDate;
-
   try {
     // 1. 从ERP查询所有未收款的欠款
-    let erpSql = `SELECT "billId", "consumerName", "managerUsers",
+    const erpSql = `SELECT "billId", "consumerName", "managerUsers",
       "totalAmount", "leftAmount", "settleMethod",
       "consumerExpireDay", "workTime"
       FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
-    const erpParams: any[] = [];
 
-    if (startDateFilter) {
-      erpSql += ` AND "workTime" >= $${erpParams.length + 1}`;
-      erpParams.push(startDateFilter);
-    }
-
-    const erpResult = await query(erpSql, erpParams);
+    const erpResult = await query(erpSql, []);
     const now = new Date();
 
     // 2. 筛选即将到期的欠款（5天内）

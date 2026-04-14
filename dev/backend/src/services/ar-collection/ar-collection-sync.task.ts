@@ -7,7 +7,6 @@
 
 import { query } from '../../db/pool';
 import { appQuery, getAppClient } from '../../db/appPool';
-import { config } from '../../config';
 import type { Priority, BatchType, TaskStatus } from './ar-collection.types';
 
 /** ERP欠款记录 */
@@ -51,17 +50,11 @@ export async function syncERPDebts(): Promise<void> {
 
   try {
     // 1. 从ERP查询所有客户欠款明细
-    const startDateFilter = config.arCollection.startDate;
-    let erpSql = `SELECT "billId", "consumerName", "managerUsers",
+    const erpSql = `SELECT "billId", "consumerName", "managerUsers",
       "totalAmount", "leftAmount", "settleMethod",
       "consumerExpireDay", "billTypeName", "workTime"
       FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
-    const erpParams: any[] = [];
-    if (startDateFilter) {
-      erpSql += ` AND "workTime" >= $1`;
-      erpParams.push(startDateFilter);
-    }
-    const erpResult = await query<ERPDebtRecord>(erpSql, erpParams);
+    const erpResult = await query<ERPDebtRecord>(erpSql, []);
     const erpDebts = erpResult.rows;
     console.log(`[ARSync] ERP查询到 ${erpDebts.length} 条欠款记录`);
 
@@ -120,19 +113,13 @@ export async function generateCollectionTasks(): Promise<void> {
   console.log('[ARSync] 开始生成催收任务...');
 
   try {
-    const startDateFilter = config.arCollection.startDate;
     // 1. 查询ERP中所有已逾期且未生成任务的欠款
-    let erpSql = `SELECT "billId", "consumerName", "managerUsers",
+    const erpSql = `SELECT "billId", "consumerName", "managerUsers",
       "totalAmount", "leftAmount", "settleMethod",
       "consumerExpireDay", "billTypeName", "workTime"
       FROM "客户欠款明细"
       WHERE "leftAmount"::numeric > 0`;
-    const erpParams: any[] = [];
-    if (startDateFilter) {
-      erpSql += ` AND "workTime" >= $${erpParams.length + 1}`;
-      erpParams.push(startDateFilter);
-    }
-    const erpResult = await query<ERPDebtRecord>(erpSql, erpParams);
+    const erpResult = await query<ERPDebtRecord>(erpSql, []);
 
     // 2. 筛选出逾期且未生成任务的记录
     const now = new Date();

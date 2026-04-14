@@ -6,7 +6,6 @@
 
 import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
-import { config } from '../../config';
 import {
   hasReminderSentToday,
   recordWarningReminder,
@@ -57,22 +56,15 @@ interface UpcomingDebt extends ERPDebtRecord {
 export async function checkUpcomingOverdueReminders(): Promise<void> {
   console.log('[WarningTask] 开始检查即将到期欠款...');
   const startTime = Date.now();
-  const startDateFilter = config.arCollection.startDate;
 
   try {
     // 1. 从ERP查询所有未收款的欠款
-    let erpSql = `SELECT "billId", "bizStr", "consumerName", "managerUsers",
+    const erpSql = `SELECT "billId", "bizStr", "consumerName", "managerUsers",
       "totalAmount", "leftAmount", "settleMethod",
       "consumerExpireDay", "workTime"
       FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
-    const erpParams: any[] = [];
 
-    if (startDateFilter) {
-      erpSql += ` AND "workTime" >= $${erpParams.length + 1}`;
-      erpParams.push(startDateFilter);
-    }
-
-    const erpResult = await query<ERPDebtRecord>(erpSql, erpParams);
+    const erpResult = await query<ERPDebtRecord>(erpSql, []);
     const now = new Date();
 
     // 2. 筛选即将到期的欠款（5天内）
