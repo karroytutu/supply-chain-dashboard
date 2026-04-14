@@ -196,7 +196,8 @@ export async function generateCollectionTasks(): Promise<void> {
         const totalAmount = debts.reduce((s, d) => s + Number(d.leftAmount), 0);
         const maxOverdue = Math.max(...debts.map((d) => d.overdueDays));
         const priority = calcPriority(maxOverdue);
-        const batchType: BatchType = batchDate === todayStr ? 'daily' : 'historical';
+        // 首次同步已完成，后续任务均为日常批次
+        const batchType: BatchType = 'daily';
         const firstOverdueDate = debts
           .map((d) => new Date(d.workTime))
           .sort((a, b) => a.getTime() - b.getTime())[0]

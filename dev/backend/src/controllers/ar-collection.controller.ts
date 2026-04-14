@@ -77,6 +77,8 @@ export const getTasks = async (req: Request, res: Response) => {
       status: req.query.status as TaskStatus | undefined,
       priority: req.query.priority as Priority | undefined,
       handler_id: req.query.handlerId ? parseInt(req.query.handlerId as string) : undefined,
+      start_date: req.query.startDate as string | undefined,
+      end_date: req.query.endDate as string | undefined,
       sort_by: req.query.sort_by as string | undefined,
       sort_order: req.query.sort_order as 'asc' | 'desc' | undefined,
       userId,

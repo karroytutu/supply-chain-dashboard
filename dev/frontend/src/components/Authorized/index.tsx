@@ -3,6 +3,7 @@
  * 根据用户权限控制子组件的显示
  */
 import React from 'react';
+import { Result, Button } from 'antd';
 import { usePermission } from '@/hooks/usePermission';
 
 export interface AuthorizedProps {
@@ -58,17 +59,56 @@ export const Authorized: React.FC<AuthorizedProps> = ({
   fallback = null,
   children,
 }) => {
-  const { hasPermission, hasRole, hasAllPermissions, hasAnyPermission } = usePermission();
+  const { hasRole, hasAllPermissions, hasAnyPermission, currentUser } = usePermission();
+
+  // 未登录时显示提示
+  if (!currentUser) {
+    return (
+      <Result
+        status="403"
+        title="请先登录"
+        subTitle="您尚未登录，请先登录后再访问此页面"
+        extra={
+          <Button type="primary" href="/login">
+            去登录
+          </Button>
+        }
+      />
+    );
+  }
 
   // 权限检查
   if (permission) {
     const permissions = Array.isArray(permission) ? permission : [permission];
-    const hasAuth = mode === 'all' 
+    const hasAuth = mode === 'all'
       ? hasAllPermissions(permissions)
       : hasAnyPermission(permissions);
-    
+
     if (!hasAuth) {
-      return <>{fallback}</>;
+      // 如果提供了自定义 fallback，使用它
+      if (fallback !== null) {
+        return <>{fallback}</>;
+      }
+      // 否则显示无权限提示
+      return (
+        <Result
+          status="403"
+          title="无访问权限"
+          subTitle={
+            <div>
+              <p>您没有访问此页面的权限</p>
+              <p style={{ color: '#999', fontSize: 12 }}>
+                需要权限: {permissions.join(' 或 ')}
+              </p>
+            </div>
+          }
+          extra={
+            <Button type="primary" href="/">
+              返回首页
+            </Button>
+          }
+        />
+      );
     }
   }
 
@@ -78,7 +118,7 @@ export const Authorized: React.FC<AuthorizedProps> = ({
     const hasAuth = mode === 'all'
       ? roles.every(r => hasRole(r))
       : roles.some(r => hasRole(r));
-    
+
     if (!hasAuth) {
       return <>{fallback}</>;
     }

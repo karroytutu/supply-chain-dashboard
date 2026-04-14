@@ -69,6 +69,8 @@ export async function getCollectionTasks(params: TaskQueryParams & { userId: num
       userId,
       role,
       viewAll,
+      start_date,
+      end_date,
     } = params;
 
     const offset = (page - 1) * page_size;
@@ -108,6 +110,16 @@ export async function getCollectionTasks(params: TaskQueryParams & { userId: num
     if (params.handler_id) {
       conditions.push(`t.current_handler_id = $${paramIndex++}`);
       queryParams.push(params.handler_id);
+    }
+
+    // 创建日期范围过滤
+    if (start_date) {
+      conditions.push(`t.created_at >= $${paramIndex++}::timestamp`);
+      queryParams.push(start_date);
+    }
+    if (end_date) {
+      conditions.push(`t.created_at < ($${paramIndex++}::date + interval '1 day')`);
+      queryParams.push(end_date);
     }
 
     const whereClause = conditions.length > 0 ? conditions.join(' AND ') : '1=1';

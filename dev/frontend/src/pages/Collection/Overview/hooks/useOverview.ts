@@ -3,6 +3,7 @@
  * 管理列表页所有数据状态和操作
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import dayjs from 'dayjs';
 import {
   getCollectionStats,
   getCollectionTasks,
@@ -61,6 +62,7 @@ interface OverviewState {
   searchKeyword: string;
   metricFilter: string | null;
   handlerId: number | null;
+  dateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null;
   selectedRowKeys: number[];
   selectedRows: CollectionTask[];
 }
@@ -88,9 +90,18 @@ export function useOverview() {
     searchKeyword: '',
     metricFilter: null,
     handlerId: null,
+    dateRange: null,
     selectedRowKeys: [],
     selectedRows: [],
   });
+
+  // 将日期范围转为字符串作为稳定依赖
+  const dateRangeKey = useMemo(() => {
+    if (!state.dateRange || !state.dateRange[0] || !state.dateRange[1]) {
+      return '';
+    }
+    return `${state.dateRange[0].format('YYYY-MM-DD')}_${state.dateRange[1].format('YYYY-MM-DD')}`;
+  }, [state.dateRange]);
 
   /** 构建查询参数 */
   const buildQueryParams = useCallback((): CollectionTaskQueryParams => {
@@ -107,12 +118,17 @@ export function useOverview() {
     if (state.handlerId) {
       params.handlerId = state.handlerId;
     }
+    // 日期范围筛选
+    if (state.dateRange && state.dateRange[0] && state.dateRange[1]) {
+      params.startDate = state.dateRange[0].format('YYYY-MM-DD');
+      params.endDate = state.dateRange[1].format('YYYY-MM-DD');
+    }
     // 非管理员只看自己的任务
     if (!isAdmin) {
       params.tab = 'mine';
     }
     return params;
-  }, [state.page, state.pageSize, state.statusTab, state.searchKeyword, state.handlerId, isAdmin]);
+  }, [state.page, state.pageSize, state.statusTab, state.searchKeyword, state.handlerId, dateRangeKey, isAdmin]);
 
   /** 加载统计数据 */
   const fetchStats = useCallback(async () => {
@@ -193,7 +209,7 @@ export function useOverview() {
   /** 参数变化时重新加载列表 */
   useEffect(() => {
     fetchTasks();
-  }, [state.page, state.pageSize, state.statusTab, state.searchKeyword, state.handlerId]);
+  }, [state.page, state.pageSize, state.statusTab, state.searchKeyword, state.handlerId, dateRangeKey]);
 
   /** 切换状态 Tab */
   const setStatusTab = useCallback((tab: StatusTab) => {
@@ -235,6 +251,11 @@ export function useOverview() {
   /** 设置处理人筛选 */
   const setHandlerId = useCallback((handlerId: number | null) => {
     setState((s) => ({ ...s, handlerId, page: 1 }));
+  }, []);
+
+  /** 设置日期范围筛选 */
+  const setDateRange = useCallback((dateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null) => {
+    setState((s) => ({ ...s, dateRange, page: 1 }));
   }, []);
 
   /** 设置选中行 */
@@ -291,6 +312,7 @@ export function useOverview() {
     setPage,
     setPageSize,
     setHandlerId,
+    setDateRange,
     setSelection,
     clearSelection,
   };

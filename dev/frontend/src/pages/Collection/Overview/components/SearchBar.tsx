@@ -1,9 +1,10 @@
 /**
  * 搜索栏 + 快捷筛选组件
- * 支持搜索客户名称/任务编号/单据号 + 快捷筛选按钮 + 处理人筛选
+ * 支持搜索客户名称/任务编号/单据号 + 快捷筛选按钮 + 处理人筛选 + 日期范围筛选
  */
 import React, { useState, useCallback } from 'react';
-import { Input, Tag, Select } from 'antd';
+import { Input, Tag, Select, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import {
   SearchOutlined,
   FireOutlined,
@@ -18,9 +19,11 @@ interface SearchBarProps {
   quickFilter: QuickFilter;
   handlers: Handler[];
   selectedHandlerId: number | null;
+  dateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null;
   onSearch: (keyword: string) => void;
   onQuickFilter: (filter: QuickFilter) => void;
   onHandlerChange: (handlerId: number | null) => void;
+  onDateRangeChange: (range: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null) => void;
 }
 
 /** 快捷筛选配置 */
@@ -39,9 +42,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
   quickFilter,
   handlers,
   selectedHandlerId,
+  dateRange,
   onSearch,
   onQuickFilter,
   onHandlerChange,
+  onDateRangeChange,
 }) => {
   const [inputValue, setInputValue] = useState(searchKeyword);
 
@@ -101,6 +106,16 @@ const SearchBar: React.FC<SearchBarProps> = ({
           value={selectedHandlerId}
           onChange={(value) => onHandlerChange(value || null)}
           options={handlers.map((h) => ({ label: h.name, value: h.id }))}
+        />
+      </div>
+      <div className="date-filter">
+        <span className="date-filter-label">创建日期:</span>
+        <DatePicker.RangePicker
+          value={dateRange}
+          onChange={(dates) => onDateRangeChange(dates)}
+          placeholder={['开始日期', '结束日期']}
+          style={{ width: 260 }}
+          allowClear
         />
       </div>
     </div>

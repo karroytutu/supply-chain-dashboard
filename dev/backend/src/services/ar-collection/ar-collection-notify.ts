@@ -335,6 +335,7 @@ const WARNING_LEVELS: Record<string, WarningLevel> = {
 /** 单条欠款记录 */
 export interface WarningDebtItem {
   erpBillId: string;
+  billNo: string;        // 业务编号
   consumerName: string;
   leftAmount: number;
   expireDate: string;
@@ -401,7 +402,7 @@ export function buildMergedWarningMessage(params: {
       consumerLines.push(`- 商户：${consumerName}（${settleName}）`);
       for (const debt of consumerDebts) {
         consumerLines.push(
-          `  - ${debt.erpBillId} | ${formatAmount(debt.leftAmount)} | 到期 ${debt.expireDate}`
+          `  - ${debt.billNo} | ${formatAmount(debt.leftAmount)} | 到期 ${debt.expireDate}`
         );
       }
     }

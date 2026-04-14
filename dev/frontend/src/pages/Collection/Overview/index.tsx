@@ -157,9 +157,11 @@ const CollectionOverview: React.FC = () => {
           quickFilter={overview.quickFilter}
           handlers={overview.handlers}
           selectedHandlerId={overview.handlerId}
+          dateRange={overview.dateRange}
           onSearch={overview.setSearchKeyword}
           onQuickFilter={overview.setQuickFilter}
           onHandlerChange={overview.setHandlerId}
+          onDateRangeChange={overview.setDateRange}
         />
 
         {/* 指标卡 */}

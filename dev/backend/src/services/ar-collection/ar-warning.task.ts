@@ -24,6 +24,7 @@ import {
 
 interface ERPDebtRecord {
   billId: string;
+  bizStr: string;  // 业务编号
   consumerName: string;
   managerUsers: string;
   totalAmount: number;
@@ -60,7 +61,7 @@ export async function checkUpcomingOverdueReminders(): Promise<void> {
 
   try {
     // 1. 从ERP查询所有未收款的欠款
-    let erpSql = `SELECT "billId", "consumerName", "managerUsers",
+    let erpSql = `SELECT "billId", "bizStr", "consumerName", "managerUsers",
       "totalAmount", "leftAmount", "settleMethod",
       "consumerExpireDay", "workTime"
       FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
@@ -217,6 +218,7 @@ async function sendMergedReminder(
   // 转换为消息模板所需的格式
   const debtItems: WarningDebtItem[] = debtsToSend.map(d => ({
     erpBillId: d.billId,
+    billNo: d.bizStr || d.billId,  // 业务编号，fallback 到 billId
     consumerName: d.consumerName,
     leftAmount: Number(d.leftAmount),
     expireDate: d.expireDate.toISOString().slice(0, 10),
