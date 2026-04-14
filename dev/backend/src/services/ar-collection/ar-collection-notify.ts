@@ -30,7 +30,7 @@ const ESCALATION_LEVEL_NAMES: Record<EscalationLevel, string> = {
   2: '财务',
 };
 
-const ACTION_URL = '/collection';
+const ACTION_URL = 'https://xly.gzzxd.com/collection/overview';
 
 /**
  * 格式化时间戳

@@ -79,6 +79,7 @@ export default defineConfig({
       name: '催收管理',
       icon: 'AlertOutlined',
       wrappers: ['@/wrappers/auth'],
+      redirect: '/collection/overview',
       routes: [
         {
           path: 'overview',
