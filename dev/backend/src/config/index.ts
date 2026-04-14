@@ -20,6 +20,8 @@ export const config = {
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+    // 设置时区为北京时间
+    options: '-c timezone=Asia/Shanghai',
   },
   
   // 应用数据库（读写，用户认证等）
@@ -32,6 +34,8 @@ export const config = {
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+    // 设置时区为北京时间
+    options: '-c timezone=Asia/Shanghai',
   },
   
   // 钉钉配置
