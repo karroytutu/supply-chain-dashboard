@@ -40,9 +40,6 @@ function getCollectionRole(roles: string[]): RoleView {
   return 'marketer'; // 默认营销师视图
 }
 
-/** 快捷筛选类型 */
-export type QuickFilter = 'urgent' | 'expireToday' | 'timeout' | null;
-
 /** Tab 状态 */
 export type StatusTab = 'all' | CollectionTaskStatus;
 
@@ -58,7 +55,6 @@ interface OverviewState {
   page: number;
   pageSize: number;
   statusTab: StatusTab;
-  quickFilter: QuickFilter;
   searchKeyword: string;
   metricFilter: string | null;
   handlerId: number | null;
@@ -70,7 +66,7 @@ interface OverviewState {
 export function useOverview() {
   const { hasAnyRole, roles } = usePermission();
   const isAdmin = hasAnyRole([ROLES.ADMIN, ROLES.MANAGER]);
-  
+
   // 获取用户真实角色并映射到催收业务角色
   const userRole = getCollectionRole(roles);
 
@@ -86,7 +82,6 @@ export function useOverview() {
     page: 1,
     pageSize: 10,
     statusTab: 'all',
-    quickFilter: null,
     searchKeyword: '',
     metricFilter: null,
     handlerId: null,
@@ -221,15 +216,6 @@ export function useOverview() {
     setState((s) => ({ ...s, searchKeyword: keyword, page: 1 }));
   }, []);
 
-  /** 设置快捷筛选 */
-  const setQuickFilter = useCallback((filter: QuickFilter) => {
-    setState((s) => ({
-      ...s,
-      quickFilter: s.quickFilter === filter ? null : filter,
-      page: 1,
-    }));
-  }, []);
-
   /** 设置指标卡筛选 */
   const setMetricFilter = useCallback((metric: string | null) => {
     setState((s) => ({
@@ -268,20 +254,21 @@ export function useOverview() {
     setState((s) => ({ ...s, selectedRowKeys: [], selectedRows: [] }));
   }, []);
 
-  /** 过滤后的任务（前端筛选） */
+  /** 清除所有筛选条件 */
+  const clearAllFilters = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      searchKeyword: '',
+      handlerId: null,
+      dateRange: null,
+      metricFilter: null,
+      page: 1,
+    }));
+  }, []);
+
+  /** 过滤后的任务（前端筛选 - 仅指标卡筛选） */
   const filteredTasks = useMemo(() => {
     let list = state.tasks;
-    if (state.quickFilter === 'urgent') {
-      list = list.filter((t) => t.priority === 'critical' || t.priority === 'high');
-    } else if (state.quickFilter === 'expireToday') {
-      list = list.filter((t) => t.status === 'extension');
-    } else if (state.quickFilter === 'timeout') {
-      list = list.filter((t) => {
-        if (!t.lastCollectionAt) return true;
-        const diff = Date.now() - new Date(t.lastCollectionAt).getTime();
-        return diff > 7 * 24 * 3600 * 1000;
-      });
-    }
     if (state.metricFilter) {
       if (state.metricFilter === 'collecting') {
         list = list.filter((t) => t.status === 'collecting');
@@ -296,7 +283,7 @@ export function useOverview() {
       }
     }
     return list;
-  }, [state.tasks, state.quickFilter, state.metricFilter]);
+  }, [state.tasks, state.metricFilter]);
 
   return {
     ...state,
@@ -307,12 +294,12 @@ export function useOverview() {
     refresh,
     setStatusTab,
     setSearchKeyword,
-    setQuickFilter,
     setMetricFilter,
     setPage,
     setPageSize,
     setHandlerId,
     setDateRange,
+    clearAllFilters,
     setSelection,
     clearSelection,
   };

@@ -1,17 +1,18 @@
 /**
  * 催收总览页面 - 列表页
  * 逾期催收管理的主入口页面
- * 优化：集成批量操作、表格列合并
+ * 优化：集成批量操作、表格列合并、筛选板块UX优化
  */
 import React, { useCallback, useState } from 'react';
 import { message } from 'antd';
 import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
 import useOverview from './hooks/useOverview';
+import useMedia from './hooks/useMedia';
 import MyTasksPanel from './components/MyTasksPanel';
 import WarningPanel from './components/WarningPanel';
 import WarningDetailModal from './components/WarningDetailModal';
-import SearchBar from './components/SearchBar';
+import FilterBar from './components/FilterBar';
 import CollectionStats from './components/CollectionStats';
 import StatusDistribution from './components/StatusDistribution';
 import CollectionTable from './components/CollectionTable';
@@ -26,6 +27,7 @@ import './index.less';
 
 const CollectionOverview: React.FC = () => {
   const overview = useOverview();
+  const { isMobile } = useMedia();
 
   // 弹窗状态
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -65,9 +67,8 @@ const CollectionOverview: React.FC = () => {
         overview.setStatusTab('difference_processing');
       } else if (filterType === 'pending_verify') {
         overview.setStatusTab('pending_verify');
-      } else if (filterType === 'timeout') {
-        overview.setQuickFilter('timeout');
       }
+      // timeout 筛选功能已移除
     },
     [overview],
   );
@@ -151,17 +152,18 @@ const CollectionOverview: React.FC = () => {
           onCardClick={handleWarningCardClick}
         />
 
-        {/* 搜索 + 快捷筛选 */}
-        <SearchBar
+        {/* 筛选栏 */}
+        <FilterBar
           searchKeyword={overview.searchKeyword}
-          quickFilter={overview.quickFilter}
           handlers={overview.handlers}
           selectedHandlerId={overview.handlerId}
           dateRange={overview.dateRange}
           onSearch={overview.setSearchKeyword}
-          onQuickFilter={overview.setQuickFilter}
           onHandlerChange={overview.setHandlerId}
           onDateRangeChange={overview.setDateRange}
+          onClearAll={overview.clearAllFilters}
+          isMobile={isMobile}
+          isAdmin={overview.isAdmin}
         />
 
         {/* 指标卡 */}
