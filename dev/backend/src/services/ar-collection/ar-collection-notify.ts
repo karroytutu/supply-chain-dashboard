@@ -5,7 +5,7 @@
 
 import { appQuery } from '../../db/appPool';
 import { sendWorkNotification } from '../dingtalk.service';
-import type { CollectionTask, Priority, EscalationLevel } from './ar-collection.types';
+import type { CollectionTask, EscalationLevel } from './ar-collection.types';
 
 /** 通知发送参数 */
 interface NotifyParams {
@@ -22,14 +22,6 @@ interface MessageTemplate {
   title: string;
   content: string;
 }
-
-/** 优先级中文映射 */
-const PRIORITY_NAMES: Record<Priority, string> = {
-  critical: '紧急',
-  high: '高',
-  medium: '中',
-  low: '低',
-};
 
 /** 升级层级中文映射 */
 const ESCALATION_LEVEL_NAMES: Record<EscalationLevel, string> = {
@@ -147,40 +139,6 @@ export async function sendCollectionNotificationByRole(
 // ============================================
 // 消息模板函数
 // ============================================
-
-/**
- * 构建逾期催收提醒消息模板
- */
-export function buildOverdueReminderMessage(
-  task: CollectionTask,
-  details: { bill_count: number; total_amount: number; max_overdue_days: number }
-): MessageTemplate {
-  const priorityName = task.priority ? PRIORITY_NAMES[task.priority] : '未设定';
-
-  const title = `【催收提醒】${task.consumer_name || task.consumer_code} 有 ${details.bill_count} 笔逾期应收待催收`;
-
-  const content = `### 逾期催收提醒
-
-您负责的客户有逾期应收款待催收：
-
-| 项目 | 详情 |
-|------|------|
-| 任务编号 | ${task.task_no} |
-| 客户名称 | ${task.consumer_name || task.consumer_code} |
-| 逾期笔数 | ${details.bill_count} 笔 |
-| 逾期总额 | ${formatAmount(details.total_amount)} |
-| 最大逾期天数 | ${details.max_overdue_days} 天 |
-| 优先级 | ${priorityName} |
-
-请及时跟进催收！
-
----
-点击查看详情: ${ACTION_URL}
-
-推送时间：${formatTimestamp()}`;
-
-  return { title, content };
-}
 
 /**
  * 构建延期到期提醒消息模板

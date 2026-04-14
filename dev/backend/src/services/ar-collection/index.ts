@@ -51,7 +51,6 @@ export {
 export {
   sendCollectionNotification,
   sendCollectionNotificationByRole,
-  buildOverdueReminderMessage,
   buildExtensionExpiryMessage,
   buildEscalationMessage,
   buildVerifyResultMessage,
@@ -59,7 +58,6 @@ export {
 
 // 定时提醒任务
 export {
-  checkOverdueReminders,
   checkExtensionExpiryReminders,
 } from './ar-collection-reminder.task';
 

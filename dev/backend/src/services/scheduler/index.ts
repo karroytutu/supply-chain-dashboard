@@ -14,7 +14,6 @@ import {
   checkExtensionExpiry,
 } from '../ar-collection/ar-collection-sync.task';
 import {
-  checkOverdueReminders,
   checkExtensionExpiryReminders,
 } from '../ar-collection/ar-collection-reminder.task';
 import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
@@ -136,17 +135,11 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
-  // 催收提醒检查 - 每天晚上 20:00
+  // 催收预警提醒 - 每天晚上 20:00
   cron.schedule(
     '0 20 * * *',
     async () => {
-      console.log('[Scheduler] 执行催收提醒检查...');
-      try {
-        await checkOverdueReminders();
-        console.log('[Scheduler] 逾期催收提醒检查完成');
-      } catch (error) {
-        console.error('[Scheduler] 逾期催收提醒检查失败:', error);
-      }
+      console.log('[Scheduler] 执行催收预警提醒检查...');
       try {
         await checkExtensionExpiryReminders();
         console.log('[Scheduler] 延期到期提醒检查完成');
@@ -170,7 +163,7 @@ export function startScheduler(): void {
   console.log('  - 催收ERP数据同步: 每天 06:00 (Asia/Shanghai)');
   console.log('  - 催收任务生成: 每天 20:00 (Asia/Shanghai)');
   console.log('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
-  console.log('  - 催收提醒检查: 每天 20:00 (Asia/Shanghai) [含逾期前预警]');
+  console.log('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
   console.log('[Scheduler] 定时任务调度器启动完成');
 }
 
