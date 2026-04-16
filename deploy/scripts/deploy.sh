@@ -122,6 +122,15 @@ fi
 log_info "部署 Docker 容器..."
 cd "$DEPLOY_DIR"
 
+# 创建上传目录（确保目录存在并设置正确权限）
+log_info "初始化上传目录..."
+mkdir -p /data/uploads/return-evidence
+mkdir -p /data/uploads/ar-evidence
+chmod 755 /data/uploads
+chmod 755 /data/uploads/return-evidence
+chmod 755 /data/uploads/ar-evidence
+log_info "上传目录已创建: /data/uploads"
+
 # 停止现有容器
 docker-compose down 2>/dev/null || true
 log_info "已停止现有容器"

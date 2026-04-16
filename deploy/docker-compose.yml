@@ -28,6 +28,9 @@ services:
     container_name: xly-backend
     restart: unless-stopped
     network_mode: host
+    volumes:
+      # 挂载上传目录到宿主机，保证数据持久化
+      - /data/uploads:/app/uploads:rw
     env_file:
       - ../prod/backend/.env
     healthcheck:
