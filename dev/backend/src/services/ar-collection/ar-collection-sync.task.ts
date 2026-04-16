@@ -150,11 +150,17 @@ export async function generateCollectionTasks(): Promise<void> {
     }
     console.log(`[ARSync] 发现 ${overdueDebts.length} 条新增逾期欠款`);
 
-    // 3. 按客户+逾期日期分组
+    // 3. 按客户+逾期触发日期分组
+    // 逾期触发日期 = 单据日期 + 账期天数
     const groups = new Map<string, (ERPDebtRecord & { overdueDays: number })[]>();
     for (const debt of overdueDebts) {
-      const batchDate = new Date(debt.workTime).toISOString().slice(0, 10);
-      const key = `${debt.consumerName}||${batchDate}`;
+      // 计算逾期触发日期
+      const workDate = new Date(debt.workTime);
+      const maxDays = Number(debt.settleMethod) === 2 ? (Number(debt.consumerExpireDay) || 0) : 7;
+      const overdueDate = new Date(workDate.getTime() + maxDays * 86400000);
+      const overdueDateStr = overdueDate.toISOString().slice(0, 10);
+
+      const key = `${debt.consumerName}||${overdueDateStr}`;  // 按逾期日期分组
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(debt);
     }
@@ -186,10 +192,8 @@ export async function generateCollectionTasks(): Promise<void> {
         const priority = calcPriority(maxOverdue);
         // 首次同步已完成，后续任务均为日常批次
         const batchType: BatchType = 'daily';
-        const firstOverdueDate = debts
-          .map((d) => new Date(d.workTime))
-          .sort((a, b) => a.getTime() - b.getTime())[0]
-          .toISOString().slice(0, 10);
+        // batchDate 现在是逾期触发日期，分组内所有欠款的逾期日期相同
+        const firstOverdueDate = batchDate;
 
         // 匹配责任人(取第一条的managerUsers)
         const managerName = debts[0].managerUsers || null;
@@ -334,6 +338,12 @@ async function handleRemovedDebt(detail: LocalDetail): Promise<void> {
   if (taskResult.rows.length === 0) return;
 
   const task = taskResult.rows[0];
+
+  // 如果任务已关闭，跳过处理，避免重复记录历史
+  if (task.status === 'closed') {
+    console.log(`[ARSync] 任务 #${task.id} 已关闭，跳过处理`);
+    return;
+  }
 
   // 根据任务状态决定处理方式
   if (task.status === 'pending_verify' || task.status === 'verified') {
