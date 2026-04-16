@@ -13,6 +13,7 @@ import {
   confirmPenalty,
   cancelPenalty,
   appealPenalty,
+  triggerPenaltyCalculation,
 } from '../controllers/return-penalty.controller';
 
 const router = Router();
@@ -42,6 +43,17 @@ router.get(
   '/stats',
   requirePermission('return:penalty:read'),
   getPenaltyStatistics
+);
+
+/**
+ * 手动触发考核计算
+ * POST /api/return-penalty/calculate
+ * 权限: return:penalty:write (管理员运维使用)
+ */
+router.post(
+  '/calculate',
+  requirePermission('return:penalty:write'),
+  triggerPenaltyCalculation
 );
 
 /**

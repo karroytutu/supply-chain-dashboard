@@ -9,6 +9,7 @@ import {
   getPenaltyById,
   getPenaltyStats,
   updatePenaltyStatus,
+  calculateReturnPenalties,
 } from '../services/return-penalty';
 
 // ==================== 类型定义 ====================
@@ -367,6 +368,50 @@ export const appealPenalty = async (req: Request, res: Response) => {
     res.status(500).json({
       code: 500,
       message: '申诉考核失败',
+      data: null,
+    });
+  }
+};
+
+/**
+ * 手动触发考核计算
+ * POST /api/return-penalty/calculate
+ * 权限: return:penalty:write (仅管理员使用)
+ */
+export const triggerPenaltyCalculation = async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    if (!user) {
+      return res.status(401).json({
+        code: 401,
+        message: '未登录',
+        data: null,
+      });
+    }
+
+    console.log(`[ReturnPenaltyController] 手动触发考核计算，操作人: ${user.name}`);
+
+    // 执行考核计算
+    const results = await calculateReturnPenalties();
+
+    // 统计结果
+    const totalCreated = results.reduce((sum, r) => sum + r.createdCount, 0);
+    const totalProcessed = results.reduce((sum, r) => sum + r.processedCount, 0);
+
+    res.json({
+      code: 200,
+      message: `考核计算完成，处理 ${totalProcessed} 条记录，创建 ${totalCreated} 条考核`,
+      data: {
+        totalProcessed,
+        totalCreated,
+        details: results,
+      },
+    });
+  } catch (error) {
+    console.error('[ReturnPenaltyController] 手动触发考核计算失败:', error);
+    res.status(500).json({
+      code: 500,
+      message: '考核计算失败',
       data: null,
     });
   }

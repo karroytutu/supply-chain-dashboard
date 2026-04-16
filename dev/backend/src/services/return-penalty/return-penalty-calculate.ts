@@ -439,11 +439,10 @@ async function checkWarehouseExecuteTimeout(): Promise<CalculationResult> {
     return { type: 'warehouse_execute_timeout', processedCount: 0, createdCount: 0, updatedCount: 0 };
   }
 
-  // 定义仓储执行相关考核角色
+  // 定义仓储执行相关考核角色（仓储主管和库管员）
   const WAREHOUSE_EXECUTION_ROLES = [
     'warehouse_manager',
-    'warehouse_keeper',
-    'logistics_manager',
+    'warehouse_operator',
   ] as const;
 
   // 获取所有相关角色的用户
@@ -516,6 +515,89 @@ async function checkWarehouseExecuteTimeout(): Promise<CalculationResult> {
 }
 
 /**
+ * 规则3定时检查: 退货时保质期不足考核
+ * 退货时剩余保质期低于15天，按商品进价全额考核营销师
+ * 此函数用于定时任务补偿，检查已有但未创建考核的记录
+ */
+async function checkReturnExpireInsufficient(): Promise<CalculationResult> {
+  console.log('[ReturnPenalty] 检查退货保质期不足考核(定时补偿)...');
+
+  // 查询退货时保质期不足15天且未创建考核记录的退货单
+  const result = await appQuery<{
+    id: number;
+    return_no: string;
+    goods_name: string;
+    marketing_manager: string;
+    purchase_price: string;
+    days_to_expire_at_return: number;
+  }>(
+    `SELECT id, return_no, goods_name, marketing_manager, purchase_price, days_to_expire_at_return
+     FROM expiring_return_orders
+     WHERE days_to_expire_at_return IS NOT NULL
+       AND days_to_expire_at_return < 15
+       AND NOT EXISTS (
+         SELECT 1 FROM return_penalty_records
+         WHERE return_order_id = expiring_return_orders.id
+           AND penalty_type = 'return_expire_insufficient'
+       )`
+  );
+
+  const orders = result.rows;
+  if (orders.length === 0) {
+    return { type: 'return_expire_insufficient', processedCount: 0, createdCount: 0, updatedCount: 0 };
+  }
+
+  const rule = PENALTY_RULES.return_expire_insufficient;
+  let createdCount = 0;
+  let skippedCount = 0;
+
+  for (const order of orders) {
+    if (!order.marketing_manager) {
+      console.warn(`[ReturnPenalty] 退货单 ${order.return_no} 无营销师信息，跳过规则3考核`);
+      skippedCount++;
+      continue;
+    }
+
+    // 查找营销师用户
+    const user = await findUserByName(order.marketing_manager);
+    if (!user) {
+      console.warn(`[ReturnPenalty] 未找到营销师用户: ${order.marketing_manager}，跳过退货单 ${order.return_no}`);
+      skippedCount++;
+      continue;
+    }
+
+    const purchasePrice = parseFloat(order.purchase_price || '0');
+    const penaltyAmount = purchasePrice; // 全额考核
+
+    await upsertPenaltyRecord({
+      returnOrderId: order.id,
+      penaltyType: 'return_expire_insufficient',
+      penaltyUserId: user.id,
+      penaltyUserName: user.name,
+      penaltyRole: 'marketing_manager',
+      baseAmount: purchasePrice,
+      penaltyRate: 0,
+      overdueDays: 0,
+      penaltyAmount,
+      penaltyRuleSnapshot: {
+        ruleName: rule.name,
+        description: rule.description,
+        daysToExpireAtReturn: order.days_to_expire_at_return,
+        threshold: 15,
+        purchasePrice,
+      },
+    });
+    createdCount++;
+  }
+
+  console.log(
+    `[ReturnPenalty] 退货保质期不足考核: 处理 ${orders.length} 条, ` +
+    `创建 ${createdCount} 条记录, 跳过 ${skippedCount} 条`
+  );
+  return { type: 'return_expire_insufficient', processedCount: orders.length, createdCount, updatedCount: 0 };
+}
+
+/**
  * 执行所有考核计算
  * 定时任务入口函数
  */
@@ -525,11 +607,12 @@ export async function calculateReturnPenalties(): Promise<CalculationResult[]> {
   const results: CalculationResult[] = [];
 
   try {
-    // 依次执行所有考核规则检查
-    results.push(await checkProcurementConfirmTimeout());
-    results.push(await checkErpFillTimeout());
-    results.push(await checkWarehouseExecuteTimeout());
-    results.push(await checkMarketingSaleTimeout());
+    // 依次执行所有考核规则检查（按规则编号顺序）
+    results.push(await checkProcurementConfirmTimeout());   // 规则1
+    results.push(await checkMarketingSaleTimeout());        // 规则2
+    results.push(await checkReturnExpireInsufficient());    // 规则3 (定时补偿)
+    results.push(await checkErpFillTimeout());              // 规则4
+    results.push(await checkWarehouseExecuteTimeout());     // 规则5
 
     const totalCreated = results.reduce((sum, r) => sum + r.createdCount, 0);
     console.log(`[ReturnPenalty] 考核计算完成，共创建 ${totalCreated} 条考核记录`);

@@ -158,9 +158,11 @@ const CollectionOverview: React.FC = () => {
           handlers={overview.handlers}
           selectedHandlerId={overview.handlerId}
           dateRange={overview.dateRange}
+          statusTab={overview.statusTab}
           onSearch={overview.setSearchKeyword}
           onHandlerChange={overview.setHandlerId}
           onDateRangeChange={overview.setDateRange}
+          onStatusTabChange={overview.setStatusTab}
           onClearAll={overview.clearAllFilters}
           isMobile={isMobile}
           isAdmin={overview.isAdmin}
