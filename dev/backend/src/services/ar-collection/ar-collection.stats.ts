@@ -19,8 +19,8 @@ export async function getCollectionStats(userId: number, role: string) {
         COALESCE(SUM(CASE WHEN status IN ('difference_processing', 'extension', 'escalated') THEN total_amount END), 0) AS waiting_amount,
         COUNT(CASE WHEN status = 'pending_verify' OR max_overdue_days >= 30 THEN 1 END) AS attention_count,
         COALESCE(SUM(CASE WHEN status = 'pending_verify' OR max_overdue_days >= 30 THEN total_amount END), 0) AS attention_amount,
-        COUNT(CASE WHEN status = 'verified' AND created_at >= date_trunc('month', CURRENT_DATE) THEN 1 END) AS collected_count,
-        COALESCE(SUM(CASE WHEN status = 'verified' AND created_at >= date_trunc('month', CURRENT_DATE) THEN total_amount END), 0) AS collected_amount
+        COUNT(CASE WHEN status IN ('verified', 'closed') AND created_at >= date_trunc('month', CURRENT_DATE) THEN 1 END) AS collected_count,
+        COALESCE(SUM(CASE WHEN status IN ('verified', 'closed') AND created_at >= date_trunc('month', CURRENT_DATE) THEN total_amount END), 0) AS collected_amount
       FROM ar_collection_tasks`
     );
 

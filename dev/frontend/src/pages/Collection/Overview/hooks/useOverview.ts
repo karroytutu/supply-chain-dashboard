@@ -279,7 +279,7 @@ export function useOverview() {
       } else if (state.metricFilter === 'attention') {
         list = list.filter((t) => t.status === 'pending_verify' || t.maxOverdueDays >= 30);
       } else if (state.metricFilter === 'collected') {
-        list = list.filter((t) => t.status === 'verified');
+        list = list.filter((t) => t.status === 'verified' || t.status === 'closed');
       }
     }
     return list;

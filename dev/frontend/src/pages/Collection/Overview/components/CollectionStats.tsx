@@ -44,7 +44,7 @@ const METRIC_CARDS = [
   },
   {
     key: 'collected',
-    label: '本月已收回',
+    label: '本月已核销',
     icon: <CheckCircleOutlined />,
     color: '#52c41a',
     field: 'collected' as const,
