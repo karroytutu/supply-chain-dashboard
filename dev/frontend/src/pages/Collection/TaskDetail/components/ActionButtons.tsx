@@ -1,6 +1,7 @@
 /**
  * 操作按钮组
  * 根据角色和任务状态显示不同的操作按钮
+ * 移动端自动适配短文字
  */
 import React from 'react';
 import { Button, Space } from 'antd';
@@ -53,16 +54,20 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
   const renderCollectorButtons = () => (
     <Space className="action-bar">
       <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => onAction('verify')}>
-        核销回款
+        <span className="btn-text-full">核销回款</span>
+        <span className="btn-text-short">核销</span>
       </Button>
       <Button icon={<HourglassOutlined />} onClick={() => onAction('extension')}>
-        申请延期
+        <span className="btn-text-full">申请延期</span>
+        <span className="btn-text-short">延期</span>
       </Button>
       <Button icon={<ExclamationCircleOutlined />} onClick={() => onAction('difference')}>
-        标记差异
+        <span className="btn-text-full">标记差异</span>
+        <span className="btn-text-short">差异</span>
       </Button>
       <Button danger icon={<ArrowUpOutlined />} onClick={() => onAction('escalate')}>
-        升级处理
+        <span className="btn-text-full">升级处理</span>
+        <span className="btn-text-short">升级</span>
       </Button>
     </Space>
   );
@@ -70,16 +75,20 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
   const renderSupervisorButtons = () => (
     <Space className="action-bar">
       <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => onAction('verify')}>
-        核销回款
+        <span className="btn-text-full">核销回款</span>
+        <span className="btn-text-short">核销</span>
       </Button>
       <Button icon={<HourglassOutlined />} onClick={() => onAction('extension')}>
-        申请延期
+        <span className="btn-text-full">申请延期</span>
+        <span className="btn-text-short">延期</span>
       </Button>
       <Button icon={<ExclamationCircleOutlined />} onClick={() => onAction('difference')}>
-        标记差异
+        <span className="btn-text-full">标记差异</span>
+        <span className="btn-text-short">差异</span>
       </Button>
       <Button danger icon={<ArrowUpOutlined />} onClick={() => onAction('escalate')}>
-        升级至财务
+        <span className="btn-text-full">升级至财务</span>
+        <span className="btn-text-short">升级</span>
       </Button>
     </Space>
   );
@@ -91,13 +100,16 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
         icon={<ExclamationCircleOutlined />}
         onClick={() => onAction('resolveDifference')}
       >
-        处理差异
+        <span className="btn-text-full">处理差异</span>
+        <span className="btn-text-short">差异</span>
       </Button>
       <Button icon={<SendOutlined />} onClick={() => onAction('sendNotice')}>
-        发送催收函
+        <span className="btn-text-full">发送催收函</span>
+        <span className="btn-text-short">发函</span>
       </Button>
       <Button danger icon={<FileTextOutlined />} onClick={() => onAction('lawsuit')}>
-        提起诉讼
+        <span className="btn-text-full">提起诉讼</span>
+        <span className="btn-text-short">诉讼</span>
       </Button>
     </Space>
   );

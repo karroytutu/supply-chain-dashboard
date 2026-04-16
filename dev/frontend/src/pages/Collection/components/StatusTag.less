@@ -1,0 +1,37 @@
+/**
+ * 催收状态标签组件样式
+ */
+
+.status-level-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.status-tag-popover {
+  font-size: 12px;
+
+  .popover-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .popover-label {
+      color: #8c8c8c;
+      min-width: 60px;
+    }
+
+    .popover-value {
+      color: #262626;
+      font-weight: 500;
+    }
+  }
+}

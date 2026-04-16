@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, message } from 'antd';
 import { markDifference } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
+import styles from './ModalMobile.less';
 
 interface DifferenceModalProps {
   visible: boolean;
@@ -61,6 +62,7 @@ const DifferenceModal: React.FC<DifferenceModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       {selectedCount > 0 && (
         <div style={{ marginBottom: 12 }}>

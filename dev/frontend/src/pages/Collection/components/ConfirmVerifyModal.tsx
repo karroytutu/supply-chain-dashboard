@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Radio, Descriptions, message } from 'antd';
 import { confirmVerify } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
+import styles from './ModalMobile.less';
 
 interface ConfirmVerifyModalProps {
   visible: boolean;
@@ -64,6 +65,7 @@ const ConfirmVerifyModal: React.FC<ConfirmVerifyModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       <Descriptions column={1} bordered size="small" style={{ marginBottom: 16 }}>
         <Descriptions.Item label="客户">{task.consumerName}</Descriptions.Item>

@@ -8,6 +8,7 @@ import { UploadOutlined } from '@ant-design/icons';
 import { fileLawsuit, uploadEvidence } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import type { UploadFile } from 'antd/es/upload/interface';
+import styles from './ModalMobile.less';
 
 interface LawsuitModalProps {
   visible: boolean;
@@ -72,6 +73,7 @@ const LawsuitModal: React.FC<LawsuitModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       <div style={{ marginBottom: 16, color: '#666' }}>
         客户：{task.consumerName}，欠款总额：¥{task.totalAmount.toLocaleString()}

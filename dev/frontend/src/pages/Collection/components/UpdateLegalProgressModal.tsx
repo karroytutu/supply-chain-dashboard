@@ -8,6 +8,7 @@ import { UploadOutlined } from '@ant-design/icons';
 import { updateLegalProgress, uploadEvidence } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import type { UploadFile } from 'antd/es/upload/interface';
+import styles from './ModalMobile.less';
 
 interface UpdateLegalProgressModalProps {
   visible: boolean;
@@ -72,6 +73,7 @@ const UpdateLegalProgressModal: React.FC<UpdateLegalProgressModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       <Form form={form} layout="vertical">
         <Form.Item

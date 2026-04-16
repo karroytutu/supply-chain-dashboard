@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Alert, message } from 'antd';
 import { verifyTask } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
+import styles from './ModalMobile.less';
 
 interface VerifyModalProps {
   /** 是否可见 */
@@ -68,6 +69,7 @@ const VerifyModal: React.FC<VerifyModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       <div style={{ marginBottom: 16 }}>
         {isWholeOrder ? (

@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Radio, Alert, Descriptions, message } from 'antd';
 import { escalateTask } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail, EscalationLevel } from '@/types/ar-collection';
+import styles from './ModalMobile.less';
 
 interface EscalateModalProps {
   visible: boolean;
@@ -76,6 +77,7 @@ const EscalateModal: React.FC<EscalateModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       <Alert
         type="info"

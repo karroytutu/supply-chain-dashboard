@@ -111,6 +111,14 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 8px;
+
+        .urgent-badge {
+          font-size: 10px;
+          background: #ff4d4f;
+          color: #fff;
+          padding: 1px 6px;
+          border-radius: 8px;
+        }
       }
 
       .type-icon {
@@ -132,6 +140,44 @@
         font-size: 12px;
         color: #ff4d4f;
         margin-top: 4px;
+      }
+
+      .type-action-hint {
+        font-size: 11px;
+        color: #bfbfbf;
+        margin-top: 6px;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+
+      &:hover .type-action-hint {
+        opacity: 1;
+      }
+    }
+  }
+
+  /* 待办卡片 Tooltip 样式 */
+  .task-card-tooltip {
+    .tooltip-title {
+      font-weight: 500;
+      color: #262626;
+      margin-bottom: 4px;
+    }
+
+    .tooltip-desc {
+      font-size: 12px;
+      color: #595959;
+      margin-bottom: 6px;
+    }
+
+    .tooltip-actions {
+      font-size: 11px;
+      color: #8c8c8c;
+      border-top: 1px solid #f0f0f0;
+      padding-top: 6px;
+
+      .actions-label {
+        color: #bfbfbf;
       }
     }
   }
@@ -765,11 +811,45 @@
   .task-card {
     margin-bottom: 12px;
 
+    // 选中状态样式
+    &.task-card-selected {
+      :global {
+        .ant-card {
+          border-color: #1890ff;
+          background: #e6f7ff;
+        }
+      }
+    }
+
     .task-card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 8px;
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .task-card-checkbox {
+        margin-right: 0;
+
+        :global {
+          .ant-checkbox-inner {
+            width: 20px;
+            height: 20px;
+          }
+
+          .ant-checkbox-input {
+            width: 20px;
+            height: 20px;
+          }
+        }
+      }
 
       .task-card-no {
         font-size: 13px;
@@ -987,6 +1067,45 @@
       padding: 6px 12px;
       font-size: 12px;
       flex-shrink: 0;
+    }
+
+    // 移动端分页器简化
+    :global {
+      .ant-pagination {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: center;
+        gap: 4px;
+
+        .ant-pagination-item,
+        .ant-pagination-prev,
+        .ant-pagination-next {
+          min-width: 44px;
+          min-height: 44px;
+          line-height: 42px;
+        }
+
+        // 隐藏页码详情
+        .ant-pagination-total-text,
+        .ant-pagination-options {
+          display: none;
+        }
+
+        // 简化页码显示，只保留当前页
+        .ant-pagination-item:not(.ant-pagination-item-active) {
+          display: none;
+        }
+
+        .ant-pagination-item-active {
+          display: inline-flex;
+        }
+
+        // 保留前后翻页
+        .ant-pagination-prev,
+        .ant-pagination-next {
+          display: inline-flex;
+        }
+      }
     }
   }
 

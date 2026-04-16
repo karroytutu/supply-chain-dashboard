@@ -1,6 +1,7 @@
 /**
  * 欠款明细表格
  * 支持行选择、行内操作下拉菜单，显示选中统计
+ * 移动端使用卡片列表展示
  */
 import React from 'react';
 import { Table, Dropdown, Button, Tag } from 'antd';
@@ -8,6 +9,8 @@ import { DownOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { CollectionDetail, CollectionDetailStatus } from '@/types/ar-collection';
 import type { ModalType } from '../hooks/useTaskDetail';
+import useMedia from '@/pages/Collection/Overview/hooks/useMedia';
+import DetailCard from './DetailCard';
 
 interface DetailTableProps {
   details: CollectionDetail[];
@@ -47,6 +50,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
   onRowAction,
   showActions = true,
 }) => {
+  const { isMobile } = useMedia();
   const selectedCount = selectedDetailIds.length;
 
   const actionMenuItems = (record: CollectionDetail) => [
@@ -55,6 +59,31 @@ const DetailTable: React.FC<DetailTableProps> = ({
     { key: 'difference', label: '标记差异' },
     { key: 'escalate', label: '升级处理' },
   ];
+
+  /** 移动端卡片选择处理 */
+  const handleCardSelect = (id: number) => {
+    if (selectedDetailIds.includes(id)) {
+      onSelectionChange(selectedDetailIds.filter((i) => i !== id));
+    } else {
+      onSelectionChange([...selectedDetailIds, id]);
+    }
+  };
+
+  /** 渲染移动端卡片列表 */
+  const renderMobileCards = () => (
+    <div className="detail-card-list">
+      {details.map((detail) => (
+        <DetailCard
+          key={detail.id}
+          detail={detail}
+          selected={selectedDetailIds.includes(detail.id)}
+          showActions={showActions}
+          onSelect={handleCardSelect}
+          onAction={onRowAction}
+        />
+      ))}
+    </div>
+  );
 
   const columns: ColumnsType<CollectionDetail> = [
     {
@@ -132,17 +161,22 @@ const DetailTable: React.FC<DetailTableProps> = ({
         <span className="table-title">欠款明细 ({details.length}笔)</span>
       </div>
 
-      <Table<CollectionDetail>
-        rowKey="id"
-        columns={columns}
-        dataSource={details}
-        pagination={false}
-        size="middle"
-        rowSelection={{
-          selectedRowKeys: selectedDetailIds,
-          onChange: (keys) => onSelectionChange(keys as number[]),
-        }}
-      />
+      {/* 移动端显示卡片列表，桌面端显示表格 */}
+      {isMobile ? (
+        renderMobileCards()
+      ) : (
+        <Table<CollectionDetail>
+          rowKey="id"
+          columns={columns}
+          dataSource={details}
+          pagination={false}
+          size="middle"
+          rowSelection={{
+            selectedRowKeys: selectedDetailIds,
+            onChange: (keys) => onSelectionChange(keys as number[]),
+          }}
+        />
+      )}
 
       <div className="selection-info">
         <span>

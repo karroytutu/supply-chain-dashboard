@@ -1,0 +1,146 @@
+/**
+ * 移动端欠款明细卡片样式
+ */
+@import '~@/styles/variables.less';
+
+.detailCard {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s ease;
+
+  &.selected {
+    border-color: #1890ff;
+    background: #e6f7ff;
+  }
+
+  &:active {
+    background: #fafafa;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f5f5f5;
+
+  .headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .billNo {
+    font-size: 15px;
+    font-weight: 500;
+    color: #262626;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :global {
+    .ant-checkbox-wrapper {
+      min-height: @touch-target-size;
+      display: flex;
+      align-items: center;
+    }
+
+    .ant-tag {
+      margin-right: 0;
+    }
+  }
+}
+
+.cardBody {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
+
+  .infoRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 24px;
+  }
+
+  .label {
+    font-size: 12px;
+    color: #8c8c8c;
+    flex-shrink: 0;
+  }
+
+  .value {
+    font-size: 13px;
+    color: #262626;
+    text-align: right;
+  }
+
+  .amountValue {
+    font-size: 14px;
+    font-weight: 500;
+    color: #ff4d4f;
+    text-align: right;
+  }
+
+  .overdueValue {
+    font-size: 13px;
+    font-weight: 500;
+    text-align: right;
+  }
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid #f5f5f5;
+
+  :global {
+    .ant-btn-link {
+      padding: 4px 8px;
+      min-height: @touch-target-size;
+      display: flex;
+      align-items: center;
+    }
+  }
+}
+
+// 超小屏适配
+@media (max-width: @screen-xs) {
+  .detailCard {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+
+  .cardHeader {
+    .billNo {
+      font-size: 14px;
+    }
+  }
+
+  .cardBody {
+    gap: 6px 12px;
+
+    .label {
+      font-size: 11px;
+    }
+
+    .value,
+    .overdueValue {
+      font-size: 12px;
+    }
+
+    .amountValue {
+      font-size: 13px;
+    }
+  }
+}

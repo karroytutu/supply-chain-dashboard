@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Radio, message } from 'antd';
 import { resolveDifference } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
+import styles from './ModalMobile.less';
 
 interface ResolveDifferenceModalProps {
   visible: boolean;
@@ -59,6 +60,7 @@ const ResolveDifferenceModal: React.FC<ResolveDifferenceModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       <div style={{ marginBottom: 16, color: '#666' }}>
         客户：{task.consumerName}，欠款总额：¥{task.totalAmount.toLocaleString()}

@@ -8,6 +8,7 @@ import { UploadOutlined } from '@ant-design/icons';
 import { sendNotice, uploadEvidence } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import type { UploadFile } from 'antd/es/upload/interface';
+import styles from './ModalMobile.less';
 
 interface SendNoticeModalProps {
   visible: boolean;
@@ -71,6 +72,7 @@ const SendNoticeModal: React.FC<SendNoticeModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       <Descriptions column={1} size="small" bordered style={{ marginBottom: 16 }}>
         <Descriptions.Item label="客户">{task.consumerName}</Descriptions.Item>

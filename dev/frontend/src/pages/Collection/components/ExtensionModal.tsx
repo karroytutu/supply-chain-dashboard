@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import { applyExtension, uploadEvidence } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import type { UploadFile } from 'antd/es/upload/interface';
+import styles from './ModalMobile.less';
 
 interface ExtensionModalProps {
   visible: boolean;
@@ -100,6 +101,7 @@ const ExtensionModal: React.FC<ExtensionModalProps> = ({
       cancelText="取消"
       confirmLoading={loading}
       destroyOnClose
+      className={styles['collection-modal-mobile']}
     >
       {selectedCount > 0 && (
         <div style={{ marginBottom: 12 }}>

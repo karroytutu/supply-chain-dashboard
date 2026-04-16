@@ -41,7 +41,12 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({ task }) => {
         <span className="overdue-days">逾期{task.maxOverdueDays}天</span>
       </div>
       <Space className="header-tags">
-        <StatusTag status={task.status} />
+        <StatusTag
+          status={task.status}
+          escalationLevel={task.escalationLevel}
+          currentHandlerRole={task.currentHandlerRole}
+          showDetail
+        />
         <PriorityBadge priority={task.priority} />
       </Space>
     </div>
