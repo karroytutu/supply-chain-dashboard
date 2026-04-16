@@ -17,13 +17,9 @@
 
 /* 头部 */
 .task-detail-header {
-  display: flex;
-  align-items: center;
   padding: 12px 0;
   border-bottom: 1px solid #f0f0f0;
   margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 8px;
 
   .back-btn {
     color: #666;
@@ -33,22 +29,37 @@
     }
   }
 
+  // PC端：单行布局
+  .header-row-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .consumer-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #262626;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .header-row-sub {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 8px;
+    padding-left: 52px; // 与返回按钮对齐
+  }
+
   .header-info {
     display: flex;
     align-items: center;
     gap: 8px;
     flex: 1;
     min-width: 0;
-
-    .consumer-name {
-      font-size: 18px;
-      font-weight: 600;
-      color: #262626;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 200px;
-    }
 
     .separator {
       color: #d9d9d9;
@@ -219,15 +230,59 @@
     padding-bottom: 72px; // 为底部固定操作栏留出空间
   }
 
+  // 移动端头部布局优化
   .task-detail-header {
-    .header-info {
-      .consumer-name {
-        font-size: 16px;
-        max-width: 140px;
+    .header-row-main {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .back-btn {
+      padding: 0;
+      min-width: auto;
+
+      :global {
+        .anticon {
+          margin-right: 2px;
+        }
       }
+    }
+
+    .consumer-name {
+      font-size: 16px;
+      max-width: 160px;
+    }
+
+    .header-row-sub {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      padding-left: 0; // 移动端取消缩进
+      flex-wrap: wrap;
+    }
+
+    .header-info {
+      gap: 6px;
+
       .amount {
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .overdue-days {
+        font-size: 13px;
+      }
+
+      .separator {
         font-size: 14px;
       }
+    }
+
+    .header-tags {
+      display: flex;
+      gap: 4px;
     }
   }
 
