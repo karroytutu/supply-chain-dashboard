@@ -1,10 +1,10 @@
 /**
  * 操作按钮组
  * 根据角色和任务状态显示不同的操作按钮
- * 移动端自动适配短文字
+ * 移动端自适应屏幕宽度
  */
 import React from 'react';
-import { Button, Space } from 'antd';
+import { Button } from 'antd';
 import {
   CheckCircleOutlined,
   HourglassOutlined,
@@ -52,7 +52,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
   const isAdmin = hasRole(ROLES.ADMIN);
 
   const renderCollectorButtons = () => (
-    <Space className="action-bar">
+    <div className="action-bar">
       <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => onAction('verify')}>
         <span className="btn-text-full">核销回款</span>
         <span className="btn-text-short">核销</span>
@@ -69,11 +69,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
         <span className="btn-text-full">升级处理</span>
         <span className="btn-text-short">升级</span>
       </Button>
-    </Space>
+    </div>
   );
 
   const renderSupervisorButtons = () => (
-    <Space className="action-bar">
+    <div className="action-bar">
       <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => onAction('verify')}>
         <span className="btn-text-full">核销回款</span>
         <span className="btn-text-short">核销</span>
@@ -90,11 +90,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
         <span className="btn-text-full">升级至财务</span>
         <span className="btn-text-short">升级</span>
       </Button>
-    </Space>
+    </div>
   );
 
   const renderFinanceButtons = () => (
-    <Space className="action-bar">
+    <div className="action-bar">
       <Button
         type="primary"
         icon={<ExclamationCircleOutlined />}
@@ -111,18 +111,20 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
         <span className="btn-text-full">提起诉讼</span>
         <span className="btn-text-short">诉讼</span>
       </Button>
-    </Space>
+    </div>
   );
 
   const renderCashierButtons = () => (
-    <Space className="action-bar">
+    <div className="action-bar">
       <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => onAction('confirmVerify')}>
-        确认核销
+        <span className="btn-text-full">确认核销</span>
+        <span className="btn-text-short">确认</span>
       </Button>
       <Button danger icon={<CloseCircleOutlined />} onClick={() => onAction('confirmVerify')}>
-        驳回核销
+        <span className="btn-text-full">驳回核销</span>
+        <span className="btn-text-short">驳回</span>
       </Button>
-    </Space>
+    </div>
   );
 
   // 按优先级渲染对应角色按钮

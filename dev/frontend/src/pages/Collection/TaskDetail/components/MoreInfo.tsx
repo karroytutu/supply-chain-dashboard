@@ -6,6 +6,7 @@ import React from 'react';
 import { Collapse, Descriptions, Alert } from 'antd';
 import { InfoCircleOutlined, HistoryOutlined, HourglassOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import useMedia from '@/pages/Collection/Overview/hooks/useMedia';
 import ActionTimeline from '../../components/ActionTimeline';
 import type { CollectionTask, CollectionAction } from '@/types/ar-collection';
 
@@ -30,6 +31,7 @@ const getExtensionRemaining = (until: string | null): number => {
 };
 
 const MoreInfo: React.FC<MoreInfoProps> = ({ task, actions }) => {
+  const { isMobile } = useMedia();
   const isExtension = task.status === 'extension' && task.extensionUntil;
   const extensionRemaining = getExtensionRemaining(task.extensionUntil);
 
@@ -58,7 +60,7 @@ const MoreInfo: React.FC<MoreInfoProps> = ({ task, actions }) => {
               style={{ marginBottom: 16 }}
             />
           )}
-          <Descriptions column={2} size="small" bordered>
+          <Descriptions column={isMobile ? 1 : 2} size="small" bordered>
             <Descriptions.Item label="任务编号">{task.taskNo}</Descriptions.Item>
             <Descriptions.Item label="责任人">{task.managerUserName}</Descriptions.Item>
             <Descriptions.Item label="创建时间">

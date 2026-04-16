@@ -126,10 +126,12 @@
   }
 }
 
-/* 操作按钮组 */
+/* 操作按钮组 - PC端 */
 .action-bar {
   padding: 12px 0;
   margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
 
   // PC端默认显示完整文字
   .btn-text-full {
@@ -214,7 +216,7 @@
 @media (max-width: @screen-md) {
   .task-detail-page {
     padding: 12px 16px;
-    padding-bottom: 80px; // 为底部固定操作栏留出空间
+    padding-bottom: 72px; // 为底部固定操作栏留出空间
   }
 
   .task-detail-header {
@@ -234,74 +236,61 @@
     overflow-x: auto;
   }
 
-  // 移动端底部固定操作栏
+  // 移动端底部固定操作栏 - 按钮自适应屏幕宽度
   .action-bar {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
+    width: 100%;
     background: #fff;
-    padding: 12px 16px;
+    padding: 10px 12px;
     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
     z-index: 100;
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
     margin-bottom: 0;
+    box-sizing: border-box;
 
-    &::-webkit-scrollbar {
-      display: none;
+    // 每个按钮平分宽度
+    .ant-btn {
+      flex: 1;
+      min-width: 0;
+      min-height: @touch-target-size;
+      padding: 8px 4px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      // 移动端隐藏图标，节省空间
+      .anticon {
+        display: none;
+      }
     }
 
-    :global {
-      .ant-btn {
-        flex-shrink: 0;
-        min-height: @touch-target-size;
-        min-width: auto;
-        padding: 8px 12px;
-        font-size: 14px;
-      }
-
-      .ant-space {
-        flex-wrap: nowrap;
-      }
-    }
-
-    // 默认显示完整文字
+    // 移动端始终显示短文字（2字）
     .btn-text-full {
-      display: inline;
+      display: none;
     }
     .btn-text-short {
-      display: none;
+      display: inline;
     }
   }
 }
 
-// 超小屏幕 (< 400px)：显示短文字，按钮更紧凑
-@media (max-width: 400px) {
+// 超小屏幕 (< 360px)：更紧凑
+@media (max-width: 360px) {
   .action-bar {
-    padding: 10px 12px;
+    padding: 8px 10px;
     gap: 6px;
 
-    :global {
-      .ant-btn {
-        padding: 6px 10px;
-        font-size: 13px;
-      }
-    }
-
-    // 显示短文字
-    .btn-text-full {
-      display: none;
-    }
-    .btn-text-short {
-      display: inline;
+    .ant-btn {
+      padding: 6px 2px;
+      font-size: 13px;
     }
   }
 
   .task-detail-page {
-    padding-bottom: 72px; // 减少底部留空
+    padding-bottom: 64px;
   }
 }
 
@@ -309,11 +298,11 @@
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   @media (max-width: @screen-md) {
     .task-detail-page {
-      padding-bottom: calc(80px + env(safe-area-inset-bottom));
+      padding-bottom: calc(72px + env(safe-area-inset-bottom));
     }
 
     .action-bar {
-      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
     }
   }
 }
