@@ -79,38 +79,152 @@ export async function getReturnOrders(
     listParams
   );
 
-  // 批量查询残次品库存
+  // 批量查询残次品库存（按商品名称分组，获取所有单位库存）
   const rows = result.rows;
-  const stockMap = new Map<string, number>();
+
+  // 库存数据结构：商品名称 -> 各单位库存量
+  const stockByGoods = new Map<string, Map<string, number>>();
+  // 商品换算信息：商品名称 -> { pkgUnit, baseUnit, unitFactor }
+  const unitInfoMap = new Map<string, { pkgUnit: string; baseUnit: string; unitFactor: number }>();
 
   if (rows.length > 0) {
-    const goodsNames = rows.map(row => row.goods_name);
+    const goodsNames = [...new Set(rows.map(row => row.goods_name))];
 
     try {
+      // 1. 查询商品档案获取换算信息
+      const unitInfoResult = await query<{
+        name: string;
+        pkgUnitName: string | null;
+        baseUnitName: string | null;
+        unitFactor: number | null;
+      }>(
+        `SELECT name, "pkgUnitName", "baseUnitName", "unitFactor"
+         FROM "商品档案"
+         WHERE name = ANY($1)`,
+        [goodsNames]
+      );
+
+      unitInfoResult.rows.forEach(row => {
+        if (row.name) {
+          unitInfoMap.set(row.name, {
+            pkgUnit: row.pkgUnitName || '',
+            baseUnit: row.baseUnitName || '',
+            unitFactor: row.unitFactor || 1,
+          });
+        }
+      });
+
+      // 2. 查询库存（获取该商品所有单位的残次品库存）
       const stockResult = await query<{
         goodsName: string;
+        unitName: string;
         total_quantity: number;
       }>(
-        `SELECT "goodsName", SUM("quantity") as total_quantity
+        `SELECT "goodsName", "unitName", SUM("quantity") as total_quantity
          FROM "独山云仓批次库存表"
          WHERE "goodsName" = ANY($1)
            AND "qualityTypeStr" = '残次品'
-         GROUP BY "goodsName"`,
+         GROUP BY "goodsName", "unitName"`,
         [goodsNames]
       );
 
       stockResult.rows.forEach(row => {
-        stockMap.set(row.goodsName, parseFloat(row.total_quantity as any) || 0);
+        if (!stockByGoods.has(row.goodsName)) {
+          stockByGoods.set(row.goodsName, new Map());
+        }
+        stockByGoods.get(row.goodsName)!.set(
+          row.unitName,
+          parseFloat(row.total_quantity as any) || 0
+        );
       });
     } catch (error) {
       console.error('[ReturnOrder] 查询库存失败:', error);
-      // 库存查询失败不影响主流程，继续返回数据
     }
+  }
+
+  /**
+   * 根据退货单单位和换算信息，智能转换库存显示
+   * 规则：
+   * 1. 退货单单位是基本单位（如"包"）：直接显示包数量
+   * 2. 退货单单位是包装单位（如"件"）：
+   *    - 总包数 >= 换算系数：显示"X件Y包"
+   *    - 总包数 < 换算系数：显示"Y包"
+   */
+  function convertStockDisplay(
+    stockUnits: Map<string, number>,
+    returnOrderUnit: string | null,
+    unitInfo: { pkgUnit: string; baseUnit: string; unitFactor: number } | undefined
+  ): { quantity: number; unit: string; displayText: string } | null {
+    if (!stockUnits || stockUnits.size === 0) return null;
+    if (!returnOrderUnit) return null;
+
+    // 获取各单位库存
+    const pkgQty = unitInfo?.pkgUnit ? (stockUnits.get(unitInfo.pkgUnit) || 0) : 0;
+    const baseQty = unitInfo?.baseUnit ? (stockUnits.get(unitInfo.baseUnit) || 0) : 0;
+    const unitFactor = unitInfo?.unitFactor || 1;
+
+    // 将所有库存转换为基本单位
+    const totalBaseQty = pkgQty * unitFactor + baseQty;
+
+    // 如果退货单单位是基本单位，直接显示
+    if (returnOrderUnit === unitInfo?.baseUnit) {
+      return {
+        quantity: totalBaseQty,
+        unit: unitInfo.baseUnit,
+        displayText: `${totalBaseQty}${unitInfo.baseUnit}`,
+      };
+    }
+
+    // 如果退货单单位是包装单位，智能转换
+    if (returnOrderUnit === unitInfo?.pkgUnit && unitFactor > 1) {
+      const displayPkgQty = Math.floor(totalBaseQty / unitFactor);
+      const displayBaseQty = totalBaseQty % unitFactor;
+
+      if (displayPkgQty > 0 && displayBaseQty > 0) {
+        // 有件有包
+        return {
+          quantity: totalBaseQty / unitFactor,
+          unit: `${unitInfo.pkgUnit}${unitInfo.baseUnit}`,
+          displayText: `${displayPkgQty}${unitInfo.pkgUnit}${displayBaseQty}${unitInfo.baseUnit}`,
+        };
+      } else if (displayPkgQty > 0) {
+        // 只有件
+        return {
+          quantity: displayPkgQty,
+          unit: unitInfo.pkgUnit,
+          displayText: `${displayPkgQty}${unitInfo.pkgUnit}`,
+        };
+      } else {
+        // 不足1件，显示包
+        return {
+          quantity: displayBaseQty,
+          unit: unitInfo.baseUnit,
+          displayText: `${displayBaseQty}${unitInfo.baseUnit}`,
+        };
+      }
+    }
+
+    // 其他情况，直接匹配单位库存
+    const matchedQty = stockUnits.get(returnOrderUnit);
+    if (matchedQty !== undefined && matchedQty > 0) {
+      return {
+        quantity: matchedQty,
+        unit: returnOrderUnit,
+        displayText: `${matchedQty}${returnOrderUnit}`,
+      };
+    }
+
+    return null;
   }
 
   // 合并库存数据到退货单
   const data = rows.map(row => {
-    row.current_stock = stockMap.get(row.goods_name) ?? null;
+    const stockUnits = stockByGoods.get(row.goods_name);
+    const unitInfo = unitInfoMap.get(row.goods_name);
+    const stockDisplay = convertStockDisplay(stockUnits!, row.unit, unitInfo);
+    row.current_stock = stockDisplay?.quantity ?? null;
+    (row as any).current_stock_display = stockDisplay?.displayText ?? null;
+    (row as any).current_stock_unit = stockDisplay?.unit ?? null;
     return mapRowToReturnOrder(row);
   });
 

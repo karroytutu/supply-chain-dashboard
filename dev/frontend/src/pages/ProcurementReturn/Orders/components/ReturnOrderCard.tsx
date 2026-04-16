@@ -85,11 +85,13 @@ const ReturnOrderCard: React.FC<ReturnOrderCardProps> = ({
           <div className={styles.mobileCardGridItem}>
             <span className={styles.mobileCardLabel}>当前库存</span>
             <span className={styles.mobileCardValue}>
-              {record.currentStock === null || record.currentStock === undefined
-                ? '-'
-                : record.currentStock === 0
-                  ? <span style={{ color: '#52c41a' }}>已清零</span>
-                  : `${record.currentStock} ${record.unit || '件'}`}
+              {record.currentStockDisplay
+                ? record.currentStockDisplay
+                : record.currentStock === null || record.currentStock === undefined
+                  ? '-'
+                  : record.currentStock === 0
+                    ? <span style={{ color: '#52c41a' }}>已清零</span>
+                    : `${record.currentStock} ${record.currentStockUnit || record.unit || '件'}`}
             </span>
           </div>
           <div className={styles.mobileCardGridItem}>

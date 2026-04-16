@@ -51,6 +51,8 @@ export interface ReturnOrder {
   marketingCompleterName?: string;
   // 库存信息
   currentStock: number | null;  // 当前残次品库存
+  currentStockDisplay?: string; // 当前残次品库存显示文本（如"1件2包"）
+  currentStockUnit?: string;    // 当前残次品库存单位
 }
 
 /**
@@ -127,7 +129,7 @@ export interface FillErpReturnNoParams {
  * 仓储执行参数
  */
 export interface WarehouseExecuteParams {
-  evidenceUrl: string;  // 仓储退货凭证图片URL
+  evidenceUrls: string[];  // 仓储退货凭证图片URL列表
   comment?: string;
 }
 
@@ -136,7 +138,7 @@ export interface WarehouseExecuteParams {
  */
 export interface UploadReturnEvidenceResponse {
   success: boolean;
-  url: string;
+  urls: string[];  // 上传成功的URL列表
 }
 
 /**

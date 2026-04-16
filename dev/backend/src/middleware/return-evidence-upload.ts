@@ -32,12 +32,13 @@ const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterC
   }
 };
 
-// 导出上传中间件
+// 导出上传中间件（支持多文件上传，最多9个）
 export const uploadReturnEvidence = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 最大5MB
+    fileSize: 5 * 1024 * 1024, // 单文件最大5MB
+    files: 9,                   // 最多9个文件
   },
 });
 

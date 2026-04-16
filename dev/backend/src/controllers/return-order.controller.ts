@@ -237,16 +237,20 @@ export const fillErpReturnNoController = async (req: Request, res: Response) => 
 /**
  * 上传退货凭证图片
  * POST /api/return-orders/upload-evidence
+ * 支持多文件上传，最多9张
  */
 export const uploadReturnEvidenceController = async (req: Request, res: Response) => {
   try {
-    if (!req.file) {
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
       res.status(400).json({ error: '参数错误', message: '未上传文件' });
       return;
     }
 
-    const url = `/uploads/return-evidence/${req.file.filename}`;
-    res.json({ success: true, url });
+    // 返回多个文件URL
+    const urls = (req.files as Express.Multer.File[]).map(
+      file => `/uploads/return-evidence/${file.filename}`
+    );
+    res.json({ success: true, urls });
   } catch (error) {
     console.error('上传退货凭证失败:', error);
     res.status(500).json({
@@ -259,12 +263,12 @@ export const uploadReturnEvidenceController = async (req: Request, res: Response
 /**
  * 仓储执行退货
  * POST /api/return-orders/:id/warehouse
- * 改为上传凭证图片
+ * 改为上传凭证图片（支持多张）
  */
 export const warehouseExecuteController = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { evidenceUrl, comment } = req.body;
+    const { evidenceUrls, comment } = req.body;
     const operatorId = req.user?.userId;
     const operatorName = req.user?.name;
 
@@ -276,7 +280,7 @@ export const warehouseExecuteController = async (req: Request, res: Response) =>
       return;
     }
 
-    if (!evidenceUrl || typeof evidenceUrl !== 'string') {
+    if (!evidenceUrls || !Array.isArray(evidenceUrls) || evidenceUrls.length === 0) {
       res.status(400).json({
         error: '参数错误',
         message: '请先上传退货凭证图片',
@@ -286,7 +290,7 @@ export const warehouseExecuteController = async (req: Request, res: Response) =>
 
     const result = await warehouseExecute({
       id,
-      evidenceUrl,
+      evidenceUrls,
       comment,
       operatorId,
       operatorName,

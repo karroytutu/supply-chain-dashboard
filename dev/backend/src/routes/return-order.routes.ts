@@ -55,11 +55,11 @@ router.post(
   triggerSyncController
 );
 
-// 上传退货凭证图片
+// 上传退货凭证图片（支持多文件，最多9张）
 router.post(
   '/upload-evidence',
   requirePermission('return:write'),
-  uploadReturnEvidence.single('file'),
+  uploadReturnEvidence.array('files', 9),
   uploadReturnEvidenceController
 );
 

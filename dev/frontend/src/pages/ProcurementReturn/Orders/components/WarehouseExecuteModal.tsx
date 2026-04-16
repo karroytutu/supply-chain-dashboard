@@ -1,10 +1,11 @@
 /**
  * 仓储执行弹窗组件
- * 改为上传凭证图片
+ * 支持上传多张凭证图片（最多9张）
  */
-import React, { useEffect, useState } from 'react';
-import { Modal, Form, Upload, Input, Button, Image, message } from 'antd';
-import { UploadOutlined, CameraOutlined } from '@ant-design/icons';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { Modal, Form, Upload, Input, message } from 'antd';
+import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
+import { PlusOutlined } from '@ant-design/icons';
 import { warehouseExecute, uploadReturnEvidence } from '@/services/api/procurement-return';
 import type { ReturnOrder } from '@/types/procurement-return';
 
@@ -15,6 +16,8 @@ interface WarehouseExecuteModalProps {
   onSuccess: () => void;
 }
 
+const MAX_COUNT = 9;
+
 const WarehouseExecuteModal: React.FC<WarehouseExecuteModalProps> = ({
   visible,
   record,
@@ -23,38 +26,120 @@ const WarehouseExecuteModal: React.FC<WarehouseExecuteModalProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [evidenceUrl, setEvidenceUrl] = useState<string>('');
-  const [uploadLoading, setUploadLoading] = useState(false);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [evidenceUrls, setEvidenceUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const pendingFilesRef = useRef<File[]>([]);
+  const uploadTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 弹窗打开时重置表单
   useEffect(() => {
     if (visible && record) {
       form.resetFields();
-      setEvidenceUrl('');
+      setFileList([]);
+      setEvidenceUrls([]);
+      pendingFilesRef.current = [];
+      if (uploadTimerRef.current) {
+        clearTimeout(uploadTimerRef.current);
+        uploadTimerRef.current = null;
+      }
     }
   }, [visible, record, form]);
 
-  // 处理文件上传
-  const handleUpload = async (file: File) => {
-    setUploadLoading(true);
+  // 执行批量上传
+  const doUpload = useCallback(async () => {
+    const filesToUpload = [...pendingFilesRef.current];
+    pendingFilesRef.current = [];
+
+    if (filesToUpload.length === 0) return;
+
+    // 检查总数量限制
+    const availableSlots = MAX_COUNT - fileList.length;
+    const actualFiles = filesToUpload.slice(0, availableSlots);
+
+    if (actualFiles.length === 0) {
+      message.warning(`最多上传 ${MAX_COUNT} 张图片`);
+      return;
+    }
+
+    setUploading(true);
     try {
-      const result = await uploadReturnEvidence(file);
-      setEvidenceUrl(result.url);
-      message.success('上传成功');
+      const result = await uploadReturnEvidence(actualFiles);
+      if (result.success && result.urls) {
+        // 创建文件列表项
+        const newFiles: UploadFile[] = result.urls.map((url, index) => ({
+          uid: `${Date.now()}-${index}-${Math.random()}`,
+          name: actualFiles[index]?.name || `image-${index}`,
+          status: 'done' as const,
+          url,
+        }));
+
+        setFileList(prev => [...prev, ...newFiles]);
+        setEvidenceUrls(prev => [...prev, ...result.urls]);
+        message.success(`成功上传 ${result.urls.length} 张图片`);
+      }
     } catch (error) {
       message.error('上传失败');
     } finally {
-      setUploadLoading(false);
+      setUploading(false);
     }
-    return false; // 阻止默认上传行为
+  }, [fileList.length]);
+
+  // 处理文件选择前的验证
+  const handleBeforeUpload = (file: File): false => {
+    // 检查文件格式
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      message.error('只支持 jpg/jpeg/png 格式的图片');
+      return false;
+    }
+
+    // 检查文件大小
+    const isLt5M = file.size / 1024 / 1024 < 5;
+    if (!isLt5M) {
+      message.error('图片大小不能超过 5MB');
+      return false;
+    }
+
+    // 检查数量限制
+    const currentCount = fileList.length + pendingFilesRef.current.length;
+    if (currentCount >= MAX_COUNT) {
+      message.warning(`最多上传 ${MAX_COUNT} 张图片`);
+      return false;
+    }
+
+    // 收集待上传文件
+    pendingFilesRef.current.push(file);
+
+    // 使用防抖机制，确保所有文件收集完成后再上传
+    if (uploadTimerRef.current) {
+      clearTimeout(uploadTimerRef.current);
+    }
+    uploadTimerRef.current = setTimeout(() => {
+      doUpload();
+      uploadTimerRef.current = null;
+    }, 200);
+
+    return false; // 阻止自动上传
+  };
+
+  // 删除图片
+  const handleRemove = (file: UploadFile) => {
+    const index = fileList.findIndex(f => f.uid === file.uid);
+    if (index > -1) {
+      const newFileList = fileList.filter(f => f.uid !== file.uid);
+      const newUrls = evidenceUrls.filter((_, i) => i !== index);
+      setFileList(newFileList);
+      setEvidenceUrls(newUrls);
+    }
   };
 
   // 提交表单
   const handleSubmit = async () => {
     if (!record) return;
 
-    if (!evidenceUrl) {
-      message.error('请先上传退货凭证图片');
+    if (evidenceUrls.length === 0) {
+      message.error('请至少上传一张退货凭证图片');
       return;
     }
 
@@ -63,7 +148,7 @@ const WarehouseExecuteModal: React.FC<WarehouseExecuteModalProps> = ({
       setLoading(true);
 
       await warehouseExecute(record.id, {
-        evidenceUrl,
+        evidenceUrls,
         comment: values.comment,
       });
 
@@ -80,9 +165,23 @@ const WarehouseExecuteModal: React.FC<WarehouseExecuteModalProps> = ({
   // 弹窗关闭
   const handleCancel = () => {
     form.resetFields();
-    setEvidenceUrl('');
+    setFileList([]);
+    setEvidenceUrls([]);
+    pendingFilesRef.current = [];
+    if (uploadTimerRef.current) {
+      clearTimeout(uploadTimerRef.current);
+      uploadTimerRef.current = null;
+    }
     onClose();
   };
+
+  // 上传按钮
+  const uploadButton = (
+    <div>
+      <PlusOutlined />
+      <div style={{ marginTop: 8 }}>上传凭证</div>
+    </div>
+  );
 
   return (
     <Modal
@@ -93,7 +192,7 @@ const WarehouseExecuteModal: React.FC<WarehouseExecuteModalProps> = ({
       confirmLoading={loading}
       okText="确认执行"
       cancelText="取消"
-      width={480}
+      width={560}
     >
       {record && (
         <div style={{ marginBottom: 24 }}>
@@ -117,26 +216,28 @@ const WarehouseExecuteModal: React.FC<WarehouseExecuteModalProps> = ({
         layout="vertical"
         autoComplete="off"
       >
-        <Form.Item label="上传退货凭证" required>
+        <Form.Item
+          label={
+            <span>
+              上传退货凭证
+              <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>
+                （最多 {MAX_COUNT} 张，支持 jpg/jpeg/png，单张不超过 5MB）
+              </span>
+            </span>
+          }
+          required
+        >
           <Upload
-            accept="image/*"
-            beforeUpload={handleUpload}
-            showUploadList={false}
+            multiple
+            accept="image/jpeg,image/jpg,image/png"
+            fileList={fileList}
+            beforeUpload={handleBeforeUpload}
+            onRemove={handleRemove}
+            listType="picture-card"
+            disabled={uploading}
           >
-            <Button icon={<UploadOutlined />} loading={uploadLoading}>
-              上传图片
-            </Button>
+            {fileList.length >= MAX_COUNT ? null : uploadButton}
           </Upload>
-          {evidenceUrl && (
-            <div style={{ marginTop: 12 }}>
-              <Image
-                src={evidenceUrl}
-                alt="退货凭证"
-                width={200}
-                style={{ borderRadius: 4 }}
-              />
-            </div>
-          )}
         </Form.Item>
 
         <Form.Item

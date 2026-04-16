@@ -163,6 +163,10 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       key: 'currentStock',
       width: 90,
       render: (_: unknown, record: ReturnOrder) => {
+        // 优先使用后端计算好的显示文本
+        if (record.currentStockDisplay) {
+          return <span>{record.currentStockDisplay}</span>;
+        }
         const stock = record.currentStock;
         if (stock === null || stock === undefined) {
           return <span style={{ color: '#999' }}>-</span>;
@@ -170,7 +174,8 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
         if (stock === 0) {
           return <span style={{ color: '#52c41a' }}>已清零</span>;
         }
-        return <span>{stock} {record.unit || '件'}</span>;
+        // 使用库存单位而非退货单单位
+        return <span>{stock} {record.currentStockUnit || record.unit || '件'}</span>;
       },
     },
     {

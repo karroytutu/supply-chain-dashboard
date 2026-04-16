@@ -127,6 +127,10 @@ export default defineConfig({
       target: 'http://localhost:8100',
       changeOrigin: true,
     },
+    '/uploads': {
+      target: 'http://localhost:8100',
+      changeOrigin: true,
+    },
   },
   // 为静态资源添加 hash，解决缓存问题
   hash: true,

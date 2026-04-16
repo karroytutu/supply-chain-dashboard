@@ -83,11 +83,13 @@ export const fillErpReturnNo = (
 };
 
 /**
- * 上传退货凭证图片
+ * 上传退货凭证图片（支持多文件）
+ * @param files - 要上传的文件列表
+ * @returns 上传成功的URL列表
  */
-export const uploadReturnEvidence = async (file: File): Promise<UploadReturnEvidenceResponse> => {
+export const uploadReturnEvidence = async (files: File[]): Promise<UploadReturnEvidenceResponse> => {
   const formData = new FormData();
-  formData.append('file', file);
+  files.forEach(file => formData.append('files', file));
 
   const token = localStorage.getItem('auth_token');
   const response = await fetch('/api/return-orders/upload-evidence', {
