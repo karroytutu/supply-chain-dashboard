@@ -20,9 +20,11 @@ export interface StrategicProduct {
   procurementConfirmed: boolean;
   procurementConfirmedBy: number | null;
   procurementConfirmedAt: string | null;
+  procurementConfirmerName?: string;
   marketingConfirmed: boolean;
   marketingConfirmedBy: number | null;
   marketingConfirmedAt: string | null;
+  marketingConfirmerName?: string;
   confirmedAt: string | null;
 }
 

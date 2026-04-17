@@ -12,6 +12,7 @@ import {
   batchDeleteStrategicProducts,
   syncCategoryPath,
 } from '@/services/api/strategic-product';
+import { exportStrategicProducts } from '../utils/export';
 import type {
   StrategicProduct,
   StrategicProductStats,
@@ -44,6 +45,9 @@ export function useStrategicProducts() {
   
   // 同步品类相关
   const [syncLoading, setSyncLoading] = useState(false);
+
+  // 导出相关
+  const [exportLoading, setExportLoading] = useState(false);
 
   // 加载统计信息
   const loadStats = useCallback(async () => {
@@ -180,6 +184,60 @@ export function useStrategicProducts() {
     }
   }, []);
 
+  // 导出战略商品
+  const handleExport = useCallback(async (
+    type: 'all' | 'page' | 'selected',
+    categoryPath?: string
+  ): Promise<void> => {
+    setExportLoading(true);
+    try {
+      let dataToExport: StrategicProduct[] = [];
+
+      if (type === 'page') {
+        // 导出本页数据
+        dataToExport = dataSource;
+      } else if (type === 'selected') {
+        // 导出选中数据
+        if (selectAll) {
+          // 全选全部模式，需要从后端获取全部数据
+          const result = await getStrategicProducts({
+            page: 1,
+            pageSize: 9999,
+            keyword,
+            status: statusFilter,
+            categoryPath,
+          });
+          dataToExport = result.data;
+        } else {
+          // 仅选中部分
+          dataToExport = dataSource.filter(item => selectedRowKeys.includes(item.id));
+        }
+      } else {
+        // 导出全部数据
+        const result = await getStrategicProducts({
+          page: 1,
+          pageSize: 9999,
+          keyword,
+          status: statusFilter,
+          categoryPath,
+        });
+        dataToExport = result.data;
+      }
+
+      if (dataToExport.length === 0) {
+        message.warning('没有数据可导出');
+        return;
+      }
+
+      exportStrategicProducts(dataToExport);
+      message.success(`成功导出 ${dataToExport.length} 条数据`);
+    } catch (error) {
+      message.error('导出失败');
+    } finally {
+      setExportLoading(false);
+    }
+  }, [dataSource, selectedRowKeys, selectAll, keyword, statusFilter]);
+
   // 初始加载统计
   useEffect(() => {
     loadStats();
@@ -199,6 +257,7 @@ export function useStrategicProducts() {
     batchLoading,
     selectAll,
     syncLoading,
+    exportLoading,
     // 设置函数
     setPage,
     setPageSize,
@@ -214,5 +273,6 @@ export function useStrategicProducts() {
     handleBatchConfirm,
     handleBatchDelete,
     handleSyncCategory,
+    handleExport,
   };
 }

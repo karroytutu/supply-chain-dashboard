@@ -3,10 +3,12 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Button, Space, Badge, Dropdown, Segmented, Select } from 'antd';
-import { SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, DownOutlined, SyncOutlined } from '@ant-design/icons';
+import { SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, DownOutlined, SyncOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import type { StrategicProduct, StrategicProductStatus } from '@/types/strategic-product';
 import { getColumns } from '../utils/columns';
+import { Authorized } from '@/components/Authorized';
+import { PERMISSIONS } from '@/constants/permissions';
 import styles from '../index.less';
 
 interface StrategicProductTableProps {
@@ -21,6 +23,7 @@ interface StrategicProductTableProps {
   selectAll: boolean;
   selectedRowKeys: number[];
   syncLoading: boolean;
+  exportLoading: boolean;
   onKeywordChange: (keyword: string) => void;
   onSearch: () => void;
   onStatusFilterChange: (status?: StrategicProductStatus) => void;
@@ -34,6 +37,7 @@ interface StrategicProductTableProps {
   onAddClick: () => void;
   onRefresh: () => void;
   onSyncCategory: () => void;
+  onExport: (type: 'all' | 'page' | 'selected') => void;
 }
 
 const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
@@ -48,6 +52,7 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
   selectAll,
   selectedRowKeys,
   syncLoading,
+  exportLoading,
   onKeywordChange,
   onSearch,
   onStatusFilterChange,
@@ -61,6 +66,7 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
   onAddClick,
   onRefresh,
   onSyncCategory,
+  onExport,
 }) => {
   const columns = getColumns(onConfirm, onDelete);
 
@@ -88,6 +94,19 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
     if (key === 'confirm') onBatchConfirm('confirm');
     else if (key === 'reject') onBatchConfirm('reject');
     else if (key === 'delete') onBatchDelete();
+  };
+
+  // 导出菜单
+  const exportMenuItems: MenuProps['items'] = [
+    { key: 'all', label: '导出全部数据' },
+    { key: 'page', label: '导出本页数据' },
+    { key: 'selected', label: '导出选中数据', disabled: selectedRowKeys.length === 0 && !selectAll },
+  ];
+
+  const handleExportMenuClick: MenuProps['onClick'] = ({ key }) => {
+    if (key === 'all' || key === 'page' || key === 'selected') {
+      onExport(key);
+    }
   };
 
   return (
@@ -137,6 +156,15 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
           >
             同步品类
           </Button>
+          <Authorized permission={PERMISSIONS.STRATEGIC.EXPORT}>
+            <Dropdown
+              menu={{ items: exportMenuItems, onClick: handleExportMenuClick }}
+            >
+              <Button icon={<DownloadOutlined />} loading={exportLoading} block={isMobile}>
+                导出
+              </Button>
+            </Dropdown>
+          </Authorized>
           <Dropdown
             menu={{ items: batchMenuItems, onClick: handleBatchMenuClick }}
             disabled={selectedRowKeys.length === 0 && !selectAll}

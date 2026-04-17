@@ -49,6 +49,7 @@ export default function StrategicProductManage() {
     batchLoading,
     selectAll,
     syncLoading,
+    exportLoading,
     setPage,
     setPageSize,
     setKeyword,
@@ -62,6 +63,7 @@ export default function StrategicProductManage() {
     handleBatchConfirm,
     handleBatchDelete,
     handleSyncCategory,
+    handleExport,
   } = useStrategicProducts();
 
   // 品类树
@@ -146,6 +148,11 @@ export default function StrategicProductManage() {
     }
   }, [handleSyncCategory, loadCategoryTree, loadStrategicProducts, loadStats, selectedCategoryPath, statusFilter, keyword]);
 
+  // 导出
+  const onExport = useCallback((type: 'all' | 'page' | 'selected') => {
+    handleExport(type, selectedCategoryPath);
+  }, [handleExport, selectedCategoryPath]);
+
   return (
     <div className={styles.container}>
       {/* 移动端筛选按钮 */}
@@ -209,6 +216,7 @@ export default function StrategicProductManage() {
             selectAll={selectAll}
             selectedRowKeys={selectedRowKeys}
             syncLoading={syncLoading}
+            exportLoading={exportLoading}
             onKeywordChange={setKeyword}
             onSearch={handleSearch}
             onStatusFilterChange={setStatusFilter}
@@ -225,6 +233,7 @@ export default function StrategicProductManage() {
             onAddClick={productSelection.openModal}
             onRefresh={() => loadStrategicProducts(selectedCategoryPath, statusFilter, keyword)}
             onSyncCategory={onSyncCategory}
+            onExport={onExport}
           />
         </Card>
       </div>

@@ -45,6 +45,7 @@ export const PERMISSIONS = {
   STRATEGIC: {
     READ: 'strategic:read',
     WRITE: 'strategic:write',
+    EXPORT: 'strategic:export',
     CONFIRM: {
       PROCUREMENT: 'strategic:confirm:procurement',
       MARKETING: 'strategic:confirm:marketing',
