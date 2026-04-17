@@ -89,6 +89,18 @@ export const PERMISSIONS = {
       ESCALATE: 'ar:collection:escalate',
     },
   },
+
+  // OA审批模块
+  OA: {
+    APPROVAL: {
+      READ: 'oa:approval:read',
+      WRITE: 'oa:approval:write',
+    },
+    DATA: {
+      READ: 'oa:data:read',
+      EXPORT: 'oa:data:export',
+    },
+  },
 } as const;
 
 /**
@@ -120,7 +132,9 @@ export type PermissionCode = typeof PERMISSIONS[keyof typeof PERMISSIONS] |
   typeof PERMISSIONS.RETURN[keyof typeof PERMISSIONS.RETURN] |
   typeof PERMISSIONS.RETURN.PENALTY[keyof typeof PERMISSIONS.RETURN.PENALTY] |
   typeof PERMISSIONS.GOODS_RULES[keyof typeof PERMISSIONS.GOODS_RULES] |
-  typeof PERMISSIONS.AR.COLLECTION[keyof typeof PERMISSIONS.AR.COLLECTION];
+  typeof PERMISSIONS.AR.COLLECTION[keyof typeof PERMISSIONS.AR.COLLECTION] |
+  typeof PERMISSIONS.OA.APPROVAL[keyof typeof PERMISSIONS.OA.APPROVAL] |
+  typeof PERMISSIONS.OA.DATA[keyof typeof PERMISSIONS.OA.DATA];
 
 /**
  * 角色类型定义

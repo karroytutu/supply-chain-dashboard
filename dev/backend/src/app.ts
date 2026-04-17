@@ -13,6 +13,7 @@ import goodsReturnRulesRoutes from './routes/goods-return-rules.routes';
 import procurementArchiveRoutes from './routes/procurement-archive.routes';
 import returnPenaltyRoutes from './routes/return-penalty.routes';
 import arCollectionRoutes from './routes/ar-collection.routes';
+import oaApprovalRoutes from './routes/oa-approval.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 
@@ -38,6 +39,7 @@ app.use('/api/goods-return-rules', goodsReturnRulesRoutes);
 app.use('/api/return-penalty', returnPenaltyRoutes);
 app.use('/api/procurement', procurementArchiveRoutes);
 app.use('/api/ar-collection', arCollectionRoutes);
+app.use('/api/oa-approval', oaApprovalRoutes);
 
 // 错误处理
 app.use(errorHandler);

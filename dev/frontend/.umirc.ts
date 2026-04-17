@@ -96,6 +96,46 @@ export default defineConfig({
       ],
     },
     {
+      path: '/oa',
+      name: 'OA审批',
+      icon: 'AuditOutlined',
+      wrappers: ['@/wrappers/auth'],
+      routes: [
+        {
+          path: 'initiate',
+          component: '@/pages/OaApproval/Initiate',
+          name: '发起审批',
+          permission: 'oa:approval:read',
+        },
+        {
+          path: 'center',
+          component: '@/pages/OaApproval/Center',
+          name: '审批中心',
+          permission: 'oa:approval:read',
+        },
+        {
+          path: 'detail/:id',
+          component: '@/pages/OaApproval/Detail',
+          name: '审批详情',
+          hideInMenu: true,
+          permission: 'oa:approval:read',
+        },
+        {
+          path: 'form/:typeCode',
+          component: '@/pages/OaApproval/Form',
+          name: '填写表单',
+          hideInMenu: true,
+          permission: 'oa:approval:write',
+        },
+        {
+          path: 'data',
+          component: '@/pages/OaApproval/Data',
+          name: '数据管理',
+          permission: 'oa:data:read',
+        },
+      ],
+    },
+    {
       path: '/system',
       name: '系统管理',
       icon: 'setting',
