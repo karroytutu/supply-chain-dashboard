@@ -11,8 +11,11 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
+    "@alicloud/ding-util": "^1.0.0",
     "@alicloud/dingtalk": "^2.2.38",
     "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/tea-fileform": "^1.2.0",
+    "@alicloud/tea-url": "^1.0.0",
     "@alicloud/tea-util": "^1.4.11",
     "@types/multer": "^2.1.0",
     "axios": "^1.7.0",
