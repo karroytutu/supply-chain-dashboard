@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import type { DashboardOverview } from '@/types/dashboard';
 import { getDashboardData } from '@/services/api/dashboard';
-import { dataCache, CACHE_KEYS, CACHE_TTL } from '@/utils/dataCache';
+import { dataCache, CACHE_KEYS, CACHE_TTL } from '@/utils/cache';
 import SummaryCard from '@/components/SummaryCard';
 import WarningPanel from '@/components/WarningPanel';
 import MonthlyArchiveModal from '@/components/MonthlyArchiveModal';
@@ -22,7 +22,6 @@ const Dashboard: React.FC = () => {
   const [archiveModalVisible, setArchiveModalVisible] = useState(false);
 
   const loadData = useCallback(async () => {
-    console.log('[Dashboard] 开始加载数据...');
     setLoading(true);
     try {
       // 使用缓存获取数据
@@ -31,13 +30,11 @@ const Dashboard: React.FC = () => {
         getDashboardData,
         CACHE_TTL.DASHBOARD
       );
-      console.log('[Dashboard] 数据加载成功:', result);
       setData(result);
     } catch (error) {
       console.error('[Dashboard] 数据加载失败:', error);
     } finally {
       setLoading(false);
-      console.log('[Dashboard] 加载完成，loading=false');
     }
   }, []);
 
@@ -45,10 +42,7 @@ const Dashboard: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  console.log('[Dashboard] 渲染状态 - loading:', loading, 'data:', !!data);
-
   if (loading) {
-    console.log('[Dashboard] 显示加载中...');
     return (
       <div className={styles.loadingContainer}>
         <Spin size="large" tip="加载中..." />
@@ -57,15 +51,12 @@ const Dashboard: React.FC = () => {
   }
 
   if (!data) {
-    console.log('[Dashboard] 无数据，显示错误');
     return (
       <div className={styles.errorContainer}>
         数据加载失败，请重试
       </div>
     );
   }
-
-  console.log('[Dashboard] 渲染仪表盘内容');
 
   return (
     <div className={styles.dashboard}>

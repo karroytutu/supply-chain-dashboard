@@ -1,4 +1,4 @@
-import { SignOptions, sign, verify, decode } from 'jsonwebtoken';
+import { SignOptions, sign, verify, decode, TokenExpiredError, JsonWebTokenError, NotBeforeError } from 'jsonwebtoken';
 import { config } from '../config';
 
 export interface JwtPayload {
@@ -27,6 +27,15 @@ export function verifyToken(token: string): JwtPayload | null {
     const decoded = verify(token, config.jwt.secret) as JwtPayload;
     return decoded;
   } catch (error) {
+    if (error instanceof TokenExpiredError) {
+      console.warn('[JWT] Token expired:', error.expiredAt);
+    } else if (error instanceof JsonWebTokenError) {
+      console.warn('[JWT] Invalid token:', error.message);
+    } else if (error instanceof NotBeforeError) {
+      console.warn('[JWT] Token not yet active');
+    } else {
+      console.error('[JWT] Unknown verification error:', error);
+    }
     return null;
   }
 }

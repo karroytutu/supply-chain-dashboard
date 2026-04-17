@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, Table } from 'antd';
 import { Line } from '@ant-design/charts';
 import type { StrategicMonthlyAvailabilityData, DailyAvailabilityRate } from '@/types/dashboard';
@@ -18,6 +18,12 @@ const MonthlyAvailabilityModal: React.FC<MonthlyAvailabilityModalProps> = ({
   if (!data) {
     return null;
   }
+
+  // 表格数据反转（倒序显示，从最近日期开始）
+  const reversedData = useMemo(
+    () => data?.dailyRates?.slice().reverse() || [],
+    [data?.dailyRates]
+  );
 
   // 图表配置
   const chartConfig = {
@@ -147,7 +153,7 @@ const MonthlyAvailabilityModal: React.FC<MonthlyAvailabilityModalProps> = ({
         <div className={styles.tableTitle}>每日明细数据</div>
         <Table
           columns={columns}
-          dataSource={data.dailyRates?.slice().reverse() || []}
+          dataSource={reversedData}
           rowKey="date"
           size="small"
           pagination={false}

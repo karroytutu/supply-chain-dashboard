@@ -12,8 +12,10 @@ interface CacheItem<T> {
 class MemoryCache {
   private cache = new Map<string, CacheItem<any>>();
   private cleanupInterval: NodeJS.Timeout | null = null;
+  private maxSize: number;
 
-  constructor() {
+  constructor(maxSize = 1000) {
+    this.maxSize = maxSize;
     // 每5分钟清理过期缓存
     this.cleanupInterval = setInterval(() => this.cleanup(), 5 * 60 * 1000);
   }
@@ -41,6 +43,13 @@ class MemoryCache {
    * @param ttl 缓存有效期（毫秒）
    */
   set<T>(key: string, data: T, ttl: number): void {
+    // 容量检查：超过上限时删除最早的条目
+    if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -69,10 +78,15 @@ class MemoryCache {
    */
   private cleanup(): void {
     const now = Date.now();
+    let cleanedCount = 0;
     for (const [key, item] of this.cache.entries()) {
       if (now - item.timestamp > item.ttl) {
         this.cache.delete(key);
+        cleanedCount++;
       }
+    }
+    if (cleanedCount > 100) {
+      console.warn(`[Cache] 清理了 ${cleanedCount} 条过期缓存，可能需要增大 TTL 或减少缓存频率`);
     }
   }
 

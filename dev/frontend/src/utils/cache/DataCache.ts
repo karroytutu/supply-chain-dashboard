@@ -1,6 +1,6 @@
 /**
- * 前端数据缓存工具
- * 用于缓存 API 响应数据，减少重复请求
+ * 数据缓存类
+ * 支持缓存过期、请求去重
  */
 
 interface CacheItem<T> {
@@ -14,10 +14,6 @@ interface PendingRequest<T> {
   timestamp: number;
 }
 
-/**
- * 数据缓存类
- * 支持缓存过期、请求去重
- */
 class DataCache {
   private cache = new Map<string, CacheItem<any>>();
   private pendingRequests = new Map<string, PendingRequest<any>>();
@@ -147,26 +143,4 @@ class DataCache {
   }
 }
 
-// 导出单例实例
-export const dataCache = new DataCache();
-
-// 缓存键常量
-export const CACHE_KEYS = {
-  DASHBOARD_DATA: 'dashboard:overview',
-  CATEGORY_TREE: 'category:tree',
-  WARNING_LIST: (type: string) => `warning:${type}`,
-};
-
-// 缓存时间常量（毫秒）
-export const CACHE_TTL = {
-  DASHBOARD: 60 * 1000,        // Dashboard 数据缓存 1 分钟
-  CATEGORY_TREE: 5 * 60 * 1000, // 品类树缓存 5 分钟
-  WARNING_LIST: 30 * 1000,     // 预警列表缓存 30 秒
-};
-
-// 定期清理过期缓存（每 5 分钟）
-if (typeof window !== 'undefined') {
-  setInterval(() => {
-    dataCache.cleanup();
-  }, 5 * 60 * 1000);
-}
+export { DataCache };

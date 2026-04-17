@@ -10,21 +10,13 @@ export default function AuthWrapper() {
   const [authenticated, setAuthenticated] = useState(false);
   
   // 使用 umi model 获取全局状态
-  let setGlobalUser: (user: UserInfo | null) => void = () => {};
-  let currentUser: UserInfo | null = null;
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const authModel = useModel('auth');
-    setGlobalUser = authModel.setCurrentUser;
-    currentUser = authModel.currentUser;
-  } catch {
-    // model 不可用时使用默认值
-  }
+  const authModel = useModel('auth');
+  const setGlobalUser = authModel.setCurrentUser;
+  const currentUser = authModel.currentUser;
 
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem(TOKEN_KEY);
-      console.log('[AuthWrapper] 检查认证状态，token存在:', !!token);
 
       if (!token) {
         setLoading(false);
@@ -33,9 +25,7 @@ export default function AuthWrapper() {
       }
 
       try {
-        console.log('[AuthWrapper] 正在验证用户信息...');
         const user = await getCurrentUser();
-        console.log('[AuthWrapper] 用户验证成功:', user?.name, '权限数量:', user?.permissions?.length);
         
         // 设置全局用户状态
         setGlobalUser(user);
@@ -61,13 +51,9 @@ export default function AuthWrapper() {
     );
   }
 
-  console.log('[AuthWrapper] 渲染状态 - authenticated:', authenticated);
-
   if (!authenticated) {
-    console.log('[AuthWrapper] 未认证，返回 null');
     return null;
   }
 
-  console.log('[AuthWrapper] 已认证，渲染 Outlet');
   return <Outlet />;
 }

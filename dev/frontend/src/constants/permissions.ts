@@ -79,14 +79,28 @@ export const PERMISSIONS = {
     WRITE: 'goods-rules:write',
   },
 
-  // 应收账款模块
+  // 财务模块（应收账款与催收）
+  FINANCE: {
+    AR: {
+      READ: 'finance:ar:read',
+      WRITE: 'finance:ar:write',
+      PENALTY: 'finance:ar:penalty',
+      // 催收操作（兼容旧引用）
+      COLLECTION_READ: 'finance:ar:read',
+      COLLECTION_WRITE: 'finance:ar:write',
+      COLLECTION_VERIFY: 'finance:ar:write',
+      COLLECTION_ESCALATE: 'finance:ar:write',
+    },
+  },
+
+  // 应收账款模块（已迁移至 FINANCE.AR，保留兼容）
   AR: {
     // 催收管理
     COLLECTION: {
-      READ: 'ar:collection:read',
-      WRITE: 'ar:collection:write',
-      VERIFY: 'ar:collection:verify',
-      ESCALATE: 'ar:collection:escalate',
+      READ: 'finance:ar:read',
+      WRITE: 'finance:ar:write',
+      VERIFY: 'finance:ar:write',
+      ESCALATE: 'finance:ar:write',
     },
   },
 
@@ -132,6 +146,9 @@ export type PermissionCode = typeof PERMISSIONS[keyof typeof PERMISSIONS] |
   typeof PERMISSIONS.RETURN[keyof typeof PERMISSIONS.RETURN] |
   typeof PERMISSIONS.RETURN.PENALTY[keyof typeof PERMISSIONS.RETURN.PENALTY] |
   typeof PERMISSIONS.GOODS_RULES[keyof typeof PERMISSIONS.GOODS_RULES] |
+  typeof PERMISSIONS.FINANCE[keyof typeof PERMISSIONS.FINANCE][keyof typeof PERMISSIONS.FINANCE.AR] |
+  typeof PERMISSIONS.FINANCE.AR[keyof typeof PERMISSIONS.FINANCE.AR] |
+  typeof PERMISSIONS.AR[keyof typeof PERMISSIONS.AR] |
   typeof PERMISSIONS.AR.COLLECTION[keyof typeof PERMISSIONS.AR.COLLECTION] |
   typeof PERMISSIONS.OA.APPROVAL[keyof typeof PERMISSIONS.OA.APPROVAL] |
   typeof PERMISSIONS.OA.DATA[keyof typeof PERMISSIONS.OA.DATA];

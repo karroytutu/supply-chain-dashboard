@@ -32,18 +32,10 @@ interface PermissionState {
  * }
  */
 export function usePermission(): PermissionState {
-  // 尝试从 umi model 获取用户信息
-  let currentUser: UserInfo | null = null;
-  let fetchCurrentUser: () => Promise<UserInfo | null> = async () => null;
-  
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const authModel = useModel('auth');
-    currentUser = authModel.currentUser;
-    fetchCurrentUser = authModel.fetchCurrentUser;
-  } catch {
-    // 如果 model 不可用，使用默认值
-  }
+  // 从 umi model 获取用户信息
+  const authModel = useModel('auth');
+  const currentUser = authModel.currentUser;
+  const fetchCurrentUser = authModel.fetchCurrentUser;
 
   // 提取权限列表
   const permissions = useMemo(() => {

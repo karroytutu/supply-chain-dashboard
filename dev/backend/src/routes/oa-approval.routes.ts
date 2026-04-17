@@ -10,25 +10,34 @@ import {
   listFormTypes,
   listFormTypesGrouped,
   getFormType,
-  // 审批实例
+} from '../controllers/oa-form-type.controller';
+import {
+  // 审批实例查询
   listApprovals,
   getStats,
   getDetail,
+} from '../controllers/oa-approval.controller';
+import {
+  // 审批实例操作
   submit,
   approve,
   reject,
   transfer,
   countersign,
   withdraw,
+} from '../controllers/oa-approval-mutation.controller';
+import {
   // 数据管理
   getDataList,
   exportData,
+} from '../controllers/oa-data.controller';
+import {
   // 站内消息
   listMessages,
   getUnreadCount,
   readMessage,
   readAllMessages,
-} from '../controllers/oa-approval.controller';
+} from '../controllers/oa-message.controller';
 
 const router = Router();
 

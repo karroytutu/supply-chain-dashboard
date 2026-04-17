@@ -262,11 +262,21 @@ export async function assignRolePermissions(roleId: number, permissionIds: numbe
     // 删除现有权限
     await client.query('DELETE FROM role_permissions WHERE role_id = $1', [roleId]);
     
-    // 添加新权限
-    for (const permissionId of permissionIds) {
+    // 批量添加新权限 - 使用动态构造 VALUES 子句
+    if (permissionIds.length > 0) {
+      const placeholders: string[] = [];
+      const values: number[] = [];
+      let paramIndex = 1;
+      
+      for (const permissionId of permissionIds) {
+        placeholders.push(`($${paramIndex}, $${paramIndex + 1})`);
+        values.push(roleId, permissionId);
+        paramIndex += 2;
+      }
+      
       await client.query(
-        'INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)',
-        [roleId, permissionId]
+        `INSERT INTO role_permissions (role_id, permission_id) VALUES ${placeholders.join(', ')}`,
+        values
       );
     }
     

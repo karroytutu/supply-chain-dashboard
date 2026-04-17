@@ -7,6 +7,8 @@ import { history } from 'umi';
 
 const API_BASE = '/api';
 const TOKEN_KEY = 'auth_token';
+/** 默认请求超时时间（30秒） */
+const DEFAULT_TIMEOUT = 30000;
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -65,6 +67,9 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
     authHeaders['Authorization'] = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+
   const config: RequestInit = {
     method,
     headers: {
@@ -72,13 +77,25 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
       ...authHeaders,
       ...headers,
     },
+    signal: controller.signal,
   };
 
   if (body && method !== 'GET') {
     config.body = JSON.stringify(body);
   }
 
-  const response = await fetch(fullUrl, config);
+  let response: Response;
+  try {
+    response = await fetch(fullUrl, config);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('请求超时，请稍后重试');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   // 处理 HTTP 错误状态
   if (!response.ok) {
@@ -139,5 +156,54 @@ request.put = <T>(url: string, body?: any, options?: Omit<RequestOptions, 'metho
 request.delete = <T>(url: string, options?: Omit<RequestOptions, 'method'>): Promise<T> => {
   return request<T>(url, { ...options, method: 'DELETE' });
 };
+
+/**
+ * 发送 FormData 请求（用于文件上传）
+ * 不设置 Content-Type，让浏览器自动设置 boundary
+ */
+export async function requestFormData<T = any>(
+  url: string,
+  formData: FormData,
+): Promise<T> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${url}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('上传超时，请稍后重试');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (response.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    window.location.href = '/login';
+    throw new Error('未授权');
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || '上传失败');
+  }
+
+  return response.json();
+}
 
 export default request;

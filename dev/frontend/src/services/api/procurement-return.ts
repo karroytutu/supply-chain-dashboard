@@ -1,7 +1,7 @@
 /**
  * 退货单管理 API 服务
  */
-import request from './request';
+import request, { requestFormData } from './request';
 import type { PaginatedResult } from '@/types/warning';
 import type {
   ReturnOrder,
@@ -90,21 +90,7 @@ export const fillErpReturnNo = (
 export const uploadReturnEvidence = async (files: File[]): Promise<UploadReturnEvidenceResponse> => {
   const formData = new FormData();
   files.forEach(file => formData.append('files', file));
-
-  const token = localStorage.getItem('auth_token');
-  const response = await fetch('/api/return-orders/upload-evidence', {
-    method: 'POST',
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`上传失败: ${response.status}`);
-  }
-
-  return response.json();
+  return requestFormData<UploadReturnEvidenceResponse>('/return-orders/upload-evidence', formData);
 };
 
 /**
@@ -127,15 +113,4 @@ export const rollbackReturnOrder = (
   return request.post<ReturnOrder>(`/return-orders/${id}/rollback`, data);
 };
 
-export default {
-  getReturnOrders,
-  getReturnOrderById,
-  getReturnOrderStats,
-  getPendingErpOrders,
-  getReturnOrderActions,
-  batchConfirmReturnOrders,
-  cancelReturnOrder,
-  fillErpReturnNo,
-  warehouseExecute,
-  rollbackReturnOrder,
-};
+

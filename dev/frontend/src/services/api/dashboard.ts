@@ -112,10 +112,4 @@ export const getProcurementArchive = (
   return request<ProcurementArchiveResponse>(url);
 };
 
-export default {
-  getDashboardData,
-  getWarningProducts,
-  getCategoryTree,
-  getCategoryOutOfStockProducts,
-  getProcurementArchive,
-};
+

@@ -407,7 +407,10 @@ export async function getOutOfStockProductsByCategory(
 ): Promise<PaginatedResult<{ productName: string }>> {
   const page = pagination.page ?? 1;
   const pageSize = pagination.pageSize ?? 20;
-  const offset = (page - 1) * pageSize;
+  // 安全检查：pageSize 上限 100，page 下限 1
+  const safePageSize = Math.min(pageSize, 100);
+  const safePage = Math.max(page, 1);
+  const offset = (safePage - 1) * safePageSize;
 
   const result = await query<{ product_name: string; total_count: number }>(`
     WITH enabled_goods AS (
@@ -427,15 +430,15 @@ export async function getOutOfStockProductsByCategory(
     LEFT JOIN stock_summary s ON g."goodsId" = s."goodsId"
     WHERE s.total_quantity IS NULL OR s.total_quantity = 0
     ORDER BY g."name"
-    LIMIT ${pageSize} OFFSET ${offset}
-  `, [categoryPath]);
+    LIMIT $2 OFFSET $3
+  `, [categoryPath, safePageSize, offset]);
 
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count as any) || 0 : 0;
-  const totalPages = Math.ceil(total / pageSize);
+  const totalPages = Math.ceil(total / safePageSize);
 
   const data = result.rows.map(row => ({
     productName: row.product_name || '',
   }));
 
-  return { data, total, page, pageSize, totalPages };
+  return { data, total, page: safePage, pageSize: safePageSize, totalPages };
 }

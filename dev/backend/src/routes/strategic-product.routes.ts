@@ -8,15 +8,17 @@ import { requirePermission } from '../middleware/permission';
 import {
   getStrategicProductsController,
   getStrategicProductStatsController,
+  getCategoryTreeController,
+  getProductsForSelectionController,
+} from '../controllers/strategic-product-query.controller';
+import {
   addStrategicProductsController,
   deleteStrategicProductController,
   confirmStrategicProductController,
   batchConfirmStrategicProductsController,
   batchDeleteStrategicProductsController,
-  getCategoryTreeController,
-  getProductsForSelectionController,
   syncCategoryPathController,
-} from '../controllers/strategic-product.controller';
+} from '../controllers/strategic-product-mutation.controller';
 
 const router = Router();
 

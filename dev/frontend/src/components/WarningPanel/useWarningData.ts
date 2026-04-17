@@ -1,7 +1,8 @@
 /**
  * 预警数据管理 Hook
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { message } from 'antd';
 import { getWarningProducts } from '@/services/api/dashboard';
 import { warningTypeMap } from './constants';
 import type { WarningProduct, StrategicLevel } from '@/types/warning';
@@ -24,9 +25,11 @@ export function useWarningData({
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
   const [strategicLevelFilter, setStrategicLevelFilter] = useState<StrategicLevel | undefined>();
+  /** 重试计数器，失败后自动重试一次 */
+  const retryCountRef = useRef(0);
 
   // 构建预警分组数据
-  const warningGroups = [
+  const warningGroups = useMemo(() => [
     {
       key: 'stock',
       items: [
@@ -58,7 +61,7 @@ export function useWarningData({
         { key: 'seriousSlowMoving', count: slowMovingWarnings.seriousSlowMoving },
       ].filter(item => item.count > 0),
     },
-  ];
+  ], [stockWarnings, turnoverWarnings, expiringWarnings, slowMovingWarnings]);
 
   // 计算总预警数
   const totalWarnings = warningGroups.reduce(
@@ -99,12 +102,30 @@ export function useWarningData({
 
         setProducts(result.data || []);
         setPagination(prev => ({ ...prev, total: result.total || 0 }));
+        // 请求成功，重置重试计数
+        retryCountRef.current = 0;
       } catch (error) {
         console.error('加载预警商品数据失败:', error);
-        setProducts([]);
-        setPagination(prev => ({ ...prev, total: 0 }));
+
+        // 失败后自动重试一次（延迟2秒）
+        if (retryCountRef.current === 0) {
+          retryCountRef.current = 1;
+          message.warning('加载预警数据失败，正在重试...');
+          setTimeout(() => {
+            loadProducts();
+          }, 2000);
+        } else {
+          // 重试仍失败，提示用户
+          retryCountRef.current = 0;
+          message.error('加载预警数据失败，请稍后重试');
+          setProducts([]);
+          setPagination(prev => ({ ...prev, total: 0 }));
+        }
       } finally {
-        setLoading(false);
+        // 只在非重试等待时取消 loading
+        if (retryCountRef.current === 0) {
+          setLoading(false);
+        }
       }
     };
 

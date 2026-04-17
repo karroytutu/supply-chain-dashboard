@@ -104,6 +104,7 @@ export async function syncERPDebts(): Promise<void> {
     console.log(`[ARSync] 同步完成: 新增=${insertCount}, 更新=${updateCount}, 消失=${removedCount}, 耗时=${duration}ms`);
   } catch (error) {
     console.error('[ARSync] ERP欠款数据同步失败:', error);
+    throw error;
   }
 }
 
@@ -271,6 +272,7 @@ export async function generateCollectionTasks(): Promise<void> {
     }
   } catch (error) {
     console.error('[ARSync] 催收任务生成失败:', error);
+    throw error;
   }
 }
 
@@ -335,6 +337,7 @@ export async function checkExtensionExpiry(): Promise<void> {
     }
   } catch (error) {
     console.error('[ARSync] 延期到期检查失败:', error);
+    throw error;
   }
 }
 

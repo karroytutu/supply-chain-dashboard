@@ -44,10 +44,9 @@ const MonthlyArchiveModal: React.FC<MonthlyArchiveModalProps> = ({
 
   useEffect(() => {
     if (open) {
-      loadData(1, pagination.pageSize);
+      loadData(1, 12);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, loadData]);
 
   // 格式化月份显示
   const formatMonth = (monthStr: string) => {

@@ -261,14 +261,24 @@ export async function batchAssignUserRoles(userIds: number[], roleIds: number[])
     // 删除现有角色
     await client.query('DELETE FROM user_roles WHERE user_id = ANY($1)', [userIds]);
     
-    // 批量添加新角色
-    for (const userId of userIds) {
-      for (const roleId of roleIds) {
-        await client.query(
-          'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)',
-          [userId, roleId]
-        );
+    // 批量添加新角色 - 使用动态构造 VALUES 子句
+    if (roleIds.length > 0 && userIds.length > 0) {
+      const values: number[] = [];
+      const placeholders: string[] = [];
+      let paramIndex = 1;
+      
+      for (const userId of userIds) {
+        for (const roleId of roleIds) {
+          values.push(userId, roleId);
+          placeholders.push(`($${paramIndex}, $${paramIndex + 1})`);
+          paramIndex += 2;
+        }
       }
+      
+      await client.query(
+        `INSERT INTO user_roles (user_id, role_id) VALUES ${placeholders.join(', ')}`,
+        values
+      );
     }
     
     await client.query('COMMIT');

@@ -61,6 +61,35 @@ export const Authorized: React.FC<AuthorizedProps> = ({
 }) => {
   const { hasRole, hasAllPermissions, hasAnyPermission, currentUser } = usePermission();
 
+  /** 无权限时统一渲染逻辑 */
+  const renderUnauthorized = (detail?: { permissions?: string[] }) => {
+    if (fallback !== null && fallback !== undefined) {
+      return <>{fallback}</>;
+    }
+    if (detail?.permissions) {
+      return (
+        <Result
+          status="403"
+          title="无访问权限"
+          subTitle={
+            <div>
+              <p>您没有访问此页面的权限</p>
+              <p style={{ color: '#999', fontSize: 12 }}>
+                需要权限: {detail.permissions.join(' 或 ')}
+              </p>
+            </div>
+          }
+          extra={
+            <Button type="primary" href="/">
+              返回首页
+            </Button>
+          }
+        />
+      );
+    }
+    return <Result status="403" title="无权限" subTitle="您没有权限访问此页面" />;
+  };
+
   // 未登录时显示提示
   if (!currentUser) {
     return (
@@ -85,30 +114,7 @@ export const Authorized: React.FC<AuthorizedProps> = ({
       : hasAnyPermission(permissions);
 
     if (!hasAuth) {
-      // 如果提供了自定义 fallback，使用它
-      if (fallback !== null) {
-        return <>{fallback}</>;
-      }
-      // 否则显示无权限提示
-      return (
-        <Result
-          status="403"
-          title="无访问权限"
-          subTitle={
-            <div>
-              <p>您没有访问此页面的权限</p>
-              <p style={{ color: '#999', fontSize: 12 }}>
-                需要权限: {permissions.join(' 或 ')}
-              </p>
-            </div>
-          }
-          extra={
-            <Button type="primary" href="/">
-              返回首页
-            </Button>
-          }
-        />
-      );
+      return renderUnauthorized({ permissions });
     }
   }
 
@@ -120,7 +126,7 @@ export const Authorized: React.FC<AuthorizedProps> = ({
       : roles.some(r => hasRole(r));
 
     if (!hasAuth) {
-      return <>{fallback}</>;
+      return renderUnauthorized();
     }
   }
 

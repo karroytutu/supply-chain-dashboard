@@ -68,7 +68,7 @@ export default function PermissionManage() {
       <Card>
         <div className={styles.toolbar}>
           <span style={{ fontSize: 16, fontWeight: 500 }}>权限管理</span>
-          <Authorized config={{ permission: PERMISSIONS.SYSTEM.PERMISSION.WRITE }}>
+          <Authorized permission={PERMISSIONS.SYSTEM.PERMISSION.WRITE}>
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
               新建权限
             </Button>

@@ -28,6 +28,19 @@ async function runMigrations() {
     fs.mkdirSync(migrationsDir, { recursive: true });
   }
 
+  // 创建迁移历史表（如不存在）
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS migrations_history (
+      id SERIAL PRIMARY KEY,
+      filename VARCHAR(255) NOT NULL UNIQUE,
+      executed_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  // 查询已执行的迁移
+  const executedResult = await pool.query('SELECT filename FROM migrations_history');
+  const executedFiles = new Set(executedResult.rows.map((r: any) => r.filename));
+
   const files = fs.readdirSync(migrationsDir)
     .filter(f => f.endsWith('.sql'))
     .sort();
@@ -37,15 +50,28 @@ async function runMigrations() {
     return;
   }
 
-  console.log(`找到 ${files.length} 个迁移文件`);
+  // 过滤掉已执行的迁移
+  const pendingFiles = files.filter(f => !executedFiles.has(f));
 
-  for (const file of files) {
+  if (pendingFiles.length === 0) {
+    console.log('所有迁移已执行，无需操作');
+    return;
+  }
+
+  console.log(`找到 ${files.length} 个迁移文件，${pendingFiles.length} 个待执行`);
+
+  for (const file of pendingFiles) {
     console.log(`\n执行迁移: ${file}`);
     const filePath = path.join(migrationsDir, file);
     const sql = fs.readFileSync(filePath, 'utf8');
     
     try {
       await pool.query(sql);
+      // 记录迁移执行历史
+      await pool.query(
+        'INSERT INTO migrations_history (filename) VALUES ($1)',
+        [file]
+      );
       console.log(`完成: ${file}`);
     } catch (error: any) {
       console.error(`迁移失败: ${file}`);

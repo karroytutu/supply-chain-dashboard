@@ -7,6 +7,25 @@ const envFile = path.resolve(__dirname, '../../.env.' + env);
 
 dotenv.config({ path: envFile });
 
+// JWT 密钥安全校验 - 生产环境必须使用强密钥
+const defaultJwtSecret = 'DEVELOPMENT-ONLY-JWT-SECRET-NOT-FOR-PRODUCTION';
+const jwtSecret = process.env.JWT_SECRET || defaultJwtSecret;
+
+// 生产环境强制检查 JWT_SECRET
+if (env === 'production') {
+  const isDefaultSecret = !process.env.JWT_SECRET || 
+    jwtSecret === defaultJwtSecret ||
+    jwtSecret === 'your-secret-key-change-in-production' ||
+    jwtSecret.length < 32;
+  
+  if (isDefaultSecret) {
+    throw new Error(
+      '[SECURITY ERROR] 生产环境必须设置强 JWT_SECRET 环境变量（至少32位随机字符）。' +
+      '请使用以下命令生成：openssl rand -base64 32'
+    );
+  }
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '8100', 10),
   
@@ -20,6 +39,8 @@ export const config = {
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+    maxUses: 7500,
+    allowExitOnIdle: true,
     // 设置时区为北京时间
     options: '-c timezone=Asia/Shanghai',
   },
@@ -34,6 +55,8 @@ export const config = {
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+    maxUses: 7500,
+    allowExitOnIdle: true,
     // 设置时区为北京时间
     options: '-c timezone=Asia/Shanghai',
   },
@@ -48,7 +71,7 @@ export const config = {
   
   // JWT配置
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+    secret: jwtSecret,
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   },
   

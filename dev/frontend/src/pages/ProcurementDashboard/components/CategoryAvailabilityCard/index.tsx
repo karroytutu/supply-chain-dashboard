@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Spin, Empty, Drawer } from 'antd';
 import { getCategoryTree } from '@/services/api/dashboard';
-import { dataCache, CACHE_KEYS, CACHE_TTL } from '@/utils/dataCache';
+import { dataCache, CACHE_KEYS, CACHE_TTL } from '@/utils/cache';
 import type { CategoryTreeNode } from '@/services/api/dashboard';
 import CategoryTable from './CategoryTable';
 import ProductList from './ProductList';

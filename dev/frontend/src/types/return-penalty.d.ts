@@ -1,6 +1,10 @@
 /**
  * 退货考核类型定义
  */
+import type { PaginatedResult as BasePaginatedResult } from './warning';
+
+/** 分页结果 - 重新导出以兼容现有代码 */
+export type PaginatedResult<T> = BasePaginatedResult<T>;
 
 /** 考核类型 */
 export type PenaltyType =
@@ -66,15 +70,6 @@ export interface PenaltyStats {
     count: number;
     amount: number;
   }[];
-}
-
-/** 分页结果 */
-export interface PaginatedResult<T> {
-  list: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
 }
 
 /** 考核类型名称映射 */

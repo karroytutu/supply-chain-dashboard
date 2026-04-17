@@ -3,7 +3,7 @@
  * @module services/api/oa-approval
  */
 
-import { request } from './request';
+import request from './request';
 import {
   FormTypeDefinition,
   FormCategory,
@@ -320,7 +320,7 @@ export async function markAllMessagesRead(): Promise<void> {
 }
 
 // =====================================================
-// 导出 API 对象
+// 导出 API 对象（供页面使用）
 // =====================================================
 
 export const oaApprovalApi = {

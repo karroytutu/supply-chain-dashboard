@@ -1,17 +1,18 @@
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { config } from '../config';
+import logger from '../utils/logger';
 
 // 创建应用数据库连接池（用户认证等）
 const appPool = new Pool(config.appDatabase);
 
 // 连接池错误处理
 appPool.on('error', (err) => {
-  console.error('应用数据库连接池错误:', err);
+  logger.error('[App DB Pool] Unexpected error on idle client:', err);
 });
 
 // 测试连接
 appPool.on('connect', () => {
-  console.log('应用数据库连接成功');
+  logger.info('应用数据库连接成功');
 });
 
 /**
@@ -29,7 +30,7 @@ export async function appQuery<T extends QueryResultRow = any>(
   const duration = Date.now() - start;
 
   if (process.env.NODE_ENV === 'development') {
-    console.log('应用数据库查询:', {
+    logger.debug('应用数据库查询:', {
       text: text.substring(0, 100) + '...',
       duration: `${duration}ms`,
       rows: result.rowCount
@@ -51,7 +52,7 @@ export async function getAppClient(): Promise<PoolClient> {
  */
 export async function closeAppPool(): Promise<void> {
   await appPool.end();
-  console.log('应用数据库连接池已关闭');
+  logger.info('应用数据库连接池已关闭');
 }
 
 export default { appQuery, getAppClient, closeAppPool };

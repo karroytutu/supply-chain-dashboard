@@ -1,17 +1,18 @@
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { config } from '../config';
+import logger from '../utils/logger';
 
 // 创建连接池
 const pool = new Pool(config.database);
 
 // 连接池错误处理
 pool.on('error', (err) => {
-  console.error('数据库连接池错误:', err);
+  logger.error('[DB Pool] Unexpected error on idle client:', err);
 });
 
 // 测试连接
 pool.on('connect', () => {
-  console.log('数据库连接成功');
+  logger.info('数据库连接成功');
 });
 
 /**
@@ -26,7 +27,7 @@ export async function query<T extends QueryResultRow = any>(text: string, params
   const duration = Date.now() - start;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log('SQL查询:', { 
+    logger.debug('SQL查询:', { 
       text: text.substring(0, 100) + '...', 
       duration: `${duration}ms`, 
       rows: result.rowCount 
@@ -48,7 +49,7 @@ export async function getClient(): Promise<PoolClient> {
  */
 export async function closePool(): Promise<void> {
   await pool.end();
-  console.log('数据库连接池已关闭');
+  logger.info('数据库连接池已关闭');
 }
 
 export default { query, getClient, closePool };

@@ -10,11 +10,13 @@ import {
   getMyPenaltyList,
   getPenaltyDetail,
   getPenaltyStatistics,
+} from '../controllers/return-penalty-query.controller';
+import {
   confirmPenalty,
   cancelPenalty,
   appealPenalty,
   triggerPenaltyCalculation,
-} from '../controllers/return-penalty.controller';
+} from '../controllers/return-penalty-mutation.controller';
 
 const router = Router();
 
@@ -23,93 +25,61 @@ router.use(authMiddleware);
 
 // ==================== 考核记录查询 ====================
 
-/**
- * 获取考核记录列表
- * GET /api/return-penalty
- * 权限: return:penalty:read
- */
+/** 获取考核记录列表 */
 router.get(
   '/',
-  requirePermission('return:penalty:read'),
+  requirePermission('finance:ar:penalty'),
   getPenaltyList
 );
 
-/**
- * 获取考核统计
- * GET /api/return-penalty/stats
- * 权限: return:penalty:read
- */
+/** 获取考核统计 */
 router.get(
   '/stats',
-  requirePermission('return:penalty:read'),
+  requirePermission('finance:ar:penalty'),
   getPenaltyStatistics
 );
 
-/**
- * 手动触发考核计算
- * POST /api/return-penalty/calculate
- * 权限: return:penalty:write (管理员运维使用)
- */
+/** 手动触发考核计算 */
 router.post(
   '/calculate',
-  requirePermission('return:penalty:write'),
+  requirePermission('finance:ar:penalty'),
   triggerPenaltyCalculation
 );
 
-/**
- * 获取我的考核记录
- * GET /api/return-penalty/my
- * 权限: return:penalty:read
- */
+/** 获取我的考核记录 */
 router.get(
   '/my',
-  requirePermission('return:penalty:read'),
+  requirePermission('finance:ar:penalty'),
   getMyPenaltyList
 );
 
-/**
- * 获取单条考核详情
- * GET /api/return-penalty/:id
- * 权限: return:penalty:read
- */
+/** 获取单条考核详情 */
 router.get(
   '/:id',
-  requirePermission('return:penalty:read'),
+  requirePermission('finance:ar:penalty'),
   getPenaltyDetail
 );
 
 // ==================== 考核操作 ====================
 
-/**
- * 确认考核
- * POST /api/return-penalty/:id/confirm
- * 权限: return:penalty:write
- */
+/** 确认考核 */
 router.post(
   '/:id/confirm',
-  requirePermission('return:penalty:write'),
+  requirePermission('finance:ar:penalty'),
   confirmPenalty
 );
 
-/**
- * 取消考核
- * POST /api/return-penalty/:id/cancel
- * 权限: return:penalty:write
- */
+/** 取消考核 */
 router.post(
   '/:id/cancel',
-  requirePermission('return:penalty:write'),
+  requirePermission('finance:ar:penalty'),
   cancelPenalty
 );
 
-/**
- * 申诉考核
- * POST /api/return-penalty/:id/appeal
- * 权限: return:penalty:read
- */
+/** 申诉考核 */
 router.post(
   '/:id/appeal',
-  requirePermission('return:penalty:read'),
+  requirePermission('finance:ar:penalty'),
   appealPenalty
 );
 

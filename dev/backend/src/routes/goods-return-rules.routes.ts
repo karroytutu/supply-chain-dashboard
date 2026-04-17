@@ -12,7 +12,7 @@ import {
   updateGoodsReturnRuleController,
   batchSetGoodsReturnRulesController,
   checkGoodsReturnRuleController,
-} from '../controllers/return-order.controller';
+} from '../controllers/goods-return-rules.controller';
 
 const router = Router();
 

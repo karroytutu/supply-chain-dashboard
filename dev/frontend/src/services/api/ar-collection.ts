@@ -1,7 +1,7 @@
 /**
  * 逾期催收管理 API 服务
  */
-import request from './request';
+import request, { requestFormData } from './request';
 import type { PaginatedResult } from '@/types/warning';
 import type {
   CollectionTask,
@@ -159,28 +159,14 @@ export const updateLegalProgress = (
 export const uploadEvidence = async (file: File): Promise<UploadEvidenceResponse> => {
   const formData = new FormData();
   formData.append('file', file);
-
-  const token = localStorage.getItem('auth_token');
-  const response = await fetch('/api/ar-collection/upload', {
-    method: 'POST',
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`上传失败: ${response.status}`);
-  }
-
-  return response.json();
+  return requestFormData<UploadEvidenceResponse>('/ar-collection/upload', formData);
 };
 
 /**
  * 获取逾期前预警数据(即将逾期的欠款列表)
  */
 export const getUpcomingWarnings = (params?: {
-  warningLevel?: 'critical' | 'high' | 'medium';
+  warningLevel?: 'today' | 'high' | 'medium';
 }): Promise<UpcomingWarningData> => {
   return request.get<UpcomingWarningData>('/ar-collection/warnings/upcoming', { params });
 };
@@ -196,25 +182,4 @@ export const getWarningReminders = (params?: {
   return request.get('/ar-collection/warnings/reminders', { params });
 };
 
-export default {
-  getCollectionStats,
-  getCollectionTasks,
-  getCollectionTaskById,
-  getCollectionTaskDetails,
-  getCollectionTaskActions,
-  getLegalProgress,
-  getMyTasks,
-  getHandlers,
-  verifyTask,
-  applyExtension,
-  markDifference,
-  escalateTask,
-  confirmVerify,
-  resolveDifference,
-  sendNotice,
-  fileLawsuit,
-  updateLegalProgress,
-  uploadEvidence,
-  getUpcomingWarnings,
-  getWarningReminders,
-};
+

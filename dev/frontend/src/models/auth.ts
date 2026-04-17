@@ -66,30 +66,6 @@ export default function useAuth() {
     return !!getToken();
   }, [getToken]);
 
-  // 检查是否有权限
-  const hasPermission = useCallback((permission: string | string[]): boolean => {
-    if (!currentUser) {
-      return false;
-    }
-
-    const permissions = currentUser.permissions || [];
-    const requiredPermissions = Array.isArray(permission) ? permission : [permission];
-
-    return requiredPermissions.some(p => permissions.includes(p));
-  }, [currentUser]);
-
-  // 检查是否有角色
-  const hasRole = useCallback((role: string | string[]): boolean => {
-    if (!currentUser) {
-      return false;
-    }
-
-    const roles = currentUser.roles?.map(r => r.code) || [];
-    const requiredRoles = Array.isArray(role) ? role : [role];
-
-    return requiredRoles.some(r => roles.includes(r));
-  }, [currentUser]);
-
   // 设置当前用户信息（供外部调用，如 AuthWrapper）
   const updateCurrentUser = useCallback((user: UserInfo | null) => {
     setCurrentUser(user);
@@ -105,8 +81,6 @@ export default function useAuth() {
     login,
     logout,
     isLoggedIn,
-    hasPermission,
-    hasRole,
     setCurrentUser: updateCurrentUser,
   };
 }

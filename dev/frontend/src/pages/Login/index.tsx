@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { history } from 'umi';
 import { Spin, Result, Button } from 'antd';
 import { checkDingtalkEnv, dingtalkAutoLogin, dingtalkCallback, getCurrentUser, devLogin } from '@/services/api/auth';
@@ -23,17 +23,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   // 处理登录成功
-  const handleLoginSuccess = (token: string, user: any) => {
+  const handleLoginSuccess = useCallback((token: string, user: any) => {
     console.log('[Login] 登录成功，准备跳转', { token: token?.substring(0, 20) + '...', user });
     localStorage.setItem(TOKEN_KEY, token);
     const redirect = (history.location as any).query?.redirect || '/';
     console.log('[Login] 跳转目标:', redirect);
     // 使用 window.location.href 强制页面重新加载，确保 auth wrapper 正确初始化
     window.location.href = redirect;
-  };
+  }, []);
 
   // 钉钉免登
-  const handleAutoLogin = async (corpId: string, agentId?: string) => {
+  const handleAutoLogin = useCallback(async (corpId: string, agentId?: string) => {
     try {
       setLoading(true);
       const authCode = await getAuthCode(envInfo.clientType === 'outside' ? 'pc' : envInfo.clientType, corpId, agentId);
@@ -49,10 +49,10 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [envInfo.clientType, handleLoginSuccess]);
 
   // 扫码登录回调
-  const handleQrcodeCallback = async (authCode: string) => {
+  const handleQrcodeCallback = useCallback(async (authCode: string) => {
     console.log('[Login] 开始处理扫码回调，authCode:', authCode?.substring(0, 10) + '...');
     try {
       setLoading(true);
@@ -70,7 +70,7 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [handleLoginSuccess]);
 
   // 开发环境登录
   const handleDevLogin = async () => {
@@ -132,7 +132,7 @@ export default function LoginPage() {
     };
 
     init();
-  }, []);
+  }, [handleAutoLogin]);
 
   // 处理扫码登录回调
   useEffect(() => {
@@ -142,7 +142,7 @@ export default function LoginPage() {
     if (authCode) {
       handleQrcodeCallback(authCode);
     }
-  }, []);
+  }, [handleQrcodeCallback]);
 
   if (loading) {
     return (

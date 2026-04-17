@@ -106,16 +106,4 @@ export const syncCategoryPath = (): Promise<{ success: boolean; message: string;
   return request.post('/strategic-products/sync-category');
 };
 
-export default {
-  getStrategicProducts,
-  getStrategicProductStats,
-  addStrategicProducts,
-  deleteStrategicProduct,
-  confirmStrategicProduct,
-  batchConfirmStrategicProducts,
-  batchDeleteStrategicProducts,
-  getCategoryTree,
-  getProductsForSelection,
-  getStrategicLevels,
-  syncCategoryPath,
-};
+

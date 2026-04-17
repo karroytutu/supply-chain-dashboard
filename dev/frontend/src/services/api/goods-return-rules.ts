@@ -64,11 +64,4 @@ export const checkGoodsReturnRule = (goodsId: string): Promise<GoodsReturnRule |
   return request.get<GoodsReturnRule | null>(`/goods-return-rules/check/${goodsId}`);
 };
 
-export default {
-  getGoodsReturnRules,
-  getGoodsReturnRuleStats,
-  createGoodsReturnRule,
-  updateGoodsReturnRule,
-  batchSetGoodsReturnRules,
-  checkGoodsReturnRule,
-};
+
