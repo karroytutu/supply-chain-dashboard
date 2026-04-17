@@ -8,6 +8,7 @@
 import { query } from '../../db/pool';
 import { appQuery, getAppClient } from '../../db/appPool';
 import type { Priority, BatchType, TaskStatus } from './ar-collection.types';
+import { sendTaskCreatedNotifications } from './ar-collection-notify-task';
 
 /** ERP欠款记录 */
 interface ERPDebtRecord {
@@ -179,6 +180,8 @@ export async function generateCollectionTasks(): Promise<void> {
 
     // 5. 为每组生成任务
     const client = await getAppClient();
+    // 收集任务ID和责任人映射，用于发送通知
+    const taskIdMap = new Map<string, { taskId: number; managerUserId: number | null }>();
     try {
       await client.query('BEGIN');
 
@@ -220,6 +223,9 @@ export async function generateCollectionTasks(): Promise<void> {
         );
         const taskId = taskResult.rows[0].id;
 
+        // 收集任务信息用于通知
+        taskIdMap.set(consumerName, { taskId, managerUserId });
+
         // 插入明细
         for (const debt of debts) {
           const workDate = new Date(debt.workTime);
@@ -249,6 +255,14 @@ export async function generateCollectionTasks(): Promise<void> {
 
       await client.query('COMMIT');
       console.log(`[ARSync] 成功生成 ${groups.size} 个催收任务`);
+
+      // 发送任务创建通知
+      try {
+        await sendTaskCreatedNotifications(Array.from(taskIdMap.entries()));
+      } catch (notifyErr) {
+        console.error('[ARSync] 发送任务创建通知失败:', notifyErr);
+        // 不抛出异常，避免影响主流程
+      }
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;

@@ -54,7 +54,15 @@ export {
   buildExtensionExpiryMessage,
   buildEscalationMessage,
   buildVerifyResultMessage,
+  buildEscalationActionCard,
+  buildVerifyResultActionCard,
 } from './ar-collection-notify';
+
+// 任务创建通知服务
+export {
+  sendTaskCreatedNotifications,
+  buildTaskCreatedActionCard,
+} from './ar-collection-notify-task';
 
 // 定时提醒任务
 export {

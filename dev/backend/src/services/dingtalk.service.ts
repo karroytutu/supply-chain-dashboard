@@ -302,12 +302,13 @@ export async function sendWorkNotification(
     msg.markdown = new OapiMessageCorpconversationAsyncsend_v2ParamsMsgMarkdown({});
     msg.markdown.title = title;
     msg.markdown.text = content;
-    
+
     // 构建请求
     const request = new OapiMessageCorpconversationAsyncsend_v2Request({});
     request.params = new OapiMessageCorpconversationAsyncsend_v2Params({});
     request.params.agentId = Number(config.dingtalk.agentId);
-    request.params.useridList = userIdList;
+    // 钉钉 API 要求 userid_list 为逗号分隔的字符串，不是数组
+    request.params.useridList = userIdList.join(',') as any;
     request.params.msg = msg;
     
     const response = await client.oapiMessageCorpconversationAsyncsend_v2(request);

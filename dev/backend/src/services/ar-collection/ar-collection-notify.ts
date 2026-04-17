@@ -4,7 +4,8 @@
  */
 
 import { appQuery } from '../../db/appPool';
-import { sendWorkNotification } from '../dingtalk.service';
+import { sendWorkNotification } from '../dingtalk';
+import type { ActionCardContent, SendMessageOptions } from '../dingtalk/dingtalk.types';
 import type { CollectionTask, EscalationLevel } from './ar-collection.types';
 
 /** 通知发送参数 */
@@ -15,6 +16,8 @@ interface NotifyParams {
   title: string;
   /** 消息内容（Markdown格式） */
   content: string;
+  /** 发送选项（支持 ActionCard） */
+  options?: SendMessageOptions;
 }
 
 /** 消息模板返回结构 */
@@ -98,7 +101,7 @@ async function getDingtalkUserIdsByRole(roleCode: string): Promise<string[]> {
  */
 export async function sendCollectionNotification(params: NotifyParams): Promise<void> {
   try {
-    const { userIds, title, content } = params;
+    const { userIds, title, content, options } = params;
 
     const dingtalkIds = await getDingtalkUserIds(userIds);
     if (dingtalkIds.length === 0) {
@@ -106,7 +109,7 @@ export async function sendCollectionNotification(params: NotifyParams): Promise<
       return;
     }
 
-    const result = await sendWorkNotification(dingtalkIds, title, content);
+    const result = await sendWorkNotification(dingtalkIds, title, content, options);
     console.log('[CollectionNotify] 通知发送结果:', title, result);
   } catch (error) {
     console.error('[CollectionNotify] 通知发送失败:', params.title, error);
@@ -120,7 +123,8 @@ export async function sendCollectionNotification(params: NotifyParams): Promise<
 export async function sendCollectionNotificationByRole(
   roleCode: string,
   title: string,
-  content: string
+  content: string,
+  options?: SendMessageOptions
 ): Promise<void> {
   try {
     const dingtalkIds = await getDingtalkUserIdsByRole(roleCode);
@@ -129,7 +133,7 @@ export async function sendCollectionNotificationByRole(
       return;
     }
 
-    const result = await sendWorkNotification(dingtalkIds, title, content);
+    const result = await sendWorkNotification(dingtalkIds, title, content, options);
     console.log('[CollectionNotify] 角色通知发送结果:', roleCode, result);
   } catch (error) {
     console.error('[CollectionNotify] 角色通知发送失败:', roleCode, title, error);
@@ -241,6 +245,73 @@ ${verified ? '核销已确认，任务将更新为已核销状态。' : '核销�
 推送时间：${formatTimestamp()}`;
 
   return { title, content };
+}
+
+// ============================================
+// ActionCard 消息模板函数
+// ============================================
+
+/**
+ * 构建升级通知 ActionCard 消息
+ */
+export function buildEscalationActionCard(
+  task: CollectionTask,
+  fromLevel: EscalationLevel,
+  toLevel: EscalationLevel,
+  escalatedByName?: string
+): ActionCardContent {
+  const fromName = ESCALATION_LEVEL_NAMES[fromLevel];
+  const toName = ESCALATION_LEVEL_NAMES[toLevel];
+  const consumerName = task.consumer_name || task.consumer_code;
+
+  const markdown = `有催收任务升级需要您处理：
+
+- **任务编号**: ${task.task_no}
+- **客户名称**: ${consumerName}
+- **逾期总额**: ${formatAmount(task.total_amount)}
+- **逾期笔数**: ${task.bill_count} 笔
+- **最大逾期**: ${task.max_overdue_days} 天
+- **升级路径**: ${fromName} → ${toName}
+- **升级原因**: ${task.escalation_reason || '催收超时自动升级'}${escalatedByName ? `\n- **升级操作人**: ${escalatedByName}` : ''}
+
+请及时处理该催收任务！`;
+
+  return {
+    title: `【催收升级】${consumerName} 已升级至${toName}`,
+    markdown,
+    singleTitle: '查看详情',
+    singleUrl: ACTION_URL,
+  };
+}
+
+/**
+ * 构建核销结果通知 ActionCard 消息
+ */
+export function buildVerifyResultActionCard(
+  task: CollectionTask,
+  verified: boolean,
+  verifierName?: string,
+  remark?: string
+): ActionCardContent {
+  const statusText = verified ? '已通过' : '未通过';
+  const icon = verified ? '✅' : '❌';
+  const consumerName = task.consumer_name || task.consumer_code;
+
+  const markdown = `您提交的催收核销申请处理结果：
+
+- **任务编号**: ${task.task_no}
+- **客户名称**: ${consumerName}
+- **应收总额**: ${formatAmount(task.total_amount)}
+- **核销结果**: ${icon} ${statusText}${verifierName ? `\n- **确认人**: ${verifierName}` : ''}${remark ? `\n- **备注**: ${remark}` : ''}
+
+${verified ? '核销已确认，任务将更新为已核销状态。' : '核销未通过，请检查后重新提交或联系出纳确认。'}`;
+
+  return {
+    title: `${icon}【核销结果】${consumerName} 核销${statusText}`,
+    markdown,
+    singleTitle: '查看详情',
+    singleUrl: ACTION_URL,
+  };
 }
 
 /**

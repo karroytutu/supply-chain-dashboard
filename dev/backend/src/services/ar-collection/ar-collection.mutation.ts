@@ -15,7 +15,14 @@ import type {
   ConfirmVerifyParams,
   ResolveDifferenceParams,
   CollectionTask,
+  EscalationLevel,
 } from './ar-collection.types';
+import {
+  sendCollectionNotification,
+  sendCollectionNotificationByRole,
+  buildEscalationActionCard,
+  buildVerifyResultActionCard,
+} from './ar-collection-notify';
 
 // ============================================
 // 辅助函数
@@ -327,6 +334,25 @@ export async function escalateTask(
     await client.query('COMMIT');
 
     await logAction(taskId, params.detail_ids, 'escalate', 'success', params.reason, operatorId, operatorName, operatorRole);
+
+    // 发送升级通知（ActionCard）
+    try {
+      const actionCard = buildEscalationActionCard(
+        task,
+        currentLevel,
+        targetLevel as EscalationLevel,
+        operatorName
+      );
+      await sendCollectionNotificationByRole(targetRole, actionCard.title, '', {
+        msgType: 'actionCard',
+        actionCard,
+        businessType: 'collection',
+        businessId: taskId,
+        businessNo: task.task_no,
+      });
+    } catch (notifyErr) {
+      console.error('[CollectionMutation] 发送升级通知失败:', notifyErr);
+    }
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -391,6 +417,35 @@ export async function confirmVerify(
 
     const result = params.confirmed ? 'success' : 'failed';
     await logAction(taskId, params.detail_ids, 'confirm_verify', result, params.remark || null, operatorId, operatorName, operatorRole);
+
+    // 发送核销结果通知（ActionCard）
+    try {
+      // 查询核销提交人
+      const submitterResult = await query<{ processed_by: number }>(
+        `SELECT DISTINCT processed_by FROM ar_collection_details
+         WHERE task_id = $1 AND processed_by IS NOT NULL`,
+        [taskId]
+      );
+      const submitterIds = submitterResult.rows.map(r => r.processed_by);
+
+      if (submitterIds.length > 0) {
+        const actionCard = buildVerifyResultActionCard(task, params.confirmed, operatorName, params.remark);
+        await sendCollectionNotification({
+          userIds: submitterIds,
+          title: actionCard.title,
+          content: '',
+          options: {
+            msgType: 'actionCard',
+            actionCard,
+            businessType: 'collection',
+            businessId: taskId,
+            businessNo: task.task_no,
+          },
+        });
+      }
+    } catch (notifyErr) {
+      console.error('[CollectionMutation] 发送核销结果通知失败:', notifyErr);
+    }
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

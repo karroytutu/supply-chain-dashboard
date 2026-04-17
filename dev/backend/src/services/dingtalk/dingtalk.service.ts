@@ -3,6 +3,7 @@
  * 提供用户认证、消息发送、进度查询、撤回等功能
  */
 
+import * as https from 'https';
 import * as $OpenApi from '@alicloud/openapi-client';
 import * as $Util from '@alicloud/tea-util';
 import { contact_1_0, oauth2_1_0 } from '@alicloud/dingtalk';
@@ -111,6 +112,41 @@ export async function getAccessToken(): Promise<string> {
     console.error('[Dingtalk] 获取AccessToken失败:', error.message || error);
     throw new Error('获取AccessToken失败');
   }
+}
+
+/**
+ * 直接发送 HTTP 请求到钉钉 API（绕过 SDK 序列化 bug）
+ */
+async function sendDingtalkRequest(accessToken: string, body: object): Promise<{ errcode: number; errmsg: string; taskId?: number }> {
+  return new Promise((resolve, reject) => {
+    const bodyStr = JSON.stringify(body);
+
+    const options = {
+      hostname: 'oapi.dingtalk.com',
+      path: '/topapi/message/corpconversation/asyncsend_v2?access_token=' + accessToken,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json;charset=utf-8',
+        'Content-Length': Buffer.byteLength(bodyStr),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(new Error('解析响应失败: ' + data));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(bodyStr);
+    req.end();
+  });
 }
 
 /**
@@ -301,10 +337,21 @@ function buildMarkdownMsg(title: string, content: string): OapiMessageCorpconver
  */
 function buildActionCardMsg(actionCard: ActionCardContent): OapiMessageCorpconversationAsyncsend_v2ParamsMsg {
   const msg = new OapiMessageCorpconversationAsyncsend_v2ParamsMsg({});
-  msg.msgtype = 'action_card';
+  msg.msgtype = 'action_card';  // 钉钉 API msgtype 使用下划线格式
   msg.actionCard = new OapiMessageCorpconversationAsyncsend_v2ParamsMsgActionCard({});
   msg.actionCard.title = actionCard.title;
   msg.actionCard.markdown = actionCard.markdown;
+
+  // 调试：打印构建的消息
+  console.log('[Dingtalk] ActionCard 消息构建:', JSON.stringify({
+    msgtype: msg.msgtype,
+    actionCard: {
+      title: msg.actionCard.title,
+      markdown: msg.actionCard.markdown?.substring(0, 100) + '...',
+      singleTitle: actionCard.singleTitle,
+      singleUrl: actionCard.singleUrl,
+    }
+  }, null, 2));
 
   if (actionCard.singleUrl) {
     // 单按钮模式
@@ -373,6 +420,10 @@ function buildOaMsg(oa: OaContent): OapiMessageCorpconversationAsyncsend_v2Param
 /**
  * 发送钉钉工作通知（扩展版）
  * 支持多种消息类型：markdown / actionCard / oa
+ * 
+ * 注意：由于 TypeScript SDK 存在 bug（stringifyMapValue 会把嵌套对象转成 "[object Object]"），
+ * 这里直接使用 HTTP JSON 请求发送消息。
+ * 
  * @param userIdList 接收者的用户ID列表
  * @param title 消息标题
  * @param content 消息内容（Markdown格式，当msgType为actionCard或oa时可为空）
@@ -393,43 +444,63 @@ export async function sendWorkNotification(
 
     const msgType: MessageType = options?.msgType || 'markdown';
     const accessToken = await getAccessToken();
-    const client = createOapiClient(accessToken);
 
-    // 构建消息
-    let msg: OapiMessageCorpconversationAsyncsend_v2ParamsMsg;
+    // 构建消息体（根据官方文档格式）
+    // 参考: https://open.dingtalk.com/document/orgapp-server/send-work-notification
+    let msg: any;
 
     switch (msgType) {
       case 'actionCard':
         if (!options?.actionCard) {
           return { success: false, message: 'ActionCard 内容为空' };
         }
-        msg = buildActionCardMsg(options.actionCard);
+        msg = {
+          msgtype: 'action_card',
+          action_card: {
+            title: options.actionCard.title,
+            markdown: options.actionCard.markdown,
+            single_title: options.actionCard.singleTitle || '查看详情',
+            single_url: options.actionCard.singleUrl,
+          },
+        };
         break;
 
       case 'oa':
         if (!options?.oa) {
           return { success: false, message: 'OA 内容为空' };
         }
-        msg = buildOaMsg(options.oa);
+        msg = {
+          msgtype: 'oa',
+          oa: options.oa,
+        };
         break;
 
       case 'markdown':
       default:
-        msg = buildMarkdownMsg(title, content);
+        msg = {
+          msgtype: 'markdown',
+          markdown: {
+            title: title,
+            text: content,
+          },
+        };
         break;
     }
 
-    // 构建请求
-    const request = new OapiMessageCorpconversationAsyncsend_v2Request({});
-    request.params = new OapiMessageCorpconversationAsyncsend_v2Params({});
-    request.params.agentId = Number(config.dingtalk.agentId);
-    request.params.useridList = userIdList;
-    request.params.msg = msg;
+    // 构建请求体
+    const requestBody = {
+      agent_id: config.dingtalk.agentId,
+      userid_list: userIdList.join(','),
+      msg,
+    };
 
-    const response = await client.oapiMessageCorpconversationAsyncsend_v2(request);
+    console.log('[Dingtalk] 发送消息:', JSON.stringify(requestBody, null, 2));
 
-    if (response.body && response.body.errcode === 0) {
-      const taskId = response.body.taskId;
+    // 直接发送 HTTP JSON 请求（绕过 SDK bug）
+    const response = await sendDingtalkRequest(accessToken, requestBody);
+
+    if (response.errcode === 0) {
+      const taskId = response.taskId;
       console.log('[Dingtalk] 工作通知发送成功:', {
         taskId,
         msgType,
@@ -454,8 +525,8 @@ export async function sendWorkNotification(
 
       return { success: true, message: '发送成功', taskId, logId };
     } else {
-      const errMsg = response.body?.errmsg || '发送失败';
-      console.error('[Dingtalk] 工作通知发送失败:', response.body);
+      const errMsg = response.errmsg || '发送失败';
+      console.error('[Dingtalk] 工作通知发送失败:', response);
 
       // 保存失败记录
       const logId = await createNotificationLog({
