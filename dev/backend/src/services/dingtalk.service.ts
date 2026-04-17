@@ -2,7 +2,18 @@ import * as $OpenApi from '@alicloud/openapi-client';
 import * as $Util from '@alicloud/tea-util';
 import { contact_1_0, oauth2_1_0 } from '@alicloud/dingtalk';
 import { config } from '../config';
-import axios from 'axios';
+import {
+  default as OapiClient,
+  Config as OapiConfig,
+  OapiV2UserGetuserinfoRequest,
+  OapiV2UserGetuserinfoParams,
+  OapiV2UserGetRequest,
+  OapiV2UserGetParams,
+  OapiMessageCorpconversationAsyncsend_v2Request,
+  OapiMessageCorpconversationAsyncsend_v2Params,
+  OapiMessageCorpconversationAsyncsend_v2ParamsMsg,
+  OapiMessageCorpconversationAsyncsend_v2ParamsMsgMarkdown,
+} from '../../dingtalk-oapi/client';
 
 export interface DingtalkUserInfo {
   userid: string;
@@ -51,7 +62,7 @@ function getContactConfig(): $OpenApi.Config {
 
 /**
  * 获取企业内部应用的 access_token
- * 用于调用钉钉服务端 API
+ * 使用钉钉 SDK 获取访问凭证
  */
 async function getAccessToken(): Promise<string> {
   // 检查缓存是否有效（提前5分钟过期）
@@ -60,40 +71,46 @@ async function getAccessToken(): Promise<string> {
   }
 
   try {
-    const response = await axios.post(
-      'https://api.dingtalk.com/v1.0/oauth2/accessToken',
-      {
-        appKey: config.dingtalk.appKey,
-        appSecret: config.dingtalk.appSecret,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    const oauth2Client = new oauth2_1_0.default(getOAuth2Config());
 
-    if (!response.data?.accessToken) {
-      throw new Error('获取AccessToken失败: ' + JSON.stringify(response.data));
+    const request = new oauth2_1_0.GetAccessTokenRequest({
+      appKey: config.dingtalk.appKey,
+      appSecret: config.dingtalk.appSecret,
+    });
+
+    const result = await oauth2Client.getAccessToken(request);
+
+    if (!result.body?.accessToken) {
+      throw new Error('获取AccessToken失败: ' + JSON.stringify(result));
     }
 
     // 缓存 token
     accessTokenCache = {
-      token: response.data.accessToken,
-      expiresAt: Date.now() + (response.data.expireIn || 7200) * 1000,
+      token: result.body.accessToken,
+      expiresAt: Date.now() + (result.body.expireIn || 7200) * 1000,
     };
 
-    console.log('[Dingtalk] 获取AccessToken成功, 过期时间:', response.data.expireIn, '秒');
-    return response.data.accessToken;
+    console.log('[Dingtalk] 获取AccessToken成功, 过期时间:', result.body.expireIn, '秒');
+    return result.body.accessToken;
   } catch (error: any) {
-    console.error('[Dingtalk] 获取AccessToken失败:', error.response?.data || error.message);
+    console.error('[Dingtalk] 获取AccessToken失败:', error.message || error);
     throw new Error('获取AccessToken失败');
   }
 }
 
 /**
+ * 创建旧版 API 客户端
+ */
+function createOapiClient(accessToken: string): OapiClient {
+  const cfg = new OapiConfig({});
+  cfg.session = accessToken;
+  cfg.serverUrl = 'https://oapi.dingtalk.com';
+  return new OapiClient(cfg);
+}
+
+/**
  * 通过免登授权码获取用户信息（H5微应用免登）
- * 使用 /topapi/v2/user/getuserinfo 接口
+ * 使用旧版 SDK 调用 /topapi/v2/user/getuserinfo 接口
  */
 export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkUserInfo> {
   try {
@@ -103,29 +120,18 @@ export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkU
     const accessToken = await getAccessToken();
     console.log('[Dingtalk] 获取到AccessToken');
     
-    // 2. 调用 /topapi/v2/user/getuserinfo 获取用户信息
-    const response = await axios.post(
-      'https://oapi.dingtalk.com/topapi/v2/user/getuserinfo',
-      { code: authCode },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-acs-dingtalk-access-token': accessToken,
-        },
-        params: {
-          access_token: accessToken,
-        },
-      }
-    );
-
-    const result = response.data;
-    console.log('[Dingtalk] getuserinfo 返回:', JSON.stringify(result));
-
-    if (result.errcode !== 0) {
-      throw new Error(result.errmsg || '获取用户信息失败');
+    // 2. 使用旧版 SDK 调用接口
+    const client = createOapiClient(accessToken);
+    const request = new OapiV2UserGetuserinfoRequest({});
+    request.params = new OapiV2UserGetuserinfoParams({ code: authCode });
+    
+    const response = await client.oapiV2UserGetuserinfo(request);
+    
+    if (response.body?.errcode !== 0) {
+      throw new Error(response.body?.errmsg || '获取用户信息失败');
     }
 
-    const userData = result.result;
+    const userData = response.body?.result;
     if (!userData) {
       throw new Error('用户信息为空');
     }
@@ -133,7 +139,7 @@ export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkU
     // 3. 获取用户详细信息（可选）
     let userDetails = null;
     try {
-      userDetails = await getUserDetailByUserId(userData.userid, accessToken);
+      userDetails = await getUserDetailByUserId(userData.userid!, accessToken);
     } catch (e) {
       console.warn('[Dingtalk] 获取用户详细信息失败，使用基本信息:', e);
     }
@@ -149,30 +155,27 @@ export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkU
       title: userDetails?.title || '',
     };
   } catch (error: any) {
-    console.error('[Dingtalk] 通过authCode获取用户信息失败:', error.response?.data || error.message);
-    throw new Error('获取用户信息失败: ' + (error.response?.data?.errmsg || error.message));
+    console.error('[Dingtalk] 通过authCode获取用户信息失败:', error.message || error);
+    throw new Error('获取用户信息失败: ' + (error.message || '未知错误'));
   }
 }
 
 /**
  * 通过 userId 获取用户详细信息
+ * 使用旧版 SDK 调用 /topapi/v2/user/get 接口
  */
 async function getUserDetailByUserId(userId: string, accessToken: string): Promise<any> {
-  const response = await axios.get(
-    `https://oapi.dingtalk.com/topapi/v2/user/get`,
-    {
-      params: {
-        access_token: accessToken,
-        userid: userId,
-      },
-    }
-  );
-
-  if (response.data.errcode !== 0) {
-    throw new Error(response.data.errmsg);
+  const client = createOapiClient(accessToken);
+  const request = new OapiV2UserGetRequest({});
+  request.params = new OapiV2UserGetParams({ userid: userId });
+  
+  const response = await client.oapiV2UserGet(request);
+  
+  if (response.body?.errcode !== 0) {
+    throw new Error(response.body?.errmsg || '获取用户详情失败');
   }
 
-  return response.data.result;
+  return response.body?.result;
 }
 
 /**
@@ -273,7 +276,7 @@ export function clearAccessTokenCache(): void {
 
 /**
  * 发送钉钉工作通知
- * 使用钉钉 asyncsend_v2 API 发送工作通知消息
+ * 使用旧版 SDK 调用 asyncsend_v2 API 发送工作通知消息
  * @param userIdList 接收者的用户ID列表
  * @param title 消息标题
  * @param content 消息内容（支持Markdown格式）
@@ -291,36 +294,35 @@ export async function sendWorkNotification(
     }
 
     const accessToken = await getAccessToken();
+    const client = createOapiClient(accessToken);
+    
+    // 构建消息
+    const msg = new OapiMessageCorpconversationAsyncsend_v2ParamsMsg({});
+    msg.msgtype = 'markdown';
+    msg.markdown = new OapiMessageCorpconversationAsyncsend_v2ParamsMsgMarkdown({});
+    msg.markdown.title = title;
+    msg.markdown.text = content;
+    
+    // 构建请求
+    const request = new OapiMessageCorpconversationAsyncsend_v2Request({});
+    request.params = new OapiMessageCorpconversationAsyncsend_v2Params({});
+    request.params.agentId = Number(config.dingtalk.agentId);
+    request.params.useridList = userIdList;
+    request.params.msg = msg;
+    
+    const response = await client.oapiMessageCorpconversationAsyncsend_v2(request);
 
-    const response = await axios.post(
-      'https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2',
-      {
-        agent_id: config.dingtalk.agentId,
-        userid_list: userIdList.join(','),
-        msg: {
-          msgtype: 'markdown',
-          markdown: {
-            title,
-            text: content,
-          },
-        },
-      },
-      {
-        params: { access_token: accessToken },
-      }
-    );
-
-    if (response.data && response.data.errcode === 0) {
+    if (response.body && response.body.errcode === 0) {
       console.log('[Dingtalk] 工作通知发送成功:', {
-        taskId: response.data.task_id,
+        taskId: response.body.taskId,
         receivers: userIdList.length,
       });
       return { success: true, message: '发送成功' };
     } else {
-      console.error('[Dingtalk] 工作通知发送失败:', response.data);
+      console.error('[Dingtalk] 工作通知发送失败:', response.body);
       return {
         success: false,
-        message: response.data?.errmsg || '发送失败',
+        message: response.body?.errmsg || '发送失败',
       };
     }
   } catch (error: any) {
