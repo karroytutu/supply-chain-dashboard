@@ -8,7 +8,6 @@ RUN npm ci
 
 COPY tsconfig.json ./tsconfig.orig.json
 COPY src ./src
-COPY dingtalk-oapi ./dingtalk-oapi
 
 # 构建：临时修改 outDir 为容器内路径
 RUN sed 's|"outDir": "../../prod/backend/dist"|"outDir": "./dist"|' tsconfig.orig.json > tsconfig.json && \
@@ -23,7 +22,6 @@ COPY package*.json ./
 RUN npm ci --only=production
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/dingtalk-oapi ./dingtalk-oapi
 
 ENV NODE_ENV=production
 

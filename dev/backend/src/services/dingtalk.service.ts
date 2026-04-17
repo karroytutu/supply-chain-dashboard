@@ -4,18 +4,6 @@ import { contact_1_0, oauth2_1_0 } from '@alicloud/dingtalk';
 import * as https from 'https';
 import { config } from '../config';
 import { createNotificationLog, updateNotificationLogStatus } from './notification-log.service';
-import {
-  default as OapiClient,
-  Config as OapiConfig,
-  OapiV2UserGetuserinfoRequest,
-  OapiV2UserGetuserinfoParams,
-  OapiV2UserGetRequest,
-  OapiV2UserGetParams,
-  OapiMessageCorpconversationAsyncsend_v2Request,
-  OapiMessageCorpconversationAsyncsend_v2Params,
-  OapiMessageCorpconversationAsyncsend_v2ParamsMsg,
-  OapiMessageCorpconversationAsyncsend_v2ParamsMsgMarkdown,
-} from '../../dingtalk-oapi/client';
 
 export interface DingtalkUserInfo {
   userid: string;
@@ -212,13 +200,39 @@ export async function getAccessToken(): Promise<string> {
 }
 
 /**
- * 创建旧版 API 客户端
+ * 通用钉钉旧版 API HTTP 请求封装
+ * 替代原 dingtalk-oapi/client SDK，直接发送 HTTP 请求
  */
-function createOapiClient(accessToken: string): OapiClient {
-  const cfg = new OapiConfig({});
-  cfg.session = accessToken;
-  cfg.serverUrl = 'https://oapi.dingtalk.com';
-  return new OapiClient(cfg);
+async function oapiRequest(accessToken: string, path: string, body: object): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify(body);
+    const options = {
+      hostname: 'oapi.dingtalk.com',
+      path,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-acs-dingtalk-access-token': accessToken,
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(new Error('解析钉钉响应失败: ' + data));
+        }
+      });
+    });
+
+    req.on('error', (e) => reject(e));
+    req.write(postData);
+    req.end();
+  });
 }
 
 /**
@@ -233,18 +247,14 @@ export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkU
     const accessToken = await getAccessToken();
     console.log('[Dingtalk] 获取到AccessToken');
     
-    // 2. 使用旧版 SDK 调用接口
-    const client = createOapiClient(accessToken);
-    const request = new OapiV2UserGetuserinfoRequest({});
-    request.params = new OapiV2UserGetuserinfoParams({ code: authCode });
-    
-    const response = await client.oapiV2UserGetuserinfo(request);
-    
-    if (response.body?.errcode !== 0) {
-      throw new Error(response.body?.errmsg || '获取用户信息失败');
+    // 2. 使用旧版 API 获取用户信息
+    const userinfoResult = await oapiRequest(accessToken, '/topapi/v2/user/getuserinfo', { code: authCode });
+
+    if (userinfoResult.errcode !== 0) {
+      throw new Error(userinfoResult.errmsg || '获取用户信息失败');
     }
 
-    const userData = response.body?.result;
+    const userData = userinfoResult.result;
     if (!userData) {
       throw new Error('用户信息为空');
     }
@@ -278,17 +288,13 @@ export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkU
  * 使用旧版 SDK 调用 /topapi/v2/user/get 接口
  */
 async function getUserDetailByUserId(userId: string, accessToken: string): Promise<any> {
-  const client = createOapiClient(accessToken);
-  const request = new OapiV2UserGetRequest({});
-  request.params = new OapiV2UserGetParams({ userid: userId });
-  
-  const response = await client.oapiV2UserGet(request);
-  
-  if (response.body?.errcode !== 0) {
-    throw new Error(response.body?.errmsg || '获取用户详情失败');
+  const result = await oapiRequest(accessToken, '/topapi/v2/user/get', { userid: userId });
+
+  if (result.errcode !== 0) {
+    throw new Error(result.errmsg || '获取用户详情失败');
   }
 
-  return response.body?.result;
+  return result.result;
 }
 
 /**
