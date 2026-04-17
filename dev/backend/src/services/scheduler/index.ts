@@ -17,6 +17,7 @@ import {
   checkExtensionExpiryReminders,
 } from '../ar-collection/ar-collection-reminder.task';
 import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
+import { handleRetry } from '../dingtalk/retry.handler';
 
 /**
  * 启动所有定时任务
@@ -156,6 +157,23 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // 钉钉通知重试 - 每5分钟
+  cron.schedule(
+    '*/5 * * * *',
+    async () => {
+      console.log('[Scheduler] 执行钉钉通知重试...');
+      try {
+        const result = await handleRetry();
+        if (result.processed > 0) {
+          console.log('[Scheduler] 钉钉通知重试完成:', result);
+        }
+      } catch (error) {
+        console.error('[Scheduler] 钉钉通知重试失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   console.log('[Scheduler] 定时任务已注册:');
   console.log('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
   console.log('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
@@ -164,6 +182,7 @@ export function startScheduler(): void {
   console.log('  - 催收任务生成: 每天 20:00 (Asia/Shanghai)');
   console.log('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
   console.log('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
+  console.log('  - 钉钉通知重试: 每5分钟 (Asia/Shanghai)');
   console.log('[Scheduler] 定时任务调度器启动完成');
 }
 
