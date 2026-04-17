@@ -301,7 +301,7 @@ function buildMarkdownMsg(title: string, content: string): OapiMessageCorpconver
  */
 function buildActionCardMsg(actionCard: ActionCardContent): OapiMessageCorpconversationAsyncsend_v2ParamsMsg {
   const msg = new OapiMessageCorpconversationAsyncsend_v2ParamsMsg({});
-  msg.msgtype = 'actionCard';
+  msg.msgtype = 'action_card';
   msg.actionCard = new OapiMessageCorpconversationAsyncsend_v2ParamsMsgActionCard({});
   msg.actionCard.title = actionCard.title;
   msg.actionCard.markdown = actionCard.markdown;
