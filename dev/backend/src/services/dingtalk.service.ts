@@ -202,17 +202,18 @@ export async function getAccessToken(): Promise<string> {
 /**
  * 通用钉钉旧版 API HTTP 请求封装
  * 替代原 dingtalk-oapi/client SDK，直接发送 HTTP 请求
+ * 钉钉旧版 oapi 接口要求 access_token 作为 URL 查询参数传递
  */
 async function oapiRequest(accessToken: string, path: string, body: object): Promise<any> {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(body);
+    const separator = path.includes('?') ? '&' : '?';
     const options = {
       hostname: 'oapi.dingtalk.com',
-      path,
+      path: `${path}${separator}access_token=${encodeURIComponent(accessToken)}`,
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-acs-dingtalk-access-token': accessToken,
+        'Content-Type': 'application/json;charset=utf-8',
         'Content-Length': Buffer.byteLength(postData),
       },
     };
@@ -222,7 +223,12 @@ async function oapiRequest(accessToken: string, path: string, body: object): Pro
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         try {
-          resolve(JSON.parse(data));
+          const result = JSON.parse(data);
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`钉钉API返回HTTP ${res.statusCode}: ${data}`));
+            return;
+          }
+          resolve(result);
         } catch (e) {
           reject(new Error('解析钉钉响应失败: ' + data));
         }
@@ -230,6 +236,9 @@ async function oapiRequest(accessToken: string, path: string, body: object): Pro
     });
 
     req.on('error', (e) => reject(e));
+    req.setTimeout(10000, () => {
+      req.destroy(new Error('钉钉API请求超时'));
+    });
     req.write(postData);
     req.end();
   });
@@ -512,6 +521,7 @@ export async function sendWorkNotification(
 
 /**
  * 发送钉钉 HTTP 请求
+ * 钉钉旧版 oapi 接口要求 access_token 作为 URL 查询参数传递
  */
 export async function sendDingtalkRequest(
   accessToken: string,
@@ -522,10 +532,10 @@ export async function sendDingtalkRequest(
 
     const options = {
       hostname: 'oapi.dingtalk.com',
-      path: '/topapi/message/corpconversation/asyncsend_v2',
+      path: `/topapi/message/corpconversation/asyncsend_v2?access_token=${encodeURIComponent(accessToken)}`,
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json;charset=utf-8',
         'Content-Length': Buffer.byteLength(postData),
       },
     };
@@ -536,6 +546,10 @@ export async function sendDingtalkRequest(
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`钉钉API返回HTTP ${res.statusCode}: ${data}`));
+            return;
+          }
           resolve({
             errcode: result.errcode ?? -1,
             errmsg: result.errmsg || '',
@@ -548,6 +562,9 @@ export async function sendDingtalkRequest(
     });
 
     req.on('error', (e) => reject(e));
+    req.setTimeout(10000, () => {
+      req.destroy(new Error('钉钉API请求超时'));
+    });
     req.write(postData);
     req.end();
   });
