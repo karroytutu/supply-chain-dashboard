@@ -77,7 +77,7 @@ const SendNoticeModal: React.FC<SendNoticeModalProps> = ({
       <Descriptions column={1} size="small" bordered style={{ marginBottom: 16 }}>
         <Descriptions.Item label="客户">{task.consumerName}</Descriptions.Item>
         <Descriptions.Item label="欠款总额">
-          ¥{task.totalAmount.toLocaleString()}
+          ¥{(task.totalAmount ?? 0).toLocaleString()}
         </Descriptions.Item>
         <Descriptions.Item label="逾期天数">
           {task.maxOverdueDays} 天

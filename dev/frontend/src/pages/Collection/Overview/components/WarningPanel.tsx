@@ -17,11 +17,12 @@ interface WarningPanelProps {
 const WarningPanel: React.FC<WarningPanelProps> = ({ summary, onCardClick }) => {
   if (!summary) return null;
 
-  const formatAmount = (amount: number) => {
-    if (amount >= 10000) {
-      return `¥${(amount / 10000).toFixed(1)}万`;
+  const formatAmount = (amount: number | undefined | null) => {
+    const safeAmount = amount ?? 0;
+    if (safeAmount >= 10000) {
+      return `¥${(safeAmount / 10000).toFixed(1)}万`;
     }
-    return `¥${amount.toLocaleString()}`;
+    return `¥${safeAmount.toLocaleString()}`;
   };
 
   // 计算各级别的数量和金额

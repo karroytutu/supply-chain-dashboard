@@ -103,7 +103,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
       dataIndex: 'leftAmount',
       width: 110,
       align: 'right',
-      render: (val: number) => `¥${val.toLocaleString()}`,
+      render: (val: number) => `¥${(val ?? 0).toLocaleString()}`,
     },
     {
       title: '到期日',
@@ -181,9 +181,9 @@ const DetailTable: React.FC<DetailTableProps> = ({
       <div className="selection-info">
         <span>
           已选 <strong>{selectedCount}</strong> 条，合计{' '}
-          <strong>¥{selectedTotal.toLocaleString()}</strong>
+          <strong>¥{(selectedTotal ?? 0).toLocaleString()}</strong>
         </span>
-        <span className="total-hint">（整单金额 ¥{totalAmount.toLocaleString()}）</span>
+        <span className="total-hint">（整单金额 ¥{(totalAmount ?? 0).toLocaleString()}）</span>
       </div>
 
       <div className="operation-hint">提示: 不选择明细时，操作将应用于整单</div>

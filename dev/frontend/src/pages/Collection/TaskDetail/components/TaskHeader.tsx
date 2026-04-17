@@ -42,9 +42,9 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({ task }) => {
       {/* 第二行：金额、逾期天数、状态标签（移动端换行显示） */}
       <div className="header-row-sub">
         <div className="header-info">
-          <span className="amount">¥{task.totalAmount.toLocaleString()}</span>
+          <span className="amount">¥{(task.totalAmount ?? 0).toLocaleString()}</span>
           <span className="separator">·</span>
-          <span className="overdue-days">逾期{task.maxOverdueDays}天</span>
+          <span className="overdue-days">逾期{task.maxOverdueDays ?? 0}天</span>
         </div>
         <Space className="header-tags">
           <StatusTag

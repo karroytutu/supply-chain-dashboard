@@ -76,7 +76,7 @@ const LawsuitModal: React.FC<LawsuitModalProps> = ({
       className={styles['collection-modal-mobile']}
     >
       <div style={{ marginBottom: 16, color: '#666' }}>
-        客户：{task.consumerName}，欠款总额：¥{task.totalAmount.toLocaleString()}
+        客户：{task.consumerName}，欠款总额：¥{(task.totalAmount ?? 0).toLocaleString()}
       </div>
 
       <Form form={form} layout="vertical">

@@ -211,11 +211,12 @@ function getCardAmount(key: string, myTasks: MyTasksSummary | null): number {
 }
 
 /** 格式化金额 */
-function formatAmount(amount: number): string {
-  if (amount >= 10000) {
-    return (amount / 10000).toFixed(1) + '万';
+function formatAmount(amount: number | undefined | null): string {
+  const safeAmount = amount ?? 0;
+  if (safeAmount >= 10000) {
+    return (safeAmount / 10000).toFixed(1) + '万';
   }
-  return amount.toLocaleString();
+  return safeAmount.toLocaleString();
 }
 
 export default MyTasksPanel;
