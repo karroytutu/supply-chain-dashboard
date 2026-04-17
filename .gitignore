@@ -12,6 +12,7 @@ dist/
 .umi-production/
 dev/frontend/dist/
 dev/backend/dist/
+dev/backend/dingtalk-oapi/
 
 # 生产环境（不提交）
 prod/

@@ -17,7 +17,7 @@ import {
   checkExtensionExpiryReminders,
 } from '../ar-collection/ar-collection-reminder.task';
 import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
-import { handleRetry } from '../dingtalk/retry.handler';
+import { handleRetry } from '../retry.handler';
 
 /**
  * 启动所有定时任务

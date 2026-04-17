@@ -1,7 +1,9 @@
 import * as $OpenApi from '@alicloud/openapi-client';
 import * as $Util from '@alicloud/tea-util';
 import { contact_1_0, oauth2_1_0 } from '@alicloud/dingtalk';
+import * as https from 'https';
 import { config } from '../config';
+import { createNotificationLog, updateNotificationLogStatus } from './notification-log.service';
 import {
   default as OapiClient,
   Config as OapiConfig,
@@ -37,6 +39,117 @@ export interface DingtalkUserDetail {
   title: string;
 }
 
+// ============================================
+// 工作通知消息类型定义
+// ============================================
+
+/** 消息类型 */
+export type MessageType = 'markdown' | 'actionCard' | 'oa';
+
+/** 业务类型 */
+export type BusinessType = 'collection' | 'return_order' | 'return_penalty';
+
+/** 推送记录状态 */
+export type NotificationStatus = 'pending' | 'sent' | 'failed' | 'recalled';
+
+/** 按钮配置 */
+export interface ActionCardButton {
+  title: string;
+  actionUrl: string;
+}
+
+/** ActionCard 消息内容 */
+export interface ActionCardContent {
+  title: string;
+  markdown: string;
+  /** 按钮列表（最多2个） */
+  btnJsonList?: ActionCardButton[];
+  /** 单按钮模式URL（与btnJsonList二选一） */
+  singleUrl?: string;
+  /** 单按钮标题 */
+  singleTitle?: string;
+  /** 按钮排列方向：0-竖直，1-横向 */
+  btnOrientation?: '0' | '1';
+}
+
+/** 发送消息选项 */
+export interface SendMessageOptions {
+  /** 消息类型 */
+  msgType: MessageType;
+  /** ActionCard 内容 */
+  actionCard?: ActionCardContent;
+  /** 业务类型 */
+  businessType?: BusinessType;
+  /** 业务ID */
+  businessId?: number;
+  /** 业务编号 */
+  businessNo?: string;
+  /** 创建者ID */
+  createdBy?: number;
+}
+
+/** 发送结果 */
+export interface SendResult {
+  success: boolean;
+  message: string;
+  taskId?: number;
+  logId?: number;
+}
+
+/** 重试配置 */
+export interface RetryConfig {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  backoffFactor: number;
+}
+
+/** 可重试的错误码 */
+export const RETRYABLE_ERROR_CODES = [60011, 60028, 50001, 50002, 50010];
+
+/** 默认重试配置 */
+export const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 30000,
+  backoffFactor: 2,
+};
+
+/** 推送记录 */
+export interface NotificationLog {
+  id: number;
+  businessType: BusinessType;
+  businessId?: number;
+  businessNo?: string;
+  msgType: MessageType;
+  title: string;
+  content?: string;
+  taskId?: number;
+  receiverIds: string[];
+  status: NotificationStatus;
+  errorMessage?: string;
+  retryCount: number;
+  maxRetry: number;
+  nextRetryAt?: Date;
+  createdBy?: number;
+  createdAt: Date;
+  sentAt?: Date;
+  updatedAt: Date;
+}
+
+/** 创建推送记录参数 */
+export interface CreateNotificationLogParams {
+  businessType: BusinessType;
+  businessId?: number;
+  businessNo?: string;
+  msgType: MessageType;
+  title: string;
+  content?: string;
+  taskId?: number;
+  receiverIds: string[];
+  createdBy?: number;
+}
+
 // AccessToken 缓存
 let accessTokenCache: { token: string; expiresAt: number } | null = null;
 
@@ -64,7 +177,7 @@ function getContactConfig(): $OpenApi.Config {
  * 获取企业内部应用的 access_token
  * 使用钉钉 SDK 获取访问凭证
  */
-async function getAccessToken(): Promise<string> {
+export async function getAccessToken(): Promise<string> {
   // 检查缓存是否有效（提前5分钟过期）
   if (accessTokenCache && accessTokenCache.expiresAt > Date.now() + 5 * 60 * 1000) {
     return accessTokenCache.token;
@@ -277,60 +390,159 @@ export function clearAccessTokenCache(): void {
 /**
  * 发送钉钉工作通知
  * 使用旧版 SDK 调用 asyncsend_v2 API 发送工作通知消息
+ * 支持 markdown 和 actionCard 消息类型
  * @param userIdList 接收者的用户ID列表
  * @param title 消息标题
  * @param content 消息内容（支持Markdown格式）
+ * @param options 发送选项（支持 ActionCard 等扩展消息类型）
  * @returns 发送结果
  */
 export async function sendWorkNotification(
   userIdList: string[],
   title: string,
-  content: string
-): Promise<{ success: boolean; message: string }> {
+  content: string,
+  options?: SendMessageOptions
+): Promise<SendResult> {
   try {
     if (!userIdList || userIdList.length === 0) {
       console.log('[Dingtalk] 工作通知跳过: 接收者列表为空');
       return { success: false, message: '接收者列表为空' };
     }
 
+    const msgType: MessageType = options?.msgType || 'markdown';
     const accessToken = await getAccessToken();
-    const client = createOapiClient(accessToken);
-    
-    // 构建消息
-    const msg = new OapiMessageCorpconversationAsyncsend_v2ParamsMsg({});
-    msg.msgtype = 'markdown';
-    msg.markdown = new OapiMessageCorpconversationAsyncsend_v2ParamsMsgMarkdown({});
-    msg.markdown.title = title;
-    msg.markdown.text = content;
 
-    // 构建请求
-    const request = new OapiMessageCorpconversationAsyncsend_v2Request({});
-    request.params = new OapiMessageCorpconversationAsyncsend_v2Params({});
-    request.params.agentId = Number(config.dingtalk.agentId);
-    // 钉钉 API 要求 userid_list 为逗号分隔的字符串，不是数组
-    request.params.useridList = userIdList.join(',') as any;
-    request.params.msg = msg;
-    
-    const response = await client.oapiMessageCorpconversationAsyncsend_v2(request);
+    // 构建消息体（根据官方文档格式）
+    let msg: any;
 
-    if (response.body && response.body.errcode === 0) {
+    switch (msgType) {
+      case 'actionCard':
+        if (!options?.actionCard) {
+          return { success: false, message: 'ActionCard 内容为空' };
+        }
+        msg = {
+          msgtype: 'action_card',
+          action_card: {
+            title: options.actionCard.title,
+            markdown: options.actionCard.markdown,
+            single_title: options.actionCard.singleTitle || '查看详情',
+            single_url: options.actionCard.singleUrl,
+          },
+        };
+        break;
+
+      case 'markdown':
+      default:
+        msg = {
+          msgtype: 'markdown',
+          markdown: {
+            title: title,
+            text: content,
+          },
+        };
+        break;
+    }
+
+    // 构建请求体
+    const requestBody = {
+      agent_id: config.dingtalk.agentId,
+      userid_list: userIdList.join(','),
+      msg,
+    };
+
+    // 直接发送 HTTP JSON 请求
+    const response = await sendDingtalkRequest(accessToken, requestBody);
+
+    if (response.errcode === 0) {
+      const taskId = response.taskId;
       console.log('[Dingtalk] 工作通知发送成功:', {
-        taskId: response.body.taskId,
+        taskId,
+        msgType,
         receivers: userIdList.length,
       });
-      return { success: true, message: '发送成功' };
+
+      // 保存推送记录
+      const logId = await createNotificationLog({
+        businessType: options?.businessType || 'collection',
+        businessId: options?.businessId,
+        businessNo: options?.businessNo,
+        msgType,
+        title,
+        content: msgType === 'markdown' ? content : JSON.stringify(options?.actionCard),
+        taskId,
+        receiverIds: userIdList,
+        createdBy: options?.createdBy,
+      });
+
+      // 更新为已发送
+      await updateNotificationLogStatus(logId, 'sent', taskId);
+
+      return { success: true, message: '发送成功', taskId, logId };
     } else {
-      console.error('[Dingtalk] 工作通知发送失败:', response.body);
-      return {
-        success: false,
-        message: response.body?.errmsg || '发送失败',
-      };
+      const errMsg = response.errmsg || '发送失败';
+      console.error('[Dingtalk] 工作通知发送失败:', response);
+
+      // 保存失败记录
+      const logId = await createNotificationLog({
+        businessType: options?.businessType || 'collection',
+        businessId: options?.businessId,
+        businessNo: options?.businessNo,
+        msgType,
+        title,
+        content: msgType === 'markdown' ? content : JSON.stringify(options?.actionCard),
+        receiverIds: userIdList,
+        createdBy: options?.createdBy,
+      });
+
+      await updateNotificationLogStatus(logId, 'failed', undefined, errMsg);
+
+      return { success: false, message: errMsg, logId };
     }
   } catch (error: any) {
     console.error('[Dingtalk] 工作通知发送异常:', error.message);
-    return {
-      success: false,
-      message: error.message || '发送异常',
-    };
+    return { success: false, message: error.message || '发送异常' };
   }
+}
+
+/**
+ * 发送钉钉 HTTP 请求
+ */
+export async function sendDingtalkRequest(
+  accessToken: string,
+  body: object
+): Promise<{ errcode: number; errmsg: string; taskId?: number }> {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify(body);
+
+    const options = {
+      hostname: 'oapi.dingtalk.com',
+      path: '/topapi/message/corpconversation/asyncsend_v2',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          resolve({
+            errcode: result.errcode ?? -1,
+            errmsg: result.errmsg || '',
+            taskId: result.task_id,
+          });
+        } catch (e) {
+          reject(new Error('解析钉钉响应失败: ' + data));
+        }
+      });
+    });
+
+    req.on('error', (e) => reject(e));
+    req.write(postData);
+    req.end();
+  });
 }

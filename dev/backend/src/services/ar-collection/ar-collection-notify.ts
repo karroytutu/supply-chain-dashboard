@@ -4,8 +4,8 @@
  */
 
 import { appQuery } from '../../db/appPool';
-import { sendWorkNotification } from '../dingtalk';
-import type { ActionCardContent, SendMessageOptions } from '../dingtalk/dingtalk.types';
+import { sendWorkNotification } from '../dingtalk.service';
+import type { ActionCardContent, SendMessageOptions } from '../dingtalk.service';
 import type { CollectionTask, EscalationLevel } from './ar-collection.types';
 
 /** 通知发送参数 */

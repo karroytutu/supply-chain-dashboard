@@ -4,8 +4,8 @@
  */
 
 import { appQuery } from '../../db/appPool';
-import { sendWorkNotification } from '../dingtalk';
-import type { ActionCardContent } from '../dingtalk/dingtalk.types';
+import { sendWorkNotification } from '../dingtalk.service';
+import type { ActionCardContent } from '../dingtalk.service';
 import type { CollectionTask } from './ar-collection.types';
 
 /** 推送跳转地址 */
