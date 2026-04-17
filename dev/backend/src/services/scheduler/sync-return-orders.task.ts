@@ -320,6 +320,7 @@ async function queryConsumerName(sourceBillNo: string): Promise<string | null> {
 
 /**
  * 计算剩余保质期天数
+ * 返回正数表示剩余天数，负数表示已过期天数，0 表示当天过期
  */
 function calculateDaysToExpire(batchDate: Date, shelfLife: number): number {
   const batch = new Date(batchDate);
@@ -327,10 +328,11 @@ function calculateDaysToExpire(batchDate: Date, shelfLife: number): number {
   expireDate.setDate(expireDate.getDate() + shelfLife);
 
   const now = new Date();
+  now.setHours(0, 0, 0, 0); // 使用日期比较，忽略时间部分
   const diffTime = expireDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  return Math.max(0, diffDays);
+  return diffDays;
 }
 
 /**

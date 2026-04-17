@@ -53,7 +53,7 @@ export async function createReturnOrder(
     [
       returnNo, goodsId, goodsName, quantity, unit || null,
       batchDate || null, returnDate || null, expireDate || null,
-      shelfLife || null, daysToExpire || null, daysAtReturn || null,
+      shelfLife || null, daysToExpire ?? null, daysAtReturn ?? null,
       sourceBillNo || null, consumerName || null, marketingManager || null,
       orderStatus, purchasePrice || null,
     ]
