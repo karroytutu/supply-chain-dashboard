@@ -106,7 +106,7 @@ const ExtensionModal: React.FC<ExtensionModalProps> = ({
       {selectedCount > 0 && (
         <div style={{ marginBottom: 12 }}>
           已选择 <strong>{selectedCount}</strong> 条欠款明细，合计{' '}
-          <strong>¥{selectedAmount.toLocaleString()}</strong>
+          <strong>¥{(selectedAmount ?? 0).toLocaleString()}</strong>
         </div>
       )}
 

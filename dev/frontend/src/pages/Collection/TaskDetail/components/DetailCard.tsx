@@ -85,7 +85,7 @@ const DetailCard: React.FC<DetailCardProps> = ({
         <div className={styles.infoRow}>
           <span className={styles.label}>金额</span>
           <span className={styles.amountValue}>
-            ¥{detail.leftAmount.toLocaleString()}
+            ¥{(detail.leftAmount ?? 0).toLocaleString()}
           </span>
         </div>
         <div className={styles.infoRow}>

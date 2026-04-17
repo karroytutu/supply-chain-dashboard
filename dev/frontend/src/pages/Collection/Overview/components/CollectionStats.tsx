@@ -88,7 +88,7 @@ const CollectionStats: React.FC<CollectionStatsProps> = ({
             </div>
             <div className="metric-count">{data.count}</div>
             <div className="metric-amount">
-              ¥{data.amount.toLocaleString()}
+              ¥{(data.amount ?? 0).toLocaleString()}
             </div>
           </div>
         );

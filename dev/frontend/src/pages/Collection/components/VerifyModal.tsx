@@ -73,11 +73,11 @@ const VerifyModal: React.FC<VerifyModalProps> = ({
     >
       <div style={{ marginBottom: 16 }}>
         {isWholeOrder ? (
-          <span>将对整单 ¥{task.totalAmount.toLocaleString()} 执行核销操作</span>
+          <span>将对整单 ¥{(task.totalAmount ?? 0).toLocaleString()} 执行核销操作</span>
         ) : (
           <span>
             已选择 <strong>{selectedCount}</strong> 条欠款明细，合计{' '}
-            <strong>¥{selectedAmount.toLocaleString()}</strong>
+            <strong>¥{(selectedAmount ?? 0).toLocaleString()}</strong>
           </span>
         )}
       </div>

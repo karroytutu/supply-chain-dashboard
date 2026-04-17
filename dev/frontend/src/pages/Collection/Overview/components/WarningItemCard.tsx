@@ -13,9 +13,10 @@ interface WarningItemCardProps {
 }
 
 const WarningItemCard: React.FC<WarningItemCardProps> = ({ item }) => {
-  const formatAmount = (amount: number) => {
-    if (!amount) return '¥0';
-    return `¥${amount.toLocaleString()}`;
+  const formatAmount = (amount: number | undefined | null) => {
+    const safeAmount = amount ?? 0;
+    if (!safeAmount) return '¥0';
+    return `¥${safeAmount.toLocaleString()}`;
   };
 
   return (

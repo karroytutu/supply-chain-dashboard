@@ -70,7 +70,7 @@ const ConfirmVerifyModal: React.FC<ConfirmVerifyModalProps> = ({
       <Descriptions column={1} bordered size="small" style={{ marginBottom: 16 }}>
         <Descriptions.Item label="客户">{task.consumerName}</Descriptions.Item>
         <Descriptions.Item label="申请核销金额">
-          ¥{totalAmount.toLocaleString()}
+          ¥{(totalAmount ?? 0).toLocaleString()}
         </Descriptions.Item>
         <Descriptions.Item label="责任人">{task.managerUserName}</Descriptions.Item>
         <Descriptions.Item label="创建时间">{task.createdAt}</Descriptions.Item>
