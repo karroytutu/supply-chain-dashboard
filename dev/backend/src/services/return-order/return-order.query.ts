@@ -34,7 +34,7 @@ export async function getReturnOrders(
     queryParams.push(status);
   }
   if (keyword) {
-    conditions.push(`(ro.goods_name ILIKE $${paramIndex} OR ro.return_no ILIKE $${paramIndex} OR ro.source_bill_no ILIKE $${paramIndex})`);
+    conditions.push(`(ro.goods_name ILIKE $${paramIndex} OR ro.return_no ILIKE $${paramIndex} OR ro.source_bill_no ILIKE $${paramIndex} OR ro.consumer_name ILIKE $${paramIndex})`);
     queryParams.push(`%${keyword}%`);
     paramIndex++;
   }

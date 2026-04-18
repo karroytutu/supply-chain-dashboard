@@ -83,6 +83,12 @@ const ReturnOrderCard: React.FC<ReturnOrderCardProps> = ({
             </span>
           </div>
           <div className={styles.mobileCardGridItem}>
+            <span className={styles.mobileCardLabel}>客户</span>
+            <span className={styles.mobileCardValue}>
+              {record.consumerName || '-'}
+            </span>
+          </div>
+          <div className={styles.mobileCardGridItem}>
             <span className={styles.mobileCardLabel}>当前库存</span>
             <span className={styles.mobileCardValue}>
               {record.currentStockDisplay
@@ -136,12 +142,6 @@ const ReturnOrderCard: React.FC<ReturnOrderCardProps> = ({
             <div className={styles.mobileCardDetailRow}>
               <span className={styles.mobileCardLabel}>仓储执行人</span>
               <span className={styles.mobileCardValue}>{record.warehouseExecutorName}</span>
-            </div>
-          )}
-          {record.consumerName && (
-            <div className={styles.mobileCardDetailRow}>
-              <span className={styles.mobileCardLabel}>消费者</span>
-              <span className={styles.mobileCardValue}>{record.consumerName}</span>
             </div>
           )}
         </div>

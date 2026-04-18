@@ -21,6 +21,12 @@ const ExpandedDetail: React.FC<ExpandedDetailProps> = ({ record }) => {
           </span>
         </div>
         <div className={styles.expandedDetailItem}>
+          <span className={styles.expandedDetailLabel}>客户</span>
+          <span className={styles.expandedDetailValue}>
+            {record.consumerName || '-'}
+          </span>
+        </div>
+        <div className={styles.expandedDetailItem}>
           <span className={styles.expandedDetailLabel}>退货时间</span>
           <span className={styles.expandedDetailValue}>
             {record.returnDate ? dayjs(record.returnDate).format('YYYY-MM-DD') : '-'}

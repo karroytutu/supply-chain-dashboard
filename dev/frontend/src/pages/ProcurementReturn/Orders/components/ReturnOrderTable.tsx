@@ -151,6 +151,13 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       ellipsis: true,
     },
     {
+      title: '客户',
+      dataIndex: 'consumerName',
+      key: 'consumerName',
+      width: 120,
+      render: (val: string | null) => val || '-',
+    },
+    {
       title: '数量',
       key: 'quantity',
       width: 80,
@@ -305,7 +312,7 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       dataSource={dataSource}
       rowKey="id"
       loading={loading}
-      scroll={{ x: 800 }}
+      scroll={{ x: 920 }}
       rowSelection={{
         selectedRowKeys,
         onChange: (keys) => onSelectChange(keys as number[]),
