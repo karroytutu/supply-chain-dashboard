@@ -23,7 +23,7 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
   switch (role) {
     case 'marketer':
       return {
-        sql: `(t.manager_user_id = $${paramIndex} OR t.status IN ('collecting', 'extension'))`,
+        sql: `(t.manager_user_id = $${paramIndex})`,
         params: [userId],
         nextIndex: paramIndex + 1,
       };
@@ -165,9 +165,30 @@ export async function getCollectionTasks(params: TaskQueryParams & { userId: num
 }
 
 /**
+ * 校验用户是否有权访问指定任务
+ */
+function checkTaskAccess(task: any, userId: number, role: string): boolean {
+  switch (role) {
+    case 'marketer':
+      return task.manager_user_id === userId;
+    case 'marketing_manager':
+    case 'marketing_supervisor':
+      return task.status === 'escalated' && task.escalation_level === 1;
+    case 'current_accountant':
+    case 'finance_staff':
+      return task.status === 'difference_processing' || (task.status === 'escalated' && task.escalation_level === 2);
+    case 'cashier':
+      return task.status === 'pending_verify';
+    default:
+      // admin / manager: 无限制
+      return true;
+  }
+}
+
+/**
  * 获取单个任务详情
  */
-export async function getTaskById(id: number) {
+export async function getTaskById(id: number, userId?: number, role?: string) {
   try {
     const result = await query(
       `SELECT
@@ -183,7 +204,17 @@ export async function getTaskById(id: number) {
     );
 
     if (result.rows.length === 0) return null;
-    return result.rows[0];
+
+    const task = result.rows[0];
+
+    // 如果提供了 userId 和 role，校验访问权限
+    if (userId !== undefined && role !== undefined) {
+      if (!checkTaskAccess(task, userId, role)) {
+        return null;
+      }
+    }
+
+    return task;
   } catch (error) {
     console.error('[ArCollection] 获取任务详情失败:', error);
     throw new Error('获取任务详情失败');

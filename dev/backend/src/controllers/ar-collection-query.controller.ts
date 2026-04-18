@@ -80,7 +80,9 @@ export const getTaskById = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const result = await getTaskByIdService(id);
+    const userId = req.user!.userId;
+    const role = req.user!.roles?.[0] || 'viewer';
+    const result = await getTaskByIdService(id, userId, role);
     if (!result) {
       res.status(404).json({ code: 404, message: '任务不存在' });
       return;

@@ -5,11 +5,52 @@
 import { appQuery as query } from '../../db/appPool';
 
 /**
+ * 构建统计查询的角色 WHERE 条件（不含表别名前缀）
+ */
+function buildStatsRoleFilter(role: string, userId: number, paramIndex: number): { sql: string; params: any[]; nextIndex: number } {
+  switch (role) {
+    case 'marketer':
+      return {
+        sql: `manager_user_id = $${paramIndex}`,
+        params: [userId],
+        nextIndex: paramIndex + 1,
+      };
+    case 'marketing_manager':
+    case 'marketing_supervisor':
+      return {
+        sql: `(status = 'escalated' AND escalation_level = 1)`,
+        params: [],
+        nextIndex: paramIndex,
+      };
+    case 'current_accountant':
+    case 'finance_staff':
+      return {
+        sql: `(status = 'difference_processing' OR (status = 'escalated' AND escalation_level = 2))`,
+        params: [],
+        nextIndex: paramIndex,
+      };
+    case 'cashier':
+      return {
+        sql: `status = 'pending_verify'`,
+        params: [],
+        nextIndex: paramIndex,
+      };
+    default:
+      // admin / manager: 全部
+      return { sql: '1=1', params: [], nextIndex: paramIndex };
+  }
+}
+
+/**
  * 获取催收统计概览
  * 返回 4 个指标卡数据 + 状态分布
  */
 export async function getCollectionStats(userId: number, role: string) {
   try {
+    const roleFilter = buildStatsRoleFilter(role, userId, 1);
+    const whereClause = roleFilter.sql;
+    const whereParams = roleFilter.params;
+
     // 指标卡统计
     const statsResult = await query(
       `SELECT
@@ -21,7 +62,9 @@ export async function getCollectionStats(userId: number, role: string) {
         COALESCE(SUM(CASE WHEN status = 'pending_verify' OR max_overdue_days >= 30 THEN total_amount END), 0) AS attention_amount,
         COUNT(CASE WHEN status IN ('verified', 'closed') AND created_at >= date_trunc('month', CURRENT_DATE) THEN 1 END) AS collected_count,
         COALESCE(SUM(CASE WHEN status IN ('verified', 'closed') AND created_at >= date_trunc('month', CURRENT_DATE) THEN total_amount END), 0) AS collected_amount
-      FROM ar_collection_tasks`
+      FROM ar_collection_tasks
+      WHERE ${whereClause}`,
+      whereParams
     );
 
     // 状态分布
@@ -31,7 +74,9 @@ export async function getCollectionStats(userId: number, role: string) {
         COUNT(*) AS count,
         COALESCE(SUM(total_amount), 0) AS amount
       FROM ar_collection_tasks
-      GROUP BY status`
+      WHERE ${whereClause}
+      GROUP BY status`,
+      whereParams
     );
 
     const s = statsResult.rows[0];
@@ -103,7 +148,7 @@ async function getMarketerTasks(userId: number) {
       COUNT(CASE WHEN last_collection_at < NOW() - INTERVAL '7 days' AND status IN ('collecting', 'extension') THEN 1 END) AS overdue_follow,
       COALESCE(SUM(CASE WHEN last_collection_at < NOW() - INTERVAL '7 days' AND status IN ('collecting', 'extension') THEN total_amount END), 0) AS overdue_follow_amount
     FROM ar_collection_tasks
-    WHERE manager_user_id = $1 OR status IN ('collecting', 'extension')`,
+    WHERE manager_user_id = $1`,
     [userId]
   );
   const r = result.rows[0];
