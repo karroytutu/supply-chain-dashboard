@@ -466,7 +466,7 @@ export async function countersignApproval(
           `INSERT INTO oa_approval_nodes
             (instance_id, node_order, node_name, node_type, assigned_user_id, assigned_user_name, status, is_countersign, countersign_parent_node_id)
            VALUES ($1, $2, '加签', 'countersign', $3, $4, 'pending', true, $5)`,
-          [instanceId, insertOrder++, csUser.name, csUser.name, currentNode.id]
+          [instanceId, insertOrder++, csUser.id, csUser.name, currentNode.id]
         );
       }
 
@@ -496,7 +496,7 @@ export async function countersignApproval(
           `INSERT INTO oa_approval_nodes
             (instance_id, node_order, node_name, node_type, assigned_user_id, assigned_user_name, status, is_countersign, countersign_parent_node_id)
            VALUES ($1, $2, '加签', 'countersign', $3, $4, 'pending', true, $5)`,
-          [instanceId, insertOrder++, csUser.name, csUser.name, currentNode.id]
+          [instanceId, insertOrder++, csUser.id, csUser.name, currentNode.id]
         );
       }
     }
