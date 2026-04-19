@@ -5,7 +5,7 @@
  */
 
 import { FormTypeDefinition } from '../oa-approval.types';
-import { handleAssetMaintenanceNodeCallback } from '../../fixed-asset/fixed-asset-callback';
+import { handleAssetMaintenanceNodeCallback } from '../../fixed-asset/maintenance-callback';
 
 export const assetMaintenanceFormType: FormTypeDefinition = {
   code: 'asset_maintenance',

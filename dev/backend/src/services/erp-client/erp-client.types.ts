@@ -12,6 +12,24 @@ export interface ErpApiConfig {
   timeout: number;
   retryMax: number;
   rateLimitMs: number;
+  /** 默认付款科目 ID */
+  defaultPaymentSubjectId: number;
+  /** 默认业务员 ID */
+  defaultSalesmanId: number;
+  /** 默认部门 ID */
+  defaultDeptId: number;
+  /** 资产 API 路径前缀 */
+  assetPathPrefix: string;
+  /** 支出单 API 路径 */
+  expenditureBillPath: string;
+  /** 资产创建 API 路径 */
+  assetCreatePath: string;
+  /** 资产更新 API 路径 */
+  assetUpdatePath: string;
+  /** 资产清理 API 路径 */
+  assetClearPath: string;
+  /** 收入单 API 路径 */
+  incomeBillPath: string;
 }
 
 /** ERP 认证令牌 */
@@ -35,10 +53,27 @@ export interface ErpRequestOptions {
 }
 
 /** ERP API 响应基础结构 */
-export interface ErpApiResponse<T = any> {
+export interface ErpApiResponse<T = unknown> {
   code: number;
   data: T;
   message?: string;
+}
+
+/** ERP 单据创建响应（费用单/收入单等） */
+export interface ErpBillResponse {
+  id: number;
+  billStr: string;
+  code?: string;
+  [key: string]: unknown;
+}
+
+/** ERP 分页响应 */
+export interface ErpPageResponse<T> {
+  records: T[];
+  total: number;
+  current: number;
+  size: number;
+  [key: string]: unknown;
 }
 
 /** ERP API 错误 */
@@ -61,10 +96,10 @@ export interface ErpLogEntry {
   requestId: string;
   method: string;
   path: string;
-  requestHeaders?: Record<string, any>;
-  requestBody?: any;
+  requestHeaders?: Record<string, unknown>;
+  requestBody?: unknown;
   responseStatus?: number;
-  responseBody?: any;
+  responseBody?: unknown;
   errorMessage?: string;
   durationMs: number;
   retryCount: number;

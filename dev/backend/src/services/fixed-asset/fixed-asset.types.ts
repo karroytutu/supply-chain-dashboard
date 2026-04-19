@@ -55,10 +55,10 @@ export interface AssetApplication {
   applicationNo: string;
   type: ApplicationType;
   status: ApplicationStatus;
-  formData: Record<string, any>;
+  formData: Record<string, unknown>;
   oaInstanceId: number | null;
-  erpRequestLog: Record<string, any> | null;
-  erpResponseData: Record<string, any> | null;
+  erpRequestLog: Record<string, unknown> | null;
+  erpResponseData: Record<string, unknown> | null;
   applicantId: number;
   applicantName: string | null;
   departmentId: number | null;
@@ -84,7 +84,7 @@ export interface ErpAsset {
   netValue?: string;
   usageStatus?: string;
   usageStatusStr?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /** 舟谱资产分类 */
@@ -191,7 +191,7 @@ export interface CreatedAssetRecord {
 /** 创建申请请求参数 */
 export interface CreateApplicationRequest {
   type: ApplicationType;
-  formData: Record<string, any>;
+  formData: Record<string, unknown>;
   remark?: string;
 }
 

@@ -3,7 +3,7 @@
  * @module services/erp-client
  */
 
-export { getErpConfig, ERP_API_VERSION } from './erp-config';
+export { getErpConfig, getErpDefaults, ERP_API_VERSION } from './erp-config';
 export { getErpAccessToken, refreshErpToken, invalidateErpToken } from './erp-auth';
 export { erpRequest, erpGet, erpPost, erpPut } from './erp-client';
 export { createLogEntry, writeErpLog } from './erp-logger';
@@ -13,5 +13,7 @@ export type {
   ErpToken,
   ErpRequestOptions,
   ErpApiResponse,
+  ErpBillResponse,
+  ErpPageResponse,
   ErpLogEntry,
 } from './erp-client.types';

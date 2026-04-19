@@ -126,6 +126,18 @@ export const PERMISSIONS = {
     READ: 'asset:read',
     WRITE: 'asset:write',
     DATA_INPUT: 'asset:data_input',
+    PURCHASE: {
+      WRITE: 'asset:purchase:write',
+    },
+    TRANSFER: {
+      WRITE: 'asset:transfer:write',
+    },
+    MAINTENANCE: {
+      WRITE: 'asset:maintenance:write',
+    },
+    DISPOSAL: {
+      WRITE: 'asset:disposal:write',
+    },
   },
 } as const;
 
@@ -149,24 +161,10 @@ export const ROLES = {
 } as const;
 
 /**
- * 权限类型定义
+ * 权限类型定义 - 递归提取所有权限字符串值
  */
-export type PermissionCode = typeof PERMISSIONS[keyof typeof PERMISSIONS] |
-  typeof PERMISSIONS.SYSTEM[keyof typeof PERMISSIONS.SYSTEM][keyof typeof PERMISSIONS.SYSTEM.USER] |
-  typeof PERMISSIONS.STRATEGIC[keyof typeof PERMISSIONS.STRATEGIC] |
-  typeof PERMISSIONS.STRATEGIC.CONFIRM[keyof typeof PERMISSIONS.STRATEGIC.CONFIRM] |
-  typeof PERMISSIONS.PROCUREMENT[keyof typeof PERMISSIONS.PROCUREMENT] |
-  typeof PERMISSIONS.PROCUREMENT.RETURN[keyof typeof PERMISSIONS.PROCUREMENT.RETURN] |
-  typeof PERMISSIONS.RETURN[keyof typeof PERMISSIONS.RETURN] |
-  typeof PERMISSIONS.RETURN.PENALTY[keyof typeof PERMISSIONS.RETURN.PENALTY] |
-  typeof PERMISSIONS.GOODS_RULES[keyof typeof PERMISSIONS.GOODS_RULES] |
-  typeof PERMISSIONS.FINANCE[keyof typeof PERMISSIONS.FINANCE][keyof typeof PERMISSIONS.FINANCE.AR] |
-  typeof PERMISSIONS.FINANCE.AR[keyof typeof PERMISSIONS.FINANCE.AR] |
-  typeof PERMISSIONS.AR[keyof typeof PERMISSIONS.AR] |
-  typeof PERMISSIONS.AR.COLLECTION[keyof typeof PERMISSIONS.AR.COLLECTION] |
-  typeof PERMISSIONS.OA.APPROVAL[keyof typeof PERMISSIONS.OA.APPROVAL] |
-  typeof PERMISSIONS.OA.DATA[keyof typeof PERMISSIONS.OA.DATA] |
-  typeof PERMISSIONS.ASSET[keyof typeof PERMISSIONS.ASSET];
+type DeepValue<T> = T extends string ? T : T extends object ? DeepValue<T[keyof T]> : never;
+export type PermissionCode = DeepValue<typeof PERMISSIONS>;
 
 /**
  * 角色类型定义

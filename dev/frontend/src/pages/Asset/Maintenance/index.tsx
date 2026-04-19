@@ -8,6 +8,7 @@ import { PlusOutlined, ToolOutlined, DeleteOutlined } from '@ant-design/icons';
 import { createMaintenanceApplication, getApplications } from '@/services/api/asset';
 import { AssetSelect, ApplicationStatusTag } from '@/components/Asset';
 import type { MaintenanceFormData, MaintenanceQuotation, AssetApplication, ErpAsset } from '@/types/asset';
+import styles from './index.less';
 
 const { TextArea } = Input;
 
@@ -127,7 +128,7 @@ const MaintenancePage: React.FC = () => {
               placeholder="搜索选择需要维修的资产"
             />
             {selectedAsset && (
-              <div style={{ color: '#666', fontSize: 12, marginTop: 4 }}>
+              <div className={styles.assetInfoWithMargin}>
                 {selectedAsset.code} | {selectedAsset.deptName || '无部门'} | {selectedAsset.userName || '无使用人'}
               </div>
             )}
@@ -137,11 +138,11 @@ const MaintenancePage: React.FC = () => {
           </Form.Item>
           <Space size="large">
             <Form.Item name="estimatedCost" label="预估维修费用(元)" rules={[{ required: true, message: '请输入预估费用' }]}>
-              <InputNumber min={0} precision={2} style={{ width: 200 }}
+              <InputNumber min={0} precision={2} className={styles.width200}
                 onChange={v => setEstimatedCost(v || 0)} />
             </Form.Item>
             <Form.Item name="urgency" label="紧急程度" rules={[{ required: true }]} initialValue="normal">
-              <Select style={{ width: 160 }} options={[
+              <Select className={styles.width160} options={[
                 { value: 'normal', label: '普通' },
                 { value: 'urgent', label: '紧急' },
                 { value: 'critical', label: '特急' },
@@ -150,22 +151,22 @@ const MaintenancePage: React.FC = () => {
           </Space>
 
           {estimatedCost > 0 && estimatedCost < 100 && (
-            <Alert type="warning" showIcon message="维修费用100元以下建议使用报销流程处理，不允许提交维修申请" style={{ marginBottom: 16 }} />
+            <Alert type="warning" showIcon message="维修费用100元以下建议使用报销流程处理，不允许提交维修申请" className={styles.quotationSection} />
           )}
 
           {estimatedCost >= 500 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ marginBottom: 8, fontWeight: 600 }}>
+            <div className={styles.quotationSection}>
+              <div className={styles.sectionHeader}>
                 供应商询价（预估费用≥500元，至少2家）
               </div>
               {quotations.map((q, index) => (
-                <div key={index} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <div key={index} className={styles.lineRow}>
                   <Input placeholder="供应商名称" value={q.supplierName}
-                    onChange={e => updateQuotation(index, 'supplierName', e.target.value)} style={{ flex: 2 }} />
+                    onChange={e => updateQuotation(index, 'supplierName', e.target.value)} className={styles.fieldFlex2} />
                   <InputNumber placeholder="报价" min={0} precision={2} value={q.quotationPrice ? parseFloat(q.quotationPrice) : undefined}
-                    onChange={v => updateQuotation(index, 'quotationPrice', String(v || 0))} style={{ flex: 1 }} />
+                    onChange={v => updateQuotation(index, 'quotationPrice', String(v || 0))} className={styles.fieldFlex1} />
                   <Input placeholder="备注" value={q.quotationNote}
-                    onChange={e => updateQuotation(index, 'quotationNote', e.target.value)} style={{ flex: 2 }} />
+                    onChange={e => updateQuotation(index, 'quotationNote', e.target.value)} className={styles.fieldFlex2} />
                   <Button icon={<DeleteOutlined />} danger onClick={() => removeQuotation(index)} />
                 </div>
               ))}
@@ -173,7 +174,7 @@ const MaintenancePage: React.FC = () => {
                 添加询价记录
               </Button>
               {quotations.length < 2 && (
-                <div style={{ color: '#faad14', fontSize: 12, marginTop: 4 }}>
+                <div className={styles.warningText}>
                   至少需要录入2家供应商询价
                 </div>
               )}

@@ -4,8 +4,7 @@
  */
 
 import { FormTypeDefinition } from '../oa-approval.types';
-import { handleAssetPurchaseNodeCallback } from '../../fixed-asset/fixed-asset-callback';
-import { handleAssetTransferApproved } from '../../fixed-asset/fixed-asset-callback';
+import { handleAssetPurchaseNodeCallback } from '../../fixed-asset/purchase-callback';
 
 export const assetPurchaseFormType: FormTypeDefinition = {
   code: 'asset_purchase',

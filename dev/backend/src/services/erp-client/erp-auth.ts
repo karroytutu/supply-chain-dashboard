@@ -79,6 +79,8 @@ export async function refreshErpToken(): Promise<ErpToken> {
   }
 
   // 解析 JWT 获取过期时间
+  // 注意：此处仅解码 JWT payload 获取 exp 字段，不验证签名
+  // 因为 token 由外部 ERP 系统签发，签名验证在 ERP 服务端完成
   let expiresAt: number;
   try {
     const payloadBase64 = authorization.split('.')[1];

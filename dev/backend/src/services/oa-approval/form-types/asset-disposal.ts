@@ -4,7 +4,7 @@
  */
 
 import { FormTypeDefinition } from '../oa-approval.types';
-import { handleAssetDisposalApproved } from '../../fixed-asset/fixed-asset-callback';
+import { handleAssetDisposalApproved } from '../../fixed-asset/disposal-callback';
 
 export const assetDisposalFormType: FormTypeDefinition = {
   code: 'asset_disposal',

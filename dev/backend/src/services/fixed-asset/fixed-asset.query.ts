@@ -1,11 +1,11 @@
 /**
  * 固定资产审批模块 - 查询服务
  * 代理舟谱 API 查询 + 本地申请列表
- * @module services/fixed-asset/fixed-asset.query
+ * @module services/fixed-asset/fixed-asset-query
  */
 
 import { appQuery } from '../../db/appPool';
-import { erpGet, erpPost } from '../erp-client';
+import { erpGet, erpPost, getErpConfig, getErpDefaults } from '../erp-client';
 import type {
   ErpAsset,
   ErpAssetCategory,
@@ -19,31 +19,50 @@ import type {
 } from './fixed-asset.types';
 
 // =====================================================
+// 舟谱 ERP 资产缓存
+// =====================================================
+
+/** 资产列表缓存（5 分钟过期） */
+let assetCache: { data: ErpAsset[]; expireAt: number } | null = null;
+const CACHE_TTL = 5 * 60 * 1000;
+
+// =====================================================
 // 舟谱 API 代理查询
 // =====================================================
+
+/** ERP 分页响应结构（舟谱 API 返回的 data 部分） */
+interface ErpPageData<T> {
+  records: T[];
+  total?: number;
+  current?: number;
+  size?: number;
+}
 
 /**
  * 搜索舟谱资产
  */
 export async function searchErpAssets(keyword: string, usageStatus?: string): Promise<ErpAsset[]> {
-  const body: Record<string, any> = {
+  const { cid, uid } = getErpDefaults();
+  const config = getErpConfig();
+
+  const body: Record<string, unknown> = {
     current: 1,
     size: 50,
-    cid: '10008421',
-    uid: '1',
+    cid,
+    uid,
     total: 0,
     usageStatus: usageStatus || '',
   };
 
-  const result = await erpPost<any>('/asset/page/search', body, {
-    pathPrefix: '/messiah/',
+  const result = await erpPost<ErpPageData<ErpAsset>>('/asset/page/search', body, {
+    pathPrefix: config.assetPathPrefix,
     businessType: 'fixed_asset_search',
   });
 
-  const records = result?.data?.records || [];
+  const records = result?.records || [];
   if (keyword) {
     const kw = keyword.toLowerCase();
-    return records.filter((r: ErpAsset) =>
+    return records.filter((r) =>
       (r.code && r.code.toLowerCase().includes(kw)) ||
       (r.name && r.name.toLowerCase().includes(kw))
     );
@@ -52,41 +71,59 @@ export async function searchErpAssets(keyword: string, usageStatus?: string): Pr
 }
 
 /**
- * 获取舟谱资产详情（通过搜索 API 按 code 查询）
+ * 获取全部舟谱资产列表（带缓存）
+ */
+async function getAllErpAssets(): Promise<ErpAsset[]> {
+  const now = Date.now();
+  if (assetCache && assetCache.expireAt > now) {
+    return assetCache.data;
+  }
+  const assets = await searchErpAssets('', '');
+  assetCache = { data: assets, expireAt: now + CACHE_TTL };
+  return assets;
+}
+
+/**
+ * 获取舟谱资产详情（通过缓存查询）
  */
 export async function getErpAssetDetail(erpAssetId: number): Promise<ErpAsset | null> {
-  const assets = await searchErpAssets('', '');
-  return assets.find((a: ErpAsset) => a.id === erpAssetId) || null;
+  const assets = await getAllErpAssets();
+  return assets.find((a) => a.id === erpAssetId) || null;
 }
 
 /**
  * 获取舟谱资产分类列表
  */
 export async function getErpAssetCategories(): Promise<ErpAssetCategory[]> {
-  const result = await erpGet<any>('/asset-type/get-all', {
-    cid: '10008421',
-    uid: '1',
+  const { cid, uid } = getErpDefaults();
+  const config = getErpConfig();
+
+  const result = await erpGet<ErpAssetCategory[]>('/asset-type/get-all', {
+    cid,
+    uid,
   }, {
-    pathPrefix: '/messiah/',
+    pathPrefix: config.assetPathPrefix,
     businessType: 'fixed_asset_categories',
   });
-  return result?.data || [];
+  return result || [];
 }
 
 /**
  * 获取舟谱员工列表
  */
 export async function getErpStaff(): Promise<ErpStaff[]> {
-  const result = await erpPost<any>('/staff/list-staff', {
+  const { cid, uid } = getErpDefaults();
+
+  const result = await erpPost<ErpPageData<ErpStaff>>('/staff/list-staff', {
     size: 200,
     current: 1,
-    cid: '10008421',
-    uid: '1',
+    cid,
+    uid,
   }, {
     pathPrefix: '/saas/pro/',
     businessType: 'fixed_asset_staff',
   });
-  return result?.data?.records || [];
+  return result?.records || [];
 }
 
 /**
@@ -107,24 +144,48 @@ export async function getErpDepartments(): Promise<ErpDepartment[]> {
  * 获取舟谱付款账户列表（树形）
  */
 export async function getErpPaymentAccounts(): Promise<ErpPaymentAccount[]> {
-  const result = await erpGet<any>('/funds-account/list-payment-tree', {
+  const { cid, uid } = getErpDefaults();
+
+  const result = await erpGet<ErpPaymentAccount[]>('/funds-account/list-payment-tree', {
     from: 'bill',
     typeIn: 'c,b,o',
     state: '0',
     page: '1',
     rows: '500',
-    cid: '10008421',
-    uid: '1',
+    cid,
+    uid,
   }, {
     pathPrefix: '/saas/pro/',
     businessType: 'fixed_asset_payment_accounts',
   });
-  return result?.data || [];
+  return result || [];
 }
 
 // =====================================================
 // 本地申请记录查询
 // =====================================================
+
+/**
+ * 将数据库行映射为 AssetApplication 对象
+ */
+function mapRowToApplication(row: Record<string, unknown>): AssetApplication {
+  return {
+    id: row.id as number,
+    applicationNo: row.application_no as string,
+    type: row.type as ApplicationType,
+    status: row.status as ApplicationStatus,
+    formData: typeof row.form_data === 'string' ? JSON.parse(row.form_data as string) : row.form_data as Record<string, unknown>,
+    oaInstanceId: row.oa_instance_id as number | null,
+    erpRequestLog: row.erp_request_log as Record<string, unknown> | null,
+    erpResponseData: typeof row.erp_response_data === 'string' ? JSON.parse(row.erp_response_data as string) : row.erp_response_data as Record<string, unknown> | null,
+    applicantId: row.applicant_id as number,
+    applicantName: row.applicant_name as string | null,
+    departmentId: row.department_id as number | null,
+    remark: row.remark as string | null,
+    createdAt: row.created_at as Date,
+    updatedAt: row.updated_at as Date,
+  };
+}
 
 /**
  * 查询申请列表
@@ -136,7 +197,7 @@ export async function getApplications(params: ApplicationListParams): Promise<{
   const { type, status, page = 1, pageSize = 20 } = params;
 
   const conditions: string[] = [];
-  const queryParams: any[] = [];
+  const queryParams: unknown[] = [];
   let paramIndex = 1;
 
   if (type) {
@@ -166,23 +227,7 @@ export async function getApplications(params: ApplicationListParams): Promise<{
     [...queryParams, pageSize, offset]
   );
 
-  const list: AssetApplication[] = listResult.rows.map((row: any) => ({
-    id: row.id,
-    applicationNo: row.application_no,
-    type: row.type,
-    status: row.status,
-    formData: typeof row.form_data === 'string' ? JSON.parse(row.form_data) : row.form_data,
-    oaInstanceId: row.oa_instance_id,
-    erpRequestLog: row.erp_request_log,
-    erpResponseData: typeof row.erp_response_data === 'string' ? JSON.parse(row.erp_response_data) : row.erp_response_data,
-    applicantId: row.applicant_id,
-    applicantName: row.applicant_name,
-    departmentId: row.department_id,
-    remark: row.remark,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }));
-
+  const list: AssetApplication[] = listResult.rows.map(mapRowToApplication);
   return { list, total };
 }
 
@@ -196,24 +241,7 @@ export async function getApplicationById(id: number): Promise<AssetApplication |
   );
 
   if (result.rows.length === 0) return null;
-
-  const row = result.rows[0];
-  return {
-    id: row.id,
-    applicationNo: row.application_no,
-    type: row.type,
-    status: row.status,
-    formData: typeof row.form_data === 'string' ? JSON.parse(row.form_data) : row.form_data,
-    oaInstanceId: row.oa_instance_id,
-    erpRequestLog: row.erp_request_log,
-    erpResponseData: typeof row.erp_response_data === 'string' ? JSON.parse(row.erp_response_data) : row.erp_response_data,
-    applicantId: row.applicant_id,
-    applicantName: row.applicant_name,
-    departmentId: row.department_id,
-    remark: row.remark,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+  return mapRowToApplication(result.rows[0]);
 }
 
 /**
@@ -226,22 +254,5 @@ export async function getApplicationByOaInstanceId(oaInstanceId: number): Promis
   );
 
   if (result.rows.length === 0) return null;
-
-  const row = result.rows[0];
-  return {
-    id: row.id,
-    applicationNo: row.application_no,
-    type: row.type,
-    status: row.status,
-    formData: typeof row.form_data === 'string' ? JSON.parse(row.form_data) : row.form_data,
-    oaInstanceId: row.oa_instance_id,
-    erpRequestLog: row.erp_request_log,
-    erpResponseData: typeof row.erp_response_data === 'string' ? JSON.parse(row.erp_response_data) : row.erp_response_data,
-    applicantId: row.applicant_id,
-    applicantName: row.applicant_name,
-    departmentId: row.department_id,
-    remark: row.remark,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+  return mapRowToApplication(result.rows[0]);
 }

@@ -4,7 +4,7 @@
  */
 
 import { FormTypeDefinition } from '../oa-approval.types';
-import { handleAssetTransferApproved } from '../../fixed-asset/fixed-asset-callback';
+import { handleAssetTransferApproved } from '../../fixed-asset/transfer-callback';
 
 export const assetTransferFormType: FormTypeDefinition = {
   code: 'asset_transfer',

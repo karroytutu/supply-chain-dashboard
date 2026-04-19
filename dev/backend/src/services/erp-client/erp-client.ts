@@ -16,15 +16,19 @@ let _lastRequestTime = 0;
 
 /**
  * 请求限流 — 保证两次请求间至少间隔 rateLimitMs
+ * 先标记时间戳再延迟，避免并发请求绕过限速
  */
 async function waitForRateLimit(): Promise<void> {
   const config = getErpConfig();
   const now = Date.now();
   const elapsed = now - _lastRequestTime;
   if (elapsed < config.rateLimitMs) {
-    await new Promise(resolve => setTimeout(resolve, config.rateLimitMs - elapsed));
+    const waitTime = config.rateLimitMs - elapsed;
+    _lastRequestTime = now + waitTime; // 先标记预期完成时间
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  } else {
+    _lastRequestTime = now;
   }
-  _lastRequestTime = Date.now();
 }
 
 /**

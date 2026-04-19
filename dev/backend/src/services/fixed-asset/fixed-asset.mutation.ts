@@ -7,7 +7,7 @@ import { appQuery } from '../../db/appPool';
 import { submitApproval } from '../oa-approval/oa-approval.mutation';
 import { getFormTypeByCode } from '../oa-approval/form-types';
 import { generateApplicationNo, validateMaintenanceCost, validateQuotationCount } from './fixed-asset-utils';
-import type { CreateApplicationRequest, ApplicationType } from './fixed-asset.types';
+import type { CreateApplicationRequest, ApplicationType, MaintenanceQuotation } from './fixed-asset.types';
 
 /** 申请类型 → OA 表单类型编码映射 */
 const TYPE_TO_FORM_CODE: Record<ApplicationType, string> = {
@@ -18,8 +18,11 @@ const TYPE_TO_FORM_CODE: Record<ApplicationType, string> = {
 };
 
 /** 申请类型 → OA 审批标题模板 */
-const TYPE_TO_TITLE: Record<ApplicationType, (formData: Record<string, any>) => string> = {
-  purchase: (fd) => `固定资产采购申请 - ${fd.lines?.[0]?.assetName || ''}`,
+const TYPE_TO_TITLE: Record<ApplicationType, (formData: Record<string, unknown>) => string> = {
+  purchase: (fd) => {
+    const lines = fd.lines as Array<{ assetName?: string }> | undefined;
+    return `固定资产采购申请 - ${lines?.[0]?.assetName || ''}`;
+  },
   transfer: (fd) => `固定资产${fd.transferType === 'requisition' ? '领用' : '调拨'}申请`,
   maintenance: (fd) => `固定资产维修申请 - ${fd.assetName || ''}`,
   disposal: (fd) => `固定资产清理申请 - ${fd.assetName || ''}`,
@@ -38,13 +41,15 @@ export async function createApplication(
 
   // 业务校验
   if (type === 'maintenance') {
-    const costError = validateMaintenanceCost(parseFloat(formData.estimatedCost || '0'));
+    const estimatedCostStr = (formData.estimatedCost as string) || '0';
+    const costError = validateMaintenanceCost(parseFloat(estimatedCostStr));
     if (costError) {
       throw new Error(costError);
     }
-    const estimatedCost = parseFloat(formData.estimatedCost || '0');
-    if (estimatedCost >= 500 && formData.quotations) {
-      const quoteError = validateQuotationCount(estimatedCost, formData.quotations.length);
+    const estimatedCost = parseFloat(estimatedCostStr);
+    const quotations = formData.quotations as MaintenanceQuotation[] | undefined;
+    if (estimatedCost >= 500 && quotations) {
+      const quoteError = validateQuotationCount(estimatedCost, quotations.length);
       if (quoteError) {
         throw new Error(quoteError);
       }
@@ -114,10 +119,10 @@ export async function createApplication(
 export async function updateApplicationStatus(
   applicationId: number,
   status: string,
-  extraData?: { erpResponseData?: Record<string, any>; erpRequestLog?: Record<string, any> }
+  extraData?: { erpResponseData?: Record<string, unknown>; erpRequestLog?: Record<string, unknown> }
 ): Promise<void> {
   const updates: string[] = ['status = $2', 'updated_at = NOW()'];
-  const params: any[] = [applicationId, status];
+  const params: unknown[] = [applicationId, status];
   let paramIndex = 3;
 
   if (extraData?.erpResponseData) {

@@ -33,9 +33,9 @@ export interface AssetApplication {
   applicationNo: string;
   type: ApplicationType;
   status: ApplicationStatus;
-  formData: Record<string, any>;
+  formData: Record<string, unknown>;
   oaInstanceId: number | null;
-  erpResponseData: Record<string, any> | null;
+  erpResponseData: Record<string, unknown> | null;
   applicantId: number;
   applicantName: string | null;
   departmentId: number | null;
@@ -61,7 +61,7 @@ export interface ErpAsset {
   netValue?: string;
   usageStatus?: string;
   usageStatusStr?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /** 舟谱资产分类 */

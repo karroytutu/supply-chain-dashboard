@@ -8,6 +8,17 @@ import { randomUUID } from 'crypto';
 import { appQuery } from '../../db/appPool';
 import type { ErpLogEntry } from './erp-client.types';
 
+/** 日志序列化大小上限（10KB） */
+const MAX_LOG_SIZE = 10000;
+
+/**
+ * 安全 JSON 序列化，限制大小防止撑爆日志表
+ */
+function safeStringify(data: unknown): string {
+  const str = JSON.stringify(data);
+  return str.length > MAX_LOG_SIZE ? str.substring(0, MAX_LOG_SIZE) + '...[truncated]' : str;
+}
+
 /**
  * 创建日志条目（返回 requestId）
  */
@@ -30,10 +41,10 @@ export async function writeErpLog(entry: ErpLogEntry): Promise<void> {
         entry.requestId,
         entry.method,
         entry.path,
-        entry.requestHeaders ? JSON.stringify(entry.requestHeaders) : null,
-        entry.requestBody ? JSON.stringify(entry.requestBody) : null,
+        entry.requestHeaders ? safeStringify(entry.requestHeaders) : null,
+        entry.requestBody ? safeStringify(entry.requestBody) : null,
         entry.responseStatus ?? null,
-        entry.responseBody ? JSON.stringify(entry.responseBody) : null,
+        entry.responseBody ? safeStringify(entry.responseBody) : null,
         entry.errorMessage ?? null,
         entry.durationMs,
         entry.retryCount,
@@ -41,8 +52,9 @@ export async function writeErpLog(entry: ErpLogEntry): Promise<void> {
         entry.businessId ?? null,
       ]
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     // 日志写入失败不应影响业务流程
-    console.error('[ErpLogger] 日志写入失败:', error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[ErpLogger] 日志写入失败:', message);
   }
 }

@@ -221,19 +221,27 @@ export async function approveApproval(
     throw new Error('您不是当前审批人，无法执行此操作');
   }
 
-  // 获取实例和表单类型（事务外获取，用于回调）
-  const instanceResult0 = await query<OaApprovalInstanceRow>(
-    `SELECT * FROM oa_approval_instances WHERE id = $1`,
-    [instanceId]
-  );
-  const instance0 = instanceResult0.rows[0];
-  const formTypeCode = await query<{ code: string }>(
-    `SELECT code FROM oa_form_types WHERE id = $1`,
-    [instance0.form_type_id]
-  );
-  const formType = formTypeCode.rows[0] ? getFormTypeByCode(formTypeCode.rows[0].code) : undefined;
+  // 回调所需数据，在事务内填充
+  let formType: FormTypeDefinition | undefined;
+  let callbackInstance: OaApprovalInstanceRow | undefined;
+  let callbackNodeOrder = 0;
+  let callbackInputData: Record<string, unknown> | undefined;
+  let callbackFormData: Record<string, unknown> | undefined;
+  let isLastNode = false;
 
   await transaction(async (client) => {
+    // 在事务内获取实例和表单类型（确保数据一致性）
+    const instanceResult0 = await client.query<OaApprovalInstanceRow>(
+      `SELECT * FROM oa_approval_instances WHERE id = $1`,
+      [instanceId]
+    );
+    const instance0 = instanceResult0.rows[0];
+
+    const formTypeCode = await client.query<{ code: string }>(
+      `SELECT code FROM oa_form_types WHERE id = $1`,
+      [instance0.form_type_id]
+    );
+    formType = formTypeCode.rows[0] ? getFormTypeByCode(formTypeCode.rows[0].code) : undefined;
     // 获取当前节点
     const nodeResult = await client.query<OaApprovalNodeRow>(
       `SELECT * FROM oa_approval_nodes
@@ -330,26 +338,31 @@ export async function approveApproval(
       ]
     );
 
-    // 触发节点级回调（data_input 节点完成时）
-    if (currentNode.node_type === 'data_input' && formType?.onNodeCompleted) {
-      const latestFormData = instance.form_data as Record<string, unknown>;
-      // 异步执行，不阻塞审批流程
-      formType.onNodeCompleted(instance, currentNode.node_order, inputData || {}, latestFormData)
+    // 保存回调所需数据（事务提交后触发回调）
+    callbackInstance = instance;
+    callbackNodeOrder = currentNode.node_order;
+    callbackInputData = inputData;
+    callbackFormData = instance.form_data as Record<string, unknown>;
+    isLastNode = nextNodeResult.rows.length === 0;
+  });
+
+  // 事务提交后触发回调（在事务外执行，不阻塞审批流程）
+  if (callbackInstance && formType) {
+    const ftCode = formType.code;
+    if (callbackInputData && formType.onNodeCompleted) {
+      formType.onNodeCompleted(callbackInstance, callbackNodeOrder, callbackInputData, callbackFormData || {})
         .catch(err => {
-          console.error(`[OA] 节点回调执行失败 [${formType.code} node=${currentNode.node_order}]:`, err);
+          console.error(`[OA] 节点回调执行失败 [${ftCode} node=${callbackNodeOrder}]:`, err);
         });
     }
 
-    // 触发审批通过回调（最后一个节点完成时）
-    if (nextNodeResult.rows.length === 0 && formType?.onApproved) {
-      const latestFormData = instance.form_data as Record<string, unknown>;
-      // 异步执行，不阻塞审批流程
-      formType.onApproved(instance, latestFormData)
+    if (isLastNode && formType.onApproved) {
+      formType.onApproved(callbackInstance, callbackFormData || {})
         .catch(err => {
-          console.error(`[OA] 审批通过回调执行失败 [${formType.code}]:`, err);
+          console.error(`[OA] 审批通过回调执行失败 [${ftCode}]:`, err);
         });
     }
-  });
+  }
 }
 
 /**
@@ -414,21 +427,26 @@ export async function rejectApproval(
       [instanceId, userId, userName, currentNode.node_order, comment]
     );
 
-    // 触发审批驳回回调
+    // 触发审批驳回回调（在事务内获取数据，事务提交后执行）
     const instResult = await client.query<OaApprovalInstanceRow>(
       `SELECT * FROM oa_approval_instances WHERE id = $1`,
       [instanceId]
     );
-    const ftCode = await query<{ code: string }>(
+    const ftCode = await client.query<{ code: string }>(
       `SELECT code FROM oa_form_types WHERE id = $1`,
       [instResult.rows[0].form_type_id]
     );
     const ft = ftCode.rows[0] ? getFormTypeByCode(ftCode.rows[0].code) : undefined;
     if (ft?.onRejected) {
-      ft.onRejected(instResult.rows[0], instResult.rows[0].form_data as Record<string, unknown>)
-        .catch(err => {
-          console.error(`[OA] 审批驳回回调执行失败 [${ft.code}]:`, err);
-        });
+      const rejectedInstance = instResult.rows[0];
+      const rejectedFormData = rejectedInstance.form_data as Record<string, unknown>;
+      // 事务提交后异步触发回调
+      queueMicrotask(() => {
+        ft!.onRejected!(rejectedInstance, rejectedFormData)
+          .catch(err => {
+            console.error(`[OA] 审批驳回回调执行失败 [${ft!.code}]:`, err);
+          });
+      });
     }
   });
 }

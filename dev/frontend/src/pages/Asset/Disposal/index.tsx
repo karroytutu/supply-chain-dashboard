@@ -8,6 +8,7 @@ import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { createDisposalApplication, getApplications } from '@/services/api/asset';
 import { AssetSelect, ApplicationStatusTag } from '@/components/Asset';
 import type { DisposalFormData, DisposalType, AssetApplication, ErpAsset } from '@/types/asset';
+import styles from './index.less';
 
 const { TextArea } = Input;
 
@@ -108,7 +109,7 @@ const DisposalPage: React.FC = () => {
           </Form.Item>
 
           {selectedAsset && (
-            <Descriptions size="small" bordered column={2} style={{ marginBottom: 16 }}>
+            <Descriptions size="small" bordered column={2} className={styles.quotationSection}>
               <Descriptions.Item label="资产编号">{selectedAsset.code}</Descriptions.Item>
               <Descriptions.Item label="资产名称">{selectedAsset.name}</Descriptions.Item>
               <Descriptions.Item label="原值">¥{selectedAsset.originalValue || '-'}</Descriptions.Item>
@@ -133,11 +134,11 @@ const DisposalPage: React.FC = () => {
             </Form.Item>
             {hasIncome && (
               <Form.Item name="disposalValue" label="处置收入(元)" rules={[{ required: hasIncome, message: '请输入处置收入' }]}>
-                <InputNumber min={0} precision={2} style={{ width: 200 }} />
+                <InputNumber min={0} precision={2} className={styles.width200} />
               </Form.Item>
             )}
             <Form.Item name="disposalDate" label="清理日期" rules={[{ required: true, message: '请选择清理日期' }]}>
-              <DatePicker style={{ width: 200 }} />
+              <DatePicker className={styles.width200} />
             </Form.Item>
           </Space>
         </Form>

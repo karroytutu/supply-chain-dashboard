@@ -5,6 +5,7 @@
 
 import { appQuery } from '../../db/appPool';
 import type { ApplicationType, ApplicationStatus, PurchaseLine } from './fixed-asset.types';
+import { getErpDefaults } from '../erp-client';
 
 /**
  * 生成申请编号
@@ -13,35 +14,6 @@ import type { ApplicationType, ApplicationStatus, PurchaseLine } from './fixed-a
 export async function generateApplicationNo(): Promise<string> {
   const result = await appQuery('SELECT generate_asset_application_no() as no');
   return result.rows[0].no;
-}
-
-/**
- * 计算月折旧额
- * (原值 - 残值) / 预计使用月数
- */
-export function calcMonthlyDepreciation(
-  originalValue: number,
-  residualValueRate: number,
-  serviceMonths: number
-): string {
-  const residualValue = originalValue * residualValueRate / 100;
-  const netValue = originalValue - residualValue;
-  const monthly = netValue / serviceMonths;
-  return monthly.toFixed(2);
-}
-
-/**
- * 计算残值
- */
-export function calcResidualValue(originalValue: number, residualValueRate: number): string {
-  return (originalValue * residualValueRate / 100).toFixed(2);
-}
-
-/**
- * 计算原值净额
- */
-export function calcNetValue(originalValue: number, residualValueRate: number): string {
-  return (originalValue - originalValue * residualValueRate / 100).toFixed(2);
 }
 
 /**
@@ -69,56 +41,70 @@ export function validateQuotationCount(estimatedCost: number, quotationCount: nu
 /**
  * 获取申请状态显示名
  */
+const STATUS_LABELS: Record<ApplicationStatus, string> = {
+  pending: '待审批', quoting: '询价中', paying: '支付中', purchasing: '采购中',
+  storing: '入库中', approved: '审批通过', rejected: '已驳回',
+  cancelled: '已取消', completed: '已完成', erp_failed: 'ERP操作失败',
+};
 export function getApplicationStatusLabel(status: ApplicationStatus): string {
-  const labels: Record<ApplicationStatus, string> = {
-    pending: '待审批',
-    quoting: '询价中',
-    paying: '支付中',
-    purchasing: '采购中',
-    storing: '入库中',
-    approved: '审批通过',
-    rejected: '已驳回',
-    cancelled: '已取消',
-    completed: '已完成',
-    erp_failed: 'ERP操作失败',
-  };
-  return labels[status];
+  return STATUS_LABELS[status];
 }
 
 /**
  * 获取申请类型显示名
  */
+const TYPE_LABELS: Record<ApplicationType, string> = {
+  purchase: '采购申请', transfer: '领用调拨', maintenance: '维修申请', disposal: '清理申请',
+};
 export function getApplicationTypeLabel(type: ApplicationType): string {
-  const labels: Record<ApplicationType, string> = {
-    purchase: '采购申请',
-    transfer: '领用调拨',
-    maintenance: '维修申请',
-    disposal: '清理申请',
-  };
-  return labels[type];
+  return TYPE_LABELS[type];
 }
+
+/** 采购流程节点→状态映射 */
+const PURCHASE_NODE_STATUS: Record<number, ApplicationStatus> = {
+  3: 'quoting', 5: 'paying', 6: 'purchasing', 7: 'storing',
+};
+/** 维修流程节点→状态映射 */
+const MAINTENANCE_NODE_STATUS: Record<number, ApplicationStatus> = {
+  2: 'quoting', 4: 'paying',
+};
 
 /**
  * 根据申请类型和当前审批节点计算申请状态
  */
 export function getStatusForNode(type: ApplicationType, nodeOrder: number): ApplicationStatus {
-  if (type === 'purchase') {
-    switch (nodeOrder) {
-      case 3: return 'quoting';
-      case 5: return 'paying';
-      case 6: return 'purchasing';
-      case 7: return 'storing';
-      default: return 'pending';
-    }
-  }
-  if (type === 'maintenance') {
-    switch (nodeOrder) {
-      case 2: return 'quoting';
-      case 4: return 'paying';
-      default: return 'pending';
-    }
-  }
+  if (type === 'purchase') return PURCHASE_NODE_STATUS[nodeOrder] || 'pending';
+  if (type === 'maintenance') return MAINTENANCE_NODE_STATUS[nodeOrder] || 'pending';
   return 'pending';
+}
+
+/**
+ * 计算月折旧额
+ * (原值 - 残值) / 预计使用月数
+ */
+function calcMonthlyDepreciation(
+  originalValue: number,
+  residualValueRate: number,
+  serviceMonths: number
+): string {
+  const residualValue = originalValue * residualValueRate / 100;
+  const netValue = originalValue - residualValue;
+  const monthly = netValue / serviceMonths;
+  return monthly.toFixed(2);
+}
+
+/**
+ * 计算残值
+ */
+function calcResidualValue(originalValue: number, residualValueRate: number): string {
+  return (originalValue * residualValueRate / 100).toFixed(2);
+}
+
+/**
+ * 计算原值净额
+ */
+function calcNetValue(originalValue: number, residualValueRate: number): string {
+  return (originalValue - originalValue * residualValueRate / 100).toFixed(2);
 }
 
 /**
@@ -128,10 +114,11 @@ export function buildAssetCreatePayload(
   line: PurchaseLine,
   lineIndex: number,
   unitAllocation?: { deptId: number; userId: number; depositAddress: string }
-): Record<string, any> {
+): Record<string, unknown> {
   const originalValue = parseFloat(line.actualPrice || line.quotationPrice || line.estimatedBudget || '0');
   const residualRate = line.estimatedResidualValueRate || 5;
   const serviceMonths = line.estimatedServiceMonths || 48;
+  const { cid, uid } = getErpDefaults();
 
   return {
     assertCreatedType: 'UN_BEGINNING',
@@ -154,7 +141,7 @@ export function buildAssetCreatePayload(
     initialAccumulatedDepreciation: calcMonthlyDepreciation(originalValue, residualRate, serviceMonths),
     originalValuePure: calcNetValue(originalValue, residualRate),
     note: line.note || '',
-    cid: '10008421',
-    uid: '1',
+    cid,
+    uid,
   };
 }

@@ -2,8 +2,9 @@
  * 资产搜索选择器组件
  * 输入关键词搜索舟谱资产，选中后回填资产信息
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Select, Spin } from 'antd';
+import { debounce } from 'lodash';
 import { searchErpAssets } from '@/services/api/asset';
 import type { ErpAsset } from '@/types/asset';
 
@@ -35,6 +36,8 @@ const AssetSelect: React.FC<AssetSelectProps> = ({ value, onChange, placeholder,
     }
   }, []);
 
+  const debouncedSearch = useMemo(() => debounce(handleSearch, 300), [handleSearch]);
+
   const handleChange = (assetId: number) => {
     const asset = assets.find(a => a.id === assetId) || null;
     onChange?.(assetId, asset);
@@ -49,7 +52,7 @@ const AssetSelect: React.FC<AssetSelectProps> = ({ value, onChange, placeholder,
       style={style || { width: '100%' }}
       defaultActiveFirstOption={false}
       filterOption={false}
-      onSearch={(val) => { setSearchValue(val); handleSearch(val); }}
+      onSearch={(val) => { setSearchValue(val); debouncedSearch(val); }}
       onChange={handleChange}
       notFoundContent={fetching ? <Spin size="small" /> : '无匹配资产'}
       searchValue={searchValue}

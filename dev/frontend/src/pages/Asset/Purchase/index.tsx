@@ -7,6 +7,7 @@ import { PlusOutlined, DeleteOutlined, ShoppingCartOutlined } from '@ant-design/
 import { createPurchaseApplication, getApplications, getErpAssetCategories, getErpStaff, getErpPaymentAccounts } from '@/services/api/asset';
 import { ApplicationStatusTag } from '@/components/Asset';
 import type { PurchaseLine, PurchaseFormData, AssetApplication, ErpAssetCategory, ErpStaff, ErpPaymentAccount } from '@/types/asset';
+import styles from './index.less';
 
 const { TextArea } = Input;
 
@@ -130,20 +131,20 @@ const PurchasePage: React.FC = () => {
             ]} />
           </Form.Item>
 
-          <div style={{ marginBottom: 8, fontWeight: 600 }}>采购明细</div>
+          <div className={styles.sectionHeader}>采购明细</div>
           {lines.map((line, index) => (
-            <div key={index} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
-              <div style={{ flex: 2 }}>
+            <div key={index} className={styles.lineRow}>
+              <div className={styles.fieldFlex2}>
                 <Input placeholder="资产名称" value={line.assetName} onChange={e => updateLine(index, 'assetName', e.target.value)} />
               </div>
-              <div style={{ flex: 2 }}>
+              <div className={styles.fieldFlex2}>
                 <Input placeholder="规格型号" value={line.specification} onChange={e => updateLine(index, 'specification', e.target.value)} />
               </div>
-              <div style={{ flex: 1 }}>
-                <InputNumber placeholder="数量" min={1} value={line.quantity} onChange={v => updateLine(index, 'quantity', v || 1)} style={{ width: '100%' }} />
+              <div className={styles.fieldFlex1}>
+                <InputNumber placeholder="数量" min={1} value={line.quantity} onChange={v => updateLine(index, 'quantity', v || 1)} className={styles.fullWidth} />
               </div>
-              <div style={{ flex: 1 }}>
-                <InputNumber placeholder="预估预算" min={0} value={line.estimatedBudget ? parseFloat(line.estimatedBudget) : undefined} onChange={v => updateLine(index, 'estimatedBudget', String(v || 0))} style={{ width: '100%' }} />
+              <div className={styles.fieldFlex1}>
+                <InputNumber placeholder="预估预算" min={0} value={line.estimatedBudget ? parseFloat(line.estimatedBudget) : undefined} onChange={v => updateLine(index, 'estimatedBudget', String(v || 0))} className={styles.fullWidth} />
               </div>
               <Button icon={<DeleteOutlined />} danger disabled={lines.length <= 1} onClick={() => removeLine(index)} />
             </div>
