@@ -1,6 +1,10 @@
 /**
  * 同步钉钉用户到系统用户表
  * 解决应收账款推送时营销师没有钉钉ID的问题
+ *
+ * @deprecated 已迁移至 dingtalk-sync 服务模块，支持增量同步、部门同步、日志记录等完整功能。
+ * 详见 src/services/dingtalk-sync/ 目录。新定时任务已在 scheduler/index.ts 中注册。
+ * 本脚本仅作备份保留，请勿继续使用。
  */
 import { appQuery, getAppClient } from '../src/db/appPool';
 import axios from 'axios';

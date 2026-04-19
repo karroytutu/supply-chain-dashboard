@@ -39,6 +39,11 @@ export const PERMISSIONS = {
       WRITE: 'system:permission:write',
       DELETE: 'system:permission:delete',
     },
+    // 同步管理
+    SYNC: {
+      READ: 'system:sync:read',
+      WRITE: 'system:sync:write',
+    },
   },
 
   // 战略商品模块

@@ -1,19 +1,27 @@
 /**
  * 用户管理页面
+ * Tab 布局：用户列表 + 钉钉同步
  */
 import { useState, useMemo } from 'react';
-import { Card } from 'antd';
+import { Card, Tabs } from 'antd';
+import { TeamOutlined, SyncOutlined } from '@ant-design/icons';
 import { useUsers } from './hooks/useUsers';
+import { useDingtalkSync } from './hooks/useDingtalkSync';
 import { UserStats } from './components/UserStats';
 import { UserFilters } from './components/UserFilters';
 import { BatchActionBar } from './components/BatchActionBar';
 import { UserTable } from './components/UserTable';
 import { RoleAssignModal } from './components/RoleAssignModal';
+import { SyncStatusCard } from './components/SyncStatusCard';
+import { SyncLogTable } from './components/SyncLogTable';
+import { SyncLogDetail } from './components/SyncLogDetail';
 import styles from './index.less';
 import type { UserItem } from './types';
 
 export default function UserManage() {
-  // 使用自定义 Hook 管理数据
+  const [activeTab, setActiveTab] = useState('users');
+
+  // 用户列表数据
   const {
     loading,
     dataSource,
@@ -38,43 +46,56 @@ export default function UserManage() {
     handleBatchAssignRoles,
   } = useUsers();
 
+  // 钉钉同步数据
+  const {
+    syncStatus,
+    logs,
+    logsTotal,
+    logsPage,
+    logsPageSize,
+    loading: logsLoading,
+    syncing,
+    logStatusFilter,
+    logTypeFilter,
+    handleTriggerFullSync,
+    handleLogsPageChange,
+    setLogStatusFilter,
+    setLogTypeFilter,
+    detailLog,
+    setDetailLog,
+  } = useDingtalkSync();
+
   // 分配角色弹窗状态
   const [roleModalVisible, setRoleModalVisible] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserItem | null>(null);
   const [batchRoleMode, setBatchRoleMode] = useState(false);
 
-  // 打开单个用户分配角色弹窗
   const openAssignModal = (user: UserItem) => {
     setCurrentUser(user);
     setBatchRoleMode(false);
     setRoleModalVisible(true);
   };
 
-  // 打开批量分配角色弹窗
   const openBatchAssignModal = () => {
     setCurrentUser(null);
     setBatchRoleMode(true);
     setRoleModalVisible(true);
   };
 
-  // 确认分配角色
   const handleRoleConfirm = async (roleIds: number[]) => {
     if (batchRoleMode) {
       await handleBatchAssignRoles(roleIds);
     } else if (currentUser) {
-      // 单个用户分配角色
       const { assignUserRoles } = await import('@/services/api/auth');
       await assignUserRoles(currentUser.id, roleIds);
     }
     setRoleModalVisible(false);
   };
 
-  // 全选状态
   const allChecked = useMemo(() => {
     return dataSource.length > 0 && selectedRowKeys.length === dataSource.length;
   }, [dataSource, selectedRowKeys]);
 
-  // 全选切换
   const handleCheckAll = (checked: boolean) => {
     if (checked) {
       setSelectedRowKeys(dataSource.map(u => u.id));
@@ -83,52 +104,103 @@ export default function UserManage() {
     }
   };
 
+  const tabItems = [
+    {
+      key: 'users',
+      label: (
+        <span>
+          <TeamOutlined />
+          用户列表
+        </span>
+      ),
+      children: (
+        <>
+          <UserStats
+            stats={stats}
+            activeStatus={activeStatus}
+            onStatusClick={setActiveStatus}
+          />
+          <Card>
+            <UserFilters
+              filters={filters}
+              roles={roles}
+              onFilterChange={setFilters}
+              onSearch={handleSearch}
+              onReset={handleReset}
+            />
+            <BatchActionBar
+              selectedCount={selectedRowKeys.length}
+              totalCount={dataSource.length}
+              checked={allChecked}
+              onCheckChange={handleCheckAll}
+              onBatchEnable={handleBatchEnable}
+              onBatchDisable={handleBatchDisable}
+              onBatchAssignRoles={openBatchAssignModal}
+              loading={batchLoading}
+            />
+            <UserTable
+              dataSource={dataSource}
+              loading={loading}
+              total={total}
+              page={page}
+              pageSize={pageSize}
+              selectedRowKeys={selectedRowKeys}
+              onPageChange={handlePageChange}
+              onSelectedRowKeysChange={setSelectedRowKeys}
+              onAssignRoles={openAssignModal}
+              onToggleStatus={handleToggleStatus}
+            />
+          </Card>
+        </>
+      ),
+    },
+    {
+      key: 'sync',
+      label: (
+        <span>
+          <SyncOutlined />
+          钉钉同步
+        </span>
+      ),
+      children: (
+        <>
+          <SyncStatusCard
+            syncStatus={syncStatus}
+            syncing={syncing}
+            onTriggerFullSync={handleTriggerFullSync}
+          />
+          <Card title="同步日志">
+            <SyncLogTable
+              dataSource={logs}
+              total={logsTotal}
+              page={logsPage}
+              pageSize={logsPageSize}
+              loading={logsLoading}
+              statusFilter={logStatusFilter}
+              typeFilter={logTypeFilter}
+              onPageChange={handleLogsPageChange}
+              onStatusFilterChange={setLogStatusFilter}
+              onTypeFilterChange={setLogTypeFilter}
+              onRowClick={setDetailLog}
+            />
+          </Card>
+          <SyncLogDetail
+            visible={!!detailLog}
+            log={detailLog}
+            onClose={() => setDetailLog(null)}
+          />
+        </>
+      ),
+    },
+  ];
+
   return (
     <div className={styles.container}>
-      {/* 统计卡片 */}
-      <UserStats
-        stats={stats}
-        activeStatus={activeStatus}
-        onStatusClick={setActiveStatus}
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={tabItems}
       />
-
-      {/* 主内容区 */}
-      <Card>
-        {/* 搜索筛选 */}
-        <UserFilters
-          filters={filters}
-          roles={roles}
-          onFilterChange={setFilters}
-          onSearch={handleSearch}
-          onReset={handleReset}
-        />
-
-        {/* 批量操作栏 */}
-        <BatchActionBar
-          selectedCount={selectedRowKeys.length}
-          totalCount={dataSource.length}
-          checked={allChecked}
-          onCheckChange={handleCheckAll}
-          onBatchEnable={handleBatchEnable}
-          onBatchDisable={handleBatchDisable}
-          onBatchAssignRoles={openBatchAssignModal}
-          loading={batchLoading}
-        />
-
-        {/* 用户表格 */}
-        <UserTable
-          dataSource={dataSource}
-          loading={loading}
-          total={total}
-          page={page}
-          pageSize={pageSize}
-          selectedRowKeys={selectedRowKeys}
-          onPageChange={handlePageChange}
-          onSelectedRowKeysChange={setSelectedRowKeys}
-          onAssignRoles={openAssignModal}
-          onToggleStatus={handleToggleStatus}
-        />
-      </Card>
 
       {/* 角色分配弹窗 */}
       <RoleAssignModal
