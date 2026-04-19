@@ -137,6 +137,38 @@ export default defineConfig({
       ],
     },
     {
+      path: '/asset',
+      name: '资产管理',
+      icon: 'PropertySafetyOutlined',
+      wrappers: ['@/wrappers/auth'],
+      routes: [
+        {
+          path: 'purchase',
+          name: '采购申请',
+          component: '@/pages/Asset/Purchase',
+          permission: 'asset:write',
+        },
+        {
+          path: 'transfer',
+          name: '领用调拨',
+          component: '@/pages/Asset/Transfer',
+          permission: 'asset:write',
+        },
+        {
+          path: 'maintenance',
+          name: '维修申请',
+          component: '@/pages/Asset/Maintenance',
+          permission: 'asset:write',
+        },
+        {
+          path: 'disposal',
+          name: '清理申请',
+          component: '@/pages/Asset/Disposal',
+          permission: 'asset:write',
+        },
+      ],
+    },
+    {
       path: '/system',
       name: '系统管理',
       icon: 'setting',

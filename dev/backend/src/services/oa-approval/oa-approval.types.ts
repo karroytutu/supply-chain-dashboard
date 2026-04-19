@@ -131,7 +131,37 @@ export interface FormSchema {
 /**
  * 审批节点类型
  */
-export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign';
+export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign' | 'data_input';
+
+/**
+ * 数据录入节点 - 录入字段定义
+ */
+export interface NodeInputField {
+  /** 字段名 */
+  name: string;
+  /** 显示名 */
+  label: string;
+  /** 字段类型 */
+  type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table';
+  /** 是否必填 */
+  required?: boolean;
+  /** select 类型的选项 */
+  options?: Array<{ label: string; value: any }>;
+  /** 默认值 */
+  defaultValue?: any;
+  /** 是否只读 */
+  readonly?: boolean;
+  /** table 类型的列定义 */
+  columns?: NodeInputField[];
+}
+
+/**
+ * 数据录入节点 - 录入表单 Schema
+ */
+export interface NodeInputSchema {
+  /** 录入表单字段定义 */
+  fields: NodeInputField[];
+}
 
 /**
  * 条件定义
@@ -161,6 +191,8 @@ export interface WorkflowNodeDef {
   userId?: number;
   /** 条件定义（条件节点） */
   condition?: ConditionDef;
+  /** 数据录入表单 schema（仅 data_input 类型） */
+  inputSchema?: NodeInputSchema;
 }
 
 /**
@@ -199,6 +231,12 @@ export interface FormTypeDefinition {
   formSchema: FormSchema;
   /** 审批流程定义 */
   workflowDef: WorkflowDef;
+  /** 审批通过回调（整个流程完成时触发，可选） */
+  onApproved?: (instance: OaApprovalInstanceRow, formData: Record<string, unknown>) => Promise<void>;
+  /** 审批驳回回调（可选） */
+  onRejected?: (instance: OaApprovalInstanceRow, formData: Record<string, unknown>) => Promise<void>;
+  /** data_input 节点完成回调（可选，按节点序号分发） */
+  onNodeCompleted?: (instance: OaApprovalInstanceRow, nodeOrder: number, nodeData: Record<string, unknown>, formData: Record<string, unknown>) => Promise<void>;
 }
 
 // =====================================================
@@ -277,6 +315,8 @@ export interface OaApprovalNodeRow {
   acted_at: Date | null;
   is_countersign: boolean;
   countersign_parent_node_id: number | null;
+  input_schema: NodeInputSchema | null;
+  input_data: Record<string, unknown> | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -352,6 +392,8 @@ export interface ApprovalActionRequest {
   countersignUserIds?: number[];
   /** 加签类型：前加签/后加签 */
   countersignType?: 'before' | 'after';
+  /** data_input 节点的录入数据 */
+  inputData?: Record<string, unknown>;
 }
 
 /**

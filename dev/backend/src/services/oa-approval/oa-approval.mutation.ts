@@ -14,6 +14,7 @@ import {
   ApprovalStatus,
   ApprovalNodeStatus,
   Urgency,
+  NodeInputSchema,
 } from './oa-approval.types';
 import {
   generateInstanceNo,
@@ -24,6 +25,36 @@ import {
   isCurrentApprover,
   isApplicant,
 } from './oa-approval-utils';
+import { getFormTypeByCode } from './form-types';
+
+/**
+ * 合并 inputData 到 form_data
+ * 申请级别字段直接合并；lines 数组按索引合并到对应明细行
+ */
+function mergeFormData(
+  formData: Record<string, unknown>,
+  inputData: Record<string, unknown>
+): Record<string, unknown> {
+  const merged = { ...formData };
+
+  for (const [key, value] of Object.entries(inputData)) {
+    if (key === 'lines' && Array.isArray(value) && Array.isArray(merged.lines)) {
+      // lines 数组按索引合并
+      const inputLines = value as Record<string, unknown>[];
+      const formLines = merged.lines as Record<string, unknown>[];
+      merged.lines = formLines.map((formLine, index) => {
+        if (index < inputLines.length) {
+          return { ...formLine, ...inputLines[index] };
+        }
+        return formLine;
+      });
+    } else {
+      merged[key] = value;
+    }
+  }
+
+  return merged;
+}
 
 /**
  * 事务辅助函数
@@ -121,8 +152,8 @@ export async function submitApproval(
 
       await client.query(
         `INSERT INTO oa_approval_nodes
-          (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')`,
+          (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')`,
         [
           instance.id,
           node.order,
@@ -131,6 +162,7 @@ export async function submitApproval(
           node.roleCode || null,
           approverId,
           approverName,
+          node.inputSchema ? JSON.stringify(node.inputSchema) : null,
         ]
       );
     }
@@ -180,13 +212,26 @@ export async function approveApproval(
   instanceId: number,
   userId: number,
   userName: string,
-  comment?: string
+  comment?: string,
+  inputData?: Record<string, unknown>
 ): Promise<void> {
   // 验证是否为当前审批人
   const canApprove = await isCurrentApprover(instanceId, userId);
   if (!canApprove) {
     throw new Error('您不是当前审批人，无法执行此操作');
   }
+
+  // 获取实例和表单类型（事务外获取，用于回调）
+  const instanceResult0 = await query<OaApprovalInstanceRow>(
+    `SELECT * FROM oa_approval_instances WHERE id = $1`,
+    [instanceId]
+  );
+  const instance0 = instanceResult0.rows[0];
+  const formTypeCode = await query<{ code: string }>(
+    `SELECT code FROM oa_form_types WHERE id = $1`,
+    [instance0.form_type_id]
+  );
+  const formType = formTypeCode.rows[0] ? getFormTypeByCode(formTypeCode.rows[0].code) : undefined;
 
   await transaction(async (client) => {
     // 获取当前节点
@@ -203,6 +248,31 @@ export async function approveApproval(
 
     const currentNode = nodeResult.rows[0];
 
+    // data_input 节点处理：保存 inputData + 合并 form_data
+    if (currentNode.node_type === 'data_input' && inputData) {
+      // 保存 inputData 到节点
+      await client.query(
+        `UPDATE oa_approval_nodes
+         SET input_data = $1
+         WHERE id = $2`,
+        [JSON.stringify(inputData), currentNode.id]
+      );
+
+      // 合并 inputData 到实例的 form_data
+      const currentFormData = instance0.form_data;
+      const mergedFormData = mergeFormData(
+        currentFormData as Record<string, unknown>,
+        inputData
+      );
+
+      await client.query(
+        `UPDATE oa_approval_instances
+         SET form_data = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [JSON.stringify(mergedFormData), instanceId]
+      );
+    }
+
     // 更新节点状态
     await client.query(
       `UPDATE oa_approval_nodes
@@ -211,7 +281,7 @@ export async function approveApproval(
       [comment || null, currentNode.id]
     );
 
-    // 获取实例信息
+    // 获取最新实例信息
     const instanceResult = await client.query<OaApprovalInstanceRow>(
       `SELECT * FROM oa_approval_instances WHERE id = $1`,
       [instanceId]
@@ -248,10 +318,37 @@ export async function approveApproval(
     // 记录操作日志
     await client.query(
       `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order, comment)
-       VALUES ($1, 'approve', $2, $3, $4, $5)`,
-      [instanceId, userId, userName, currentNode.node_order, comment || null]
+        (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
+       VALUES ($1, 'approve', $2, $3, $4, $5, $6)`,
+      [
+        instanceId,
+        userId,
+        userName,
+        currentNode.node_order,
+        comment || null,
+        inputData ? JSON.stringify({ inputData }) : null,
+      ]
     );
+
+    // 触发节点级回调（data_input 节点完成时）
+    if (currentNode.node_type === 'data_input' && formType?.onNodeCompleted) {
+      const latestFormData = instance.form_data as Record<string, unknown>;
+      // 异步执行，不阻塞审批流程
+      formType.onNodeCompleted(instance, currentNode.node_order, inputData || {}, latestFormData)
+        .catch(err => {
+          console.error(`[OA] 节点回调执行失败 [${formType.code} node=${currentNode.node_order}]:`, err);
+        });
+    }
+
+    // 触发审批通过回调（最后一个节点完成时）
+    if (nextNodeResult.rows.length === 0 && formType?.onApproved) {
+      const latestFormData = instance.form_data as Record<string, unknown>;
+      // 异步执行，不阻塞审批流程
+      formType.onApproved(instance, latestFormData)
+        .catch(err => {
+          console.error(`[OA] 审批通过回调执行失败 [${formType.code}]:`, err);
+        });
+    }
   });
 }
 
@@ -316,6 +413,23 @@ export async function rejectApproval(
        VALUES ($1, 'reject', $2, $3, $4, $5)`,
       [instanceId, userId, userName, currentNode.node_order, comment]
     );
+
+    // 触发审批驳回回调
+    const instResult = await client.query<OaApprovalInstanceRow>(
+      `SELECT * FROM oa_approval_instances WHERE id = $1`,
+      [instanceId]
+    );
+    const ftCode = await query<{ code: string }>(
+      `SELECT code FROM oa_form_types WHERE id = $1`,
+      [instResult.rows[0].form_type_id]
+    );
+    const ft = ftCode.rows[0] ? getFormTypeByCode(ftCode.rows[0].code) : undefined;
+    if (ft?.onRejected) {
+      ft.onRejected(instResult.rows[0], instResult.rows[0].form_data as Record<string, unknown>)
+        .catch(err => {
+          console.error(`[OA] 审批驳回回调执行失败 [${ft.code}]:`, err);
+        });
+    }
   });
 }
 

@@ -7,6 +7,10 @@
 
 import { FormTypeDefinition } from '../oa-approval.types';
 import { otherPaymentFormType } from './other-payment';
+import { assetPurchaseFormType } from './asset-purchase';
+import { assetTransferFormType } from './asset-transfer';
+import { assetMaintenanceFormType } from './asset-maintenance';
+import { assetDisposalFormType } from './asset-disposal';
 
 /**
  * 所有已注册的表单类型
@@ -15,7 +19,10 @@ import { otherPaymentFormType } from './other-payment';
  */
 export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   otherPaymentFormType,
-  // 在此添加新的表单类型...
+  assetPurchaseFormType,
+  assetTransferFormType,
+  assetMaintenanceFormType,
+  assetDisposalFormType,
 ];
 
 /**
@@ -48,3 +55,7 @@ export function getFormTypesByCategory(): Record<string, FormTypeDefinition[]> {
 
 // 导出所有表单类型
 export { otherPaymentFormType } from './other-payment';
+export { assetPurchaseFormType } from './asset-purchase';
+export { assetTransferFormType } from './asset-transfer';
+export { assetMaintenanceFormType } from './asset-maintenance';
+export { assetDisposalFormType } from './asset-disposal';

@@ -120,6 +120,13 @@ export const PERMISSIONS = {
       EXPORT: 'oa:data:export',
     },
   },
+
+  // 固定资产管理模块
+  ASSET: {
+    READ: 'asset:read',
+    WRITE: 'asset:write',
+    DATA_INPUT: 'asset:data_input',
+  },
 } as const;
 
 /**
@@ -137,6 +144,8 @@ export const ROLES = {
   CASHIER: 'cashier',
   MARKETING_MANAGER: 'marketing_manager',
   MARKETER: 'marketer',
+  ADMIN_STAFF: 'admin_staff',
+  OPERATIONS_MANAGER: 'operations_manager',
 } as const;
 
 /**
@@ -156,7 +165,8 @@ export type PermissionCode = typeof PERMISSIONS[keyof typeof PERMISSIONS] |
   typeof PERMISSIONS.AR[keyof typeof PERMISSIONS.AR] |
   typeof PERMISSIONS.AR.COLLECTION[keyof typeof PERMISSIONS.AR.COLLECTION] |
   typeof PERMISSIONS.OA.APPROVAL[keyof typeof PERMISSIONS.OA.APPROVAL] |
-  typeof PERMISSIONS.OA.DATA[keyof typeof PERMISSIONS.OA.DATA];
+  typeof PERMISSIONS.OA.DATA[keyof typeof PERMISSIONS.OA.DATA] |
+  typeof PERMISSIONS.ASSET[keyof typeof PERMISSIONS.ASSET];
 
 /**
  * 角色类型定义

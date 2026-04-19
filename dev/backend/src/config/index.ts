@@ -79,4 +79,15 @@ export const config = {
   app: {
     baseUrl: process.env.APP_BASE_URL || 'http://localhost:3100',
   },
+
+  // 舟谱云管家 ERP API 配置
+  erpApi: {
+    baseUrl: process.env.ERP_API_BASE_URL || 'https://portal.zhoupudata.com',
+    tokenUrl: process.env.ERP_API_TOKEN_URL || '',
+    cid: process.env.ERP_API_CID || '10008421',
+    uid: process.env.ERP_API_UID || '1',
+    timeout: parseInt(process.env.ERP_API_TIMEOUT || '10000', 10),
+    retryMax: parseInt(process.env.ERP_API_RETRY_MAX || '3', 10),
+    rateLimitMs: parseInt(process.env.ERP_API_RATE_LIMIT_MS || '200', 10),
+  },
 };

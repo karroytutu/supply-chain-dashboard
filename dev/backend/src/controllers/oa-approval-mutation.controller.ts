@@ -61,8 +61,8 @@ export async function approve(req: Request, res: Response): Promise<void> {
     }
 
     const instanceId = parseInt(req.params.id);
-    const { comment } = req.body;
-    await approveApproval(instanceId, user.id, user.name, comment);
+    const { comment, inputData } = req.body;
+    await approveApproval(instanceId, user.id, user.name, comment, inputData);
     res.json({ success: true, message: '审批通过' });
   } catch (error) {
     console.error('同意审批失败:', error);
