@@ -4,7 +4,7 @@
  */
 
 import * as https from 'https';
-import { getAccessToken } from '../dingtalk.service';
+import { getAccessToken, RETRYABLE_ERROR_CODES } from '../dingtalk.service';
 import { appQuery } from '../../db/appPool';
 import type { DingtalkDeptInfo } from './dingtalk-sync.types';
 
@@ -59,15 +59,41 @@ async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/** 限流请求：确保请求间隔至少200ms */
-async function rateLimitedRequest(path: string, body: object): Promise<any> {
+/**
+ * 限流请求：确保请求间隔至少200ms
+ * 遇到限流错误码时自动重试（指数退避）
+ */
+async function rateLimitedRequest(
+  requestFn: () => Promise<any>,
+  maxRetries: number = 3
+): Promise<any> {
   const now = Date.now();
   const elapsed = now - lastRequestTime;
   if (elapsed < 200) {
     await delay(200 - elapsed);
   }
-  lastRequestTime = Date.now();
-  return oapiRequest(path, body);
+
+  let lastError: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      lastRequestTime = Date.now();
+      const result = await requestFn();
+
+      if (result.errcode !== 0 && RETRYABLE_ERROR_CODES.includes(result.errcode)) {
+        throw new Error(`钉钉限流错误: ${result.errcode} ${result.errmsg}`);
+      }
+
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      if (attempt < maxRetries) {
+        const backoff = Math.min(1000 * Math.pow(2, attempt), 30000);
+        console.warn(`[DingtalkSync] 请求失败，${backoff}ms 后重试 (${attempt + 1}/${maxRetries}):`, error.message);
+        await delay(backoff);
+      }
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -78,9 +104,11 @@ export async function fetchDingtalkDeptTree(parentDeptId: number = 1): Promise<D
   const departments: DingtalkDeptInfo[] = [];
 
   try {
-    const result = await rateLimitedRequest('/topapi/v2/department/listsub', {
-      dept_id: parentDeptId,
-    });
+    const result = await rateLimitedRequest(() =>
+      oapiRequest('/topapi/v2/department/listsub', {
+        dept_id: parentDeptId,
+      })
+    );
 
     if (result.errcode === 0 && result.result) {
       for (const dept of result.result) {
@@ -108,9 +136,11 @@ export async function fetchDingtalkDeptTree(parentDeptId: number = 1): Promise<D
  */
 export async function fetchDingtalkDeptDetail(deptId: number): Promise<DingtalkDeptInfo | null> {
   try {
-    const result = await rateLimitedRequest('/topapi/v2/department/get', {
-      dept_id: deptId,
-    });
+    const result = await rateLimitedRequest(() =>
+      oapiRequest('/topapi/v2/department/get', {
+        dept_id: deptId,
+      })
+    );
 
     if (result.errcode === 0 && result.result) {
       return {
