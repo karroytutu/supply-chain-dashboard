@@ -1,0 +1,48 @@
+// 纵向紧凑卡片：图标居上 + 名称居下，偏方形
+.formCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 8px 12px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #f0f0f0);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: #b7d0f0; /* fallback for browsers without color-mix */
+    border-color: color-mix(in srgb, var(--card-color, #1890ff) 50%, #d9d9d9);
+    background: #f6faff; /* fallback */
+    background: color-mix(in srgb, var(--card-color, #1890ff) 3%, #fff);
+  }
+
+  &:active {
+    background: #f0f5ff; /* fallback */
+    background: color-mix(in srgb, var(--card-color, #1890ff) 6%, #fff);
+  }
+}
+
+.iconCircle {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.formName {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text, #262626);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  line-height: 1.3;
+}

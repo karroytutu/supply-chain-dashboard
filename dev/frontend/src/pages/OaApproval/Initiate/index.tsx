@@ -1,49 +1,25 @@
 /**
- * 发起审批页面
+ * 发起审批页面 - 卡片网格布局 + 分类 Tab 筛选
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { history } from 'umi';
-import { Input, Card, Row, Col, Spin, Empty } from 'antd';
-import {
-  PayCircleOutlined,
-  ShoppingCartOutlined,
-  TeamOutlined,
-  FileTextOutlined,
-  BankOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
+import { Spin, Empty, Button } from 'antd';
+import { ClockCircleOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
-import {
-  FormTypeDefinition,
-  FormCategory,
-  CATEGORY_LABELS,
-} from '@/types/oa-approval';
+import { FormTypeDefinition, FormCategory, CATEGORY_LABELS } from '@/types/oa-approval';
+import { useRecentForms, QuickAccessItem } from '../hooks/useRecentForms';
+import { CATEGORY_COLORS } from './constants';
+import CategoryTabs, { ActiveCategory } from './components/CategoryTabs';
+import FormCard from './components/FormCard';
 import styles from './index.less';
-
-// 分类图标映射
-const CATEGORY_ICONS: Record<FormCategory, React.ReactNode> = {
-  finance: <PayCircleOutlined style={{ fontSize: 32, color: '#faad14' }} />,
-  supply_chain: <ShoppingCartOutlined style={{ fontSize: 32, color: '#52c41a' }} />,
-  marketing: <TeamOutlined style={{ fontSize: 32, color: '#eb2f96' }} />,
-  hr: <TeamOutlined style={{ fontSize: 32, color: '#1890ff' }} />,
-  admin: <BankOutlined style={{ fontSize: 32, color: '#722ed1' }} />,
-};
-
-// 分类颜色映射
-const CATEGORY_COLORS: Record<FormCategory, string> = {
-  finance: '#faad14',
-  supply_chain: '#52c41a',
-  marketing: '#eb2f96',
-  hr: '#1890ff',
-  admin: '#722ed1',
-};
 
 const Initiate: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [formTypesGrouped, setFormTypesGrouped] = useState<Record<FormCategory, FormTypeDefinition[]> | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [activeCategory, setActiveCategory] = useState<ActiveCategory>('all');
+  const { quickAccessItems, recordUsage } = useRecentForms();
 
-  // 加载表单类型
   useEffect(() => {
     loadFormTypes();
   }, []);
@@ -60,73 +36,104 @@ const Initiate: React.FC = () => {
     }
   };
 
-  // 过滤后的表单类型
+  /** 各分类数量统计 */
+  const categoryCounts = useMemo<Record<FormCategory, number>>(() => {
+    const counts: Record<FormCategory, number> = {
+      finance: 0, supply_chain: 0, marketing: 0, hr: 0, admin: 0,
+    };
+    if (formTypesGrouped) {
+      for (const cat of Object.keys(formTypesGrouped) as FormCategory[]) {
+        counts[cat] = formTypesGrouped[cat].length;
+      }
+    }
+    return counts;
+  }, [formTypesGrouped]);
+
+  /** 按搜索 + Tab 分类筛选 */
   const filteredFormTypes = useMemo(() => {
     if (!formTypesGrouped) return null;
 
     const result: Record<FormCategory, FormTypeDefinition[]> = {
-      finance: [],
-      supply_chain: [],
-      marketing: [],
-      hr: [],
-      admin: [],
+      finance: [], supply_chain: [], marketing: [], hr: [], admin: [],
     };
-
     const keyword = searchText.toLowerCase().trim();
-    if (!keyword) {
-      return formTypesGrouped;
-    }
 
     for (const category of Object.keys(formTypesGrouped) as FormCategory[]) {
-      const filtered = formTypesGrouped[category].filter(
-        (ft) =>
-          ft.name.toLowerCase().includes(keyword) ||
-          ft.description.toLowerCase().includes(keyword)
-      );
-      result[category] = filtered;
+      if (activeCategory !== 'all' && category !== activeCategory) continue;
+
+      let items = formTypesGrouped[category];
+      if (keyword) {
+        items = items.filter(
+          (ft) => ft.name.toLowerCase().includes(keyword) || ft.description.toLowerCase().includes(keyword),
+        );
+      }
+      result[category] = items;
     }
-
     return result;
-  }, [formTypesGrouped, searchText]);
+  }, [formTypesGrouped, searchText, activeCategory]);
 
-  // 点击表单卡片
-  const handleCardClick = (formType: FormTypeDefinition) => {
+  /** 点击表单卡片 */
+  const handleFormClick = (formType: FormTypeDefinition) => {
+    recordUsage(formType);
     history.push(`/oa/form/${formType.code}`);
   };
 
-  // 渲染表单卡片
-  const renderFormCard = (formType: FormTypeDefinition, category: FormCategory) => {
-    return (
-      <Col key={formType.code} xs={12} sm={8} md={6} lg={4} xl={4}>
-        <div
-          className={styles.card}
-          onClick={() => handleCardClick(formType)}
-          style={{ borderColor: CATEGORY_COLORS[category] }}
-        >
-          <div className={styles.iconWrapper}>{CATEGORY_ICONS[category]}</div>
-          <div className={styles.title}>{formType.name}</div>
-          {formType.description && (
-            <div className={styles.description}>{formType.description}</div>
-          )}
-        </div>
-      </Col>
-    );
+  /** 点击最近使用项 */
+  const handleRecentClick = (item: QuickAccessItem) => {
+    history.push(`/oa/form/${item.code}`);
   };
 
-  // 渲染分类区域
-  const renderCategorySection = (category: FormCategory, formTypes: FormTypeDefinition[]) => {
+  /** 渲染分类区域 */
+  const renderCategorySection = (category: FormCategory, formTypes: FormTypeDefinition[], showHeader: boolean) => {
     if (formTypes.length === 0) return null;
 
     return (
       <div key={category} className={styles.categorySection}>
-        <div className={styles.categoryHeader}>
-          <span
-            className={styles.categoryIndicator}
-            style={{ backgroundColor: CATEGORY_COLORS[category] }}
-          />
-          <span className={styles.categoryTitle}>{CATEGORY_LABELS[category]}</span>
+        {showHeader && (
+          <div className={styles.sectionHeader}>
+            <span
+              className={styles.sectionDot}
+              style={{ backgroundColor: CATEGORY_COLORS[category] }}
+            />
+            <span className={styles.sectionName}>{CATEGORY_LABELS[category]}</span>
+            <span className={styles.sectionCount}>{formTypes.length}</span>
+          </div>
+        )}
+        <div className={styles.cardGrid}>
+          {formTypes.map((ft) => (
+            <FormCard
+              key={ft.code}
+              name={ft.name}
+              category={category}
+              onClick={() => handleFormClick(ft)}
+            />
+          ))}
         </div>
-        <Row gutter={[16, 16]}>{formTypes.map((ft) => renderFormCard(ft, category))}</Row>
+      </div>
+    );
+  };
+
+  /** 渲染最近使用区域（与分类区域同样的样式） */
+  const renderRecentSection = () => {
+    if (quickAccessItems.length === 0) return null;
+
+    return (
+      <div className={styles.categorySection}>
+        <div className={styles.sectionHeader}>
+          <ClockCircleOutlined className={styles.sectionIcon} />
+          <span className={styles.sectionName}>最近使用</span>
+          <span className={styles.sectionCount}>{quickAccessItems.length}</span>
+        </div>
+        <div className={styles.cardGrid}>
+          {quickAccessItems.map((item) => (
+            <FormCard
+              key={item.code}
+              name={item.name}
+              category={item.category}
+              onClick={() => handleRecentClick(item)}
+            />
+          ))}
+        </div>
       </div>
     );
   };
@@ -139,30 +146,43 @@ const Initiate: React.FC = () => {
     );
   }
 
-  // 检查是否有结果
   const hasResults = filteredFormTypes && Object.values(filteredFormTypes).some((arr) => arr.length > 0);
+  const hasRecent = quickAccessItems.length > 0;
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
+      <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>发起审批</h1>
-        <Input
-          className={styles.searchInput}
-          placeholder="搜索表单类型..."
-          prefix={<SearchOutlined />}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          allowClear
-        />
       </div>
 
+      <CategoryTabs
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
+        categoryCounts={categoryCounts}
+        searchText={searchText}
+        onSearchChange={setSearchText}
+      />
+
       <div className={styles.content}>
-        {!hasResults ? (
-          <Empty description="未找到相关表单类型" />
+        {!hasResults && !hasRecent ? (
+          <div className={styles.emptyState}>
+            <Empty description="未找到相关表单类型" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+              {searchText && (
+                <Button type="link" onClick={() => setSearchText('')}>清除搜索</Button>
+              )}
+            </Empty>
+          </div>
         ) : (
-          Object.entries(filteredFormTypes!).map(([category, formTypes]) =>
-            renderCategorySection(category as FormCategory, formTypes)
-          )
+          <>
+            {renderRecentSection()}
+            {Object.entries(filteredFormTypes!).map(([category, formTypes]) =>
+              renderCategorySection(
+                category as FormCategory,
+                formTypes,
+                activeCategory === 'all',
+              ),
+            )}
+          </>
         )}
       </div>
     </div>

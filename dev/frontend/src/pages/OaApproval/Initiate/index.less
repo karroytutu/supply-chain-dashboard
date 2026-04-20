@@ -1,6 +1,6 @@
 .container {
   padding: 24px;
-  background: #f5f7fa;
+  background: #f0f2f5;
   min-height: calc(100vh - 64px);
 }
 
@@ -11,115 +11,107 @@
   min-height: 400px;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+// 页面标题栏
+.pageHeader {
+  padding: 16px 20px;
+  background: var(--color-surface, #fff);
+  border-radius: 8px 8px 0 0;
 }
 
 .pageTitle {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text, #262626);
   margin: 0;
 }
 
-.searchInput {
-  width: 240px;
-}
-
+// 内容区域
 .content {
-  // 分类区域
-}
-
-.categorySection {
-  margin-bottom: 24px;
-}
-
-.categoryHeader {
-  display: flex;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.categoryIndicator {
-  width: 3px;
-  height: 20px;
-  border-radius: 2px;
-  margin-right: 8px;
-}
-
-.categoryTitle {
-  font-size: 15px;
-  font-weight: 500;
-  color: #333;
-}
-
-// 表单卡片
-.card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px 16px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid transparent;
-  height: 120px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-
-  &:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-    transform: translateY(-2px);
-    border-width: 2px;
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
+  gap: 12px;
 }
 
-.iconWrapper {
+// 分类区域
+.categorySection {
+  background: var(--color-surface, #fff);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
-.title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
+.sectionDot {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
-.description {
+.sectionIcon {
+  font-size: 13px;
+  color: var(--color-text-muted, #8c8c8c);
+}
+
+.sectionName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text, #262626);
+}
+
+.sectionCount {
   font-size: 12px;
-  color: #999;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
+  color: var(--color-text-muted, #8c8c8c);
+  margin-left: auto;
+}
+
+// 卡片网格 - 5列
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+// 空状态
+.emptyState {
+  background: var(--color-surface, #fff);
+  border-radius: 8px;
+  padding: 48px 24px;
+  text-align: center;
 }
 
 // 响应式
-@media (max-width: 576px) {
+@media (max-width: 1200px) {
+  .cardGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
   .container {
     padding: 16px;
   }
 
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+  .pageHeader {
+    padding: 14px 16px;
   }
 
-  .searchInput {
-    width: 100%;
+  .categorySection {
+    padding: 14px 16px;
+  }
+
+  .cardGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .cardGrid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

@@ -1,12 +1,13 @@
 /**
  * 表单填写页面
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { history, useParams } from 'umi';
 import { Button, Spin, Form, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
 import { FormTypeDefinition, ConditionDef } from '@/types/oa-approval';
+import { useRecentForms } from '../hooks/useRecentForms';
 import FormFieldConfig from './components/FormFieldConfig';
 import ConditionalFieldWrapper, { checkCondition } from './components/ConditionalFieldWrapper';
 import FormPreview from './components/FormPreview';
@@ -15,6 +16,7 @@ import styles from './index.less';
 const FormPage: React.FC = () => {
   const { typeCode } = useParams<{ typeCode: string }>();
   const [form] = Form.useForm();
+  const { recordUsage } = useRecentForms();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -40,6 +42,14 @@ const FormPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  /** 从 formSchema 计算字段 key→label 映射，用于流程预览条件人性化 */
+  const fieldLabels = useMemo(() => {
+    if (!formType) return {};
+    const map: Record<string, string> = {};
+    formType.formSchema.fields.forEach((f) => { map[f.key] = f.label; });
+    return map;
+  }, [formType]);
 
   // 监听表单值变化
   const handleValuesChange = (changedValues: any, allValues: any) => {
@@ -78,6 +88,7 @@ const FormPage: React.FC = () => {
         urgency: 'normal',
       });
 
+      recordUsage(formType);
       message.success('提交成功');
       history.push(`/oa/detail/${result.data.instanceId}`);
     } catch (error: any) {
@@ -139,7 +150,7 @@ const FormPage: React.FC = () => {
         </div>
 
         <div className={styles.sidebar}>
-          <FormPreview nodes={formType.workflowDef.nodes} />
+          <FormPreview nodes={formType.workflowDef.nodes} fieldLabels={fieldLabels} />
         </div>
       </div>
 
