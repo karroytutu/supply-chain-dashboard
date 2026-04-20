@@ -42,7 +42,16 @@ export async function autoLogin(authCode: string, ipAddress?: string, userAgent?
 
     // 创建或更新用户
     const user = await createOrUpdateUser(dingtalkUser);
-    
+
+    // 检查用户状态，禁用用户不允许登录
+    if (!user.status || user.status !== 1) {
+      await recordLoginLog(user.id, 'dingtalk_auto', ipAddress, userAgent, false, '账户已被禁用');
+      return {
+        success: false,
+        message: '账户已被禁用，请联系管理员',
+      };
+    }
+
     // 记录登录日志
     await recordLoginLog(user.id, 'dingtalk_auto', ipAddress, userAgent, true);
     
@@ -95,7 +104,16 @@ export async function qrcodeCallback(code: string, ipAddress?: string, userAgent
 
     // 创建或更新用户
     const user = await createOrUpdateUser(dingtalkUser);
-    
+
+    // 检查用户状态，禁用用户不允许登录
+    if (!user.status || user.status !== 1) {
+      await recordLoginLog(user.id, 'dingtalk_qrcode', ipAddress, userAgent, false, '账户已被禁用');
+      return {
+        success: false,
+        message: '账户已被禁用，请联系管理员',
+      };
+    }
+
     // 记录登录日志
     await recordLoginLog(user.id, 'dingtalk_qrcode', ipAddress, userAgent, true);
     

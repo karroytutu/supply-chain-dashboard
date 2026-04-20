@@ -21,12 +21,21 @@ interface RequestOptions {
 
 /**
  * 处理认证错误
+ * 根据后端返回的message区分不同错误类型，显示准确提示
  */
 function handleAuthError(status: number, errorData?: any): void {
   if (status === 401) {
     // Token 无效或过期，清除登录状态
     localStorage.removeItem(TOKEN_KEY);
-    message.error('登录已过期，请重新登录');
+
+    // 根据后端返回的message显示具体错误
+    const backendMessage = errorData?.message || '';
+    if (backendMessage.includes('禁用')) {
+      message.error('账户已被禁用，请联系管理员');
+    } else {
+      message.error('登录已过期，请重新登录');
+    }
+
     // 跳转到登录页
     setTimeout(() => {
       history.push('/login');

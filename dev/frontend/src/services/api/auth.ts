@@ -50,9 +50,10 @@ export async function checkDingtalkEnv(): Promise<EnvCheckResult> {
 
 /**
  * 钉钉免登
+ * 使用 skipErrorHandler 避免全局401处理器在登录页触发重定向
  */
 export async function dingtalkAutoLogin(authCode: string): Promise<LoginResult> {
-  return request.post('/auth/dingtalk/auto-login', { authCode });
+  return request.post('/auth/dingtalk/auto-login', { authCode }, { skipErrorHandler: true });
 }
 
 /**
@@ -64,9 +65,10 @@ export async function getQrcodeConfig(): Promise<QrcodeConfig> {
 
 /**
  * 扫码登录回调
+ * 使用 skipErrorHandler 避免全局401处理器在登录页触发重定向
  */
 export async function dingtalkCallback(authCode: string, state?: string): Promise<LoginResult> {
-  return request.post('/auth/dingtalk/callback', { authCode, state });
+  return request.post('/auth/dingtalk/callback', { authCode, state }, { skipErrorHandler: true });
 }
 
 /**
@@ -87,7 +89,7 @@ export async function logout(): Promise<{ success: boolean }> {
  * 开发环境登录（仅开发环境可用）
  */
 export async function devLogin(): Promise<LoginResult> {
-  return request.post('/auth/dev-login');
+  return request.post('/auth/dev-login', undefined, { skipErrorHandler: true });
 }
 
 /**
