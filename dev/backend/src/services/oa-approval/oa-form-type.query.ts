@@ -14,7 +14,7 @@ import { ALL_FORM_TYPES, getFormTypeByCode, getFormTypesByCategory } from './for
 
 /**
  * 获取所有可用的表单类型
- * 优先从数据库获取，数据库不存在则使用代码定义
+ * 数据库记录优先，代码定义作为补充（确保新增表单类型即使未入库也能返回）
  */
 export async function getActiveFormTypes(): Promise<FormTypeDefinition[]> {
   try {
@@ -23,7 +23,12 @@ export async function getActiveFormTypes(): Promise<FormTypeDefinition[]> {
     );
 
     if (result.rows.length > 0) {
-      return result.rows.map(mapFormTypeRow);
+      const dbFormTypes = result.rows.map(mapFormTypeRow);
+      // 收集数据库中已有的 code
+      const dbCodes = new Set(dbFormTypes.map((ft) => ft.code));
+      // 补充代码定义中存在但数据库中尚未入库的表单类型
+      const codeOnlyTypes = ALL_FORM_TYPES.filter((ft) => !dbCodes.has(ft.code));
+      return [...dbFormTypes, ...codeOnlyTypes];
     }
 
     // 数据库无数据时使用代码定义

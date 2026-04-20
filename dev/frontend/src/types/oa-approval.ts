@@ -44,7 +44,13 @@ export type FormFieldType =
   | 'text-note'
   | 'relate-approval'
   | 'location'
-  | 'radio';
+  | 'radio'
+  // ERP 参考数据字段类型
+  | 'asset_search'
+  | 'erp_department'
+  | 'erp_staff'
+  | 'erp_payment_account'
+  | 'erp_asset_category';
 
 export interface FormField {
   key: string;
@@ -74,7 +80,18 @@ export interface FormField {
   statField?: Array<{ componentId: string; label: string }>;
   link?: string;
   content?: string;
-  visibleWhen?: { field: string; operator: '==' | '!=' | '>' | '<'; value: unknown };
+  /** 条件显示（支持单个条件或AND条件数组） */
+  visibleWhen?: ConditionDef | ConditionDef[];
+  /** 条件必填（满足条件时字段变为必填） */
+  requiredWhen?: ConditionDef | ConditionDef[];
+  /** ERP参考数据API标识 */
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories';
+  /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
+  autoFill?: Record<string, string>;
+  /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
+  cascadeFrom?: string;
+  /** asset_search 显示哪些子字段 */
+  displayFields?: string[];
 }
 
 export interface FormSchema {
@@ -85,12 +102,35 @@ export interface FormSchema {
 // 审批流程相关类型
 // =====================================================
 
-export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign';
+export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign' | 'data_input';
 
 export interface ConditionDef {
   field: string;
   operator: '>' | '<' | '==' | '>=' | '<=';
   value: number | string;
+}
+
+/** 数据录入节点 - 录入字段定义 */
+export interface NodeInputField {
+  name: string;
+  label: string;
+  type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table'
+    | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category';
+  required?: boolean;
+  options?: Array<{ label: string; value: unknown }>;
+  defaultValue?: unknown;
+  readonly?: boolean;
+  columns?: NodeInputField[];
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories';
+  autoFill?: Record<string, string>;
+  cascadeFrom?: string;
+  visibleWhen?: ConditionDef | ConditionDef[];
+  requiredWhen?: ConditionDef | ConditionDef[];
+}
+
+/** 数据录入节点 - 录入表单 Schema */
+export interface NodeInputSchema {
+  fields: NodeInputField[];
 }
 
 export interface WorkflowNodeDef {
@@ -100,6 +140,8 @@ export interface WorkflowNodeDef {
   roleCode?: string;
   userId?: number;
   condition?: ConditionDef;
+  /** 数据录入表单 schema（仅 data_input 类型） */
+  inputSchema?: NodeInputSchema;
 }
 
 export interface WorkflowDef {
@@ -190,11 +232,21 @@ export interface CcUser {
   readAt: string | null;
 }
 
+/** ERP处理元数据 */
+export interface ErpMeta {
+  status: 'pending' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_failed';
+  responseData: Record<string, unknown>;
+  requestLog: Record<string, unknown> | null;
+  applicationNo: string;
+  retries: number;
+}
+
 export interface ApprovalDetail extends ApprovalInstance {
   formData: Record<string, unknown>;
   nodes: ApprovalNode[];
   actions: ApprovalAction[];
   ccUsers: CcUser[];
+  erpMeta: ErpMeta | null;
 }
 
 // =====================================================

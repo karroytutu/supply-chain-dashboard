@@ -38,7 +38,7 @@ export async function submit(req: Request, res: Response): Promise<void> {
     const result = await submitApproval(
       { formTypeCode, formData, title, urgency },
       formType,
-      user.id,
+      user.userId,
       user.name,
       user.department_name
     );
@@ -62,7 +62,7 @@ export async function approve(req: Request, res: Response): Promise<void> {
 
     const instanceId = parseInt(req.params.id);
     const { comment, inputData } = req.body;
-    await approveApproval(instanceId, user.id, user.name, comment, inputData);
+    await approveApproval(instanceId, user.userId, user.name, comment, inputData);
     res.json({ success: true, message: '审批通过' });
   } catch (error) {
     console.error('同意审批失败:', error);
@@ -87,7 +87,7 @@ export async function reject(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    await rejectApproval(instanceId, user.id, user.name, comment);
+    await rejectApproval(instanceId, user.userId, user.name, comment);
     res.json({ success: true, message: '已拒绝' });
   } catch (error) {
     console.error('拒绝审批失败:', error);
@@ -112,7 +112,7 @@ export async function transfer(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    await transferApproval(instanceId, user.id, user.name, transferToUserId, comment);
+    await transferApproval(instanceId, user.userId, user.name, transferToUserId, comment);
     res.json({ success: true, message: '转交成功' });
   } catch (error) {
     console.error('转交审批失败:', error);
@@ -137,7 +137,7 @@ export async function countersign(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    await countersignApproval(instanceId, user.id, user.name, countersignType, countersignUserIds, comment);
+    await countersignApproval(instanceId, user.userId, user.name, countersignType, countersignUserIds, comment);
     res.json({ success: true, message: '加签成功' });
   } catch (error) {
     console.error('加签失败:', error);
@@ -156,7 +156,7 @@ export async function withdraw(req: Request, res: Response): Promise<void> {
     }
 
     const instanceId = parseInt(req.params.id);
-    await withdrawApproval(instanceId, user.id, user.name);
+    await withdrawApproval(instanceId, user.userId, user.name);
     res.json({ success: true, message: '撤回成功' });
   } catch (error) {
     console.error('撤回审批失败:', error);

@@ -27,30 +27,30 @@ import {
  * 获取所有表单类型
  */
 export async function getFormTypes(): Promise<{ data: FormTypeDefinition[] }> {
-  const res = await request<{ success: boolean; data: FormTypeDefinition[] }>(
+  const res = await request<FormTypeDefinition[]>(
     '/oa-approval/form-types'
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 /**
  * 获取按分类分组的表单类型
  */
 export async function getFormTypesGrouped(): Promise<{ data: Record<FormCategory, FormTypeDefinition[]> }> {
-  const res = await request<{ success: boolean; data: Record<FormCategory, FormTypeDefinition[]> }>(
+  const res = await request<Record<FormCategory, FormTypeDefinition[]>>(
     '/oa-approval/form-types/grouped'
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 /**
  * 获取单个表单类型
  */
 export async function getFormType(code: string): Promise<{ data: FormTypeDefinition }> {
-  const res = await request<{ success: boolean; data: FormTypeDefinition }>(
+  const res = await request<FormTypeDefinition>(
     `/oa-approval/form-types/${code}`
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 // =====================================================
@@ -58,7 +58,6 @@ export async function getFormType(code: string): Promise<{ data: FormTypeDefinit
 // =====================================================
 
 interface ApprovalListResponse {
-  success: boolean;
   data: ApprovalInstance[];
   total: number;
   page: number;
@@ -90,40 +89,40 @@ export async function getApprovalList(
  * 获取审批统计
  */
 export async function getStats(): Promise<{ data: ApprovalStats }> {
-  const res = await request<{ success: boolean; data: ApprovalStats }>(
+  const res = await request<ApprovalStats>(
     '/oa-approval/instances/stats'
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 /**
  * 获取审批详情
  */
 export async function getDetail(id: number): Promise<{ data: ApprovalDetail }> {
-  const res = await request<{ success: boolean; data: ApprovalDetail }>(
+  const res = await request<ApprovalDetail>(
     `/oa-approval/instances/${id}`
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 /**
  * 获取审批节点
  */
 export async function getNodes(instanceId: number): Promise<{ data: ApprovalNode[] }> {
-  const res = await request<{ success: boolean; data: ApprovalNode[] }>(
+  const res = await request<ApprovalNode[]>(
     `/oa-approval/instances/${instanceId}/nodes`
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 /**
  * 获取审批操作记录
  */
 export async function getActions(instanceId: number): Promise<{ data: ApprovalAction[] }> {
-  const res = await request<{ success: boolean; data: ApprovalAction[] }>(
+  const res = await request<ApprovalAction[]>(
     `/oa-approval/instances/${instanceId}/actions`
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 /**
@@ -132,15 +131,11 @@ export async function getActions(instanceId: number): Promise<{ data: ApprovalAc
 export async function submitApproval(data: SubmitApprovalRequest): Promise<{
   data: { instanceId: number; instanceNo: string };
 }> {
-  const res = await request<{
-    success: boolean;
-    data: { instanceId: number; instanceNo: string };
-    message: string;
-  }>('/oa-approval/instances', {
+  const res = await request<{ instanceId: number; instanceNo: string; message: string }>('/oa-approval/instances', {
     method: 'POST',
     body: data,
   });
-  return { data: res.data };
+  return { data: res };
 }
 
 /**
@@ -240,11 +235,11 @@ interface DataListParams {
 export async function getDataList(
   params: DataListParams
 ): Promise<{ data: { list: ApprovalInstance[]; total: number } }> {
-  const res = await request<{ success: boolean; data: { list: ApprovalInstance[]; total: number } }>(
+  const res = await request<{ list: ApprovalInstance[]; total: number }>(
     '/oa-approval/data',
     { params }
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 /**
@@ -253,11 +248,11 @@ export async function getDataList(
 export async function exportData(
   params: DataListParams & { exportType: 'excel' | 'pdf' | 'print' }
 ): Promise<{ data: { url?: string; html?: string } }> {
-  const res = await request<{ success: boolean; data: { url?: string; html?: string } }>(
+  const res = await request<{ url?: string; html?: string }>(
     '/oa-approval/data/export',
     { params }
   );
-  return { data: res.data };
+  return { data: res };
 }
 
 // =====================================================
@@ -265,7 +260,6 @@ export async function exportData(
 // =====================================================
 
 interface MessageListResponse {
-  success: boolean;
   data: InAppMessage[];
   total: number;
   page: number;
@@ -289,10 +283,10 @@ export async function getMessages(
  * 获取未读消息数量
  */
 export async function getUnreadMessageCount(): Promise<{ count: number }> {
-  const res = await request<{ success: boolean; data: { count: number } }>(
+  const res = await request<{ count: number }>(
     '/oa-approval/messages/unread-count'
   );
-  return { count: res.data.count };
+  return { count: res.count };
 }
 
 /**
@@ -316,6 +310,41 @@ export async function markAllMessagesRead(): Promise<void> {
     {
       method: 'POST',
     }
+  );
+}
+
+// =====================================================
+// ERP 参考数据接口
+// =====================================================
+
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories';
+
+/**
+ * 获取ERP参考数据
+ * 用于表单中 asset_search、erp_department 等字段类型的数据源
+ */
+export async function getErpReference(
+  type: ErpReferenceType,
+  keyword?: string
+): Promise<unknown[]> {
+  const params: Record<string, string> = {};
+  if (keyword) {
+    params.keyword = keyword;
+  }
+  const res = await request<unknown[]>(
+    `/oa-approval/erp-reference/${type}`,
+    { params }
+  );
+  return res;
+}
+
+/**
+ * 重试失败的ERP操作
+ */
+export async function retryErpOperation(instanceId: number): Promise<void> {
+  await request<{ success: boolean; message: string }>(
+    `/oa-approval/instances/${instanceId}/retry-erp`,
+    { method: 'POST' }
   );
 }
 
@@ -344,4 +373,6 @@ export const oaApprovalApi = {
   getUnreadMessageCount,
   markMessageRead,
   markAllMessagesRead,
+  getErpReference,
+  retryErpOperation,
 };

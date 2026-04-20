@@ -13,16 +13,29 @@ export const assetDisposalFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 40,
   description: '固定资产清理审批（支持出售/盘亏，有收入时自动创建收入单）',
-  version: 1,
+  version: 2,
 
   formSchema: {
     fields: [
-      { key: 'erpAssetId', label: '资产ID', type: 'number', required: true },
-      { key: 'assetNo', label: '资产编号', type: 'text', required: false },
-      { key: 'assetName', label: '资产名称', type: 'text', required: false },
-      { key: 'originalValue', label: '原值', type: 'money', required: false },
-      { key: 'accumulatedDepreciation', label: '累计折旧', type: 'money', required: false },
-      { key: 'netValue', label: '净值', type: 'money', required: false },
+      {
+        key: 'assetSearch', label: '选择资产', type: 'asset_search', required: true,
+        searchApi: 'erp_assets',
+        autoFill: {
+          erpAssetId: 'id',
+          assetNo: 'assetNo',
+          assetName: 'name',
+          originalValue: 'originalValue',
+          accumulatedDepreciation: 'accumulatedDepreciation',
+          netValue: 'netValue',
+        },
+        displayFields: ['assetNo', 'name'],
+      },
+      { key: 'erpAssetId', label: '资产ID', type: 'number', required: false, disabled: true },
+      { key: 'assetNo', label: '资产编号', type: 'text', required: false, disabled: true },
+      { key: 'assetName', label: '资产名称', type: 'text', required: false, disabled: true },
+      { key: 'originalValue', label: '原值', type: 'money', required: false, disabled: true },
+      { key: 'accumulatedDepreciation', label: '累计折旧', type: 'money', required: false, disabled: true },
+      { key: 'netValue', label: '净值', type: 'money', required: false, disabled: true },
       {
         key: 'disposalType', label: '清理方式', type: 'select', required: true,
         options: [
@@ -39,6 +52,7 @@ export const assetDisposalFormType: FormTypeDefinition = {
       },
       { key: 'disposalValue', label: '处置收入', type: 'money', required: false,
         visibleWhen: { field: 'hasIncome', operator: '==', value: 'true' },
+        requiredWhen: { field: 'hasIncome', operator: '==', value: 'true' },
       },
       { key: 'disposalDate', label: '清理日期', type: 'date', required: true },
       { key: 'attachmentUrls', label: '附件', type: 'upload', required: false, maxCount: 10 },
@@ -49,6 +63,17 @@ export const assetDisposalFormType: FormTypeDefinition = {
     nodes: [
       { order: 1, name: '总经理审批', type: 'role', roleCode: 'admin' },
     ],
+  },
+
+  /** 提交前校验：确保选择了资产且条件字段合法 */
+  beforeSubmit: async (formData) => {
+    if (!formData.erpAssetId) {
+      throw new Error('请通过资产搜索选择要清理的资产');
+    }
+    if (formData.hasIncome === 'true' && !formData.disposalValue) {
+      throw new Error('产生收入时必须填写处置收入金额');
+    }
+    return {};
   },
 
   onApproved: handleAssetDisposalApproved,

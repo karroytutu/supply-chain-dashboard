@@ -5,6 +5,7 @@
 
 import { FormTypeDefinition } from '../oa-approval.types';
 import { handleAssetPurchaseNodeCallback } from '../../fixed-asset/purchase-callback';
+import { generateApplicationNo } from '../../fixed-asset/erp-meta-utils';
 
 export const assetPurchaseFormType: FormTypeDefinition = {
   code: 'asset_purchase',
@@ -13,7 +14,7 @@ export const assetPurchaseFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 10,
   description: '固定资产采购审批流程（含询价、支付、入库）',
-  version: 1,
+  version: 2,
 
   formSchema: {
     fields: [
@@ -50,9 +51,9 @@ export const assetPurchaseFormType: FormTypeDefinition = {
             { name: 'lines', label: '询价结果', type: 'table', required: true, columns: [
               { name: 'supplierName', label: '供应商', type: 'text', required: true },
               { name: 'quotationPrice', label: '询价单价', type: 'amount', required: true },
-              { name: 'assetTypeId', label: '资产分类', type: 'number', required: true },
-              { name: 'deptId', label: '使用部门', type: 'number', required: false },
-              { name: 'userId', label: '使用人', type: 'number', required: false },
+              { name: 'assetTypeId', label: '资产分类', type: 'erp_asset_category', required: true, searchApi: 'erp_asset_categories' },
+              { name: 'deptId', label: '使用部门', type: 'erp_department', required: false, searchApi: 'erp_departments' },
+              { name: 'userId', label: '使用人', type: 'erp_staff', required: false, searchApi: 'erp_staff', cascadeFrom: 'deptId' },
               { name: 'depositAddress', label: '存放地点', type: 'text', required: false },
               { name: 'estimatedResidualValueRate', label: '残值率(%)', type: 'number', required: false },
               { name: 'depreciationMethod', label: '折旧方法', type: 'select', required: false, options: [
@@ -70,7 +71,7 @@ export const assetPurchaseFormType: FormTypeDefinition = {
           fields: [
             { name: 'paymentAmount', label: '支付金额', type: 'amount', required: true },
             { name: 'paymentDate', label: '支付日期', type: 'date', required: true },
-            { name: 'paymentSubjectId', label: '付款账户', type: 'number', required: true },
+            { name: 'paymentSubjectId', label: '付款账户', type: 'erp_payment_account', required: true, searchApi: 'erp_payment_accounts' },
             { name: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
             { name: 'paymentNote', label: '支付备注', type: 'text', required: false },
           ],
@@ -99,6 +100,12 @@ export const assetPurchaseFormType: FormTypeDefinition = {
       },
     ],
     ccRoles: ['current_accountant'],
+  },
+
+  /** 提交前生成采购申请编号 */
+  beforeSubmit: async () => {
+    const applicationNo = await generateApplicationNo();
+    return { applicationNo };
   },
 
   onNodeCompleted: handleAssetPurchaseNodeCallback,

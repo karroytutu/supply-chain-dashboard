@@ -122,8 +122,12 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
   if (result && typeof result === 'object') {
     // 格式1: success + data 格式
     if ('success' in result && 'data' in result) {
-      const { success, message: respMessage, ...dataPart } = result;
-      return dataPart as T;
+      const { success, message: respMessage, data, ...rest } = result;
+      // 分页格式: { success, data: [...], total, page, pageSize }
+      if ('total' in rest) {
+        return { data, ...rest } as T;
+      }
+      return data as T;
     }
     // 格式2: code + data 格式
     if ('code' in result && 'data' in result) {

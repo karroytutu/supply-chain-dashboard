@@ -18,7 +18,6 @@ import returnPenaltyRoutes from './routes/return-penalty.routes';
 import arCollectionRoutes from './routes/ar-collection.routes';
 import oaApprovalRoutes from './routes/oa-approval.routes';
 import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
-import fixedAssetRoutes from './routes/fixed-asset.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 import logger from './utils/logger';
@@ -72,7 +71,6 @@ app.use('/api/procurement', procurementArchiveRoutes);
 app.use('/api/ar-collection', arCollectionRoutes);
 app.use('/api/oa-approval', oaApprovalRoutes);
 app.use('/api/dingtalk-sync', dingtalkSyncRoutes);
-app.use('/api/fixed-assets', fixedAssetRoutes);
 
 // 错误处理
 app.use(errorHandler);

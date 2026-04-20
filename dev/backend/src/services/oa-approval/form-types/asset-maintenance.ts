@@ -14,13 +14,25 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 30,
   description: '固定资产维修审批（含条件询价和财务支付）',
-  version: 1,
+  version: 2,
 
   formSchema: {
     fields: [
-      { key: 'erpAssetId', label: '资产ID', type: 'number', required: true },
-      { key: 'assetNo', label: '资产编号', type: 'text', required: false },
-      { key: 'assetName', label: '资产名称', type: 'text', required: false },
+      {
+        key: 'assetSearch', label: '选择资产', type: 'asset_search', required: true,
+        searchApi: 'erp_assets',
+        autoFill: {
+          erpAssetId: 'id',
+          assetNo: 'assetNo',
+          assetName: 'name',
+          specification: 'specification',
+          originalValue: 'originalValue',
+        },
+        displayFields: ['assetNo', 'name', 'specification'],
+      },
+      { key: 'erpAssetId', label: '资产ID', type: 'number', required: false, disabled: true },
+      { key: 'assetNo', label: '资产编号', type: 'text', required: false, disabled: true },
+      { key: 'assetName', label: '资产名称', type: 'text', required: false, disabled: true },
       { key: 'description', label: '故障描述', type: 'textarea', required: true, maxLength: 500 },
       { key: 'estimatedCost', label: '预估维修费用', type: 'money', required: true, min: 100 },
       {
@@ -58,7 +70,7 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
           fields: [
             { name: 'paymentAmount', label: '支付金额', type: 'amount', required: true },
             { name: 'paymentDate', label: '支付日期', type: 'date', required: true },
-            { name: 'paymentSubjectId', label: '付款账户', type: 'number', required: true },
+            { name: 'paymentSubjectId', label: '付款账户', type: 'erp_payment_account', required: true, searchApi: 'erp_payment_accounts' },
             { name: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
             { name: 'paymentNote', label: '支付备注', type: 'text', required: false },
           ],
@@ -66,6 +78,18 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
       },
     ],
     ccRoles: ['current_accountant'],
+  },
+
+  /** 提交前校验：确保选择了资产且费用合法 */
+  beforeSubmit: async (formData) => {
+    if (!formData.erpAssetId) {
+      throw new Error('请通过资产搜索选择要维修的资产');
+    }
+    const estimatedCost = Number(formData.estimatedCost);
+    if (isNaN(estimatedCost) || estimatedCost < 100) {
+      throw new Error('预估维修费用不能小于100元');
+    }
+    return {};
   },
 
   onNodeCompleted: handleAssetMaintenanceNodeCallback,

@@ -284,6 +284,7 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
  */
 export interface ApprovalDetail extends InstanceListItem {
   formData: Record<string, unknown>;
+  erpMeta: Record<string, unknown> | null;
   nodes: ApprovalNodeDetail[];
   actions: ApprovalActionDetail[];
   ccUsers: CcUserDetail[];
@@ -377,6 +378,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     submittedAt: instance.submitted_at,
     completedAt: instance.completed_at,
     formData: instance.form_data,
+    erpMeta: instance.erp_meta,
     nodes: nodesResult.rows.map(n => ({
       id: n.id,
       nodeOrder: n.node_order,

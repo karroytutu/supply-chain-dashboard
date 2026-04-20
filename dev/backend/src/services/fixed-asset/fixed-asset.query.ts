@@ -1,10 +1,9 @@
 /**
  * 固定资产审批模块 - 查询服务
- * 代理舟谱 API 查询 + 本地申请列表
+ * 代理舟谱 API 查询
  * @module services/fixed-asset/fixed-asset-query
  */
 
-import { appQuery } from '../../db/appPool';
 import { erpGet, erpPost, getErpConfig, getErpDefaults } from '../erp-client';
 import type {
   ErpAsset,
@@ -12,10 +11,6 @@ import type {
   ErpStaff,
   ErpDepartment,
   ErpPaymentAccount,
-  AssetApplication,
-  ApplicationType,
-  ApplicationStatus,
-  ApplicationListParams,
 } from './fixed-asset.types';
 
 // =====================================================
@@ -47,7 +42,7 @@ export async function searchErpAssets(keyword: string, usageStatus?: string): Pr
 
   const body: Record<string, unknown> = {
     current: 1,
-    size: 50,
+    size: 500,
     cid,
     uid,
     total: 0,
@@ -59,7 +54,9 @@ export async function searchErpAssets(keyword: string, usageStatus?: string): Pr
     businessType: 'fixed_asset_search',
   });
 
-  const records = result?.records || [];
+  // erpPost 返回完整响应 {"code":0,"data":{...}}，需从 data 字段取分页数据
+  const pageData = ((result as any)?.data as ErpPageData<ErpAsset>) || result;
+  const records = pageData?.records || [];
   if (keyword) {
     const kw = keyword.toLowerCase();
     return records.filter((r) =>
@@ -105,7 +102,9 @@ export async function getErpAssetCategories(): Promise<ErpAssetCategory[]> {
     pathPrefix: config.assetPathPrefix,
     businessType: 'fixed_asset_categories',
   });
-  return result || [];
+  // erpGet 返回完整响应 {"code":0,"data":[...]}
+  const data = ((result as any)?.data as ErpAssetCategory[]) || result;
+  return Array.isArray(data) ? data : [];
 }
 
 /**
@@ -123,7 +122,9 @@ export async function getErpStaff(): Promise<ErpStaff[]> {
     pathPrefix: '/saas/pro/',
     businessType: 'fixed_asset_staff',
   });
-  return result?.records || [];
+  // erpPost 返回完整响应 {"code":0,"data":{...}}
+  const pageData = ((result as any)?.data as ErpPageData<ErpStaff>) || result;
+  return pageData?.records || [];
 }
 
 /**
@@ -158,101 +159,7 @@ export async function getErpPaymentAccounts(): Promise<ErpPaymentAccount[]> {
     pathPrefix: '/saas/pro/',
     businessType: 'fixed_asset_payment_accounts',
   });
-  return result || [];
-}
-
-// =====================================================
-// 本地申请记录查询
-// =====================================================
-
-/**
- * 将数据库行映射为 AssetApplication 对象
- */
-function mapRowToApplication(row: Record<string, unknown>): AssetApplication {
-  return {
-    id: row.id as number,
-    applicationNo: row.application_no as string,
-    type: row.type as ApplicationType,
-    status: row.status as ApplicationStatus,
-    formData: typeof row.form_data === 'string' ? JSON.parse(row.form_data as string) : row.form_data as Record<string, unknown>,
-    oaInstanceId: row.oa_instance_id as number | null,
-    erpRequestLog: row.erp_request_log as Record<string, unknown> | null,
-    erpResponseData: typeof row.erp_response_data === 'string' ? JSON.parse(row.erp_response_data as string) : row.erp_response_data as Record<string, unknown> | null,
-    applicantId: row.applicant_id as number,
-    applicantName: row.applicant_name as string | null,
-    departmentId: row.department_id as number | null,
-    remark: row.remark as string | null,
-    createdAt: row.created_at as Date,
-    updatedAt: row.updated_at as Date,
-  };
-}
-
-/**
- * 查询申请列表
- */
-export async function getApplications(params: ApplicationListParams): Promise<{
-  list: AssetApplication[];
-  total: number;
-}> {
-  const { type, status, page = 1, pageSize = 20 } = params;
-
-  const conditions: string[] = [];
-  const queryParams: unknown[] = [];
-  let paramIndex = 1;
-
-  if (type) {
-    conditions.push(`type = $${paramIndex++}`);
-    queryParams.push(type);
-  }
-  if (status) {
-    conditions.push(`status = $${paramIndex++}`);
-    queryParams.push(status);
-  }
-
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-  // 查询总数
-  const countResult = await appQuery(
-    `SELECT COUNT(*) as total FROM asset_applications ${whereClause}`,
-    queryParams
-  );
-  const total = parseInt(countResult.rows[0].total, 10);
-
-  // 查询列表
-  const offset = (page - 1) * pageSize;
-  const listResult = await appQuery(
-    `SELECT * FROM asset_applications ${whereClause}
-     ORDER BY created_at DESC
-     LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
-    [...queryParams, pageSize, offset]
-  );
-
-  const list: AssetApplication[] = listResult.rows.map(mapRowToApplication);
-  return { list, total };
-}
-
-/**
- * 获取申请详情
- */
-export async function getApplicationById(id: number): Promise<AssetApplication | null> {
-  const result = await appQuery(
-    `SELECT * FROM asset_applications WHERE id = $1`,
-    [id]
-  );
-
-  if (result.rows.length === 0) return null;
-  return mapRowToApplication(result.rows[0]);
-}
-
-/**
- * 通过 OA 审批实例 ID 获取申请
- */
-export async function getApplicationByOaInstanceId(oaInstanceId: number): Promise<AssetApplication | null> {
-  const result = await appQuery(
-    `SELECT * FROM asset_applications WHERE oa_instance_id = $1`,
-    [oaInstanceId]
-  );
-
-  if (result.rows.length === 0) return null;
-  return mapRowToApplication(result.rows[0]);
+  // erpGet 返回完整响应 {"code":0,"data":[...]}
+  const data = ((result as any)?.data as ErpPaymentAccount[]) || result;
+  return Array.isArray(data) ? data : [];
 }

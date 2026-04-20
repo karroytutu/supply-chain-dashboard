@@ -4,6 +4,7 @@
  */
 
 import { appQuery as query } from '../../db/appPool';
+import { getFormTypeByCode as getCodeFormTypeByCode } from './form-types';
 import {
   FormField,
   FormSchema,
@@ -110,6 +111,7 @@ export function numberToChineseUpper(n: number): string {
 
 /**
  * 校验表单数据
+ * 支持 visibleWhen（条件隐藏跳过校验）和 requiredWhen（条件必填）
  * @returns 错误消息数组，空数组表示校验通过
  */
 export function validateFormData(
@@ -119,10 +121,19 @@ export function validateFormData(
   const errors: string[] = [];
 
   for (const field of formSchema.fields) {
+    // visibleWhen 条件不满足时跳过该校验
+    if (field.visibleWhen && !checkCondition(field.visibleWhen, formData)) {
+      continue;
+    }
+
     const value = formData[field.key];
 
+    // 判断是否必填：静态 required 或 requiredWhen 条件满足
+    const isRequired = field.required ||
+      (field.requiredWhen ? checkCondition(field.requiredWhen, formData) : false);
+
     // 必填校验
-    if (field.required) {
+    if (isRequired) {
       if (value === undefined || value === null || value === '') {
         errors.push(`${field.label}不能为空`);
         continue;
@@ -212,9 +223,22 @@ export function validateFormData(
 // =====================================================
 
 /**
- * 检查条件是否满足
+ * 检查条件是否满足（支持单个条件或AND条件数组）
  */
 export function checkCondition(
+  condition: ConditionDef | ConditionDef[],
+  formData: Record<string, unknown>
+): boolean {
+  if (Array.isArray(condition)) {
+    return condition.every((c) => checkSingleCondition(c, formData));
+  }
+  return checkSingleCondition(condition, formData);
+}
+
+/**
+ * 检查单个条件是否满足
+ */
+function checkSingleCondition(
   condition: ConditionDef,
   formData: Record<string, unknown>
 ): boolean {
@@ -288,7 +312,7 @@ export async function resolveApproverId(
          FROM users u
          JOIN user_roles ur ON u.id = ur.user_id
          JOIN roles r ON ur.role_id = r.id
-         WHERE r.code = $1 AND u.is_active = true
+         WHERE r.code = $1 AND u.status = 1
          LIMIT 1`,
         [node.roleCode]
       );
@@ -301,7 +325,7 @@ export async function resolveApproverId(
          FROM users u
          JOIN user_roles ur ON u.id = ur.user_id
          JOIN roles r ON ur.role_id = r.id
-         WHERE r.code = 'manager' AND u.is_active = true
+         WHERE r.code = 'manager' AND u.status = 1
            AND u.department_name = (
              SELECT department_name FROM users WHERE id = $1
            )
@@ -326,7 +350,7 @@ export async function findUserIdsByRoleCodes(roleCodes: string[]): Promise<numbe
      FROM users u
      JOIN user_roles ur ON u.id = ur.user_id
      JOIN roles r ON ur.role_id = r.id
-     WHERE r.code = ANY($1) AND u.is_active = true`,
+     WHERE r.code = ANY($1) AND u.status = 1`,
     [roleCodes]
   );
 
@@ -341,6 +365,10 @@ export async function findUserIdsByRoleCodes(roleCodes: string[]): Promise<numbe
  * 将数据库行映射为表单类型对象
  */
 export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
+  // 从代码定义中合并函数引用（beforeSubmit/onNodeCompleted/onApproved）
+  // 数据库只存储静态数据（schema、workflow），回调函数必须从代码获取
+  const codeDefinition = getCodeFormTypeByCode(row.code);
+
   return {
     code: row.code,
     name: row.name,
@@ -351,6 +379,9 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     version: row.version,
     formSchema: row.form_schema,
     workflowDef: row.workflow_def,
+    ...(codeDefinition?.beforeSubmit && { beforeSubmit: codeDefinition.beforeSubmit }),
+    ...(codeDefinition?.onNodeCompleted && { onNodeCompleted: codeDefinition.onNodeCompleted }),
+    ...(codeDefinition?.onApproved && { onApproved: codeDefinition.onApproved }),
   };
 }
 

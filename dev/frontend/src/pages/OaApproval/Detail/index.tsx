@@ -16,6 +16,7 @@ import { formatDateTime } from '@/utils/format';
 import { useApprovalDetail } from './hooks/useApprovalDetail';
 import ApprovalTimeline from './components/ApprovalTimeline';
 import ApprovalActions from './components/ApprovalActions';
+import ErpStatusCard from './components/ErpStatusCard';
 import styles from './index.less';
 
 const { Text, Title } = Typography;
@@ -118,6 +119,15 @@ const ApprovalDetailPage: React.FC = () => {
               </Descriptions.Item>
             </Descriptions>
           </Card>
+
+          {/* ERP 处理状态卡片 */}
+          {detail.erpMeta && (
+            <ErpStatusCard
+              instanceId={detail.id}
+              erpMeta={detail.erpMeta}
+              cardClassName={styles.card}
+            />
+          )}
 
           {/* 表单内容卡片 */}
           <Card title="表单内容" className={styles.card}>

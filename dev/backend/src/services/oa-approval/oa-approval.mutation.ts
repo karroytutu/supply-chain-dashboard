@@ -26,6 +26,7 @@ import {
   isApplicant,
 } from './oa-approval-utils';
 import { getFormTypeByCode } from './form-types';
+import { initErpMeta } from '../fixed-asset/erp-meta-utils';
 
 /**
  * 合并 inputData 到 form_data
@@ -92,6 +93,12 @@ export async function submitApproval(
   const errors = validateFormData(formType.formSchema, req.formData);
   if (errors.length > 0) {
     throw new Error(`表单校验失败: ${errors.join('; ')}`);
+  }
+
+  // 1.5 beforeSubmit 钩子：业务校验和数据增强
+  if (formType.beforeSubmit) {
+    const extraData = await formType.beforeSubmit(req.formData, userId);
+    req.formData = { ...req.formData, ...extraData };
   }
 
   // 2. 生成审批编号
@@ -195,6 +202,13 @@ export async function submitApproval(
     return instance;
   });
 
+  // 初始化 erp_meta（如果 beforeSubmit 生成了 applicationNo）
+  if (req.formData.applicationNo) {
+    await initErpMeta(result.id, req.formData.applicationNo as string).catch(err => {
+      console.error(`[OA] erp_meta 初始化失败 [instanceId=${result.id}]:`, err);
+    });
+  }
+
   return {
     instanceId: result.id,
     instanceNo: result.instance_no,
@@ -246,7 +260,7 @@ export async function approveApproval(
     const nodeResult = await client.query<OaApprovalNodeRow>(
       `SELECT * FROM oa_approval_nodes
        WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-       LIMIT 1`,
+       ORDER BY node_order LIMIT 1`,
       [instanceId, userId]
     );
 
@@ -385,7 +399,7 @@ export async function rejectApproval(
     const nodeResult = await client.query<OaApprovalNodeRow>(
       `SELECT * FROM oa_approval_nodes
        WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-       LIMIT 1`,
+       ORDER BY node_order LIMIT 1`,
       [instanceId, userId]
     );
 
@@ -484,7 +498,7 @@ export async function transferApproval(
     const nodeResult = await client.query<OaApprovalNodeRow>(
       `SELECT * FROM oa_approval_nodes
        WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-       LIMIT 1`,
+       ORDER BY node_order LIMIT 1`,
       [instanceId, userId]
     );
 
@@ -494,20 +508,13 @@ export async function transferApproval(
 
     const currentNode = nodeResult.rows[0];
 
-    // 更新原节点状态为已转交
+    // 更新原节点：转交新审批人，保持 pending 状态
     await client.query(
       `UPDATE oa_approval_nodes
-       SET status = 'transferred', comment = $1, acted_at = NOW()
-       WHERE id = $2`,
-      [`已转交给 ${targetUserName}`, currentNode.id]
-    );
-
-    // 创建新节点（同一 node_order，新审批人）
-    await client.query(
-      `INSERT INTO oa_approval_nodes
-        (instance_id, node_order, node_name, node_type, assigned_user_id, assigned_user_name, status)
-       VALUES ($1, $2, $3, 'role', $4, $5, 'pending')`,
-      [instanceId, currentNode.node_order, currentNode.node_name, transferToUserId, targetUserName]
+       SET assigned_user_id = $1, assigned_user_name = $2,
+           comment = $3, acted_at = NOW()
+       WHERE id = $4`,
+      [transferToUserId, targetUserName, `由 ${userName} 转交`, currentNode.id]
     );
 
     // 记录操作日志
@@ -561,7 +568,7 @@ export async function countersignApproval(
     const nodeResult = await client.query<OaApprovalNodeRow>(
       `SELECT * FROM oa_approval_nodes
        WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-       LIMIT 1`,
+       ORDER BY node_order LIMIT 1`,
       [instanceId, userId]
     );
 
@@ -580,15 +587,16 @@ export async function countersignApproval(
     // 根据加签类型调整节点顺序
     if (countersignType === 'before') {
       // 前加签：加签节点在当前节点之前
-      // 将当前节点及之后的节点顺序 + 加签人数
+      // 将当前节点及之后的节点顺序 + 加签人数（从高到低更新避免唯一约束冲突）
       const increment = countersignUsers.length;
-      for (const node of allNodesResult.rows) {
-        if (node.node_order >= currentNode.node_order) {
-          await client.query(
-            `UPDATE oa_approval_nodes SET node_order = node_order + $1 WHERE id = $2`,
-            [increment, node.id]
-          );
-        }
+      const nodesToShift = allNodesResult.rows
+        .filter(n => n.node_order >= currentNode.node_order)
+        .sort((a, b) => b.node_order - a.node_order);
+      for (const node of nodesToShift) {
+        await client.query(
+          `UPDATE oa_approval_nodes SET node_order = node_order + $1 WHERE id = $2`,
+          [increment, node.id]
+        );
       }
 
       // 插入加签节点
@@ -610,15 +618,16 @@ export async function countersignApproval(
 
     } else {
       // 后加签：加签节点在当前节点之后
-      // 将当前节点之后的节点顺序 + 加签人数
+      // 将当前节点之后的节点顺序 + 加签人数（从高到低更新避免唯一约束冲突）
       const increment = countersignUsers.length;
-      for (const node of allNodesResult.rows) {
-        if (node.node_order > currentNode.node_order) {
-          await client.query(
-            `UPDATE oa_approval_nodes SET node_order = node_order + $1 WHERE id = $2`,
-            [increment, node.id]
-          );
-        }
+      const nodesToShift = allNodesResult.rows
+        .filter(n => n.node_order > currentNode.node_order)
+        .sort((a, b) => b.node_order - a.node_order);
+      for (const node of nodesToShift) {
+        await client.query(
+          `UPDATE oa_approval_nodes SET node_order = node_order + $1 WHERE id = $2`,
+          [increment, node.id]
+        );
       }
 
       // 插入加签节点

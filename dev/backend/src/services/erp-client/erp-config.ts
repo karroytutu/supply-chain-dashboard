@@ -35,6 +35,11 @@ export function getErpConfig(): ErpApiConfig {
       assetUpdatePath: erpApi?.assetUpdatePath || '/asset/update',
       assetClearPath: erpApi?.assetClearPath || '/asset-clear/do-clear',
       incomeBillPath: erpApi?.incomeBillPath || '/income/save-approve-cash-income',
+      // 清理 API 路径配置
+      expenditureBillReApprovePath: erpApi?.expenditureBillReApprovePath || '/expenditure-bill/re-approve-expenditure',
+      expenditureBillCancelPath: erpApi?.expenditureBillCancelPath || '/expenditure-bill/cancel-expenditure',
+      incomeReApprovePath: erpApi?.incomeReApprovePath || '/income/re-approve-income',
+      incomeCancelPath: erpApi?.incomeCancelPath || '/income/cancel-income',
     };
 
     // 开发环境警告

@@ -3,18 +3,8 @@
  * @module services/fixed-asset/fixed-asset-utils
  */
 
-import { appQuery } from '../../db/appPool';
-import type { ApplicationType, ApplicationStatus, PurchaseLine } from './fixed-asset.types';
+import type { ApplicationType, ApplicationStatus, PurchaseLine, ErpAsset } from './fixed-asset.types';
 import { getErpDefaults } from '../erp-client';
-
-/**
- * 生成申请编号
- * 格式：APA + YYYYMMDD + 4位序号
- */
-export async function generateApplicationNo(): Promise<string> {
-  const result = await appQuery('SELECT generate_asset_application_no() as no');
-  return result.rows[0].no;
-}
 
 /**
  * 验证维修申请预估费用门槛
@@ -108,12 +98,46 @@ function calcNetValue(originalValue: number, residualValueRate: number): string 
 }
 
 /**
+ * 将日期字符串规范化为 ERP 要求的 datetime 格式
+ * ERP 要求: "YYYY-MM-DD HH:mm:ss"
+ * 前端 date 输入只提供 "YYYY-MM-DD"，需追加时间部分
+ */
+export function normalizeDateTime(dateStr: string | undefined | null): string {
+  if (!dateStr) {
+    return new Date().toISOString().slice(0, 10) + ' 12:00:00';
+  }
+  // 已包含时间部分
+  if (dateStr.includes(' ')) return dateStr;
+  // 只有日期，追加默认时间
+  return `${dateStr} 12:00:00`;
+}
+
+/**
+ * 根据现有 ERP 资产列表计算下一个可用的资产编码序号
+ * 编码格式: GDZC-XXXX (前缀 + 4位补零数字)
+ */
+export function generateNextAssetCode(existingAssets: ErpAsset[]): number {
+  let maxNum = 0;
+  for (const asset of existingAssets) {
+    if (asset.code && asset.code.startsWith('GDZC-')) {
+      const numStr = asset.code.replace('GDZC-', '');
+      const num = parseInt(numStr, 10);
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+  return maxNum + 1;
+}
+
+/**
  * 构造采购明细行的舟谱 /asset/create 请求体
  */
 export function buildAssetCreatePayload(
   line: PurchaseLine,
   lineIndex: number,
-  unitAllocation?: { deptId: number; userId: number; depositAddress: string }
+  unitAllocation?: { deptId: number; userId: number; depositAddress: string },
+  assetCode?: string
 ): Record<string, unknown> {
   const originalValue = parseFloat(line.actualPrice || line.quotationPrice || line.estimatedBudget || '0');
   const residualRate = line.estimatedResidualValueRate || 5;
@@ -123,8 +147,9 @@ export function buildAssetCreatePayload(
   return {
     assertCreatedType: 'UN_BEGINNING',
     name: line.assetName,
+    code: assetCode || '',
     assetTypeId: line.assetTypeId,
-    entryDate: line.arrivalDate,
+    entryDate: line.arrivalDate || new Date().toISOString().slice(0, 10),
     incrdecrId: 1,
     specification: line.specification,
     quantity: 1,

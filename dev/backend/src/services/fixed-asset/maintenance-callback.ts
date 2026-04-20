@@ -5,12 +5,13 @@
  */
 
 import type { OaApprovalInstanceRow } from '../oa-approval/oa-approval.types';
-import { getApplicationByOaInstanceId, getErpStaff } from './fixed-asset.query';
-import { updateApplicationStatus } from './fixed-asset.mutation';
+import { getErpStaff } from './fixed-asset.query';
+import { getErpMeta, updateErpMetaStatus, mergeErpResponseData, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults } from '../erp-client';
 import type { ErpBillResponse } from '../erp-client';
 import { FEE_SUBJECT } from './fixed-asset.types';
 import { randomUUID } from 'crypto';
+import { normalizeDateTime } from './fixed-asset-utils';
 
 /**
  * 维修流程 — data_input 节点回调
@@ -24,25 +25,23 @@ export async function handleAssetMaintenanceNodeCallback(
 ): Promise<void> {
   if (nodeOrder !== 4) return;
 
-  const application = await getApplicationByOaInstanceId(instance.id);
-  if (!application) {
-    console.error(`[AssetCallback] 维修回调: 未找到申请记录, oaInstanceId=${instance.id}`);
-    return;
-  }
-
   try {
-    await updateApplicationStatus(application.id, 'paying');
+    await updateErpMetaStatus(instance.id, 'paying');
 
     const paymentAmount = (formData.paymentAmount as string) || '0';
     const paymentSubjectId = formData.paymentSubjectId as number;
-    const paymentDate = (formData.paymentDate as string) || new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const paymentDate = normalizeDateTime(formData.paymentDate as string);
 
     // 获取申请人舟谱信息
     const { defaultSalesmanId, defaultDeptId, cid, uid, defaultPaymentSubjectId } = getErpDefaults();
     const staff = await getErpStaff();
-    const applicant = staff.find((s) => s.name === application.applicantName);
+    const applicant = staff.find((s) => s.name === instance.applicant_name);
     const salesmanId = applicant?.id || defaultSalesmanId;
     const deptId = applicant?.deptId || defaultDeptId;
+
+    // 获取 APA 编号
+    const erpMeta = getErpMeta(instance);
+    const applicationNo = erpMeta?.applicationNo || instance.instance_no;
 
     const requestBody = {
       operatorId: '1',
@@ -57,7 +56,7 @@ export async function handleAssetMaintenanceNodeCallback(
         subjectId: FEE_SUBJECT.MAINTENANCE.subjectId,
         subjectName: FEE_SUBJECT.MAINTENANCE.subjectName,
         salesmanId,
-        salesmanName: application.applicantName || '',
+        salesmanName: instance.applicant_name || '',
         deptId,
         taxRadio: 0,
         taxAmount: '',
@@ -67,7 +66,7 @@ export async function handleAssetMaintenanceNodeCallback(
       imgIds: [],
       workTime: paymentDate,
       salesmanId,
-      note: `鑫链云维修申请 ${application.applicationNo}`,
+      note: `鑫链云维修申请 ${applicationNo}`,
       deptId,
       cid,
       uid,
@@ -81,23 +80,22 @@ export async function handleAssetMaintenanceNodeCallback(
       {
         pathPrefix: '/saas/pro/',
         businessType: 'fixed_asset_maintenance_payment',
-        businessId: application.id,
+        businessId: instance.id,
       }
     );
 
-    await updateApplicationStatus(application.id, 'completed', {
-      erpResponseData: {
-        expenditureBillId: result?.id,
-        expenditureBillStr: result?.billStr,
-      },
+    const billData = result?.data as ErpBillResponse | undefined;
+
+    await updateErpMetaStatus(instance.id, 'completed');
+    await mergeErpResponseData(instance.id, {
+      expenditureBillId: billData?.id,
+      expenditureBillStr: billData?.billStr,
     });
 
-    console.log(`[AssetCallback] 维修费用单创建成功: billStr=${result?.billStr}`);
+    console.log(`[AssetCallback] 维修费用单创建成功: billStr=${billData?.billStr}`);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[AssetCallback] 维修费用单创建失败:`, message);
-    await updateApplicationStatus(application.id, 'erp_failed', {
-      erpRequestLog: { error: message, node: 'maintenance_payment' },
-    });
+    await markErpFailed(instance.id, { error: message, node: 'maintenance_payment' });
   }
 }

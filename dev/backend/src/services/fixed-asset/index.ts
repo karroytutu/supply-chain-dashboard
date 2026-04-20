@@ -1,5 +1,6 @@
 /**
  * 固定资产审批模块入口
+ * 仅保留回调处理器、ERP查询和工具函数
  * @module services/fixed-asset
  */
 
@@ -9,7 +10,6 @@ export type {
   TransferType,
   AssetUrgency,
   DisposalType,
-  AssetApplication,
   ErpAsset,
   ErpAssetCategory,
   ErpStaff,
@@ -20,8 +20,6 @@ export type {
   MaintenanceQuotation,
   UnitAllocation,
   CreatedAssetRecord,
-  CreateApplicationRequest,
-  ApplicationListParams,
 } from './fixed-asset.types';
 
 export {
@@ -31,13 +29,14 @@ export {
 } from './fixed-asset.types';
 
 export {
-  generateApplicationNo,
   validateMaintenanceCost,
   validateQuotationCount,
   getApplicationStatusLabel,
   getApplicationTypeLabel,
   getStatusForNode,
   buildAssetCreatePayload,
+  normalizeDateTime,
+  generateNextAssetCode,
 } from './fixed-asset-utils';
 
 export {
@@ -47,16 +46,7 @@ export {
   getErpStaff,
   getErpDepartments,
   getErpPaymentAccounts,
-  getApplications,
-  getApplicationById,
-  getApplicationByOaInstanceId,
 } from './fixed-asset.query';
-
-export {
-  createApplication,
-  updateApplicationStatus,
-  retryErpOperation,
-} from './fixed-asset.mutation';
 
 export {
   handleAssetPurchaseNodeCallback,
@@ -73,3 +63,16 @@ export {
 export {
   handleAssetDisposalApproved,
 } from './disposal-callback';
+
+export {
+  getErpMeta,
+  setErpMeta,
+  updateErpMetaStatus,
+  mergeErpResponseData,
+  markErpFailed,
+  initErpMeta,
+  generateApplicationNo,
+  retryErpOperation,
+} from './erp-meta-utils';
+
+export type { ErpMetaStatus } from './erp-meta-utils';

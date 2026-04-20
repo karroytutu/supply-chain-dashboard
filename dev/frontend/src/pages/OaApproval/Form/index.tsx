@@ -6,8 +6,9 @@ import { history, useParams } from 'umi';
 import { Button, Spin, Form, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
-import { FormTypeDefinition } from '@/types/oa-approval';
+import { FormTypeDefinition, ConditionDef } from '@/types/oa-approval';
 import FormFieldConfig from './components/FormFieldConfig';
+import ConditionalFieldWrapper, { checkCondition } from './components/ConditionalFieldWrapper';
 import FormPreview from './components/FormPreview';
 import styles from './index.less';
 
@@ -43,6 +44,15 @@ const FormPage: React.FC = () => {
   // 监听表单值变化
   const handleValuesChange = (changedValues: any, allValues: any) => {
     setFormData(allValues);
+  };
+
+  /** 判断字段是否在当前条件下必填 */
+  const isFieldRequired = (field: FormTypeDefinition['formSchema']['fields'][0]): boolean => {
+    if (field.required) return true;
+    if (field.requiredWhen) {
+      return checkCondition(field.requiredWhen, formData);
+    }
+    return false;
   };
 
   // 生成审批标题
@@ -110,19 +120,20 @@ const FormPage: React.FC = () => {
         <div className={styles.formSection}>
           <Form form={form} layout="vertical" onValuesChange={handleValuesChange} className={styles.form}>
             {formType.formSchema.fields.map((field) => (
-              <Form.Item
-                key={field.key}
-                name={field.key}
-                label={
-                  <span className={styles.fieldLabel}>
-                    {field.required && <span className={styles.required}>*</span>}
-                    {field.label}
-                  </span>
-                }
-                rules={[{ required: field.required, message: `请输入${field.label}` }]}
-              >
-                <FormFieldConfig field={field} formData={formData} />
-              </Form.Item>
+              <ConditionalFieldWrapper key={field.key} field={field} formData={formData}>
+                <Form.Item
+                  name={field.key}
+                  label={
+                    <span className={styles.fieldLabel}>
+                      {isFieldRequired(field) && <span className={styles.required}>*</span>}
+                      {field.label}
+                    </span>
+                  }
+                  rules={[{ required: isFieldRequired(field), message: `请输入${field.label}` }]}
+                >
+                  <FormFieldConfig field={field} formData={formData} form={form} />
+                </Form.Item>
+              </ConditionalFieldWrapper>
             ))}
           </Form>
         </div>

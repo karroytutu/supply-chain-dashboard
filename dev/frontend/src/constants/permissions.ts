@@ -120,25 +120,6 @@ export const PERMISSIONS = {
       EXPORT: 'oa:data:export',
     },
   },
-
-  // 固定资产管理模块
-  ASSET: {
-    READ: 'asset:read',
-    WRITE: 'asset:write',
-    DATA_INPUT: 'asset:data_input',
-    PURCHASE: {
-      WRITE: 'asset:purchase:write',
-    },
-    TRANSFER: {
-      WRITE: 'asset:transfer:write',
-    },
-    MAINTENANCE: {
-      WRITE: 'asset:maintenance:write',
-    },
-    DISPOSAL: {
-      WRITE: 'asset:disposal:write',
-    },
-  },
 } as const;
 
 /**

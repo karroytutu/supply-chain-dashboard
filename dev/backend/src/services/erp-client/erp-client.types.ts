@@ -30,6 +30,14 @@ export interface ErpApiConfig {
   assetClearPath: string;
   /** 收入单 API 路径 */
   incomeBillPath: string;
+  /** 费用单反审 API 路径 */
+  expenditureBillReApprovePath: string;
+  /** 费用单取消 API 路径 */
+  expenditureBillCancelPath: string;
+  /** 收入单反审 API 路径 */
+  incomeReApprovePath: string;
+  /** 收入单取消 API 路径 */
+  incomeCancelPath: string;
 }
 
 /** ERP 认证令牌 */

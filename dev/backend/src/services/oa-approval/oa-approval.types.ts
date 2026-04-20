@@ -51,7 +51,14 @@ export type FormFieldType =
   | 'rating'
   | 'text-note'
   | 'relate-approval'
-  | 'location';
+  | 'location'
+  | 'radio'
+  // ERP 参考数据字段类型（固定资产审批使用）
+  | 'asset_search'          // 搜索选择ERP资产
+  | 'erp_department'        // 选择ERP部门
+  | 'erp_staff'             // 选择ERP员工
+  | 'erp_payment_account'   // 选择ERP付款账户
+  | 'erp_asset_category';   // 选择ERP资产分类
 
 /**
  * 表单字段定义
@@ -113,8 +120,18 @@ export interface FormField {
   link?: string;
   /** 文字说明控件内容 */
   content?: string;
-  /** 条件显示 */
-  visibleWhen?: { field: string; operator: '==' | '!=' | '>' | '<'; value: unknown };
+  /** 条件显示（支持单个条件或AND条件数组） */
+  visibleWhen?: ConditionDef | ConditionDef[];
+  /** 条件必填（满足条件时字段变为必填） */
+  requiredWhen?: ConditionDef | ConditionDef[];
+  /** ERP参考数据API标识（erp_* 类型使用） */
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories';
+  /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
+  autoFill?: Record<string, string>;
+  /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
+  cascadeFrom?: string;
+  /** asset_search 显示哪些子字段 */
+  displayFields?: string[];
 }
 
 /**
@@ -142,7 +159,8 @@ export interface NodeInputField {
   /** 显示名 */
   label: string;
   /** 字段类型 */
-  type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table';
+  type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table'
+    | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category';
   /** 是否必填 */
   required?: boolean;
   /** select 类型的选项 */
@@ -153,6 +171,16 @@ export interface NodeInputField {
   readonly?: boolean;
   /** table 类型的列定义 */
   columns?: NodeInputField[];
+  /** ERP参考数据API标识 */
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories';
+  /** 选择后自动填充其他字段 */
+  autoFill?: Record<string, string>;
+  /** 级联字段key */
+  cascadeFrom?: string;
+  /** 条件显示 */
+  visibleWhen?: ConditionDef | ConditionDef[];
+  /** 条件必填 */
+  requiredWhen?: ConditionDef | ConditionDef[];
 }
 
 /**
@@ -231,6 +259,8 @@ export interface FormTypeDefinition {
   formSchema: FormSchema;
   /** 审批流程定义 */
   workflowDef: WorkflowDef;
+  /** 提交前回调：业务校验和数据增强，返回值合并到 formData */
+  beforeSubmit?: (formData: Record<string, unknown>, userId: number) => Promise<Record<string, unknown>>;
   /** 审批通过回调（整个流程完成时触发，可选） */
   onApproved?: (instance: OaApprovalInstanceRow, formData: Record<string, unknown>) => Promise<void>;
   /** 审批驳回回调（可选） */
@@ -278,6 +308,23 @@ export type ApprovalNodeStatus = 'pending' | 'approved' | 'rejected' | 'transfer
 export type Urgency = 'normal' | 'high' | 'urgent';
 
 /**
+ * ERP 处理元数据
+ * 存储在 oa_approval_instances.erp_meta 中
+ */
+export interface ErpMeta {
+  /** ERP处理状态 */
+  status: 'pending' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_failed';
+  /** ERP返回数据（账单ID、资产ID等） */
+  responseData: Record<string, unknown>;
+  /** ERP错误信息 */
+  requestLog: Record<string, unknown> | null;
+  /** APA编号（用于ERP备注） */
+  applicationNo: string;
+  /** 重试次数 */
+  retries: number;
+}
+
+/**
  * oa_approval_instances 表行
  */
 export interface OaApprovalInstanceRow {
@@ -292,6 +339,8 @@ export interface OaApprovalInstanceRow {
   applicant_name: string;
   applicant_dept: string | null;
   current_node_order: number;
+  /** ERP处理元数据 */
+  erp_meta: ErpMeta | null;
   submitted_at: Date;
   completed_at: Date | null;
   created_at: Date;
