@@ -32,7 +32,7 @@ interface PermissionAssignModalProps {
 const PermissionAssignModal: React.FC<PermissionAssignModalProps> = ({
   visible,
   role,
-  permissionTree,
+  permissionTree = [],
   onClose,
   onSuccess,
 }) => {

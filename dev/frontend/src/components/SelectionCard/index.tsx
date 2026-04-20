@@ -9,7 +9,7 @@ import styles from './index.less';
 import type { SelectionCardProps } from './types';
 
 function SelectionCard<T extends Record<string, any>>({
-  dataSource,
+  dataSource = [],
   selectedKeys,
   onChange,
   config,

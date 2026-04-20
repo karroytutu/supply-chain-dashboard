@@ -18,7 +18,7 @@ export const convertToTreeData = (items: PermissionItem[]): DataNode[] => {
 /**
  * 获取所有节点的 key
  */
-export const getAllKeys = (items: PermissionItem[]): React.Key[] => {
+export const getAllKeys = (items: PermissionItem[] = []): React.Key[] => {
   const keys: React.Key[] = [];
   const traverse = (nodes: PermissionItem[]) => {
     nodes.forEach(node => {
@@ -92,7 +92,7 @@ export const getModulePermissionIds = (items: PermissionItem[]): number[] => {
 /**
  * 按模块分组权限
  */
-export const groupByModule = (items: PermissionItem[]): Map<string, PermissionItem[]> => {
+export const groupByModule = (items: PermissionItem[] = []): Map<string, PermissionItem[]> => {
   const groups = new Map<string, PermissionItem[]>();
   
   items.forEach(item => {

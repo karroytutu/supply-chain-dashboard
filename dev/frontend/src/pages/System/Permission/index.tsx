@@ -32,7 +32,7 @@ export default function PermissionManage() {
     setLoading(true);
     try {
       const result = await getPermissionTree();
-      setDataSource(result.data);
+      setDataSource(result);
     } catch (error) {
       message.error('加载权限列表失败');
     } finally {

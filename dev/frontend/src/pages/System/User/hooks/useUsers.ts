@@ -106,7 +106,7 @@ export function useUsers(): UseUsersReturn {
   const fetchRoles = useCallback(async () => {
     try {
       const result = await getAllRoles();
-      setRoles(result.data);
+      setRoles(result);
     } catch (error) {
       // ignore
     }

@@ -17,7 +17,7 @@ interface UserFiltersProps {
 
 const UserFilters: React.FC<UserFiltersProps> = ({
   filters,
-  roles,
+  roles = [],
   onFilterChange,
   onSearch,
   onReset,

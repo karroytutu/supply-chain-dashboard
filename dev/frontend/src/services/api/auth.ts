@@ -122,7 +122,7 @@ export async function assignUserRoles(id: number, roleIds: number[]): Promise<{ 
 /**
  * 获取所有角色
  */
-export async function getAllRoles(): Promise<{ data: RoleInfo[] }> {
+export async function getAllRoles(): Promise<RoleInfo[]> {
   return request.get('/roles/all');
 }
 
@@ -168,7 +168,7 @@ export async function assignRolePermissions(id: number, permissionIds: number[])
 /**
  * 获取权限树
  */
-export async function getPermissionTree(): Promise<{ data: any[] }> {
+export async function getPermissionTree(): Promise<any[]> {
   return request.get('/permissions/tree');
 }
 

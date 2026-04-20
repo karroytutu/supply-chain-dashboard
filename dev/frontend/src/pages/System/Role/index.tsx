@@ -64,7 +64,7 @@ export default function RoleManage() {
   const loadPermissionTree = async () => {
     try {
       const result = await getPermissionTree();
-      setPermissionTree(result.data);
+      setPermissionTree(result);
     } catch (error) {
       // ignore
     }
