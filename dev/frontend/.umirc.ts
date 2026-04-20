@@ -3,11 +3,13 @@ import { PERMISSIONS } from './src/constants/permissions';
 
 export default defineConfig({
   plugins: [
+    '@umijs/plugins/dist/initial-state',
     '@umijs/plugins/dist/model',
     '@umijs/plugins/dist/request',
     '@umijs/plugins/dist/layout',
   ],
   model: {},
+  initialState: {},
   layout: {
     title: '鑫链云供应链数据管理系统',
   },
