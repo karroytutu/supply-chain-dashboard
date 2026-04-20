@@ -6,6 +6,7 @@ import { Table, Space, Tag, Badge, Button, Popconfirm } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { UserSwitchOutlined, StopOutlined, CheckOutlined } from '@ant-design/icons';
 import type { UserItem } from '../types';
+import UserAvatar from '@/components/UserAvatar';
 
 interface UserTableProps {
   dataSource: UserItem[];
@@ -40,11 +41,7 @@ const UserTable: React.FC<UserTableProps> = ({
       width: 180,
       render: (text: string, record: UserItem) => (
         <Space>
-          <img
-            src={record.avatar || 'https://gw.alipayobjects.com/zos/antfincdn/efFD%24DOqi%26/no-trans-svg.svg'}
-            alt=""
-            style={{ width: 32, height: 32, borderRadius: '50%' }}
-          />
+          <UserAvatar name={record.name} src={record.avatar} size={32} />
           <span>{text}</span>
         </Space>
       ),
