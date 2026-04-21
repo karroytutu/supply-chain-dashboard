@@ -45,14 +45,18 @@ const CollectionOverview: React.FC = () => {
     setWarningModalVisible(true);
     setWarningDetailLoading(true);
     try {
-      const data = await getUpcomingWarnings({ warningLevel: level });
+      const params: { warningLevel: WarningLevel; managerUserId?: number } = { warningLevel: level };
+      if (overview.handlerId) {
+        params.managerUserId = overview.handlerId;
+      }
+      const data = await getUpcomingWarnings(params);
       setWarningDetailData(data.details || []);
     } catch (error) {
       console.error('获取预警明细失败:', error);
     } finally {
       setWarningDetailLoading(false);
     }
-  }, []);
+  }, [overview.handlerId]);
 
   /** 待办卡片点击 */
   const handleTaskCardClick = useCallback(

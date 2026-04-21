@@ -178,12 +178,16 @@ export function useOverview() {
   /** 加载预警汇总数据 */
   const fetchWarningSummary = useCallback(async () => {
     try {
-      const data = await getUpcomingWarnings();
+      const params: { managerUserId?: number } = {};
+      if (state.handlerId) {
+        params.managerUserId = state.handlerId;
+      }
+      const data = await getUpcomingWarnings(params);
       setState((s) => ({ ...s, warningSummary: data.summary }));
     } catch {
       // 静默处理
     }
-  }, []);
+  }, [state.handlerId]);
 
   /** 刷新所有数据 */
   const refresh = useCallback(() => {
@@ -205,6 +209,11 @@ export function useOverview() {
   useEffect(() => {
     fetchTasks();
   }, [state.page, state.pageSize, state.statusTab, state.searchKeyword, state.handlerId, dateRangeKey]);
+
+  /** 营销师筛选变化时重新加载预警汇总 */
+  useEffect(() => {
+    fetchWarningSummary();
+  }, [state.handlerId, fetchWarningSummary]);
 
   /** 切换状态 Tab */
   const setStatusTab = useCallback((tab: StatusTab) => {

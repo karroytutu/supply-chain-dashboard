@@ -211,7 +211,7 @@ export async function getUpcomingWarnings(
   // 7. 排序：按剩余天数升序
   details.sort((a, b) => a.daysToExpire - b.daysToExpire);
 
-  // 8. 计算汇总（3级）
+  // 8. 计算汇总（3级）——基于筛选后的明细数据
   const summary: WarningSummary = {
     today: { count: 0, amount: 0 },         // 今日到期（0天）
     within2Days: { count: 0, amount: 0 },  // 1-2天内到期
@@ -220,8 +220,8 @@ export async function getUpcomingWarnings(
     totalAmount: 0,
   };
 
-  for (const debt of upcomingDebts) {
-    const amount = Number(debt.leftAmount);
+  for (const debt of details) {
+    const amount = debt.leftAmount;
     summary.totalCount++;
     summary.totalAmount += amount;
 

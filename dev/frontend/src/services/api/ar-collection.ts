@@ -167,6 +167,7 @@ export const uploadEvidence = async (file: File): Promise<UploadEvidenceResponse
  */
 export const getUpcomingWarnings = (params?: {
   warningLevel?: 'today' | 'high' | 'medium';
+  managerUserId?: number;
 }): Promise<UpcomingWarningData> => {
   return request.get<UpcomingWarningData>('/ar-collection/warnings/upcoming', { params });
 };
