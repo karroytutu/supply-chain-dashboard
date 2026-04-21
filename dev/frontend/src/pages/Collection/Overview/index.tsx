@@ -9,7 +9,6 @@ import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
 import useOverview from './hooks/useOverview';
 import useMedia from './hooks/useMedia';
-import MyTasksPanel from './components/MyTasksPanel';
 import WarningPanel from './components/WarningPanel';
 import WarningDetailModal from './components/WarningDetailModal';
 import FilterBar from './components/FilterBar';
@@ -57,25 +56,6 @@ const CollectionOverview: React.FC = () => {
       setWarningDetailLoading(false);
     }
   }, [overview.handlerId]);
-
-  /** 待办卡片点击 */
-  const handleTaskCardClick = useCallback(
-    (filterType: string) => {
-      if (filterType === 'collecting') {
-        overview.setStatusTab('collecting');
-      } else if (filterType === 'extension' || filterType === 'todayDue') {
-        overview.setStatusTab('extension');
-      } else if (filterType === 'escalated') {
-        overview.setStatusTab('escalated');
-      } else if (filterType === 'difference') {
-        overview.setStatusTab('difference_processing');
-      } else if (filterType === 'pending_verify') {
-        overview.setStatusTab('pending_verify');
-      }
-      // timeout 筛选功能已移除
-    },
-    [overview],
-  );
 
   /** 状态分布图点击 */
   const handleStatusChartClick = useCallback(
@@ -142,13 +122,6 @@ const CollectionOverview: React.FC = () => {
             </span>
           </div>
         </div>
-
-        {/* 我的待办面板 */}
-        <MyTasksPanel
-          userRole={overview.userRole}
-          myTasks={overview.myTasks}
-          onCardClick={handleTaskCardClick}
-        />
 
         {/* 逾期前预警面板 */}
         <WarningPanel

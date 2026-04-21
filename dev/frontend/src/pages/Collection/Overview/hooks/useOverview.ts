@@ -7,7 +7,6 @@ import dayjs from 'dayjs';
 import {
   getCollectionStats,
   getCollectionTasks,
-  getMyTasks,
   getHandlers,
   getUpcomingWarnings,
 } from '@/services/api/ar-collection';
@@ -15,7 +14,6 @@ import type {
   CollectionStats,
   CollectionTask,
   CollectionTaskStatus,
-  MyTasksSummary,
   CollectionTaskQueryParams,
   Handler,
   WarningSummary,
@@ -46,7 +44,6 @@ export type StatusTab = 'all' | CollectionTaskStatus;
 interface OverviewState {
   stats: CollectionStats | null;
   tasks: CollectionTask[];
-  myTasks: MyTasksSummary | null;
   warningSummary: WarningSummary | null;
   handlers: Handler[];
   loading: boolean;
@@ -73,7 +70,6 @@ export function useOverview() {
   const [state, setState] = useState<OverviewState>({
     stats: null,
     tasks: [],
-    myTasks: null,
     warningSummary: null,
     handlers: [],
     loading: false,
@@ -153,18 +149,6 @@ export function useOverview() {
     }
   }, [buildQueryParams]);
 
-  /** 加载我的待办 */
-  const fetchMyTasks = useCallback(async () => {
-    // 管理员不显示待办面板
-    if (userRole === 'admin') return;
-    try {
-      const data = await getMyTasks();
-      setState((s) => ({ ...s, myTasks: data }));
-    } catch {
-      // 静默处理
-    }
-  }, [userRole]);
-
   /** 加载处理人列表 */
   const fetchHandlers = useCallback(async () => {
     try {
@@ -193,14 +177,12 @@ export function useOverview() {
   const refresh = useCallback(() => {
     fetchStats();
     fetchTasks();
-    fetchMyTasks();
     fetchWarningSummary();
-  }, [fetchStats, fetchTasks, fetchMyTasks, fetchWarningSummary]);
+  }, [fetchStats, fetchTasks, fetchWarningSummary]);
 
   /** 初始加载 */
   useEffect(() => {
     fetchStats();
-    fetchMyTasks();
     fetchHandlers();
     fetchWarningSummary();
   }, []);
