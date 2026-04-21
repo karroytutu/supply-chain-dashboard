@@ -30,8 +30,7 @@ export type RoleView = 'marketer' | 'supervisor' | 'finance' | 'cashier' | 'admi
  * @returns 催收业务角色
  */
 function getCollectionRole(roles: string[]): RoleView {
-  if (roles.includes(ROLES.ADMIN) || roles.includes(ROLES.MANAGER)) return 'admin';
-  if (roles.includes(ROLES.MARKETING_MANAGER)) return 'supervisor';
+  if (roles.includes(ROLES.ADMIN) || roles.includes(ROLES.MANAGER) || roles.includes(ROLES.MARKETING_MANAGER) || roles.includes(ROLES.MARKETING_SUPERVISOR)) return 'admin';
   if (roles.includes(ROLES.CURRENT_ACCOUNTANT) || roles.includes(ROLES.FINANCE_STAFF)) return 'finance';
   if (roles.includes(ROLES.CASHIER)) return 'cashier';
   if (roles.includes(ROLES.MARKETER)) return 'marketer';
@@ -59,7 +58,7 @@ interface OverviewState {
 
 export function useOverview() {
   const { hasAnyRole, roles } = usePermission();
-  const isAdmin = hasAnyRole([ROLES.ADMIN, ROLES.MANAGER]);
+  const isAdmin = hasAnyRole([ROLES.ADMIN, ROLES.MANAGER, ROLES.MARKETING_MANAGER, ROLES.MARKETING_SUPERVISOR]);
 
   // 获取用户真实角色并映射到催收业务角色
   const userRole = getCollectionRole(roles);

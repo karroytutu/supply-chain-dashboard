@@ -15,13 +15,6 @@ function buildStatsRoleFilter(role: string, userId: number, paramIndex: number):
         params: [userId],
         nextIndex: paramIndex + 1,
       };
-    case 'marketing_manager':
-    case 'marketing_supervisor':
-      return {
-        sql: `(status = 'escalated' AND escalation_level = 1)`,
-        params: [],
-        nextIndex: paramIndex,
-      };
     case 'current_accountant':
     case 'finance_staff':
       return {
@@ -36,7 +29,7 @@ function buildStatsRoleFilter(role: string, userId: number, paramIndex: number):
         nextIndex: paramIndex,
       };
     default:
-      // admin / manager: 全部
+      // admin / manager / marketing_manager / marketing_supervisor: 全部
       return { sql: '1=1', params: [], nextIndex: paramIndex };
   }
 }
@@ -123,7 +116,7 @@ export async function getMyTasks(userId: number, role: string) {
     if (role === 'marketer') {
       return await getMarketerTasks(userId);
     } else if (role === 'marketing_manager' || role === 'marketing_supervisor') {
-      return await getSupervisorTasks(userId);
+      return await getAdminTasks();
     } else if (role === 'current_accountant' || role === 'finance_staff') {
       return await getFinanceTasks(userId);
     } else if (role === 'cashier') {
@@ -158,27 +151,6 @@ async function getMarketerTasks(userId: number) {
       { key: 'collecting', label: '催收中', count: parseInt(r.collecting) || 0, amount: parseFloat(r.collecting_amount) || 0, urgent: false },
       { key: 'extension', label: '延期中', count: parseInt(r.extension) || 0, amount: parseFloat(r.extension_amount) || 0, urgent: false },
       { key: 'overdue_follow', label: '超时未跟进', count: parseInt(r.overdue_follow) || 0, amount: parseFloat(r.overdue_follow_amount) || 0, urgent: true },
-    ],
-  };
-}
-
-/** 营销主管待办 */
-async function getSupervisorTasks(userId: number) {
-  const result = await query(
-    `SELECT
-      COUNT(CASE WHEN status = 'escalated' AND escalation_level = 1 THEN 1 END) AS pending_escalated,
-      COALESCE(SUM(CASE WHEN status = 'escalated' AND escalation_level = 1 THEN total_amount END), 0) AS pending_escalated_amount,
-      COUNT(CASE WHEN status = 'escalated' AND escalation_level = 1 AND extension_until::date = CURRENT_DATE THEN 1 END) AS today_due,
-      COUNT(CASE WHEN status = 'escalated' AND escalation_level = 1 AND last_collection_at < NOW() - INTERVAL '7 days' THEN 1 END) AS overdue_follow
-    FROM ar_collection_tasks`
-  );
-  const r = result.rows[0];
-  return {
-    role: 'marketing_manager',
-    categories: [
-      { key: 'pending_escalated', label: '待处理升级', count: parseInt(r.pending_escalated) || 0, amount: parseFloat(r.pending_escalated_amount) || 0, urgent: true },
-      { key: 'today_due', label: '今日到期', count: parseInt(r.today_due) || 0, amount: 0, urgent: false },
-      { key: 'overdue_follow', label: '超时未跟进', count: parseInt(r.overdue_follow) || 0, amount: 0, urgent: false },
     ],
   };
 }

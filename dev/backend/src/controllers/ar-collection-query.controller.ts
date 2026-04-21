@@ -179,7 +179,7 @@ export const getWarnings = async (req: Request, res: Response) => {
 
     // 非管理员只能查看自己负责的预警
     const role = req.user!.roles?.[0] || 'viewer';
-    if (role !== 'admin' && role !== 'manager') {
+    if (role !== 'admin' && role !== 'manager' && role !== 'marketing_manager' && role !== 'marketing_supervisor') {
       params.managerUserId = userId;
     }
 
@@ -204,7 +204,7 @@ export const getReminders = async (req: Request, res: Response) => {
 
     // 非管理员只能查看自己的提醒记录
     const role = req.user!.roles?.[0] || 'viewer';
-    if (role !== 'admin' && role !== 'manager') {
+    if (role !== 'admin' && role !== 'manager' && role !== 'marketing_manager' && role !== 'marketing_supervisor') {
       params.managerUserId = userId;
     }
 

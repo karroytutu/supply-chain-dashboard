@@ -34,7 +34,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
     hasAnyRole([ROLES.MARKETER, ROLES.OPERATOR]) &&
     ['collecting', 'extension', 'difference_processing'].includes(status);
 
-  /** 营销主管视角(含旧角色 marketing_supervisor): 已升级 + level=1 */
+  /** 营销主管视角(含旧角色 marketing_supervisor): 已升级 + level=1 时显示升级至财务按钮 */
   const isSupervisorView =
     hasAnyRole([ROLES.MARKETING_MANAGER, ROLES.MARKETING_SUPERVISOR]) &&
     status === 'escalated' &&
@@ -48,8 +48,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
   /** 出纳视角: 待核销 */
   const isCashierView = hasRole(ROLES.CASHIER) && status === 'pending_verify';
 
-  /** 管理员可见所有按钮 */
-  const isAdmin = hasRole(ROLES.ADMIN);
+  /** 管理员/营销主管可见所有按钮 */
+  const isAdmin = hasAnyRole([ROLES.ADMIN, ROLES.MARKETING_MANAGER, ROLES.MARKETING_SUPERVISOR]);
 
   const renderCollectorButtons = () => (
     <div className="action-bar">
@@ -130,11 +130,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
   // 按优先级渲染对应角色按钮
   if (isCashierView) return renderCashierButtons();
   if (isFinanceView) return renderFinanceButtons();
-  if (isSupervisorView) return renderSupervisorButtons();
   if (isCollectorView) return renderCollectorButtons();
 
-  // 管理员使用营销师按钮组作为默认
+  // 管理员/营销主管使用营销师按钮组作为默认，escalated level=1 时使用升级至财务按钮组
   if (isAdmin && !['verified', 'closed'].includes(status)) {
+    if (isSupervisorView) return renderSupervisorButtons();
     return renderCollectorButtons();
   }
 

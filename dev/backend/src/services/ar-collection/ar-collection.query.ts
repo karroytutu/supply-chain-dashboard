@@ -27,13 +27,6 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
         params: [userId],
         nextIndex: paramIndex + 1,
       };
-    case 'marketing_manager':
-    case 'marketing_supervisor': // 兼容旧角色编码
-      return {
-        sql: `(t.status = 'escalated' AND t.escalation_level = 1)`,
-        params: [],
-        nextIndex: paramIndex,
-      };
     case 'current_accountant':
     case 'finance_staff': // 兼容旧角色编码
       return {
@@ -48,7 +41,7 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
         nextIndex: paramIndex,
       };
     default:
-      // admin / manager / operations_manager: 全部
+      // admin / manager / operations_manager / marketing_manager / marketing_supervisor: 全部
       return { sql: '1=1', params: [], nextIndex: paramIndex };
   }
 }
@@ -171,9 +164,6 @@ function checkTaskAccess(task: any, userId: number, role: string): boolean {
   switch (role) {
     case 'marketer':
       return task.manager_user_id === userId;
-    case 'marketing_manager':
-    case 'marketing_supervisor':
-      return task.status === 'escalated' && task.escalation_level === 1;
     case 'current_accountant':
     case 'finance_staff':
       return task.status === 'difference_processing' || (task.status === 'escalated' && task.escalation_level === 2);
