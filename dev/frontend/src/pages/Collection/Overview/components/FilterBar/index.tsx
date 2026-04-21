@@ -10,7 +10,7 @@ import type { Dayjs } from 'dayjs';
 import type { Handler } from './types';
 import type { StatusTab } from '../../hooks/useOverview';
 import SearchRow from './SearchRow';
-import { MobileFilters, MobileFilterButton, getStatusText } from './MobileFilters';
+import { MobileFilters, MobileFilterButton } from './MobileFilters';
 import styles from './index.less';
 
 interface FilterBarProps {
@@ -48,11 +48,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
   // 移动端筛选抽屉状态
   const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
 
-  // 判断是否有筛选条件（包含状态筛选）
-  const hasFilters = Boolean(searchKeyword || selectedHandlerId || dateRange || statusTab !== 'all');
-
-  // 获取当前状态显示文本
-  const activeStatusText = getStatusText(statusTab);
+  // 判断是否有筛选条件（状态筛选已前置到页面 Tab，不计入）
+  const hasFilters = Boolean(searchKeyword || selectedHandlerId || dateRange);
 
   // 移动端渲染
   if (isMobile) {
@@ -69,23 +66,18 @@ const FilterBar: React.FC<FilterBarProps> = ({
         />
         <MobileFilterButton
           hasFilters={hasFilters}
-          activeStatusText={activeStatusText}
           onClick={() => setMobileDrawerVisible(true)}
         />
         <MobileFilters
           visible={mobileDrawerVisible}
-          searchKeyword={searchKeyword}
           handlers={handlers}
           selectedHandlerId={selectedHandlerId}
           dateRange={dateRange}
-          statusTab={statusTab}
           isAdmin={isAdmin}
           onClose={() => setMobileDrawerVisible(false)}
           onApply={() => setMobileDrawerVisible(false)}
-          onSearchChange={onSearch}
           onHandlerChange={onHandlerChange}
           onDateRangeChange={onDateRangeChange}
-          onStatusTabChange={onStatusTabChange}
           onClearAll={onClearAll}
         />
       </div>

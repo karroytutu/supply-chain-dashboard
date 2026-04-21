@@ -1,20 +1,20 @@
 /**
  * 移动端筛选组件
- * Drawer：状态筛选 + 搜索框 + 处理人 + 日期范围
+ * Drawer：日期范围 + 处理人（高级筛选）
+ * 状态筛选和关键词搜索已前置到页面层级
  */
 import React, { useState, useEffect } from 'react';
-import { Input, DatePicker, Button, Drawer, Select, Space, Tag } from 'antd';
+import { DatePicker, Button, Drawer, Select, message } from 'antd';
 import {
   SearchOutlined,
   FilterOutlined,
   CloseOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import type { Handler } from './types';
 import type { StatusTab } from '../../hooks/useOverview';
 import styles from './index.less';
-
-const { RangePicker } = DatePicker;
 
 /** 状态选项配置（与 CollectionTable STATUS_TABS 保持一致） */
 const STATUS_OPTIONS: Array<{ value: StatusTab; label: string; color: string }> = [
@@ -29,77 +29,68 @@ const STATUS_OPTIONS: Array<{ value: StatusTab; label: string; color: string }> 
 
 interface MobileFiltersProps {
   visible: boolean;
-  searchKeyword: string;
   handlers: Handler[];
   selectedHandlerId: number | null;
   dateRange: [Dayjs | null, Dayjs | null] | null;
-  statusTab: StatusTab;
   isAdmin: boolean;
   onClose: () => void;
   onApply: () => void;
-  onSearchChange: (keyword: string) => void;
   onHandlerChange: (handlerId: number | null) => void;
   onDateRangeChange: (range: [Dayjs | null, Dayjs | null] | null) => void;
-  onStatusTabChange: (tab: StatusTab) => void;
   onClearAll: () => void;
 }
 
 const MobileFilters: React.FC<MobileFiltersProps> = ({
   visible,
-  searchKeyword,
   handlers,
   selectedHandlerId,
   dateRange,
-  statusTab,
   isAdmin,
   onClose,
   onApply,
-  onSearchChange,
   onHandlerChange,
   onDateRangeChange,
-  onStatusTabChange,
   onClearAll,
 }) => {
   // 本地临时状态
-  const [localKeyword, setLocalKeyword] = useState(searchKeyword);
   const [localHandlerId, setLocalHandlerId] = useState(selectedHandlerId);
   const [localDateRange, setLocalDateRange] = useState(dateRange);
-  const [localStatusTab, setLocalStatusTab] = useState(statusTab);
 
   // 同步外部状态到本地
   useEffect(() => {
     if (visible) {
-      setLocalKeyword(searchKeyword);
       setLocalHandlerId(selectedHandlerId);
       setLocalDateRange(dateRange);
-      setLocalStatusTab(statusTab);
     }
-  }, [visible, searchKeyword, selectedHandlerId, dateRange, statusTab]);
+  }, [visible, selectedHandlerId, dateRange]);
 
   // 应用筛选
   const handleApply = () => {
-    onSearchChange(localKeyword);
+    // 日期合法性校验
+    if (localDateRange?.[0] && localDateRange?.[1]) {
+      if (dayjs(localDateRange[0]).isAfter(localDateRange[1], 'day')) {
+        message.warning('开始日期不能晚于结束日期');
+        return;
+      }
+    }
     onHandlerChange(localHandlerId);
     onDateRangeChange(localDateRange);
-    onStatusTabChange(localStatusTab);
     onApply();
   };
 
   // 清除筛选
   const handleClear = () => {
-    setLocalKeyword('');
     setLocalHandlerId(null);
     setLocalDateRange(null);
-    setLocalStatusTab('all');
     onClearAll();
   };
 
   // 是否有筛选条件
-  const hasFilters = localKeyword || localHandlerId || localDateRange || localStatusTab !== 'all';
+  const hasFilters = Boolean(localHandlerId || localDateRange);
 
   return (
     <Drawer
-      title="筛选条件"
+      title="高级筛选"
       placement="right"
       open={visible}
       onClose={onClose}
@@ -119,33 +110,23 @@ const MobileFilters: React.FC<MobileFiltersProps> = ({
         </div>
       }
     >
-      {/* 状态筛选 */}
+      {/* 日期范围 */}
       <div className={styles.mobileFilterItem}>
-        <div className={styles.mobileFilterLabel}>状态筛选</div>
-        <div className={styles.mobileStatusTags}>
-          {STATUS_OPTIONS.map((option) => (
-            <Tag
-              key={option.value}
-              color={localStatusTab === option.value ? option.color : 'default'}
-              style={{ margin: '4px', cursor: 'pointer' }}
-              onClick={() => setLocalStatusTab(option.value)}
-            >
-              {option.label}
-            </Tag>
-          ))}
+        <div className={styles.mobileFilterLabel}>创建日期</div>
+        <div className={styles.mobileDatePickers}>
+          <DatePicker
+            value={localDateRange?.[0] || null}
+            onChange={(date) => setLocalDateRange((prev) => [date, prev?.[1] || null])}
+            style={{ width: '100%' }}
+            placeholder="选择开始日期"
+          />
+          <DatePicker
+            value={localDateRange?.[1] || null}
+            onChange={(date) => setLocalDateRange((prev) => [prev?.[0] || null, date])}
+            style={{ width: '100%' }}
+            placeholder="选择结束日期"
+          />
         </div>
-      </div>
-
-      {/* 搜索框 */}
-      <div className={styles.mobileFilterItem}>
-        <div className={styles.mobileFilterLabel}>关键词</div>
-        <Input
-          placeholder="搜索客户名称/任务编号..."
-          value={localKeyword}
-          onChange={(e) => setLocalKeyword(e.target.value)}
-          prefix={<SearchOutlined />}
-          allowClear
-        />
       </div>
 
       {/* 处理人（仅管理员可见） */}
@@ -166,17 +147,6 @@ const MobileFilters: React.FC<MobileFiltersProps> = ({
           />
         </div>
       )}
-
-      {/* 日期范围 */}
-      <div className={styles.mobileFilterItem}>
-        <div className={styles.mobileFilterLabel}>创建日期</div>
-        <RangePicker
-          value={localDateRange}
-          onChange={(dates) => setLocalDateRange(dates)}
-          style={{ width: '100%' }}
-          placeholder={['开始日期', '结束日期']}
-        />
-      </div>
     </Drawer>
   );
 };
@@ -184,13 +154,11 @@ const MobileFilters: React.FC<MobileFiltersProps> = ({
 // 移动端筛选按钮组件
 interface MobileFilterButtonProps {
   hasFilters: boolean;
-  activeStatusText?: string;
   onClick: () => void;
 }
 
 const MobileFilterButton: React.FC<MobileFilterButtonProps> = ({
   hasFilters,
-  activeStatusText,
   onClick,
 }) => (
   <Button
@@ -198,14 +166,7 @@ const MobileFilterButton: React.FC<MobileFilterButtonProps> = ({
     onClick={onClick}
     className={hasFilters ? styles.filterButtonActive : undefined}
   >
-    <Space size={4}>
-      筛选
-      {activeStatusText && (
-        <Tag color="blue" style={{ margin: 0, lineHeight: '18px' }}>
-          {activeStatusText}
-        </Tag>
-      )}
-    </Space>
+    筛选
   </Button>
 );
 
