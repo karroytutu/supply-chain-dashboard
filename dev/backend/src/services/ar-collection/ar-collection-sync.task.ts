@@ -1,14 +1,16 @@
 /**
- * 催收数据同步与任务生成定时任务
+ * 催收数据同步定时任务
  * - syncERPDebts: 每日06:00从ERP同步欠款数据
- * - generateCollectionTasks: 每日20:00生成催收任务
+ * - generateCollectionTasks: 每日20:00生成催收任务（已提取到 ar-collection-task-generator.ts）
  * - checkExtensionExpiry: 每2小时检查延期到期
  */
 
 import { query } from '../../db/pool';
 import { appQuery, getAppClient } from '../../db/appPool';
-import type { Priority, BatchType, TaskStatus } from './ar-collection.types';
-import { sendTaskCreatedNotifications } from './ar-collection-notify-task';
+import type { TaskStatus } from './ar-collection.types';
+
+// 从独立模块导出任务生成函数
+export { generateCollectionTasks } from './ar-collection-task-generator';
 
 /** ERP欠款记录 */
 interface ERPDebtRecord {
@@ -109,175 +111,7 @@ export async function syncERPDebts(): Promise<void> {
 }
 
 // ============================================
-// 2. generateCollectionTasks - 生成催收任务
-// ============================================
-
-export async function generateCollectionTasks(): Promise<void> {
-  console.log('[ARSync] 开始生成催收任务...');
-
-  try {
-    // 1. 查询ERP中所有已逾期且未生成任务的欠款
-    const erpSql = `SELECT "billId", "bizOrderStr", "consumerName", "managerUsers",
-      "totalAmount", "leftAmount", "settleMethod",
-      "consumerExpireDay", "billTypeName", "workTime"
-      FROM "客户欠款明细"
-      WHERE "leftAmount"::numeric > 0`;
-    const erpResult = await query<ERPDebtRecord>(erpSql, []);
-
-    // 2. 筛选出逾期且未生成任务的记录
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
-    const overdueDebts: (ERPDebtRecord & { overdueDays: number })[] = [];
-
-    for (const debt of erpResult.rows) {
-      const workDate = new Date(debt.workTime);
-      const ageDays = Math.floor((now.getTime() - workDate.getTime()) / 86400000);
-      // 注意: PostgreSQL numeric 类型返回字符串，需要转换为数字比较
-      const maxDays = Number(debt.settleMethod) === 2 ? (Number(debt.consumerExpireDay) || 0) : 7;
-      if (ageDays <= maxDays) continue;
-
-      // 幂等检查: 是否已存在该billId的催收明细
-      const existsResult = await appQuery(
-        `SELECT 1 FROM ar_collection_details WHERE erp_bill_id = $1 LIMIT 1`,
-        [debt.billId]
-      );
-      if (existsResult.rows.length > 0) continue;
-
-      overdueDebts.push({ ...debt, overdueDays: ageDays - maxDays });
-    }
-
-    if (overdueDebts.length === 0) {
-      console.log('[ARSync] 无新增逾期欠款');
-      return;
-    }
-    console.log(`[ARSync] 发现 ${overdueDebts.length} 条新增逾期欠款`);
-
-    // 3. 按客户+逾期触发日期分组
-    // 逾期触发日期 = 单据日期 + 账期天数
-    const groups = new Map<string, (ERPDebtRecord & { overdueDays: number })[]>();
-    for (const debt of overdueDebts) {
-      // 计算逾期触发日期
-      const workDate = new Date(debt.workTime);
-      const maxDays = Number(debt.settleMethod) === 2 ? (Number(debt.consumerExpireDay) || 0) : 7;
-      const overdueDate = new Date(workDate.getTime() + maxDays * 86400000);
-      const overdueDateStr = overdueDate.toISOString().slice(0, 10);
-
-      const key = `${debt.consumerName}||${overdueDateStr}`;  // 按逾期日期分组
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(debt);
-    }
-
-    // 4. 获取今日已有任务序号
-    const seqResult = await appQuery<{ max_seq: string }>(
-      `SELECT task_no AS max_seq FROM ar_collection_tasks
-       WHERE task_no LIKE $1 ORDER BY task_no DESC LIMIT 1`,
-      [`AR${todayStr.replace(/-/g, '')}%`]
-    );
-    let seqNum = 0;
-    if (seqResult.rows.length > 0) {
-      const lastNo = seqResult.rows[0].max_seq;
-      seqNum = parseInt(lastNo.slice(-3), 10) || 0;
-    }
-
-    // 5. 为每组生成任务
-    const client = await getAppClient();
-    // 收集任务ID和责任人映射，用于发送通知
-    const taskIdMap = new Map<string, { taskId: number; managerUserId: number | null }>();
-    try {
-      await client.query('BEGIN');
-
-      for (const [key, debts] of groups) {
-        const [consumerName, batchDate] = key.split('||');
-        seqNum++;
-        const taskNo = `AR${todayStr.replace(/-/g, '')}${String(seqNum).padStart(3, '0')}`;
-
-        const totalAmount = debts.reduce((s, d) => s + Number(d.leftAmount), 0);
-        const maxOverdue = Math.max(...debts.map((d) => d.overdueDays));
-        const priority = calcPriority(maxOverdue);
-        // 首次同步已完成，后续任务均为日常批次
-        const batchType: BatchType = 'daily';
-        // batchDate 现在是逾期触发日期，分组内所有欠款的逾期日期相同
-        const firstOverdueDate = batchDate;
-
-        // 匹配责任人(取第一条的managerUsers)
-        const managerName = debts[0].managerUsers || null;
-        let managerUserId: number | null = null;
-        if (managerName) {
-          const userResult = await client.query(
-            `SELECT id FROM users WHERE name = $1 LIMIT 1`,
-            [managerName]
-          );
-          if (userResult.rows.length > 0) managerUserId = userResult.rows[0].id;
-        }
-
-        // 插入任务
-        const taskResult = await client.query(
-          `INSERT INTO ar_collection_tasks
-            (task_no, consumer_code, consumer_name, manager_user_id, manager_user_name,
-             total_amount, bill_count, status, batch_type, batch_date, priority,
-             first_overdue_date, max_overdue_days, current_handler_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'collecting', $8, $9, $10, $11, $12, $4)
-           RETURNING id`,
-          [taskNo, consumerName, consumerName, managerUserId, managerName,
-           totalAmount, debts.length, batchType, batchDate, priority,
-           firstOverdueDate, maxOverdue]
-        );
-        const taskId = taskResult.rows[0].id;
-
-        // 收集任务信息用于通知
-        taskIdMap.set(consumerName, { taskId, managerUserId });
-
-        // 插入明细
-        for (const debt of debts) {
-          const workDate = new Date(debt.workTime);
-          const ageDays = Math.floor((now.getTime() - workDate.getTime()) / 86400000);
-          // 注意: PostgreSQL numeric 类型返回字符串，需要转换为数字比较
-          const maxDays = Number(debt.settleMethod) === 2 ? (Number(debt.consumerExpireDay) || 0) : 7;
-          const expireDate = new Date(workDate.getTime() + maxDays * 86400000);
-
-          await client.query(
-            `INSERT INTO ar_collection_details
-              (task_id, erp_bill_id, bill_no, bill_type_name, total_amount, left_amount,
-               bill_order_time, expire_time, overdue_days, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')`,
-            [taskId, debt.billId, debt.bizOrderStr || debt.billId, debt.billTypeName, debt.totalAmount,
-             debt.leftAmount, debt.workTime, expireDate.toISOString(), ageDays - maxDays]
-          );
-        }
-
-        // 记录操作日志
-        await client.query(
-          `INSERT INTO ar_collection_actions
-            (task_id, action_type, action_result, remark, operator_name)
-           VALUES ($1, 'collect', 'success', $2, '系统')`,
-          [taskId, `系统自动生成催收任务，批次类型=${batchType}，包含${debts.length}笔欠款`]
-        );
-      }
-
-      await client.query('COMMIT');
-      console.log(`[ARSync] 成功生成 ${groups.size} 个催收任务`);
-
-      // 发送任务创建通知
-      try {
-        await sendTaskCreatedNotifications(Array.from(taskIdMap.entries()));
-      } catch (notifyErr) {
-        console.error('[ARSync] 发送任务创建通知失败:', notifyErr);
-        // 不抛出异常，避免影响主流程
-      }
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
-    }
-  } catch (error) {
-    console.error('[ARSync] 催收任务生成失败:', error);
-    throw error;
-  }
-}
-
-// ============================================
-// 3. checkExtensionExpiry - 检查延期到期
+// 2. checkExtensionExpiry - 检查延期到期
 // ============================================
 
 export async function checkExtensionExpiry(): Promise<void> {
@@ -342,7 +176,7 @@ export async function checkExtensionExpiry(): Promise<void> {
 }
 
 // ============================================
-// 4. handleRemovedDebt - 处理ERP中消失的欠款
+// 3. handleRemovedDebt - 处理ERP中消失的欠款
 // ============================================
 
 async function handleRemovedDebt(detail: LocalDetail): Promise<void> {
@@ -385,16 +219,4 @@ async function handleRemovedDebt(detail: LocalDetail): Promise<void> {
     );
     console.log(`[ARSync] 自动关闭任务 #${task.id}(${task.consumer_name})，原状态=${task.status}`);
   }
-}
-
-// ============================================
-// 辅助函数
-// ============================================
-
-/** 根据逾期天数计算优先级 */
-function calcPriority(overdueDays: number): Priority {
-  if (overdueDays >= 30) return 'critical';
-  if (overdueDays >= 15) return 'high';
-  if (overdueDays >= 7) return 'medium';
-  return 'low';
 }

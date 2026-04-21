@@ -2,6 +2,18 @@
  * 催收管理 - 工具函数
  */
 
+import type { Priority } from './ar-collection.types';
+
+/**
+ * 根据逾期天数计算优先级
+ */
+export function calcPriority(overdueDays: number): Priority {
+  if (overdueDays >= 30) return 'critical';
+  if (overdueDays >= 15) return 'high';
+  if (overdueDays >= 7) return 'medium';
+  return 'low';
+}
+
 /**
  * 将蛇形命名转换为驼峰命名
  */
