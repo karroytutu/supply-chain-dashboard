@@ -20,7 +20,7 @@ import TaskCard from './TaskCard';
 import useMedia from '../hooks/useMedia';
 import { usePermission } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/constants/permissions';
-import type { CollectionTask, CollectionTaskStatus } from '@/types/ar-collection';
+import type { CollectionTask, CollectionTaskStatus, CollectionStats } from '@/types/ar-collection';
 import type { StatusTab, RoleView } from '../hooks/useOverview';
 
 interface CollectionTableProps {
@@ -31,6 +31,7 @@ interface CollectionTableProps {
   pageSize: number;
   statusTab: StatusTab;
   userRole: RoleView;
+  stats: CollectionStats | null;
   selectedRowKeys?: number[];
   onStatusTabChange: (tab: StatusTab) => void;
   onPageChange: (page: number) => void;
@@ -41,7 +42,6 @@ interface CollectionTableProps {
 
 /** 状态 Tab 配置 */
 const STATUS_TABS: Array<{ key: StatusTab; label: string }> = [
-  { key: 'all', label: '全部' },
   { key: 'collecting', label: '催收中' },
   { key: 'extension', label: '延期中' },
   { key: 'difference_processing', label: '差异' },
@@ -58,6 +58,7 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
   pageSize,
   statusTab,
   userRole,
+  stats,
   selectedRowKeys = [],
   onStatusTabChange,
   onPageChange,
@@ -305,6 +306,13 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
     </div>
   );
 
+  /** 获取 Tab 对应状态的数据条数 */
+  const getTabCount = (status: string): number => {
+    const dist = stats?.statusDistribution ?? [];
+    const item = dist.find((d) => d.status === status);
+    return item?.count ?? 0;
+  };
+
   return (
     <div className="table-section">
       <div className="table-tabs">
@@ -315,6 +323,7 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
             onClick={() => onStatusTabChange(tab.key)}
           >
             {tab.label}
+            <span className="tab-count">({getTabCount(tab.key)})</span>
           </span>
         ))}
       </div>

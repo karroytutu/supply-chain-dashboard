@@ -39,7 +39,7 @@ function getCollectionRole(roles: string[]): RoleView {
 }
 
 /** Tab 状态 */
-export type StatusTab = 'all' | CollectionTaskStatus;
+export type StatusTab = CollectionTaskStatus;
 
 interface OverviewState {
   stats: CollectionStats | null;
@@ -53,7 +53,6 @@ interface OverviewState {
   pageSize: number;
   statusTab: StatusTab;
   searchKeyword: string;
-  metricFilter: string | null;
   handlerId: number | null;
   dateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null;
   selectedRowKeys: number[];
@@ -77,9 +76,8 @@ export function useOverview() {
     total: 0,
     page: 1,
     pageSize: 10,
-    statusTab: 'all',
+    statusTab: 'collecting',
     searchKeyword: '',
-    metricFilter: null,
     handlerId: null,
     dateRange: null,
     selectedRowKeys: [],
@@ -100,9 +98,7 @@ export function useOverview() {
       page: state.page,
       pageSize: state.pageSize,
     };
-    if (state.statusTab !== 'all') {
-      params.status = state.statusTab as CollectionTaskStatus;
-    }
+    params.status = state.statusTab;
     if (state.searchKeyword) {
       params.keyword = state.searchKeyword;
     }
@@ -199,21 +195,12 @@ export function useOverview() {
 
   /** 切换状态 Tab */
   const setStatusTab = useCallback((tab: StatusTab) => {
-    setState((s) => ({ ...s, statusTab: tab, page: 1, metricFilter: null }));
+    setState((s) => ({ ...s, statusTab: tab, page: 1 }));
   }, []);
 
   /** 设置搜索关键词 */
   const setSearchKeyword = useCallback((keyword: string) => {
     setState((s) => ({ ...s, searchKeyword: keyword, page: 1 }));
-  }, []);
-
-  /** 设置指标卡筛选 */
-  const setMetricFilter = useCallback((metric: string | null) => {
-    setState((s) => ({
-      ...s,
-      metricFilter: s.metricFilter === metric ? null : metric,
-      page: 1,
-    }));
   }, []);
 
   /** 设置分页 */
@@ -252,40 +239,17 @@ export function useOverview() {
       searchKeyword: '',
       handlerId: null,
       dateRange: null,
-      metricFilter: null,
       page: 1,
     }));
   }, []);
 
-  /** 过滤后的任务（前端筛选 - 仅指标卡筛选） */
-  const filteredTasks = useMemo(() => {
-    let list = state.tasks;
-    if (state.metricFilter) {
-      if (state.metricFilter === 'collecting') {
-        list = list.filter((t) => t.status === 'collecting');
-      } else if (state.metricFilter === 'waiting') {
-        list = list.filter((t) =>
-          ['difference_processing', 'extension', 'escalated'].includes(t.status),
-        );
-      } else if (state.metricFilter === 'attention') {
-        list = list.filter((t) => t.status === 'pending_verify' || t.maxOverdueDays >= 30);
-      } else if (state.metricFilter === 'collected') {
-        list = list.filter((t) => t.status === 'verified' || t.status === 'closed');
-      }
-    }
-    return list;
-  }, [state.tasks, state.metricFilter]);
-
   return {
     ...state,
-    tasks: filteredTasks,
-    allTasks: state.tasks,
     isAdmin,
-    userRole,  // 用户真实角色（映射后的催收业务角色）
+    userRole,
     refresh,
     setStatusTab,
     setSearchKeyword,
-    setMetricFilter,
     setPage,
     setPageSize,
     setHandlerId,

@@ -12,7 +12,6 @@ import useMedia from './hooks/useMedia';
 import WarningPanel from './components/WarningPanel';
 import WarningDetailModal from './components/WarningDetailModal';
 import FilterBar from './components/FilterBar';
-import CollectionStats from './components/CollectionStats';
 import StatusDistribution from './components/StatusDistribution';
 import CollectionTable from './components/CollectionTable';
 import BatchActionBar from './components/BatchActionBar';
@@ -145,19 +144,11 @@ const CollectionOverview: React.FC = () => {
           isAdmin={overview.isAdmin}
         />
 
-        {/* 指标卡 */}
-        <CollectionStats
-          stats={overview.stats}
-          loading={overview.statsLoading}
-          activeMetric={overview.metricFilter}
-          onMetricClick={overview.setMetricFilter}
-        />
-
         {/* 状态分布图 + 任务列表 */}
         <div className="main-content">
           <StatusDistribution
             stats={overview.stats}
-            highlightedStatus={overview.statusTab !== 'all' ? overview.statusTab : null}
+            highlightedStatus={overview.statusTab}
             onStatusClick={handleStatusChartClick}
             onRefresh={overview.refresh}
           />
@@ -178,6 +169,7 @@ const CollectionOverview: React.FC = () => {
               pageSize={overview.pageSize}
               statusTab={overview.statusTab}
               userRole={overview.userRole}
+              stats={overview.stats}
               selectedRowKeys={overview.selectedRowKeys}
               onStatusTabChange={overview.setStatusTab}
               onPageChange={overview.setPage}

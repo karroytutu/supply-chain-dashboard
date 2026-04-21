@@ -18,7 +18,6 @@ import styles from './index.less';
 
 /** 状态选项配置（与 CollectionTable STATUS_TABS 保持一致） */
 const STATUS_OPTIONS: Array<{ value: StatusTab; label: string; color: string }> = [
-  { value: 'all', label: '全部', color: '#8c8c8c' },
   { value: 'collecting', label: '催收中', color: '#1890ff' },
   { value: 'extension', label: '延期中', color: '#722ed1' },
   { value: 'difference_processing', label: '差异', color: '#13c2c2' },
@@ -172,7 +171,6 @@ const MobileFilterButton: React.FC<MobileFilterButtonProps> = ({
 
 /** 获取状态显示文本 */
 const getStatusText = (statusTab: StatusTab): string | undefined => {
-  if (statusTab === 'all') return undefined;
   const option = STATUS_OPTIONS.find((opt) => opt.value === statusTab);
   return option?.label;
 };
