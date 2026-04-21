@@ -9,11 +9,12 @@ import type { UpcomingWarning } from '@/types/ar-collection';
 
 interface WarningItemCardProps {
   item: UpcomingWarning;
+  isMobile?: boolean;
 }
 
 const { Text } = Typography;
 
-const WarningItemCard: React.FC<WarningItemCardProps> = ({ item }) => {
+const WarningItemCard: React.FC<WarningItemCardProps> = ({ item, isMobile }) => {
   const formatAmount = (amount: number | undefined | null) => {
     const safeAmount = amount ?? 0;
     if (!safeAmount) return '¥0';
@@ -24,8 +25,9 @@ const WarningItemCard: React.FC<WarningItemCardProps> = ({ item }) => {
     <Card
       size="small"
       bordered
-      style={{ borderLeft: '3px solid #faad14', marginBottom: 8 }}
-      bodyStyle={{ padding: 12 }}
+      className={isMobile ? 'warning-item-card--mobile' : undefined}
+      style={{ borderLeft: '3px solid #faad14', marginBottom: isMobile ? 6 : 8 }}
+      bodyStyle={{ padding: isMobile ? 8 : 12 }}
     >
       <Space style={{ width: '100%', justifyContent: 'space-between' }}>
         <Text code copyable={{ text: item.billNo }}>
@@ -36,7 +38,7 @@ const WarningItemCard: React.FC<WarningItemCardProps> = ({ item }) => {
         </Tag>
       </Space>
 
-      <Text strong ellipsis style={{ display: 'block', marginTop: 8, marginBottom: 8 }}>
+      <Text strong ellipsis style={{ display: 'block', marginTop: isMobile ? 4 : 8, marginBottom: isMobile ? 4 : 8 }}>
         {item.consumerName}
       </Text>
 
@@ -50,7 +52,7 @@ const WarningItemCard: React.FC<WarningItemCardProps> = ({ item }) => {
         </Text>
       </Space>
 
-      <Space split={<Divider type="vertical" />} size={0} wrap style={{ marginTop: 4 }}>
+      <Space split={<Divider type="vertical" />} size={0} wrap style={{ marginTop: isMobile ? 2 : 4 }}>
         <Text type="secondary">到期: {item.expireDate}</Text>
         <Text type="danger">
           <ClockCircleOutlined /> 剩余{item.daysToExpire}天

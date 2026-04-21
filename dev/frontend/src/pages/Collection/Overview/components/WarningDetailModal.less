@@ -1,0 +1,59 @@
+/**
+ * 逾期前预警明细弹窗移动端样式
+ * 仅作用于移动端 Drawer 视图下的统计摘要和明细卡片
+ */
+@import '~@/styles/variables.less';
+
+.overdue-warning-drawer {
+  @media (max-width: @screen-md) {
+    :global {
+      .ant-drawer-body {
+        padding: 12px;
+
+        // 统计摘要区
+        .ant-statistic-title {
+          font-size: 11px;
+        }
+
+        .ant-statistic-content {
+          font-size: 16px;
+
+          .ant-statistic-content-value {
+            font-size: 16px;
+          }
+
+          .ant-statistic-content-suffix,
+          .ant-statistic-content-prefix {
+            font-size: 11px;
+          }
+        }
+
+        // Summary Card
+        .ant-card {
+          .ant-card-body {
+            padding: 10px 12px;
+          }
+        }
+
+        // 明细卡片
+        .warning-item-card--mobile {
+          .ant-card-body {
+            padding: 8px;
+          }
+
+          .ant-typography {
+            font-size: 12px;
+          }
+
+          .ant-typography-strong {
+            font-size: 13px;
+          }
+
+          .anticon {
+            font-size: 12px;
+          }
+        }
+      }
+    }
+  }
+}

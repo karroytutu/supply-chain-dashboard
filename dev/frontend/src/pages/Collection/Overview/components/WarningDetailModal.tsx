@@ -12,6 +12,7 @@ import { ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import type { UpcomingWarning, WarningLevel } from '@/types/ar-collection';
 import useMedia from '../hooks/useMedia';
 import WarningItemCard from './WarningItemCard';
+import styles from './WarningDetailModal.less';
 
 interface WarningDetailModalProps {
   visible: boolean;
@@ -133,8 +134,8 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
 
   // 统计摘要（桌面端与移动端统一）
   const renderSummary = () => (
-    <Card size="small" style={{ marginBottom: 16 }}>
-      <Row gutter={24}>
+    <Card size="small" style={{ marginBottom: isMobile ? 12 : 16 }}>
+      <Row gutter={isMobile ? [8, 8] : 24}>
         <Col>
           <Statistic title="预警数量" value={data.length} suffix="笔" />
         </Col>
@@ -160,7 +161,7 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
   // 渲染移动端内容
   const renderMobileContent = () => (
     <Spin spinning={loading}>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }}>
+      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }}>
         <Space>
           <WarningOutlined style={{ color: config.tagColor === 'orange' ? '#fa8c16' : '#faad14' }} />
           <Tag color={config.tagColor}>{config.levelText}</Tag>
@@ -168,7 +169,7 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
         </Space>
         <Tag color={config.tagColor}>{config.badge}</Tag>
       </Space>
-      <Divider style={{ margin: '0 0 12px 0' }} />
+      <Divider style={{ margin: '0 0 8px 0' }} />
 
       {renderSummary()}
 
@@ -176,7 +177,7 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
         dataSource={data}
         renderItem={(item) => (
           <List.Item style={{ padding: 0, border: 'none' }}>
-            <WarningItemCard item={item} />
+            <WarningItemCard item={item} isMobile={isMobile} />
           </List.Item>
         )}
         locale={{ emptyText: <Empty description="暂无预警数据" /> }}
@@ -214,6 +215,7 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
         open={visible}
         onClose={onClose}
         closable={false}
+        className={styles['overdue-warning-drawer']}
       >
         {renderMobileContent()}
       </Drawer>
