@@ -129,130 +129,13 @@
     }
   }
 
-  /* ========== 主内容区域：状态分布 + 任务列表 ========== */
+  /* ========== 主内容区域：任务列表 ========== */
   .main-content {
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 16px;
-    align-items: flex-start;
-
     .table-wrapper {
       display: flex;
       flex-direction: column;
       min-width: 0;
     }
-  }
-
-  /* ========== 状态分布图 ========== */
-  .chart-panel {
-    background: #fff;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    padding: 16px;
-
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-
-      h3 {
-        font-size: 14px;
-        margin: 0;
-        font-weight: 500;
-      }
-
-      .refresh-icon {
-        font-size: 14px;
-        color: #8c8c8c;
-        cursor: pointer;
-        transition: color 0.2s;
-
-        &:hover {
-          color: #1890ff;
-        }
-      }
-    }
-  }
-
-  .donut-chart {
-    width: 160px;
-    height: 160px;
-    margin: 0 auto 16px;
-    position: relative;
-
-    .donut-center {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-
-      .donut-total {
-        font-size: 22px;
-        font-weight: 700;
-        color: #262626;
-      }
-
-      .donut-label {
-        font-size: 12px;
-        color: #8c8c8c;
-      }
-    }
-  }
-
-  .chart-legend {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 4px;
-    transition: all 0.2s;
-
-    &:hover,
-    &.active {
-      background: #f5f5f5;
-    }
-
-    &.active {
-      font-weight: 500;
-    }
-
-    .legend-count {
-      margin-left: auto;
-      color: #262626;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .legend-percent {
-      color: #8c8c8c;
-      font-size: 11px;
-      min-width: 36px;
-      text-align: right;
-    }
-  }
-
-  .legend-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-
-  .chart-tip {
-    font-size: 11px;
-    color: #8c8c8c;
-    text-align: center;
-    margin-top: 12px;
   }
 
   /* ========== 表格区域 ========== */
@@ -775,21 +658,7 @@
 
   /* ========== 响应式适配 ========== */
 
-  /* 中等屏幕 */
-  @media (max-width: 1200px) {
-    .main-content {
-      grid-template-columns: 240px 1fr;
-    }
-  }
-
-  /* 平板 */
-  @media (max-width: 1024px) {
-    .main-content {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* 移动端 */
+  /* 平板 & 移动端 */
   @media (max-width: 768px) {
     padding: 12px 16px;
 
@@ -820,10 +689,6 @@
         padding: 5px 10px;
         font-size: 12px;
       }
-    }
-
-    .chart-panel {
-      display: none;
     }
 
     /* 移动端显示卡片列表，隐藏表格 */

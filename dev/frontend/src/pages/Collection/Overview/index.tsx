@@ -12,7 +12,6 @@ import useMedia from './hooks/useMedia';
 import WarningPanel from './components/WarningPanel';
 import WarningDetailModal from './components/WarningDetailModal';
 import FilterBar from './components/FilterBar';
-import StatusDistribution from './components/StatusDistribution';
 import CollectionTable from './components/CollectionTable';
 import BatchActionBar from './components/BatchActionBar';
 import VerifyModal from '../components/VerifyModal';
@@ -55,14 +54,6 @@ const CollectionOverview: React.FC = () => {
       setWarningDetailLoading(false);
     }
   }, [overview.handlerId]);
-
-  /** 状态分布图点击 */
-  const handleStatusChartClick = useCallback(
-    (status: string) => {
-      overview.setStatusTab(status as any);
-    },
-    [overview],
-  );
 
   /** 操作菜单处理 */
   const handleAction = useCallback((action: string, task: CollectionTask) => {
@@ -144,14 +135,8 @@ const CollectionOverview: React.FC = () => {
           isAdmin={overview.isAdmin}
         />
 
-        {/* 状态分布图 + 任务列表 */}
+        {/* 任务列表 */}
         <div className="main-content">
-          <StatusDistribution
-            stats={overview.stats}
-            highlightedStatus={overview.statusTab}
-            onStatusClick={handleStatusChartClick}
-            onRefresh={overview.refresh}
-          />
           <div className="table-wrapper">
             <BatchActionBar
               selectedCount={overview.selectedRowKeys.length}
