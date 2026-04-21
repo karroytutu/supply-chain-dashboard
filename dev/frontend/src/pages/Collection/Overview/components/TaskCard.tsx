@@ -106,7 +106,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {task.taskNo}
           </a>
         </div>
-        <StatusCell status={task.status} priority={task.priority} compact />
+        <StatusCell status={task.status} />
       </div>
 
       <div className="task-card-body">

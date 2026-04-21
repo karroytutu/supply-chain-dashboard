@@ -753,37 +753,3 @@
     }
   }
 }
-
-/* ========== StatusCell 状态单元格样式 ========== */
-.status-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-
-  &__indicator {
-    width: 3px;
-    height: 22px;
-    border-radius: 2px 0 0 2px;
-    flex-shrink: 0;
-  }
-
-  &__tag {
-    margin: 0;
-    border-radius: 0 4px 4px 0;
-    padding-left: 6px;
-  }
-
-  /* 紧凑模式（移动端） */
-  &--compact {
-    .status-cell__indicator {
-      width: 3px;
-      height: 20px;
-    }
-
-    .status-cell__tag {
-      font-size: 12px;
-      padding: 0 6px;
-      padding-left: 4px;
-    }
-  }
-}

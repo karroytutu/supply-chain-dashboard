@@ -1,14 +1,13 @@
 /**
  * 任务详情 - 简洁头部
- * 显示返回按钮、客户名称、金额、逾期天数、状态、优先级
+ * 显示返回按钮、客户名称、金额、逾期天数、状态
  * 移动端采用两行布局，PC端单行布局
  */
 import React from 'react';
-import { Button, Space } from 'antd';
+import { Button } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { history } from 'umi';
 import StatusTag from '../../components/StatusTag';
-import PriorityBadge from '../../components/PriorityBadge';
 import type { CollectionTask } from '@/types/ar-collection';
 
 interface TaskHeaderProps {
@@ -46,15 +45,12 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({ task }) => {
           <span className="separator">·</span>
           <span className="overdue-days">逾期{task.maxOverdueDays ?? 0}天</span>
         </div>
-        <Space className="header-tags">
-          <StatusTag
-            status={task.status}
-            escalationLevel={task.escalationLevel}
-            currentHandlerRole={task.currentHandlerRole}
-            showDetail
-          />
-          <PriorityBadge priority={task.priority} />
-        </Space>
+        <StatusTag
+          status={task.status}
+          escalationLevel={task.escalationLevel}
+          currentHandlerRole={task.currentHandlerRole}
+          showDetail
+        />
       </div>
     </div>
   );

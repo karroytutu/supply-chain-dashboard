@@ -228,7 +228,7 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
       key: 'statusInfo',
       width: 120,
       render: (status: CollectionTaskStatus, record: CollectionTask) => (
-        <StatusCell status={status} priority={record.priority} />
+        <StatusCell status={status} />
       ),
     },
     {
