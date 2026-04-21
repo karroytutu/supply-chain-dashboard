@@ -603,17 +603,22 @@
     padding: @spacing-md;
 
     .page-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-
       h1 {
-        font-size: 18px;
+        font-size: 16px;
       }
 
       .header-actions {
-        width: 100%;
-        justify-content: flex-end;
+        flex-shrink: 0;
+
+        .sync-status {
+          font-size: 12px;
+          gap: 4px;
+
+          .status-dot {
+            width: 6px;
+            height: 6px;
+          }
+        }
       }
     }
 
@@ -710,12 +715,12 @@
 
     .page-header {
       h1 {
-        font-size: 16px;
+        font-size: 15px;
       }
 
       .header-actions {
         .sync-status {
-          font-size: 12px;
+          font-size: 11px;
         }
       }
     }
