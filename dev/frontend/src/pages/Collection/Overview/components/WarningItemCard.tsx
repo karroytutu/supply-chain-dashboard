@@ -3,14 +3,15 @@
  * 用于移动端替代表格展示预警明细
  */
 import React from 'react';
-import { Tag } from 'antd';
+import { Card, Space, Typography, Divider, Tag } from 'antd';
 import { ClockCircleOutlined, UserOutlined } from '@ant-design/icons';
 import type { UpcomingWarning } from '@/types/ar-collection';
-import './WarningItemCard.less';
 
 interface WarningItemCardProps {
   item: UpcomingWarning;
 }
+
+const { Text } = Typography;
 
 const WarningItemCard: React.FC<WarningItemCardProps> = ({ item }) => {
   const formatAmount = (amount: number | undefined | null) => {
@@ -20,33 +21,45 @@ const WarningItemCard: React.FC<WarningItemCardProps> = ({ item }) => {
   };
 
   return (
-    <div className="warning-item-card">
-      <div className="warning-item-card-header">
-        <span className="warning-item-card-no">{item.billNo}</span>
+    <Card
+      size="small"
+      bordered
+      style={{ borderLeft: '3px solid #faad14', marginBottom: 8 }}
+      bodyStyle={{ padding: 12 }}
+    >
+      <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+        <Text code copyable={{ text: item.billNo }}>
+          {item.billNo}
+        </Text>
         <Tag color={item.settleMethod === 2 ? 'blue' : 'green'}>
           {item.settleMethod === 2 ? '挂账' : '现款'}
         </Tag>
-      </div>
+      </Space>
 
-      <div className="warning-item-card-body">
-        <div className="customer-name">{item.consumerName}</div>
-        <div className="meta-row">
-          <span className="meta-item">
-            <UserOutlined /> {item.managerUserName || '-'}
-          </span>
-          <span className="meta-item amount">{formatAmount(item.leftAmount)}</span>
-        </div>
-        <div className="meta-row">
-          <span className="meta-item">到期: {item.expireDate}</span>
-          <span className="meta-item days-warning">
-            <ClockCircleOutlined /> 剩余{item.daysToExpire}天
-          </span>
-          <span className="meta-item">
-            {item.reminderCount > 0 ? `已提醒${item.reminderCount}次` : '未提醒'}
-          </span>
-        </div>
-      </div>
-    </div>
+      <Text strong ellipsis style={{ display: 'block', marginTop: 8, marginBottom: 8 }}>
+        {item.consumerName}
+      </Text>
+
+      <Space split={<Divider type="vertical" />} size={0} wrap>
+        <Space size={4}>
+          <UserOutlined />
+          <Text type="secondary">{item.managerUserName || '-'}</Text>
+        </Space>
+        <Text type="danger" strong>
+          {formatAmount(item.leftAmount)}
+        </Text>
+      </Space>
+
+      <Space split={<Divider type="vertical" />} size={0} wrap style={{ marginTop: 4 }}>
+        <Text type="secondary">到期: {item.expireDate}</Text>
+        <Text type="danger">
+          <ClockCircleOutlined /> 剩余{item.daysToExpire}天
+        </Text>
+        <Text type="secondary">
+          {item.reminderCount > 0 ? `已提醒${item.reminderCount}次` : '未提醒'}
+        </Text>
+      </Space>
+    </Card>
   );
 };
 

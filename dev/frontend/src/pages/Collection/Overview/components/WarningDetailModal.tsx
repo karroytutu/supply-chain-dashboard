@@ -5,12 +5,13 @@
  * 支持响应式：桌面端 Modal + 表格，移动端 Drawer + 卡片列表
  */
 import React from 'react';
-import { Modal, Drawer, Table, Tag, Spin, Row, Col, Statistic, Empty } from 'antd';
+import {
+  Modal, Drawer, Table, Tag, Spin, Row, Col, Statistic, Empty, List, Card, Space, Typography, Divider,
+} from 'antd';
 import { ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import type { UpcomingWarning, WarningLevel } from '@/types/ar-collection';
 import useMedia from '../hooks/useMedia';
 import WarningItemCard from './WarningItemCard';
-import './WarningDetailModal.less';
 
 interface WarningDetailModalProps {
   visible: boolean;
@@ -19,6 +20,8 @@ interface WarningDetailModalProps {
   loading: boolean;
   onClose: () => void;
 }
+
+const { Text } = Typography;
 
 // 3级预警配置
 const levelConfig: Record<WarningLevel, { title: string; badge: string; tagColor: string; levelText: string }> = {
@@ -49,9 +52,7 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
       dataIndex: 'billNo',
       key: 'billNo',
       width: 140,
-      render: (text: string) => (
-        <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{text}</span>
-      ),
+      render: (text: string) => <Text code>{text}</Text>,
     },
     {
       title: '客户名称',
@@ -73,9 +74,9 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
       width: 100,
       align: 'right' as const,
       render: (amount: number) => (
-        <span style={{ color: '#ff4d4f', fontWeight: 500 }}>
+        <Text type="danger" strong>
           ¥{amount?.toLocaleString() ?? 0}
-        </span>
+        </Text>
       ),
     },
     {
@@ -96,7 +97,7 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
       key: 'consumerExpireDay',
       width: 110,
       align: 'center' as const,
-      render: (days: number) => days ? `${days}天` : '-',
+      render: (days: number) => (days ? `${days}天` : '-'),
     },
     {
       title: '到期日期',
@@ -111,9 +112,9 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
       width: 90,
       align: 'center' as const,
       render: (days: number) => (
-        <span style={{ color: '#ff4d4f', fontWeight: 600 }}>
+        <Text type="danger" strong>
           <ClockCircleOutlined /> {days}天
-        </span>
+        </Text>
       ),
     },
     {
@@ -130,64 +131,10 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
     },
   ];
 
-  // 渲染统计摘要
+  // 统计摘要（桌面端与移动端统一）
   const renderSummary = () => (
-    <div className="warning-summary">
-      <div className="summary-item">
-        <Statistic title="预警数量" value={data.length} suffix="笔" />
-      </div>
-      <div className="summary-item">
-        <Statistic
-          title="涉及金额"
-          value={(totalAmount / 10000).toFixed(1)}
-          suffix="万"
-          prefix="¥"
-          valueStyle={{ color: '#ff4d4f' }}
-        />
-      </div>
-      <div className="summary-item">
-        <Statistic title="已提醒" value={reminded} suffix="笔" />
-      </div>
-      <div className="summary-item">
-        <Statistic title="未提醒" value={data.length - reminded} suffix="笔" />
-      </div>
-    </div>
-  );
-
-  // 渲染移动端内容
-  const renderMobileContent = () => (
-    <Spin spinning={loading}>
-      {/* 标题 */}
-      <div className="warning-drawer-header">
-        <div className="drawer-title">
-          <WarningOutlined style={{ color: config.tagColor === 'orange' ? '#fa8c16' : '#faad14' }} />
-          <Tag color={config.tagColor}>{config.levelText}</Tag>
-          <span>{config.title}</span>
-        </div>
-        <Tag color={config.tagColor}>{config.badge}</Tag>
-      </div>
-
-      {/* 统计摘要 */}
-      {renderSummary()}
-
-      {/* 卡片列表 */}
-      <div className="warning-card-list">
-        {data.length > 0 ? (
-          data.map((item) => (
-            <WarningItemCard key={item.erpBillId} item={item} />
-          ))
-        ) : (
-          <Empty description="暂无预警数据" className="warning-empty" />
-        )}
-      </div>
-    </Spin>
-  );
-
-  // 渲染桌面端内容
-  const renderDesktopContent = () => (
-    <Spin spinning={loading}>
-      {/* 统计摘要 */}
-      <Row gutter={24} style={{ marginBottom: 16, padding: '12px 16px', background: '#fafafa', borderRadius: 6 }}>
+    <Card size="small" style={{ marginBottom: 16 }}>
+      <Row gutter={24}>
         <Col>
           <Statistic title="预警数量" value={data.length} suffix="笔" />
         </Col>
@@ -207,8 +154,41 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
           <Statistic title="未提醒" value={data.length - reminded} suffix="笔" />
         </Col>
       </Row>
+    </Card>
+  );
 
-      {/* 明细表格 */}
+  // 渲染移动端内容
+  const renderMobileContent = () => (
+    <Spin spinning={loading}>
+      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }}>
+        <Space>
+          <WarningOutlined style={{ color: config.tagColor === 'orange' ? '#fa8c16' : '#faad14' }} />
+          <Tag color={config.tagColor}>{config.levelText}</Tag>
+          <Text strong>{config.title}</Text>
+        </Space>
+        <Tag color={config.tagColor}>{config.badge}</Tag>
+      </Space>
+      <Divider style={{ margin: '0 0 12px 0' }} />
+
+      {renderSummary()}
+
+      <List
+        dataSource={data}
+        renderItem={(item) => (
+          <List.Item style={{ padding: 0, border: 'none' }}>
+            <WarningItemCard item={item} />
+          </List.Item>
+        )}
+        locale={{ emptyText: <Empty description="暂无预警数据" /> }}
+      />
+    </Spin>
+  );
+
+  // 渲染桌面端内容
+  const renderDesktopContent = () => (
+    <Spin spinning={loading}>
+      {renderSummary()}
+
       <Table
         columns={columns}
         dataSource={data}
@@ -233,7 +213,6 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
         height="90vh"
         open={visible}
         onClose={onClose}
-        className="warning-drawer-mobile"
         closable={false}
       >
         {renderMobileContent()}
@@ -245,19 +224,16 @@ const WarningDetailModal: React.FC<WarningDetailModalProps> = ({
   return (
     <Modal
       title={
-        <span>
-          <Tag color={config.tagColor} style={{ marginRight: 8 }}>{config.levelText}</Tag>
-          {config.title}
-          <Tag color={config.tagColor} style={{ marginLeft: 8 }}>
-            {config.badge}
-          </Tag>
-        </span>
+        <Space>
+          <Tag color={config.tagColor}>{config.levelText}</Tag>
+          <Text strong>{config.title}</Text>
+          <Tag color={config.tagColor}>{config.badge}</Tag>
+        </Space>
       }
       open={visible}
       onCancel={onClose}
       footer={null}
       width={1100}
-      className="warning-modal-desktop"
     >
       {renderDesktopContent()}
     </Modal>
