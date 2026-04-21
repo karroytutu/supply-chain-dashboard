@@ -370,7 +370,18 @@
 
   /* ========== 移动端任务卡片样式 ========== */
   .task-card {
-    margin-bottom: 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:active {
+      background: #fafafa;
+    }
+
+    // 覆盖 Ant Card body padding，紧凑化
+    :global(.ant-card-body) {
+      padding: 8px 12px;
+    }
 
     // 选中状态样式
     &.task-card-selected {
@@ -382,106 +393,105 @@
       }
     }
 
-    .task-card-header {
+    // 行容器
+    .task-card-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
-
-      .header-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex: 1;
-        min-width: 0;
-      }
-
-      .task-card-checkbox {
-        margin-right: 0;
-
-        :global {
-          .ant-checkbox-inner {
-            width: 20px;
-            height: 20px;
-          }
-
-          .ant-checkbox-input {
-            width: 20px;
-            height: 20px;
-          }
-        }
-      }
-
-      .task-card-no {
-        font-size: 13px;
-        font-weight: 600;
-        color: #262626;
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-      }
-
-      .task-card-no-link {
-        cursor: pointer;
-        transition: color 0.2s;
-
-        &:hover {
-          color: #1890ff;
-        }
-      }
     }
 
-    .task-card-body {
-      .customer-name {
-        font-size: 15px;
-        font-weight: 500;
-        color: #262626;
-        margin-bottom: 4px;
-      }
-
-      .task-meta {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 13px;
-
-        .created-time {
-          color: #8c8c8c;
-        }
-
-        .amount {
-          color: #ff4d4f;
-          font-weight: 600;
-        }
-
-        .separator {
-          color: #d9d9d9;
-        }
-
-        .overdue-days {
-          color: #8c8c8c;
-
-          &.danger {
-            color: #ff4d4f;
-          }
-        }
-      }
-
-      .handler-info {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 12px;
-        color: #8c8c8c;
-        margin-top: 6px;
-      }
+    .task-card-row--primary {
+      margin-bottom: 2px;
     }
 
-    .task-card-actions {
+    .task-card-left {
       display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #f0f0f0;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-card-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    // Row 1 样式：客户名称 + 状态 + 金额
+    .customer-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #262626;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .amount {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ff4d4f;
+    }
+
+    // StatusCell Tag 紧凑化
+    :global(.ant-tag) {
+      font-size: 11px;
+      padding: 0 4px;
+      line-height: 18px;
+      border-radius: 2px;
+    }
+
+    // Checkbox
+    .task-card-checkbox {
+      margin-right: 0;
+
+      :global {
+        .ant-checkbox-inner {
+          width: 18px;
+          height: 18px;
+        }
+
+        .ant-checkbox-input {
+          width: 18px;
+          height: 18px;
+        }
+      }
+    }
+
+    // Row 2 样式：编号·日期·逾期 + 处理人
+    .task-no {
+      font-size: 12px;
+      font-weight: 600;
+      color: #8c8c8c;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    .created-time {
+      font-size: 12px;
+      color: #8c8c8c;
+    }
+
+    .separator {
+      color: #d9d9d9;
+    }
+
+    .overdue-days {
+      font-size: 12px;
+      color: #8c8c8c;
+
+      &.danger {
+        color: #ff4d4f;
+      }
+    }
+
+    .handler-info {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 12px;
+      color: #8c8c8c;
     }
   }
 
@@ -749,6 +759,36 @@
         .sync-status {
           font-size: 12px;
         }
+      }
+    }
+
+    // 卡片超小屏进一步紧凑
+    .task-card {
+      margin-bottom: 4px;
+
+      :global(.ant-card-body) {
+        padding: 6px 10px;
+      }
+
+      .customer-name {
+        font-size: 13px;
+      }
+
+      .amount {
+        font-size: 13px;
+      }
+
+      .task-no,
+      .created-time,
+      .overdue-days,
+      .handler-info {
+        font-size: 11px;
+      }
+
+      :global(.ant-tag) {
+        font-size: 10px;
+        padding: 0 3px;
+        line-height: 16px;
       }
     }
   }

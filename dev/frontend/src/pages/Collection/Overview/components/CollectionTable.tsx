@@ -288,16 +288,24 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
           <TaskCard
             key={task.id}
             task={task}
-            onAction={onAction}
             onViewDetail={goToDetail}
-            canWrite={canWrite || isAdmin}
-            canEscalate={canEscalate || isAdmin}
-            canVerify={canVerify || isAdmin}
+            selectable={!!onSelectionChange}
+            selected={selectedRowKeys.includes(task.id)}
+            onSelect={handleCardSelect}
           />
         ))}
       </Spin>
     </div>
   );
+
+  /** 移动端卡片选择回调 */
+  const handleCardSelect = useCallback((id: number, checked: boolean) => {
+    const newKeys = checked
+      ? [...selectedRowKeys, id]
+      : selectedRowKeys.filter((k) => k !== id);
+    const newRows = tasks.filter((t) => newKeys.includes(t.id));
+    onSelectionChange?.(newKeys, newRows);
+  }, [selectedRowKeys, tasks, onSelectionChange]);
 
   /** 获取 Tab 对应状态的数据条数 */
   const getTabCount = (status: string): number => {
