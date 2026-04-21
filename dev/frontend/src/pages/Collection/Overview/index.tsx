@@ -153,7 +153,6 @@ const CollectionOverview: React.FC = () => {
               page={overview.page}
               pageSize={overview.pageSize}
               statusTab={overview.statusTab}
-              userRole={overview.userRole}
               stats={overview.stats}
               selectedRowKeys={overview.selectedRowKeys}
               onStatusTabChange={overview.setStatusTab}

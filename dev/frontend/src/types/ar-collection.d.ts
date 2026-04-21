@@ -68,7 +68,6 @@ export interface CollectionTask {
   priority: CollectionPriority;
   batchType: string;
   batchDate: string;
-  pendingRole?: string;
   createdAt: string;
   updatedAt: string;
 }

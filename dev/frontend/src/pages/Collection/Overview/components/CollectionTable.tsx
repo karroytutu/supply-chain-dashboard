@@ -5,7 +5,7 @@
  */
 import React, { useCallback } from 'react';
 import dayjs from 'dayjs';
-import { Table, Dropdown, Tag, Button, Menu, Tooltip, Space, Spin } from 'antd';
+import { Table, Dropdown, Button, Menu, Tooltip, Space, Spin } from 'antd';
 import {
   DollarOutlined,
   ClockCircleOutlined,
@@ -21,7 +21,7 @@ import useMedia from '../hooks/useMedia';
 import { usePermission } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/constants/permissions';
 import type { CollectionTask, CollectionTaskStatus, CollectionStats } from '@/types/ar-collection';
-import type { StatusTab, RoleView } from '../hooks/useOverview';
+import type { StatusTab } from '../hooks/useOverview';
 
 interface CollectionTableProps {
   tasks: CollectionTask[];
@@ -30,7 +30,6 @@ interface CollectionTableProps {
   page: number;
   pageSize: number;
   statusTab: StatusTab;
-  userRole: RoleView;
   stats: CollectionStats | null;
   selectedRowKeys?: number[];
   onStatusTabChange: (tab: StatusTab) => void;
@@ -57,7 +56,6 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
   page,
   pageSize,
   statusTab,
-  userRole,
   stats,
   selectedRowKeys = [],
   onStatusTabChange,
@@ -213,11 +211,6 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
             <a onClick={(e) => { e.stopPropagation(); goToDetail(record.id); }}>
               {name}
             </a>
-            {record.pendingRole && record.pendingRole === getRoleCode(userRole) && (
-              <Tag color="processing" className="pending-badge">
-                待我处理
-              </Tag>
-            )}
           </div>
           {record.currentHandlerName && (
             <Tooltip title="当前处理人">
@@ -339,9 +332,6 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
         loading={loading}
         size="middle"
         rowSelection={rowSelection}
-        rowClassName={(record) =>
-          record.pendingRole === getRoleCode(userRole) ? 'row-pending' : ''
-        }
         scroll={{ x: 740 }}
         pagination={{
           current: page,
@@ -362,18 +352,6 @@ function formatCreatedDate(dateStr: string): string {
   if (!dateStr) return '-';
   const date = dayjs(dateStr);
   return `${date.format('YYYY-MM-DD')} 创建`;
-}
-
-/** 角色视图 → 角色编码映射 */
-function getRoleCode(role: RoleView): string {
-  const map: Record<RoleView, string> = {
-    marketer: 'marketer',
-    supervisor: 'marketing_manager',
-    finance: 'current_accountant',
-    cashier: 'cashier',
-    admin: 'admin',
-  };
-  return map[role] || role;
 }
 
 export default CollectionTable;
