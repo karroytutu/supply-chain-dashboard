@@ -1,25 +1,16 @@
 /**
  * 催收任务列表表格组件
- * 包含状态 Tab 切换、任务列表、操作下拉菜单
+ * 包含状态 Tab 切换、任务列表
  * 优化：列合并（7列→4列）、移动端卡片渲染
  */
 import React, { useCallback } from 'react';
 import dayjs from 'dayjs';
-import { Table, Dropdown, Button, Menu, Tooltip, Space, Spin } from 'antd';
-import {
-  DollarOutlined,
-  ClockCircleOutlined,
-  ExclamationCircleOutlined,
-  ArrowUpOutlined,
-  DownOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
+import { Table, Tooltip, Spin } from 'antd';
+import { UserOutlined } from '@ant-design/icons';
 import { history } from 'umi';
 import StatusCell from '../../components/StatusCell';
 import TaskCard from './TaskCard';
 import useMedia from '../hooks/useMedia';
-import { usePermission } from '@/hooks/usePermission';
-import { PERMISSIONS } from '@/constants/permissions';
 import type { CollectionTask, CollectionTaskStatus, CollectionStats } from '@/types/ar-collection';
 import type { StatusTab } from '../hooks/useOverview';
 
@@ -34,7 +25,6 @@ interface CollectionTableProps {
   onStatusTabChange: (tab: StatusTab) => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
-  onAction: (action: string, task: CollectionTask) => void;
 }
 
 /** 状态 Tab 配置 */
@@ -58,119 +48,11 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
   onStatusTabChange,
   onPageChange,
   onPageSizeChange,
-  onAction,
 }) => {
-  const { hasPermission, hasRole } = usePermission();
-
-  // 权限检查
-  const canWrite = hasPermission(PERMISSIONS.AR.COLLECTION.WRITE);
-  const canEscalate = hasPermission(PERMISSIONS.AR.COLLECTION.ESCALATE);
-  const canVerify = hasPermission(PERMISSIONS.AR.COLLECTION.VERIFY);
-  const isAdmin = hasRole('admin');
-
   /** 跳转详情页 */
   const goToDetail = useCallback((id: number) => {
     history.push(`/collection/task/${id}`);
   }, []);
-
-  /** 判断任务是否可以进行写操作 */
-  const canTaskWrite = useCallback((task: CollectionTask) => {
-    // 已核销和已关闭状态不能操作
-    if (['verified', 'closed'].includes(task.status)) {
-      return false;
-    }
-    return canWrite || isAdmin;
-  }, [canWrite, isAdmin]);
-
-  /** 判断任务是否可以升级 */
-  const canTaskEscalate = useCallback((task: CollectionTask) => {
-    // 已核销和已关闭状态不能操作
-    if (['verified', 'closed'].includes(task.status)) {
-      return false;
-    }
-    // 已升级到最高级不能再升级
-    if (task.status === 'escalated' && task.escalationLevel === 2) {
-      return false;
-    }
-    return canEscalate || isAdmin;
-  }, [canEscalate, isAdmin]);
-
-  /** 判断任务是否可以核销确认（出纳专属） */
-  const canTaskConfirm = useCallback((task: CollectionTask) => {
-    return task.status === 'pending_verify' && (canVerify || isAdmin);
-  }, [canVerify, isAdmin]);
-
-  /** 操作菜单（根据权限过滤） */
-  const getActionMenu = useCallback(
-    (task: CollectionTask) => {
-      const menuItems: React.ReactNode[] = [];
-
-      // 核销确认 - 仅出纳在待核销状态可见
-      if (canTaskConfirm(task)) {
-        menuItems.push(
-          <Menu.Item
-            key="confirmVerify"
-            icon={<DollarOutlined />}
-            onClick={() => onAction('confirmVerify', task)}
-          >
-            确认核销
-          </Menu.Item>
-        );
-      }
-
-      // 核销回款 - 需要 write 权限且任务状态允许
-      if (canTaskWrite(task) && task.status !== 'pending_verify') {
-        menuItems.push(
-          <Menu.Item key="verify" icon={<DollarOutlined />} onClick={() => onAction('verify', task)}>
-            核销回款
-          </Menu.Item>
-        );
-      }
-
-      // 申请延期 - 需要 write 权限且任务状态允许
-      if (canTaskWrite(task) && task.status !== 'pending_verify' && task.canExtend !== false) {
-        menuItems.push(
-          <Menu.Item
-            key="extension"
-            icon={<ClockCircleOutlined />}
-            onClick={() => onAction('extension', task)}
-          >
-            申请延期
-          </Menu.Item>
-        );
-      }
-
-      // 标记差异 - 需要 write 权限且任务状态允许
-      if (canTaskWrite(task) && task.status !== 'pending_verify') {
-        menuItems.push(
-          <Menu.Item
-            key="difference"
-            icon={<ExclamationCircleOutlined />}
-            onClick={() => onAction('difference', task)}
-          >
-            标记差异
-          </Menu.Item>
-        );
-      }
-
-      // 升级处理 - 需要 escalate 权限且任务状态允许
-      if (canTaskEscalate(task) && task.status !== 'pending_verify') {
-        menuItems.push(
-          <Menu.Item
-            key="escalate"
-            icon={<ArrowUpOutlined />}
-            onClick={() => onAction('escalate', task)}
-            danger
-          >
-            升级处理
-          </Menu.Item>
-        );
-      }
-
-      return <Menu>{menuItems}</Menu>;
-    },
-    [onAction, canTaskWrite, canTaskEscalate, canTaskConfirm],
-  );
 
   /** 表格列定义 */
   const columns = [
@@ -223,7 +105,7 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
       dataIndex: 'status',
       key: 'statusInfo',
       width: 120,
-      render: (status: CollectionTaskStatus, record: CollectionTask) => (
+      render: (status: CollectionTaskStatus) => (
         <StatusCell status={status} />
       ),
     },
@@ -247,19 +129,6 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
           </div>
         );
       },
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 90,
-      fixed: 'right' as const,
-      render: (_: unknown, record: CollectionTask) => (
-        <Dropdown overlay={getActionMenu(record)} trigger={['click']}>
-          <Button size="small" type="link" onClick={(e) => e.stopPropagation()}>
-            操作 <DownOutlined />
-          </Button>
-        </Dropdown>
-      ),
     },
   ];
 
@@ -313,7 +182,7 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
         rowKey="id"
         loading={loading}
         size="middle"
-        scroll={{ x: 740 }}
+        scroll={{ x: 620 }}
         pagination={{
           current: page,
           pageSize,

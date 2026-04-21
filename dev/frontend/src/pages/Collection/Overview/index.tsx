@@ -12,21 +12,13 @@ import WarningPanel from './components/WarningPanel';
 import WarningDetailModal from './components/WarningDetailModal';
 import FilterBar from './components/FilterBar';
 import CollectionTable from './components/CollectionTable';
-import VerifyModal from '../components/VerifyModal';
-import ExtensionModal from '../components/ExtensionModal';
-import DifferenceModal from '../components/DifferenceModal';
-import EscalateModal from '../components/EscalateModal';
 import { getUpcomingWarnings } from '@/services/api/ar-collection';
-import type { CollectionTask, UpcomingWarning, WarningLevel } from '@/types/ar-collection';
+import type { UpcomingWarning, WarningLevel } from '@/types/ar-collection';
 import './index.less';
 
 const CollectionOverview: React.FC = () => {
   const overview = useOverview();
   const { isMobile } = useMedia();
-
-  // 弹窗状态
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [selectedTask, setSelectedTask] = useState<CollectionTask | null>(null);
 
   // 预警明细弹窗状态
   const [warningModalVisible, setWarningModalVisible] = useState(false);
@@ -52,24 +44,6 @@ const CollectionOverview: React.FC = () => {
       setWarningDetailLoading(false);
     }
   }, [overview.handlerId]);
-
-  /** 操作菜单处理 */
-  const handleAction = useCallback((action: string, task: CollectionTask) => {
-    setSelectedTask(task);
-    setActiveModal(action);
-  }, []);
-
-  /** 关闭弹窗 */
-  const handleModalClose = useCallback(() => {
-    setActiveModal(null);
-    setSelectedTask(null);
-  }, []);
-
-  /** 操作成功回调 */
-  const handleActionSuccess = useCallback(() => {
-    handleModalClose();
-    overview.refresh();
-  }, [handleModalClose, overview.refresh]);
 
   return (
     <Authorized permission={PERMISSIONS.AR.COLLECTION.READ}>
@@ -121,44 +95,9 @@ const CollectionOverview: React.FC = () => {
               onStatusTabChange={overview.setStatusTab}
               onPageChange={overview.setPage}
               onPageSizeChange={overview.setPageSize}
-              onAction={handleAction}
             />
           </div>
         </div>
-
-        {/* 操作弹窗 */}
-        {selectedTask && (
-          <>
-            <VerifyModal
-              visible={activeModal === 'verify'}
-              task={selectedTask}
-              selectedDetails={[]}
-              onClose={handleModalClose}
-              onSuccess={handleActionSuccess}
-            />
-            <ExtensionModal
-              visible={activeModal === 'extension'}
-              task={selectedTask}
-              selectedDetails={[]}
-              onClose={handleModalClose}
-              onSuccess={handleActionSuccess}
-            />
-            <DifferenceModal
-              visible={activeModal === 'difference'}
-              task={selectedTask}
-              selectedDetails={[]}
-              onClose={handleModalClose}
-              onSuccess={handleActionSuccess}
-            />
-            <EscalateModal
-              visible={activeModal === 'escalate'}
-              task={selectedTask}
-              selectedDetails={[]}
-              onClose={handleModalClose}
-              onSuccess={handleActionSuccess}
-            />
-          </>
-        )}
 
         {/* 预警明细弹窗 */}
         <WarningDetailModal
