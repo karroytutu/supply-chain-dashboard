@@ -78,7 +78,7 @@ const TaskDetailPage: React.FC = () => {
   const userRole = useMemo(() => {
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('manager')) return 'manager';
-    if (roles.includes('marketing_manager')) return 'marketing_manager';
+    if (roles.includes('marketing_manager') || roles.includes('marketing_supervisor')) return 'marketing_manager';
     if (roles.includes('current_accountant')) return 'current_accountant';
     if (roles.includes('finance_staff')) return 'finance_staff';
     if (roles.includes('cashier')) return 'cashier';

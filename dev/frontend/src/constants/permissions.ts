@@ -87,14 +87,14 @@ export const PERMISSIONS = {
   // 财务模块（应收账款与催收）
   FINANCE: {
     AR: {
-      READ: 'finance:ar:read',
-      WRITE: 'finance:ar:write',
-      PENALTY: 'finance:ar:penalty',
+      READ: 'ar:collection:read',
+      WRITE: 'ar:collection:write',
+      PENALTY: 'return:penalty:read',
       // 催收操作（兼容旧引用）
-      COLLECTION_READ: 'finance:ar:read',
-      COLLECTION_WRITE: 'finance:ar:write',
-      COLLECTION_VERIFY: 'finance:ar:write',
-      COLLECTION_ESCALATE: 'finance:ar:write',
+      COLLECTION_READ: 'ar:collection:read',
+      COLLECTION_WRITE: 'ar:collection:write',
+      COLLECTION_VERIFY: 'ar:collection:verify',
+      COLLECTION_ESCALATE: 'ar:collection:escalate',
     },
   },
 
@@ -102,10 +102,10 @@ export const PERMISSIONS = {
   AR: {
     // 催收管理
     COLLECTION: {
-      READ: 'finance:ar:read',
-      WRITE: 'finance:ar:write',
-      VERIFY: 'finance:ar:write',
-      ESCALATE: 'finance:ar:write',
+      READ: 'ar:collection:read',
+      WRITE: 'ar:collection:write',
+      VERIFY: 'ar:collection:verify',
+      ESCALATE: 'ar:collection:escalate',
     },
   },
 
@@ -136,6 +136,7 @@ export const ROLES = {
   CURRENT_ACCOUNTANT: 'current_accountant',
   CASHIER: 'cashier',
   MARKETING_MANAGER: 'marketing_manager',
+  MARKETING_SUPERVISOR: 'marketing_supervisor',
   MARKETER: 'marketer',
   ADMIN_STAFF: 'admin_staff',
   OPERATIONS_MANAGER: 'operations_manager',

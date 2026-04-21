@@ -15,7 +15,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { usePermission } from '@/hooks/usePermission';
-import { PERMISSIONS, ROLES } from '@/constants/permissions';
+import { ROLES } from '@/constants/permissions';
 import type { CollectionTask } from '@/types/ar-collection';
 import type { ModalType } from '../hooks/useTaskDetail';
 
@@ -25,24 +25,24 @@ interface ActionButtonsProps {
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
-  const { hasRole, hasPermission } = usePermission();
+  const { hasRole, hasAnyRole } = usePermission();
 
   const { status, escalationLevel } = task;
 
-  /** 营销师/营销主管视角: 催收中/延期中/差异处理/已升级(level 0或1) */
+  /** 营销师/运营人员视角: 催收中/延期中/差异处理 */
   const isCollectorView =
-    (hasPermission(PERMISSIONS.AR.COLLECTION.WRITE) || hasRole(ROLES.OPERATOR)) &&
+    hasAnyRole([ROLES.MARKETER, ROLES.OPERATOR]) &&
     ['collecting', 'extension', 'difference_processing'].includes(status);
 
-  /** 营销主管视角: 已升级 + level=1 */
+  /** 营销主管视角(含旧角色 marketing_supervisor): 已升级 + level=1 */
   const isSupervisorView =
-    hasRole(ROLES.MARKETING_MANAGER) &&
+    hasAnyRole([ROLES.MARKETING_MANAGER, ROLES.MARKETING_SUPERVISOR]) &&
     status === 'escalated' &&
     escalationLevel === 1;
 
-  /** 财务人员视角: 差异处理 或 (已升级 + level=2) */
+  /** 财务人员视角(含往来会计): 差异处理 或 (已升级 + level=2) */
   const isFinanceView =
-    hasRole(ROLES.FINANCE_STAFF) &&
+    hasAnyRole([ROLES.CURRENT_ACCOUNTANT, ROLES.FINANCE_STAFF]) &&
     (status === 'difference_processing' || (status === 'escalated' && escalationLevel === 2));
 
   /** 出纳视角: 待核销 */
