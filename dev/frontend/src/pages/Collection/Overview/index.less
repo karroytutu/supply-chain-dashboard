@@ -719,6 +719,128 @@
     }
   }
 
+  /* ========== 逾期前预警卡片 ========== */
+  .warning-panel {
+    margin-bottom: 8px;
+
+    .ant-card-body {
+      padding: 8px 10px;
+    }
+  }
+
+  .warning-panel-header {
+    width: 100%;
+    justify-content: space-between;
+    margin-bottom: 6px;
+
+    .ant-typography {
+      font-size: 14px;
+    }
+  }
+
+  .warning-cards-mobile {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .warning-card {
+    cursor: pointer;
+    transition: all 0.2s;
+
+    .ant-card-body {
+      padding: 10px 12px;
+    }
+
+    &:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+    }
+  }
+
+  .warning-card--mobile {
+    flex: 1;
+    min-width: 68px;
+    border: none;
+    background: #fafafa;
+
+    .ant-card-body {
+      padding: 4px 3px;
+    }
+
+    .warning-card-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0;
+    }
+
+    .warning-card-count {
+      font-size: 16px;
+      line-height: 1.2;
+    }
+
+    .warning-card-unit {
+      font-size: 10px;
+    }
+
+    .warning-card-amount {
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .warning-card-days {
+      display: none;
+    }
+
+    .ant-tag {
+      font-size: 10px;
+      padding: 0 3px;
+      line-height: 16px;
+      margin-bottom: 1px;
+      border-radius: 2px;
+    }
+  }
+
+  .warning-card-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .warning-card-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .warning-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .warning-card-count {
+    font-size: 20px;
+  }
+
+  .warning-card-unit {
+    font-size: 12px;
+    font-weight: normal;
+    margin-left: 2px;
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  .warning-card-amount {
+    font-size: 13px;
+  }
+
+  .warning-card-days {
+    font-size: 12px;
+  }
+
   /* ========== 响应式适配 ========== */
 
   /* 中等屏幕 */

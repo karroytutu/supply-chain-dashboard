@@ -4,8 +4,8 @@
  * 3级预警：今日到期(0天)、高危(1-2天)、关注(3-5天)
  */
 import React from 'react';
-import { Card, Space, Typography, Row, Col, Tag, Button } from 'antd';
-import { WarningOutlined, RightOutlined } from '@ant-design/icons';
+import { Card, Space, Typography, Row, Col, Tag } from 'antd';
+import { WarningOutlined } from '@ant-design/icons';
 import type { WarningSummary, WarningLevel } from '@/types/ar-collection';
 import useMedia from '../hooks/useMedia';
 
@@ -60,55 +60,85 @@ const WarningPanel: React.FC<WarningPanelProps> = ({ summary, onCardClick }) => 
   ];
 
   return (
-    <Card
-      size="small"
-      style={{ marginBottom: 16 }}
-      bodyStyle={{ padding: isMobile ? '12px 16px' : '16px 20px' }}
-    >
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }}>
+    <Card className="warning-panel" size="small">
+      <Space className="warning-panel-header">
         <Title level={5} style={{ margin: 0 }}>
           <WarningOutlined style={{ color: '#faad14', marginRight: 6 }} />
           逾期前预警
         </Title>
-        <Text type="secondary">系统每日 20:00 自动检查并推送</Text>
+        {!isMobile && (
+          <Text type="secondary">系统每日 20:00 自动检查并推送</Text>
+        )}
       </Space>
 
-      <Row gutter={isMobile ? [8, 8] : [12, 12]}>
-        {cardData.map((card) => (
-          <Col xs={24} md={8} key={card.level}>
+      {isMobile ? (
+        <div className="warning-cards-mobile">
+          {cardData.map((card) => (
             <Card
+              key={card.level}
               size="small"
               hoverable
               onClick={() => onCardClick(card.level)}
+              className="warning-card warning-card--mobile"
               style={{ borderLeft: `3px solid ${card.borderColor}` }}
-              bodyStyle={{ padding: 12 }}
             >
-              <Space
-                style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <Space direction="vertical" size={0}>
-                  <Tag color={card.tagColor}>{card.tagText}</Tag>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {card.daysText}
-                  </Text>
-                </Space>
-                <Space align="baseline">
-                  <Text strong style={{ fontSize: 20, color: card.borderColor }}>
-                    {card.count}
-                  </Text>
-                  <Text type="secondary">{formatAmount(card.amount)}</Text>
-                </Space>
-                <Button
-                  type="text"
-                  icon={<RightOutlined />}
-                  size="small"
-                  style={{ color: 'rgba(0,0,0,0.25)' }}
-                />
-              </Space>
+              <div className="warning-card-content">
+                <Tag color={card.tagColor}>{card.tagText}</Tag>
+                <Text type="secondary" className="warning-card-days">
+                  {card.daysText}
+                </Text>
+                <Text
+                  strong
+                  className="warning-card-count"
+                  style={{ color: card.borderColor }}
+                >
+                  {card.count}
+                  <span className="warning-card-unit">笔</span>
+                </Text>
+                <Text type="secondary" className="warning-card-amount">
+                  {formatAmount(card.amount)}
+                </Text>
+              </div>
             </Card>
-          </Col>
-        ))}
-      </Row>
+          ))}
+        </div>
+      ) : (
+        <Row gutter={[12, 12]}>
+          {cardData.map((card) => (
+            <Col md={8} key={card.level}>
+              <Card
+                size="small"
+                hoverable
+                onClick={() => onCardClick(card.level)}
+                className="warning-card"
+                style={{ borderLeft: `3px solid ${card.borderColor}` }}
+              >
+                <div className="warning-card-content">
+                  <div className="warning-card-left">
+                    <Tag color={card.tagColor}>{card.tagText}</Tag>
+                    <Text type="secondary" className="warning-card-days">
+                      {card.daysText}
+                    </Text>
+                  </div>
+                  <div className="warning-card-right">
+                    <Text
+                      strong
+                      className="warning-card-count"
+                      style={{ color: card.borderColor }}
+                    >
+                      {card.count}
+                      <span className="warning-card-unit">笔</span>
+                    </Text>
+                    <Text type="secondary" className="warning-card-amount">
+                      {formatAmount(card.amount)}
+                    </Text>
+                  </div>
+                </div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
     </Card>
   );
 };
