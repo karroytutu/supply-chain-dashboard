@@ -8,6 +8,8 @@ import {
   getMe,
   logout,
   developmentLogin,
+  developmentSwitchUser,
+  developmentGetUsers,
 } from '../controllers/auth.controller';
 import { authMiddleware } from '../middleware/auth';
 
@@ -29,12 +31,28 @@ router.post('/dingtalk/callback', authLimiter, dingtalkCallback);
 // 开发环境登录（仅开发环境可用）
 if (process.env.NODE_ENV === 'development') {
   router.post('/dev-login', authLimiter, developmentLogin);
+  router.post('/dev-switch', authLimiter, developmentSwitchUser);
+  router.get('/dev-users', authLimiter, developmentGetUsers);
 } else {
   // 非开发环境返回 403
   router.post('/dev-login', authLimiter, (_req, res) => {
     res.status(403).json({
       code: 403,
       message: '开发登录端点仅在开发环境可用',
+      data: null,
+    });
+  });
+  router.post('/dev-switch', authLimiter, (_req, res) => {
+    res.status(403).json({
+      code: 403,
+      message: '用户切换端点仅在开发环境可用',
+      data: null,
+    });
+  });
+  router.get('/dev-users', authLimiter, (_req, res) => {
+    res.status(403).json({
+      code: 403,
+      message: '开发用户列表端点仅在开发环境可用',
       data: null,
     });
   });

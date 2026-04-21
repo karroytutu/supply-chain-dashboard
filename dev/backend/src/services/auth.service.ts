@@ -324,6 +324,106 @@ async function recordLoginLog(
 }
 
 /**
+ * 开发环境切换用户（仅用于开发调试）
+ */
+export async function devSwitchUser(userId: number): Promise<LoginResult> {
+  // 仅允许开发环境
+  if (process.env.NODE_ENV === 'production') {
+    return {
+      success: false,
+      message: '用户切换仅用于开发环境',
+    };
+  }
+
+  try {
+    const user = await getCurrentUser(userId);
+
+    if (!user) {
+      return {
+        success: false,
+        message: '用户不存在或已被禁用',
+      };
+    }
+
+    // 获取用户角色和权限
+    const { roles, permissions } = await getUserRolesAndPermissions(userId);
+
+    // 生成JWT Token
+    const payload: JwtPayload = {
+      userId: user.id,
+      dingtalkUserId: `dev_switch_${userId}`,
+      name: user.name,
+      roles: roles.map(r => r.code),
+      permissions,
+    };
+
+    const token = generateToken(payload);
+
+    return {
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        avatar: user.avatar,
+        mobile: user.mobile,
+        email: user.email,
+        departmentId: user.departmentId,
+        departmentName: user.departmentName,
+        position: user.position,
+        roles,
+        permissions,
+      },
+    };
+  } catch (error: any) {
+    console.error('开发切换用户失败:', error.message);
+    return {
+      success: false,
+      message: error.message || '切换用户失败',
+    };
+  }
+}
+
+/**
+ * 开发环境获取用户列表（仅用于开发调试）
+ */
+export async function devGetUsers(): Promise<{ id: number; name: string; roles: RoleInfo[] }[]> {
+  // 仅允许开发环境
+  if (process.env.NODE_ENV === 'production') {
+    return [];
+  }
+
+  try {
+    const result = await appQuery<any>(
+      `SELECT u.id, u.name,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT('id', r.id, 'code', r.code, 'name', r.name)
+            ORDER BY r.id
+          ) FILTER (WHERE r.id IS NOT NULL),
+          '[]'
+        ) as roles
+      FROM users u
+      LEFT JOIN user_roles ur ON u.id = ur.user_id
+      LEFT JOIN roles r ON ur.role_id = r.id AND r.status = 1
+      WHERE u.status = 1
+      GROUP BY u.id, u.name
+      ORDER BY u.id`,
+      []
+    );
+
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      roles: row.roles || [],
+    }));
+  } catch (error: any) {
+    console.error('获取开发用户列表失败:', error.message);
+    return [];
+  }
+}
+
+/**
  * 开发环境管理员登录（仅用于开发调试）
  */
 export async function devLogin(ipAddress?: string, userAgent?: string): Promise<LoginResult> {

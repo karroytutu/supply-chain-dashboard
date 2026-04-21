@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { autoLogin, qrcodeCallback, getCurrentUser, devLogin } from '../services/auth.service';
+import { autoLogin, qrcodeCallback, getCurrentUser, devLogin, devSwitchUser, devGetUsers } from '../services/auth.service';
 import { config } from '../config';
 import crypto from 'crypto';
 
@@ -186,6 +186,60 @@ export async function developmentLogin(req: Request, res: Response) {
   const userAgent = req.headers['user-agent'];
 
   const result = await devLogin(ipAddress, userAgent);
+
+  if (result.success) {
+    res.json(result);
+  } else {
+    res.status(401).json(result);
+  }
+}
+
+/**
+ * 开发环境获取用户列表（仅用于开发调试）
+ */
+export async function developmentGetUsers(req: Request, res: Response) {
+  // 仅允许开发环境
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({
+      success: false,
+      message: '开发用户列表仅用于开发环境',
+    });
+    return;
+  }
+
+  const users = await devGetUsers();
+
+  res.json({
+    success: true,
+    data: users,
+    total: users.length,
+  });
+}
+
+/**
+ * 开发环境切换用户（仅用于开发调试）
+ */
+export async function developmentSwitchUser(req: Request, res: Response) {
+  // 仅允许开发环境
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({
+      success: false,
+      message: '用户切换仅用于开发环境',
+    });
+    return;
+  }
+
+  const { userId } = req.body;
+
+  if (!userId || typeof userId !== 'number') {
+    res.status(400).json({
+      success: false,
+      message: '缺少userId参数',
+    });
+    return;
+  }
+
+  const result = await devSwitchUser(userId);
 
   if (result.success) {
     res.json(result);

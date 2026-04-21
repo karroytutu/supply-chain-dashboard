@@ -93,6 +93,20 @@ export async function devLogin(): Promise<LoginResult> {
 }
 
 /**
+ * 开发环境切换用户（仅开发环境可用）
+ */
+export async function devSwitchUser(userId: number): Promise<LoginResult> {
+  return request.post('/auth/dev-switch', { userId }, { skipErrorHandler: true });
+}
+
+/**
+ * 开发环境获取用户列表（仅开发环境可用，无需特殊权限）
+ */
+export async function devGetUsers(): Promise<{ data: any[]; total: number }> {
+  return request.get('/auth/dev-users', { skipErrorHandler: true });
+}
+
+/**
  * 获取用户列表
  */
 export async function getUserList(params: {
