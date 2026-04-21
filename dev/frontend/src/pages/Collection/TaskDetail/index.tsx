@@ -108,7 +108,7 @@ const TaskDetailPage: React.FC = () => {
 
       <ActionButtons task={task} onAction={handleAction} />
 
-      <MoreInfo task={task} actions={actions} />
+      <MoreInfo actions={actions} />
 
       {showLegalProgress && (
         <LegalProgressSection progress={legalProgress} onAction={handleAction} />

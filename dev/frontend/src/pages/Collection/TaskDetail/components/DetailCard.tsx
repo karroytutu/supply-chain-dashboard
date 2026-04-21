@@ -1,9 +1,9 @@
 /**
  * 移动端欠款明细卡片
- * 用于详情页移动端展示欠款明细
+ * 紧凑两行布局：主信息行 + 次要信息行
  */
 import React from 'react';
-import { Checkbox, Dropdown, Button, Tag } from 'antd';
+import { Checkbox, Dropdown, Tag } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
 import type { CollectionDetail, CollectionDetailStatus } from '@/types/ar-collection';
 import type { ModalType } from '../hooks/useTaskDetail';
@@ -40,6 +40,13 @@ const formatDate = (dateStr: string): string => {
   return dateStr.slice(0, 10);
 };
 
+/** 逾期天数颜色 */
+const getOverdueColor = (days: number): string | undefined => {
+  if (days > 30) return '#ff4d4f';
+  if (days > 15) return '#faad14';
+  return undefined;
+};
+
 const DetailCard: React.FC<DetailCardProps> = ({
   detail,
   selected,
@@ -61,9 +68,9 @@ const DetailCard: React.FC<DetailCardProps> = ({
       className={`${styles.detailCard} ${selected ? styles.selected : ''}`}
       onClick={() => onSelect(detail.id)}
     >
-      {/* 头部：选择框 + 单据号 + 状态 */}
-      <div className={styles.cardHeader}>
-        <div className={styles.headerLeft}>
+      {/* Row 1: 选择框 + 单据号 | 金额 + 状态 + 操作 */}
+      <div className={styles.row1}>
+        <div className={styles.row1Left}>
           <Checkbox
             checked={selected}
             onClick={(e) => e.stopPropagation()}
@@ -73,61 +80,49 @@ const DetailCard: React.FC<DetailCardProps> = ({
             {detail.billNo || detail.erpBillId}
           </span>
         </div>
-        <Tag color={statusCfg?.color}>{statusCfg?.label || detail.status}</Tag>
-      </div>
-
-      {/* 主体：类型、金额、到期日、逾期天数 */}
-      <div className={styles.cardBody}>
-        <div className={styles.infoRow}>
-          <span className={styles.label}>类型</span>
-          <span className={styles.value}>{detail.billTypeName || '-'}</span>
-        </div>
-        <div className={styles.infoRow}>
-          <span className={styles.label}>金额</span>
-          <span className={styles.amountValue}>
+        <div className={styles.row1Right}>
+          <span className={styles.amount}>
             ¥{(detail.leftAmount ?? 0).toLocaleString()}
           </span>
-        </div>
-        <div className={styles.infoRow}>
-          <span className={styles.label}>到期日</span>
-          <span className={styles.value}>{formatDate(detail.expireTime)}</span>
-        </div>
-        <div className={styles.infoRow}>
-          <span className={styles.label}>逾期</span>
-          <span
-            className={styles.overdueValue}
-            style={{
-              color:
-                detail.overdueDays > 30
-                  ? '#ff4d4f'
-                  : detail.overdueDays > 15
-                    ? '#faad14'
-                    : undefined,
-            }}
-          >
-            {detail.overdueDays}天
-          </span>
+          <Tag color={statusCfg?.color}>{statusCfg?.label || detail.status}</Tag>
+          {showActions && (
+            <Dropdown
+              menu={{
+                items: actionMenuItems,
+                onClick: ({ key }) => {
+                  onAction(key as ModalType, detail);
+                },
+              }}
+              trigger={['click']}
+            >
+              <span
+                className={styles.actionBtn}
+                onClick={(e) => e.stopPropagation()}
+              >
+                操作 <DownOutlined />
+              </span>
+            </Dropdown>
+          )}
         </div>
       </div>
 
-      {/* 底部：操作按钮 */}
-      {showActions && (
-        <div className={styles.cardFooter}>
-          <Dropdown
-            menu={{
-              items: actionMenuItems,
-              onClick: ({ key }) => {
-                onAction(key as ModalType, detail);
-              },
-            }}
-            trigger={['click']}
-          >
-            <Button type="link" size="small" onClick={(e) => e.stopPropagation()}>
-              操作 <DownOutlined />
-            </Button>
-          </Dropdown>
-        </div>
-      )}
+      {/* Row 2: 类型 · 到期日 · 逾期天数 */}
+      <div className={styles.row2}>
+        <span className={styles.secondaryText}>
+          {detail.billTypeName || '-'}
+        </span>
+        <span className={styles.separator}>·</span>
+        <span className={styles.secondaryText}>
+          {formatDate(detail.expireTime)}到期
+        </span>
+        <span className={styles.separator}>·</span>
+        <span
+          className={styles.overdueText}
+          style={{ color: getOverdueColor(detail.overdueDays) }}
+        >
+          {detail.overdueDays}天
+        </span>
+      </div>
     </div>
   );
 };
