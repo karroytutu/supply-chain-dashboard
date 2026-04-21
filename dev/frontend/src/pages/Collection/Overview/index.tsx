@@ -1,10 +1,9 @@
 /**
  * 催收总览页面 - 列表页
  * 逾期催收管理的主入口页面
- * 优化：集成批量操作、表格列合并、筛选板块UX优化
+ * 优化：表格列合并、筛选板块UX优化
  */
 import React, { useCallback, useState } from 'react';
-import { message } from 'antd';
 import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
 import useOverview from './hooks/useOverview';
@@ -13,7 +12,6 @@ import WarningPanel from './components/WarningPanel';
 import WarningDetailModal from './components/WarningDetailModal';
 import FilterBar from './components/FilterBar';
 import CollectionTable from './components/CollectionTable';
-import BatchActionBar from './components/BatchActionBar';
 import VerifyModal from '../components/VerifyModal';
 import ExtensionModal from '../components/ExtensionModal';
 import DifferenceModal from '../components/DifferenceModal';
@@ -73,32 +71,6 @@ const CollectionOverview: React.FC = () => {
     overview.refresh();
   }, [handleModalClose, overview.refresh]);
 
-  /** 批量核销 */
-  const handleBatchVerify = useCallback(() => {
-    message.info('批量核销功能开发中...');
-    // TODO: 实现批量核销逻辑
-  }, []);
-
-  /** 批量延期 */
-  const handleBatchExtension = useCallback(() => {
-    message.info('批量延期功能开发中...');
-    // TODO: 实现批量延期逻辑
-  }, []);
-
-  /** 批量升级 */
-  const handleBatchEscalate = useCallback(() => {
-    message.info('批量升级功能开发中...');
-    // TODO: 实现批量升级逻辑
-  }, []);
-
-  /** 选择变更 */
-  const handleSelectionChange = useCallback(
-    (keys: number[], rows: CollectionTask[]) => {
-      overview.setSelection(keys, rows);
-    },
-    [overview],
-  );
-
   return (
     <Authorized permission={PERMISSIONS.AR.COLLECTION.READ}>
       <div className="collection-overview-page">
@@ -138,14 +110,6 @@ const CollectionOverview: React.FC = () => {
         {/* 任务列表 */}
         <div className="main-content">
           <div className="table-wrapper">
-            <BatchActionBar
-              selectedCount={overview.selectedRowKeys.length}
-              selectedTasks={overview.selectedRows}
-              onBatchVerify={handleBatchVerify}
-              onBatchExtension={handleBatchExtension}
-              onBatchEscalate={handleBatchEscalate}
-              onClearSelection={overview.clearSelection}
-            />
             <CollectionTable
               tasks={overview.tasks}
               loading={overview.loading}
@@ -154,12 +118,10 @@ const CollectionOverview: React.FC = () => {
               pageSize={overview.pageSize}
               statusTab={overview.statusTab}
               stats={overview.stats}
-              selectedRowKeys={overview.selectedRowKeys}
               onStatusTabChange={overview.setStatusTab}
               onPageChange={overview.setPage}
               onPageSizeChange={overview.setPageSize}
               onAction={handleAction}
-              onSelectionChange={handleSelectionChange}
             />
           </div>
         </div>

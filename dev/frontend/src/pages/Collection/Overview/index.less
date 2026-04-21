@@ -272,21 +272,6 @@
     }
   }
 
-  /* 批量操作栏样式 */
-  .batch-action-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
-    background: #fafafa;
-    border-bottom: 1px solid #f0f0f0;
-    font-size: 13px;
-
-    .selected-count {
-      color: #1890ff;
-    }
-  }
-
   /* ========== 快捷筛选分组样式 ========== */
   .quick-filters-group {
     display: flex;
@@ -383,16 +368,6 @@
       padding: 8px 12px;
     }
 
-    // 选中状态样式
-    &.task-card-selected {
-      :global {
-        .ant-card {
-          border-color: #1890ff;
-          background: #e6f7ff;
-        }
-      }
-    }
-
     // 行容器
     .task-card-row {
       display: flex;
@@ -441,23 +416,6 @@
       padding: 0 4px;
       line-height: 18px;
       border-radius: 2px;
-    }
-
-    // Checkbox
-    .task-card-checkbox {
-      margin-right: 0;
-
-      :global {
-        .ant-checkbox-inner {
-          width: 18px;
-          height: 18px;
-        }
-
-        .ant-checkbox-input {
-          width: 18px;
-          height: 18px;
-        }
-      }
     }
 
     // Row 2 样式：编号·日期·逾期 + 处理人

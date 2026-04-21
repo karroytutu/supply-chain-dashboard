@@ -55,8 +55,6 @@ interface OverviewState {
   searchKeyword: string;
   handlerId: number | null;
   dateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null;
-  selectedRowKeys: number[];
-  selectedRows: CollectionTask[];
 }
 
 export function useOverview() {
@@ -80,8 +78,6 @@ export function useOverview() {
     searchKeyword: '',
     handlerId: null,
     dateRange: null,
-    selectedRowKeys: [],
-    selectedRows: [],
   });
 
   // 将日期范围转为字符串作为稳定依赖
@@ -222,16 +218,6 @@ export function useOverview() {
     setState((s) => ({ ...s, dateRange, page: 1 }));
   }, []);
 
-  /** 设置选中行 */
-  const setSelection = useCallback((keys: number[], rows: CollectionTask[]) => {
-    setState((s) => ({ ...s, selectedRowKeys: keys, selectedRows: rows }));
-  }, []);
-
-  /** 清除选中 */
-  const clearSelection = useCallback(() => {
-    setState((s) => ({ ...s, selectedRowKeys: [], selectedRows: [] }));
-  }, []);
-
   /** 清除所有筛选条件 */
   const clearAllFilters = useCallback(() => {
     setState((s) => ({
@@ -255,8 +241,6 @@ export function useOverview() {
     setHandlerId,
     setDateRange,
     clearAllFilters,
-    setSelection,
-    clearSelection,
   };
 }
 

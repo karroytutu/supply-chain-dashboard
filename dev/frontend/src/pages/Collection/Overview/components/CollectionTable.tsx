@@ -1,7 +1,7 @@
 /**
  * 催收任务列表表格组件
  * 包含状态 Tab 切换、任务列表、操作下拉菜单
- * 优化：列合并（7列→4列）、批量选择支持、移动端卡片渲染
+ * 优化：列合并（7列→4列）、移动端卡片渲染
  */
 import React, { useCallback } from 'react';
 import dayjs from 'dayjs';
@@ -31,12 +31,10 @@ interface CollectionTableProps {
   pageSize: number;
   statusTab: StatusTab;
   stats: CollectionStats | null;
-  selectedRowKeys?: number[];
   onStatusTabChange: (tab: StatusTab) => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   onAction: (action: string, task: CollectionTask) => void;
-  onSelectionChange?: (selectedRowKeys: number[], selectedRows: CollectionTask[]) => void;
 }
 
 /** 状态 Tab 配置 */
@@ -57,12 +55,10 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
   pageSize,
   statusTab,
   stats,
-  selectedRowKeys = [],
   onStatusTabChange,
   onPageChange,
   onPageSizeChange,
   onAction,
-  onSelectionChange,
 }) => {
   const { hasPermission, hasRole } = usePermission();
 
@@ -267,16 +263,6 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
     },
   ];
 
-  /** 多选配置 */
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: (keys: React.Key[], rows: CollectionTask[]) => {
-      onSelectionChange?.(keys as number[], rows);
-    },
-    selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE],
-    columnWidth: 50,
-  };
-
   // 媒体查询
   const { isMobile } = useMedia();
 
@@ -289,23 +275,11 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
             key={task.id}
             task={task}
             onViewDetail={goToDetail}
-            selectable={!!onSelectionChange}
-            selected={selectedRowKeys.includes(task.id)}
-            onSelect={handleCardSelect}
           />
         ))}
       </Spin>
     </div>
   );
-
-  /** 移动端卡片选择回调 */
-  const handleCardSelect = useCallback((id: number, checked: boolean) => {
-    const newKeys = checked
-      ? [...selectedRowKeys, id]
-      : selectedRowKeys.filter((k) => k !== id);
-    const newRows = tasks.filter((t) => newKeys.includes(t.id));
-    onSelectionChange?.(newKeys, newRows);
-  }, [selectedRowKeys, tasks, onSelectionChange]);
 
   /** 获取 Tab 对应状态的数据条数 */
   const getTabCount = (status: string): number => {
@@ -328,10 +302,10 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
           </span>
         ))}
       </div>
-      
+
       {/* 移动端卡片列表 */}
       {isMobile && renderMobileCards()}
-      
+
       {/* 桌面端表格 */}
       <Table
         dataSource={tasks}
@@ -339,7 +313,6 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
         rowKey="id"
         loading={loading}
         size="middle"
-        rowSelection={rowSelection}
         scroll={{ x: 740 }}
         pagination={{
           current: page,
