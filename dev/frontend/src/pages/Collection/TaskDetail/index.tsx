@@ -1,14 +1,12 @@
 /**
  * 催收任务详情页
- * 整合 TaskHeader、FlowProgress、RoleTip、DetailTable、ActionButtons、MoreInfo、LegalProgress 及所有弹窗
+ * 整合 TaskHeader、DetailTable、ActionButtons、MoreInfo、LegalProgress 及所有弹窗
  */
 import React, { useMemo } from 'react';
 import { Spin, Result, Button } from 'antd';
 import { history, useParams } from 'umi';
 import useTaskDetail from './hooks/useTaskDetail';
 import TaskHeader from './components/TaskHeader';
-import FlowProgress from './components/FlowProgress';
-import RoleTip from './components/RoleTip';
 import DetailTable from './components/DetailTable';
 import ActionButtons from './components/ActionButtons';
 import MoreInfo from './components/MoreInfo';
@@ -22,7 +20,6 @@ import ResolveDifferenceModal from '../components/ResolveDifferenceModal';
 import SendNoticeModal from '../components/SendNoticeModal';
 import LawsuitModal from '../components/LawsuitModal';
 import UpdateLegalProgressModal from '../components/UpdateLegalProgressModal';
-import { usePermission } from '@/hooks/usePermission';
 import type { CollectionDetail } from '@/types/ar-collection';
 import type { ModalType } from './hooks/useTaskDetail';
 import './index.less';
@@ -49,9 +46,6 @@ const TaskDetailPage: React.FC = () => {
     refresh,
   } = useTaskDetail(taskId);
 
-  // 获取用户角色
-  const { roles } = usePermission();
-
   /** 弹窗操作成功回调 */
   const handleSuccess = () => {
     closeModal();
@@ -73,18 +67,6 @@ const TaskDetailPage: React.FC = () => {
   const handleAction = (type: ModalType) => {
     openModal(type);
   };
-
-  /** 获取用户主角色 */
-  const userRole = useMemo(() => {
-    if (roles.includes('admin')) return 'admin';
-    if (roles.includes('manager')) return 'manager';
-    if (roles.includes('marketing_manager') || roles.includes('marketing_supervisor')) return 'marketing_manager';
-    if (roles.includes('current_accountant')) return 'current_accountant';
-    if (roles.includes('finance_staff')) return 'finance_staff';
-    if (roles.includes('cashier')) return 'cashier';
-    if (roles.includes('marketer')) return 'marketer';
-    return 'marketer';
-  }, [roles]);
 
   if (loading) {
     return (
@@ -114,16 +96,6 @@ const TaskDetailPage: React.FC = () => {
   return (
     <div className="task-detail-page">
       <TaskHeader task={task} />
-
-      {/* 流程进度 */}
-      <FlowProgress
-        status={task.status}
-        escalationLevel={task.escalationLevel}
-        currentHandlerRole={task.currentHandlerRole}
-      />
-
-      {/* 角色提示 */}
-      <RoleTip role={userRole} />
 
       <DetailTable
         details={details}
