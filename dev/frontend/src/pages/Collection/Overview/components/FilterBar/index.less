@@ -1,6 +1,7 @@
-/* FilterBar 组件样式 - 简化版 */
+/* FilterBar 组件样式 */
+@import '~@/styles/variables.less';
 
-/* 筛选栏容器 */
+/* 筛选栏容器（桌面端） */
 .filterBar {
   background: #fff;
   border: 1px solid #f0f0f0;
@@ -9,7 +10,7 @@
   margin-bottom: 16px;
 }
 
-/* ========== 搜索行 ========== */
+/* ========== 桌面端搜索行 ========== */
 .searchRow {
   display: flex;
   align-items: center;
@@ -34,46 +35,42 @@
 /* ========== 移动端样式 ========== */
 .filterBarMobile {
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  align-items: center;
   padding: 0 0 12px;
 }
 
 .mobileSearchInput {
-  flex: 1;
+  width: 100%;
 }
 
-.mobileFilterDrawer {
-  :global {
-    .ant-drawer-body {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding: 16px;
-      overflow-y: auto;
-    }
-
-    .ant-drawer-footer {
-      padding: 12px 16px;
-      padding-bottom: calc(12px + env(safe-area-inset-bottom));
-    }
-  }
-}
-
-.mobileFilterItem {
-  margin-bottom: 4px;
-}
-
-.mobileDatePickers {
+.mobileDateRow {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
 }
 
-.mobileFilterLabel {
+.mobileDatePicker {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobileDateSeparator {
+  color: #bfbfbf;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.mobileHandlerSelect {
+  width: 100%;
+}
+
+.mobileClearButton {
+  align-self: flex-start;
+  padding: 0;
+  height: auto;
   font-size: 13px;
   color: #8c8c8c;
-  margin-bottom: 8px;
 }
 
 /* ========== 响应式适配 ========== */
@@ -85,16 +82,33 @@
   }
 
   .searchRow {
-    display: none; // 移动端隐藏桌面端搜索行
+    display: none;
   }
 
-  // 触摸友好的表单元素
-  .mobileFilterItem {
-    .ant-input,
-    .ant-select-selector,
-    .ant-picker {
-      min-height: 44px;
-      font-size: 16px; // 防止 iOS 自动缩放
+  // 防止 iOS 自动缩放
+  .mobileSearchInput {
+    :global {
+      .ant-input {
+        font-size: 16px;
+      }
+    }
+  }
+
+  .mobileDatePicker {
+    :global {
+      .ant-picker {
+        font-size: 16px;
+        min-height: @touch-target-size;
+      }
+    }
+  }
+
+  .mobileHandlerSelect {
+    :global {
+      .ant-select-selector {
+        font-size: 16px;
+        min-height: @touch-target-size;
+      }
     }
   }
 }
@@ -111,18 +125,5 @@
       cursor: pointer;
       user-select: none;
     }
-  }
-}
-
-/* ========== 筛选按钮激活状态 ========== */
-.filterButtonActive {
-  background: #1890ff;
-  border-color: #1890ff;
-  color: #fff;
-
-  &:hover {
-    background: #40a9ff;
-    border-color: #40a9ff;
-    color: #fff;
   }
 }
