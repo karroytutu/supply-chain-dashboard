@@ -387,7 +387,7 @@ export async function devSwitchUser(userId: number): Promise<LoginResult> {
 /**
  * 开发环境获取用户列表（仅用于开发调试）
  */
-export async function devGetUsers(): Promise<{ id: number; name: string; roles: RoleInfo[] }[]> {
+export async function devGetUsers(): Promise<{ id: number; name: string; avatar?: string; roles: RoleInfo[] }[]> {
   // 仅允许开发环境
   if (process.env.NODE_ENV === 'production') {
     return [];
@@ -395,7 +395,7 @@ export async function devGetUsers(): Promise<{ id: number; name: string; roles: 
 
   try {
     const result = await appQuery<any>(
-      `SELECT u.id, u.name,
+      `SELECT u.id, u.name, u.avatar,
         COALESCE(
           JSON_AGG(
             JSON_BUILD_OBJECT('id', r.id, 'code', r.code, 'name', r.name)
@@ -407,7 +407,7 @@ export async function devGetUsers(): Promise<{ id: number; name: string; roles: 
       LEFT JOIN user_roles ur ON u.id = ur.user_id
       LEFT JOIN roles r ON ur.role_id = r.id AND r.status = 1
       WHERE u.status = 1
-      GROUP BY u.id, u.name
+      GROUP BY u.id, u.name, u.avatar
       ORDER BY u.id`,
       []
     );
@@ -415,6 +415,7 @@ export async function devGetUsers(): Promise<{ id: number; name: string; roles: 
     return result.rows.map((row: any) => ({
       id: row.id,
       name: row.name,
+      avatar: row.avatar,
       roles: row.roles || [],
     }));
   } catch (error: any) {

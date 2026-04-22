@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import './styles/global.less';
 import { Dropdown, Spin, Tag } from 'antd';
 import { LogoutOutlined, SwapOutlined } from '@ant-design/icons';
-import { getCurrentUser, devSwitchUser, devGetUsers } from '@/services/api/auth';
+import { getCurrentUser } from '@/services/api/auth';
 import UserAvatar from '@/components/UserAvatar';
+import DevUserSwitcher from '@/components/DevUserSwitcher';
 
 const TOKEN_KEY = 'auth_token';
 const isDev = process.env.NODE_ENV === 'development';
@@ -17,45 +18,19 @@ interface LayoutRuntimeConfig {
   logout?: (state: LayoutInitialState) => void;
 }
 
-interface UserItem {
-  id: number;
-  name: string;
-  roles?: { name: string }[];
-}
-
 /**
  * 右上角头像及菜单组件
  * 开发环境下显示用户切换功能
  */
 function RightAvatar({
   initialState,
+  setInitialState,
   runtimeConfig,
 }: {
   initialState: LayoutInitialState | undefined;
+  setInitialState: (state: LayoutInitialState | ((prev: LayoutInitialState) => LayoutInitialState)) => void;
   runtimeConfig: LayoutRuntimeConfig;
 }) {
-  const [users, setUsers] = useState<UserItem[]>([]);
-
-  useEffect(() => {
-    if (isDev) {
-      devGetUsers()
-        .then((res) => setUsers(res.data))
-        .catch(() => {});
-    }
-  }, []);
-
-  const handleSwitchUser = async (userId: number) => {
-    try {
-      const result = await devSwitchUser(userId);
-      if (result.success && result.token) {
-        localStorage.setItem(TOKEN_KEY, result.token);
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('切换用户失败:', error);
-    }
-  };
-
   if (!initialState) {
     return (
       <div className="umi-plugin-layout-right">
@@ -94,40 +69,25 @@ function RightAvatar({
     },
   ];
 
-  // 开发环境：在退出登录上方插入切换用户子菜单
-  if (isDev && users.length > 0) {
+  // 开发环境：在退出登录上方插入切换用户入口（弹出搜索面板）
+  if (isDev) {
     menuItems.unshift({
       key: 'switch-user',
       label: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <SwapOutlined />
-          切换用户
-          <Tag color="orange" style={{ marginLeft: 4, fontSize: 10, lineHeight: '14px' }}>
-            dev
-          </Tag>
-        </span>
-      ),
-      children: users.map((u) => ({
-        key: `switch-${u.id}`,
-        label: (
-          <span
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 8,
-            }}
-          >
-            <span>{u.name}</span>
-            {u.roles && u.roles.length > 0 && (
-              <Tag style={{ fontSize: 11, margin: 0, padding: '0 4px', lineHeight: '18px' }}>
-                {u.roles.map((r) => r.name).join(', ')}
-              </Tag>
-            )}
+        <DevUserSwitcher
+          onSwitch={(name, avatar) => {
+            setInitialState((s) => ({ ...s, name, avatar }));
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <SwapOutlined />
+            切换用户
+            <Tag color="orange" style={{ marginLeft: 4, fontSize: 10, lineHeight: '14px' }}>
+              dev
+            </Tag>
           </span>
-        ),
-        onClick: () => handleSwitchUser(u.id),
-      })),
+        </DevUserSwitcher>
+      ),
     });
   }
 
@@ -178,11 +138,12 @@ export const layout = () => ({
   },
   rightRender: (
     initialState: LayoutInitialState | undefined,
-    _setInitialState: unknown,
+    setInitialState: unknown,
     runtimeConfig: LayoutRuntimeConfig,
   ) => (
     <RightAvatar
       initialState={initialState}
+      setInitialState={setInitialState as any}
       runtimeConfig={runtimeConfig}
     />
   ),
