@@ -11,9 +11,9 @@ COPY dev/frontend/.umirc.ts ./.umirc.orig.ts
 COPY dev/frontend/.eslintrc.js ./
 COPY dev/frontend/.prettierrc ./
 
-# 安装依赖（使用 BuildKit 缓存挂载加速）
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci && npm cache clean --force
+# 安装依赖（优先使用本地已有的 node_modules，避免重新下载）
+COPY dev/frontend/node_modules ./node_modules
+RUN npm ci --offline --no-audit --no-fund 2>/dev/null || npm install --prefer-offline --no-audit --no-fund
 
 # 复制源代码
 COPY dev/frontend/src ./src
