@@ -309,8 +309,7 @@ export interface ConfirmVerifyParams {
 export interface ResolveDifferenceParams {
   task_id: number;
   detail_ids: number[];
-  resolution: string;
-  remark?: string;
+  remark: string;
   operator_id: number;
   operator_name: string;
 }

@@ -477,7 +477,7 @@ export async function resolveDifference(
       await client.query(
         `UPDATE ar_collection_details SET status = 'difference_resolved', remark = $1
          WHERE task_id = $2 AND id = ANY($3)`,
-        [params.resolution, taskId, params.detail_ids]
+        [params.remark, taskId, params.detail_ids]
       );
     }
 
@@ -490,7 +490,7 @@ export async function resolveDifference(
 
     await client.query('COMMIT');
 
-    await logAction(taskId, params.detail_ids, 'resolve_difference', 'success', params.remark || params.resolution, operatorId, operatorName, operatorRole);
+    await logAction(taskId, params.detail_ids, 'resolve_difference', 'success', params.remark, operatorId, operatorName, operatorRole);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

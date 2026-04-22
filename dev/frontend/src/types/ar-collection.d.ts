@@ -220,8 +220,7 @@ export interface ConfirmVerifyParams {
  * 处理差异参数
  */
 export interface ResolveDifferenceParams {
-  resolution: string;
-  remark?: string;
+  remark: string;
 }
 
 /**

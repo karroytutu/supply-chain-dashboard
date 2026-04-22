@@ -3,7 +3,7 @@
  * 财务人员处理营销师标记的差异
  */
 import React, { useState } from 'react';
-import { Modal, Form, Input, Radio, message } from 'antd';
+import { Modal, Form, Input, Alert, message } from 'antd';
 import { resolveDifference } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import styles from './ModalMobile.less';
@@ -31,7 +31,6 @@ const ResolveDifferenceModal: React.FC<ResolveDifferenceModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
       await resolveDifference(task.id, {
-        resolution: values.resolution,
         remark: values.remark,
       });
       message.success('差异处理结果已提交');
@@ -66,19 +65,14 @@ const ResolveDifferenceModal: React.FC<ResolveDifferenceModalProps> = ({
         客户：{task.consumerName}，欠款总额：¥{(task.totalAmount ?? 0).toLocaleString()}
       </div>
 
-      <Form form={form} layout="vertical">
-        <Form.Item
-          name="resolution"
-          label="处理结果"
-          rules={[{ required: true, message: '请选择处理结果' }]}
-        >
-          <Radio.Group>
-            <Radio.Button value="resolved">差异已解决</Radio.Button>
-            <Radio.Button value="adjusted">调整金额</Radio.Button>
-            <Radio.Button value="returned">退回营销师</Radio.Button>
-          </Radio.Group>
-        </Form.Item>
+      <Alert
+        message="提交后该任务将退回到营销师，由其继续催收"
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+      />
 
+      <Form form={form} layout="vertical">
         <Form.Item
           name="remark"
           label="处理说明"
