@@ -16,15 +16,28 @@ RUN sed 's|"outDir": "../../prod/backend/dist"|"outDir": "./dist"|' tsconfig.ori
 # 运行阶段
 FROM node:20-alpine
 
+# 创建非 root 用户运行服务
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev && npm cache clean --force
 
-COPY --from=builder /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+
+# 创建上传目录并设置权限
+RUN mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence && \
+    chown -R nodejs:nodejs /app/uploads
+
+USER nodejs
 
 ENV NODE_ENV=production
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -q --spider http://localhost:8000/api/health || exit 1
 
 CMD ["node", "dist/app.js"]

@@ -8,7 +8,10 @@ services:
       dockerfile: deploy/Dockerfile.frontend
     container_name: xly-frontend
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "3000:3000"
+    networks:
+      - xly-network
     volumes:
       # nginx配置可以热更新
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
@@ -17,8 +20,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     environment:
       - TZ=Asia/Shanghai
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 后端服务 - Node.js
   backend:
@@ -27,7 +44,10 @@ services:
       dockerfile: ../../deploy/Dockerfile.backend
     container_name: xly-backend
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "8000:8000"
+    networks:
+      - xly-network
     volumes:
       # 挂载上传目录到宿主机，保证数据持久化
       - /data/uploads:/app/uploads:rw
@@ -38,9 +58,24 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
     environment:
       - TZ=Asia/Shanghai
       - NODE_ENV=production
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
-# 使用 host 网络模式，容器直接使用宿主机网络
-# 这样容器可以通过 localhost 访问宿主机上的 PostgreSQL
+networks:
+  xly-network:
+    driver: bridge
