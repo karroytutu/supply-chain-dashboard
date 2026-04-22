@@ -28,35 +28,35 @@ router.use(authMiddleware);
 /** 获取考核记录列表 */
 router.get(
   '/',
-  requirePermission('finance:ar:penalty'),
+  requirePermission('return:penalty:read'),
   getPenaltyList
 );
 
 /** 获取考核统计 */
 router.get(
   '/stats',
-  requirePermission('finance:ar:penalty'),
+  requirePermission('return:penalty:read'),
   getPenaltyStatistics
 );
 
 /** 手动触发考核计算 */
 router.post(
   '/calculate',
-  requirePermission('finance:ar:penalty'),
+  requirePermission('return:penalty:write'),
   triggerPenaltyCalculation
 );
 
 /** 获取我的考核记录 */
 router.get(
   '/my',
-  requirePermission('finance:ar:penalty'),
+  requirePermission('return:penalty:read'),
   getMyPenaltyList
 );
 
 /** 获取单条考核详情 */
 router.get(
   '/:id',
-  requirePermission('finance:ar:penalty'),
+  requirePermission('return:penalty:read'),
   getPenaltyDetail
 );
 
@@ -65,21 +65,21 @@ router.get(
 /** 确认考核 */
 router.post(
   '/:id/confirm',
-  requirePermission('finance:ar:penalty'),
+  requirePermission('return:penalty:write'),
   confirmPenalty
 );
 
 /** 取消考核 */
 router.post(
   '/:id/cancel',
-  requirePermission('finance:ar:penalty'),
+  requirePermission('return:penalty:write'),
   cancelPenalty
 );
 
 /** 申诉考核 */
 router.post(
   '/:id/appeal',
-  requirePermission('finance:ar:penalty'),
+  requirePermission('return:penalty:write'),
   appealPenalty
 );
 

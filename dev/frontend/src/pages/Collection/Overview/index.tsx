@@ -46,7 +46,7 @@ const CollectionOverview: React.FC = () => {
   }, [overview.handlerId]);
 
   return (
-    <Authorized permission={PERMISSIONS.AR.COLLECTION.READ}>
+    <Authorized permission={PERMISSIONS.FINANCE.AR.READ}>
       <div className="collection-overview-page">
         {/* 页面头部 */}
         <div className="page-header">

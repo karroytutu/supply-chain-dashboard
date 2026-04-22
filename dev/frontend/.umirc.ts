@@ -72,7 +72,7 @@ export default defineConfig({
               path: 'penalty',
               component: '@/pages/ProcurementReturn/Penalty',
               name: '考核管理',
-              permission: PERMISSIONS.FINANCE.AR.PENALTY,
+              permission: PERMISSIONS.RETURN.PENALTY.READ,
             },
           ],
         },

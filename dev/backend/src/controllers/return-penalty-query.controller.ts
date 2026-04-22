@@ -36,7 +36,7 @@ function getCurrentUser(req: Request): AuthenticatedRequest['user'] {
 /**
  * 获取考核记录列表
  * GET /api/return-penalty
- * 权限: finance:ar:penalty
+ * 权限: return:penalty:read
  */
 export const getPenaltyList = async (req: Request, res: Response) => {
   try {
@@ -82,7 +82,7 @@ export const getPenaltyList = async (req: Request, res: Response) => {
 /**
  * 获取我的考核记录
  * GET /api/return-penalty/my
- * 权限: finance:ar:penalty
+ * 权限: return:penalty:read
  */
 export const getMyPenaltyList = async (req: Request, res: Response) => {
   try {
@@ -121,7 +121,7 @@ export const getMyPenaltyList = async (req: Request, res: Response) => {
 /**
  * 获取单条考核详情
  * GET /api/return-penalty/:id
- * 权限: finance:ar:penalty
+ * 权限: return:penalty:read
  */
 export const getPenaltyDetail = async (req: Request, res: Response) => {
   try {
@@ -161,7 +161,7 @@ export const getPenaltyDetail = async (req: Request, res: Response) => {
 /**
  * 获取考核统计
  * GET /api/return-penalty/stats
- * 权限: finance:ar:penalty
+ * 权限: return:penalty:read
  */
 export const getPenaltyStatistics = async (req: Request, res: Response) => {
   try {

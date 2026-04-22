@@ -1,7 +1,7 @@
 /**
  * 权限编码常量
  * 集中管理所有权限编码，避免拼写错误，便于维护和重构
- * 
+ *
  * 命名规范：{模块}:{资源}:{操作}
  * - 模块：dashboard, system, strategic, finance, procurement 等
  * - 资源：user, role, permission, product, order 等
@@ -14,9 +14,6 @@ export const PERMISSIONS = {
     VIEW: {
       READ: 'dashboard:view:read',
     },
-    EXPORT: {
-      WRITE: 'dashboard:export:write',
-    },
   },
 
   // 系统管理模块
@@ -25,19 +22,16 @@ export const PERMISSIONS = {
     USER: {
       READ: 'system:user:read',
       WRITE: 'system:user:write',
-      DELETE: 'system:user:delete',
     },
     // 角色管理
     ROLE: {
       READ: 'system:role:read',
       WRITE: 'system:role:write',
-      DELETE: 'system:role:delete',
     },
     // 权限管理
     PERMISSION: {
       READ: 'system:permission:read',
       WRITE: 'system:permission:write',
-      DELETE: 'system:permission:delete',
     },
     // 同步管理
     SYNC: {
@@ -62,10 +56,6 @@ export const PERMISSIONS = {
     ARCHIVE: {
       READ: 'procurement:archive:read',
     },
-    RETURN: {
-      READ: 'return:read',
-      WRITE: 'return:write',
-    },
   },
 
   // 退货管理模块
@@ -89,23 +79,6 @@ export const PERMISSIONS = {
     AR: {
       READ: 'ar:collection:read',
       WRITE: 'ar:collection:write',
-      PENALTY: 'return:penalty:read',
-      // 催收操作（兼容旧引用）
-      COLLECTION_READ: 'ar:collection:read',
-      COLLECTION_WRITE: 'ar:collection:write',
-      COLLECTION_VERIFY: 'ar:collection:verify',
-      COLLECTION_ESCALATE: 'ar:collection:escalate',
-    },
-  },
-
-  // 应收账款模块（已迁移至 FINANCE.AR，保留兼容）
-  AR: {
-    // 催收管理
-    COLLECTION: {
-      READ: 'ar:collection:read',
-      WRITE: 'ar:collection:write',
-      VERIFY: 'ar:collection:verify',
-      ESCALATE: 'ar:collection:escalate',
     },
   },
 
