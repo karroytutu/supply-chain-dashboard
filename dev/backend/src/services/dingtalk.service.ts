@@ -1,6 +1,5 @@
 import * as $OpenApi from '@alicloud/openapi-client';
-import * as $Util from '@alicloud/tea-util';
-import { contact_1_0, oauth2_1_0 } from '@alicloud/dingtalk';
+import { oauth2_1_0 } from '@alicloud/dingtalk';
 import * as https from 'https';
 import { config } from '../config';
 import { createNotificationLog, updateNotificationLogStatus } from './notification-log.service';
@@ -152,16 +151,6 @@ function getOAuth2Config(): $OpenApi.Config {
 }
 
 /**
- * 获取通讯录客户端配置
- */
-function getContactConfig(): $OpenApi.Config {
-  const cfg = new $OpenApi.Config({});
-  cfg.protocol = 'https';
-  cfg.regionId = 'central';
-  return cfg;
-}
-
-/**
  * 获取企业内部应用的 access_token
  * 使用钉钉 SDK 获取访问凭证
  */
@@ -245,6 +234,58 @@ async function oapiRequest(accessToken: string, path: string, body: object): Pro
 }
 
 /**
+ * 通用钉钉新版 API HTTP 请求封装
+ * 针对 api.dingtalk.com（v1.0 新版 API），支持 GET/POST 方法和自定义请求头
+ * 绕过 SDK 的 AK/SK 凭证检查，通过 HTTP Header 直接传递 user access token
+ */
+async function apiRequest(
+  method: string,
+  path: string,
+  body: object | null,
+  headers: Record<string, string> = {}
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const options: https.RequestOptions = {
+      hostname: 'api.dingtalk.com',
+      path,
+      method,
+      headers: {
+        'Content-Type': 'application/json;charset=utf-8',
+        ...headers,
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (res.statusCode && res.statusCode >= 400) {
+            const errMsg = result?.message || result?.errorMsg || `HTTP ${res.statusCode}`;
+            reject(new Error(`[DingTalk API] ${result?.code || res.statusCode}: ${errMsg}`));
+            return;
+          }
+          resolve(result);
+        } catch (e) {
+          reject(new Error('解析钉钉响应失败: ' + data));
+        }
+      });
+    });
+
+    req.on('error', (e) => reject(e));
+    req.setTimeout(10000, () => {
+      req.destroy(new Error('钉钉API请求超时'));
+    });
+
+    if (body && method !== 'GET') {
+      req.write(JSON.stringify(body));
+    }
+    req.end();
+  });
+}
+
+/**
  * 通过免登授权码获取用户信息（H5微应用免登）
  * 使用旧版 SDK 调用 /topapi/v2/user/getuserinfo 接口
  */
@@ -288,7 +329,8 @@ export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkU
     };
   } catch (error: any) {
     console.error('[Dingtalk] 通过authCode获取用户信息失败:', error.message || error);
-    throw new Error('获取用户信息失败: ' + (error.message || '未知错误'));
+    error.message = '获取用户信息失败: ' + (error.message || '未知错误');
+    throw error;
   }
 }
 
@@ -309,61 +351,64 @@ async function getUserDetailByUserId(userId: string, accessToken: string): Promi
 /**
  * 通过临时授权码获取用户信息（扫码登录）
  * 适用于外部浏览器的扫码登录场景
+ * 使用直接 HTTP 请求替代 SDK，绕过 AK/SK 凭证检查
  */
 export async function getUserInfoByCode(code: string): Promise<DingtalkUserInfo> {
   try {
-    // 1. 获取用户Token
-    const oauth2Client = new oauth2_1_0.default(getOAuth2Config());
-    
-    const getUserTokenRequest = new oauth2_1_0.GetUserTokenRequest({
+    // 1. 用 authCode 换取 userAccessToken
+    // 官方文档参数：clientId, clientSecret, code, grantType（不传 refreshToken，不传 redirectUri）
+    const tokenResult = await apiRequest('POST', '/v1.0/oauth2/userAccessToken', {
       clientId: config.dingtalk.appKey,
       clientSecret: config.dingtalk.appSecret,
-      code: code,
-      refreshToken: '',
+      code,
       grantType: 'authorization_code',
     });
 
-    const tokenResult = await oauth2Client.getUserToken(getUserTokenRequest);
-    
-    if (!tokenResult.body?.accessToken) {
-      throw new Error('获取AccessToken失败');
+    if (!tokenResult.accessToken) {
+      throw new Error(`OAuth2 token交换失败: ${JSON.stringify(tokenResult)}`);
     }
 
-    // 2. 使用accessToken获取用户信息
-    const userInfo = await getUserInfoByAccessToken(tokenResult.body.accessToken);
-    
+    // 2. 用 accessToken 获取用户信息
+    const userInfo = await getUserInfoByAccessToken(tokenResult.accessToken);
     return userInfo;
   } catch (error: any) {
-    console.error('通过code获取用户信息失败:', error.message || error);
-    throw new Error('获取用户信息失败');
+    console.error('[Dingtalk] 通过code获取用户信息失败:', error.message || error);
+    error.message = '获取用户信息失败: ' + (error.message || '未知错误');
+    throw error;
   }
 }
 
 /**
  * 通过accessToken获取用户信息
+ * 使用直接 HTTP 请求替代 SDK，通过 Header 传递 user access token
  */
 async function getUserInfoByAccessToken(accessToken: string): Promise<DingtalkUserInfo> {
-  const contactClient = new contact_1_0.default(getContactConfig());
-  
-  const getUserHeader = new contact_1_0.GetUserHeaders();
-  getUserHeader.xAcsDingtalkAccessToken = accessToken;
-  
-  const userResult = await contactClient.getUserWithOptions('me', getUserHeader, new $Util.RuntimeOptions());
-  
-  if (!userResult.body) {
-    throw new Error('获取用户信息为空');
-  }
+  try {
+    const userResult = await apiRequest(
+      'GET',
+      '/v1.0/contact/users/me',
+      null,
+      { 'x-acs-dingtalk-access-token': accessToken }
+    );
 
-  return {
-    userid: userResult.body.openId || userResult.body.unionId || '',
-    unionid: userResult.body.unionId || '',
-    name: userResult.body.nick || userResult.body.name || '',
-    avatar: userResult.body.avatarUrl || userResult.body.avatar || '',
-    mobile: userResult.body.mobile || '',
-    email: userResult.body.email || '',
-    department_id: userResult.body.deptId ? [userResult.body.deptId.toString()] : [],
-    title: userResult.body.title || '',
-  };
+    if (!userResult) {
+      throw new Error('获取用户信息为空');
+    }
+
+    return {
+      userid: userResult.openId || userResult.unionId || '',
+      unionid: userResult.unionId || '',
+      name: userResult.nick || userResult.name || '',
+      avatar: userResult.avatarUrl || userResult.avatar || '',
+      mobile: userResult.mobile || '',
+      email: userResult.email || '',
+      department_id: userResult.deptId ? [userResult.deptId.toString()] : [],
+      title: userResult.title || '',
+    };
+  } catch (error: any) {
+    console.error('[Dingtalk] 通过accessToken获取用户信息失败:', error.message || error);
+    throw error;
+  }
 }
 
 /**

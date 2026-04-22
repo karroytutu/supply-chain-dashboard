@@ -46,6 +46,7 @@ services:
       - "8000:8000"
     networks:
       - xly-network
+      - xinshutong-default
     volumes:
       # 挂载上传目录到宿主机，保证数据持久化
       - /data/uploads:/app/uploads:rw
@@ -77,3 +78,6 @@ services:
 networks:
   xly-network:
     driver: bridge
+  xinshutong-default:
+    external: true
+    name: xinshutong_default

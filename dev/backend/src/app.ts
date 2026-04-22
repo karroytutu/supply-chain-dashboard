@@ -35,6 +35,9 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const app = express();
 
+// Docker 容器通过 nginx 反向代理，需信任 proxy 头
+app.set('trust proxy', 1);
+
 // 安全中间件
 app.use(helmet());
 app.use(cors({

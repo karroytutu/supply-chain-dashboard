@@ -86,10 +86,10 @@ export async function autoLogin(authCode: string, ipAddress?: string, userAgent?
       },
     };
   } catch (error: any) {
-    console.error('钉钉免登失败:', error.message);
+    console.error('钉钉免登失败:', error);
     return {
       success: false,
-      message: error.message || '登录失败',
+      message: error.message || '免登处理异常，请重试',
     };
   }
 }
@@ -148,10 +148,10 @@ export async function qrcodeCallback(code: string, ipAddress?: string, userAgent
       },
     };
   } catch (error: any) {
-    console.error('扫码登录失败:', error.message);
+    console.error('扫码登录失败:', error);
     return {
       success: false,
-      message: error.message || '登录失败',
+      message: error.message || '扫码登录处理异常，请重试',
     };
   }
 }
