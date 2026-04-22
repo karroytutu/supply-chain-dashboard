@@ -56,6 +56,21 @@ interface OverviewState {
   dateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null;
 }
 
+/**
+ * 根据催收业务角色返回默认状态 Tab
+ * 避免角色过滤条件与默认 Tab 冲突导致空数据
+ */
+function getDefaultStatusTab(role: RoleView): StatusTab {
+  switch (role) {
+    case 'cashier':
+      return 'pending_verify';
+    case 'finance':
+      return 'difference_processing';
+    default:
+      return 'collecting';
+  }
+}
+
 export function useOverview() {
   const { hasAnyRole, roles } = usePermission();
   const isAdmin = hasAnyRole([ROLES.ADMIN, ROLES.MANAGER, ROLES.MARKETING_MANAGER, ROLES.MARKETING_SUPERVISOR]);
@@ -73,7 +88,7 @@ export function useOverview() {
     total: 0,
     page: 1,
     pageSize: 10,
-    statusTab: 'collecting',
+    statusTab: getDefaultStatusTab(userRole),
     searchKeyword: '',
     handlerId: null,
     dateRange: null,
