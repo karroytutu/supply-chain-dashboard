@@ -22,7 +22,7 @@ export type ModalType =
   | 'extension'
   | 'difference'
   | 'escalate'
-  | 'confirmVerify'
+  | 'rejectVerify'
   | 'resolveDifference'
   | 'sendNotice'
   | 'lawsuit'

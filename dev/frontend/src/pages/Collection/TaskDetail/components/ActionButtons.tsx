@@ -22,9 +22,11 @@ import type { ModalType } from '../hooks/useTaskDetail';
 interface ActionButtonsProps {
   task: CollectionTask;
   onAction: (type: ModalType) => void;
+  onConfirmVerify: () => void;
+  confirmVerifyLoading?: boolean;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
+const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction, onConfirmVerify, confirmVerifyLoading }) => {
   const { hasRole, hasAnyRole } = usePermission();
 
   const { status, escalationLevel } = task;
@@ -116,11 +118,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ task, onAction }) => {
 
   const renderCashierButtons = () => (
     <div className="action-bar">
-      <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => onAction('confirmVerify')}>
+      <Button type="primary" icon={<CheckCircleOutlined />} onClick={onConfirmVerify} loading={confirmVerifyLoading}>
         <span className="btn-text-full">确认核销</span>
         <span className="btn-text-short">确认</span>
       </Button>
-      <Button danger icon={<CloseCircleOutlined />} onClick={() => onAction('confirmVerify')}>
+      <Button danger icon={<CloseCircleOutlined />} onClick={() => onAction('rejectVerify')}>
         <span className="btn-text-full">驳回核销</span>
         <span className="btn-text-short">驳回</span>
       </Button>

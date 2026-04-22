@@ -95,6 +95,10 @@ export const confirmVerify = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
+    if (typeof req.body.confirmed !== 'boolean') {
+      res.status(400).json({ code: 400, message: 'confirmed 参数必须为布尔值' });
+      return;
+    }
     const { userId: operatorId, name: operatorName, roles } = req.user!;
     const operatorRole = roles?.[0] || 'viewer';
     await confirmVerifyService(taskId, req.body, operatorId, operatorName, operatorRole);

@@ -212,7 +212,7 @@ export interface EscalateParams {
  * 出纳确认核销参数
  */
 export interface ConfirmVerifyParams {
-  result: 'approved' | 'rejected';
+  confirmed: boolean;
   remark?: string;
 }
 

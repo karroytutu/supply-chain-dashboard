@@ -14,7 +14,7 @@ const ROLE_DISPLAY_NAMES: Record<string, string> = {
   procurement_manager: '采购主管',
   warehouse_manager: '仓储主管',
   finance_staff: '财务人员',
-  cashier: '出纳',
+  cashier: '结算会计',
   marketing_supervisor: '营销主管',
   warehouse_keeper: '库管员',
   logistics_manager: '物流主管',

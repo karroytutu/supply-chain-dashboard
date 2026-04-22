@@ -286,7 +286,7 @@ function MyComponent() {
 | `procurement_manager` | 采购主管 | 负责临期退货确认和 ERP 退货单填写 |
 | `warehouse_manager` | 仓储主管 | 负责仓储退货执行 |
 | `finance_staff` | 财务人员 | 负责应收账款财务审核 |
-| `cashier` | 出纳 | 负责回款核实确认 |
+| `cashier` | 结算会计 | 负责回款核实确认 |
 | `marketing_supervisor` | 营销主管 | 负责催收升级处理 |
 
 ---

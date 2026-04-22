@@ -59,7 +59,7 @@ router.post('/tasks/:id/difference', requirePermission('ar:collection:write'), m
 router.post('/tasks/:id/escalate', requirePermission('ar:collection:write'), mutationController.escalateTask);
 
 // 出纳确认核销（催收核实属于写操作）
-router.post('/tasks/:id/confirm-verify', requirePermission('ar:collection:write'), mutationController.confirmVerify);
+router.post('/tasks/:id/confirm-verify', requirePermission(['ar:collection:write', 'ar:collection:verify']), mutationController.confirmVerify);
 
 // 差异解决
 router.post('/tasks/:id/resolve-difference', requirePermission('ar:collection:write'), mutationController.resolveDifference);

@@ -6,6 +6,7 @@ import React, { useMemo } from 'react';
 import { Spin, Result, Button } from 'antd';
 import { history, useParams } from 'umi';
 import useTaskDetail from './hooks/useTaskDetail';
+import useConfirmVerify from './hooks/useConfirmVerify';
 import TaskHeader from './components/TaskHeader';
 import DetailTable from './components/DetailTable';
 import ActionButtons from './components/ActionButtons';
@@ -15,7 +16,7 @@ import VerifyModal from '../components/VerifyModal';
 import ExtensionModal from '../components/ExtensionModal';
 import DifferenceModal from '../components/DifferenceModal';
 import EscalateModal from '../components/EscalateModal';
-import ConfirmVerifyModal from '../components/ConfirmVerifyModal';
+import RejectVerifyModal from '../components/RejectVerifyModal';
 import ResolveDifferenceModal from '../components/ResolveDifferenceModal';
 import SendNoticeModal from '../components/SendNoticeModal';
 import LawsuitModal from '../components/LawsuitModal';
@@ -51,6 +52,12 @@ const TaskDetailPage: React.FC = () => {
     closeModal();
     refresh();
   };
+
+  /** 确认核销直接执行 */
+  const { execute: handleConfirmVerify, loading: confirmVerifyLoading } = useConfirmVerify({
+    task,
+    onSuccess: refresh,
+  });
 
   /** 获取弹窗使用的明细列表(单条操作 or 批量选中) */
   const modalDetails = useMemo((): CollectionDetail[] => {
@@ -106,7 +113,12 @@ const TaskDetailPage: React.FC = () => {
         onRowAction={handleRowAction}
       />
 
-      <ActionButtons task={task} onAction={handleAction} />
+      <ActionButtons
+        task={task}
+        onAction={handleAction}
+        onConfirmVerify={handleConfirmVerify}
+        confirmVerifyLoading={confirmVerifyLoading}
+      />
 
       <MoreInfo actions={actions} />
 
@@ -145,12 +157,11 @@ const TaskDetailPage: React.FC = () => {
             task={task}
             selectedDetails={modalDetails}
           />
-          <ConfirmVerifyModal
-            visible={activeModal === 'confirmVerify'}
+          <RejectVerifyModal
+            visible={activeModal === 'rejectVerify'}
             onClose={closeModal}
             onSuccess={handleSuccess}
             task={task}
-            selectedDetails={modalDetails}
           />
           <ResolveDifferenceModal
             visible={activeModal === 'resolveDifference'}

@@ -237,7 +237,7 @@ export function buildVerifyResultMessage(
 | 应收总额 | ${formatAmount(task.total_amount)} |
 | 核销结果 | ${icon} ${statusText} |
 
-${verified ? '核销已确认，任务将更新为已核销状态。' : '核销未通过，请检查后重新提交或联系出纳确认。'}
+${verified ? '核销已确认，任务将更新为已核销状态。' : '核销未通过，请检查后重新提交或联系结算会计确认。'}
 
 ---
 点击查看详情: ${ACTION_URL}
@@ -304,7 +304,7 @@ export function buildVerifyResultActionCard(
 - **应收总额**: ${formatAmount(task.total_amount)}
 - **核销结果**: ${icon} ${statusText}${verifierName ? `\n- **确认人**: ${verifierName}` : ''}${remark ? `\n- **备注**: ${remark}` : ''}
 
-${verified ? '核销已确认，任务将更新为已核销状态。' : '核销未通过，请检查后重新提交或联系出纳确认。'}`;
+${verified ? '核销已确认，任务将更新为已核销状态。' : '核销未通过，请检查后重新提交或联系结算会计确认。'}`;
 
   return {
     title: `${icon}【核销结果】${consumerName} 核销${statusText}`,
