@@ -1,0 +1,64 @@
+# === 开发环境（构建产物不需要进入 Docker） ===
+dev/frontend/
+dev/backend/node_modules/
+dev/backend/src/
+dev/backend/tsconfig.json
+dev/backend/tsconfig.orig.json
+dev/backend/.env
+dev/backend/.env.*
+dev/backend/.dockerignore
+dev/backend/dist/
+dev/backend/coverage/
+dev/backend/logs/
+dev/backend/jest.config.js
+dev/backend/eslint.config.js
+dev/backend/.prettierrc
+
+# === Git ===
+.git/
+.gitignore
+
+# === 根目录无用文件 ===
+node_modules/
+docs/
+.qoder/
+.idea/
+.vscode/
+.trae/
+*.log
+
+# === 生产环境遗留目录（仅需 dist/） ===
+prod/backend/node_modules/
+prod/backend/config/
+prod/backend/controllers/
+prod/backend/services/
+prod/backend/routes/
+prod/backend/middleware/
+prod/backend/utils/
+prod/backend/db/
+prod/backend/logs/
+prod/backend/app.d.ts
+prod/backend/app.d.ts.map
+prod/backend/app.js
+prod/backend/app.js.map
+prod/backend/package.json
+prod/backend/package-lock.json
+prod/backend/.env
+prod/backend/.env.*
+
+# === 前端散落旧构建产物（仅需 dist/ 子目录） ===
+prod/frontend/*.js
+prod/frontend/*.css
+prod/frontend/*.html
+prod/frontend/*.png
+prod/frontend/*.map
+
+# === 备份目录 ===
+prod.backup/
+backup_*/
+
+# === 部署脚本（不需要进入构建上下文） ===
+deploy/scripts/
+
+# === 杂项 ===
+.DS_Store

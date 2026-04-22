@@ -1,5 +1,7 @@
-# node_modules 不忽略，用于构建时复制本地依赖加速
-# node_modules
+# 此文件不再用于 Docker 构建（构建上下文已改为项目根目录）
+# 保留仅供参考
+
+node_modules
 dist
 coverage
 .env

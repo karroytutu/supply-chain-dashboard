@@ -177,8 +177,14 @@ if [ -f "$TARGET_DIR/backend.env" ] || [ -f "$TARGET_DIR/backend/.env" ]; then
     log_info "环境配置已恢复"
 fi
 
-log_step "步骤 4: 重启服务..."
+log_step "步骤 4: 重新打包并重启服务..."
 cd "$DEPLOY_DIR"
+docker-compose build --no-cache
+if [ $? -ne 0 ]; then
+    log_error "Docker 镜像打包失败"
+    exit 1
+fi
+log_info "Docker 镜像打包完成（使用回滚版本产物）"
 docker-compose up -d
 if [ $? -ne 0 ]; then
     log_error "服务启动失败"

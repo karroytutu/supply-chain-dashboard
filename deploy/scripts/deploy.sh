@@ -112,6 +112,20 @@ if [ "$SKIP_BUILD" = false ]; then
     log_info "后端构建完成"
 fi
 
+# 验证构建产物存在
+log_info "验证构建产物..."
+if [ ! -f "$PROJECT_ROOT/prod/frontend/dist/index.html" ]; then
+    log_error "前端构建产物不存在: prod/frontend/dist/index.html"
+    log_error "请移除 --skip-build 参数或手动执行构建"
+    exit 1
+fi
+if [ ! -f "$PROJECT_ROOT/prod/backend/dist/app.js" ]; then
+    log_error "后端构建产物不存在: prod/backend/dist/app.js"
+    log_error "请移除 --skip-build 参数或手动执行构建"
+    exit 1
+fi
+log_info "构建产物验证通过"
+
 # 恢复环境配置
 if [ -f "prod/backend/.env.backup" ]; then
     cp prod/backend/.env.backup prod/backend/.env
@@ -141,7 +155,7 @@ if [ $? -ne 0 ]; then
     log_error "Docker 镜像构建失败"
     exit 1
 fi
-log_info "Docker 镜像构建完成"
+log_info "Docker 镜像打包完成（使用本地构建产物）"
 
 # 启动容器
 docker-compose up -d

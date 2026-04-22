@@ -1,21 +1,6 @@
-# syntax=docker/dockerfile:1
-# 构建阶段
-FROM node:20-alpine AS builder
+# 后端生产镜像 - 安装生产依赖 + 打包预编译产物
+# 前置条件: 需要先在宿主机执行 npm run build（产物在 prod/backend/dist/）
 
-WORKDIR /app
-
-COPY package*.json ./
-COPY node_modules ./node_modules
-RUN npm ci --offline --no-audit --no-fund 2>/dev/null || npm install --prefer-offline --no-audit --no-fund
-
-COPY tsconfig.json ./tsconfig.orig.json
-COPY src ./src
-
-# 构建：临时修改 outDir 为容器内路径
-RUN sed 's|"outDir": "../../prod/backend/dist"|"outDir": "./dist"|' tsconfig.orig.json > tsconfig.json && \
-    npm run build
-
-# 运行阶段
 FROM node:20-alpine
 
 # 创建非 root 用户运行服务
@@ -24,14 +9,16 @@ RUN addgroup -g 1001 -S nodejs && \
 
 WORKDIR /app
 
-COPY package*.json ./
+# 安装生产依赖
+COPY dev/backend/package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+# 复制预编译的后端产物
+COPY --chown=nodejs:nodejs prod/backend/dist ./dist
 
-# 创建上传目录并设置权限
-RUN mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence && \
-    chown -R nodejs:nodejs /app/uploads
+# 创建上传目录和日志目录并设置权限
+RUN mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/logs && \
+    chown -R nodejs:nodejs /app/uploads /app/logs
 
 USER nodejs
 
@@ -40,6 +27,6 @@ ENV NODE_ENV=production
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -q --spider http://localhost:8000/api/health || exit 1
+    CMD wget -q --spider http://127.0.0.1:8000/api/health || exit 1
 
 CMD ["node", "dist/app.js"]
