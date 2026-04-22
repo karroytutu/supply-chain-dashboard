@@ -82,7 +82,9 @@ export function useColumns({ goToDetail }: UseColumnsParams) {
         dataIndex: 'status',
         key: 'statusInfo',
         width: 120,
-        render: (status: CollectionTaskStatus) => <StatusCell status={status} />,
+        render: (status: CollectionTaskStatus, record: CollectionTask) => (
+          <StatusCell status={status} escalationLevel={record.escalationLevel} />
+        ),
       },
       {
         title: '剩余处理时限',

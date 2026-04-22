@@ -51,6 +51,7 @@ export const getCollectionTasks = (
     if (params.startDate) queryParams.startDate = params.startDate;
     if (params.endDate) queryParams.endDate = params.endDate;
     if (params.tab) queryParams.tab = params.tab;
+    if (params.escalationLevel !== undefined) queryParams.escalationLevel = params.escalationLevel;
   }
   return request.get<PaginatedResult<CollectionTask>>('/ar-collection/tasks', { params: queryParams });
 };

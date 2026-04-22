@@ -83,6 +83,35 @@ export async function getCollectionStats(userId: number, role: string) {
         : 0,
     }));
 
+    // 升级任务按层级分组，添加 escalated_l1 / escalated_l2 虚拟状态条目
+    const escalatedDistResult = await query(
+      `SELECT escalation_level, COUNT(*) AS count, COALESCE(SUM(total_amount), 0) AS amount
+       FROM ar_collection_tasks
+       WHERE ${whereClause} AND status = 'escalated'
+       GROUP BY escalation_level`,
+      whereParams
+    );
+    escalatedDistResult.rows.forEach((r: any) => {
+      const level = parseInt(r.escalation_level);
+      if (level === 1 || level === 2) {
+        statusDistribution.push({
+          status: `escalated_l${level}`,
+          count: parseInt(r.count) || 0,
+          amount: parseFloat(r.amount) || 0,
+          percentage: 0,
+        });
+      }
+    });
+    // 重算百分比（排除原始 escalated 汇总条目，避免重复计数）
+    const totalForPercentage = statusDistribution
+      .filter(d => d.status !== 'escalated')
+      .reduce((sum, d) => sum + d.count, 0);
+    statusDistribution.forEach(d => {
+      d.percentage = totalForPercentage > 0
+        ? Math.round((d.count / totalForPercentage) * 10000) / 100
+        : 0;
+    });
+
     return {
       collecting: {
         count: parseInt(s.collecting_count) || 0,

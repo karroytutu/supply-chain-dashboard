@@ -19,7 +19,7 @@ import {
 } from '../services/ar-collection';
 import { getAssessmentsByTaskId } from '../services/ar-assessment';
 import { STATUS_NAMES, ROLE_NAMES } from '../services/ar-assessment/ar-assessment.types';
-import type { TaskStatus, Priority } from '../services/ar-collection/ar-collection.types';
+import type { TaskStatus, Priority, EscalationLevel } from '../services/ar-collection/ar-collection.types';
 import type { WarningLevel } from '../services/ar-collection/ar-warning.query';
 import {
   transformTask,
@@ -52,6 +52,9 @@ export const getTasks = async (req: Request, res: Response) => {
       keyword: req.query.keyword as string | undefined,
       status: req.query.status as TaskStatus | undefined,
       priority: req.query.priority as Priority | undefined,
+      escalation_level: req.query.escalationLevel
+        ? parseInt(req.query.escalationLevel as string) as EscalationLevel
+        : undefined,
       handler_id: req.query.handlerId ? parseInt(req.query.handlerId as string) : undefined,
       start_date: req.query.startDate as string | undefined,
       end_date: req.query.endDate as string | undefined,

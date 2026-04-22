@@ -15,6 +15,7 @@ import type {
   CollectionTask,
   CollectionTaskStatus,
   CollectionTaskQueryParams,
+  EscalationLevel,
   Handler,
   WarningSummary,
 } from '@/types/ar-collection';
@@ -37,8 +38,18 @@ function getCollectionRole(roles: string[]): RoleView {
   return 'marketer'; // 默认营销师视图
 }
 
-/** Tab 状态 */
-export type StatusTab = CollectionTaskStatus;
+/** 升级子 Tab 类型 */
+export type EscalationTab = 'escalated_l1' | 'escalated_l2';
+
+/** 状态 Tab 类型（用升级子 Tab 替代 escalated） */
+export type StatusTab = Exclude<CollectionTaskStatus, 'escalated'> | EscalationTab;
+
+/** 将 Tab key 映射为 API 查询参数 */
+function tabToApiParams(tab: StatusTab): { status?: CollectionTaskStatus; escalationLevel?: EscalationLevel } {
+  if (tab === 'escalated_l1') return { status: 'escalated', escalationLevel: 1 };
+  if (tab === 'escalated_l2') return { status: 'escalated', escalationLevel: 2 };
+  return { status: tab };
+}
 
 interface OverviewState {
   stats: CollectionStats | null;
@@ -66,6 +77,8 @@ function getDefaultStatusTab(role: RoleView): StatusTab {
       return 'pending_verify';
     case 'finance':
       return 'difference_processing';
+    case 'supervisor':
+      return 'escalated_l1';
     default:
       return 'collecting';
   }
@@ -108,7 +121,12 @@ export function useOverview() {
       page: state.page,
       pageSize: state.pageSize,
     };
-    params.status = state.statusTab;
+    // Tab 映射：升级子 Tab 转换为 status + escalationLevel
+    const { status, escalationLevel } = tabToApiParams(state.statusTab);
+    params.status = status;
+    if (escalationLevel !== undefined) {
+      params.escalationLevel = escalationLevel;
+    }
     if (state.searchKeyword) {
       params.keyword = state.searchKeyword;
     }

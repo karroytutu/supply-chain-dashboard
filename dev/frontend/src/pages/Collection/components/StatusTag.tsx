@@ -1,7 +1,7 @@
 /**
  * 催收状态标签组件
  * 根据任务状态显示对应颜色的标签
- * 支持升级层级显示和处理人信息提示
+ * 升级状态根据层级区分显示，支持处理人信息提示
  */
 import React from 'react';
 import { Tag, Popover } from 'antd';
@@ -47,6 +47,13 @@ const STATUS_CONFIG: Record<CollectionTaskStatus, { label: string; color: string
   closed: { label: '已关闭', color: 'default' },
 };
 
+/** 根据升级层级获取显示标签和颜色 */
+function getEscalatedDisplay(escalationLevel?: EscalationLevel): { label: string; color: string } {
+  if (escalationLevel === 1) return { label: '升级至主管', color: 'red' };
+  if (escalationLevel === 2) return { label: '升级至财务', color: 'volcano' };
+  return { label: '已升级', color: 'red' };
+}
+
 const StatusTag: React.FC<StatusTagProps> = ({
   status,
   escalationLevel,
@@ -66,14 +73,14 @@ const StatusTag: React.FC<StatusTagProps> = ({
       ? ESCALATION_LEVEL_CONFIG[escalationLevel]
       : null;
 
+  // 升级状态根据层级区分显示
+  const escalatedDisplay = isEscalated ? getEscalatedDisplay(escalationLevel) : null;
+  const displayLabel = escalatedDisplay ? escalatedDisplay.label : config.label;
+  const displayColor = escalatedDisplay ? escalatedDisplay.color : config.color;
+
   // 简单模式 (不显示详情)
   if (!showDetail) {
-    return (
-      <Tag color={config.color}>
-        {config.label}
-        {levelConfig && <span className="status-level-badge">{levelConfig.label}</span>}
-      </Tag>
-    );
+    return <Tag color={displayColor}>{displayLabel}</Tag>;
   }
 
   // 详细模式 (带 Popover)
@@ -81,7 +88,7 @@ const StatusTag: React.FC<StatusTagProps> = ({
     <div className="status-tag-popover">
       <div className="popover-item">
         <span className="popover-label">状态:</span>
-        <span className="popover-value">{config.label}</span>
+        <span className="popover-value">{displayLabel}</span>
       </div>
       {isEscalated && levelConfig && (
         <div className="popover-item">
@@ -106,9 +113,8 @@ const StatusTag: React.FC<StatusTagProps> = ({
 
   return (
     <Popover content={popoverContent} trigger="hover" placement="top">
-      <Tag color={config.color}>
-        {config.label}
-        {levelConfig && <span className="status-level-badge">{levelConfig.label}</span>}
+      <Tag color={displayColor}>
+        {displayLabel}
         {isDifference && handlerName && (
           <span className="status-level-badge">财务处理中</span>
         )}

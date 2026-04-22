@@ -45,7 +45,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           <span className="customer-name">{task.consumerName}</span>
         </div>
         <div className="task-card-right">
-          <StatusCell status={task.status} />
+          <StatusCell status={task.status} escalationLevel={task.escalationLevel} />
           <span className="amount">¥{Number(task.totalAmount).toLocaleString()}</span>
         </div>
       </div>

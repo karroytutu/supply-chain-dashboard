@@ -29,7 +29,8 @@ const STATUS_TABS: Array<{ key: StatusTab; label: string }> = [
   { key: 'collecting', label: '催收中' },
   { key: 'extension', label: '延期中' },
   { key: 'difference_processing', label: '差异' },
-  { key: 'escalated', label: '已升级' },
+  { key: 'escalated_l1', label: '待主管处理' },
+  { key: 'escalated_l2', label: '待财务处理' },
   { key: 'pending_verify', label: '待核销' },
   { key: 'verified', label: '已核销' },
 ];

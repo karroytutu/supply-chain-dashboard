@@ -76,6 +76,12 @@ export async function getCollectionTasks(params: TaskQueryParams & { userId: num
       queryParams.push(status);
     }
 
+    // 升级层级过滤
+    if (params.escalation_level !== undefined) {
+      conditions.push(`t.escalation_level = $${paramIndex++}`);
+      queryParams.push(params.escalation_level);
+    }
+
     // 关键词搜索
     if (keyword) {
       conditions.push(`(t.consumer_name ILIKE $${paramIndex} OR t.task_no ILIKE $${paramIndex})`);
