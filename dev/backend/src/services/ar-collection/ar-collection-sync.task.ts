@@ -137,7 +137,8 @@ export async function checkExtensionExpiry(): Promise<void> {
         await client.query(
           `UPDATE ar_collection_tasks
            SET status = 'collecting', can_extend = false,
-               current_extension_id = NULL, extension_until = NULL
+               current_extension_id = NULL, extension_until = NULL,
+               assessment_start_time = CURRENT_TIMESTAMP
            WHERE id = $1`,
           [task.id]
         );

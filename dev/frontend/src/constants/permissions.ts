@@ -80,6 +80,10 @@ export const PERMISSIONS = {
       READ: 'ar:collection:read',
       WRITE: 'ar:collection:write',
     },
+    AR_PENALTY: {
+      READ: 'finance:ar:penalty:read',
+      WRITE: 'finance:ar:penalty:write',
+    },
   },
 
   // OA审批模块

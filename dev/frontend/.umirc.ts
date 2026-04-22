@@ -97,6 +97,12 @@ export default defineConfig({
           hideInMenu: true,
           permission: PERMISSIONS.FINANCE.AR.READ,
         },
+        {
+          path: 'assessment',
+          component: '@/pages/Collection/Assessment',
+          name: '考核管理',
+          permission: PERMISSIONS.FINANCE.AR_PENALTY.READ,
+        },
       ],
     },
     {

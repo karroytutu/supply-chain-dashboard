@@ -208,8 +208,8 @@ async function createTasksInTransaction(
       `INSERT INTO ar_collection_tasks
         (task_no, consumer_code, consumer_name, manager_user_id, manager_user_name,
          total_amount, bill_count, status, batch_type, batch_date, priority,
-         first_overdue_date, max_overdue_days, current_handler_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'collecting', $8, $9, $10, $11, $12, $4)
+         first_overdue_date, max_overdue_days, current_handler_id, assessment_start_time)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'collecting', $8, $9, $10, $11, $12, $4, CURRENT_TIMESTAMP)
        RETURNING id`,
       [taskNo, consumerName, consumerName, managerUserId, managerName,
        totalAmount, debts.length, batchType, overdueDateStr, priority,

@@ -17,6 +17,7 @@ import {
   checkExtensionExpiryReminders,
 } from '../ar-collection/ar-collection-reminder.task';
 import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
+import { calculateArAssessments, notifyAssessmentCreated } from '../ar-assessment';
 import { handleRetry } from '../retry.handler';
 
 /**
@@ -121,6 +122,26 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // 催收考核计算 - 每日20:30（在催收任务生成之后）
+  cron.schedule(
+    '0 30 20 * * *',
+    async () => {
+      console.log('[Scheduler] 执行催收考核计算任务...');
+      try {
+        const results = await calculateArAssessments();
+        const totalCreated = results.reduce((sum, r) => sum + r.createdCount, 0);
+        console.log(`[Scheduler] 催收考核计算完成，共创建 ${totalCreated} 条考核记录`);
+
+        if (totalCreated > 0) {
+          await notifyAssessmentCreated(totalCreated);
+        }
+      } catch (error) {
+        console.error('[Scheduler] 催收考核计算失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   // 延期到期检查 - 每2小时
   cron.schedule(
     '0 */2 * * *',
@@ -180,6 +201,7 @@ export function startScheduler(): void {
   console.log('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');
   console.log('  - 催收ERP数据同步: 每天 06:00 (Asia/Shanghai)');
   console.log('  - 催收任务生成: 每天 20:00 (Asia/Shanghai)');
+  console.log('  - 催收考核计算: 每天 20:30 (Asia/Shanghai)');
   console.log('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
   console.log('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
   console.log('  - 钉钉通知重试: 每5分钟 (Asia/Shanghai)');

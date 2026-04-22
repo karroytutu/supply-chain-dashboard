@@ -16,6 +16,7 @@ import goodsReturnRulesRoutes from './routes/goods-return-rules.routes';
 import procurementArchiveRoutes from './routes/procurement-archive.routes';
 import returnPenaltyRoutes from './routes/return-penalty.routes';
 import arCollectionRoutes from './routes/ar-collection.routes';
+import arAssessmentRoutes from './routes/ar-assessment.routes';
 import oaApprovalRoutes from './routes/oa-approval.routes';
 import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
@@ -69,6 +70,7 @@ app.use('/api/goods-return-rules', goodsReturnRulesRoutes);
 app.use('/api/return-penalty', returnPenaltyRoutes);
 app.use('/api/procurement', procurementArchiveRoutes);
 app.use('/api/ar-collection', arCollectionRoutes);
+app.use('/api/ar-assessment', arAssessmentRoutes);
 app.use('/api/oa-approval', oaApprovalRoutes);
 app.use('/api/dingtalk-sync', dingtalkSyncRoutes);
 
