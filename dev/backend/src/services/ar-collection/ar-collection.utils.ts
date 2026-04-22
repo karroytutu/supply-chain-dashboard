@@ -72,6 +72,8 @@ export function transformTask(task: any): any {
     canExtend: task.can_extend,
     collectionCount: task.collection_count,
     lastCollectionAt: task.last_collection_at,
+    assessmentStartTime: task.assessment_start_time,
+    assessmentTiers: task.assessment_tiers || [],
     createdAt: task.created_at,
     updatedAt: task.updated_at,
     // 关联字段

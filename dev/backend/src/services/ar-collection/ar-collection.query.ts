@@ -4,17 +4,7 @@
 
 import { appQuery as query } from '../../db/appPool';
 import type { TaskQueryParams } from './ar-collection.types';
-
-/** pendingRole 计算 SQL 片段 */
-const PENDING_ROLE_SQL = `
-  CASE
-    WHEN t.status = 'collecting' OR t.status = 'extension' THEN 'marketer'
-    WHEN t.status = 'escalated' AND t.escalation_level = 1 THEN 'supervisor'
-    WHEN t.status = 'difference_processing' THEN 'finance'
-    WHEN t.status = 'escalated' AND t.escalation_level = 2 THEN 'finance'
-    WHEN t.status = 'pending_verify' THEN 'cashier'
-    ELSE NULL
-  END AS pending_role`;
+import { PENDING_ROLE_SQL, ASSESSMENT_TIERS_SQL } from './ar-collection.query.sql';
 
 /**
  * 构建角色数据权限 WHERE 条件
@@ -135,7 +125,8 @@ export async function getCollectionTasks(params: TaskQueryParams & { userId: num
       `SELECT
         t.*,
         u.name AS handler_name,
-        ${PENDING_ROLE_SQL}
+        ${PENDING_ROLE_SQL},
+        ${ASSESSMENT_TIERS_SQL}
       FROM ar_collection_tasks t
       LEFT JOIN users u ON t.current_handler_id = u.id
       WHERE ${whereClause}
@@ -185,7 +176,8 @@ export async function getTaskById(id: number, userId?: number, role?: string) {
         t.*,
         u.name AS handler_name,
         m.name AS manager_name,
-        ${PENDING_ROLE_SQL}
+        ${PENDING_ROLE_SQL},
+        ${ASSESSMENT_TIERS_SQL}
       FROM ar_collection_tasks t
       LEFT JOIN users u ON t.current_handler_id = u.id
       LEFT JOIN users m ON t.manager_user_id = m.id

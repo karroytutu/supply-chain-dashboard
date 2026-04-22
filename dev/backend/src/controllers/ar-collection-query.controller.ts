@@ -17,6 +17,8 @@ import {
   getUpcomingWarnings,
   getWarningReminders,
 } from '../services/ar-collection';
+import { getAssessmentsByTaskId } from '../services/ar-assessment';
+import { STATUS_NAMES, ROLE_NAMES } from '../services/ar-assessment/ar-assessment.types';
 import type { TaskStatus, Priority } from '../services/ar-collection/ar-collection.types';
 import type { WarningLevel } from '../services/ar-collection/ar-warning.query';
 import {
@@ -110,7 +112,7 @@ export const getTaskDetails = async (req: Request, res: Response) => {
   }
 };
 
-/** 获取操作历史 */
+/** 获取操作历史（合并考核记录） */
 export const getTaskActions = async (req: Request, res: Response) => {
   try {
     const taskId = parseInt(req.params.id);
@@ -118,8 +120,33 @@ export const getTaskActions = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const result = await getTaskActionsService(taskId);
-    res.json({ code: 200, message: 'success', data: result.map(transformAction) });
+    // 并发查询操作记录和考核记录
+    const [actions, assessments] = await Promise.all([
+      getTaskActionsService(taskId),
+      getAssessmentsByTaskId(taskId),
+    ]);
+    // 转换操作记录
+    const actionItems = actions.map(transformAction);
+    // 将考核记录转换为操作记录格式
+    const assessmentItems = assessments.map((record) => ({
+      id: 1000000 + record.id,
+      taskId: record.taskId,
+      detailIds: null,
+      actionType: `assessment_${record.assessmentTier}`,
+      actionResult: STATUS_NAMES[record.status],
+      remark: `${record.assessmentUserName}(${ROLE_NAMES[record.assessmentRole]})`,
+      operatorId: 0,
+      operatorName: '系统',
+      operatorRole: '系统',
+      createdAt: record.calculatedAt instanceof Date
+        ? record.calculatedAt.toISOString()
+        : record.calculatedAt,
+    }));
+    // 合并并按时间倒序排列
+    const merged = [...actionItems, ...assessmentItems].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    res.json({ code: 200, message: 'success', data: merged });
   } catch (error) {
     console.error('[ArCollectionController] getTaskActions 失败:', error);
     res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取操作历史失败' });

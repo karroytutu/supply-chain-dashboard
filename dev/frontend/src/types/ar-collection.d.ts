@@ -1,4 +1,5 @@
 import type { PaginationParams, PaginatedResult } from './warning';
+import type { AssessmentTier } from './ar-assessment';
 
 /**
  * 催收任务状态
@@ -65,6 +66,8 @@ export interface CollectionTask {
   canExtend: boolean;
   collectionCount: number;
   lastCollectionAt: string;
+  assessmentStartTime?: string;
+  assessmentTiers?: AssessmentTier[];
   priority: CollectionPriority;
   batchType: string;
   batchDate: string;

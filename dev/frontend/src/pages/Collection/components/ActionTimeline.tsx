@@ -89,6 +89,21 @@ const ACTION_CONFIG: Record<
     color: '#8c8c8c',
     icon: <ExclamationCircleOutlined />,
   },
+  assessment_tier1: {
+    label: '一级考核',
+    color: '#1890ff',
+    icon: <ExclamationCircleOutlined />,
+  },
+  assessment_tier2: {
+    label: '二级考核',
+    color: '#faad14',
+    icon: <ExclamationCircleOutlined />,
+  },
+  assessment_tier3: {
+    label: '三级考核',
+    color: '#ff4d4f',
+    icon: <ExclamationCircleOutlined />,
+  },
 };
 
 /** 格式化时间显示 */
