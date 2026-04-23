@@ -77,8 +77,8 @@ function RightAvatar({
       key: 'switch-user',
       label: (
         <DevUserSwitcher
-          onSwitch={(name, avatar) => {
-            setInitialState((s) => ({ ...s, name, avatar }));
+          onSwitch={({ name, avatar, permissions, roles }) => {
+            setInitialState((s) => ({ ...s, name, avatar, permissions, roles }));
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

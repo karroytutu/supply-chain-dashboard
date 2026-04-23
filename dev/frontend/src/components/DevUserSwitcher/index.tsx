@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Popover, Input, Spin, message } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { devGetUsers, devSwitchUser, getCurrentUser, type UserInfo } from '@/services/api/auth';
-import { useModel } from 'umi';
+import { useModel, history } from 'umi';
 import './index.less';
 
 const TOKEN_KEY = 'auth_token';
@@ -14,9 +14,16 @@ interface UserItem {
   roles?: { name: string }[];
 }
 
+interface SwitchPayload {
+  name: string;
+  avatar: string;
+  permissions: string[];
+  roles: string[];
+}
+
 interface DevUserSwitcherProps {
   children: React.ReactNode;
-  onSwitch: (name: string, avatar: string) => void;
+  onSwitch: (payload: SwitchPayload) => void;
 }
 
 function getUserGroup(user: UserItem): string {
@@ -105,8 +112,14 @@ const DevUserSwitcher: React.FC<DevUserSwitcherProps> = ({ children, onSwitch })
           setCurrentUser(newUser);
         }
 
-        onSwitch(newUser.name, newUser.avatar);
+        onSwitch({
+          name: newUser.name,
+          avatar: newUser.avatar,
+          permissions: newUser.permissions || [],
+          roles: newUser.roles?.map(r => r.code) || [],
+        });
         setOpen(false);
+        history.push('/');
         message.success(`已切换为 ${newUser.name}`);
       } catch (error) {
         message.error('切换用户失败');
