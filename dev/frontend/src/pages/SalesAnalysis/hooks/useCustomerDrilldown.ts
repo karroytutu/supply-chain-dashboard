@@ -12,7 +12,7 @@ const CURRENT_USER = '张晨';
 const INITIAL_STATE = {
   open: false,
   riskLevel: 'red' as RiskLevel,
-  viewMode: 'all' as const,
+  viewMode: 'all' as 'all' | 'mine',
   filterKey: 'all',
   selectedCustomerId: null as string | null,
 };

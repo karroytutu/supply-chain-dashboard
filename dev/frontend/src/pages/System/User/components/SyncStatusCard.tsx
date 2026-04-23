@@ -92,7 +92,7 @@ export function SyncStatusCard({ syncStatus, syncing, onTriggerFullSync }: SyncS
       style={{ marginBottom: 16 }}
     >
       {/* 运行中的同步 */}
-      {isRunning && syncStatus.current_log && (
+      {isRunning && syncStatus?.current_log && (
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col span={24}>
             <Space>
