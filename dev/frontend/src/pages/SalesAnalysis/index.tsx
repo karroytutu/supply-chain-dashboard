@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Alert } from 'antd';
-import MetricSection from './components/MetricSection';
+import MetricSparkCard from './components/MetricSparkCard';
 import RiskCard from './components/RiskCard';
 import CustomerStructure from './components/CustomerStructure';
 import CoreCustomerValue from './components/CoreCustomerValue';
@@ -19,8 +19,7 @@ import DiagnosisCard from './components/DiagnosisCard';
 import CustomerDrilldownModal from './components/CustomerDrilldownModal';
 import { useCustomerDrilldown } from './hooks/useCustomerDrilldown';
 import {
-  SALES_PAYMENT_METRICS,
-  EXPENSE_PROFIT_METRICS,
+  ALL_METRICS,
   RISK_CARD_DATA,
   GRADES_DATA,
   TYPE_DISTRIBUTION,
@@ -48,8 +47,11 @@ const SalesAnalysis: React.FC = () => {
       />
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>指标概览</h2>
-        <MetricSection title="销售与回款" metrics={SALES_PAYMENT_METRICS} />
-        <MetricSection title="费用与利润" metrics={EXPENSE_PROFIT_METRICS} secondary />
+        <div className={styles.metricGrid}>
+          {ALL_METRICS.map((metric) => (
+            <MetricSparkCard key={metric.key} data={metric} />
+          ))}
+        </div>
       </section>
 
       <CustomerSection onRiskClick={(l: RiskLevel) => drilldown.actions.openModal(l)} />

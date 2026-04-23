@@ -21,6 +21,12 @@
   margin: 0 0 12px;
 }
 
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .riskGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -54,7 +60,16 @@
   gap: 16px;
 }
 
+@media (max-width: 1280px) {
+  .metricGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 960px) {
+  .metricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .riskGrid,
   .customerGrid,
   .sectionGrid,

@@ -6,11 +6,18 @@
 /** 风险等级 */
 export type RiskLevel = 'red' | 'yellow' | 'blue';
 
+/** 指标卡值格式类型 */
+export type MetricValueType = 'currency' | 'count' | 'days' | 'percent';
+
 /** 指标卡数据（含迷你趋势图） */
 export interface MetricSparkData {
   key: string;
   label: string;
   value: number;
+  /** 值格式类型，默认 currency */
+  valueType?: MetricValueType;
+  /** 值单位文案，默认由 valueType 自动生成；设置后覆盖自动值 */
+  unit?: string;
   yoyChange: number;
   momChange: number;
   isNegative: boolean;

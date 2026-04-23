@@ -15,9 +15,23 @@ interface MetricSparkCardProps {
   secondary?: boolean;
 }
 
-/** 格式化金额 */
-const formatValue = (value: number): string => {
-  return `¥ ${value.toLocaleString()}`;
+/** 根据值类型格式化显示 */
+const formatValue = (value: number, valueType?: string, unit?: string): string => {
+  // 优先使用自定义单位
+  if (unit) {
+    return `${value.toLocaleString()} ${unit}`;
+  }
+  switch (valueType) {
+    case 'count':
+      return `${value.toLocaleString()} 家`;
+    case 'days':
+      return `${value.toLocaleString()} 天`;
+    case 'percent':
+      return `${value}%`;
+    case 'currency':
+    default:
+      return `¥ ${value.toLocaleString()}`;
+  }
 };
 
 /** 渲染涨跌标识 */
@@ -41,7 +55,7 @@ const MetricSparkCard: React.FC<MetricSparkCardProps> = ({ data, secondary = fal
       size="small"
     >
       <div className={styles.label}>{data.label}</div>
-      <div className={styles.value}>{formatValue(data.value)}</div>
+      <div className={styles.value}>{formatValue(data.value, data.valueType, data.unit)}</div>
       <div className={styles.footer}>
         <span className={styles.trend}>
           <span className={styles.trendLabel}>同比</span>

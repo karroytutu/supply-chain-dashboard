@@ -17,8 +17,8 @@ import type {
   DiagnosisItem,
 } from '@/types/sales-analysis';
 
-/** 销售与回款指标 */
-export const SALES_PAYMENT_METRICS: MetricSparkData[] = [
+/** 指标概览 */
+export const ALL_METRICS: MetricSparkData[] = [
   {
     key: 'order',
     label: '订单额',
@@ -70,10 +70,42 @@ export const SALES_PAYMENT_METRICS: MetricSparkData[] = [
       { date: '4月12日', value: 16400 },
     ],
   },
-];
-
-/** 费用与利润指标 */
-export const EXPENSE_PROFIT_METRICS: MetricSparkData[] = [
+  {
+    key: 'orderCustomerCount',
+    label: '下单客户数',
+    value: 186,
+    valueType: 'count',
+    yoyChange: 5.2,
+    momChange: 2.8,
+    isNegative: false,
+    sparkline: [
+      { date: '4月6日', value: 24 },
+      { date: '4月7日', value: 28 },
+      { date: '4月8日', value: 31 },
+      { date: '4月9日', value: 26 },
+      { date: '4月10日', value: 29 },
+      { date: '4月11日', value: 25 },
+      { date: '4月12日', value: 23 },
+    ],
+  },
+  {
+    key: 'avgOrderValue',
+    label: '客单价',
+    value: 1540,
+    valueType: 'currency',
+    yoyChange: 7.6,
+    momChange: 1.3,
+    isNegative: false,
+    sparkline: [
+      { date: '4月6日', value: 1380 },
+      { date: '4月7日', value: 1020 },
+      { date: '4月8日', value: 1190 },
+      { date: '4月9日', value: 1210 },
+      { date: '4月10日', value: 1620 },
+      { date: '4月11日', value: 1590 },
+      { date: '4月12日', value: 2090 },
+    ],
+  },
   {
     key: 'gross',
     label: '毛利额',
@@ -140,6 +172,24 @@ export const EXPENSE_PROFIT_METRICS: MetricSparkData[] = [
       { date: '4月10日', value: 4100 },
       { date: '4月11日', value: 2700 },
       { date: '4月12日', value: 1800 },
+    ],
+  },
+  {
+    key: 'arTurnoverDays',
+    label: '应收账款周转天数',
+    value: 42,
+    valueType: 'days',
+    yoyChange: 8.4,
+    momChange: 3.2,
+    isNegative: true,
+    sparkline: [
+      { date: '4月6日', value: 38 },
+      { date: '4月7日', value: 40 },
+      { date: '4月8日', value: 39 },
+      { date: '4月9日', value: 41 },
+      { date: '4月10日', value: 43 },
+      { date: '4月11日', value: 44 },
+      { date: '4月12日', value: 42 },
     ],
   },
 ];
