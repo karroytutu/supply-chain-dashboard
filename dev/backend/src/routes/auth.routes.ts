@@ -15,11 +15,11 @@ import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
-// 认证端点限流（更严格）
+// 认证端点限流（100次/15分钟，防止暴力破解同时不影响正常使用）
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { success: false, message: '登录尝试过多，请稍后再试' },
+  max: 100,
+  message: { success: false, message: '请求过于频繁，请稍后再试' },
 });
 
 // 公开路由（无需认证）

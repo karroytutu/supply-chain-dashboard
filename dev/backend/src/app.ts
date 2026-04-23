@@ -47,11 +47,21 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// 全局限流
+// 全局限流（仅限写操作，避免读接口被误限）
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 500,
   message: { success: false, message: '请求过于频繁，请稍后再试' },
+  skip: (req) => {
+    // 豁免高频只读接口，这些接口每次页面加载/路由切换都会调用
+    const readOnlyPaths = [
+      '/api/auth/me',
+      '/api/auth/check-env',
+      '/api/auth/dingtalk/qrcode-config',
+      '/api/health',
+    ];
+    return req.method === 'GET' && readOnlyPaths.some((p) => req.path.startsWith(p));
+  },
 });
 app.use('/api', globalLimiter);
 
