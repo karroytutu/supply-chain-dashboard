@@ -18,16 +18,6 @@ export const assetPurchaseFormType: FormTypeDefinition = {
 
   formSchema: {
     fields: [
-      { key: 'purchaseReason', label: '采购原因', type: 'textarea', required: true, maxLength: 500 },
-      {
-        key: 'urgency', label: '紧急程度', type: 'select', required: true,
-        options: [
-          { value: 'normal', label: '普通' },
-          { value: 'urgent', label: '紧急' },
-          { value: 'critical', label: '特急' },
-        ],
-      },
-      { key: 'attachmentUrls', label: '附件', type: 'upload', required: false, maxCount: 10 },
       {
         key: 'lines', label: '采购明细', type: 'table', required: true,
         children: [
@@ -37,6 +27,8 @@ export const assetPurchaseFormType: FormTypeDefinition = {
           { key: 'estimatedBudget', label: '预估预算', type: 'money', required: true },
         ],
       },
+      { key: 'remark', label: '采购备注', type: 'textarea', required: false, maxLength: 500 },
+      { key: 'attachmentUrls', label: '附件', type: 'upload', required: false, maxCount: 10 },
     ],
   },
 
