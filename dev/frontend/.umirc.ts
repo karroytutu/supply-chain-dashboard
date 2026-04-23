@@ -148,6 +148,20 @@ export default defineConfig({
       ],
     },
     {
+      path: '/sales',
+      name: '销售分析',
+      icon: 'BarChartOutlined',
+      wrappers: ['@/wrappers/auth'],
+      routes: [
+        {
+          path: 'analysis',
+          component: '@/pages/SalesAnalysis',
+          name: '首页总览',
+          access: PERMISSIONS.SALES.ANALYSIS.READ,
+        },
+      ],
+    },
+    {
       path: '/system',
       name: '系统管理',
       icon: 'setting',

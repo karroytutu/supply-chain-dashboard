@@ -1,0 +1,65 @@
+@import '@/styles/variables.less';
+
+.card {
+  border-radius: 8px;
+  transition: box-shadow 0.2s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+  }
+}
+
+.secondary {
+  background: #fafafa;
+}
+
+.label {
+  color: @text-color-secondary;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.value {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: @text-color-primary;
+  margin-bottom: 8px;
+}
+
+.footer {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.trendLabel {
+  color: @text-color-secondary;
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 500;
+
+  &.positive {
+    color: @error-color;
+  }
+
+  &.negative {
+    color: @success-color;
+  }
+}
+
+.sparkline {
+  margin-top: 4px;
+}

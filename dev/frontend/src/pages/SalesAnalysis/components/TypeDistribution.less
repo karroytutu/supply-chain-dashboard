@@ -1,0 +1,37 @@
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 72px 1fr 60px;
+  gap: 12px;
+  align-items: center;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.label {
+  text-align: right;
+}
+
+.bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #f0f0f0;
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: #91caff;
+    transition: width 0.3s ease;
+  }
+}
+
+.meta {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}

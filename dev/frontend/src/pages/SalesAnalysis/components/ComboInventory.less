@@ -1,0 +1,132 @@
+.card {
+  border-radius: 8px;
+}
+
+.cardTitleRow {
+  margin-bottom: 16px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.cardSubtitle {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 关联网络图 */
+.network {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  margin-bottom: 16px;
+}
+
+.networkSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.node {
+  position: absolute;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.nodeMain {
+  width: 48px;
+  height: 48px;
+  background: #e6f4ff;
+  color: #1677ff;
+  border: 2px solid #1677ff;
+  font-size: 13px;
+  font-weight: 600;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.nodeSub {
+  width: 40px;
+  height: 40px;
+  background: #f6ffed;
+  color: #389e0d;
+  border: 1px solid #b7eb8f;
+  font-size: 11px;
+}
+
+.nodeLeft {
+  top: 18%;
+  left: 14%;
+  transform: translate(-50%, -50%);
+}
+
+.nodeRight {
+  top: 18%;
+  right: 8%;
+  transform: translate(50%, -50%);
+}
+
+.nodeBottomLeft {
+  bottom: 8%;
+  left: 22%;
+  transform: translate(-50%, 50%);
+}
+
+.nodeBottomRight {
+  bottom: 8%;
+  right: 16%;
+  transform: translate(50%, 50%);
+}
+
+/* 库存匹配 */
+.stockGroup {
+  display: grid;
+  gap: 12px;
+}
+
+.stockRow {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  gap: 12px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.stockName {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.dualBar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.inventory,
+.sales {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.inventory {
+  background: #91caff;
+}
+
+.sales {
+  background: #b7eb8f;
+}

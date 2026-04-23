@@ -86,6 +86,13 @@ export const PERMISSIONS = {
     },
   },
 
+  // 销售分析模块
+  SALES: {
+    ANALYSIS: {
+      READ: 'sales:analysis:read',
+    },
+  },
+
   // OA审批模块
   OA: {
     APPROVAL: {

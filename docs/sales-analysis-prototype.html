@@ -1,0 +1,3327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>销售分析系统原型</title>
+  <link rel="stylesheet" href="https://unpkg.com/antd@5/dist/reset.css">
+  <style>
+    :root {
+      --primary: #1677ff;
+      --success: #52c41a;
+      --warning: #faad14;
+      --danger: #ff4d4f;
+      --text: rgba(0, 0, 0, 0.88);
+      --text-secondary: rgba(0, 0, 0, 0.45);
+      --text-tertiary: rgba(0, 0, 0, 0.65);
+      --border: #f0f0f0;
+      --border-strong: #d9d9d9;
+      --bg: #f5f5f5;
+      --card-bg: #ffffff;
+      --header-bg: #ffffff;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.03);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .topbar {
+      height: 56px;
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+    }
+
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--primary);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #e6f4ff;
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .page-header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .page-header-top,
+    .page-header-bottom,
+    .toolbar-left,
+    .toolbar-right,
+    .section-grid,
+    .three-col,
+    .legend,
+    .stat-footer,
+    .top-list li,
+    .table-row,
+    .meta-grid,
+    .status-row {
+      display: flex;
+      gap: 16px;
+    }
+
+    .page-header-top,
+    .page-header-bottom,
+    .top-list li,
+    .table-row,
+    .status-row {
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 30px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .page-desc {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      max-width: 860px;
+      font-size: 14px;
+    }
+
+    .page-header-bottom {
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-left,
+    .toolbar-right,
+    .section-grid,
+    .three-col,
+    .legend,
+    .meta-grid {
+      flex-wrap: wrap;
+    }
+
+    .segmented {
+      display: inline-flex;
+      background: #fafafa;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .segment {
+      padding: 6px 14px;
+      border-radius: 6px;
+      color: var(--text-tertiary);
+      font-size: 14px;
+      cursor: default;
+    }
+
+    .segment.active {
+      background: #fff;
+      color: var(--primary);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      font-weight: 500;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 400;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 2px 0 rgba(5, 145, 255, 0.1);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .summary-group {
+      margin-bottom: 12px;
+    }
+
+    .summary-group-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 12px;
+      color: var(--text-tertiary);
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5714285714;
+    }
+
+    .summary-group-title::before {
+      content: "";
+      width: 4px;
+      height: 14px;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .stat-card {
+      grid-column: span 3;
+      min-width: 0;
+      padding: 18px 20px 16px;
+    }
+
+    .stat-card.stat-secondary {
+      grid-column: span 4;
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.5714285714;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 38px;
+      line-height: 1.1;
+      font-weight: 600;
+      letter-spacing: 0;
+      margin-bottom: 14px;
+    }
+
+    .delta-up,
+    .delta-down {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .delta-up { color: var(--success); }
+    .delta-down { color: var(--danger); }
+
+    .stat-footer {
+      margin-top: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .stat-trend {
+      display: grid;
+      gap: 2px;
+    }
+
+    .stat-trend-label {
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .sparkline {
+      margin-top: 16px;
+      height: 36px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .sparkline span {
+      flex: 1;
+      min-height: 6px;
+      background: #b7d7f7;
+      border-radius: 999px 999px 0 0;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .sparkline.down span {
+      background: #f3b7bd;
+    }
+
+    .sparkline span:hover {
+      transform: translateY(-2px);
+      opacity: 0.92;
+      box-shadow: 0 4px 10px rgba(22, 119, 255, 0.16);
+    }
+
+    .sparkline.down span:hover {
+      box-shadow: 0 4px 10px rgba(255, 77, 79, 0.16);
+    }
+
+    .trend-tooltip {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 20;
+      min-width: 120px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.82);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      pointer-events: none;
+      opacity: 0;
+      transform: translate3d(0, 0, 0);
+      transition: opacity 0.12s ease;
+    }
+
+    .trend-tooltip.visible {
+      opacity: 1;
+    }
+
+    .trend-tooltip-label {
+      font-size: 12px;
+      line-height: 1.4;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .trend-tooltip-value {
+      margin-top: 2px;
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .section {
+      margin-top: 24px;
+    }
+
+    .section-header {
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .section-desc {
+      margin: 6px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .col-1 { flex: 1 1 280px; }
+    .col-2 { flex: 2 1 560px; }
+    .col-3 { flex: 3 1 820px; }
+
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .card-subtitle {
+      margin: 4px 0 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+
+    .chart-box {
+      position: relative;
+      height: 280px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background:
+        repeating-linear-gradient(to top, #fafafa 0, #fafafa 1px, transparent 1px, transparent 50px),
+        #fff;
+      overflow: hidden;
+      padding: 18px 16px 30px;
+    }
+
+    .chart-lines {
+      position: absolute;
+      inset: 18px 16px 30px 16px;
+    }
+
+    .chart-lines svg,
+    .mini-area svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .chart-axis {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .legend {
+      margin-top: 14px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .ring-panel {
+      display: grid;
+      place-items: center;
+      margin-top: 18px;
+    }
+
+    .ring {
+      width: 124px;
+      height: 124px;
+      border-radius: 50%;
+      background: conic-gradient(#1677ff 0 40%, #69b1ff 40% 65%, #95de64 65% 84%, #d9d9d9 84% 100%);
+      position: relative;
+    }
+
+    .ring::after {
+      content: "片区占比";
+      position: absolute;
+      inset: 18px;
+      border-radius: 50%;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .meta-grid {
+      margin-top: 16px;
+    }
+
+    .mini-card {
+      flex: 1 1 150px;
+      min-width: 140px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .mini-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 8px;
+      line-height: 22px;
+      border-radius: 6px;
+      font-size: 12px;
+      border: 1px solid transparent;
+    }
+
+    .tag-blue { color: #1677ff; background: #e6f4ff; border-color: #91caff; }
+    .tag-green { color: #389e0d; background: #f6ffed; border-color: #b7eb8f; }
+    .tag-orange { color: #d48806; background: #fffbe6; border-color: #ffe58f; }
+    .tag-red { color: #cf1322; background: #fff1f0; border-color: #ffa39e; }
+    .tag-purple { color: #722ed1; background: #f9f0ff; border-color: #d3adf7; }
+
+    .top-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .top-list li {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+
+    .top-list li:last-child {
+      border-bottom: none;
+    }
+
+    .list-name {
+      font-weight: 500;
+    }
+
+    .list-meta {
+      margin-top: 4px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .progress {
+      width: 170px;
+      height: 8px;
+      border-radius: 999px;
+      background: #f0f0f0;
+      overflow: hidden;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+
+    .word-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .word-cloud span {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f5f5f5;
+      color: var(--text-tertiary);
+      border: 1px solid var(--border);
+      font-weight: 500;
+    }
+
+    .stack-bars {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stack-item {
+      display: grid;
+      grid-template-columns: 72px 1fr 52px;
+      gap: 12px;
+      align-items: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .stack-track {
+      display: flex;
+      height: 10px;
+      border-radius: 999px;
+      background: #f0f0f0;
+      overflow: hidden;
+    }
+
+    .stack-track span:nth-child(1) { background: #1677ff; }
+    .stack-track span:nth-child(2) { background: #69b1ff; }
+    .stack-track span:nth-child(3) { background: #d6e4ff; }
+
+    .funnel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .funnel div {
+      margin: 0 auto;
+      background: linear-gradient(90deg, #4096ff, #1677ff);
+      color: #fff;
+      text-align: center;
+      padding: 10px 0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .funnel .s1 { width: 100%; }
+    .funnel .s2 { width: 76%; }
+    .funnel .s3 { width: 54%; }
+
+    .matrix {
+      position: relative;
+      height: 240px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background:
+        linear-gradient(to right, transparent 49.7%, #f0f0f0 50%, transparent 50.3%),
+        linear-gradient(to top, transparent 49.7%, #f0f0f0 50%, transparent 50.3%),
+        #fff;
+      overflow: hidden;
+    }
+
+    .matrix-label {
+      position: absolute;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .point {
+      position: absolute;
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(22, 119, 255, 0.18);
+    }
+
+    .point-blue { background: #1677ff; left: 63%; top: 18%; }
+    .point-orange { background: #faad14; left: 18%; top: 24%; }
+    .point-green { background: #52c41a; left: 58%; top: 62%; }
+    .point-red { background: #ff4d4f; left: 24%; top: 70%; }
+
+    .network {
+      position: relative;
+      height: 240px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .network svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .node {
+      position: absolute;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid #91caff;
+      background: #e6f4ff;
+      color: var(--primary);
+    }
+
+    .node.main {
+      width: 88px;
+      height: 88px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .node.sub {
+      width: 70px;
+      height: 70px;
+      background: #fff;
+      border-color: var(--border-strong);
+      color: var(--text-tertiary);
+    }
+
+    .node-left { left: 16%; top: 22%; }
+    .node-right { right: 16%; top: 22%; }
+    .node-bottom-left { left: 24%; bottom: 12%; }
+    .node-bottom-right { right: 22%; bottom: 10%; }
+
+    .stock-group {
+      display: grid;
+      gap: 12px;
+    }
+
+    .stock-row {
+      display: grid;
+      grid-template-columns: 84px 1fr 56px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .dual-bar {
+      position: relative;
+      height: 18px;
+      border-radius: 999px;
+      background: #f0f0f0;
+      overflow: hidden;
+    }
+
+    .dual-bar span {
+      position: absolute;
+      left: 0;
+      border-radius: 999px;
+    }
+
+    .inventory {
+      top: 0;
+      bottom: 0;
+      background: rgba(22, 119, 255, 0.3);
+    }
+
+    .sales {
+      top: 4px;
+      height: 10px;
+      background: rgba(82, 196, 26, 0.88);
+    }
+
+    .table {
+      margin-top: 4px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .table-row {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .table-head {
+      background: #fafafa;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .col {
+      flex: 1;
+    }
+
+    .radar-wrap {
+      position: relative;
+      width: 250px;
+      height: 250px;
+      margin: 0 auto;
+    }
+
+    .radar {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, transparent 28%, #f5f5f5 28.5%, transparent 29%),
+        radial-gradient(circle, transparent 48%, #f5f5f5 48.5%, transparent 49%),
+        radial-gradient(circle, transparent 68%, #f5f5f5 68.5%, transparent 69%),
+        radial-gradient(circle, transparent 88%, #f5f5f5 88.5%, transparent 89%);
+      border: 1px solid var(--border);
+    }
+
+    .radar::before,
+    .radar::after {
+      content: "";
+      position: absolute;
+      background: #f0f0f0;
+    }
+
+    .radar::before {
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      transform: translateX(-50%);
+    }
+
+    .radar::after {
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      transform: translateY(-50%);
+    }
+
+    .radar-shape {
+      position: absolute;
+      inset: 34px;
+      border: 2px solid #1677ff;
+      background: rgba(22, 119, 255, 0.16);
+      clip-path: polygon(50% 0%, 86% 28%, 72% 82%, 32% 100%, 8% 60%, 20% 18%);
+    }
+
+    .diagnosis-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .diagnosis-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #fff;
+    }
+
+    .diagnosis-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .diagnosis-card p,
+    .note,
+    .status-text {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .status-panel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .status-block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fafafa;
+    }
+
+    .status-block strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .risk-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card-insight {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .card-insight {
+      margin-top: 8px;
+    }
+
+    .risk-card {
+      position: relative;
+      border-radius: 8px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      background: #fff;
+      cursor: pointer;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .risk-card:hover {
+      border-color: #e5e5e5;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .risk-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .risk-kicker {
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 4px;
+    }
+
+    .risk-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .risk-count-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .risk-count {
+      font-size: 36px;
+      line-height: 1.1;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .risk-count-unit {
+      color: var(--text-secondary);
+      font-size: 13px;
+      padding-bottom: 6px;
+    }
+
+    .risk-card.red .risk-count {
+      color: #cf1322;
+    }
+
+    .risk-card.yellow .risk-count {
+      color: #ad6800;
+    }
+
+    .risk-card.blue .risk-count {
+      color: var(--primary);
+    }
+
+    .risk-count-caption {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+
+    .risk-meta {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+
+    .risk-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0;
+    }
+
+    .risk-meta-row strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .risk-link {
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .risk-link::after {
+      content: ">";
+      font-size: 12px;
+      transform: translateY(-0.5px);
+    }
+
+    .risk-link-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 8px;
+    }
+
+    .risk-link-hint {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .risk-card.active {
+      border-color: #91caff;
+      box-shadow: 0 0 0 2px #e6f4ff;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 10;
+    }
+
+    .modal-mask.open {
+      display: flex;
+    }
+
+    .drilldown-modal {
+      width: min(1200px, 100%);
+      max-height: calc(100vh - 48px);
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drilldown-header,
+    .drilldown-toolbar,
+    .customer-item-top,
+    .customer-item-foot,
+    .detail-top,
+    .detail-top-right,
+    .detail-title-row,
+    .detail-block-head,
+    .detail-action-row,
+    .modal-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .drilldown-header,
+    .drilldown-toolbar,
+    .detail-top,
+    .detail-action-row,
+    .modal-topbar {
+      flex-wrap: wrap;
+    }
+
+    .modal-topbar {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-tertiary);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      background: #f5f5f5;
+      color: var(--text);
+    }
+
+    .drilldown-header {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .drilldown-kicker {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .drilldown-count {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .modal-desc {
+      margin: 0;
+      max-width: 720px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .view-switch {
+      display: inline-flex;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fafafa;
+      gap: 4px;
+    }
+
+    .view-switch-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-tertiary);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      cursor: pointer;
+    }
+
+    .view-switch-btn.active {
+      background: #fff;
+      color: var(--primary);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      font-weight: 500;
+    }
+
+    .drilldown-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+      min-height: 520px;
+      overflow: auto;
+      background: #fff;
+    }
+
+    .customer-list-wrap {
+      padding: 16px 20px 20px;
+      border-right: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .drilldown-toolbar {
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .my-view-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid #d3adf7;
+      border-radius: 8px;
+      background: #fcfaff;
+    }
+
+    .my-view-summary[hidden] {
+      display: none;
+    }
+
+    .my-view-kicker {
+      color: #722ed1;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .my-view-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .my-view-note {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .my-view-focus {
+      padding: 12px;
+      border: 1px solid #ead7ff;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .my-view-focus-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .my-view-focus-label {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .my-view-focus-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 8px;
+      min-height: 22px;
+      border-radius: 999px;
+      background: #f9f0ff;
+      border: 1px solid #d3adf7;
+      color: #722ed1;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .my-view-focus-name {
+      font-size: 18px;
+      line-height: 1.4;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .my-view-focus-note {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .drilldown-toolbar-note {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      border: 1px solid var(--border-strong);
+      background: #fafafa;
+      color: var(--text-tertiary);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      cursor: pointer;
+    }
+
+    .filter-chip.active {
+      color: var(--primary);
+      border-color: #91caff;
+      background: #e6f4ff;
+    }
+
+    .customer-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .customer-item {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .customer-item:hover {
+      border-color: #d6e4ff;
+      box-shadow: 0 4px 12px rgba(22, 119, 255, 0.08);
+    }
+
+    .customer-item.active {
+      border-color: #91caff;
+      background: #f7fbff;
+      box-shadow: none;
+    }
+
+    .customer-item.mine {
+      border-color: #d3adf7;
+      background: #fcfaff;
+    }
+
+    .customer-item.mine.active {
+      border-color: #b37feb;
+      box-shadow: 0 0 0 2px #f9f0ff;
+    }
+
+    .customer-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .customer-tags,
+    .detail-tags,
+    .reason-list,
+    .detail-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .customer-desc,
+    .detail-note {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .customer-meta-line {
+      margin-top: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .detail-owner-line {
+      margin-top: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .detail-wrap {
+      padding: 16px 20px 20px;
+      background: #fff;
+    }
+
+    .detail-panel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .detail-top-right {
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .detail-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .detail-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .detail-stat {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .detail-stat-label {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .detail-stat-value {
+      color: var(--text);
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .detail-section {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .detail-block-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .reason-chip {
+      border-radius: 6px;
+      padding: 4px 10px;
+      background: #fff1f0;
+      border: 1px solid #ffa39e;
+      color: #cf1322;
+      font-size: 12px;
+    }
+
+    .mini-trend {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mini-trend-bars {
+      height: 110px;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .mini-trend-bars span {
+      flex: 1;
+      border-radius: 8px 8px 0 0;
+      background: linear-gradient(180deg, #91caff 0%, #1677ff 100%);
+      min-height: 16px;
+    }
+
+    .mini-trend-axis {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .timeline-item {
+      position: relative;
+      padding-left: 16px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+
+    .coverage-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .coverage-row {
+      display: grid;
+      grid-template-columns: 74px 1fr 54px;
+      gap: 12px;
+      align-items: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .coverage-track {
+      height: 8px;
+      border-radius: 999px;
+      background: #f0f0f0;
+      overflow: hidden;
+    }
+
+    .coverage-track span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: #1677ff;
+    }
+
+    .detail-actions {
+      margin-top: 8px;
+    }
+
+    .detail-action-pill {
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #fafafa;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .detail-compact-row {
+      margin-top: 0;
+    }
+
+    .empty-state {
+      padding: 24px;
+      border: 1px dashed var(--border-strong);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: center;
+      background: #fafafa;
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 12px 24px;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .modal-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .action-layout {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .action-main {
+      flex: 2 1 620px;
+    }
+
+    .action-side {
+      flex: 1 1 320px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .action-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .action-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #fff;
+    }
+
+    .action-item.red {
+      border-left: 4px solid #ff4d4f;
+    }
+
+    .action-item.yellow {
+      border-left: 4px solid #faad14;
+    }
+
+    .action-item.blue {
+      border-left: 4px solid #1677ff;
+    }
+
+    .action-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .action-name {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .action-meta,
+    .action-advice {
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .action-score {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .customer-structure {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 20px;
+    }
+
+    .customer-subsection {
+      display: grid;
+      gap: 14px;
+    }
+
+    .customer-subtitle {
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.5714285714;
+    }
+
+    .type-list {
+      display: grid;
+      gap: 14px;
+      margin-top: 0;
+    }
+
+    .type-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 64px;
+      gap: 12px;
+      align-items: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .type-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: #f0f0f0;
+      overflow: hidden;
+    }
+
+    .type-bar span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: #1677ff;
+    }
+
+    .type-meta {
+      text-align: right;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .mini-card {
+      flex: 1 1 150px;
+      min-width: 140px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      display: grid;
+      gap: 8px;
+    }
+
+    .mini-card-top,
+    .mini-card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .mini-card-label {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .mini-card strong {
+      display: block;
+      margin-top: 0;
+      font-size: 28px;
+      line-height: 1.2;
+      font-weight: 600;
+    }
+
+    .mini-card-foot {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .value-summary {
+      display: grid;
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    .value-highlight {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .value-highlight-label {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .value-highlight strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 28px;
+      line-height: 1.2;
+      font-weight: 600;
+    }
+
+    .district-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .district-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 40px;
+      gap: 12px;
+      align-items: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .share-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: #f0f0f0;
+      overflow: hidden;
+    }
+
+    .share-bar span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: #91caff;
+    }
+
+    .footer-note {
+      margin-top: 24px;
+      color: var(--text-secondary);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    @media (max-width: 960px) {
+      .page {
+        padding: 16px;
+      }
+
+      .topbar {
+        padding: 0 16px;
+      }
+
+      .page-title {
+        font-size: 24px;
+      }
+
+      .risk-grid,
+      .customer-structure {
+        grid-template-columns: 1fr;
+      }
+
+      .drilldown-body,
+      .detail-grid,
+      .detail-summary,
+      .customer-meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .customer-list-wrap {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .modal-mask {
+        padding: 12px;
+      }
+
+      .drilldown-modal {
+        max-height: calc(100vh - 24px);
+      }
+
+      .modal-footer {
+        justify-content: flex-end;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .stat-card,
+      .stat-card.stat-secondary {
+        grid-column: span 1;
+      }
+
+      .table-row {
+        flex-wrap: wrap;
+      }
+
+      .coverage-row {
+        grid-template-columns: 64px 1fr 48px;
+      }
+
+      .my-view-summary {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-logo">销</span>
+      <span>销售分析系统</span>
+    </div>
+    <div class="topbar-right">
+      <span>经营分析中心</span>
+      <span class="avatar">管</span>
+    </div>
+  </div>
+
+  <div class="page">
+    <section class="page-header">
+      <div class="page-header-top">
+        <div>
+          <h1 class="page-title">首页总览原型</h1>
+          <p class="page-desc">
+            当前页面采用更接近 Ant Design 默认后台的视觉风格，保留单页查看四大板块的结构，
+            重点用于确认首页布局、信息层级、组件质感和图表容器形式。
+          </p>
+        </div>
+      </div>
+      <div class="page-header-bottom">
+        <div class="toolbar-left">
+          <div class="segmented">
+            <span class="segment active">今日</span>
+            <span class="segment">本周</span>
+            <span class="segment">本月</span>
+            <span class="segment">本年</span>
+            <span class="segment">自定义</span>
+          </div>
+        </div>
+        <div class="toolbar-right">
+          <span class="tag tag-blue">静态原型</span>
+          <span class="tag tag-green">Ant 风格</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="summary-group">
+      <h2 class="summary-group-title">销售与回款</h2>
+      <div class="summary-grid">
+        <div class="card stat-card stat-secondary">
+          <div class="stat-label">订单额</div>
+          <div class="stat-value">¥ 286,400</div>
+          <div class="stat-footer">
+            <span class="stat-trend">
+              <span class="stat-trend-label">同比</span>
+              <span class="delta-up">+12.8%</span>
+            </span>
+            <span class="stat-trend">
+              <span class="stat-trend-label">环比</span>
+              <span class="delta-up">+4.1%</span>
+            </span>
+          </div>
+          <div class="sparkline">
+          <span style="height: 20px" data-date="4月6日" data-value="¥ 33,200" title="4月6日：¥ 33,200"></span><span style="height: 16px" data-date="4月7日" data-value="¥ 28,600" title="4月7日：¥ 28,600"></span><span style="height: 22px" data-date="4月8日" data-value="¥ 36,900" title="4月8日：¥ 36,900"></span><span style="height: 18px" data-date="4月9日" data-value="¥ 31,400" title="4月9日：¥ 31,400"></span><span style="height: 28px" data-date="4月10日" data-value="¥ 44,800" title="4月10日：¥ 44,800"></span><span style="height: 24px" data-date="4月11日" data-value="¥ 39,700" title="4月11日：¥ 39,700"></span><span style="height: 30px" data-date="4月12日" data-value="¥ 47,800" title="4月12日：¥ 47,800"></span>
+          </div>
+        </div>
+        <div class="card stat-card stat-secondary">
+          <div class="stat-label">结算额</div>
+          <div class="stat-value">¥ 254,800</div>
+          <div class="stat-footer">
+            <span class="stat-trend">
+              <span class="stat-trend-label">同比</span>
+              <span class="delta-up">+8.5%</span>
+            </span>
+            <span class="stat-trend">
+              <span class="stat-trend-label">环比</span>
+              <span class="delta-up">+2.6%</span>
+            </span>
+          </div>
+          <div class="sparkline">
+          <span style="height: 18px" data-date="4月6日" data-value="¥ 30,100" title="4月6日：¥ 30,100"></span><span style="height: 21px" data-date="4月7日" data-value="¥ 34,200" title="4月7日：¥ 34,200"></span><span style="height: 20px" data-date="4月8日" data-value="¥ 32,800" title="4月8日：¥ 32,800"></span><span style="height: 24px" data-date="4月9日" data-value="¥ 38,100" title="4月9日：¥ 38,100"></span><span style="height: 24px" data-date="4月10日" data-value="¥ 38,400" title="4月10日：¥ 38,400"></span><span style="height: 28px" data-date="4月11日" data-value="¥ 43,500" title="4月11日：¥ 43,500"></span><span style="height: 29px" data-date="4月12日" data-value="¥ 45,200" title="4月12日：¥ 45,200"></span>
+          </div>
+        </div>
+        <div class="card stat-card stat-secondary">
+          <div class="stat-label">回款额</div>
+          <div class="stat-value">¥ 198,300</div>
+          <div class="stat-footer">
+            <span class="stat-trend">
+              <span class="stat-trend-label">同比</span>
+              <span class="delta-down">-3.1%</span>
+            </span>
+            <span class="stat-trend">
+              <span class="stat-trend-label">环比</span>
+              <span class="delta-down">-1.5%</span>
+            </span>
+          </div>
+          <div class="sparkline down">
+          <span style="height: 28px" data-date="4月6日" data-value="¥ 36,400" title="4月6日：¥ 36,400"></span><span style="height: 26px" data-date="4月7日" data-value="¥ 33,800" title="4月7日：¥ 33,800"></span><span style="height: 22px" data-date="4月8日" data-value="¥ 29,500" title="4月8日：¥ 29,500"></span><span style="height: 18px" data-date="4月9日" data-value="¥ 24,600" title="4月9日：¥ 24,600"></span><span style="height: 20px" data-date="4月10日" data-value="¥ 26,900" title="4月10日：¥ 26,900"></span><span style="height: 14px" data-date="4月11日" data-value="¥ 18,700" title="4月11日：¥ 18,700"></span><span style="height: 12px" data-date="4月12日" data-value="¥ 16,400" title="4月12日：¥ 16,400"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="summary-group">
+      <h2 class="summary-group-title">费用与利润</h2>
+      <div class="summary-grid">
+        <div class="card stat-card">
+          <div class="stat-label">毛利额</div>
+          <div class="stat-value">¥ 62,900</div>
+          <div class="stat-footer">
+            <span class="stat-trend">
+              <span class="stat-trend-label">同比</span>
+              <span class="delta-up">+15.7%</span>
+            </span>
+            <span class="stat-trend">
+              <span class="stat-trend-label">环比</span>
+              <span class="delta-up">+6.3%</span>
+            </span>
+          </div>
+          <div class="sparkline">
+          <span style="height: 14px" data-date="4月6日" data-value="¥ 7,400" title="4月6日：¥ 7,400"></span><span style="height: 18px" data-date="4月7日" data-value="¥ 9,200" title="4月7日：¥ 9,200"></span><span style="height: 22px" data-date="4月8日" data-value="¥ 11,600" title="4月8日：¥ 11,600"></span><span style="height: 24px" data-date="4月9日" data-value="¥ 12,800" title="4月9日：¥ 12,800"></span><span style="height: 28px" data-date="4月10日" data-value="¥ 14,900" title="4月10日：¥ 14,900"></span><span style="height: 29px" data-date="4月11日" data-value="¥ 15,600" title="4月11日：¥ 15,600"></span><span style="height: 32px" data-date="4月12日" data-value="¥ 17,100" title="4月12日：¥ 17,100"></span>
+          </div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">费用支出额</div>
+          <div class="stat-value">¥ 18,200</div>
+          <div class="stat-footer">
+            <span class="stat-trend">
+              <span class="stat-trend-label">同比</span>
+              <span class="delta-down">+6.2%</span>
+            </span>
+            <span class="stat-trend">
+              <span class="stat-trend-label">环比</span>
+              <span class="delta-down">+6.8%</span>
+            </span>
+          </div>
+          <div class="sparkline down">
+          <span style="height: 20px" data-date="4月6日" data-value="¥ 3,100" title="4月6日：¥ 3,100"></span><span style="height: 18px" data-date="4月7日" data-value="¥ 2,800" title="4月7日：¥ 2,800"></span><span style="height: 22px" data-date="4月8日" data-value="¥ 3,500" title="4月8日：¥ 3,500"></span><span style="height: 16px" data-date="4月9日" data-value="¥ 2,400" title="4月9日：¥ 2,400"></span><span style="height: 19px" data-date="4月10日" data-value="¥ 2,900" title="4月10日：¥ 2,900"></span><span style="height: 12px" data-date="4月11日" data-value="¥ 1,700" title="4月11日：¥ 1,700"></span><span style="height: 8px" data-date="4月12日" data-value="¥ 1,100" title="4月12日：¥ 1,100"></span>
+          </div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">费用收入额</div>
+          <div class="stat-value">¥ 7,400</div>
+          <div class="stat-footer">
+            <span class="stat-trend">
+              <span class="stat-trend-label">同比</span>
+              <span class="delta-up">+2.1%</span>
+            </span>
+            <span class="stat-trend">
+              <span class="stat-trend-label">环比</span>
+              <span class="delta-up">+3.4%</span>
+            </span>
+          </div>
+          <div class="sparkline">
+          <span style="height: 26px" data-date="4月6日" data-value="¥ 1,680" title="4月6日：¥ 1,680"></span><span style="height: 24px" data-date="4月7日" data-value="¥ 1,540" title="4月7日：¥ 1,540"></span><span style="height: 21px" data-date="4月8日" data-value="¥ 1,360" title="4月8日：¥ 1,360"></span><span style="height: 20px" data-date="4月9日" data-value="¥ 1,280" title="4月9日：¥ 1,280"></span><span style="height: 16px" data-date="4月10日" data-value="¥ 980" title="4月10日：¥ 980"></span><span style="height: 12px" data-date="4月11日" data-value="¥ 760" title="4月11日：¥ 760"></span><span style="height: 10px" data-date="4月12日" data-value="¥ 620" title="4月12日：¥ 620"></span>
+          </div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">结算利润额</div>
+          <div class="stat-value">¥ 51,100</div>
+          <div class="stat-footer">
+            <span class="stat-trend">
+              <span class="stat-trend-label">同比</span>
+              <span class="delta-up">+11.2%</span>
+            </span>
+            <span class="stat-trend">
+              <span class="stat-trend-label">环比</span>
+              <span class="delta-up">+5.7%</span>
+            </span>
+          </div>
+          <div class="sparkline">
+          <span style="height: 24px" data-date="4月6日" data-value="¥ 8,300" title="4月6日：¥ 8,300"></span><span style="height: 22px" data-date="4月7日" data-value="¥ 7,600" title="4月7日：¥ 7,600"></span><span style="height: 20px" data-date="4月8日" data-value="¥ 6,900" title="4月8日：¥ 6,900"></span><span style="height: 14px" data-date="4月9日" data-value="¥ 4,800" title="4月9日：¥ 4,800"></span><span style="height: 12px" data-date="4月10日" data-value="¥ 4,100" title="4月10日：¥ 4,100"></span><span style="height: 8px" data-date="4月11日" data-value="¥ 2,700" title="4月11日：¥ 2,700"></span><span style="height: 5px" data-date="4月12日" data-value="¥ 1,800" title="4月12日：¥ 1,800"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">客户分析</h2>
+        <p class="section-desc">按“风险优先”组织首页内容，先发现问题客户，再安排动作，最后辅助判断客户结构与核心价值。</p>
+      </div>
+
+      <div class="risk-grid">
+        <div class="risk-card red" role="button" tabindex="0" data-risk="red" aria-pressed="false">
+          <div class="risk-head">
+            <div>
+              <div class="risk-kicker">风险等级</div>
+              <h3 class="risk-title">红色高风险</h3>
+            </div>
+            <span class="tag tag-red">立即处理</span>
+          </div>
+          <div class="risk-count-row">
+            <div class="risk-count">28</div>
+            <div class="risk-count-unit">客户</div>
+          </div>
+          <div class="risk-count-caption">当前优先级最高，建议管理层先处理回款与停单风险。</div>
+          <div class="risk-meta">
+            <div class="risk-meta-row"><span>回款异常</span><strong>11</strong></div>
+            <div class="risk-meta-row"><span>30天未下单</span><strong>17</strong></div>
+            <div class="risk-meta-row"><span>最高风险客户</span><strong>华东旗舰店</strong></div>
+          </div>
+          <div class="risk-link-row">
+            <span class="risk-link">查看高风险客户</span>
+            <span class="risk-link-hint">打开弹窗查看名单与详情</span>
+          </div>
+        </div>
+        <div class="risk-card yellow" role="button" tabindex="0" data-risk="yellow" aria-pressed="false">
+          <div class="risk-head">
+            <div>
+              <div class="risk-kicker">风险等级</div>
+              <h3 class="risk-title">黄色预警</h3>
+            </div>
+            <span class="tag tag-orange">尽快跟进</span>
+          </div>
+          <div class="risk-count-row">
+            <div class="risk-count">46</div>
+            <div class="risk-count-unit">客户</div>
+          </div>
+          <div class="risk-count-caption">关注订单下滑和跟进不足，适合销售主管分派跟进动作。</div>
+          <div class="risk-meta">
+            <div class="risk-meta-row"><span>订单下滑</span><strong>19</strong></div>
+            <div class="risk-meta-row"><span>跟进不足</span><strong>27</strong></div>
+            <div class="risk-meta-row"><span>近7天新增</span><strong>8</strong></div>
+          </div>
+          <div class="risk-link-row">
+            <span class="risk-link">查看预警客户</span>
+            <span class="risk-link-hint">打开弹窗查看名单与详情</span>
+          </div>
+        </div>
+        <div class="risk-card blue" role="button" tabindex="0" data-risk="blue" aria-pressed="false">
+          <div class="risk-head">
+            <div>
+              <div class="risk-kicker">机会等级</div>
+              <h3 class="risk-title">蓝色机会</h3>
+            </div>
+            <span class="tag tag-blue">增长机会</span>
+          </div>
+          <div class="risk-count-row">
+            <div class="risk-count">33</div>
+            <div class="risk-count-unit">客户</div>
+          </div>
+          <div class="risk-count-caption">用于优先识别扩品空间，辅助制定增购与品类覆盖策略。</div>
+          <div class="risk-meta">
+            <div class="risk-meta-row"><span>品类过少</span><strong>33</strong></div>
+            <div class="risk-meta-row"><span>Top1机会客户</span><strong>城市便利店A03</strong></div>
+            <div class="risk-meta-row"><span>平均低于同类</span><strong>31%</strong></div>
+          </div>
+          <div class="risk-link-row">
+            <span class="risk-link">查看扩品机会</span>
+            <span class="risk-link-hint">打开弹窗查看名单与详情</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-grid">
+        <div class="card col-2">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">客户结构</h3>
+              <p class="card-subtitle">辅助判断客户池是否健康，以及风险是否集中在某类客户上。</p>
+              <p class="card-insight">我的客户里 A/B 类占比较高，当前预警主要集中在便利店和商超，适合优先做重点维护。</p>
+            </div>
+          </div>
+          <div class="customer-structure">
+            <div class="customer-subsection">
+              <div class="customer-subtitle">客户等级分布</div>
+              <div class="meta-grid">
+                <div class="mini-card">
+                  <div class="mini-card-top">
+                    <span class="mini-card-label">A级客户</span>
+                    <span class="tag tag-blue">核心</span>
+                  </div>
+                  <strong>32</strong>
+                  <div class="mini-card-foot"><span>占比 10%</span><span>重点保留</span></div>
+                  <p class="note">核心维护，重点关注回款与续单稳定性。</p>
+                </div>
+                <div class="mini-card">
+                  <div class="mini-card-top">
+                    <span class="mini-card-label">B级客户</span>
+                    <span class="tag tag-green">稳定</span>
+                  </div>
+                  <strong>87</strong>
+                  <div class="mini-card-foot"><span>占比 28%</span><span>兼顾增长</span></div>
+                  <p class="note">兼顾潜力开发与风险防控。</p>
+                </div>
+                <div class="mini-card">
+                  <div class="mini-card-top">
+                    <span class="mini-card-label">C级客户</span>
+                    <span class="tag tag-orange">批量维护</span>
+                  </div>
+                  <strong>156</strong>
+                  <div class="mini-card-foot"><span>占比 49%</span><span>轻量触达</span></div>
+                  <p class="note">适合批量管理和轻量化维护。</p>
+                </div>
+                <div class="mini-card">
+                  <div class="mini-card-top">
+                    <span class="mini-card-label">沉睡客户</span>
+                    <span class="tag tag-red">待唤醒</span>
+                  </div>
+                  <strong>41</strong>
+                  <div class="mini-card-foot"><span>占比 13%</span><span>挽回优先</span></div>
+                  <p class="note">优先评估是否存在挽回价值。</p>
+                </div>
+              </div>
+            </div>
+            <div class="customer-subsection">
+              <div class="customer-subtitle">客户类型分布</div>
+              <div class="type-list">
+                <div class="type-row">
+                  <span>便利店</span>
+                  <div class="type-bar"><span style="width: 82%"></span></div>
+                  <span class="type-meta">96 家</span>
+                </div>
+                <div class="type-row">
+                  <span>商超</span>
+                  <div class="type-bar"><span style="width: 58%"></span></div>
+                  <span class="type-meta">68 家</span>
+                </div>
+                <div class="type-row">
+                  <span>餐饮店</span>
+                  <div class="type-bar"><span style="width: 76%"></span></div>
+                  <span class="type-meta">89 家</span>
+                </div>
+                <div class="type-row">
+                  <span>网吧</span>
+                  <div class="type-bar"><span style="width: 31%"></span></div>
+                  <span class="type-meta">24 家</span>
+                </div>
+                <div class="type-row">
+                  <span>KTV</span>
+                  <div class="type-bar"><span style="width: 25%"></span></div>
+                  <span class="type-meta">18 家</span>
+                </div>
+                <div class="type-row">
+                  <span>麻将馆</span>
+                  <div class="type-bar"><span style="width: 22%"></span></div>
+                  <span class="type-meta">15 家</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card col-1">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">核心客户价值</h3>
+              <p class="card-subtitle">识别最值得重点保的客户，以及价值是否集中在少数客户和片区。</p>
+              <p class="card-insight">我的 Top 3 客户贡献占我客户销售额 54%，其中华东旗舰店既是高价值客户，也是当前最需要稳住的风险点。</p>
+            </div>
+          </div>
+          <ul class="top-list">
+            <li>
+              <div>
+                <div class="list-name">华东旗舰店</div>
+                <div class="list-meta">销售额 ¥92,000 / 毛利 ¥21,800</div>
+              </div>
+              <div class="progress"><span style="width:92%"></span></div>
+            </li>
+            <li>
+              <div>
+                <div class="list-name">盛安商贸</div>
+                <div class="list-meta">销售额 ¥77,600 / 毛利 ¥17,500</div>
+              </div>
+              <div class="progress"><span style="width:78%"></span></div>
+            </li>
+            <li>
+              <div>
+                <div class="list-name">远拓连锁</div>
+                <div class="list-meta">销售额 ¥66,400 / 毛利 ¥14,600</div>
+              </div>
+              <div class="progress"><span style="width:66%"></span></div>
+            </li>
+          </ul>
+          <div class="value-summary">
+            <div class="value-highlight">
+              <div class="value-highlight-label">核心客户贡献度</div>
+              <strong>Top 3 贡献 68%</strong>
+              <p class="note">价值集中在少数重点客户，建议持续关注回款与续单稳定性。</p>
+            </div>
+            <div class="district-list">
+              <div class="district-row">
+                <span>华东</span>
+                <div class="share-bar"><span style="width: 40%"></span></div>
+                <strong>40%</strong>
+              </div>
+              <div class="district-row">
+                <span>华南</span>
+                <div class="share-bar"><span style="width: 27%"></span></div>
+                <strong>27%</strong>
+              </div>
+              <div class="district-row">
+                <span>华北</span>
+                <div class="share-bar"><span style="width: 18%"></span></div>
+                <strong>18%</strong>
+              </div>
+              <div class="district-row">
+                <span>其他</span>
+                <div class="share-bar"><span style="width: 15%"></span></div>
+                <strong>15%</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">产品分析</h2>
+        <p class="section-desc">从销量、毛利、关联销售和库存匹配四个方向识别产品结构问题。</p>
+      </div>
+      <div class="three-col">
+        <div class="card col-1">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">畅销 / 滞销产品排行榜</h3>
+              <p class="card-subtitle">适合首页快速呈现重点推广产品和滞销产品。</p>
+            </div>
+          </div>
+          <ul class="top-list">
+            <li>
+              <div>
+                <div class="list-name">A12 智能终端</div>
+                <div class="list-meta">销量 1,268 / 销售额 ¥168,000</div>
+              </div>
+              <div class="progress"><span style="width:88%"></span></div>
+            </li>
+            <li>
+              <div>
+                <div class="list-name">M8 套装配件</div>
+                <div class="list-meta">销量 964 / 销售额 ¥93,500</div>
+              </div>
+              <div class="progress"><span style="width:72%"></span></div>
+            </li>
+            <li>
+              <div>
+                <div class="list-name">G4 入门机型</div>
+                <div class="list-meta">销量 185 / 销售额 ¥18,600</div>
+              </div>
+              <div class="progress"><span style="width:22%; background:#ff4d4f;"></span></div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card col-1">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">产品结构矩阵</h3>
+              <p class="card-subtitle">X 轴代表销量，Y 轴代表毛利率，用于区分明星产品和待优化产品。</p>
+            </div>
+          </div>
+          <div class="matrix">
+            <span class="matrix-label" style="left:10px; top:8px;">高毛利</span>
+            <span class="matrix-label" style="left:10px; bottom:8px;">低销量</span>
+            <span class="matrix-label" style="right:10px; bottom:8px;">高销量</span>
+            <span class="matrix-label" style="right:10px; top:8px;">明星区</span>
+            <span class="point point-blue">A12</span>
+            <span class="point point-orange">M8</span>
+            <span class="point point-green">K3</span>
+            <span class="point point-red">G4</span>
+          </div>
+        </div>
+
+        <div class="card col-1">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">组合销售与库存匹配</h3>
+              <p class="card-subtitle">同时查看关联销售关系与库存健康程度。</p>
+            </div>
+          </div>
+          <div class="network">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+              <line x1="50" y1="50" x2="22" y2="28" stroke="#d9d9d9" stroke-width="1.2"></line>
+              <line x1="50" y1="50" x2="80" y2="28" stroke="#d9d9d9" stroke-width="1.2"></line>
+              <line x1="50" y1="50" x2="32" y2="82" stroke="#d9d9d9" stroke-width="1.2"></line>
+              <line x1="50" y1="50" x2="74" y2="80" stroke="#d9d9d9" stroke-width="1.2"></line>
+            </svg>
+            <span class="node main">A12</span>
+            <span class="node sub node-left">壳套</span>
+            <span class="node sub node-right">耳机</span>
+            <span class="node sub node-bottom-left">充电器</span>
+            <span class="node sub node-bottom-right">延保</span>
+          </div>
+          <div class="stock-group">
+            <div class="stock-row">
+              <span>A12</span>
+              <div class="dual-bar">
+                <span class="inventory" style="width:74%"></span>
+                <span class="sales" style="width:68%"></span>
+              </div>
+              <strong>健康</strong>
+            </div>
+            <div class="stock-row">
+              <span>M8</span>
+              <div class="dual-bar">
+                <span class="inventory" style="width:38%"></span>
+                <span class="sales" style="width:72%"></span>
+              </div>
+              <strong style="color:#ff4d4f;">缺货</strong>
+            </div>
+            <div class="stock-row">
+              <span>G4</span>
+              <div class="dual-bar">
+                <span class="inventory" style="width:82%"></span>
+                <span class="sales" style="width:16%"></span>
+              </div>
+              <strong style="color:#faad14;">积压</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">业务员分析</h2>
+        <p class="section-desc">兼顾个人业绩、工作效率、趋势变化与短板诊断。</p>
+      </div>
+      <div class="section-grid">
+        <div class="card col-2">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">业务员综合表现</h3>
+              <p class="card-subtitle">按销售额、订单量、回款额、毛利等指标查看个人表现。</p>
+            </div>
+          </div>
+          <div class="table">
+            <div class="table-row table-head">
+              <div class="col">业务员</div>
+              <div class="col">销售额</div>
+              <div class="col">订单量</div>
+              <div class="col">回款额</div>
+              <div class="col">毛利</div>
+              <div class="col">状态</div>
+            </div>
+            <div class="table-row">
+              <div class="col"><strong>张晨</strong></div>
+              <div class="col">¥128,000</div>
+              <div class="col">46</div>
+              <div class="col">¥96,000</div>
+              <div class="col">¥28,600</div>
+              <div class="col"><span class="tag tag-green">Top 1</span></div>
+            </div>
+            <div class="table-row">
+              <div class="col"><strong>李洋</strong></div>
+              <div class="col">¥104,500</div>
+              <div class="col">39</div>
+              <div class="col">¥88,200</div>
+              <div class="col">¥21,400</div>
+              <div class="col"><span class="tag tag-blue">稳定</span></div>
+            </div>
+            <div class="table-row">
+              <div class="col"><strong>周凯</strong></div>
+              <div class="col">¥76,300</div>
+              <div class="col">27</div>
+              <div class="col">¥48,900</div>
+              <div class="col">¥11,500</div>
+              <div class="col"><span class="tag tag-red">待帮扶</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card col-1">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">多维能力画像</h3>
+              <p class="card-subtitle">对比拜访量、跟进量、转化率等维度与团队均值。</p>
+            </div>
+          </div>
+          <div class="radar-wrap">
+            <div class="radar"></div>
+            <div class="radar-shape"></div>
+          </div>
+          <div class="legend" style="justify-content:center;">
+            <span class="legend-item"><span class="legend-dot" style="background:#1677ff;"></span>当前业务员</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#faad14;"></span>团队均值参考</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-grid" style="margin-top:16px;">
+        <div class="card col-2">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">近三个月个人趋势与团队均线</h3>
+              <p class="card-subtitle">帮助识别持续上升、下滑或波动过大的业务员。</p>
+            </div>
+          </div>
+          <div class="chart-box" style="height:220px;">
+            <div class="chart-lines">
+              <svg viewBox="0 0 1000 280" preserveAspectRatio="none">
+                <polyline fill="none" stroke="#1677ff" stroke-width="4" points="0,210 160,180 320,150 480,164 640,132 800,116 1000,88"></polyline>
+                <polyline fill="none" stroke="#faad14" stroke-width="4" points="0,196 160,188 320,176 480,170 640,156 800,144 1000,136"></polyline>
+              </svg>
+            </div>
+            <div class="chart-axis">
+              <span>1月</span><span>2月</span><span>3月</span><span>4月</span><span>5月</span><span>6月</span><span>7月</span>
+            </div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#1677ff;"></span>张晨</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#faad14;"></span>团队均线</span>
+          </div>
+        </div>
+
+        <div class="card col-1">
+          <div class="card-title-row">
+            <div>
+              <h3 class="card-title">问题诊断卡</h3>
+              <p class="card-subtitle">用卡片化方式聚焦个人短板，方便管理层安排帮扶动作。</p>
+            </div>
+          </div>
+          <div class="diagnosis-list">
+            <div class="diagnosis-card">
+              <strong>周凯：转化率偏低</strong>
+              <p>意向转成单仅 5%，低于团队平均 10%，建议复盘报价与跟进话术。</p>
+            </div>
+            <div class="diagnosis-card">
+              <strong>王宁：拜访量不足</strong>
+              <p>本周拜访 8 次，低于团队均值 14 次，需要增加外勤覆盖频次。</p>
+            </div>
+            <div class="diagnosis-card">
+              <strong>李洋：回款跟进需加强</strong>
+              <p>销售表现稳定，但部分客户回款节奏偏慢，建议增加月末回款催办动作。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      当前页面为静态演示原型，重点用于确认首页布局、Ant 风格组件质感与图表容器表现。
+    </div>
+  </div>
+  <div class="modal-mask" id="customer-modal-mask" aria-hidden="true">
+    <div class="drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-topbar">
+        <div>
+          <h3 class="modal-title" id="modal-title">风险客户详情</h3>
+        </div>
+        <button class="modal-close" id="customer-modal-close" type="button" aria-label="关闭弹窗">×</button>
+      </div>
+      <div class="drilldown-header">
+        <p class="modal-desc" id="drilldown-desc">先处理回款异常与停单风险，再逐个查看客户详情与建议动作。</p>
+        <div class="detail-top-right">
+          <div class="view-switch" id="drilldown-view-switch" aria-label="客户视角切换">
+            <button class="view-switch-btn active" type="button" data-view="all" aria-pressed="true">全部客户</button>
+            <button class="view-switch-btn" type="button" data-view="mine" aria-pressed="false">我的客户</button>
+          </div>
+          <span class="tag tag-red" id="drilldown-tag">立即处理</span>
+          <span class="drilldown-count" id="drilldown-count">共 28 位客户</span>
+        </div>
+      </div>
+      <div class="drilldown-body">
+        <div class="customer-list-wrap">
+          <div class="drilldown-toolbar">
+            <div class="filter-group" id="drilldown-filters"></div>
+            <span class="drilldown-toolbar-note" id="drilldown-filter-note">先看整体，再按细分原因筛选目标客户。</span>
+          </div>
+          <div class="my-view-summary" id="my-view-summary" hidden>
+            <div>
+              <div class="my-view-kicker">业务员视角</div>
+              <h4 class="my-view-title" id="my-view-title">我的高风险 6</h4>
+              <p class="my-view-note" id="my-view-note">优先关注回款异常与停单风险，先稳住核心客户。</p>
+            </div>
+            <div class="my-view-focus">
+              <div class="my-view-focus-top">
+                <span class="my-view-focus-label" id="my-view-focus-label">今日优先处理</span>
+                <span class="my-view-focus-status" id="my-view-focus-status">待跟进</span>
+              </div>
+              <div class="my-view-focus-name" id="my-view-focus-name">华东旗舰店</div>
+              <p class="my-view-focus-note" id="my-view-focus-note">先催回款，再确认补单节奏，避免从回款风险演变为持续停单。</p>
+            </div>
+          </div>
+          <div class="customer-list" id="customer-list"></div>
+        </div>
+        <div class="detail-wrap">
+          <div id="customer-detail"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-footer-actions">
+          <button class="btn" id="customer-modal-footer-close" type="button">关闭</button>
+          <button class="btn btn-primary" type="button">分派动作</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="trend-tooltip" id="trend-tooltip" aria-hidden="true">
+    <div class="trend-tooltip-label" id="trend-tooltip-label"></div>
+    <div class="trend-tooltip-value" id="trend-tooltip-value"></div>
+  </div>
+  <script>
+    const customerDrilldownData = {
+      red: {
+        title: "高风险客户名单",
+        desc: "先处理回款异常与停单风险，再逐个查看客户详情与建议动作。",
+        tagText: "立即处理",
+        tagClass: "tag-red",
+        countText: "共 28 位客户",
+        filterNote: "优先看逾期和长时间未下单客户，方便管理层先抓最急的问题。",
+        myView: {
+          title: "我的高风险 6",
+          note: "优先关注回款异常与停单风险，先稳住核心客户，再决定是否升级主管协同。",
+          desc: "先看我名下需要优先处理的高风险客户，再判断是否需要升级协同动作。",
+          filterNote: "先按我的客户里的风险原因筛选，再逐个确认催款和保客动作。",
+          focusLabel: "今日优先处理",
+          focusStatus: "待跟进",
+          focusName: "华东旗舰店",
+          focusNote: "先催回款，再确认补单节奏，避免从回款风险演变为持续停单。"
+        },
+        filters: [
+          { key: "all", label: "全部" },
+          { key: "receipt", label: "回款异常" },
+          { key: "sleep", label: "30天未下单" }
+        ],
+        customers: [
+          {
+            id: "red-hd-flagship",
+            name: "华东旗舰店",
+            tags: [
+              { text: "回款异常", className: "tag-red" },
+              { text: "A类客户", className: "tag-blue" }
+            ],
+            summary: "未回款金额较高，且近 34 天未补单，已经影响本月回款节奏。",
+            owner: "张晨",
+            order: "最近下单 34 天前",
+            followUp: "最近跟进 12 天前",
+            action: "建议先由销售主管介入催回款，并确认是否需要临时停单。",
+            filters: ["receipt", "sleep"],
+            detail: {
+              subtitle: "核心客户，但近期回款与续单同步失速，需要优先保客户、控风险。",
+              metrics: [
+                { label: "未回款金额", value: "¥48,000" },
+                { label: "逾期天数", value: "36 天" },
+                { label: "近30天订单额", value: "¥12,600" }
+              ],
+              reasons: ["逾期超 30 天", "34 天未补单", "重点客户回款降速"],
+              trend: [92, 84, 68, 44],
+              payment: "最近一笔回款为 3 月 2 日，金额 ¥12,000，当前仍有 4 笔账期未结清。",
+              followups: [
+                "4 月 1 日电话催办，客户反馈资金周转紧张。",
+                "3 月 27 日上门拜访，提出先回 30% 再补货。",
+                "3 月 18 日发送对账单，尚未收到完整确认。"
+              ],
+              coverage: [
+                { label: "饮料", value: 86 },
+                { label: "零食", value: 52 },
+                { label: "日配", value: 28 }
+              ],
+              actions: ["安排主管陪访", "设置回款承诺节点", "恢复重点 SKU 补货节奏"]
+            }
+          },
+          {
+            id: "red-shengan",
+            name: "盛安商贸",
+            tags: [
+              { text: "回款异常", className: "tag-red" },
+              { text: "B类客户", className: "tag-green" }
+            ],
+            summary: "账期连续两个月拉长，回款金额低于历史均值，风险正在放大。",
+            owner: "李洋",
+            order: "最近下单 9 天前",
+            followUp: "最近跟进 4 天前",
+            action: "建议将账期审批收紧，并按周跟踪剩余应收。",
+            filters: ["receipt"],
+            detail: {
+              subtitle: "近期仍有订单，但回款节奏明显变慢，需防止风险从黄转红。",
+              metrics: [
+                { label: "未回款金额", value: "¥31,500" },
+                { label: "逾期天数", value: "33 天" },
+                { label: "近30天订单额", value: "¥41,000" }
+              ],
+              reasons: ["逾期超 30 天", "连续 2 周回款不足计划值", "账期审批放宽"],
+              trend: [76, 74, 71, 62],
+              payment: "客户近两次仅支付小额尾款，主单款项仍未按承诺到账。",
+              followups: [
+                "4 月 6 日业务员上门沟通，客户希望延长账期 10 天。",
+                "4 月 3 日财务电话提醒，客户承诺本周补回款。",
+                "3 月 29 日发送账龄预警给销售主管。"
+              ],
+              coverage: [
+                { label: "饮料", value: 72 },
+                { label: "零食", value: 63 },
+                { label: "日配", value: 35 }
+              ],
+              actions: ["冻结新增授信", "设定每周回款目标", "复核账期政策"]
+            }
+          },
+          {
+            id: "red-yuantuo",
+            name: "远拓连锁",
+            tags: [
+              { text: "30天未下单", className: "tag-orange" },
+              { text: "B类客户", className: "tag-green" }
+            ],
+            summary: "该客户过去贡献稳定，但近期连续停单，存在被竞品替代迹象。",
+            owner: "周凯",
+            order: "最近下单 41 天前",
+            followUp: "最近跟进 19 天前",
+            action: "建议尽快恢复拜访，确认是否因价格或库存问题停单。",
+            filters: ["sleep"],
+            detail: {
+              subtitle: "停单超过 40 天，且业务员跟进频率不足，需先判断能否挽回。",
+              metrics: [
+                { label: "停单时长", value: "41 天" },
+                { label: "历史月均订单", value: "¥58,000" },
+                { label: "上次回款", value: "¥19,800" }
+              ],
+              reasons: ["超过 30 天未下单", "重点门店被竞品切入", "近 2 周未拜访"],
+              trend: [88, 76, 38, 14],
+              payment: "当前无明显逾期，但停单导致后续账款回笼也同步下滑。",
+              followups: [
+                "3 月 30 日客户反馈竞品促销力度更大。",
+                "3 月 21 日业务员电话沟通，客户表示等新活动方案。",
+                "3 月 10 日最后一次补货后未再产生订单。"
+              ],
+              coverage: [
+                { label: "饮料", value: 68 },
+                { label: "零食", value: 47 },
+                { label: "日配", value: 21 }
+              ],
+              actions: ["恢复周拜访", "补价格与促销方案", "评估重点门店抢回计划"]
+            }
+          }
+        ]
+      },
+      yellow: {
+        title: "预警客户名单",
+        desc: "重点关注订单下滑与跟进不足客户，避免风险继续恶化为高风险。",
+        tagText: "尽快跟进",
+        tagClass: "tag-orange",
+        countText: "共 46 位客户",
+        filterNote: "先判断是需求下滑还是跟进节奏不足，再分配销售动作。",
+        myView: {
+          title: "我的预警 9",
+          note: "订单下滑和跟进不足并存，适合先补拜访和门店动作，避免继续转红。",
+          desc: "先查看我名下需要尽快跟进的预警客户，再决定是否补充主管支持。",
+          filterNote: "先定位是订单下滑还是跟进不足，再安排我的客户优先动作。",
+          focusLabel: "我先跟进",
+          focusStatus: "尽快处理",
+          focusName: "城市便利店A03",
+          focusNote: "先排查主力 SKU 缺货，再补拜访和陈列动作，避免订单继续走弱。"
+        },
+        filters: [
+          { key: "all", label: "全部" },
+          { key: "drop", label: "订单下滑" },
+          { key: "visit", label: "跟进不足" }
+        ],
+        customers: [
+          {
+            id: "yellow-bianli-a03",
+            name: "城市便利店A03",
+            tags: [
+              { text: "订单下滑", className: "tag-orange" },
+              { text: "便利店", className: "tag-blue" }
+            ],
+            summary: "近 30 天订单额较上周期下降 38%，下单频次也同步减少。",
+            owner: "张晨",
+            order: "最近下单 8 天前",
+            followUp: "最近跟进 6 天前",
+            action: "建议先排查主力 SKU 缺货，再确认陈列与竞品活动情况。",
+            filters: ["drop"],
+            detail: {
+              subtitle: "属于下滑明显但仍有成交的客户，及时干预可避免转为高风险。",
+              metrics: [
+                { label: "订单跌幅", value: "-38%" },
+                { label: "近30天订单额", value: "¥15,400" },
+                { label: "下单次数", value: "4 次" }
+              ],
+              reasons: ["订单额下降超 30%", "下单频次从 7 次降到 4 次", "主力 SKU 陈列缩减"],
+              trend: [84, 72, 58, 46],
+              payment: "回款正常，但客单价与下单频次均在下滑。",
+              followups: [
+                "4 月 5 日门店反馈缺少促销物料支持。",
+                "4 月 1 日盘点发现两支主推 SKU 缺货。",
+                "3 月 23 日业务员拍照回传，竞品端架位置增加。"
+              ],
+              coverage: [
+                { label: "饮料", value: 78 },
+                { label: "零食", value: 44 },
+                { label: "日配", value: 18 }
+              ],
+              actions: ["补货主推 SKU", "增加门店陈列", "复盘竞品活动强度"]
+            }
+          },
+          {
+            id: "yellow-jinhe",
+            name: "金禾商超",
+            tags: [
+              { text: "跟进不足", className: "tag-orange" },
+              { text: "商超", className: "tag-green" }
+            ],
+            summary: "A/B 类客户已超过 11 天未拜访，近期仅保留被动成交，主动维护不足。",
+            owner: "李洋",
+            order: "最近下单 6 天前",
+            followUp: "最近跟进 11 天前",
+            action: "建议恢复固定拜访频率，并检查陈列和档期计划是否缺失。",
+            filters: ["visit"],
+            detail: {
+              subtitle: "当前还没明显流失，但维护动作偏弱，适合尽快恢复节奏。",
+              metrics: [
+                { label: "未拜访时长", value: "11 天" },
+                { label: "本月订单额", value: "¥23,600" },
+                { label: "目标完成率", value: "76%" }
+              ],
+              reasons: ["A/B 类客户超 9 天未拜访", "本月陈列提报为空", "客户反馈缺少活动建议"],
+              trend: [68, 66, 64, 60],
+              payment: "回款正常，主要风险来自维护不及时导致订单逐步走弱。",
+              followups: [
+                "4 月 4 日客户要求提供下周促销建议。",
+                "3 月 29 日业务员电话联系，无实地拜访记录。",
+                "3 月 21 日上次到店后未再更新跟进内容。"
+              ],
+              coverage: [
+                { label: "饮料", value: 65 },
+                { label: "零食", value: 58 },
+                { label: "日配", value: 32 }
+              ],
+              actions: ["恢复每周拜访", "补充促销建议", "更新门店陈列计划"]
+            }
+          },
+          {
+            id: "yellow-xinyu",
+            name: "新裕餐饮",
+            tags: [
+              { text: "订单下滑", className: "tag-orange" },
+              { text: "跟进不足", className: "tag-red" }
+            ],
+            summary: "订单和跟进同步走弱，是典型需要尽快介入的黄卡客户。",
+            owner: "周凯",
+            order: "最近下单 14 天前",
+            followUp: "最近跟进 16 天前",
+            action: "建议主管陪访，重新确认需求和菜单变化后再给组合方案。",
+            filters: ["drop", "visit"],
+            detail: {
+              subtitle: "既有销量下滑，也有跟进缺口，若继续放任容易转红。",
+              metrics: [
+                { label: "订单跌幅", value: "-34%" },
+                { label: "未拜访时长", value: "16 天" },
+                { label: "本月订单额", value: "¥9,800" }
+              ],
+              reasons: ["订单额下降超 30%", "超过 15 天未跟进", "菜单更新后未跟推新品"],
+              trend: [72, 56, 42, 30],
+              payment: "目前回款未异常，但订单萎缩使后续价值下降明显。",
+              followups: [
+                "4 月 2 日客户更换菜单结构，原有品项需求减少。",
+                "3 月 25 日业务员未按计划完成上门拜访。",
+                "3 月 17 日客户提出想看更适配餐饮场景的组合方案。"
+              ],
+              coverage: [
+                { label: "饮料", value: 58 },
+                { label: "零食", value: 22 },
+                { label: "日配", value: 40 }
+              ],
+              actions: ["主管陪访复盘", "补组合方案", "恢复周节奏跟进"]
+            }
+          }
+        ]
+      },
+      blue: {
+        title: "扩品机会名单",
+        desc: "挑出品类覆盖偏低但有增长潜力的客户，辅助制定增购和覆盖策略。",
+        tagText: "增长机会",
+        tagClass: "tag-blue",
+        countText: "共 33 位客户",
+        filterNote: "优先看品类覆盖低于同类均值的客户，再判断哪些更适合先做扩品。",
+        myView: {
+          title: "我的机会 7",
+          note: "扩品机会主要集中在便利店与商超，可结合新品试销和陈列优化优先推进。",
+          desc: "先看我名下更值得优先推进的扩品客户，再决定是否扩大到整体机会池。",
+          filterNote: "先按品类过少或高潜机会筛选，再安排我的客户试销与扩品动作。",
+          focusLabel: "我先推进",
+          focusStatus: "可推进",
+          focusName: "城市便利店A03",
+          focusNote: "适合先从高周转新品试销切入，再逐步扩大品类覆盖和陈列位置。"
+        },
+        filters: [
+          { key: "all", label: "全部" },
+          { key: "few", label: "品类过少" },
+          { key: "potential", label: "扩品潜力高" }
+        ],
+        customers: [
+          {
+            id: "blue-a03",
+            name: "城市便利店A03",
+            tags: [
+              { text: "品类过少", className: "tag-blue" },
+              { text: "高潜力", className: "tag-green" }
+            ],
+            summary: "同类型客户平均采购 9 个品类，该客户仅采购 4 个，仍有较大扩品空间。",
+            owner: "张晨",
+            order: "最近下单 5 天前",
+            followUp: "最近跟进 3 天前",
+            action: "建议从高周转小包装和冷柜新品先切入，降低试错成本。",
+            filters: ["few", "potential"],
+            detail: {
+              subtitle: "基础销量稳定，扩品接受度较高，适合作为本月增长样板客户。",
+              metrics: [
+                { label: "当前品类数", value: "4 类" },
+                { label: "同类平均", value: "9 类" },
+                { label: "扩品空间", value: "+5 类" }
+              ],
+              reasons: ["品类数低于同类均值", "高频门店人流稳定", "冷柜陈列仍有空位"],
+              trend: [46, 52, 58, 66],
+              payment: "回款正常，历史订单稳定，适合作为扩品试点客户。",
+              followups: [
+                "4 月 7 日客户愿意尝试 2 个新品试销。",
+                "4 月 3 日门店反馈冷藏饮品需求在上升。",
+                "3 月 28 日业务员确认可增加一组端架陈列。"
+              ],
+              coverage: [
+                { label: "饮料", value: 82 },
+                { label: "零食", value: 24 },
+                { label: "日配", value: 10 }
+              ],
+              actions: ["优先推 2 个新品", "追加端架陈列", "两周复盘试销结果"]
+            }
+          },
+          {
+            id: "blue-yuelai",
+            name: "悦来网吧",
+            tags: [
+              { text: "品类过少", className: "tag-blue" },
+              { text: "网吧", className: "tag-orange" }
+            ],
+            summary: "当前只采购饮料类产品，夜宵零食与套餐类商品几乎没有覆盖。",
+            owner: "王宁",
+            order: "最近下单 12 天前",
+            followUp: "最近跟进 5 天前",
+            action: "建议从高频零食组合切入，提升连带销售和客单价。",
+            filters: ["few"],
+            detail: {
+              subtitle: "该客户场景清晰，适合围绕夜间消费场景做横向扩品。",
+              metrics: [
+                { label: "当前品类数", value: "2 类" },
+                { label: "同类平均", value: "6 类" },
+                { label: "潜在提升", value: "¥6,000/月" }
+              ],
+              reasons: ["只覆盖单一主品类", "夜间客流稳定", "收银台周边缺少冲动型商品"],
+              trend: [40, 42, 44, 48],
+              payment: "回款稳定，订单规模不大但具备长期提升空间。",
+              followups: [
+                "4 月 6 日店长反馈愿意尝试小包装零食组合。",
+                "4 月 1 日现场拍照显示收银台陈列空白较多。",
+                "3 月 22 日客户表示对套装促销感兴趣。"
+              ],
+              coverage: [
+                { label: "饮料", value: 76 },
+                { label: "零食", value: 12 },
+                { label: "日配", value: 6 }
+              ],
+              actions: ["上新零食组合", "补收银台陈列", "设计夜间套餐"]
+            }
+          },
+          {
+            id: "blue-minsheng",
+            name: "民生商超",
+            tags: [
+              { text: "扩品潜力高", className: "tag-green" },
+              { text: "商超", className: "tag-blue" }
+            ],
+            summary: "当前已有稳定销量，若补齐日配与家庭装品类，预计可带来明显增量。",
+            owner: "李洋",
+            order: "最近下单 4 天前",
+            followUp: "最近跟进 2 天前",
+            action: "建议结合节日档期打包扩品，提高一次性进货意愿。",
+            filters: ["potential"],
+            detail: {
+              subtitle: "客户基础盘稳、沟通顺畅，适合做阶段性扩品项目。",
+              metrics: [
+                { label: "当前品类数", value: "6 类" },
+                { label: "同类平均", value: "8 类" },
+                { label: "预计增量", value: "¥8,500/月" }
+              ],
+              reasons: ["日配与家庭装缺口明显", "促销档期即将开始", "客户对套餐陈列接受度高"],
+              trend: [54, 58, 64, 72],
+              payment: "回款表现良好，具备承接扩品后的稳定补货能力。",
+              followups: [
+                "4 月 8 日客户确认愿意测试家庭装陈列。",
+                "4 月 2 日门店给出两个堆头位置可供申请。",
+                "3 月 26 日业务员已提交节日档期活动方案。"
+              ],
+              coverage: [
+                { label: "饮料", value: 74 },
+                { label: "零食", value: 61 },
+                { label: "日配", value: 26 }
+              ],
+              actions: ["节日档期扩品", "增加堆头陈列", "同步套餐物料"]
+            }
+          }
+        ]
+      }
+    };
+
+    const riskCards = Array.from(document.querySelectorAll(".risk-card[data-risk]"));
+    const modalTitle = document.getElementById("modal-title");
+    const drilldownDesc = document.getElementById("drilldown-desc");
+    const drilldownTag = document.getElementById("drilldown-tag");
+    const drilldownCount = document.getElementById("drilldown-count");
+    const drilldownFilterNote = document.getElementById("drilldown-filter-note");
+    const drilldownViewSwitch = document.getElementById("drilldown-view-switch");
+    const drilldownFilters = document.getElementById("drilldown-filters");
+    const customerList = document.getElementById("customer-list");
+    const customerDetail = document.getElementById("customer-detail");
+    const customerModalMask = document.getElementById("customer-modal-mask");
+    const customerModalClose = document.getElementById("customer-modal-close");
+    const customerModalFooterClose = document.getElementById("customer-modal-footer-close");
+    const myViewSummary = document.getElementById("my-view-summary");
+    const myViewTitle = document.getElementById("my-view-title");
+    const myViewNote = document.getElementById("my-view-note");
+    const myViewFocusLabel = document.getElementById("my-view-focus-label");
+    const myViewFocusStatus = document.getElementById("my-view-focus-status");
+    const myViewFocusName = document.getElementById("my-view-focus-name");
+    const myViewFocusNote = document.getElementById("my-view-focus-note");
+    const trendTooltip = document.getElementById("trend-tooltip");
+    const trendTooltipLabel = document.getElementById("trend-tooltip-label");
+    const trendTooltipValue = document.getElementById("trend-tooltip-value");
+    const sparklineBars = Array.from(document.querySelectorAll(".summary-grid .sparkline span"));
+    const currentUser = "张晨";
+
+    let currentRisk = "red";
+    let currentView = "all";
+    let currentFilter = "all";
+    let currentCustomerId = null;
+    let isModalOpen = false;
+
+    function renderTags(tags, className) {
+      return tags.map(function(tag) {
+        return '<span class="tag ' + tag.className + ' ' + className + '">' + tag.text + "</span>";
+      }).join("");
+    }
+
+    function renderRiskCards() {
+      riskCards.forEach(function(card) {
+        const isActive = isModalOpen && card.dataset.risk === currentRisk;
+        card.classList.toggle("active", isActive);
+        card.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+    }
+
+    function isMyCustomer(customer) {
+      return customer.owner === currentUser;
+    }
+
+    function getCustomerTags(customer) {
+      if (!isMyCustomer(customer)) {
+        return customer.tags;
+      }
+      return [{ text: "我的客户", className: "tag-purple" }].concat(customer.tags);
+    }
+
+    function renderViewSwitch() {
+      const buttons = Array.from(drilldownViewSwitch.querySelectorAll("[data-view]"));
+      buttons.forEach(function(button) {
+        const isActive = button.dataset.view === currentView;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+    }
+
+    function renderMyViewSummary(risk) {
+      if (currentView !== "mine") {
+        myViewSummary.hidden = true;
+        return;
+      }
+
+      myViewTitle.textContent = risk.myView.title;
+      myViewNote.textContent = risk.myView.note;
+      myViewFocusLabel.textContent = risk.myView.focusLabel;
+      myViewFocusStatus.textContent = risk.myView.focusStatus;
+      myViewFocusName.textContent = risk.myView.focusName;
+      myViewFocusNote.textContent = risk.myView.focusNote;
+      myViewSummary.hidden = false;
+    }
+
+    function openCustomerModal() {
+      isModalOpen = true;
+      customerModalMask.classList.add("open");
+      customerModalMask.setAttribute("aria-hidden", "false");
+      document.body.classList.add("modal-open");
+      renderRiskCards();
+    }
+
+    function closeCustomerModal() {
+      isModalOpen = false;
+      customerModalMask.classList.remove("open");
+      customerModalMask.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("modal-open");
+      renderRiskCards();
+    }
+
+    function moveTrendTooltip(event) {
+      if (!trendTooltip.classList.contains("visible")) {
+        return;
+      }
+      const offsetX = 14;
+      const offsetY = 14;
+      const tooltipWidth = trendTooltip.offsetWidth;
+      const tooltipHeight = trendTooltip.offsetHeight;
+      const maxLeft = window.innerWidth - tooltipWidth - 8;
+      const maxTop = window.innerHeight - tooltipHeight - 8;
+      const left = Math.min(event.clientX + offsetX, maxLeft);
+      const top = Math.min(event.clientY + offsetY, maxTop);
+      trendTooltip.style.left = Math.max(8, left) + "px";
+      trendTooltip.style.top = Math.max(8, top) + "px";
+    }
+
+    function showTrendTooltip(event) {
+      const bar = event.currentTarget;
+      const card = bar.closest(".stat-card");
+      const metricName = card ? card.querySelector(".stat-label").textContent : "";
+      trendTooltipLabel.textContent = metricName + " | " + bar.dataset.date;
+      trendTooltipValue.textContent = bar.dataset.value;
+      trendTooltip.classList.add("visible");
+      trendTooltip.setAttribute("aria-hidden", "false");
+      moveTrendTooltip(event);
+    }
+
+    function hideTrendTooltip() {
+      trendTooltip.classList.remove("visible");
+      trendTooltip.setAttribute("aria-hidden", "true");
+    }
+
+    function getFilteredCustomers(risk) {
+      const baseCustomers = currentView === "mine"
+        ? risk.customers.filter(function(customer) {
+            return isMyCustomer(customer);
+          })
+        : risk.customers.slice();
+
+      if (currentFilter === "all") {
+        return baseCustomers;
+      }
+      return baseCustomers.filter(function(customer) {
+        return customer.filters.indexOf(currentFilter) > -1;
+      });
+    }
+
+    function renderFilters(risk) {
+      drilldownFilters.innerHTML = risk.filters.map(function(filter) {
+        const activeClass = filter.key === currentFilter ? " active" : "";
+        return '<button class="filter-chip' + activeClass + '" type="button" data-filter="' + filter.key + '">' + filter.label + "</button>";
+      }).join("");
+    }
+
+    function renderCustomerList(risk, customers) {
+      if (!customers.length) {
+        const emptyText = currentView === "mine"
+          ? "当前分类下暂无我的客户，可先切回全部客户继续查看。"
+          : "当前筛选条件下暂无客户，请切换其他细分原因查看。";
+        customerList.innerHTML = '<div class="empty-state">' + emptyText + "</div>";
+        customerDetail.innerHTML = '<div class="empty-state">暂无客户详情可展示。</div>';
+        return;
+      }
+
+      if (!currentCustomerId || !customers.some(function(customer) { return customer.id === currentCustomerId; })) {
+        currentCustomerId = customers[0].id;
+      }
+
+      customerList.innerHTML = customers.map(function(customer) {
+        const activeClass = customer.id === currentCustomerId ? " active" : "";
+        const mineClass = isMyCustomer(customer) ? " mine" : "";
+        return [
+          '<div class="customer-item' + mineClass + activeClass + '" data-customer-id="' + customer.id + '">',
+            '<div class="customer-item-top">',
+              '<span class="customer-name">' + customer.name + "</span>",
+              '<div class="customer-tags">' + renderTags(getCustomerTags(customer), "") + "</div>",
+            "</div>",
+            '<p class="customer-desc">' + customer.summary + "</p>",
+            '<div class="customer-meta-line">负责人：' + customer.owner + ' | ' + customer.order + ' | ' + customer.followUp + "</div>",
+          "</div>"
+        ].join("");
+      }).join("");
+    }
+
+    function renderDetail(customer) {
+      const detail = customer.detail;
+      const reasonChips = detail.reasons.map(function(reason) {
+        return '<span class="reason-chip">' + reason + "</span>";
+      }).join("");
+      const trendBars = detail.trend.map(function(value) {
+        return '<span style="height:' + value + 'px"></span>';
+      }).join("");
+      const coverageRows = detail.coverage.map(function(item) {
+        return [
+          '<div class="coverage-row">',
+            "<span>" + item.label + "</span>",
+            '<div class="coverage-track"><span style="width:' + item.value + '%"></span></div>',
+            "<strong>" + item.value + "%</strong>",
+          "</div>"
+        ].join("");
+      }).join("");
+      const followups = detail.followups.map(function(item) {
+        return '<div class="timeline-item">' + item + "</div>";
+      }).join("");
+      const actions = detail.actions.map(function(item) {
+        return '<span class="detail-action-pill">' + item + "</span>";
+      }).join("");
+
+      customerDetail.innerHTML = [
+        '<div class="detail-panel">',
+          '<div class="detail-top">',
+            "<div>",
+              '<div class="detail-title-row">',
+                '<h4 class="detail-title">' + customer.name + "</h4>",
+                '<div class="detail-tags">' + renderTags(getCustomerTags(customer), "") + "</div>",
+              "</div>",
+              '<div class="detail-owner-line">负责人：' + customer.owner + (isMyCustomer(customer) ? " | 当前为我的客户" : "") + "</div>",
+              '<p class="detail-note">' + detail.subtitle + "</p>",
+            "</div>",
+          "</div>",
+          '<div class="detail-summary">' +
+            detail.metrics.map(function(metric) {
+              return [
+                '<div class="detail-stat">',
+                  '<div class="detail-stat-label">' + metric.label + "</div>",
+                  '<div class="detail-stat-value">' + metric.value + "</div>",
+                "</div>"
+              ].join("");
+            }).join("") +
+          "</div>",
+          '<div class="detail-grid">',
+            '<div class="detail-section">',
+              '<h5 class="detail-block-title">风险原因</h5>',
+              '<div class="detail-actions">' + reasonChips + "</div>",
+            "</div>",
+            '<div class="detail-section">',
+              '<h5 class="detail-block-title">建议动作</h5>',
+              '<div class="detail-actions">' + actions + "</div>",
+            "</div>",
+            '<div class="detail-section">',
+              '<h5 class="detail-block-title">近四周期订单趋势</h5>',
+              '<div class="mini-trend">',
+                '<div class="mini-trend-bars">' + trendBars + "</div>",
+                '<div class="mini-trend-axis"><span>T-3</span><span>T-2</span><span>T-1</span><span>当前</span></div>',
+              "</div>",
+            "</div>",
+            '<div class="detail-section">',
+              '<h5 class="detail-block-title">回款与跟进</h5>',
+              '<p class="detail-note">' + detail.payment + "</p>",
+              '<div class="timeline">' + followups + "</div>",
+            "</div>",
+            '<div class="detail-section">',
+              '<h5 class="detail-block-title">采购品类覆盖</h5>',
+              '<div class="coverage-list">' + coverageRows + "</div>",
+            "</div>",
+          "</div>",
+          '<div class="detail-section detail-compact-row">',
+            '<h5 class="detail-block-title">处理提示</h5>',
+            '<p class="detail-note">' + customer.action + "</p>",
+          "</div>",
+        "</div>"
+      ].join("");
+    }
+
+    function renderRisk(riskKey) {
+      const risk = customerDrilldownData[riskKey];
+      const customers = getFilteredCustomers(risk);
+      const isMineView = currentView === "mine";
+      currentRisk = riskKey;
+      renderRiskCards();
+      renderViewSwitch();
+      renderMyViewSummary(risk);
+      modalTitle.textContent = risk.title;
+      drilldownDesc.textContent = isMineView ? risk.myView.desc : risk.desc;
+      drilldownTag.textContent = risk.tagText;
+      drilldownTag.className = "tag " + risk.tagClass;
+      drilldownCount.textContent = isMineView ? "当前展示 " + customers.length + " 位我的客户" : risk.countText;
+      drilldownFilterNote.textContent = isMineView ? risk.myView.filterNote : risk.filterNote;
+      renderFilters(risk);
+      renderCustomerList(risk, customers);
+      if (customers.length) {
+        const currentCustomer = customers.find(function(customer) {
+          return customer.id === currentCustomerId;
+        }) || customers[0];
+        currentCustomerId = currentCustomer.id;
+        renderDetail(currentCustomer);
+      }
+    }
+
+    riskCards.forEach(function(card) {
+      card.addEventListener("click", function() {
+        currentView = "all";
+        currentFilter = "all";
+        currentCustomerId = null;
+        renderRisk(card.dataset.risk);
+        openCustomerModal();
+      });
+      card.addEventListener("keydown", function(event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          card.click();
+        }
+      });
+    });
+
+    drilldownViewSwitch.addEventListener("click", function(event) {
+      const button = event.target.closest("[data-view]");
+      if (!button || button.dataset.view === currentView) {
+        return;
+      }
+      currentView = button.dataset.view;
+      currentFilter = "all";
+      currentCustomerId = null;
+      renderRisk(currentRisk);
+    });
+
+    sparklineBars.forEach(function(bar) {
+      bar.addEventListener("mouseenter", showTrendTooltip);
+      bar.addEventListener("mousemove", moveTrendTooltip);
+      bar.addEventListener("mouseleave", hideTrendTooltip);
+    });
+
+    drilldownFilters.addEventListener("click", function(event) {
+      const button = event.target.closest("[data-filter]");
+      if (!button) {
+        return;
+      }
+      currentFilter = button.dataset.filter;
+      currentCustomerId = null;
+      renderRisk(currentRisk);
+    });
+
+    customerList.addEventListener("click", function(event) {
+      const item = event.target.closest("[data-customer-id]");
+      if (!item) {
+        return;
+      }
+      currentCustomerId = item.dataset.customerId;
+      renderRisk(currentRisk);
+    });
+
+    customerModalClose.addEventListener("click", function() {
+      closeCustomerModal();
+    });
+
+    customerModalFooterClose.addEventListener("click", function() {
+      closeCustomerModal();
+    });
+
+    customerModalMask.addEventListener("click", function(event) {
+      if (event.target === customerModalMask) {
+        closeCustomerModal();
+      }
+    });
+
+    document.addEventListener("keydown", function(event) {
+      if (event.key === "Escape" && isModalOpen) {
+        closeCustomerModal();
+      }
+    });
+
+    renderRisk(currentRisk);
+  </script>
+</body>
+</html>
