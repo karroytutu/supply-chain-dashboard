@@ -17,9 +17,6 @@ import type {
   DiagnosisItem,
 } from '@/types/sales-analysis';
 
-/** 时间周期选项 */
-export const PERIOD_OPTIONS = ['今日', '本周', '本月', '本年', '自定义'] as const;
-
 /** 销售与回款指标 */
 export const SALES_PAYMENT_METRICS: MetricSparkData[] = [
   {

@@ -4,7 +4,6 @@
  */
 
 import React from 'react';
-import PageHeader from './components/PageHeader';
 import MetricSection from './components/MetricSection';
 import RiskCard from './components/RiskCard';
 import CustomerStructure from './components/CustomerStructure';
@@ -40,7 +39,6 @@ const SalesAnalysis: React.FC = () => {
 
   return (
     <div className={styles.page}>
-      <PageHeader />
       <MetricSection title="销售与回款" metrics={SALES_PAYMENT_METRICS} />
       <MetricSection title="费用与利润" metrics={EXPENSE_PROFIT_METRICS} secondary />
 

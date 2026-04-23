@@ -35,8 +35,6 @@ const renderDelta = (change: number, isNegative: boolean) => {
 };
 
 const MetricSparkCard: React.FC<MetricSparkCardProps> = ({ data, secondary = false }) => {
-  const sparkColor = data.isNegative ? '#ff4d4f' : '#1890ff';
-
   return (
     <Card
       className={`${styles.card} ${secondary ? styles.secondary : ''}`}
@@ -55,7 +53,7 @@ const MetricSparkCard: React.FC<MetricSparkCardProps> = ({ data, secondary = fal
         </span>
       </div>
       <div className={styles.sparkline}>
-        <SparklineChart data={data.sparkline} color={sparkColor} height={36} />
+        <SparklineChart data={data.sparkline} color="#b7d7f7" height={36} isNegative={data.isNegative} />
       </div>
     </Card>
   );

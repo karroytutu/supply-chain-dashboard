@@ -1,45 +1,56 @@
 /**
- * 迷你趋势折线图
- * 用于指标卡内嵌的 sparkline 展示
+ * 迷你趋势小圆柱图
+ * 参考原型 sparkline 样式，以竖向小圆柱替代折线展示趋势
  */
 
 import React from 'react';
-import { Line } from '@ant-design/charts';
 
 interface SparklineChartProps {
   data: Array<{ date: string; value: number }>;
   color?: string;
   height?: number;
+  isNegative?: boolean;
 }
 
 const SparklineChart: React.FC<SparklineChartProps> = ({
   data,
-  color = '#1890ff',
-  height = 40,
+  color = '#b7d7f7',
+  height = 36,
+  isNegative = false,
 }) => {
   const safeData = Array.isArray(data) ? data : [];
+  if (safeData.length === 0) return null;
 
-  const config = {
-    data: safeData,
-    height,
-    padding: [0, 0, 0, 0] as [number, number, number, number],
-    xField: 'date',
-    yField: 'value',
-    smooth: true,
-    color,
-    lineStyle: { lineWidth: 2 },
-    areaStyle: {
-      fill: `l(90) 0:${color}40 1:${color}00`,
-    },
-    tooltip: false,
-    axis: false,
-    legend: false,
-    animation: {
-      appear: { animation: 'path-in', duration: 800 },
-    },
-  };
+  const values = safeData.map((d) => d.value);
+  const maxVal = Math.max(...values);
+  const minVal = Math.min(...values);
+  const range = maxVal - minVal || 1;
 
-  return <Line {...config} />;
+  const barColor = isNegative ? '#f3b7bd' : color;
+
+  return (
+    <div className="sparkline-bars" style={{ height, display: 'flex', alignItems: 'flex-end', gap: 4 }}>
+      {safeData.map((item, idx) => {
+        const ratio = (item.value - minVal) / range;
+        const barHeight = Math.max(6, ratio * (height - 4) + 4);
+        return (
+          <span
+            key={idx}
+            title={`${item.date}：${item.value.toLocaleString()}`}
+            style={{
+              flex: 1,
+              minHeight: 6,
+              height: barHeight,
+              background: barColor,
+              borderRadius: '999px 999px 0 0',
+              transition: 'transform 0.15s ease, opacity 0.15s ease',
+              cursor: 'pointer',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
 };
 
 export default SparklineChart;
