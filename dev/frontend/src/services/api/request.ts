@@ -22,6 +22,7 @@ interface RequestOptions {
 /**
  * 处理认证错误
  * 根据后端返回的message区分不同错误类型，显示准确提示
+ * 注意：401 时立即跳转登录页，不使用延迟，避免页面渲染为空权限状态
  */
 function handleAuthError(status: number, errorData?: any): void {
   if (status === 401) {
@@ -36,10 +37,9 @@ function handleAuthError(status: number, errorData?: any): void {
       message.error('登录已过期，请重新登录');
     }
 
-    // 跳转到登录页
-    setTimeout(() => {
-      history.push('/login');
-    }, 500);
+    // 立即跳转登录页，不用 setTimeout 延迟
+    // 之前用 setTimeout(500ms) 会导致页面在此期间渲染为空权限状态
+    window.location.href = '/login';
   } else if (status === 403) {
     // 无权限访问
     message.error(errorData?.message || '您没有权限访问此资源');

@@ -105,6 +105,10 @@ function RightAvatar({
 /**
  * 获取初始状态，供 layout 插件和 access 插件使用
  * 包含用户基本信息和权限数据
+ *
+ * 关键：getCurrentUser 失败时不再静默返回空权限状态，
+ * 而是区分认证失败（跳转登录）和网络错误（重试一次），
+ * 避免页面渲染为"无权限、无用户信息"的异常状态
  */
 export async function getInitialState() {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -120,8 +124,38 @@ export async function getInitialState() {
       permissions: user.permissions || [],
       roles: user.roles?.map(r => r.code) || [],
     };
-  } catch {
-    return { name: '', avatar: '', permissions: [], roles: [] };
+  } catch (error: any) {
+    const errMsg = error?.message || '';
+
+    // 认证类错误（token 过期/无效/用户禁用）→ 清除 token，跳转登录页
+    const isAuthError = errMsg.includes('过期')
+      || errMsg.includes('未授权')
+      || errMsg.includes('禁用')
+      || errMsg.includes('401');
+
+    if (isAuthError) {
+      console.warn('[App] 认证失败，跳转登录页:', errMsg);
+      localStorage.removeItem(TOKEN_KEY);
+      window.location.href = '/login';
+      return { name: '', avatar: '', permissions: [], roles: [] };
+    }
+
+    // 网络/临时错误 → 重试一次
+    console.warn('[App] 获取用户信息失败，重试中:', errMsg);
+    try {
+      const user = await getCurrentUser();
+      return {
+        name: user.name,
+        avatar: user.avatar,
+        permissions: user.permissions || [],
+        roles: user.roles?.map(r => r.code) || [],
+      };
+    } catch (retryError: any) {
+      console.error('[App] 重试获取用户信息仍失败:', retryError?.message);
+      localStorage.removeItem(TOKEN_KEY);
+      window.location.href = '/login';
+      return { name: '', avatar: '', permissions: [], roles: [] };
+    }
   }
 }
 

@@ -3078,9 +3078,7 @@
 
     function showTrendTooltip(event) {
       const bar = event.currentTarget;
-      const card = bar.closest(".stat-card");
-      const metricName = card ? card.querySelector(".stat-label").textContent : "";
-      trendTooltipLabel.textContent = metricName + " | " + bar.dataset.date;
+      trendTooltipLabel.textContent = bar.dataset.date;
       trendTooltipValue.textContent = bar.dataset.value;
       trendTooltip.classList.add("visible");
       trendTooltip.setAttribute("aria-hidden", "false");
@@ -3277,6 +3275,7 @@
     });
 
     sparklineBars.forEach(function(bar) {
+      bar.removeAttribute("title");
       bar.addEventListener("mouseenter", showTrendTooltip);
       bar.addEventListener("mousemove", moveTrendTooltip);
       bar.addEventListener("mouseleave", hideTrendTooltip);

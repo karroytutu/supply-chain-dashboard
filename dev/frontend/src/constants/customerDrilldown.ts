@@ -9,6 +9,10 @@ export const CUSTOMER_DRILLDOWN: Record<string, DrilldownRiskGroup> = {
   red: {
     title: '高风险客户名单',
     desc: '先处理回款异常与停单风险，再逐个查看客户详情与建议动作。',
+    definition: [
+      { label: '回款异常', desc: '逾期天数超过 30 天，或连续 2 周回款金额低于计划值' },
+      { label: '30天未下单', desc: '超过 30 天未产生新订单，存在流失或被竞品替代风险' },
+    ],
     tagText: '立即处理',
     tagColor: 'red',
     countText: '共 28 位客户',
@@ -124,6 +128,10 @@ export const CUSTOMER_DRILLDOWN: Record<string, DrilldownRiskGroup> = {
   yellow: {
     title: '预警客户名单',
     desc: '重点关注订单下滑与跟进不足客户，避免风险继续恶化为高风险。',
+    definition: [
+      { label: '订单下滑', desc: '近 30 天订单额较上周期下降超过 30%' },
+      { label: '跟进不足', desc: 'A/B 类客户超过 9 天未拜访，或本月陈列提报为空' },
+    ],
     tagText: '尽快跟进',
     tagColor: 'orange',
     countText: '共 46 位客户',
@@ -215,6 +223,10 @@ export const CUSTOMER_DRILLDOWN: Record<string, DrilldownRiskGroup> = {
   blue: {
     title: '扩品机会名单',
     desc: '挑出品类覆盖偏低但有增长潜力的客户，辅助制定增购和覆盖策略。',
+    definition: [
+      { label: '品类过少', desc: '采购品类数低于同类型客户平均值的 60%' },
+      { label: '扩品潜力高', desc: '门店客流稳定、陈列有空位，且客户对新品试销接受度较高' },
+    ],
     tagText: '增长机会',
     tagColor: 'blue',
     countText: '共 33 位客户',

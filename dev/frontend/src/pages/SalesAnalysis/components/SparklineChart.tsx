@@ -12,7 +12,6 @@ interface SparklineChartProps {
   color?: string;
   height?: number;
   isNegative?: boolean;
-  label?: string;
 }
 
 const SparklineChart: React.FC<SparklineChartProps> = ({
@@ -20,7 +19,6 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
   color = '#b7d7f7',
   height = 36,
   isNegative = false,
-  label = '',
 }) => {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState<{
@@ -46,11 +44,11 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
       setTooltip({
         x: e.clientX,
         y: e.clientY,
-        text: label ? `${label} | ${item.date}` : item.date,
+        text: item.date,
         value: `¥ ${item.value.toLocaleString()}`,
       });
     },
-    [label],
+    [],
   );
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {

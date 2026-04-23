@@ -113,10 +113,20 @@ export interface DiagnosisItem {
   description: string;
 }
 
+/** 风险等级定义条目 */
+export interface RiskDefinitionItem {
+  /** 条件名称 */
+  label: string;
+  /** 条件描述 */
+  desc: string;
+}
+
 /** 钻取弹窗 - 风险分组 */
 export interface DrilldownRiskGroup {
   title: string;
   desc: string;
+  /** 风险等级定义（归入该等级的条件） */
+  definition: RiskDefinitionItem[];
   tagText: string;
   tagColor: string;
   countText: string;

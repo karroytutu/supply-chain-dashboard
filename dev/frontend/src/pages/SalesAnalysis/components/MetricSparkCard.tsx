@@ -67,7 +67,7 @@ const MetricSparkCard: React.FC<MetricSparkCardProps> = ({ data, secondary = fal
         </span>
       </div>
       <div className={styles.sparkline}>
-        <SparklineChart data={data.sparkline} color="#b7d7f7" height={36} isNegative={data.isNegative} label={data.label} />
+        <SparklineChart data={data.sparkline} color="#b7d7f7" height={36} isNegative={data.isNegative} />
       </div>
     </Card>
   );

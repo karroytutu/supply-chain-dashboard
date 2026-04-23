@@ -7,12 +7,49 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
+.drilldownHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
 .drilldownDesc {
   font-size: 13px;
   color: rgba(0, 0, 0, 0.65);
   margin: 0;
-  max-width: 400px;
   line-height: 1.5;
+}
+
+.definitionList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
+}
+
+.definitionItem {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.definitionLabel {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  background: #e6f4ff;
+  color: #1677ff;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.definitionDesc {
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .drilldownHeaderRight {

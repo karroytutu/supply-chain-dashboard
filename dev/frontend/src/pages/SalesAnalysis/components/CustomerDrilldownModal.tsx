@@ -7,7 +7,7 @@ import React from 'react';
 import { Modal, Tag, Button } from 'antd';
 import CustomerListPanel from './CustomerListPanel';
 import CustomerDetailPanel from './CustomerDetailPanel';
-import type { RiskLevel, DrilldownRiskGroup, DrilldownCustomer } from '@/types/sales-analysis';
+import type { RiskLevel, DrilldownRiskGroup, DrilldownCustomer, RiskDefinitionItem } from '@/types/sales-analysis';
 import styles from './CustomerDrilldownModal.less';
 
 interface CustomerDrilldownModalProps {
@@ -76,7 +76,14 @@ const DrilldownHeader: React.FC<{
   onViewModeChange: (mode: 'all' | 'mine') => void;
 }> = ({ riskGroup, viewMode, onViewModeChange }) => (
   <div className={styles.drilldownHeader}>
-    <p className={styles.drilldownDesc}>{riskGroup.desc}</p>
+    <div className={styles.drilldownHeaderLeft}>
+      <p className={styles.drilldownDesc}>{riskGroup.desc}</p>
+      <div className={styles.definitionList}>
+        {riskGroup.definition.map((item) => (
+          <DefinitionItem key={item.label} item={item} />
+        ))}
+      </div>
+    </div>
     <div className={styles.drilldownHeaderRight}>
       <div className={styles.viewSwitch}>
         <button
@@ -97,6 +104,14 @@ const DrilldownHeader: React.FC<{
       <Tag color={riskGroup.tagColor}>{riskGroup.tagText}</Tag>
       <span className={styles.drilldownCount}>{riskGroup.countText}</span>
     </div>
+  </div>
+);
+
+/** 定义条目 */
+const DefinitionItem: React.FC<{ item: RiskDefinitionItem }> = ({ item }) => (
+  <div className={styles.definitionItem}>
+    <span className={styles.definitionLabel}>{item.label}</span>
+    <span className={styles.definitionDesc}>{item.desc}</span>
   </div>
 );
 
