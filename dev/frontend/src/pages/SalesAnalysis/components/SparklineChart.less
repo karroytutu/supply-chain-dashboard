@@ -1,0 +1,53 @@
+.container {
+  position: relative;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.bar {
+  flex: 1;
+  min-height: 6px;
+  border-radius: 999px 999px 0 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+
+  &.barHover {
+    transform: translateY(-2px);
+    opacity: 0.92;
+    box-shadow: 0 4px 10px rgba(22, 119, 255, 0.16);
+  }
+
+  &.barDown.barHover {
+    box-shadow: 0 4px 10px rgba(255, 77, 79, 0.16);
+  }
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 20;
+  min-width: 120px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.tooltipLabel {
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.tooltipValue {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+  white-space: nowrap;
+}
