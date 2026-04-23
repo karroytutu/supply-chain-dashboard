@@ -12,6 +12,8 @@ const isDev = process.env.NODE_ENV === 'development';
 interface LayoutInitialState {
   name?: string;
   avatar?: string;
+  permissions?: string[];
+  roles?: string[];
 }
 
 interface LayoutRuntimeConfig {
@@ -101,12 +103,13 @@ function RightAvatar({
 }
 
 /**
- * 获取初始状态，供 layout 插件读取用户头像和用户名
+ * 获取初始状态，供 layout 插件和 access 插件使用
+ * 包含用户基本信息和权限数据
  */
 export async function getInitialState() {
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
-    return { name: '', avatar: '' };
+    return { name: '', avatar: '', permissions: [], roles: [] };
   }
 
   try {
@@ -114,9 +117,11 @@ export async function getInitialState() {
     return {
       name: user.name,
       avatar: user.avatar,
+      permissions: user.permissions || [],
+      roles: user.roles?.map(r => r.code) || [],
     };
   } catch {
-    return { name: '', avatar: '' };
+    return { name: '', avatar: '', permissions: [], roles: [] };
   }
 }
 
