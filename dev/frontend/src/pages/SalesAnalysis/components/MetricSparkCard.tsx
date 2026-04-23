@@ -23,8 +23,8 @@ const formatValue = (value: number): string => {
 /** 渲染涨跌标识 */
 const renderDelta = (change: number, isNegative: boolean) => {
   const isUp = change >= 0;
-  const displayValue = `${isUp ? '+' : ''}${change}%`;
-  const colorClass = isUp === !isNegative ? 'positive' : 'negative';
+  const displayValue = `${Math.abs(change)}%`;
+  const colorClass = isUp !== isNegative ? 'positive' : 'negative';
 
   return (
     <span className={`${styles.delta} ${styles[colorClass]}`}>
@@ -53,7 +53,7 @@ const MetricSparkCard: React.FC<MetricSparkCardProps> = ({ data, secondary = fal
         </span>
       </div>
       <div className={styles.sparkline}>
-        <SparklineChart data={data.sparkline} color="#b7d7f7" height={36} isNegative={data.isNegative} />
+        <SparklineChart data={data.sparkline} color="#b7d7f7" height={36} isNegative={data.isNegative} label={data.label} />
       </div>
     </Card>
   );
