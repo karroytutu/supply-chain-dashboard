@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { Alert } from 'antd';
 import MetricSection from './components/MetricSection';
 import RiskCard from './components/RiskCard';
 import CustomerStructure from './components/CustomerStructure';
@@ -39,8 +40,17 @@ const SalesAnalysis: React.FC = () => {
 
   return (
     <div className={styles.page}>
-      <MetricSection title="销售与回款" metrics={SALES_PAYMENT_METRICS} />
-      <MetricSection title="费用与利润" metrics={EXPENSE_PROFIT_METRICS} secondary />
+      <Alert
+        className={styles.prototypeBanner}
+        type="warning"
+        showIcon
+        message="原型设计预览 — 当前页面数据均为模拟数据，仅用于展示布局与交互效果"
+      />
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>指标概览</h2>
+        <MetricSection title="销售与回款" metrics={SALES_PAYMENT_METRICS} />
+        <MetricSection title="费用与利润" metrics={EXPENSE_PROFIT_METRICS} secondary />
+      </section>
 
       <CustomerSection onRiskClick={(l: RiskLevel) => drilldown.actions.openModal(l)} />
 
@@ -56,12 +66,7 @@ const SalesAnalysis: React.FC = () => {
 /** 客户分析板块 */
 const CustomerSection: React.FC<{ onRiskClick: (level: RiskLevel) => void }> = ({ onRiskClick }) => (
   <section className={styles.section}>
-    <div className={styles.sectionHeader}>
-      <h2 className={styles.sectionTitle}>客户分析</h2>
-      <p className={styles.sectionDesc}>
-        按&ldquo;风险优先&rdquo;组织首页内容，先发现问题客户，再安排动作，最后辅助判断客户结构与核心价值。
-      </p>
-    </div>
+    <h2 className={styles.sectionTitle}>客户分析</h2>
     <div className={styles.riskGrid}>
       {Object.values(RISK_CARD_DATA).map((risk) => (
         <RiskCard key={risk.level} data={risk} onClick={onRiskClick} />
@@ -81,12 +86,7 @@ const CustomerSection: React.FC<{ onRiskClick: (level: RiskLevel) => void }> = (
 /** 产品分析板块 */
 const ProductSection: React.FC = () => (
   <section className={styles.section}>
-    <div className={styles.sectionHeader}>
-      <h2 className={styles.sectionTitle}>产品分析</h2>
-      <p className={styles.sectionDesc}>
-        从销量、毛利、关联销售和库存匹配四个方向识别产品结构问题。
-      </p>
-    </div>
+    <h2 className={styles.sectionTitle}>产品分析</h2>
     <div className={styles.threeCol}>
       <ProductRanking data={PRODUCT_RANKING} />
       <ProductMatrix data={PRODUCT_MATRIX} />
@@ -98,12 +98,7 @@ const ProductSection: React.FC = () => (
 /** 业务员分析板块 */
 const RepSection: React.FC = () => (
   <section className={styles.section}>
-    <div className={styles.sectionHeader}>
-      <h2 className={styles.sectionTitle}>业务员分析</h2>
-      <p className={styles.sectionDesc}>
-        兼顾个人业绩、工作效率、趋势变化与短板诊断。
-      </p>
-    </div>
+    <h2 className={styles.sectionTitle}>业务员分析</h2>
     <div className={styles.sectionGrid}>
       <RepPerformanceTable data={SALES_REP_PERFORMANCE} />
       <RepRadarChart />
