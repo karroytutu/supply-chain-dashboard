@@ -134,12 +134,7 @@ const FormPage: React.FC = () => {
               <ConditionalFieldWrapper key={field.key} field={field} formData={formData}>
                 <Form.Item
                   name={field.key}
-                  label={
-                    <span className={styles.fieldLabel}>
-                      {isFieldRequired(field) && <span className={styles.required}>*</span>}
-                      {field.label}
-                    </span>
-                  }
+                  label={field.label}
                   rules={[{ required: isFieldRequired(field), message: `请输入${field.label}` }]}
                 >
                   <FormFieldConfig field={field} formData={formData} form={form} />
