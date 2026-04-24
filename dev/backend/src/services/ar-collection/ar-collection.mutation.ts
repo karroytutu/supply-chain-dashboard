@@ -67,7 +67,7 @@ async function logAction(
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       taskId,
-      detailIds && detailIds.length > 0 ? JSON.stringify(detailIds) : null,
+      detailIds && detailIds.length > 0 ? detailIds : null,
       actionType,
       actionResult,
       remark,
@@ -174,10 +174,10 @@ export async function applyExtension(
     }
 
     // 创建延期记录
-    const extensionFrom = new Date().toISOString();
+    const extensionFrom = new Date().toISOString().split('T')[0];
     const extensionUntil = new Date(
       Date.now() + params.extension_days * 24 * 60 * 60 * 1000
-    ).toISOString();
+    ).toISOString().split('T')[0];
 
     const extResult = await client.query(
       `INSERT INTO ar_extension_records
@@ -187,7 +187,7 @@ export async function applyExtension(
        RETURNING id`,
       [
         taskId,
-        params.detail_ids?.length ? JSON.stringify(params.detail_ids) : null,
+        params.detail_ids?.length ? params.detail_ids : null,
         params.extension_days,
         extensionFrom,
         extensionUntil,
