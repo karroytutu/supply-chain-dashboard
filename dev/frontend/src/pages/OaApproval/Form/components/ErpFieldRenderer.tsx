@@ -27,6 +27,8 @@ const SEARCH_API_MAP: Record<string, ErpReferenceType> = {
   erp_staff: 'staff',
   erp_payment_accounts: 'payment-accounts',
   erp_asset_categories: 'asset-categories',
+  erp_customers: 'customers',
+  erp_settlement_orders: 'settlement-orders',
 };
 
 /** ERP 字段标签字段映射 */
@@ -36,6 +38,8 @@ const LABEL_FIELDS: Record<string, string> = {
   staff: 'name',
   'payment-accounts': 'name',
   'asset-categories': 'name',
+  customers: 'name',
+  'settlement-orders': 'bizStr',
 };
 
 /** ERP 字段值字段映射 */
@@ -45,6 +49,8 @@ const VALUE_FIELDS: Record<string, string> = {
   staff: 'id',
   'payment-accounts': 'id',
   'asset-categories': 'id',
+  customers: 'id',
+  'settlement-orders': 'id',
 };
 
 const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
@@ -81,9 +87,19 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
   /** 加载选项数据 */
   const fetchOptions = useCallback(async (searchKeyword?: string) => {
     if (!erpType) return;
+    // 级联字段（如结算单依赖客户）需要先有父字段值
+    if (field.cascadeFrom && cascadeValue === undefined) {
+      setOptions([]);
+      return;
+    }
     setLoading(true);
     try {
-      const data = await oaApprovalApi.getErpReference(erpType, searchKeyword);
+      const extraParams: Record<string, string> = {};
+      // 结算单需要传 consumerId
+      if (erpType === 'settlement-orders' && cascadeValue) {
+        extraParams.consumerId = String(cascadeValue);
+      }
+      const data = await oaApprovalApi.getErpReference(erpType, searchKeyword, extraParams);
       const items = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
       setOptions(
         items.map((item) => ({
@@ -97,7 +113,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [erpType, getLabel, getValue]);
+  }, [erpType, getLabel, getValue, field.cascadeFrom, cascadeValue]);
 
   /** 初始加载 */
   useEffect(() => {
@@ -115,7 +131,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
   const handleSearch = useCallback(
     (newKeyword: string) => {
       setKeyword(newKeyword);
-      if (erpType === 'assets') {
+      if (erpType === 'assets' || erpType === 'customers') {
         fetchOptions(newKeyword);
       }
     },
@@ -159,16 +175,18 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     );
   }
 
-  // 通用 ERP 选择器
+  // 通用 ERP 选择器（支持多选）
   return (
     <Select
       showSearch
-      value={value as (string | number) | undefined}
+      mode={field.multiple ? 'multiple' : undefined}
+      value={value as (string | number | (string | number)[]) | undefined}
       onChange={handleChange}
       onSearch={handleSearch}
       loading={loading}
-      placeholder={`请选择${field.label}`}
+      placeholder={field.cascadeFrom && cascadeValue === undefined ? `请先选择客户` : `请选择${field.label}`}
       filterOption={false}
+      disabled={!!(field.cascadeFrom && cascadeValue === undefined)}
       notFoundContent={loading ? <Spin size="small" /> : '无数据'}
       options={options.map((opt) => ({ label: opt.label, value: opt.value as string | number }))}
     />

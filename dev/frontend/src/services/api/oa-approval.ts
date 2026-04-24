@@ -317,19 +317,23 @@ export async function markAllMessagesRead(): Promise<void> {
 // ERP 参考数据接口
 // =====================================================
 
-export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories';
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders';
 
 /**
  * 获取ERP参考数据
- * 用于表单中 asset_search、erp_department 等字段类型的数据源
+ * 用于表单中 asset_search、erp_department、erp_customer 等字段类型的数据源
  */
 export async function getErpReference(
   type: ErpReferenceType,
-  keyword?: string
+  keyword?: string,
+  extraParams?: Record<string, string>
 ): Promise<unknown[]> {
   const params: Record<string, string> = {};
   if (keyword) {
     params.keyword = keyword;
+  }
+  if (extraParams) {
+    Object.assign(params, extraParams);
   }
   const res = await request<unknown[]>(
     `/oa-approval/erp-reference/${type}`,

@@ -24,7 +24,7 @@ interface FormFieldConfigProps {
 
 /** 判断是否为 ERP 字段类型 */
 function isErpFieldType(type: FormField['type']): boolean {
-  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category'].includes(type);
+  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order'].includes(type);
 }
 
 /** 表单字段渲染组件 */
@@ -38,6 +38,8 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
     return (
       <ErpFieldRenderer
         field={field}
+        value={value}
+        onChange={onChange}
         cascadeValue={cascadeValue}
         form={form}
       />

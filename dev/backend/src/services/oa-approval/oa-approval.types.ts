@@ -58,7 +58,10 @@ export type FormFieldType =
   | 'erp_department'        // 选择ERP部门
   | 'erp_staff'             // 选择ERP员工
   | 'erp_payment_account'   // 选择ERP付款账户
-  | 'erp_asset_category';   // 选择ERP资产分类
+  | 'erp_asset_category'    // 选择ERP资产分类
+  // ERP 参考数据字段类型（客户授信审批使用）
+  | 'erp_customer'           // 搜索选择ERP客户
+  | 'erp_settlement_order';  // 搜索选择ERP结算单（多选）
 
 /**
  * 表单字段定义
@@ -125,7 +128,7 @@ export interface FormField {
   /** 条件必填（满足条件时字段变为必填） */
   requiredWhen?: ConditionDef | ConditionDef[];
   /** ERP参考数据API标识（erp_* 类型使用） */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
@@ -160,7 +163,8 @@ export interface NodeInputField {
   label: string;
   /** 字段类型 */
   type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table'
-    | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category';
+    | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category'
+    | 'erp_customer' | 'erp_settlement_order';
   /** 是否必填 */
   required?: boolean;
   /** select 类型的选项 */
@@ -172,7 +176,7 @@ export interface NodeInputField {
   /** table 类型的列定义 */
   columns?: NodeInputField[];
   /** ERP参考数据API标识 */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders';
   /** 选择后自动填充其他字段 */
   autoFill?: Record<string, string>;
   /** 级联字段key */

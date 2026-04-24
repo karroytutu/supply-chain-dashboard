@@ -49,7 +49,7 @@ const ExtensionModal: React.FC<ExtensionModalProps> = ({
       }
 
       const extensionDate = values.extensionDate as dayjs.Dayjs;
-      const extensionDays = extensionDate.diff(dayjs(), 'day');
+      const extensionDays = extensionDate.diff(dayjs().startOf('day'), 'day');
 
       await applyExtension(task.id, {
         extensionDays,

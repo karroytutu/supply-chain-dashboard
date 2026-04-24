@@ -12,6 +12,8 @@ import {
   getErpPaymentAccounts,
   getErpAssetCategories,
 } from '../services/fixed-asset/fixed-asset.query';
+import { searchErpCustomers } from '../services/erp-client/erp-customer.service';
+import { searchErpSettlementOrders } from '../services/erp-client/erp-settlement.service';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
 
 /**
@@ -45,6 +47,20 @@ export async function getErpReference(req: Request, res: Response, next: NextFun
       case 'asset-categories':
         data = await getErpAssetCategories();
         break;
+
+      case 'customers':
+        data = await searchErpCustomers(keyword);
+        break;
+
+      case 'settlement-orders': {
+        const consumerId = req.query.consumerId as string;
+        if (!consumerId) {
+          res.status(400).json({ code: 400, message: '结算单查询需要 consumerId 参数' });
+          return;
+        }
+        data = await searchErpSettlementOrders({ traderId: consumerId, keyword });
+        break;
+      }
 
       default:
         res.status(400).json({ code: 400, message: `不支持的参考数据类型: ${type}` });
