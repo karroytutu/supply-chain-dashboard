@@ -54,11 +54,12 @@ const globalLimiter = rateLimit({
   message: { success: false, message: '请求过于频繁，请稍后再试' },
   skip: (req) => {
     // 豁免高频只读接口，这些接口每次页面加载/路由切换都会调用
+    // 注意：中间件挂载在 /api 下，req.path 已去除 /api 前缀
     const readOnlyPaths = [
-      '/api/auth/me',
-      '/api/auth/check-env',
-      '/api/auth/dingtalk/qrcode-config',
-      '/api/health',
+      '/auth/me',
+      '/auth/check-env',
+      '/auth/dingtalk/qrcode-config',
+      '/health',
     ];
     return req.method === 'GET' && readOnlyPaths.some((p) => req.path.startsWith(p));
   },

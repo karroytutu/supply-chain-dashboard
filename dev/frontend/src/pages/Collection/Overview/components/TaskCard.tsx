@@ -93,7 +93,7 @@ function formatDate(dateStr: string): string {
 function AssessmentDeadline({ startTime }: { startTime: string }) {
   const { text, color } = calcAssessmentTime(startTime);
   const compact = text.replace('剩余 ', '剩').replace('超期 ', '超');
-  return <span style={{ color, fontSize: 12 }}>{compact}</span>;
+  return <span style={{ color, fontSize: 12, whiteSpace: 'nowrap' }}>{compact}</span>;
 }
 
 /** 移动端紧凑考核 Tag */

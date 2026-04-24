@@ -77,9 +77,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
           key={detail.id}
           detail={detail}
           selected={selectedDetailIds.includes(detail.id)}
-          showActions={showActions}
           onSelect={handleCardSelect}
-          onAction={onRowAction}
         />
       ))}
     </div>

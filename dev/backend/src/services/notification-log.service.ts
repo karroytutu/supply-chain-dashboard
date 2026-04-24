@@ -4,6 +4,7 @@
  */
 
 import { appQuery } from '../db/appPool';
+import { config } from '../config';
 import {
   type NotificationLog,
   type CreateNotificationLogParams,
@@ -32,8 +33,8 @@ export async function createNotificationLog(params: CreateNotificationLogParams)
   const result = await appQuery<{ id: number }>(
     `INSERT INTO dingtalk_notification_logs (
       business_type, business_id, business_no, msg_type, title, content,
-      task_id, receiver_ids, status, created_by
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)
+      task_id, agent_id, receiver_userids, receiver_count, status, created_by
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11)
     RETURNING id`,
     [
       businessType,
@@ -42,8 +43,10 @@ export async function createNotificationLog(params: CreateNotificationLogParams)
       msgType,
       title,
       content || null,
-      taskId || null,
+      taskId ? String(taskId) : null,
+      config.dingtalk.agentId,
       receiverIds,
+      receiverIds.length,
       createdBy || null,
     ]
   );
@@ -89,7 +92,7 @@ export async function updateNotificationLogStatus(
 
   if (taskId !== undefined) {
     updates.push(`task_id = $${paramIndex++}`);
-    values.push(taskId);
+    values.push(String(taskId));
   }
 
   if (errorMessage !== undefined) {
@@ -120,7 +123,7 @@ export async function updateNotificationLogStatus(
  */
 export async function getNotificationLogById(id: number): Promise<NotificationLog | null> {
   const result = await appQuery(
-    `SELECT 
+    `SELECT
       id,
       business_type as "businessType",
       business_id as "businessId",
@@ -129,7 +132,7 @@ export async function getNotificationLogById(id: number): Promise<NotificationLo
       title,
       content,
       task_id as "taskId",
-      receiver_ids as "receiverIds",
+      receiver_userids as "receiverIds",
       status,
       error_message as "errorMessage",
       retry_count as "retryCount",
@@ -156,7 +159,7 @@ export async function getNotificationLogById(id: number): Promise<NotificationLo
  */
 export async function getNotificationLogByTaskId(taskId: number): Promise<NotificationLog | null> {
   const result = await appQuery(
-    `SELECT 
+    `SELECT
       id,
       business_type as "businessType",
       business_id as "businessId",
@@ -165,7 +168,7 @@ export async function getNotificationLogByTaskId(taskId: number): Promise<Notifi
       title,
       content,
       task_id as "taskId",
-      receiver_ids as "receiverIds",
+      receiver_userids as "receiverIds",
       status,
       error_message as "errorMessage",
       retry_count as "retryCount",
@@ -177,7 +180,7 @@ export async function getNotificationLogByTaskId(taskId: number): Promise<Notifi
       updated_at as "updatedAt"
     FROM dingtalk_notification_logs
     WHERE task_id = $1`,
-    [taskId]
+    [String(taskId)]
   );
 
   if (result.rows.length === 0) {
@@ -192,7 +195,7 @@ export async function getNotificationLogByTaskId(taskId: number): Promise<Notifi
  */
 export async function getPendingRetryLogs(): Promise<NotificationLog[]> {
   const result = await appQuery(
-    `SELECT 
+    `SELECT
       id,
       business_type as "businessType",
       business_id as "businessId",
@@ -201,7 +204,7 @@ export async function getPendingRetryLogs(): Promise<NotificationLog[]> {
       title,
       content,
       task_id as "taskId",
-      receiver_ids as "receiverIds",
+      receiver_userids as "receiverIds",
       status,
       error_message as "errorMessage",
       retry_count as "retryCount",

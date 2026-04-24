@@ -429,20 +429,24 @@
       font-weight: 600;
       color: #8c8c8c;
       font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      white-space: nowrap;
     }
 
     .created-time {
       font-size: 12px;
       color: #8c8c8c;
+      white-space: nowrap;
     }
 
     .separator {
       color: #d9d9d9;
+      white-space: nowrap;
     }
 
     .overdue-days {
       font-size: 12px;
       color: #8c8c8c;
+      white-space: nowrap;
 
       &.danger {
         color: #ff4d4f;
@@ -779,6 +783,47 @@
         font-size: 13px;
         min-height: 36px;
         line-height: 34px;
+      }
+    }
+  }
+
+  /* 超小屏手机 */
+  @media (max-width: @screen-xxs) {
+    .task-card {
+      :global(.ant-card-body) {
+        padding: 6px 8px;
+      }
+
+      .task-card-row--secondary .task-card-left {
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .task-card-right {
+        gap: 4px;
+      }
+
+      .amount {
+        min-width: 54px;
+        font-size: 12px;
+      }
+
+      :global(.ant-tag) {
+        min-width: 44px;
+        padding: 0 2px;
+        font-size: 10px;
+        line-height: 16px;
+      }
+
+      .task-no,
+      .created-time,
+      .overdue-days,
+      .handler-info {
+        font-size: 10px;
+      }
+
+      .separator {
+        font-size: 10px;
       }
     }
   }
