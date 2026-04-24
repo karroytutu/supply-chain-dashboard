@@ -6,6 +6,7 @@
 
 import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
+import logger from '../../utils/logger';
 
 // ============================================
 // 类型定义
@@ -168,8 +169,8 @@ export async function getUpcomingWarnings(
   const managerNames = [...new Set(upcomingDebts.map((d) => d.managerUsers).filter(Boolean))];
   const managerIdMap = new Map<string, number>();
 
-  console.log('[WarningQuery] 即将到期记录数:', upcomingDebts.length);
-  console.log('[WarningQuery] 负责人列表:', managerNames);
+  logger.debug('[WarningQuery] 即将到期记录数:', upcomingDebts.length);
+  logger.debug('[WarningQuery] 负责人列表:', managerNames);
 
   if (managerNames.length > 0) {
     const usersResult = await appQuery<{ name: string; id: number }>(
@@ -179,7 +180,7 @@ export async function getUpcomingWarnings(
     for (const row of usersResult.rows) {
       managerIdMap.set(row.name, row.id);
     }
-    console.log('[WarningQuery] 用户名映射:', Object.fromEntries(managerIdMap));
+    logger.debug('[WarningQuery] 用户名映射:', Object.fromEntries(managerIdMap));
   }
 
   // 5. 构建明细数据
@@ -203,9 +204,9 @@ export async function getUpcomingWarnings(
     details = details.filter((d) => d.warningLevel === warningLevel);
   }
   if (managerUserId) {
-    console.log('[WarningQuery] 过滤负责人ID:', managerUserId, '过滤前:', details.length);
+    logger.debug('[WarningQuery] 过滤负责人ID:', managerUserId, '过滤前:', details.length);
     details = details.filter((d) => d.managerUserId === managerUserId);
-    console.log('[WarningQuery] 过滤后:', details.length);
+    logger.debug('[WarningQuery] 过滤后:', details.length);
   }
 
   // 7. 排序：按剩余天数升序
