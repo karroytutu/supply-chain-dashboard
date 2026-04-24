@@ -30,6 +30,7 @@ export function getErpConfig(): ErpApiConfig {
       defaultDeptId: erpApi?.defaultDeptId || 1,
       // API 路径配置
       assetPathPrefix: erpApi?.assetPathPrefix || '/messiah/',
+      customerPathPrefix: erpApi?.customerPathPrefix || '/redcoast/',
       expenditureBillPath: erpApi?.expenditureBillPath || '/expenditure-bill/save-approve-cash-expenditure',
       assetCreatePath: erpApi?.assetCreatePath || '/asset/create',
       assetUpdatePath: erpApi?.assetUpdatePath || '/asset/update',

@@ -84,6 +84,10 @@ export const PERMISSIONS = {
       READ: 'finance:ar:penalty:read',
       WRITE: 'finance:ar:penalty:write',
     },
+    CREDIT: {
+      READ: 'finance:credit:read',
+      WRITE: 'finance:credit:write',
+    },
   },
 
   // 销售分析模块
@@ -124,6 +128,7 @@ export const ROLES = {
   MARKETER: 'marketer',
   ADMIN_STAFF: 'admin_staff',
   OPERATIONS_MANAGER: 'operations_manager',
+  GENERAL_MANAGER: 'general_manager',
 } as const;
 
 /**

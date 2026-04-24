@@ -44,6 +44,8 @@ import {
   getErpReference,
   retryErpOperation,
 } from '../controllers/erp-reference.controller';
+import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
+import { Request, Response } from 'express';
 
 const router = Router();
 
@@ -105,6 +107,29 @@ router.get('/erp-reference/:type', requirePermission(['oa:approval:read', 'oa:ap
 
 // 重试失败的ERP操作
 router.post('/instances/:id/retry-erp', requirePermission('oa:approval:write'), retryErpOperation);
+
+// =====================================================
+// 客户授信 - 营业执照上传
+// =====================================================
+
+router.post(
+  '/upload-license',
+  requirePermission('finance:credit:write'),
+  uploadCreditLicense.array('files', 3),
+  async (req: Request, res: Response) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        res.status(400).json({ code: 400, message: '请上传文件' });
+        return;
+      }
+      const urls = files.map(f => getCreditLicenseUrl(f.filename));
+      res.json({ code: 200, data: { urls } });
+    } catch (error) {
+      res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '上传失败' });
+    }
+  }
+);
 
 // =====================================================
 // 数据管理接口

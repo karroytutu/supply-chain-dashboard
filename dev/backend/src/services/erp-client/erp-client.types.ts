@@ -20,6 +20,8 @@ export interface ErpApiConfig {
   defaultDeptId: number;
   /** 资产 API 路径前缀 */
   assetPathPrefix: string;
+  /** 客户 API 路径前缀 */
+  customerPathPrefix: string;
   /** 支出单 API 路径 */
   expenditureBillPath: string;
   /** 资产创建 API 路径 */
