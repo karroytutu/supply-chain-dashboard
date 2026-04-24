@@ -674,41 +674,39 @@
       flex-shrink: 0;
     }
 
-    // 移动端分页器简化
-    :global {
-      .ant-pagination {
-        display: flex;
-        flex-wrap: nowrap;
-        justify-content: center;
-        gap: 4px;
+    // 移动端分页包装容器
+    .mobile-card-pagination {
+      padding: 12px 0;
+      border-top: 1px solid @border-color-split;
+      margin-top: 8px;
+      text-align: center;
+    }
 
-        .ant-pagination-item,
-        .ant-pagination-prev,
-        .ant-pagination-next {
-          min-width: 44px;
-          min-height: 44px;
+    // 移动端分页器 - simple 模式
+    :global(.ant-pagination-simple) {
+      justify-content: center;
+      gap: 8px;
+
+      :global(.ant-pagination-prev),
+      :global(.ant-pagination-next) {
+        :global(.ant-pagination-item-link) {
+          min-width: @touch-target-size;
+          min-height: @touch-target-size;
           line-height: 42px;
+          border-radius: 4px;
         }
+      }
 
-        // 隐藏页码详情
-        .ant-pagination-total-text,
-        .ant-pagination-options {
-          display: none;
-        }
+      :global(.ant-pagination-simple-pager) {
+        min-height: @touch-target-size;
+        line-height: 42px;
+        font-size: 14px;
+        color: @text-color-secondary;
 
-        // 简化页码显示，只保留当前页
-        .ant-pagination-item:not(.ant-pagination-item-active) {
-          display: none;
-        }
-
-        .ant-pagination-item-active {
-          display: inline-flex;
-        }
-
-        // 保留前后翻页
-        .ant-pagination-prev,
-        .ant-pagination-next {
-          display: inline-flex;
+        :global(input) {
+          width: 36px;
+          height: 32px;
+          font-size: 14px;
         }
       }
     }
@@ -759,6 +757,28 @@
         padding: 0 3px;
         line-height: 16px;
         min-width: 50px;
+      }
+    }
+
+    // 超小屏分页器缩小
+    .mobile-card-pagination {
+      padding: 8px 0;
+    }
+
+    :global(.ant-pagination-simple) {
+      :global(.ant-pagination-prev),
+      :global(.ant-pagination-next) {
+        :global(.ant-pagination-item-link) {
+          min-width: 36px;
+          min-height: 36px;
+          line-height: 34px;
+        }
+      }
+
+      :global(.ant-pagination-simple-pager) {
+        font-size: 13px;
+        min-height: 36px;
+        line-height: 34px;
       }
     }
   }

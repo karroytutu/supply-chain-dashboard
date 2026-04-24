@@ -3,7 +3,7 @@
  * 包含状态 Tab 切换、任务列表、移动端卡片渲染
  */
 import React, { useCallback } from 'react';
-import { Table, Spin } from 'antd';
+import { Table, Spin, Pagination } from 'antd';
 import { history } from 'umi';
 import TaskCard from './TaskCard';
 import useMedia from '../hooks/useMedia';
@@ -70,6 +70,17 @@ const CollectionTable: React.FC<CollectionTableProps> = ({
           />
         ))}
       </Spin>
+      {total > 0 && (
+        <div className="mobile-card-pagination">
+          <Pagination
+            simple
+            current={page}
+            pageSize={pageSize}
+            total={total}
+            onChange={onPageChange}
+          />
+        </div>
+      )}
     </div>
   );
 
