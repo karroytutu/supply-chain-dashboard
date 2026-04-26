@@ -9,6 +9,7 @@ import {
   Row,
   Col,
   Typography,
+  Result,
 } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import type { ApprovalDetail } from '@/types/oa-approval';
@@ -17,6 +18,8 @@ import { useApprovalDetail } from './hooks/useApprovalDetail';
 import ApprovalTimeline from './components/ApprovalTimeline';
 import ApprovalActions from './components/ApprovalActions';
 import ErpStatusCard from './components/ErpStatusCard';
+import FieldRenderer from './components/FormFieldRenderer';
+import { checkCondition } from '../Form/components/ConditionalFieldWrapper';
 import styles from './index.less';
 
 const { Text, Title } = Typography;
@@ -52,11 +55,13 @@ const ApprovalDetailPage: React.FC = () => {
     detail,
     nodes,
     actions,
+    errorType,
     actionLoading,
     actionModalVisible,
     actionType,
     actionComment,
     transferUserId,
+    transferUsers,
     setActionModalVisible,
     setActionComment,
     setTransferUserId,
@@ -66,6 +71,7 @@ const ApprovalDetailPage: React.FC = () => {
     canOperate,
     canWithdraw,
     getCurrentStep,
+    loadDetail,
   } = useApprovalDetail(id);
 
   if (loading) {
@@ -77,13 +83,33 @@ const ApprovalDetailPage: React.FC = () => {
   }
 
   if (!detail) {
+    if (errorType === 'forbidden') {
+      return (
+        <Result
+          status="403"
+          title="无权限查看"
+          subTitle="您没有权限查看此审批详情"
+          extra={<Button type="primary" onClick={() => history.push('/oa/center')}>返回审批中心</Button>}
+        />
+      );
+    }
+    if (errorType === 'not_found') {
+      return (
+        <Result
+          status="404"
+          title="审批不存在或已删除"
+          subTitle="该审批可能已被撤回或删除"
+          extra={<Button type="primary" onClick={() => history.push('/oa/center')}>返回审批中心</Button>}
+        />
+      );
+    }
     return (
-      <div className={styles.errorContainer}>
-        <Text>审批不存在或已删除</Text>
-        <Button type="primary" onClick={() => history.push('/oa/center')}>
-          返回审批中心
-        </Button>
-      </div>
+      <Result
+        status="500"
+        title="加载失败"
+        subTitle="获取审批详情失败，请稍后重试"
+        extra={<Button type="primary" onClick={() => loadDetail()}>重新加载</Button>}
+      />
     );
   }
 
@@ -132,11 +158,20 @@ const ApprovalDetailPage: React.FC = () => {
           {/* 表单内容卡片 */}
           <Card title="表单内容" className={styles.card}>
             <Descriptions column={2} bordered size="small">
-              {Object.entries(detail.formData).map(([key, value]) => (
-                <Descriptions.Item key={key} label={key}>
-                  {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '-')}
-                </Descriptions.Item>
-              ))}
+              {detail.formSchema?.fields?.map((field) => {
+                const value = detail.formData[field.key];
+                // 条件显示：不满足条件时隐藏字段
+                if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) {
+                  return null;
+                }
+                // 跳过内部字段（以下划线开头）
+                if (field.key.startsWith('_')) return null;
+                return (
+                  <Descriptions.Item key={field.key} label={field.label}>
+                    <FieldRenderer field={field} value={value} formData={detail.formData} />
+                  </Descriptions.Item>
+                );
+              })}
             </Descriptions>
           </Card>
 
@@ -156,6 +191,7 @@ const ApprovalDetailPage: React.FC = () => {
             actionType={actionType}
             actionComment={actionComment}
             transferUserId={transferUserId}
+            transferUsers={transferUsers}
             currentStep={getCurrentStep()}
             openActionModal={openActionModal}
             handleAction={handleAction}

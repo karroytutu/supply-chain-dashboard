@@ -5,6 +5,7 @@
 import React, { useCallback } from 'react';
 import { Button, Input, InputNumber, Select, DatePicker, Table, Space, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import type { FormField } from '@/types/oa-approval';
 
 interface TableFieldRendererProps {
@@ -50,7 +51,7 @@ const CellInput: React.FC<{
         <DatePicker
           style={{ width: '100%' }}
           placeholder={childField.placeholder || '请选择日期'}
-          value={value ? (() => { const m = require('dayjs'); return m.default(value); })() : undefined}
+          value={value ? dayjs(value as string) : undefined}
           onChange={(_, dateString) => onChange(dateString as string)}
           size="small"
         />

@@ -17,6 +17,8 @@ interface UseApprovalCenterReturn {
   rejectModalVisible: boolean;
   rejectReason: string;
   transferModalVisible: boolean;
+  transferUsers: Array<{ id: number; name: string }>;
+  transferUserId: number | null;
   setViewMode: (mode: ViewMode) => void;
   setPage: (page: number) => void;
   setSearchText: (text: string) => void;
@@ -24,6 +26,9 @@ interface UseApprovalCenterReturn {
   setRejectModalVisible: (visible: boolean) => void;
   setRejectReason: (reason: string) => void;
   setTransferModalVisible: (visible: boolean) => void;
+  setTransferUserId: (id: number | null) => void;
+  openTransferModal: () => void;
+  handleTransfer: () => Promise<void>;
   handleApprove: () => Promise<void>;
   handleReject: () => Promise<void>;
   handleWithdraw: () => Promise<void>;
@@ -46,6 +51,8 @@ export function useApprovalCenter(): UseApprovalCenterReturn {
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [transferModalVisible, setTransferModalVisible] = useState(false);
+  const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
+  const [transferUserId, setTransferUserId] = useState<number | null>(null);
 
   const loadStats = async () => {
     try {
@@ -142,11 +149,41 @@ export function useApprovalCenter(): UseApprovalCenterReturn {
     }
   };
 
+  // 打开转交弹窗
+  const openTransferModal = () => {
+    setTransferModalVisible(true);
+    oaApprovalApi.getTransferCandidates()
+      .then((users) => setTransferUsers(users))
+      .catch(() => setTransferUsers([]));
+  };
+
+  // 转交审批
+  const handleTransfer = async () => {
+    if (!selectedId || !transferUserId) {
+      message.warning('请选择转交人员');
+      return;
+    }
+    try {
+      await oaApprovalApi.transfer(selectedId, { transferToUserId: transferUserId });
+      message.success('已转交');
+      setTransferModalVisible(false);
+      setTransferUserId(null);
+      loadList();
+      loadStats();
+      if (selectedId) loadDetail(selectedId);
+    } catch (error: any) {
+      message.error(error.message || '操作失败');
+    }
+  };
+
   return {
     loading, detailLoading, viewMode, stats, list, total, page,
     searchText, selectedId, detail, rejectModalVisible, rejectReason,
-    transferModalVisible, setViewMode, setPage, setSearchText, setSelectedId,
-    setRejectModalVisible, setRejectReason, setTransferModalVisible,
+    transferModalVisible, transferUsers, transferUserId,
+    setViewMode, setPage, setSearchText, setSelectedId,
+    setRejectModalVisible, setRejectReason,
+    setTransferModalVisible, setTransferUserId,
+    openTransferModal, handleTransfer,
     handleApprove, handleReject, handleWithdraw, loadList, loadStats, loadDetail,
   };
 }

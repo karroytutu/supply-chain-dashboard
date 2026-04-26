@@ -19,6 +19,7 @@ import {
   ApprovalNodeStatus,
   Urgency,
   SubmitApprovalRequest,
+  NodeInputSchema,
 } from './oa-approval.types';
 
 // =====================================================
@@ -218,6 +219,83 @@ export function validateFormData(
   return errors;
 }
 
+/**
+ * 校验 data_input 节点录入的数据
+ * 复用 validateFormData 的模式，适配 NodeInputSchema 结构
+ */
+export function validateInputData(
+  inputSchema: NodeInputSchema,
+  inputData: Record<string, unknown>
+): string[] {
+  const errors: string[] = [];
+
+  for (const field of inputSchema.fields) {
+    const value = inputData[field.name];
+    const isRequired = field.required ||
+      (field.requiredWhen ? checkCondition(field.requiredWhen, inputData) : false);
+
+    // 必填校验
+    if (isRequired) {
+      if (value === undefined || value === null || value === '') {
+        errors.push(`${field.label}不能为空`);
+        continue;
+      }
+      if (Array.isArray(value) && value.length === 0) {
+        errors.push(`${field.label}不能为空`);
+        continue;
+      }
+    }
+
+    // 跳过空值的可选字段
+    if (value === undefined || value === null || value === '') {
+      continue;
+    }
+
+    // 类型校验
+    switch (field.type) {
+      case 'text':
+      case 'number':
+      case 'date':
+        break; // 基本类型无需额外校验
+
+      case 'amount':
+        const numValue = Number(value);
+        if (isNaN(numValue)) {
+          errors.push(`${field.label}必须是数字`);
+        }
+        break;
+
+      case 'select':
+        if (field.options && field.options.length > 0) {
+          const validValues = field.options.map((o) => o.value);
+          if (!validValues.includes(value)) {
+            errors.push(`${field.label}的值无效`);
+          }
+        }
+        break;
+
+      case 'upload':
+        break;
+
+      case 'table':
+        if (field.columns && Array.isArray(value)) {
+          for (let i = 0; i < value.length; i++) {
+            const rowErrors = validateInputData(
+              { fields: field.columns! },
+              value[i] as Record<string, unknown>
+            );
+            for (const err of rowErrors) {
+              errors.push(`${field.label}(第${i + 1}行): ${err}`);
+            }
+          }
+        }
+        break;
+    }
+  }
+
+  return errors;
+}
+
 // =====================================================
 // 条件解析
 // =====================================================
@@ -262,7 +340,8 @@ function checkSingleCondition(
     case '<=':
       return numValue <= numCompare;
     case '==':
-      return value === compareValue || numValue === numCompare;
+      // 与前端 ConditionalFieldWrapper 保持一致：统一转为字符串比较
+      return String(value) === String(compareValue);
     default:
       return false;
   }

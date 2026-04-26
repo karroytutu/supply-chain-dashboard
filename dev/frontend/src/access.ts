@@ -24,7 +24,14 @@ const allPermissionCodes = getAllPermissionCodes(PERMISSIONS as any);
 export default function access(initialState: {
   permissions?: string[];
   roles?: string[];
+  /** 认证失败跳转中标记，由 getInitialState 设置 */
+  __authRedirecting?: boolean;
 } | undefined) {
+  // 认证失败正在跳转登录页时，所有权限返回 true，阻止 403 中间态渲染
+  if (initialState?.__authRedirecting) {
+    return Object.fromEntries(allPermissionCodes.map(code => [code, true]));
+  }
+
   const permissions = initialState?.permissions || [];
   const roles = initialState?.roles || [];
 

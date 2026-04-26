@@ -19,6 +19,7 @@ import {
 import {
   generateInstanceNo,
   validateFormData,
+  validateInputData,
   filterNodesByCondition,
   resolveApproverId,
   findUserIdsByRoleCodes,
@@ -270,8 +271,16 @@ export async function approveApproval(
 
     const currentNode = nodeResult.rows[0];
 
-    // data_input 节点处理：保存 inputData + 合并 form_data
+    // data_input 节点处理：校验 + 保存 inputData + 合并 form_data
     if (currentNode.node_type === 'data_input' && inputData) {
+      // 校验 inputData 是否符合 inputSchema
+      if (currentNode.input_schema) {
+        const inputErrors = validateInputData(currentNode.input_schema, inputData);
+        if (inputErrors.length > 0) {
+          throw new Error(`录入数据校验失败: ${inputErrors.join('; ')}`);
+        }
+      }
+
       // 保存 inputData 到节点
       await client.query(
         `UPDATE oa_approval_nodes

@@ -43,13 +43,15 @@ export default function AuthWrapper() {
           permissions: user.permissions || [],
           roles: user.roles?.map((r: any) => r.code) || [],
         }));
+        setLoading(false);
       } catch (error) {
         console.error('[AuthWrapper] 获取用户信息失败:', error);
         localStorage.removeItem(TOKEN_KEY);
         setGlobalUser(null);
         window.location.href = '/login';
-      } finally {
-        setLoading(false);
+        // 不设置 setLoading(false)，保持 Spin 加载状态直到页面跳转生效
+        // 避免在跳转前渲染出空白或 403 页面
+        return;
       }
     };
 

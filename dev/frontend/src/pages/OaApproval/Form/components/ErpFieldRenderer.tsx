@@ -2,10 +2,19 @@
  * ERP 参考数据字段渲染组件
  * 处理 asset_search、erp_department、erp_staff、erp_payment_account、erp_asset_category 类型字段
  */
-import React, { useState, useEffect, useCallback } from 'react';
-import { Select, Spin, InputNumber } from 'antd';
-import { oaApprovalApi, ErpReferenceType } from '@/services/api/oa-approval';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Select, Spin } from 'antd';
+import { oaApprovalApi } from '@/services/api/oa-approval';
 import type { FormField } from '@/types/oa-approval';
+import { ERP_SEARCH_API_MAP, ERP_LABEL_FIELDS, ERP_VALUE_FIELDS } from '@/constants/oa-approval-erp';
+import SettlementOrderPicker from './SettlementOrderPicker';
+
+/** 客户执照信息（从 ERP 搜索结果提取） */
+export interface CustomerLicenseInfo {
+  hasLicense: boolean;
+  imageCount: number;
+  attachedPicUrls: string[];
+}
 
 interface ErpFieldRendererProps {
   field: FormField;
@@ -18,176 +27,137 @@ interface ErpFieldRendererProps {
     setFieldsValue: (values: Record<string, unknown>) => void;
     getFieldValue: (name: string) => unknown;
   };
+  /** 客户选中时回调，提取执照信息（仅 erp_customer 类型触发） */
+  onCustomerSelect?: (licenseInfo: CustomerLicenseInfo | null) => void;
 }
 
-/** searchApi 到 erp-reference 路由 type 参数的映射 */
-const SEARCH_API_MAP: Record<string, ErpReferenceType> = {
-  erp_assets: 'assets',
-  erp_departments: 'departments',
-  erp_staff: 'staff',
-  erp_payment_accounts: 'payment-accounts',
-  erp_asset_categories: 'asset-categories',
-  erp_customers: 'customers',
-  erp_settlement_orders: 'settlement-orders',
-};
-
-/** ERP 字段标签字段映射 */
-const LABEL_FIELDS: Record<string, string> = {
-  assets: 'name',
-  departments: 'name',
-  staff: 'name',
-  'payment-accounts': 'name',
-  'asset-categories': 'name',
-  customers: 'name',
-  'settlement-orders': 'bizStr',
-};
-
-/** ERP 字段值字段映射 */
-const VALUE_FIELDS: Record<string, string> = {
-  assets: 'id',
-  departments: 'id',
-  staff: 'id',
-  'payment-accounts': 'id',
-  'asset-categories': 'id',
-  customers: 'id',
-  'settlement-orders': 'id',
-};
-
 const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
-  field,
-  value,
-  onChange,
-  cascadeValue,
-  form,
+  field, value, onChange, cascadeValue, form, onCustomerSelect,
 }) => {
   const [options, setOptions] = useState<Array<{ label: string; value: unknown; raw: unknown }>>([]);
   const [loading, setLoading] = useState(false);
-  const [keyword, setKeyword] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  const erpType = field.searchApi ? SEARCH_API_MAP[field.searchApi] : null;
+  const erpType = field.searchApi ? ERP_SEARCH_API_MAP[field.searchApi] : null;
 
   /** 从 ERP 对象中提取 label */
   const getLabel = useCallback((item: Record<string, unknown>, type: string): string => {
-    const labelField = LABEL_FIELDS[type] || 'name';
+    const labelField = ERP_LABEL_FIELDS[type] || 'name';
     if (field.type === 'asset_search' && field.displayFields?.length) {
-      return field.displayFields
-        .map((f) => item[f])
-        .filter(Boolean)
-        .join(' | ');
+      return field.displayFields.map((f) => item[f]).filter(Boolean).join(' | ');
     }
     return String(item[labelField] ?? '');
   }, [field.type, field.displayFields]);
 
   /** 从 ERP 对象中提取 value */
   const getValue = useCallback((item: Record<string, unknown>, type: string): unknown => {
-    const valueField = VALUE_FIELDS[type] || 'id';
-    return item[valueField];
+    return item[ERP_VALUE_FIELDS[type] || 'id'];
   }, []);
 
   /** 加载选项数据 */
   const fetchOptions = useCallback(async (searchKeyword?: string) => {
     if (!erpType) return;
-    // 级联字段（如结算单依赖客户）需要先有父字段值
-    if (field.cascadeFrom && cascadeValue === undefined) {
-      setOptions([]);
-      return;
-    }
+    if (field.cascadeFrom && cascadeValue === undefined) { setOptions([]); return; }
     setLoading(true);
     try {
       const extraParams: Record<string, string> = {};
-      // 结算单需要传 consumerId
       if (erpType === 'settlement-orders' && cascadeValue) {
         extraParams.consumerId = String(cascadeValue);
       }
       const data = await oaApprovalApi.getErpReference(erpType, searchKeyword, extraParams);
       const items = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
-      setOptions(
-        items.map((item) => ({
-          label: getLabel(item, erpType),
-          value: getValue(item, erpType),
-          raw: item,
-        }))
-      );
-    } catch {
-      setOptions([]);
-    } finally {
-      setLoading(false);
-    }
+      setOptions(items.map((item) => ({ label: getLabel(item, erpType), value: getValue(item, erpType), raw: item })));
+    } catch { setOptions([]); } finally { setLoading(false); }
   }, [erpType, getLabel, getValue, field.cascadeFrom, cascadeValue]);
 
   /** 初始加载 */
-  useEffect(() => {
-    fetchOptions();
-  }, [fetchOptions]);
+  useEffect(() => { fetchOptions(); }, [fetchOptions]);
 
-  /** 级联值变化时重新加载 */
+  /** 级联值变化时重新加载并清空旧选择 */
   useEffect(() => {
     if (field.cascadeFrom && cascadeValue !== undefined) {
       fetchOptions();
+      onChange?.(field.multiple ? [] : undefined);
     }
-  }, [cascadeValue, field.cascadeFrom, fetchOptions]);
+  }, [cascadeValue, field.cascadeFrom, field.multiple, fetchOptions]);
 
-  /** 搜索防抖 */
+  /** 搜索防抖（500ms） */
   const handleSearch = useCallback(
     (newKeyword: string) => {
-      setKeyword(newKeyword);
       if (erpType === 'assets' || erpType === 'customers') {
-        fetchOptions(newKeyword);
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        searchTimer.current = setTimeout(() => fetchOptions(newKeyword), 500);
       }
     },
     [erpType, fetchOptions]
   );
 
-  /** 选中后处理 autoFill */
+  useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
+
+  /** 选中后处理 autoFill + 执照信息提取 */
   const handleChange = useCallback(
     (selectedValue: unknown) => {
       onChange?.(selectedValue);
-
-      if (field.autoFill && form) {
-        const selectedOption = options.find((opt) => opt.value === selectedValue);
-        if (selectedOption) {
+      const selectedOption = options.find((opt) => opt.value === selectedValue);
+      if (selectedOption) {
+        const raw = selectedOption.raw as Record<string, unknown>;
+        // autoFill 逻辑
+        if (field.autoFill && form) {
           const fillValues: Record<string, unknown> = {};
-          const raw = selectedOption.raw as Record<string, unknown>;
           for (const [targetField, sourceField] of Object.entries(field.autoFill)) {
             fillValues[targetField] = raw[sourceField];
           }
           form.setFieldsValue(fillValues);
         }
+        // 客户选中时提取执照信息
+        if (field.type === 'erp_customer' && onCustomerSelect) {
+          const ext = (raw.ext as Record<string, unknown>) || {};
+          const picIds = (ext.attachedPicIds as string[]) || [];
+          const picUrls = (raw.attachedPicUrls as string[]) || [];
+          onCustomerSelect({
+            hasLicense: picIds.length > 0,
+            imageCount: picIds.length,
+            attachedPicUrls: picUrls,
+          });
+        }
+      } else if (field.type === 'erp_customer' && onCustomerSelect) {
+        // 清空选择时重置执照信息
+        onCustomerSelect(null);
       }
     },
-    [onChange, field.autoFill, form, options]
+    [onChange, field.autoFill, field.type, form, options, onCustomerSelect]
   );
 
-  // asset_category 类型用 InputNumber（存的是数字ID）
+  const isDisabled = !!(field.cascadeFrom && cascadeValue === undefined);
+  const notFound = loading ? <Spin size="small" /> : '无数据';
+
+  // asset_category 类型（存的是数字ID）
   if (field.type === 'erp_asset_category') {
     return (
-      <Select
-        showSearch
-        value={value as number | undefined}
-        onChange={handleChange}
-        onSearch={handleSearch}
-        loading={loading}
-        placeholder={`请选择${field.label}`}
-        filterOption={false}
-        notFoundContent={loading ? <Spin size="small" /> : '无数据'}
+      <Select showSearch value={value as number | undefined} onChange={handleChange}
+        onSearch={handleSearch} loading={loading} placeholder={`请选择${field.label}`}
+        filterOption={false} notFoundContent={notFound}
         options={options.map((opt) => ({ label: opt.label, value: opt.value as number }))}
+      />
+    );
+  }
+
+  // 结算单多选：使用弹窗表格选择器
+  if (erpType === 'settlement-orders' && field.multiple) {
+    return (
+      <SettlementOrderPicker options={options} value={(value as number[]) || []}
+        onChange={(ids) => onChange?.(ids)} loading={loading} disabled={isDisabled}
       />
     );
   }
 
   // 通用 ERP 选择器（支持多选）
   return (
-    <Select
-      showSearch
-      mode={field.multiple ? 'multiple' : undefined}
+    <Select showSearch mode={field.multiple ? 'multiple' : undefined}
       value={value as (string | number | (string | number)[]) | undefined}
-      onChange={handleChange}
-      onSearch={handleSearch}
-      loading={loading}
-      placeholder={field.cascadeFrom && cascadeValue === undefined ? `请先选择客户` : `请选择${field.label}`}
-      filterOption={false}
-      disabled={!!(field.cascadeFrom && cascadeValue === undefined)}
-      notFoundContent={loading ? <Spin size="small" /> : '无数据'}
+      onChange={handleChange} onSearch={handleSearch} loading={loading}
+      placeholder={isDisabled ? '请先选择客户' : `请选择${field.label}`}
+      filterOption={false} disabled={isDisabled} notFoundContent={notFound}
       options={options.map((opt) => ({ label: opt.label, value: opt.value as string | number }))}
     />
   );

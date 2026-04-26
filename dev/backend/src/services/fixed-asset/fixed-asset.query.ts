@@ -35,6 +35,20 @@ interface ErpPageData<T> {
 
 /**
  * 搜索舟谱资产
+ * POST {assetPathPrefix}/asset/page/search
+ *
+ * 响应常用字段（ErpAsset）：
+ *   id                        - 资产ID（表单存储值）
+ *   code                      - 资产编号（下拉框显示标签）
+ *   name                      - 资产名称（下拉框显示标签）
+ *   assetTypeId / assetTypeName - 资产分类ID / 名称
+ *   deptId / deptName         - 使用部门ID / 名称
+ *   userId / userName         - 使用人ID / 名称
+ *   depositAddress            - 存放地点
+ *   originalValue             - 原值（字符串）
+ *   accumulatedDepreciation   - 累计折旧（字符串）
+ *   netValue                  - 净值（字符串）
+ *   usageStatus / usageStatusStr - 使用状态码 / 名称
  */
 export async function searchErpAssets(keyword: string, usageStatus?: string): Promise<ErpAsset[]> {
   const { cid, uid } = getErpDefaults();
@@ -90,6 +104,18 @@ export async function getErpAssetDetail(erpAssetId: number): Promise<ErpAsset | 
 
 /**
  * 获取舟谱资产分类列表
+ * GET {assetPathPrefix}/asset-type/get-all
+ *
+ * 响应常用字段（ErpAssetCategory）：
+ *   id                        - 分类ID
+ *   name                      - 分类名称（如 房屋/建筑物、器具/工具/家具）
+ *   code                      - 分类编码（如 01、03）
+ *   depreciationMethod        - 折旧方法（如 YEARS_AVERAGE_METHOD）
+ *   depreciationMethodName    - 折旧方法名称（如 年限平均法）
+ *   estimatedServiceMonths    - 预计使用月数
+ *   estimatedResidualValueRate - 预计残值率（百分比数值）
+ *   isUsed                    - 是否已被资产引用
+ *   children                  - 子分类（树形结构）
  */
 export async function getErpAssetCategories(): Promise<ErpAssetCategory[]> {
   const { cid, uid } = getErpDefaults();
@@ -109,6 +135,15 @@ export async function getErpAssetCategories(): Promise<ErpAssetCategory[]> {
 
 /**
  * 获取舟谱员工列表
+ * POST /saas/pro/staff/list-staff
+ *
+ * 响应常用字段（ErpStaff）：
+ *   id      - 员工ID（表单存储值）
+ *   name    - 员工姓名（下拉框显示标签）
+ *   deptId  - 部门ID
+ *   deptName - 部门名称
+ *   phone   - 联系电话
+ *   isAdmin - 是否管理员
  */
 export async function getErpStaff(): Promise<ErpStaff[]> {
   const { cid, uid } = getErpDefaults();
@@ -143,6 +178,17 @@ export async function getErpDepartments(): Promise<ErpDepartment[]> {
 
 /**
  * 获取舟谱付款账户列表（树形）
+ * GET /saas/pro/funds-account/list-payment-tree
+ *
+ * 响应常用字段（ErpPaymentAccount）：
+ *   id          - 账户ID（表单存储值）
+ *   name / text - 账户名称（下拉框显示标签，两个字段值相同）
+ *   code        - 账户编码（如 1002）
+ *   pid         - 父账户ID（0=顶级）
+ *   level       - 层级（1=一级，2=二级）
+ *   state       - 状态（NORMAL）
+ *   initAmount  - 期初金额（字符串）
+ *   children    - 子账户（树形结构）
  */
 export async function getErpPaymentAccounts(): Promise<ErpPaymentAccount[]> {
   const { cid, uid } = getErpDefaults();

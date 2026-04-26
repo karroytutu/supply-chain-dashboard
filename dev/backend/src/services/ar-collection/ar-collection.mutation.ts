@@ -4,6 +4,7 @@
  */
 
 import { appQuery as query, getAppClient as getClient } from '../../db/appPool';
+import { query as erpQuery } from '../../db/pool';
 import type {
   TaskStatus,
   ActionType,
@@ -375,6 +376,31 @@ export async function confirmVerify(
 ): Promise<void> {
   const client = await getClient();
   try {
+    // 核销确认通过时，先在事务外检查ERP数据（避免跨库事务持锁）
+    let allErpBillsGone = false;
+    if (params.confirmed) {
+      const detailResult = await query<{ erp_bill_id: string }>(
+        `SELECT erp_bill_id FROM ar_collection_details
+         WHERE task_id = $1 AND erp_bill_id IS NOT NULL`,
+        [taskId]
+      );
+      if (detailResult.rows.length > 0) {
+        try {
+          const billIds = detailResult.rows.map(r => r.erp_bill_id);
+          const placeholders = billIds.map((_, i) => `$${i + 1}`).join(',');
+          const erpResult = await erpQuery<{ billId: string }>(
+            `SELECT "billId" FROM "客户欠款明细"
+             WHERE "leftAmount"::numeric > 0 AND "billId" IN (${placeholders})`,
+            billIds
+          );
+          const existingBillIds = new Set(erpResult.rows.map(r => r.billId));
+          allErpBillsGone = billIds.every(id => !existingBillIds.has(id));
+        } catch (erpErr) {
+          console.error('[CollectionMutation] ERP数据检查失败，按常规核销处理:', erpErr);
+        }
+      }
+    }
+
     await client.query('BEGIN');
 
     const taskResult = await client.query<CollectionTask>(
@@ -388,11 +414,12 @@ export async function confirmVerify(
     }
 
     if (params.confirmed) {
-      // 通过: 更新为已核销
+      // 根据ERP检查结果决定目标状态：所有单据已消失则关闭任务，否则标记为已核销
+      const targetStatus = allErpBillsGone ? 'closed' : 'verified';
       await client.query(
-        `UPDATE ar_collection_tasks SET status = 'verified', updated_at = NOW()
-         WHERE id = $1`,
-        [taskId]
+        `UPDATE ar_collection_tasks SET status = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [targetStatus, taskId]
       );
       await client.query(
         `UPDATE ar_collection_details SET status = 'full_verified'
@@ -416,7 +443,10 @@ export async function confirmVerify(
     await client.query('COMMIT');
 
     const result = params.confirmed ? 'success' : 'failed';
-    await logAction(taskId, params.detail_ids, 'confirm_verify', result, params.remark || null, operatorId, operatorName, operatorRole);
+    const actionRemark = allErpBillsGone
+      ? '核销确认通过，ERP欠款已结清，系统自动关闭任务'
+      : (params.remark || null);
+    await logAction(taskId, params.detail_ids, 'confirm_verify', result, actionRemark, operatorId, operatorName, operatorRole);
 
     // 发送核销结果通知（ActionCard）
     try {
@@ -429,7 +459,10 @@ export async function confirmVerify(
       const submitterIds = submitterResult.rows.map(r => r.processed_by);
 
       if (submitterIds.length > 0) {
-        const actionCard = buildVerifyResultActionCard(task, params.confirmed, operatorName, params.remark);
+        const notifyRemark = allErpBillsGone
+          ? 'ERP欠款已结清，任务已自动关闭'
+          : params.remark;
+        const actionCard = buildVerifyResultActionCard(task, params.confirmed, operatorName, notifyRemark);
         await sendCollectionNotification({
           userIds: submitterIds,
           title: actionCard.title,

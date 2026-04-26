@@ -2,13 +2,19 @@ import React from 'react';
 import { Modal, Input, Select } from 'antd';
 
 const { TextArea } = Input;
-const { Option } = Select;
+
+interface TransferUser {
+  id: number;
+  name: string;
+}
 
 interface ActionModalProps {
   visible: boolean;
   actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | null;
   actionComment: string;
   actionLoading: boolean;
+  /** 转交候选人列表（从后端获取） */
+  transferUsers?: TransferUser[];
   onOk: () => Promise<void>;
   onCancel: () => void;
   onCommentChange: (comment: string) => void;
@@ -27,7 +33,7 @@ const getActionModalTitle = (actionType: string | null) => {
 };
 
 const ActionModal: React.FC<ActionModalProps> = ({
-  visible, actionType, actionComment, actionLoading,
+  visible, actionType, actionComment, actionLoading, transferUsers = [],
   onOk, onCancel, onCommentChange, onTransferUserChange,
 }) => {
   return (
@@ -49,14 +55,9 @@ const ActionModal: React.FC<ActionModalProps> = ({
               placeholder="请选择转交人员"
               onChange={(value) => onTransferUserChange(value)}
               showSearch
-              filterOption={(input, option) =>
-                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              <Option value={1}>张三</Option>
-              <Option value={2}>李四</Option>
-              <Option value={3}>王五</Option>
-            </Select>
+              optionFilterProp="label"
+              options={transferUsers.map((u) => ({ value: u.id, label: u.name }))}
+            />
           </div>
         )}
         <div style={{ marginBottom: 0 }}>

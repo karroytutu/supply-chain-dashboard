@@ -12,10 +12,12 @@ import { oaApprovalApi } from '@/services/api/oa-approval';
 const ErpStatusTag: React.FC<{ status: ErpMeta['status'] }> = ({ status }) => {
   const statusMap: Record<string, { color: string; text: string }> = {
     pending: { color: 'default', text: '待处理' },
+    processing: { color: 'processing', text: 'ERP处理中' },
     paying: { color: 'processing', text: '支付中' },
     purchasing: { color: 'processing', text: '采购中' },
     storing: { color: 'processing', text: '入库中' },
     completed: { color: 'success', text: '已完成' },
+    erp_completed: { color: 'success', text: 'ERP处理完成' },
     erp_failed: { color: 'error', text: 'ERP处理失败' },
   };
   const config = statusMap[status] || { color: 'default', text: status };

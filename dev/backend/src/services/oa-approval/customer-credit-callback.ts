@@ -8,10 +8,12 @@
 import { getUserRolesAndPermissions } from '../auth.service';
 import { erpUpdateMaxDebtDays, erpUpdateMaxDebtOrderNum, erpUploadBusinessLicense } from '../erp-client/erp-credit-update.service';
 import { erpMarkHoldOrders } from '../erp-client/erp-settlement.service';
+import { getCustomerLicenseInfo } from '../erp-client/erp-customer.service';
+import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import type { OaApprovalInstanceRow } from './oa-approval.types';
 
-/** 允许提交客户授信申请的角色 */
-const ALLOWED_ROLES = ['marketer', 'marketing_manager', 'current_accountant'];
+/** 允许提交客户授信申请的角色（admin 可提交所有表单） */
+const ALLOWED_ROLES = ['admin', 'marketer', 'marketing_manager', 'current_accountant'];
 
 /**
  * beforeSubmit: 注入提交者角色到 formData
@@ -29,12 +31,42 @@ export async function beforeSubmitCustomerCredit(
     throw new Error('当前用户无权提交客户授信申请');
   }
 
+  // 安全校验：验证营业执照是否已提供
+  // 防止前端篡改 _hasExistingLicense 绕过必填校验
+  const customerId = Number(formData.customer);
+  if (customerId) {
+    try {
+      const licenseInfo = await getCustomerLicenseInfo(customerId);
+      const hasNewUpload = formData.businessLicensePhotos
+        && Array.isArray(formData.businessLicensePhotos)
+        && formData.businessLicensePhotos.length > 0;
+      // ERP 无执照且本次也未上传 → 拒绝提交
+      if (!licenseInfo.hasLicense && !hasNewUpload) {
+        throw new Error('客户营业执照不能为空');
+      }
+    } catch (error) {
+      // "营业执照不能为空"错误直接抛出
+      if (error instanceof Error && error.message === '客户营业执照不能为空') {
+        throw error;
+      }
+      // ERP 查询失败 — fail-safe：不信任前端 _hasExistingLicense，强制要求上传
+      console.warn('[CustomerCredit] ERP执照查询失败，强制要求上传:', error instanceof Error ? error.message : error);
+      const hasNewUpload = formData.businessLicensePhotos
+        && Array.isArray(formData.businessLicensePhotos)
+        && formData.businessLicensePhotos.length > 0;
+      if (!hasNewUpload) {
+        throw new Error('无法验证客户执照信息，请上传营业执照照片');
+      }
+    }
+  }
+
   // 注入 _submitterRole 到 formData，供条件节点判断
   return { _submitterRole: submitterRole.code };
 }
 
 /**
  * onApproved: 审批通过后调用 ERP API 更新授信信息
+ * 在 ERP 调用前后更新 erp_meta 状态，便于前端追踪和重试
  */
 export async function onApprovedCustomerCredit(
   instance: OaApprovalInstanceRow,
@@ -42,6 +74,10 @@ export async function onApprovedCustomerCredit(
 ): Promise<void> {
   const creditType = formData.creditType as string;
   const customerId = Number(formData.customer);
+  const instanceId = instance.id;
+
+  // 标记 ERP 处理中
+  await updateErpMetaStatus(instanceId, 'processing');
 
   try {
     switch (creditType) {
@@ -73,8 +109,18 @@ export async function onApprovedCustomerCredit(
         await erpUploadBusinessLicense(customerId, photoUrls);
       }
     }
+
+    // 标记 ERP 处理成功
+    await updateErpMetaStatus(instanceId, 'erp_completed');
   } catch (error) {
     console.error('[CustomerCredit] ERP更新失败:', error);
+    // 记录错误到 erp_meta，便于前端展示和重试
+    await markErpFailed(instanceId, {
+      error: error instanceof Error ? error.message : String(error),
+      creditType,
+      customerId,
+      timestamp: new Date().toISOString(),
+    });
     throw error;
   }
 }

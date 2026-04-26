@@ -208,6 +208,8 @@ export interface ApprovalNode {
   nodeType: string;
   assignedUserId: number | null;
   assignedUserName: string | null;
+  /** 审批人头像URL */
+  assignedUserAvatar?: string | null;
   approverName?: string | null;  // Alias for assignedUserName
   status: ApprovalNodeStatus;
   comment: string | null;
@@ -233,6 +235,8 @@ export interface CcUser {
   id: number;
   userId: number;
   userName: string | null;
+  /** 抄送人头像URL */
+  avatar?: string | null;
   readAt: string | null;
 }
 
@@ -247,6 +251,7 @@ export interface ErpMeta {
 
 export interface ApprovalDetail extends ApprovalInstance {
   formData: Record<string, unknown>;
+  formSchema: FormSchema;
   nodes: ApprovalNode[];
   actions: ApprovalAction[];
   ccUsers: CcUser[];

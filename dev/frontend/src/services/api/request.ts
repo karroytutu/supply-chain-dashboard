@@ -120,7 +120,9 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
       handleAuthError(response.status, errorData);
     }
 
-    throw new Error(errorData?.message || `请求失败: ${response.status} ${response.statusText}`);
+    const error = new Error(errorData?.message || `请求失败: ${response.status} ${response.statusText}`);
+    (error as any).status = response.status;
+    throw error;
   }
 
   const result = await response.json();
