@@ -117,7 +117,9 @@ export const cache = new MemoryCache();
 
 // 默认缓存时间常量（毫秒）
 export const CACHE_TTL = {
-  DASHBOARD: 60 * 1000,      // Dashboard 数据缓存 1 分钟
-  WARNING_LIST: 30 * 1000,   // 预警列表缓存 30 秒
+  DASHBOARD: 60 * 1000,          // Dashboard 数据缓存 1 分钟
+  WARNING_LIST: 30 * 1000,       // 预警列表缓存 30 秒
   CATEGORY_STATS: 5 * 60 * 1000, // 品类统计缓存 5 分钟
+  ERP_CUSTOMER_SEARCH: 5 * 60 * 1000, // ERP 客户搜索缓存 5 分钟
+  ERP_CUSTOMER_PROFILE: 5 * 60 * 1000, // ERP 客户资料缓存 5 分钟
 };

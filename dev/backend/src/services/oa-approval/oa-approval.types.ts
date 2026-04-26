@@ -317,7 +317,7 @@ export type Urgency = 'normal' | 'high' | 'urgent';
  */
 export interface ErpMeta {
   /** ERP处理状态 */
-  status: 'pending' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_failed';
+  status: 'pending' | 'processing' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_completed' | 'erp_failed';
   /** ERP返回数据（账单ID、资产ID等） */
   responseData: Record<string, unknown>;
   /** ERP错误信息 */
@@ -363,6 +363,8 @@ export interface OaApprovalNodeRow {
   role_code: string | null;
   assigned_user_id: number | null;
   assigned_user_name: string | null;
+  /** 审批人头像URL（LEFT JOIN users 表获取） */
+  assigned_user_avatar?: string | null;
   status: ApprovalNodeStatus;
   comment: string | null;
   acted_at: Date | null;
@@ -382,6 +384,8 @@ export interface OaApprovalCcRow {
   instance_id: number;
   user_id: number;
   user_name: string | null;
+  /** 抄送人头像URL（LEFT JOIN users 表获取） */
+  avatar?: string | null;
   read_at: Date | null;
   created_at: Date;
 }

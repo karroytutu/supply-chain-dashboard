@@ -16,6 +16,9 @@ import type { ErpCustomerProfile } from './erp-customer.service';
 /**
  * 更新最大欠款天数
  * POST /saas/pro/web/consumer/batch-edit-max-debt-days
+ *
+ * 请求参数：ids=[customerId], maxDebtDays=String(天数)
+ * 对应 ERP 客户字段：maxDebtDays
  */
 export async function erpUpdateMaxDebtDays(customerId: number, maxDebtDays: number): Promise<void> {
   const { cid, uid } = getErpDefaults();
@@ -29,6 +32,9 @@ export async function erpUpdateMaxDebtDays(customerId: number, maxDebtDays: numb
 /**
  * 更新最大欠款单数
  * POST /saas/pro/web/consumer/batch-edit-max-debt-order-num
+ *
+ * 请求参数：ids=[customerId], maxDebtOrderNum=String(单数)
+ * 对应 ERP 客户字段：maxDebtOrderNum
  */
 export async function erpUpdateMaxDebtOrderNum(customerId: number, maxDebtOrderNum: number): Promise<void> {
   const { cid, uid } = getErpDefaults();

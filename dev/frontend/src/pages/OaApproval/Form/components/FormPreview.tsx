@@ -1,5 +1,5 @@
-import React from 'react';
-import { Tag } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Tag, Spin } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
@@ -7,10 +7,14 @@ import {
 } from '@ant-design/icons';
 import type { WorkflowNodeDef } from '@/types/oa-approval';
 import { getRoleDisplayName, humanizeCondition } from '@/utils/oa-approval';
+import { oaApprovalApi, PreviewApprover } from '@/services/api/oa-approval';
+import UserAvatar from '@/components/UserAvatar';
 import styles from '../index.less';
 
 interface FormPreviewProps {
   nodes: WorkflowNodeDef[];
+  /** 表单类型编码，用于预解析审批人 */
+  formTypeCode?: string;
   /** 字段 key → 标签映射，用于条件文本人性化 */
   fieldLabels?: Record<string, string>;
 }
@@ -43,9 +47,35 @@ function getNodeDescription(node: WorkflowNodeDef): string {
 }
 
 /** 流程预览组件 */
-const FormPreview: React.FC<FormPreviewProps> = ({ nodes, fieldLabels }) => {
+const FormPreview: React.FC<FormPreviewProps> = ({ nodes, formTypeCode, fieldLabels }) => {
   const hasConditionalNode = nodes.some((n) => n.condition);
   const config = NODE_TYPE_CONFIG;
+
+  const [approvers, setApprovers] = useState<PreviewApprover[]>([]);
+  const [loadingApprovers, setLoadingApprovers] = useState(false);
+
+  // 预解析审批人
+  useEffect(() => {
+    if (!formTypeCode) return;
+    let cancelled = false;
+    setLoadingApprovers(true);
+    oaApprovalApi.previewApprovers(formTypeCode)
+      .then(res => {
+        if (!cancelled) setApprovers(res.data);
+      })
+      .catch(() => {
+        // 预解析失败不影响流程预览展示
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingApprovers(false);
+      });
+    return () => { cancelled = true; };
+  }, [formTypeCode]);
+
+  /** 根据 nodeOrder 查找预解析的审批人 */
+  const getApprover = (nodeOrder: number): PreviewApprover | undefined => {
+    return approvers.find(a => a.nodeOrder === nodeOrder);
+  };
 
   return (
     <div className={styles.workflowPreview}>
@@ -53,9 +83,11 @@ const FormPreview: React.FC<FormPreviewProps> = ({ nodes, fieldLabels }) => {
         <span>流程</span>
         {hasConditionalNode && <Tag color="blue">含条件节点</Tag>}
       </div>
+      {loadingApprovers && <Spin size="small" style={{ marginBottom: 8 }} />}
       <div className={styles.nodesList}>
         {nodes.map((node, index) => {
           const typeConfig = config[node.type] || config.role;
+          const approver = getApprover(node.order);
           return (
             <div key={node.order} className={styles.nodeItem}>
               <div
@@ -79,6 +111,18 @@ const FormPreview: React.FC<FormPreviewProps> = ({ nodes, fieldLabels }) => {
                     </span>
                   )}
                 </div>
+                {approver && (
+                  <div className={styles.nodeApprover}>
+                    <UserAvatar
+                      size={24}
+                      src={approver.approverAvatar ?? undefined}
+                      name={approver.approverName ?? undefined}
+                    />
+                    <span className={styles.nodeApproverName}>
+                      {approver.approverName || '待分配'}
+                    </span>
+                  </div>
+                )}
               </div>
               {index < nodes.length - 1 && <div className={styles.nodeConnector} />}
             </div>

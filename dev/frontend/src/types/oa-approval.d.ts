@@ -50,7 +50,10 @@ export type FormFieldType =
   | 'erp_department'
   | 'erp_staff'
   | 'erp_payment_account'
-  | 'erp_asset_category';
+  | 'erp_asset_category'
+  // ERP 参考数据字段类型（客户授信审批使用）
+  | 'erp_customer'
+  | 'erp_settlement_order';
 
 export interface FormField {
   key: string;
@@ -85,7 +88,7 @@ export interface FormField {
   /** 条件必填（满足条件时字段变为必填） */
   requiredWhen?: ConditionDef | ConditionDef[];
   /** ERP参考数据API标识 */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
@@ -115,13 +118,14 @@ export interface NodeInputField {
   name: string;
   label: string;
   type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table'
-    | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category';
+    | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category'
+    | 'erp_customer' | 'erp_settlement_order';
   required?: boolean;
   options?: Array<{ label: string; value: unknown }>;
   defaultValue?: unknown;
   readonly?: boolean;
   columns?: NodeInputField[];
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders';
   autoFill?: Record<string, string>;
   cascadeFrom?: string;
   visibleWhen?: ConditionDef | ConditionDef[];
@@ -204,6 +208,8 @@ export interface ApprovalNode {
   nodeType: string;
   assignedUserId: number | null;
   assignedUserName: string | null;
+  /** 审批人头像URL */
+  assignedUserAvatar?: string | null;
   approverName?: string | null;  // Alias for assignedUserName
   status: ApprovalNodeStatus;
   comment: string | null;
@@ -229,12 +235,14 @@ export interface CcUser {
   id: number;
   userId: number;
   userName: string | null;
+  /** 抄送人头像URL */
+  avatar?: string | null;
   readAt: string | null;
 }
 
 /** ERP处理元数据 */
 export interface ErpMeta {
-  status: 'pending' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_failed';
+  status: 'pending' | 'processing' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_completed' | 'erp_failed';
   responseData: Record<string, unknown>;
   requestLog: Record<string, unknown> | null;
   applicationNo: string;
@@ -243,6 +251,7 @@ export interface ErpMeta {
 
 export interface ApprovalDetail extends ApprovalInstance {
   formData: Record<string, unknown>;
+  formSchema: FormSchema;
   nodes: ApprovalNode[];
   actions: ApprovalAction[];
   ccUsers: CcUser[];

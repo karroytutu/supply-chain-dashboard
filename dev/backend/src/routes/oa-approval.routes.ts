@@ -42,6 +42,7 @@ import {
 import {
   // ERP参考数据
   getErpReference,
+  resolveErpReference,
   retryErpOperation,
 } from '../controllers/erp-reference.controller';
 import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
@@ -66,6 +67,23 @@ router.get('/form-types/grouped', requirePermission('oa:approval:read'), listFor
 
 // 获取单个表单类型
 router.get('/form-types/:code', requirePermission('oa:approval:read'), getFormType);
+
+// 预解析审批人（发起审批时预览流程用）
+router.get('/form-types/:code/preview-approvers', requirePermission('oa:approval:read'), async (req: Request, res: Response) => {
+  try {
+    const { code } = req.params;
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      res.status(401).json({ code: 401, message: '未登录' });
+      return;
+    }
+    const { previewApprovers } = await import('../services/oa-approval/oa-approval.query');
+    const result = await previewApprovers(code, userId);
+    res.json({ code: 200, data: result });
+  } catch (error) {
+    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '预解析审批人失败' });
+  }
+});
 
 // =====================================================
 // 审批实例接口
@@ -98,12 +116,37 @@ router.post('/instances/:id/countersign', requirePermission('oa:approval:write')
 // 撤回审批
 router.post('/instances/:id/withdraw', requirePermission('oa:approval:write'), withdraw);
 
+// 获取转交候选人列表
+router.get('/transfer-candidates', requirePermission('oa:approval:write'), async (req: Request, res: Response) => {
+  try {
+    const { appQuery } = await import('../db/appPool');
+    const result = await appQuery(
+      `SELECT DISTINCT u.id, u.name
+       FROM users u
+       WHERE u.status = 1
+         AND u.id IN (
+           SELECT ur.user_id FROM user_roles ur
+           INNER JOIN roles r ON ur.role_id = r.id
+           WHERE r.code IN ('admin', 'manager', 'current_accountant', 'marketing_manager', 'general_manager', 'admin_staff', 'warehouse_manager')
+         )
+       ORDER BY u.name
+       LIMIT 100`
+    );
+    res.json({ code: 200, data: result.rows });
+  } catch (error) {
+    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取转交候选人失败' });
+  }
+});
+
 // =====================================================
 // ERP参考数据接口（供表单控件使用）
 // =====================================================
 
 // 获取ERP参考数据（审批只读用户也需要查看参考数据，read 或 write 任一即可）
 router.get('/erp-reference/:type', requirePermission(['oa:approval:read', 'oa:approval:write']), getErpReference);
+
+// 解析ERP ID→名称（供详情页展示使用）
+router.get('/erp-reference/:type/resolve', requirePermission(['oa:approval:read', 'oa:approval:write']), resolveErpReference);
 
 // 重试失败的ERP操作
 router.post('/instances/:id/retry-erp', requirePermission('oa:approval:write'), retryErpOperation);

@@ -53,6 +53,24 @@ export async function getFormType(code: string): Promise<{ data: FormTypeDefinit
   return { data: res };
 }
 
+/** 预解析审批人结果 */
+export interface PreviewApprover {
+  nodeOrder: number;
+  approverId: number | null;
+  approverName: string | null;
+  approverAvatar: string | null;
+}
+
+/**
+ * 预解析表单类型的审批人（发起审批时预览用）
+ */
+export async function previewApprovers(code: string): Promise<{ data: PreviewApprover[] }> {
+  const res = await request<PreviewApprover[]>(
+    `/oa-approval/form-types/${code}/preview-approvers`
+  );
+  return { data: res };
+}
+
 // =====================================================
 // 审批实例接口
 // =====================================================
@@ -319,6 +337,12 @@ export async function markAllMessagesRead(): Promise<void> {
 
 export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders';
 
+/** ERP ID 解析结果项 */
+export interface ErpResolvedItem {
+  id: number;
+  label: string;
+}
+
 /**
  * 获取ERP参考数据
  * 用于表单中 asset_search、erp_department、erp_customer 等字段类型的数据源
@@ -343,6 +367,26 @@ export async function getErpReference(
 }
 
 /**
+ * 解析 ERP ID → 名称
+ * 用于详情页将存储的 ERP ID 解析为可读标签
+ */
+export async function resolveErpNames(
+  type: ErpReferenceType,
+  ids: number[],
+  extraParams?: Record<string, string>
+): Promise<ErpResolvedItem[]> {
+  const params: Record<string, string> = { ids: ids.join(',') };
+  if (extraParams) {
+    Object.assign(params, extraParams);
+  }
+  const res = await request<ErpResolvedItem[]>(
+    `/oa-approval/erp-reference/${type}/resolve`,
+    { params }
+  );
+  return res;
+}
+
+/**
  * 重试失败的ERP操作
  */
 export async function retryErpOperation(instanceId: number): Promise<void> {
@@ -356,10 +400,17 @@ export async function retryErpOperation(instanceId: number): Promise<void> {
 // 导出 API 对象（供页面使用）
 // =====================================================
 
+/** 获取转交候选人列表 */
+export async function getTransferCandidates(): Promise<Array<{ id: number; name: string }>> {
+  const res = await request<{ id: number; name: string }[]>('/oa-approval/transfer-candidates');
+  return res;
+}
+
 export const oaApprovalApi = {
   getFormTypes,
   getFormTypesGrouped,
   getFormType,
+  previewApprovers,
   getApprovalList,
   getStats,
   getDetail,
@@ -378,5 +429,7 @@ export const oaApprovalApi = {
   markMessageRead,
   markAllMessagesRead,
   getErpReference,
+  resolveErpNames,
   retryErpOperation,
+  getTransferCandidates,
 };

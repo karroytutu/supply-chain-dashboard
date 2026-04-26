@@ -2,7 +2,7 @@
  * 表单填写页面
  */
 import React, { useState, useEffect, useMemo } from 'react';
-import { history, useParams } from 'umi';
+import { history, useParams, useAccess } from 'umi';
 import { Button, Spin, Form, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
@@ -11,10 +11,12 @@ import { useRecentForms } from '../hooks/useRecentForms';
 import FormFieldConfig from './components/FormFieldConfig';
 import ConditionalFieldWrapper, { checkCondition } from './components/ConditionalFieldWrapper';
 import FormPreview from './components/FormPreview';
+import type { CustomerLicenseInfo } from './components/ErpFieldRenderer';
 import styles from './index.less';
 
 const FormPage: React.FC = () => {
   const { typeCode } = useParams<{ typeCode: string }>();
+  const access = useAccess();
   const [form] = Form.useForm();
   const { recordUsage } = useRecentForms();
 
@@ -22,6 +24,18 @@ const FormPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formType, setFormType] = useState<FormTypeDefinition | null>(null);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  /** 客户已有执照信息（从 ERP 搜索结果提取） */
+  const [customerLicenseInfo, setCustomerLicenseInfo] = useState<CustomerLicenseInfo | null>(null);
+
+  /** 客户选中时提取执照信息，同步更新隐藏字段 _hasExistingLicense */
+  const handleCustomerSelect = (licenseInfo: CustomerLicenseInfo | null) => {
+    const licenseValue = licenseInfo?.hasLicense ? 'yes' : 'no';
+    setCustomerLicenseInfo(licenseInfo);
+    // 同步更新 formData 用于前端条件校验
+    setFormData(prev => ({ ...prev, _hasExistingLicense: licenseValue }));
+    // 同步更新 form store，确保提交时包含此字段
+    form.setFieldsValue({ _hasExistingLicense: licenseValue });
+  };
 
   // 加载表单类型
   useEffect(() => {
@@ -78,6 +92,11 @@ const FormPage: React.FC = () => {
       const values = await form.validateFields();
       if (!formType) return;
 
+      // 注入隐藏字段到提交数据（用于后端 requiredWhen 校验）
+      if (formData._hasExistingLicense) {
+        values._hasExistingLicense = formData._hasExistingLicense;
+      }
+
       const title = generateTitle(formType, values);
 
       setSubmitting(true);
@@ -90,7 +109,12 @@ const FormPage: React.FC = () => {
 
       recordUsage(formType);
       message.success('提交成功');
-      history.push(`/oa/detail/${result.data.instanceId}`);
+      // 有详情页权限则跳转详情，否则跳转审批中心
+      if (access['oa:approval:read']) {
+        history.push(`/oa/detail/${result.data.instanceId}`);
+      } else {
+        history.push('/oa/center');
+      }
     } catch (error: any) {
       if (error.errorFields) {
         message.error('请填写必填项');
@@ -137,7 +161,10 @@ const FormPage: React.FC = () => {
                   label={field.label}
                   rules={[{ required: isFieldRequired(field), message: `请输入${field.label}` }]}
                 >
-                  <FormFieldConfig field={field} formData={formData} form={form} />
+                  <FormFieldConfig field={field} formData={formData} form={form}
+                    customerLicenseInfo={customerLicenseInfo}
+                    onCustomerSelect={handleCustomerSelect}
+                  />
                 </Form.Item>
               </ConditionalFieldWrapper>
             ))}
@@ -145,7 +172,7 @@ const FormPage: React.FC = () => {
         </div>
 
         <div className={styles.sidebar}>
-          <FormPreview nodes={formType.workflowDef.nodes} fieldLabels={fieldLabels} />
+          <FormPreview nodes={formType.workflowDef.nodes} formTypeCode={formType.code} fieldLabels={fieldLabels} />
         </div>
       </div>
 

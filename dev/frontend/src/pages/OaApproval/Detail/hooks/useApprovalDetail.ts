@@ -3,16 +3,21 @@ import { message } from 'antd';
 import type { ApprovalDetail, ApprovalNode, ApprovalAction } from '@/types/oa-approval';
 import { oaApprovalApi } from '@/services/api/oa-approval';
 
+/** 详情加载失败类型 */
+export type DetailErrorType = 'forbidden' | 'not_found' | 'server_error' | null;
+
 interface UseApprovalDetailReturn {
   loading: boolean;
   detail: ApprovalDetail | null;
   nodes: ApprovalNode[];
   actions: ApprovalAction[];
+  errorType: DetailErrorType;
   actionLoading: boolean;
   actionModalVisible: boolean;
   actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | null;
   actionComment: string;
   transferUserId: number | null;
+  transferUsers: Array<{ id: number; name: string }>;
   setActionModalVisible: (visible: boolean) => void;
   setActionComment: (comment: string) => void;
   setTransferUserId: (id: number | null) => void;
@@ -22,6 +27,7 @@ interface UseApprovalDetailReturn {
   canOperate: () => boolean;
   canWithdraw: () => boolean;
   getCurrentStep: () => number;
+  loadDetail: () => Promise<void>;
 }
 
 export function useApprovalDetail(id: string | undefined): UseApprovalDetailReturn {
@@ -29,6 +35,7 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
   const [detail, setDetail] = useState<ApprovalDetail | null>(null);
   const [nodes, setNodes] = useState<ApprovalNode[]>([]);
   const [actions, setActions] = useState<ApprovalAction[]>([]);
+  const [errorType, setErrorType] = useState<DetailErrorType>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   // 操作弹窗
@@ -36,22 +43,28 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'transfer' | 'countersign' | null>(null);
   const [actionComment, setActionComment] = useState('');
   const [transferUserId, setTransferUserId] = useState<number | null>(null);
+  const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
 
-  // 加载详情
+  // 加载详情（仅调用 getDetail，响应已包含 nodes/actions/ccUsers）
   const loadDetail = useCallback(async () => {
     if (!id) return;
     setLoading(true);
+    setErrorType(null);
     try {
-      const [detailRes, nodesRes, actionsRes] = await Promise.all([
-        oaApprovalApi.getDetail(parseInt(id)),
-        oaApprovalApi.getNodes(parseInt(id)),
-        oaApprovalApi.getActions(parseInt(id)),
-      ]);
-      setDetail(detailRes.data);
-      setNodes(nodesRes.data);
-      setActions(actionsRes.data);
-    } catch (error) {
-      message.error('加载审批详情失败');
+      const detailRes = await oaApprovalApi.getDetail(parseInt(id));
+      const detailData = detailRes.data;
+      setDetail(detailData);
+      setNodes(detailData.nodes || []);
+      setActions(detailData.actions || []);
+    } catch (error: any) {
+      // 区分错误类型，用于页面展示不同提示
+      if (error?.status === 403) {
+        setErrorType('forbidden');
+      } else if (error?.status === 404) {
+        setErrorType('not_found');
+      } else {
+        setErrorType('server_error');
+      }
     } finally {
       setLoading(false);
     }
@@ -119,6 +132,12 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
   const openActionModal = (type: 'approve' | 'reject' | 'transfer' | 'countersign') => {
     setActionType(type);
     setActionModalVisible(true);
+    // 转交时加载候选人列表
+    if (type === 'transfer') {
+      oaApprovalApi.getTransferCandidates()
+        .then((users) => setTransferUsers(users))
+        .catch(() => setTransferUsers([]));
+    }
   };
 
   // 检查当前用户是否可以操作
@@ -150,11 +169,13 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     detail,
     nodes,
     actions,
+    errorType,
     actionLoading,
     actionModalVisible,
     actionType,
     actionComment,
     transferUserId,
+    transferUsers,
     setActionModalVisible,
     setActionComment,
     setTransferUserId,
@@ -164,5 +185,6 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     canOperate,
     canWithdraw,
     getCurrentStep,
+    loadDetail,
   };
 }

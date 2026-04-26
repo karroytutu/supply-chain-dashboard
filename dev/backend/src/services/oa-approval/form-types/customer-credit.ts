@@ -30,22 +30,22 @@ export const customerCreditFormType: FormTypeDefinition = {
         required: true,
         searchApi: 'erp_customers',
         autoFill: {
-          customerName: 'name',
-          customerCode: 'consumerCode',
+          contactName: 'contactName',
+          contactTel: 'contactTel',
         },
       },
-      // 客户名称（自动填充，只读）
+      // 联系人（自动填充，只读）
       {
-        key: 'customerName',
-        label: '客户名称',
+        key: 'contactName',
+        label: '联系人',
         type: 'text',
         required: false,
         disabled: true,
       },
-      // 客户编码（自动填充，只读）
+      // 联系电话（自动填充，只读）
       {
-        key: 'customerCode',
-        label: '客户编码',
+        key: 'contactTel',
+        label: '联系电话',
         type: 'text',
         required: false,
         disabled: true,
@@ -106,12 +106,13 @@ export const customerCreditFormType: FormTypeDefinition = {
         visibleWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
         requiredWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
       },
-      // 营业执照照片
+      // 营业执照照片（客户已有执照时非必填）
       {
         key: 'businessLicensePhotos',
         label: '客户营业执照',
         type: 'photo',
-        required: true,
+        required: false,
+        requiredWhen: { field: '_hasExistingLicense', operator: '==', value: 'no' },
         maxCount: 3,
       },
       // 备注

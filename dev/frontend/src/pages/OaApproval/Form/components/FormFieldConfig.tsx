@@ -1,9 +1,11 @@
 import React from 'react';
-import { Form, Input, InputNumber, Select, DatePicker, Upload, Button } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { Input, InputNumber, Select, DatePicker, Upload, Button, Image, message } from 'antd';
+import type { UploadFile } from 'antd/es/upload/interface';
+import { UploadOutlined, PaperClipOutlined } from '@ant-design/icons';
+import type { Dayjs } from 'dayjs';
 import type { FormField } from '@/types/oa-approval';
 import { numberToChineseUpper } from '@/utils/number';
-import ErpFieldRenderer from './ErpFieldRenderer';
+import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
 import styles from '../index.less';
 
@@ -20,6 +22,10 @@ interface FormFieldConfigProps {
   value?: unknown;
   /** Form.Item 注入的 onChange（由 Ant Design 表单自动传递） */
   onChange?: (value: unknown) => void;
+  /** 客户已有执照信息 */
+  customerLicenseInfo?: CustomerLicenseInfo | null;
+  /** 客户选中时回调 */
+  onCustomerSelect?: (licenseInfo: CustomerLicenseInfo | null) => void;
 }
 
 /** 判断是否为 ERP 字段类型 */
@@ -28,7 +34,9 @@ function isErpFieldType(type: FormField['type']): boolean {
 }
 
 /** 表单字段渲染组件 */
-const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form, value, onChange }) => {
+const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
+  field, formData, form, value, onChange, customerLicenseInfo, onCustomerSelect,
+}) => {
   const { type, placeholder, required, options, maxLength, maxCount, upper } = field;
 
   // ERP 字段类型统一走 ErpFieldRenderer
@@ -42,6 +50,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
         onChange={onChange}
         cascadeValue={cascadeValue}
         form={form}
+        onCustomerSelect={field.type === 'erp_customer' ? onCustomerSelect : undefined}
       />
     );
   }
@@ -50,6 +59,8 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
     case 'text':
       return (
         <Input
+          value={value as string | undefined}
+          onChange={onChange as React.ChangeEventHandler<HTMLInputElement> | undefined}
           placeholder={placeholder || `请输入${field.label}`}
           maxLength={maxLength}
           showCount={!!maxLength}
@@ -60,6 +71,8 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
     case 'textarea':
       return (
         <TextArea
+          value={value as string | undefined}
+          onChange={onChange as React.ChangeEventHandler<HTMLTextAreaElement> | undefined}
           placeholder={placeholder || `请输入${field.label}`}
           maxLength={maxLength}
           showCount={!!maxLength}
@@ -71,6 +84,8 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
     case 'number':
       return (
         <InputNumber
+          value={value as number | undefined}
+          onChange={onChange as ((value: number | null) => void) | undefined}
           style={{ width: '100%' }}
           placeholder={placeholder || `请输入${field.label}`}
           min={field.min}
@@ -86,12 +101,14 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
       return (
         <div>
           <InputNumber
+            value={value as number | undefined}
+            onChange={onChange as ((value: number | null) => void) | undefined}
             style={{ width: '100%' }}
             placeholder={placeholder || `请输入${field.label}`}
             min={0}
             precision={2}
-            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-            parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as any}
+            formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+            parser={(v) => v!.replace(/\$\s?|(,*)/g, '') as any}
             disabled={field.disabled}
           />
           {upper && amount != null ? (
@@ -105,6 +122,8 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
     case 'select':
       return (
         <Select
+          value={value as string | undefined}
+          onChange={onChange as ((value: string) => void) | undefined}
           placeholder={placeholder || `请选择${field.label}`}
           options={options}
           disabled={field.disabled}
@@ -115,6 +134,8 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
       return (
         <Select
           mode="multiple"
+          value={value as string[] | undefined}
+          onChange={onChange as ((value: string[]) => void) | undefined}
           placeholder={placeholder || `请选择${field.label}`}
           options={options}
           disabled={field.disabled}
@@ -124,6 +145,8 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
     case 'radio':
       return (
         <Select
+          value={value as string | undefined}
+          onChange={onChange as ((value: string) => void) | undefined}
           placeholder={placeholder || `请选择${field.label}`}
           options={options}
           disabled={field.disabled}
@@ -131,10 +154,10 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
       );
 
     case 'date':
-      return <DatePicker style={{ width: '100%' }} placeholder={placeholder || '请选择日期'} disabled={field.disabled} />;
+      return <DatePicker value={value as Dayjs | undefined} onChange={onChange as ((value: Dayjs | null) => void) | undefined} style={{ width: '100%' }} placeholder={placeholder || '请选择日期'} disabled={field.disabled} />;
 
     case 'date-range':
-      return <DatePicker.RangePicker style={{ width: '100%' }} disabled={field.disabled} />;
+      return <DatePicker.RangePicker value={value as [Dayjs, Dayjs] | undefined} onChange={onChange as ((value: [Dayjs | null, Dayjs | null] | null) => void) | undefined} style={{ width: '100%' }} disabled={field.disabled} />;
 
     case 'upload':
       return (
@@ -146,16 +169,51 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({ field, formData, form
 
     case 'photo':
       return (
-        <Upload listType="picture-card" multiple maxCount={maxCount} beforeUpload={() => false}>
-          <div>上传图片</div>
-        </Upload>
+        <div>
+          {/* 客户已有营业执照时显示已有图片 */}
+          {customerLicenseInfo?.hasLicense && customerLicenseInfo.attachedPicUrls.length > 0 && (
+            <div className={styles.existingLicense}>
+              <div className={styles.existingLicenseTip}>
+                <PaperClipOutlined /> 客户档案已有营业执照（{customerLicenseInfo.imageCount} 张），无需重复上传
+              </div>
+              <div className={styles.existingLicenseImages}>
+                {customerLicenseInfo.attachedPicUrls.map((url, idx) => (
+                  <Image
+                    key={idx}
+                    src={url}
+                    className={styles.licenseThumbnail}
+                    width={80}
+                    height={80}
+                    style={{ objectFit: 'cover', borderRadius: 4 }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          <Upload listType="picture-card" accept="image/*" multiple maxCount={maxCount}
+            fileList={(value as UploadFile[]) || []}
+            beforeUpload={(file) => {
+              if (file.size / 1024 / 1024 >= 5) {
+                message.error('图片大小不能超过 5MB');
+                return Upload.LIST_IGNORE;
+              }
+              return false;
+            }}
+            onChange={({ fileList: newList }) => onChange?.(newList)}
+          >
+            <div>上传图片</div>
+          </Upload>
+          {customerLicenseInfo?.hasLicense && (
+            <div className={styles.uploadTip}>如需更新执照，可上传新图片替换</div>
+          )}
+        </div>
       );
 
     case 'table':
       return <TableFieldRenderer field={field} value={value as Record<string, unknown>[] | undefined} onChange={onChange as ((value: Record<string, unknown>[]) => void) | undefined} />;
 
     default:
-      return <Input placeholder={placeholder || `请输入${field.label}`} disabled={field.disabled} />;
+      return <Input value={value as string | undefined} onChange={onChange as React.ChangeEventHandler<HTMLInputElement> | undefined} placeholder={placeholder || `请输入${field.label}`} disabled={field.disabled} />;
   }
 };
 

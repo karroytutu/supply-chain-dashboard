@@ -5,6 +5,11 @@ import { LogoutOutlined, SwapOutlined } from '@ant-design/icons';
 import { getCurrentUser } from '@/services/api/auth';
 import UserAvatar from '@/components/UserAvatar';
 import DevUserSwitcher from '@/components/DevUserSwitcher';
+import ChunkErrorBoundary from '@/components/ChunkErrorBoundary';
+import { initChunkErrorGlobalListener } from '@/utils/chunk-error-handler';
+
+// 在 React 渲染之前注册全局 chunk 加载错误监听
+initChunkErrorGlobalListener();
 
 const TOKEN_KEY = 'auth_token';
 const isDev = process.env.NODE_ENV === 'development';
@@ -14,6 +19,8 @@ interface LayoutInitialState {
   avatar?: string;
   permissions?: string[];
   roles?: string[];
+  /** 认证失败跳转中标记，阻止 access 插件渲染 403 页面 */
+  __authRedirecting?: boolean;
 }
 
 interface LayoutRuntimeConfig {
@@ -106,14 +113,22 @@ function RightAvatar({
  * 获取初始状态，供 layout 插件和 access 插件使用
  * 包含用户基本信息和权限数据
  *
- * 关键：getCurrentUser 失败时不再静默返回空权限状态，
- * 而是区分认证失败（跳转登录）和网络错误（重试一次），
- * 避免页面渲染为"无权限、无用户信息"的异常状态
+ * 认证失败时通过 __authRedirecting 标记阻止 access 插件渲染 403 页面，
+ * 避免在 window.location.href 跳转生效前出现空权限中间态
  */
 export async function getInitialState() {
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
-    return { name: '', avatar: '', permissions: [], roles: [] };
+    // 无令牌时，判断当前是否已在登录相关页面
+    const pathname = window.location.pathname;
+    const isLoginPage = pathname === '/login' || pathname.startsWith('/login/');
+    if (isLoginPage) {
+      // 已在登录页，不需要再次跳转，返回空状态
+      return { name: '', avatar: '', permissions: [], roles: [] };
+    }
+    // 不在登录页，跳转登录页，返回 redirecting 标记阻止 403 渲染
+    window.location.href = '/login';
+    return { name: '', avatar: '', permissions: [], roles: [], __authRedirecting: true };
   }
 
   try {
@@ -125,23 +140,16 @@ export async function getInitialState() {
       roles: user.roles?.map(r => r.code) || [],
     };
   } catch (error: any) {
-    const errMsg = error?.message || '';
-
-    // 认证类错误（token 过期/无效/用户禁用）→ 清除 token，跳转登录页
-    const isAuthError = errMsg.includes('过期')
-      || errMsg.includes('未授权')
-      || errMsg.includes('禁用')
-      || errMsg.includes('401');
-
-    if (isAuthError) {
-      console.warn('[App] 认证失败，跳转登录页:', errMsg);
+    // 基于 HTTP 状态码判断认证错误（替代关键词匹配，更可靠）
+    if (error?.status === 401 || error?.status === 403) {
+      console.warn('[App] 认证失败，跳转登录页:', error?.message);
       localStorage.removeItem(TOKEN_KEY);
       window.location.href = '/login';
-      return { name: '', avatar: '', permissions: [], roles: [] };
+      return { name: '', avatar: '', permissions: [], roles: [], __authRedirecting: true };
     }
 
     // 网络/临时错误 → 重试一次
-    console.warn('[App] 获取用户信息失败，重试中:', errMsg);
+    console.warn('[App] 获取用户信息失败，重试中:', error?.message);
     try {
       const user = await getCurrentUser();
       return {
@@ -154,7 +162,7 @@ export async function getInitialState() {
       console.error('[App] 重试获取用户信息仍失败:', retryError?.message);
       localStorage.removeItem(TOKEN_KEY);
       window.location.href = '/login';
-      return { name: '', avatar: '', permissions: [], roles: [] };
+      return { name: '', avatar: '', permissions: [], roles: [], __authRedirecting: true };
     }
   }
 }
@@ -190,4 +198,12 @@ export const layout = () => ({
 
 export function onRouteChange({ location }: { location: { pathname: string } }) {
   console.log('[App] 路由变化:', location.pathname);
+}
+
+/**
+ * 用 ChunkErrorBoundary 包裹整个应用
+ * 捕获 React.lazy() 动态导入的 chunk 加载失败错误，自动刷新恢复
+ */
+export function rootContainer(container: React.ReactElement): React.ReactElement {
+  return React.createElement(ChunkErrorBoundary, null, container);
 }

@@ -197,27 +197,16 @@ async function handleRemovedDebt(detail: LocalDetail): Promise<void> {
     return;
   }
 
-  // 根据任务状态决定处理方式
-  if (task.status === 'pending_verify' || task.status === 'verified') {
-    // 保持状态，仅记录日志
-    await appQuery(
-      `INSERT INTO ar_collection_actions
-        (task_id, action_type, action_result, remark, operator_name)
-       VALUES ($1, 'erp_auto_closed', 'success', $2, '系统')`,
-      [task.id, `ERP数据已消失，任务状态=${task.status}，保持当前状态`]
-    );
-  } else {
-    // 其他状态: 自动关闭任务
-    await appQuery(
-      `UPDATE ar_collection_tasks SET status = 'closed' WHERE id = $1`,
-      [task.id]
-    );
-    await appQuery(
-      `INSERT INTO ar_collection_actions
-        (task_id, action_type, action_result, remark, operator_name)
-       VALUES ($1, 'erp_auto_closed', 'success', $2, '系统')`,
-      [task.id, `ERP数据已消失，系统自动关闭任务。原状态: ${task.status}`]
-    );
-    console.log(`[ARSync] 自动关闭任务 #${task.id}(${task.consumer_name})，原状态=${task.status}`);
-  }
+  // 自动关闭任务（所有非关闭状态统一处理）
+  await appQuery(
+    `UPDATE ar_collection_tasks SET status = 'closed' WHERE id = $1`,
+    [task.id]
+  );
+  await appQuery(
+    `INSERT INTO ar_collection_actions
+      (task_id, action_type, action_result, remark, operator_name)
+     VALUES ($1, 'erp_auto_closed', 'success', $2, '系统')`,
+    [task.id, `ERP数据已消失，系统自动关闭任务。原状态: ${task.status}`]
+  );
+  console.log(`[ARSync] 自动关闭任务 #${task.id}(${task.consumer_name})，原状态=${task.status}`);
 }

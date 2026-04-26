@@ -56,7 +56,6 @@ const TaskDetailPage: React.FC = () => {
   /** 确认核销直接执行 */
   const { execute: handleConfirmVerify, loading: confirmVerifyLoading } = useConfirmVerify({
     task,
-    onSuccess: refresh,
   });
 
   /** 获取弹窗使用的明细列表(单条操作 or 批量选中) */

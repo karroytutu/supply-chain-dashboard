@@ -1,20 +1,18 @@
 import React from 'react';
-import { Card, Button, Space, Steps, Typography, Popconfirm, Tag } from 'antd';
+import { Card, Button, Space, Typography, Popconfirm, Tag } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   SwapOutlined,
   TeamOutlined,
   RollbackOutlined,
-  UserOutlined,
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import type { ApprovalDetail, ApprovalNode } from '@/types/oa-approval';
-import { formatDateTime } from '@/utils/format';
+import ApprovalFlow from '@/components/OaApproval/ApprovalFlow';
 import ActionModal from './ActionModal';
 import styles from '../index.less';
 
-const { Step } = Steps;
 const { Text } = Typography;
 
 interface ApprovalActionsProps {
@@ -27,6 +25,7 @@ interface ApprovalActionsProps {
   actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | null;
   actionComment: string;
   transferUserId: number | null;
+  transferUsers: Array<{ id: number; name: string }>;
   currentStep: number;
   openActionModal: (type: 'approve' | 'reject' | 'transfer' | 'countersign') => void;
   handleAction: () => Promise<void>;
@@ -40,6 +39,7 @@ interface ApprovalActionsProps {
 const ApprovalActions: React.FC<ApprovalActionsProps> = ({
   detail, nodes, canOperate, canWithdraw,
   actionLoading, actionModalVisible, actionType, actionComment,
+  transferUserId, transferUsers,
   currentStep, openActionModal, handleAction, handleWithdraw,
   setActionModalVisible, setActionComment, setTransferUserId,
 }) => (
@@ -64,28 +64,12 @@ const ApprovalActions: React.FC<ApprovalActionsProps> = ({
     )}
 
     <Card title="审批流程" className={styles.card}>
-      <Steps direction="vertical" current={currentStep} status={detail.status === 'rejected' ? 'error' : 'process'}>
-        {nodes.map((node) => {
-          let s: 'wait' | 'process' | 'finish' | 'error' = 'wait';
-          if (node.status === 'approved') s = 'finish';
-          else if (node.status === 'rejected') s = 'error';
-          else if (node.status === 'pending') s = 'process';
-          return (
-            <Step
-              key={node.id}
-              title={node.nodeName}
-              description={
-                <div className={styles.stepDescription}>
-                  {node.assignedUserName && <Text><UserOutlined /> {node.assignedUserName}</Text>}
-                  {node.actedAt && <Text type="secondary" style={{ marginLeft: 8 }}>{formatDateTime(node.actedAt)}</Text>}
-                  {node.comment && <Text type="secondary" className={styles.stepComment}>{node.comment}</Text>}
-                </div>
-              }
-              status={s}
-            />
-          );
-        })}
-      </Steps>
+      <ApprovalFlow
+        nodes={nodes}
+        ccUsers={detail.ccUsers}
+        currentStep={currentStep}
+        instanceStatus={detail.status}
+      />
     </Card>
 
     {(detail as any).aiRiskCheck && (
@@ -109,6 +93,7 @@ const ApprovalActions: React.FC<ApprovalActionsProps> = ({
       actionType={actionType}
       actionComment={actionComment}
       actionLoading={actionLoading}
+      transferUsers={transferUsers}
       onOk={handleAction}
       onCancel={() => { setActionModalVisible(false); setActionComment(''); setTransferUserId(null); }}
       onCommentChange={setActionComment}

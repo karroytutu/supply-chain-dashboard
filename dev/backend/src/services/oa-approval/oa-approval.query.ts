@@ -15,7 +15,9 @@ import {
   OaFormTypeRow,
   ApprovalStatus,
   Urgency,
+  FormSchema,
 } from './oa-approval.types';
+import { getFormTypeByCode } from './form-types';
 
 // =====================================================
 // 审批列表查询
@@ -284,6 +286,7 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
  */
 export interface ApprovalDetail extends InstanceListItem {
   formData: Record<string, unknown>;
+  formSchema: FormSchema;
   erpMeta: Record<string, unknown> | null;
   nodes: ApprovalNodeDetail[];
   actions: ApprovalActionDetail[];
@@ -297,6 +300,7 @@ export interface ApprovalNodeDetail {
   nodeType: string;
   assignedUserId: number | null;
   assignedUserName: string | null;
+  assignedUserAvatar: string | null;
   status: string;
   comment: string | null;
   actedAt: Date | null;
@@ -318,6 +322,7 @@ export interface CcUserDetail {
   id: number;
   userId: number;
   userName: string | null;
+  avatar: string | null;
   readAt: Date | null;
 }
 
@@ -325,15 +330,16 @@ export interface CcUserDetail {
  * 获取审批详情
  */
 export async function getApprovalDetail(instanceId: number): Promise<ApprovalDetail | null> {
-  // 查询实例基本信息
+  // 查询实例基本信息（LEFT JOIN 防止表单类型停用后无法查看详情）
   const instanceResult = await query<any>(`
-    SELECT 
+    SELECT
       i.*,
       ft.code as form_type_code,
       ft.name as form_type_name,
-      ft.icon as form_type_icon
+      ft.icon as form_type_icon,
+      ft.form_schema as form_schema
     FROM oa_approval_instances i
-    JOIN oa_form_types ft ON i.form_type_id = ft.id
+    LEFT JOIN oa_form_types ft ON i.form_type_id = ft.id
     WHERE i.id = $1
   `, [instanceId]);
 
@@ -343,9 +349,13 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
 
   const instance = instanceResult.rows[0];
 
-  // 查询审批节点
-  const nodesResult = await query<OaApprovalNodeRow>(
-    `SELECT * FROM oa_approval_nodes WHERE instance_id = $1 ORDER BY node_order`,
+  // 查询审批节点（LEFT JOIN users 获取审批人头像）
+  const nodesResult = await query<any>(
+    `SELECT n.*, u.avatar AS assigned_user_avatar
+     FROM oa_approval_nodes n
+     LEFT JOIN users u ON n.assigned_user_id = u.id
+     WHERE n.instance_id = $1
+     ORDER BY n.node_order`,
     [instanceId]
   );
 
@@ -355,18 +365,26 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     [instanceId]
   );
 
-  // 查询抄送人
-  const ccResult = await query<OaApprovalCcRow>(
-    `SELECT * FROM oa_approval_cc WHERE instance_id = $1`,
+  // 查询抄送人（LEFT JOIN users 获取头像）
+  const ccResult = await query<any>(
+    `SELECT c.*, u.avatar
+     FROM oa_approval_cc c
+     LEFT JOIN users u ON c.user_id = u.id
+     WHERE c.instance_id = $1`,
     [instanceId]
   );
+
+  // 表单类型回退：数据库记录优先，缺失时从代码定义补充
+  const codeFallback = instance.form_type_code
+    ? getFormTypeByCode(instance.form_type_code)
+    : undefined;
 
   return {
     id: instance.id,
     instanceNo: instance.instance_no,
     formTypeCode: instance.form_type_code || '',
-    formTypeName: instance.form_type_name || instance.name,
-    formTypeIcon: instance.form_type_icon,
+    formTypeName: instance.form_type_name || codeFallback?.name || '未知表单类型',
+    formTypeIcon: instance.form_type_icon || codeFallback?.icon,
     title: instance.title,
     status: instance.status,
     urgency: instance.urgency,
@@ -378,14 +396,16 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     submittedAt: instance.submitted_at,
     completedAt: instance.completed_at,
     formData: instance.form_data,
+    formSchema: instance.form_schema || codeFallback?.formSchema || { fields: [] },
     erpMeta: instance.erp_meta,
-    nodes: nodesResult.rows.map(n => ({
+    nodes: nodesResult.rows.map((n: any) => ({
       id: n.id,
       nodeOrder: n.node_order,
       nodeName: n.node_name,
       nodeType: n.node_type,
       assignedUserId: n.assigned_user_id,
       assignedUserName: n.assigned_user_name,
+      assignedUserAvatar: n.assigned_user_avatar || null,
       status: n.status,
       comment: n.comment,
       actedAt: n.acted_at,
@@ -401,10 +421,11 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       details: a.details,
       actionAt: a.action_at,
     })),
-    ccUsers: ccResult.rows.map(c => ({
+    ccUsers: ccResult.rows.map((c: any) => ({
       id: c.id,
       userId: c.user_id,
       userName: c.user_name,
+      avatar: c.avatar || null,
       readAt: c.read_at,
     })),
   };
@@ -573,4 +594,59 @@ export async function getDataListAll(
     list: listResult.rows.map(formatInstanceListItem),
     total,
   };
+}
+
+// =====================================================
+// 预解析审批人
+// =====================================================
+
+/** 预解析节点审批人结果 */
+export interface PreviewApprover {
+  nodeOrder: number;
+  approverId: number | null;
+  approverName: string | null;
+  approverAvatar: string | null;
+}
+
+/**
+ * 预解析表单类型的审批人
+ * 根据工作流定义，预先解析每个节点可能的审批人
+ */
+export async function previewApprovers(
+  formTypeCode: string,
+  userId: number
+): Promise<PreviewApprover[]> {
+  const { getFormTypeByCode } = await import('./form-types');
+  const formType = await getFormTypeByCode(formTypeCode);
+  if (!formType) return [];
+
+  const { resolveApproverId } = await import('./oa-approval-utils');
+  const nodes = formType.workflowDef.nodes;
+  const results: PreviewApprover[] = [];
+
+  for (const node of nodes) {
+    const approverId = await resolveApproverId(node, userId);
+    let approverName: string | null = null;
+    let approverAvatar: string | null = null;
+
+    if (approverId) {
+      const userResult = await query<{ name: string; avatar: string | null }>(
+        'SELECT name, avatar FROM users WHERE id = $1',
+        [approverId]
+      );
+      if (userResult.rows.length > 0) {
+        approverName = userResult.rows[0].name;
+        approverAvatar = userResult.rows[0].avatar;
+      }
+    }
+
+    results.push({
+      nodeOrder: node.order,
+      approverId,
+      approverName,
+      approverAvatar,
+    });
+  }
+
+  return results;
 }

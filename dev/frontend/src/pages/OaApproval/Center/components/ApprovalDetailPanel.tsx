@@ -1,13 +1,15 @@
 import React from 'react';
-import { Spin, Empty, Tag, Button, Popconfirm } from 'antd';
+import { Spin, Empty, Tag, Button, Popconfirm, Tooltip } from 'antd';
 import {
-  UserOutlined,
-  RollbackOutlined,
+  SwapOutlined,
   TeamOutlined,
   MessageOutlined,
 } from '@ant-design/icons';
 import type { ApprovalDetail, ViewMode } from '@/types/oa-approval';
 import { STATUS_LABELS, STATUS_COLORS, URGENCY_LABELS, URGENCY_COLORS } from '@/types/oa-approval';
+import ApprovalFlow from '@/components/OaApproval/ApprovalFlow';
+import FieldRenderer from '../../Detail/components/FormFieldRenderer';
+import { checkCondition } from '../../Form/components/ConditionalFieldWrapper';
 import styles from '../index.less';
 
 interface ApprovalDetailPanelProps {
@@ -17,6 +19,7 @@ interface ApprovalDetailPanelProps {
   onApprove: () => void;
   onReject: () => void;
   onWithdraw: () => void;
+  onTransfer: () => void;
 }
 
 /** 渲染状态标签 */
@@ -37,7 +40,7 @@ const renderUrgencyTag = (urgency: string) => {
 };
 
 const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
-  detailLoading, detail, viewMode, onApprove, onReject, onWithdraw,
+  detailLoading, detail, viewMode, onApprove, onReject, onWithdraw, onTransfer,
 }) => {
   if (detailLoading) {
     return (
@@ -55,6 +58,9 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
     );
   }
 
+  // 计算当前步骤索引
+  const currentStep = detail.nodes.findIndex(n => n.status === 'pending');
+
   return (
     <div className={styles.detailPanel}>
       {/* 头部信息 */}
@@ -71,59 +77,52 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
         </div>
       </div>
 
-      {/* AI风险检查占位 */}
-      <div className={styles.aiRiskCard}>
-        <span className={styles.aiIcon}>🤖</span>
-        <span>AI风险检查: 低风险</span>
-        <Button type="link">详情</Button>
-      </div>
-
       {/* 表单数据 */}
       <div className={styles.formDataSection}>
         <h3>表单数据</h3>
         <div className={styles.formDataList}>
-          {Object.entries(detail.formData).map(([key, value]) => (
-            <div key={key} className={styles.formDataRow}>
-              <span className={styles.formLabel}>{key}</span>
-              <span className={styles.formValue}>{String(value)}</span>
-            </div>
-          ))}
+          {detail.formSchema?.fields?.map((field) => {
+            const value = detail.formData[field.key];
+            // 条件显示：不满足条件时隐藏字段
+            if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) {
+              return null;
+            }
+            // 跳过内部字段（以下划线开头）
+            if (field.key.startsWith('_')) return null;
+            return (
+              <div key={field.key} className={styles.formDataRow}>
+                <span className={styles.formLabel}>{field.label}</span>
+                <span className={styles.formValue}>
+                  <FieldRenderer field={field} value={value} formData={detail.formData} />
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* 流程时间线 */}
-      <div className={styles.timelineSection}>
-        <h3>流程时间线</h3>
-        <div className={styles.timeline}>
-          {detail.nodes.map((node) => (
-            <div key={node.id} className={styles.timelineItem}>
-              <div className={`${styles.timelineDot} ${styles[`timelineDot_${node.status}`]}`}>
-                {node.status === 'approved' && '✓'}
-                {node.status === 'rejected' && '✗'}
-                {node.status === 'pending' && '○'}
-              </div>
-              <div className={styles.timelineContent}>
-                <div className={styles.timelineTitle}>{node.nodeName}</div>
-                <div className={styles.timelineInfo}>
-                  {node.assignedUserName || '待分配'}
-                  {node.status === 'approved' && <Tag color="green" style={{ marginLeft: 8 }}>已通过</Tag>}
-                  {node.status === 'rejected' && <Tag color="red" style={{ marginLeft: 8 }}>已拒绝</Tag>}
-                </div>
-                {node.comment && <div className={styles.timelineComment}>意见: {node.comment}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* 审批流程 */}
+      <div className={styles.flowSection}>
+        <h3>审批流程</h3>
+        <ApprovalFlow
+          nodes={detail.nodes}
+          ccUsers={detail.ccUsers}
+          currentStep={currentStep}
+          instanceStatus={detail.status}
+        />
       </div>
 
       {/* 操作区 */}
       {viewMode === 'pending' && detail.status === 'pending' && (
         <div className={styles.actionBar}>
           <div className={styles.actionLeft}>
-            <Button icon={<UserOutlined />}>转交</Button>
-            <Button icon={<RollbackOutlined />}>退回</Button>
-            <Button icon={<TeamOutlined />}>加签</Button>
-            <Button icon={<MessageOutlined />}>评论</Button>
+            <Button icon={<SwapOutlined />} onClick={onTransfer}>转交</Button>
+            <Tooltip title="功能开发中">
+              <Button icon={<TeamOutlined />} disabled>加签</Button>
+            </Tooltip>
+            <Tooltip title="功能开发中">
+              <Button icon={<MessageOutlined />} disabled>评论</Button>
+            </Tooltip>
           </div>
           <div className={styles.actionRight}>
             <Button danger onClick={onReject}>拒绝</Button>

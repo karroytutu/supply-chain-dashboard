@@ -75,7 +75,7 @@ export async function dingtalkCallback(authCode: string, state?: string): Promis
  * 获取当前用户信息
  */
 export async function getCurrentUser(): Promise<UserInfo> {
-  return request.get('/auth/me');
+  return request.get('/auth/me', { skipErrorHandler: true });
 }
 
 /**
