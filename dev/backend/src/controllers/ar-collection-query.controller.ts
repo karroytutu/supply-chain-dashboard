@@ -19,14 +19,15 @@ import {
 } from '../services/ar-collection';
 import { getAssessmentsByTaskId } from '../services/ar-assessment';
 import { STATUS_NAMES, ROLE_NAMES } from '../services/ar-assessment/ar-assessment.types';
+import type { CollectionActionDTO } from '../services/ar-collection/ar-collection.dto';
 import type { TaskStatus, Priority, EscalationLevel } from '../services/ar-collection/ar-collection.types';
 import type { WarningLevel } from '../services/ar-collection/ar-warning.query';
 import {
-  transformTask,
-  transformDetail,
-  transformAction,
-  transformLegalProgress,
-} from '../services/ar-collection/ar-collection.utils';
+  toTaskDTO,
+  toDetailDTO,
+  toActionDTO,
+  toLegalProgressDTO,
+} from '../services/ar-collection/ar-collection.mapper';
 
 /** 获取催收统计概览 */
 export const getStats = async (req: Request, res: Response) => {
@@ -68,7 +69,7 @@ export const getTasks = async (req: Request, res: Response) => {
     // 转换字段名
     const data = {
       ...result,
-      data: result.data.map(transformTask),
+      data: result.data.map(toTaskDTO),
     };
     res.json({ code: 200, message: 'success', data });
   } catch (error) {
@@ -92,7 +93,7 @@ export const getTaskById = async (req: Request, res: Response) => {
       res.status(404).json({ code: 404, message: '任务不存在' });
       return;
     }
-    res.json({ code: 200, message: 'success', data: transformTask(result) });
+    res.json({ code: 200, message: 'success', data: toTaskDTO(result) });
   } catch (error) {
     console.error('[ArCollectionController] getTaskById 失败:', error);
     res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取任务详情失败' });
@@ -108,7 +109,7 @@ export const getTaskDetails = async (req: Request, res: Response) => {
       return;
     }
     const result = await getTaskDetailsService(taskId);
-    res.json({ code: 200, message: 'success', data: result.map(transformDetail) });
+    res.json({ code: 200, message: 'success', data: result.map(toDetailDTO) });
   } catch (error) {
     console.error('[ArCollectionController] getTaskDetails 失败:', error);
     res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取任务明细失败' });
@@ -128,8 +129,8 @@ export const getTaskActions = async (req: Request, res: Response) => {
       getTaskActionsService(taskId),
       getAssessmentsByTaskId(taskId),
     ]);
-    // 转换操作记录
-    const actionItems = actions.map(transformAction);
+    // 转换操作记录，过滤 null（toActionDTO 可能返回 null）
+    const actionItems = actions.map(toActionDTO).filter((x): x is CollectionActionDTO => x !== null);
     // 将考核记录转换为操作记录格式
     const assessmentItems = assessments.map((record) => ({
       id: 1000000 + record.id,
@@ -165,7 +166,7 @@ export const getLegalProgress = async (req: Request, res: Response) => {
       return;
     }
     const result = await getLegalProgressService(taskId);
-    res.json({ code: 200, message: 'success', data: result.map(transformLegalProgress) });
+    res.json({ code: 200, message: 'success', data: result.map(toLegalProgressDTO) });
   } catch (error) {
     console.error('[ArCollectionController] getLegalProgress 失败:', error);
     res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取法律进展失败' });

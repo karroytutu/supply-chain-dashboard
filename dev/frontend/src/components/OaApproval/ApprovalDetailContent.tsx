@@ -6,6 +6,7 @@ import {
 } from '@ant-design/icons';
 import type { ApprovalDetail } from '@/types/oa-approval';
 import { ApprovalStatusTag, UrgencyTag, ApprovalFlow, FormFieldRenderer } from '@/components/OaApproval';
+import { useErpFieldResolve } from './hooks/useErpFieldResolve';
 import ActionModal from './ActionModal';
 import { checkCondition } from '@/pages/OaApproval/Form/components/ConditionalFieldWrapper';
 import { oaApprovalApi } from '@/services/api/oa-approval';
@@ -47,6 +48,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   const [actionComment, setActionComment] = useState('');
   const [transferUserId, setTransferUserId] = useState<number | null>(null);
   const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
+  const { resolvedMap } = useErpFieldResolve(detail?.formSchema, detail?.formData);
 
   /** 打开操作弹窗 */
   const openActionModal = useCallback((type: 'approve' | 'reject' | 'transfer') => {
@@ -147,7 +149,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
               <div key={field.key} className={styles.formDataRow}>
                 <span className={styles.formLabel}>{field.label}</span>
                 <span className={styles.formValue}>
-                  <FormFieldRenderer field={field} value={value} formData={detail.formData} />
+                  <FormFieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} />
                 </span>
               </div>
             );

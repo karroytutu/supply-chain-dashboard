@@ -94,7 +94,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
 
   useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
 
-  /** 选中后处理 autoFill + 执照信息提取 */
+  /** 选中后处理 autoFill + nameField + 执照信息提取 */
   const handleChange = useCallback(
     (selectedValue: unknown) => {
       onChange?.(selectedValue);
@@ -109,6 +109,10 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
           }
           form.setFieldsValue(fillValues);
         }
+        // nameField 写入：将选中项的显示名称存入 formData
+        if (field.nameField && form) {
+          form.setFieldsValue({ [field.nameField]: selectedOption.label });
+        }
         // 客户选中时提取执照信息
         if (field.type === 'erp_customer' && onCustomerSelect) {
           const ext = (raw.ext as Record<string, unknown>) || {};
@@ -121,11 +125,14 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
           });
         }
       } else if (field.type === 'erp_customer' && onCustomerSelect) {
-        // 清空选择时重置执照信息
+        // 清空选择时重置执照信息和 nameField
         onCustomerSelect(null);
+        if (field.nameField && form) {
+          form.setFieldsValue({ [field.nameField]: '' });
+        }
       }
     },
-    [onChange, field.autoFill, field.type, form, options, onCustomerSelect]
+    [onChange, field.autoFill, field.nameField, field.type, form, options, onCustomerSelect]
   );
 
   const isDisabled = !!(field.cascadeFrom && cascadeValue === undefined);
@@ -146,7 +153,17 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
   if (erpType === 'settlement-orders' && field.multiple) {
     return (
       <SettlementOrderPicker options={options} value={(value as number[]) || []}
-        onChange={(ids) => onChange?.(ids)} loading={loading} disabled={isDisabled}
+        onChange={(ids) => {
+          onChange?.(ids);
+          // 写入 nameField：将选中项的 label 拼接后存入
+          if (field.nameField && form) {
+            const selectedLabels = options
+              .filter(opt => ids.includes(opt.value as number))
+              .map(opt => opt.label);
+            form.setFieldsValue({ [field.nameField]: selectedLabels.join(', ') });
+          }
+        }}
+        loading={loading} disabled={isDisabled}
       />
     );
   }

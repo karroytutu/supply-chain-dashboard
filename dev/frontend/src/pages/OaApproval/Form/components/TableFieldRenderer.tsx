@@ -3,10 +3,17 @@
  * 支持动态增删行，每行按 children 定义渲染子字段
  */
 import React, { useCallback } from 'react';
-import { Button, Input, InputNumber, Select, DatePicker, Table, Space, Popconfirm } from 'antd';
+import { Button, Input, InputNumber, Select, DatePicker, Table, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { FormField } from '@/types/oa-approval';
+import ErpFieldRenderer from './ErpFieldRenderer';
+
+/** ERP 字段类型集合 */
+const ERP_FIELD_TYPES = new Set([
+  'asset_search', 'erp_department', 'erp_staff',
+  'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order',
+]);
 
 interface TableFieldRendererProps {
   field: FormField;
@@ -19,7 +26,31 @@ const CellInput: React.FC<{
   childField: FormField;
   value: unknown;
   onChange: (val: unknown) => void;
-}> = ({ childField, value, onChange }) => {
+  /** 同行数据，用于 ERP 级联和 nameField 写入 */
+  rowData: Record<string, unknown>;
+  /** 更新同行多个字段（nameField + autoFill 写入用） */
+  onRowUpdate: (updates: Record<string, unknown>) => void;
+}> = ({ childField, value, onChange, rowData, onRowUpdate }) => {
+  // ERP 字段类型：使用 ErpFieldRenderer
+  if (ERP_FIELD_TYPES.has(childField.type)) {
+    const cascadeValue = childField.cascadeFrom ? rowData[childField.cascadeFrom] : undefined;
+    return (
+      <ErpFieldRenderer
+        field={childField}
+        value={value}
+        onChange={onChange}
+        cascadeValue={cascadeValue}
+        form={{
+          setFieldsValue: (values) => {
+            // nameField 写入 + autoFill 写入：更新到同行数据
+            onRowUpdate(values);
+          },
+          getFieldValue: (name: string) => rowData[name],
+        }}
+      />
+    );
+  }
+
   switch (childField.type) {
     case 'number':
     case 'money':
@@ -102,6 +133,13 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
     onChange?.(newValue);
   }, [value, onChange]);
 
+  /** 更新同行多个字段（ERP 字段 nameField + autoFill 写入） */
+  const handleRowUpdate = useCallback((rowIndex: number, updates: Record<string, unknown>) => {
+    const newValue = [...value];
+    newValue[rowIndex] = { ...newValue[rowIndex], ...updates };
+    onChange?.(newValue);
+  }, [value, onChange]);
+
   const tableColumns = [
     ...columns.map((col) => ({
       title: col.label + (col.required ? ' *' : ''),
@@ -113,6 +151,8 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
           childField={col}
           value={record[col.key]}
           onChange={(v) => handleCellChange(rowIndex, col.key, v)}
+          rowData={record}
+          onRowUpdate={(updates) => handleRowUpdate(rowIndex, updates)}
         />
       ),
     })),

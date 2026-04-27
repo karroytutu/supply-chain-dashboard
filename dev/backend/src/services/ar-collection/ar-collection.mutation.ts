@@ -5,6 +5,8 @@
 
 import { appQuery as query, getAppClient as getClient } from '../../db/appPool';
 import { query as erpQuery } from '../../db/pool';
+import { AR_EXTENSION_MAX_DAYS } from '../../utils/constants';
+import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
 import type {
   TaskStatus,
   ActionType,
@@ -133,6 +135,8 @@ export async function submitVerify(
     );
 
     await client.query('COMMIT');
+    invalidateTaskCache(taskId);
+    invalidateStatsCache();
 
     // 记录操作日志
     await logAction(taskId, detailIds, 'verify', 'success', params.remark || null, operatorId, operatorName, operatorRole);
@@ -170,8 +174,8 @@ export async function applyExtension(
     if (!task.can_extend) {
       throw new Error('该任务已使用过延期机会，不可再次延期');
     }
-    if (params.extension_days > 30) {
-      throw new Error('延期天数不得超过30天');
+    if (params.extension_days > AR_EXTENSION_MAX_DAYS) {
+      throw new Error(`延期天数不得超过${AR_EXTENSION_MAX_DAYS}天`);
     }
 
     // 创建延期记录
@@ -219,6 +223,8 @@ export async function applyExtension(
     }
 
     await client.query('COMMIT');
+    invalidateTaskCache(taskId);
+    invalidateStatsCache();
 
     await logAction(taskId, params.detail_ids, 'extension', 'success', params.remark || null, operatorId, operatorName, operatorRole);
   } catch (err) {
@@ -264,6 +270,8 @@ export async function markDifference(
     }
 
     await client.query('COMMIT');
+    invalidateTaskCache(taskId);
+    invalidateStatsCache();
 
     await logAction(taskId, params.detail_ids, 'difference', 'success', params.remark, operatorId, operatorName, operatorRole);
   } catch (err) {
@@ -333,6 +341,8 @@ export async function escalateTask(
     }
 
     await client.query('COMMIT');
+    invalidateTaskCache(taskId);
+    invalidateStatsCache();
 
     await logAction(taskId, params.detail_ids, 'escalate', 'success', params.reason, operatorId, operatorName, operatorRole);
 
@@ -441,6 +451,8 @@ export async function confirmVerify(
     }
 
     await client.query('COMMIT');
+    invalidateTaskCache(taskId);
+    invalidateStatsCache();
 
     const result = params.confirmed ? 'success' : 'failed';
     const actionRemark = allErpBillsGone
@@ -522,6 +534,8 @@ export async function resolveDifference(
     );
 
     await client.query('COMMIT');
+    invalidateTaskCache(taskId);
+    invalidateStatsCache();
 
     await logAction(taskId, params.detail_ids, 'resolve_difference', 'success', params.remark, operatorId, operatorName, operatorRole);
   } catch (err) {

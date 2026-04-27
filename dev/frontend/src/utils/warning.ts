@@ -11,6 +11,10 @@ export interface WarningConfig {
 }
 
 // 临期预警配置
+// ⚠️ 此处 threshold 值必须与后端 constants.ts 中的常量保持一致：
+//   serious.threshold (7)   ↔ EXPIRING_SERIOUS_DAYS
+//   warning.threshold (15)  ↔ EXPIRING_WARNING_DAYS
+//   attention.threshold (30) ↔ AR_EXTENSION_MAX_DAYS
 export const EXPIRING_WARNING_CONFIG: Record<WarningLevel, WarningConfig> = {
   serious: {
     level: 'serious',
@@ -47,6 +51,10 @@ export const EXPIRING_WARNING_CONFIG: Record<WarningLevel, WarningConfig> = {
 };
 
 // 滞销预警配置
+// ⚠️ 此处 threshold 值必须与后端常量保持一致：
+//   serious.threshold (90)  ↔ SLOW_MOVING_SERIOUS_DAYS
+//   warning.threshold (60)  ↔ SLOW_MOVING_WARNING_DAYS
+//   attention.threshold (30) ↔ SLOW_MOVING_ATTENTION_DAYS
 export const SLOW_MOVING_WARNING_CONFIG: Record<WarningLevel, WarningConfig> = {
   serious: {
     level: 'serious',

@@ -42,7 +42,7 @@ const ApprovalNav: React.FC<ApprovalNavProps> = ({ viewMode, stats, onNavClick }
           <span className={styles.navIcon}>{item.icon}</span>
           <span className={styles.navLabel}>{item.label}</span>
           {item.badgeType === 'number' && item.count && item.count > 0 && (
-            <Badge count={item.count} style={{ backgroundColor: '#fa8c16' }} />
+            <Badge count={item.count} size="small" style={{ backgroundColor: '#fa8c16' }} />
           )}
           {item.badgeType === 'dot' && item.count && item.count > 0 && (
             <Badge dot style={{ backgroundColor: '#f5222d' }} />

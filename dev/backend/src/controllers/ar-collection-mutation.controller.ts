@@ -18,6 +18,12 @@ import {
 } from '../services/ar-collection';
 import { getFileUrl } from '../middleware/upload';
 import { handleMutationError } from '../utils/response';
+import {
+  fromExtensionDTO,
+  fromDifferenceDTO,
+  fromEscalateDTO,
+  fromResolveDifferenceDTO,
+} from '../services/ar-collection/ar-collection.mapper';
 
 /** 核销回款申请 */
 export const submitVerify = async (req: Request, res: Response) => {
@@ -46,18 +52,7 @@ export const applyExtension = async (req: Request, res: Response) => {
     }
     const { userId: operatorId, name: operatorName, roles } = req.user!;
     const operatorRole = roles?.[0] || 'viewer';
-    // 前端传 camelCase，后端 service 期望 snake_case，在此做映射
-    const { extensionDays, detailIds, evidenceFileId, signatureData, reason } = req.body;
-    await applyExtensionService(taskId, {
-      task_id: taskId,
-      detail_ids: detailIds,
-      extension_days: extensionDays,
-      evidence_file_id: evidenceFileId,
-      signature_url: signatureData,
-      remark: reason,
-      operator_id: operatorId,
-      operator_name: operatorName,
-    }, operatorId, operatorName, operatorRole);
+    await applyExtensionService(taskId, fromExtensionDTO(req.body, taskId, operatorId, operatorName), operatorId, operatorName, operatorRole);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '延期申请失败');
@@ -74,14 +69,7 @@ export const markDifference = async (req: Request, res: Response) => {
     }
     const { userId: operatorId, name: operatorName, roles } = req.user!;
     const operatorRole = roles?.[0] || 'viewer';
-    // 前端传 camelCase，后端 service 期望 snake_case，在此做映射
-    await markDifferenceService(taskId, {
-      task_id: taskId,
-      detail_ids: req.body.detailIds,
-      remark: req.body.remark,
-      operator_id: operatorId,
-      operator_name: operatorName,
-    }, operatorId, operatorName, operatorRole);
+    await markDifferenceService(taskId, fromDifferenceDTO(req.body, taskId, operatorId, operatorName), operatorId, operatorName, operatorRole);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '标记差异失败');
@@ -98,14 +86,7 @@ export const escalateTask = async (req: Request, res: Response) => {
     }
     const { userId: operatorId, name: operatorName, roles } = req.user!;
     const operatorRole = roles?.[0] || 'viewer';
-    // 前端传 camelCase，后端 service 期望 snake_case，在此做映射
-    await escalateTaskService(taskId, {
-      task_id: taskId,
-      detail_ids: [],
-      reason: req.body.reason,
-      operator_id: operatorId,
-      operator_name: operatorName,
-    }, operatorId, operatorName, operatorRole);
+    await escalateTaskService(taskId, fromEscalateDTO(req.body, taskId, operatorId, operatorName), operatorId, operatorName, operatorRole);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '升级处理失败');
@@ -143,14 +124,7 @@ export const resolveDifference = async (req: Request, res: Response) => {
     }
     const { userId: operatorId, name: operatorName, roles } = req.user!;
     const operatorRole = roles?.[0] || 'viewer';
-    // 前端传 camelCase，后端 service 期望 snake_case，在此做映射
-    await resolveDifferenceService(taskId, {
-      task_id: taskId,
-      detail_ids: req.body.detailIds,
-      remark: req.body.remark,
-      operator_id: operatorId,
-      operator_name: operatorName,
-    }, operatorId, operatorName, operatorRole);
+    await resolveDifferenceService(taskId, fromResolveDifferenceDTO(req.body, taskId, operatorId, operatorName), operatorId, operatorName, operatorRole);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '差异解决失败');

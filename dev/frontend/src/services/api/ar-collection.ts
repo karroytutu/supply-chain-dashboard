@@ -35,25 +35,12 @@ export const getCollectionStats = (): Promise<CollectionStats> => {
 
 /**
  * 获取催收任务列表(分页)
- * 将前端 camelCase 参数映射为后端 snake_case 格式
+ * GET 参数由 request.ts 拦截器自动将 camelCase 转为 snake_case
  */
 export const getCollectionTasks = (
   params?: CollectionTaskQueryParams
 ): Promise<PaginatedResult<CollectionTask>> => {
-  const queryParams: Record<string, any> = {};
-  if (params) {
-    if (params.page !== undefined) queryParams.page = params.page;
-    if (params.pageSize !== undefined) queryParams.page_size = params.pageSize;
-    if (params.keyword) queryParams.keyword = params.keyword;
-    if (params.status) queryParams.status = params.status;
-    if (params.priority) queryParams.priority = params.priority;
-    if (params.handlerId) queryParams.handlerId = params.handlerId;
-    if (params.startDate) queryParams.startDate = params.startDate;
-    if (params.endDate) queryParams.endDate = params.endDate;
-    if (params.tab) queryParams.tab = params.tab;
-    if (params.escalationLevel !== undefined) queryParams.escalationLevel = params.escalationLevel;
-  }
-  return request.get<PaginatedResult<CollectionTask>>('/ar-collection/tasks', { params: queryParams });
+  return request.get<PaginatedResult<CollectionTask>>('/ar-collection/tasks', { params });
 };
 
 /**

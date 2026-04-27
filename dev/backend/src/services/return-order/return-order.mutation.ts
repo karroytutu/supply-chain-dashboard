@@ -1,10 +1,11 @@
 /**
  * 退货单变更服务
+ * 业务逻辑层，委托 Repository 执行数据访问，写入后自动失效缓存
  */
 
-import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
-import { mapRowToReturnOrder, recordAction, type ReturnOrderRow } from './return-order-utils';
+import * as repo from './return-order.repository';
+import { toReturnOrderDTO } from './return-order.mapper';
 import {
   notifyPendingErpFill,
   notifyPendingMarketingSale,
@@ -31,44 +32,13 @@ import type {
 export async function createReturnOrder(
   params: CreateReturnOrderParams
 ): Promise<ReturnOrder> {
-  const {
-    returnNo, goodsId, goodsName, quantity, unit,
-    batchDate, returnDate, expireDate, shelfLife, daysToExpire, daysToExpireAtReturn,
-    sourceBillNo, consumerName, marketingManager, status, purchasePrice,
-  } = params;
-
-  // 如果未传入status，使用默认值 'pending_confirm'
-  const orderStatus = status || 'pending_confirm';
-
-  // daysToExpireAtReturn 默认使用 daysToExpire 的值
-  const daysAtReturn = daysToExpireAtReturn ?? daysToExpire;
-
-  const result = await appQuery<ReturnOrderRow>(
-    `INSERT INTO expiring_return_orders 
-     (return_no, goods_id, goods_name, quantity, unit, batch_date, return_date,
-      expire_date, shelf_life, days_to_expire, days_to_expire_at_return, source_bill_no, 
-      consumer_name, marketing_manager, status, purchase_price)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-     RETURNING *`,
-    [
-      returnNo, goodsId, goodsName, quantity, unit || null,
-      batchDate || null, returnDate || null, expireDate || null,
-      shelfLife || null, daysToExpire ?? null, daysAtReturn ?? null,
-      sourceBillNo || null, consumerName || null, marketingManager || null,
-      orderStatus, purchasePrice || null,
-    ]
-  );
-
-  const row = result.rows[0];
+  const row = await repo.createOrder(params);
 
   // 记录创建操作
-  await appQuery(
-    `INSERT INTO expiring_return_actions (order_id, action_type, action_at)
-     VALUES ($1, 'create', NOW())`,
-    [row.id]
-  );
+  await repo.recordCreateAction(row.id);
 
-  return mapRowToReturnOrder(row);
+  repo.invalidateOrderCache(row.id);
+  return toReturnOrderDTO(row);
 }
 
 /**
@@ -80,33 +50,21 @@ export async function updateReturnOrderStatus(
   const { id, status, operatorId, operatorName, comment } = params;
 
   // 获取当前状态用于记录
-  const currentResult = await appQuery<{ status: string }>(
-    'SELECT status FROM expiring_return_orders WHERE id = $1',
-    [id]
-  );
-
-  if (currentResult.rows.length === 0) return null;
-
-  const previousStatus = currentResult.rows[0].status;
+  const previousStatus = await repo.getOrderStatus(id);
+  if (!previousStatus) return null;
 
   // 更新状态
-  const result = await appQuery<ReturnOrderRow>(
-    `UPDATE expiring_return_orders 
-     SET status = $1, updated_at = NOW()
-     WHERE id = $2
-     RETURNING *`,
-    [status, id]
-  );
-
-  if (result.rows.length === 0) return null;
+  const row = await repo.updateStatus(id, status);
+  if (!row) return null;
 
   // 记录操作日志
-  await recordAction(id, 'confirm_rule', operatorId, operatorName, comment, {
+  await repo.recordAction(id, 'confirm_rule', operatorId, operatorName, comment, {
     previousStatus,
     newStatus: status,
   });
 
-  return mapRowToReturnOrder(result.rows[0]);
+  repo.invalidateOrderCache(id);
+  return toReturnOrderDTO(row);
 }
 
 /**
@@ -122,19 +80,11 @@ export async function batchConfirmReturnOrders(
     return { successCount: 0, failedCount: 0 };
   }
 
-  // 根据规则决定新状态
   const newStatus: ReturnOrderStatus =
     ruleDecision === 'can_return' ? 'pending_erp_fill' : 'pending_marketing_sale';
 
-  // 批量更新状态，同时记录确认时间和确认人
-  const result = await appQuery<{ id: number; goods_id: string; goods_name: string }>(
-    `UPDATE expiring_return_orders 
-     SET status = $1, rule_confirmed_at = NOW(), rule_confirmed_by = $2, updated_at = NOW()
-     WHERE id = ANY($3) AND status = 'pending_confirm'
-     RETURNING id, goods_id, goods_name`,
-    [newStatus, operatorId, orderIds]
-  );
-
+  // 批量更新状态
+  const result = await repo.batchConfirm(newStatus, operatorId, orderIds);
   const successCount = result.rowCount ?? 0;
 
   // 为每个确认的退货单创建商品退货规则
@@ -149,25 +99,20 @@ export async function batchConfirmReturnOrders(
       });
     } catch (ruleError) {
       console.error(`[ReturnOrder] 创建商品退货规则失败: ${row.goods_id}`, ruleError);
-      // 规则创建失败不影响退货单确认，继续处理
     }
   }
 
   // 批量记录操作日志并发送通知
   for (const row of result.rows) {
-    await recordAction(row.id, 'confirm_rule', operatorId, operatorName, undefined, {
+    await repo.recordAction(row.id, 'confirm_rule', operatorId, operatorName, undefined, {
       ruleDecision,
       newStatus,
     });
 
-    // 查询退货单详情并发送对应通知
     try {
-      const orderResult = await appQuery<ReturnOrderRow>(
-        'SELECT * FROM expiring_return_orders WHERE id = $1',
-        [row.id]
-      );
-      if (orderResult.rows.length > 0) {
-        const order = mapRowToReturnOrder(orderResult.rows[0]);
+      const orderRow = await repo.getRawOrderById(row.id);
+      if (orderRow) {
+        const order = toReturnOrderDTO(orderRow);
 
         // 检查规则3：退货时保质期不足考核
         if (order.daysToExpireAtReturn && order.daysToExpireAtReturn < 15) {
@@ -198,6 +143,7 @@ export async function batchConfirmReturnOrders(
     }
   }
 
+  repo.invalidateOrderCache();
   return {
     successCount,
     failedCount: orderIds.length - successCount,
@@ -213,38 +159,23 @@ export async function cancelReturnOrder(
   operatorName: string,
   comment?: string
 ): Promise<ReturnOrder | null> {
-  // 检查当前状态
-  const currentResult = await appQuery<{ status: string }>(
-    'SELECT status FROM expiring_return_orders WHERE id = $1',
-    [id]
-  );
-
-  if (currentResult.rows.length === 0) return null;
-
-  const currentStatus = currentResult.rows[0].status;
+  const currentStatus = await repo.getOrderStatus(id);
+  if (!currentStatus) return null;
 
   // 只有 pending_confirm 和 pending_erp_fill 状态可以取消
   if (!['pending_confirm', 'pending_erp_fill'].includes(currentStatus)) {
     return null;
   }
 
-  // 更新状态
-  const result = await appQuery<ReturnOrderRow>(
-    `UPDATE expiring_return_orders 
-     SET status = 'cancelled', updated_at = NOW()
-     WHERE id = $1
-     RETURNING *`,
-    [id]
-  );
+  const row = await repo.updateStatus(id, 'cancelled');
+  if (!row) return null;
 
-  if (result.rows.length === 0) return null;
-
-  // 记录操作日志
-  await recordAction(id, 'cancel', operatorId, operatorName, comment, {
+  await repo.recordAction(id, 'cancel', operatorId, operatorName, comment, {
     previousStatus: currentStatus,
   });
 
-  return mapRowToReturnOrder(result.rows[0]);
+  repo.invalidateOrderCache(id);
+  return toReturnOrderDTO(row);
 }
 
 /**
@@ -256,49 +187,29 @@ export async function fillErpReturnNo(
 ): Promise<ReturnOrder> {
   const { id, erpReturnNo, operatorId, operatorName } = params;
 
-  // 验证退货单存在且状态为 pending_erp_fill
-  const currentResult = await appQuery<{ status: string }>(
-    'SELECT status FROM expiring_return_orders WHERE id = $1',
-    [id]
-  );
-
-  if (currentResult.rows.length === 0) {
+  const currentStatus = await repo.getOrderStatus(id);
+  if (!currentStatus) {
     throw new Error('退货单不存在');
   }
-
-  const currentStatus = currentResult.rows[0].status;
-
   if (currentStatus !== 'pending_erp_fill') {
     throw new Error(`当前状态为 ${currentStatus}，无法填写ERP退货单号`);
   }
 
-  // 更新ERP退货单号和相关字段
-  const result = await appQuery<ReturnOrderRow>(
-    `UPDATE expiring_return_orders 
-     SET erp_return_no = $1,
-         erp_filled_by = $2,
-         erp_filled_at = NOW(),
-         status = 'pending_warehouse_execute',
-         updated_at = NOW()
-     WHERE id = $3
-     RETURNING *`,
-    [erpReturnNo, operatorId, id]
-  );
-
-  if (result.rows.length === 0) {
+  const row = await repo.fillErpReturnNo(id, erpReturnNo, operatorId);
+  if (!row) {
     throw new Error('更新退货单失败');
   }
 
-  // 记录操作日志
-  await recordAction(id, 'erp_fill', operatorId, operatorName, undefined, {
+  await repo.recordAction(id, 'erp_fill', operatorId, operatorName, undefined, {
     erpReturnNo,
     previousStatus: currentStatus,
     newStatus: 'pending_warehouse_execute',
   });
 
-  const returnOrder = mapRowToReturnOrder(result.rows[0]);
+  const returnOrder = toReturnOrderDTO(row);
+  repo.invalidateOrderCache(id);
 
-  // 发送钉钉通知给仓储人员（异步执行，不影响主流程）
+  // 发送钉钉通知给仓储人员
   notifyPendingWarehouseExecute(returnOrder, erpReturnNo).catch(error => {
     console.error('[DingTalk] 待仓储执行通知失败:', error);
   });
@@ -309,60 +220,34 @@ export async function fillErpReturnNo(
 /**
  * 仓储执行退货
  * 状态: pending_warehouse_execute -> completed
- * 改为上传凭证图片（支持多张）
  */
 export async function warehouseExecute(
   params: WarehouseExecuteParams
 ): Promise<ReturnOrder> {
   const { id, evidenceUrls, comment, operatorId, operatorName } = params;
 
-  // 验证退货单存在且状态为 pending_warehouse_execute
-  const currentResult = await appQuery<{ status: string }>(
-    'SELECT status FROM expiring_return_orders WHERE id = $1',
-    [id]
-  );
-
-  if (currentResult.rows.length === 0) {
+  const currentStatus = await repo.getOrderStatus(id);
+  if (!currentStatus) {
     throw new Error('退货单不存在');
   }
-
-  const currentStatus = currentResult.rows[0].status;
-
   if (currentStatus !== 'pending_warehouse_execute') {
     throw new Error(`当前状态为 ${currentStatus}，无法执行仓储退货`);
   }
 
-  // 将URL数组转为JSON字符串存储
   const evidenceUrlJson = JSON.stringify(evidenceUrls);
-
-  // 更新仓储执行相关字段
-  const result = await appQuery<ReturnOrderRow>(
-    `UPDATE expiring_return_orders 
-     SET warehouse_executed_by = $1,
-         warehouse_executed_at = NOW(),
-         warehouse_evidence_url = $2,
-         warehouse_comment = $3,
-         status = 'completed',
-         updated_at = NOW()
-     WHERE id = $4
-     RETURNING *`,
-    [operatorId, evidenceUrlJson, comment || null, id]
-  );
-
-  if (result.rows.length === 0) {
+  const row = await repo.warehouseExecute(id, operatorId, evidenceUrlJson, comment || null);
+  if (!row) {
     throw new Error('更新退货单失败');
   }
 
-  // 记录操作日志
-  await recordAction(id, 'warehouse_execute', operatorId, operatorName, comment, {
+  await repo.recordAction(id, 'warehouse_execute', operatorId, operatorName, comment, {
     evidenceUrls,
     previousStatus: currentStatus,
     newStatus: 'completed',
   });
 
-  const returnOrder = mapRowToReturnOrder(result.rows[0]);
-
-  return returnOrder;
+  repo.invalidateOrderCache(id);
+  return toReturnOrderDTO(row);
 }
 
 /**
@@ -374,144 +259,41 @@ export async function marketingSaleComplete(
 ): Promise<ReturnOrder> {
   const { id, comment, operatorId, operatorName } = params;
 
-  // 验证退货单存在且状态为 pending_marketing_sale
-  const currentResult = await appQuery<{ status: string }>(
-    'SELECT status FROM expiring_return_orders WHERE id = $1',
-    [id]
-  );
-
-  if (currentResult.rows.length === 0) {
+  const currentStatus = await repo.getOrderStatus(id);
+  if (!currentStatus) {
     throw new Error('退货单不存在');
   }
-
-  const currentStatus = currentResult.rows[0].status;
-
   if (currentStatus !== 'pending_marketing_sale') {
     throw new Error(`当前状态为 ${currentStatus}，无法执行营销销售完成`);
   }
 
-  // 更新营销销售完成相关字段
-  const result = await appQuery<ReturnOrderRow>(
-    `UPDATE expiring_return_orders 
-     SET marketing_completed_by = $1,
-         marketing_completed_at = NOW(),
-         marketing_comment = $2,
-         status = 'completed',
-         updated_at = NOW()
-     WHERE id = $3
-     RETURNING *`,
-    [operatorId, comment || null, id]
-  );
-
-  if (result.rows.length === 0) {
+  const row = await repo.marketingSaleComplete(id, operatorId, comment || null);
+  if (!row) {
     throw new Error('更新退货单失败');
   }
 
-  // 记录操作日志
-  await recordAction(id, 'marketing_complete', operatorId, operatorName, comment, {
+  await repo.recordAction(id, 'marketing_complete', operatorId, operatorName, comment, {
     previousStatus: currentStatus,
     newStatus: 'completed',
   });
 
-  const returnOrder = mapRowToReturnOrder(result.rows[0]);
-
-  return returnOrder;
+  repo.invalidateOrderCache(id);
+  return toReturnOrderDTO(row);
 }
 
 /**
  * 自动检查并完成销售
  * 根据云仓批次库存表中的残次品库存判断销售是否完成
- * 当残次品库存为0或不存在时，自动将退货单状态更新为 completed
  */
 export async function autoCompleteMarketingSale(): Promise<{
   checkedCount: number;
   completedCount: number;
 }> {
-  console.log('[AutoComplete] 开始检查待营销销售的退货单...');
-
-  // 1. 查询所有状态为 pending_marketing_sale 的退货单
-  const pendingOrdersResult = await appQuery<{
-    id: number;
-    return_no: string;
-    goods_name: string;
-    quantity: number;
-  }>(
-    `SELECT id, return_no, goods_name, quantity
-     FROM expiring_return_orders
-     WHERE status = 'pending_marketing_sale'
-     ORDER BY created_at ASC`,
-    []
-  );
-
-  const pendingOrders = pendingOrdersResult.rows;
-  const checkedCount = pendingOrders.length;
-
-  if (checkedCount === 0) {
-    console.log('[AutoComplete] 没有待营销销售的退货单');
-    return { checkedCount: 0, completedCount: 0 };
+  const result = await repo.autoCompleteMarketingSale();
+  if (result.completedCount > 0) {
+    repo.invalidateOrderCache();
   }
-
-  console.log(`[AutoComplete] 查询到 ${checkedCount} 条待营销销售的退货单`);
-
-  // 2. 获取所有待处理商品的名称列表
-  const goodsNames = pendingOrders.map(order => order.goods_name);
-
-  // 3. 查询云仓批次库存表中这些商品的残次品库存
-  const stockResult = await query<{
-    goodsName: string;
-    total_quantity: number;
-  }>(
-    `SELECT "goodsName", SUM("quantity") as total_quantity
-     FROM "独山云仓批次库存表"
-     WHERE "goodsName" = ANY($1)
-       AND "qualityTypeStr" = '残次品'
-     GROUP BY "goodsName"`,
-    [goodsNames]
-  );
-
-  // 构建库存映射表
-  const stockMap = new Map<string, number>();
-  stockResult.rows.forEach(row => {
-    stockMap.set(row.goodsName, parseFloat(row.total_quantity as any) || 0);
-  });
-
-  // 4. 检查每个退货单的库存情况
-  let completedCount = 0;
-
-  for (const order of pendingOrders) {
-    const stockQuantity = stockMap.get(order.goods_name) || 0;
-
-    // 如果残次品库存为0，说明已销售完成
-    if (stockQuantity <= 0) {
-      console.log(`[AutoComplete] 检测到销售完成: ${order.return_no}, 商品: ${order.goods_name}, 库存: ${stockQuantity}`);
-
-      try {
-        // 自动更新状态为 completed
-        await appQuery(
-          `UPDATE expiring_return_orders
-           SET status = 'completed',
-               marketing_completed_at = NOW(),
-               marketing_comment = '系统自动检测：残次品库存已清零',
-               updated_at = NOW()
-           WHERE id = $1`,
-          [order.id]
-        );
-
-        // 记录操作日志
-        await recordAction(order.id, 'marketing_complete', null, '系统自动检测', '残次品库存已清零，自动完成销售');
-
-        completedCount++;
-        console.log(`[AutoComplete] 自动完成销售: ${order.return_no}`);
-      } catch (updateError) {
-        console.error(`[AutoComplete] 更新退货单失败: ${order.return_no}`, updateError);
-      }
-    } else {
-      console.log(`[AutoComplete] 仍有残次品库存: ${order.goods_name}, 数量: ${stockQuantity}`);
-    }
-  }
-
-  console.log(`[AutoComplete] 检查完成，共检查 ${checkedCount} 条，自动完成 ${completedCount} 条`);
-  return { checkedCount, completedCount };
+  return result;
 }
 
 /**
@@ -523,45 +305,24 @@ export async function rollbackReturnOrder(
 ): Promise<ReturnOrder> {
   const { id, operatorId, operatorName, comment } = params;
 
-  // 验证退货单存在并获取当前状态
-  const currentResult = await appQuery<{ status: string }>(
-    'SELECT status FROM expiring_return_orders WHERE id = $1',
-    [id]
-  );
-
-  if (currentResult.rows.length === 0) {
+  const currentStatus = await repo.getOrderStatus(id);
+  if (!currentStatus) {
     throw new Error('退货单不存在');
   }
-
-  const currentStatus = currentResult.rows[0].status;
-
-  // 只有 pending_erp_fill 和 pending_marketing_sale 状态可以回退
   if (!['pending_erp_fill', 'pending_marketing_sale'].includes(currentStatus)) {
     throw new Error(`当前状态为 ${currentStatus}，无法回退`);
   }
 
-  // 更新状态回退到 pending_confirm，并清除相关字段
-  const result = await appQuery<ReturnOrderRow>(
-    `UPDATE expiring_return_orders 
-     SET status = 'pending_confirm',
-         erp_return_no = NULL,
-         erp_filled_by = NULL,
-         erp_filled_at = NULL,
-         updated_at = NOW()
-     WHERE id = $1
-     RETURNING *`,
-    [id]
-  );
-
-  if (result.rows.length === 0) {
+  const row = await repo.rollbackOrder(id);
+  if (!row) {
     throw new Error('更新退货单失败');
   }
 
-  // 记录操作日志
-  await recordAction(id, 'rollback', operatorId, operatorName, comment, {
+  await repo.recordAction(id, 'rollback', operatorId, operatorName, comment, {
     previousStatus: currentStatus,
     newStatus: 'pending_confirm',
   });
 
-  return mapRowToReturnOrder(result.rows[0]);
+  repo.invalidateOrderCache(id);
+  return toReturnOrderDTO(row);
 }

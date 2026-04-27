@@ -1,31 +1,29 @@
 /**
  * 预警服务缓存管理
+ * 使用统一 MemoryCache 管理战略商品 ID 缓存
  */
 
 import { appQuery } from '../../db/appPool';
+import { cache, CACHE_TTL } from '../../utils/cache';
 
-// 缓存战略商品 ID 集合
-let strategicGoodsIdsCache: Set<string> | null = null;
-let strategicGoodsIdsCacheTime = 0;
-const STRATEGIC_CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
+/** 战略商品缓存 key 前缀 */
+const STRATEGIC_PRODUCT_CACHE_KEY = 'strategic:product:ids';
 
 /**
  * 获取已确认的战略商品 ID 集合
  */
 export async function getStrategicGoodsIds(): Promise<Set<string>> {
-  const now = Date.now();
-  if (strategicGoodsIdsCache && (now - strategicGoodsIdsCacheTime) < STRATEGIC_CACHE_TTL) {
-    return strategicGoodsIdsCache;
-  }
+  const cached = cache.get<Set<string>>(STRATEGIC_PRODUCT_CACHE_KEY);
+  if (cached) return cached;
 
   try {
     const result = await appQuery<{ goods_id: string }>(`
       SELECT goods_id FROM strategic_products
       WHERE status = 'confirmed' AND confirmed_at IS NOT NULL
     `);
-    strategicGoodsIdsCache = new Set(result.rows.map(r => r.goods_id));
-    strategicGoodsIdsCacheTime = now;
-    return strategicGoodsIdsCache;
+    const ids = new Set(result.rows.map(r => r.goods_id));
+    cache.set(STRATEGIC_PRODUCT_CACHE_KEY, ids, CACHE_TTL.LOW_FREQUENCY);
+    return ids;
   } catch (error) {
     console.error('获取战略商品列表失败:', error);
     return new Set();
@@ -36,6 +34,5 @@ export async function getStrategicGoodsIds(): Promise<Set<string>> {
  * 清除战略商品缓存
  */
 export function clearStrategicGoodsCache(): void {
-  strategicGoodsIdsCache = null;
-  strategicGoodsIdsCacheTime = 0;
+  cache.invalidate(STRATEGIC_PRODUCT_CACHE_KEY);
 }

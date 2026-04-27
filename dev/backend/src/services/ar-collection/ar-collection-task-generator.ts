@@ -5,6 +5,7 @@
 
 import { query } from '../../db/pool';
 import { getAppClient } from '../../db/appPool';
+import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import type { PoolClient } from 'pg';
 import type { BatchType } from './ar-collection.types';
 import { sendTaskCreatedNotifications } from './ar-collection-notify-task';
@@ -126,7 +127,7 @@ function filterOverdueDebts(
   for (const debt of erpDebts) {
     const workDate = new Date(debt.workTime);
     const ageDays = Math.floor((now.getTime() - workDate.getTime()) / 86400000);
-    const maxDays = Number(debt.settleMethod) === 2 ? (Number(debt.consumerExpireDay) || 0) : 7;
+    const maxDays = Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE ? (Number(debt.consumerExpireDay) || 0) : AR_DEFAULT_EXPIRE_DAYS;
     if (ageDays <= maxDays) continue;
 
     // 幂等检查: 是否已存在该billId的催收明细
@@ -256,7 +257,7 @@ async function insertDetailsForTask(
   for (const debt of debts) {
     const workDate = new Date(debt.workTime);
     const ageDays = Math.floor((now.getTime() - workDate.getTime()) / 86400000);
-    const maxDays = Number(debt.settleMethod) === 2 ? (Number(debt.consumerExpireDay) || 0) : 7;
+    const maxDays = Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE ? (Number(debt.consumerExpireDay) || 0) : AR_DEFAULT_EXPIRE_DAYS;
     const expireDate = new Date(workDate.getTime() + maxDays * 86400000);
 
     await client.query(

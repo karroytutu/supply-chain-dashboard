@@ -115,11 +115,22 @@ class MemoryCache {
 // 导出单例实例
 export const cache = new MemoryCache();
 
-// 默认缓存时间常量（毫秒）
+// 缓存时间常量（毫秒）- 三档分层
 export const CACHE_TTL = {
-  DASHBOARD: 60 * 1000,          // Dashboard 数据缓存 1 分钟
-  WARNING_LIST: 30 * 1000,       // 预警列表缓存 30 秒
-  CATEGORY_STATS: 5 * 60 * 1000, // 品类统计缓存 5 分钟
-  ERP_CUSTOMER_SEARCH: 5 * 60 * 1000, // ERP 客户搜索缓存 5 分钟
-  ERP_CUSTOMER_PROFILE: 5 * 60 * 1000, // ERP 客户资料缓存 5 分钟
+  /** 高频变更数据：权限、预警列表（30秒） */
+  HIGH_FREQUENCY: 30 * 1000,
+  /** 常规业务数据：仪表盘、概览统计（60秒） */
+  DASHBOARD: 60 * 1000,
+  /** 低频变更数据：品类、ERP、战略商品（5分钟） */
+  LOW_FREQUENCY: 5 * 60 * 1000,
+
+  // ---- 旧名称别名（@deprecated，请使用上方三档常量）----
+  /** @deprecated 使用 HIGH_FREQUENCY */
+  WARNING_LIST: 30 * 1000,
+  /** @deprecated 使用 LOW_FREQUENCY */
+  CATEGORY_STATS: 5 * 60 * 1000,
+  /** @deprecated 使用 LOW_FREQUENCY */
+  ERP_CUSTOMER_SEARCH: 5 * 60 * 1000,
+  /** @deprecated 使用 LOW_FREQUENCY */
+  ERP_CUSTOMER_PROFILE: 5 * 60 * 1000,
 };

@@ -4,6 +4,7 @@
  */
 
 import { appQuery } from '../../db/appPool';
+import { AR_ASSESSMENT_EFFECTIVE_DATE } from '../../utils/constants';
 import { getUsersByRole } from '../return-penalty';
 import {
   ASSESSMENT_RULES,
@@ -31,8 +32,8 @@ interface ExistingRecord {
   assessment_user_id: number;
 }
 
-/** 考核生效日期：2026-04-23 */
-const EFFECTIVE_DATE = new Date(2026, 3, 23);
+/** 考核生效日期 */
+const EFFECTIVE_DATE = new Date(AR_ASSESSMENT_EFFECTIVE_DATE);
 
 /**
  * 计算催收考核

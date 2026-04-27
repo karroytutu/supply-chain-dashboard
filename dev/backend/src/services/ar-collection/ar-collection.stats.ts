@@ -3,6 +3,7 @@
  */
 
 import { appQuery as query } from '../../db/appPool';
+import { AR_EXTENSION_MAX_DAYS } from '../../utils/constants';
 
 /**
  * 构建统计查询的角色 WHERE 条件（不含表别名前缀）
@@ -51,8 +52,8 @@ export async function getCollectionStats(userId: number, role: string) {
         COALESCE(SUM(CASE WHEN status = 'collecting' THEN total_amount END), 0) AS collecting_amount,
         COUNT(CASE WHEN status IN ('difference_processing', 'extension', 'escalated') THEN 1 END) AS waiting_count,
         COALESCE(SUM(CASE WHEN status IN ('difference_processing', 'extension', 'escalated') THEN total_amount END), 0) AS waiting_amount,
-        COUNT(CASE WHEN status = 'pending_verify' OR max_overdue_days >= 30 THEN 1 END) AS attention_count,
-        COALESCE(SUM(CASE WHEN status = 'pending_verify' OR max_overdue_days >= 30 THEN total_amount END), 0) AS attention_amount,
+        COUNT(CASE WHEN status = 'pending_verify' OR max_overdue_days >= ${AR_EXTENSION_MAX_DAYS} THEN 1 END) AS attention_count,
+        COALESCE(SUM(CASE WHEN status = 'pending_verify' OR max_overdue_days >= ${AR_EXTENSION_MAX_DAYS} THEN total_amount END), 0) AS attention_amount,
         COUNT(CASE WHEN status IN ('verified', 'closed') AND created_at >= date_trunc('month', CURRENT_DATE) THEN 1 END) AS collected_count,
         COALESCE(SUM(CASE WHEN status IN ('verified', 'closed') AND created_at >= date_trunc('month', CURRENT_DATE) THEN total_amount END), 0) AS collected_amount
       FROM ar_collection_tasks

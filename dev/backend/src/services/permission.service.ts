@@ -54,10 +54,10 @@ export async function getPermissionTree(): Promise<PermissionTreeNode[]> {
   };
   
   const tree = buildTree(null);
-  
-  // 缓存5分钟
-  setPermissionTreeCache(tree, 5 * 60 * 1000);
-  
+
+  // 使用默认缓存时长
+  setPermissionTreeCache(tree);
+
   return tree;
 }
 

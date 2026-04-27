@@ -80,9 +80,4 @@ export function formatMoney(amount: number | string): string {
   });
 }
 
-/**
- * 格式化百分比
- */
-export function formatPercent(value: number, decimals: number = 1): string {
-  return `${(value * 100).toFixed(decimals)}%`;
-}
+// formatPercent 已迁移到 format.ts，请使用 @/utils/format 中的 formatPercent

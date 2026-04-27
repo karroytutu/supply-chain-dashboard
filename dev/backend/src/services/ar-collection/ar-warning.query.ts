@@ -6,6 +6,7 @@
 
 import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
+import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import logger from '../../utils/logger';
 
 // ============================================
@@ -130,7 +131,7 @@ export async function getUpcomingWarnings(
   for (const debt of erpResult.rows) {
     const workDate = new Date(debt.workTime);
     // 注意: PostgreSQL numeric 类型返回字符串，需要转换为数字比较
-    const maxDays = Number(debt.settleMethod) === 2 ? (Number(debt.consumerExpireDay) || 0) : 7;
+    const maxDays = Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE ? (Number(debt.consumerExpireDay) || 0) : AR_DEFAULT_EXPIRE_DAYS;
     const expireDate = new Date(workDate.getTime() + maxDays * 86400000);
     const daysToExpire = Math.ceil((expireDate.getTime() - now.getTime()) / 86400000);
 

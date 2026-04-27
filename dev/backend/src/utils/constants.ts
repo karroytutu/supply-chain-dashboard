@@ -5,13 +5,13 @@
 
 // ==================== 周转相关阈值 ====================
 
-/** 周转天数 - 优秀阈值（天数） */
+/** 周转天数 - 优秀阈值（天数） @usedBy overview.service.ts, frontend/warning.ts */
 export const TURNOVER_EXCELLENT_DAYS = 15;
 
-/** 周转天数 - 良好阈值（天数） */
+/** 周转天数 - 良好阈值（天数） @usedBy overview.service.ts, frontend/warning.ts */
 export const TURNOVER_GOOD_DAYS = 30;
 
-/** 周转天数 - 关注阈值（天数） */
+/** 周转天数 - 关注阈值（天数） @usedBy overview.service.ts, frontend/warning.ts */
 export const TURNOVER_ATTENTION_DAYS = 45;
 
 /** 标准计算周期（天数） */
@@ -35,13 +35,13 @@ export const LOW_STOCK_DAYS = 15;
 
 // ==================== 临期阈值 ====================
 
-/** 临期 - 严重预警（7天内） */
+/** 临期 - 严重预警（7天内） @usedBy expiring-warning.service.ts, frontend/warning.ts */
 export const EXPIRING_SERIOUS_DAYS = 7;
 
-/** 临期 - 警告（15天内） */
+/** 临期 - 警告（15天内） @usedBy expiring-warning.service.ts, frontend/warning.ts */
 export const EXPIRING_WARNING_DAYS = 15;
 
-/** 临期 - 关注（30天内） */
+/** 临期 - 关注（30天内） @usedBy expiring-warning.service.ts, frontend/warning.ts */
 export const EXPIRING_ATTENTION_DAYS = 30;
 
 /** 临期阈值配置（基于保质期） */
@@ -69,14 +69,41 @@ export const SLOW_MOVING_SERIOUS_DAYS = 30;
 
 // ==================== 预警级别阈值 ====================
 
-/** 临期率 - 严重预警阈值（%） */
+/** 临期率 - 严重预警阈值（%） @usedBy overview.service.ts, frontend/warning.ts */
 export const EXPIRING_RATE_SERIOUS = 5;
 
-/** 临期率 - 警告阈值（%） */
+/** 临期率 - 警告阈值（%） @usedBy overview.service.ts, frontend/warning.ts */
 export const EXPIRING_RATE_WARNING = 3;
 
-/** 临期率 - 关注阈值（%） */
+/** 临期率 - 关注阈值（%） @usedBy overview.service.ts, frontend/warning.ts */
 export const EXPIRING_RATE_ATTENTION = 1;
+
+// ==================== 催收相关阈值 ====================
+
+/** 催收延期最大天数 @usedBy ar-collection.mutation.ts (校验延期天数) */
+export const AR_EXTENSION_MAX_DAYS = 30;
+
+/** 催收默认到期天数 @usedBy ar-warning.query.ts, ar-collection-task-generator.ts, ar-warning.task.ts */
+export const AR_DEFAULT_EXPIRE_DAYS = 7;
+
+/** 结算方式-消费者到期标识 @usedBy ar-warning.query.ts, ar-collection-task-generator.ts, ar-warning.task.ts */
+export const AR_SETTLE_METHOD_CONSUMER_EXPIRE = 2;
+
+/** 催收考核起效日期 @usedBy ar-assessment-calculate.ts (判断考核是否生效) */
+export const AR_ASSESSMENT_EFFECTIVE_DATE = '2026-04-23';
+
+// ==================== 退货考核阈值 ====================
+
+/** 退货时保质期不足阈值（天） @usedBy return-penalty-calculate.ts (判断退货考核规则) */
+export const RETURN_EXPIRE_INSUFFICIENT_DAYS = 15;
+
+// ==================== 缓存时间配置 ====================
+
+/** 战略商品缓存过期时间 @usedBy warning-cache.ts (战略商品ID缓存) */
+export const CACHE_TTL_STRATEGIC_PRODUCT = 5 * 60 * 1000;
+
+/** 权限缓存过期时间 @usedBy permission-cache.service.ts (权限缓存) */
+export const CACHE_TTL_PERMISSION = 30 * 1000;
 
 // ==================== 工具函数 ====================
 

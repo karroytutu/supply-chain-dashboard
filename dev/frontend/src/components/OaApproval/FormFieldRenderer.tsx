@@ -5,12 +5,18 @@ import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-approval-erp';
 import { FileTextOutlined } from '@ant-design/icons';
 import ErpNameDisplay from './ErpNameDisplay';
+import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
 import styles from './FormFieldRenderer.less';
 
 const { Text } = Typography;
 
 /** 渲染表格单元格值 */
-function renderCellValue(childField: FormField, cellValue: unknown): React.ReactNode {
+function renderCellValue(
+  childField: FormField,
+  cellValue: unknown,
+  rowData?: Record<string, unknown>,
+  resolvedMap?: ErpResolvedMap,
+): React.ReactNode {
   if (cellValue === null || cellValue === undefined || cellValue === '') {
     return <Text type="secondary">-</Text>;
   }
@@ -22,6 +28,31 @@ function renderCellValue(childField: FormField, cellValue: unknown): React.React
     case 'select':
       const option = childField.options?.find((o) => o.value === cellValue);
       return option?.label || String(cellValue);
+    case 'erp_customer':
+    case 'erp_department':
+    case 'erp_staff':
+    case 'erp_payment_account':
+    case 'erp_asset_category':
+    case 'asset_search': {
+      // 第一优先级：行数据中已存储的名称（nameField）
+      if (childField.nameField && rowData?.[childField.nameField]) {
+        const storedName = String(rowData[childField.nameField]).trim();
+        if (storedName) return storedName;
+      }
+      // 第二优先级：批量预解析结果
+      if (childField.searchApi) {
+        const erpType = ERP_SEARCH_API_MAP[childField.searchApi];
+        if (erpType) {
+          const cacheKey = `${erpType}:${cellValue}`;
+          if (resolvedMap?.[cacheKey]) {
+            return resolvedMap[cacheKey];
+          }
+          // 第三优先级：ErpNameDisplay 兜底
+          return <ErpNameDisplay erpType={erpType} id={cellValue} />;
+        }
+      }
+      return String(cellValue);
+    }
     default:
       return String(cellValue);
   }
@@ -33,7 +64,9 @@ const FieldRenderer: React.FC<{
   value: unknown;
   /** 完整表单数据，用于提取 ERP 关联参数（如结算单需要 customerId） */
   formData?: Record<string, unknown>;
-}> = ({ field, value, formData }) => {
+  /** ERP ID 批量预解析结果 */
+  resolvedMap?: ErpResolvedMap;
+}> = ({ field, value, formData, resolvedMap }) => {
   if (value === null || value === undefined || value === '') {
     return <Text type="secondary">-</Text>;
   }
@@ -112,31 +145,65 @@ const FieldRenderer: React.FC<{
     case 'erp_staff':
     case 'erp_payment_account':
     case 'erp_asset_category':
-    case 'asset_search':
-      // ERP 参考数据字段：存储的是 ID，通过 resolve 端点异步解析名称
+    case 'asset_search': {
+      // 第一优先级：formData 中已存储的名称（nameField）
+      if (field.nameField && formData?.[field.nameField]) {
+        const storedName = String(formData[field.nameField]).trim();
+        if (storedName) return <Text>{storedName}</Text>;
+      }
+      // 第二优先级：批量预解析结果
       if (field.searchApi) {
         const erpType = ERP_SEARCH_API_MAP[field.searchApi];
-        return erpType ? <ErpNameDisplay erpType={erpType} id={value} /> : <Text>{String(value)}</Text>;
+        if (erpType) {
+          const cacheKey = `${erpType}:${value}`;
+          if (resolvedMap?.[cacheKey]) {
+            return <Text>{resolvedMap[cacheKey]}</Text>;
+          }
+          // 第三优先级：ErpNameDisplay 兜底
+          return <ErpNameDisplay erpType={erpType} id={value} />;
+        }
       }
       return <Text>{String(value)}</Text>;
-    case 'erp_settlement_order':
+    }
+    case 'erp_settlement_order': {
       const orderIds = value as number[];
       if (!Array.isArray(orderIds) || orderIds.length === 0) {
         return <Text type="secondary">-</Text>;
       }
-      // 结算单需要 consumerId 参数来查询 ERP 数据
+      // 第一优先级：已存储的名称（逗号分隔字符串）
+      if (field.nameField && formData?.[field.nameField]) {
+        const storedNames = String(formData[field.nameField]).trim();
+        if (storedNames) {
+          return (
+            <div>
+              {storedNames.split(', ').map((name, i) => (
+                <Tag key={i}>{name}</Tag>
+              ))}
+            </div>
+          );
+        }
+      }
+      // 第二优先级 + 第三优先级
       const settlementParams = formData?.customer
         ? { consumerId: String(formData.customer) }
         : undefined;
+      const erpType = 'settlement-orders';
       return (
         <div>
-          {orderIds.map((id) => (
-            <Tag key={id}>
-              <ErpNameDisplay erpType="settlement-orders" id={id} extraParams={settlementParams} />
-            </Tag>
-          ))}
+          {orderIds.map((id) => {
+            const cacheKey = `${erpType}:${id}`;
+            if (resolvedMap?.[cacheKey]) {
+              return <Tag key={id}>{resolvedMap[cacheKey]}</Tag>;
+            }
+            return (
+              <Tag key={id}>
+                <ErpNameDisplay erpType={erpType} id={id} extraParams={settlementParams} />
+              </Tag>
+            );
+          })}
         </div>
       );
+    }
     case 'textarea':
       return <Text style={{ whiteSpace: 'pre-wrap' }}>{value as string}</Text>;
     case 'table':
@@ -147,7 +214,8 @@ const FieldRenderer: React.FC<{
         title: col.label,
         dataIndex: col.key,
         key: col.key,
-        render: (cellVal: unknown) => renderCellValue(col, cellVal),
+        render: (cellVal: unknown, row: Record<string, unknown>) =>
+          renderCellValue(col, cellVal, row, resolvedMap),
       }));
       return (
         <Table
