@@ -12,21 +12,12 @@ interface UseApprovalDetailReturn {
   nodes: ApprovalNode[];
   actions: ApprovalAction[];
   errorType: DetailErrorType;
-  actionLoading: boolean;
-  actionModalVisible: boolean;
-  actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | null;
-  actionComment: string;
-  transferUserId: number | null;
-  transferUsers: Array<{ id: number; name: string }>;
-  setActionModalVisible: (visible: boolean) => void;
-  setActionComment: (comment: string) => void;
-  setTransferUserId: (id: number | null) => void;
-  openActionModal: (type: 'approve' | 'reject' | 'transfer' | 'countersign') => void;
-  handleAction: () => Promise<void>;
+  canOperate: boolean;
+  canWithdraw: boolean;
+  handleApprove: (comment: string) => Promise<void>;
+  handleReject: (comment: string) => Promise<void>;
+  handleTransfer: (userId: number, comment: string) => Promise<void>;
   handleWithdraw: () => Promise<void>;
-  canOperate: () => boolean;
-  canWithdraw: () => boolean;
-  getCurrentStep: () => number;
   loadDetail: () => Promise<void>;
 }
 
@@ -36,16 +27,8 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
   const [nodes, setNodes] = useState<ApprovalNode[]>([]);
   const [actions, setActions] = useState<ApprovalAction[]>([]);
   const [errorType, setErrorType] = useState<DetailErrorType>(null);
-  const [actionLoading, setActionLoading] = useState(false);
 
-  // 操作弹窗
-  const [actionModalVisible, setActionModalVisible] = useState(false);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | 'transfer' | 'countersign' | null>(null);
-  const [actionComment, setActionComment] = useState('');
-  const [transferUserId, setTransferUserId] = useState<number | null>(null);
-  const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
-
-  // 加载详情（仅调用 getDetail，响应已包含 nodes/actions/ccUsers）
+  // 加载详情
   const loadDetail = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -57,7 +40,6 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
       setNodes(detailData.nodes || []);
       setActions(detailData.actions || []);
     } catch (error: any) {
-      // 区分错误类型，用于页面展示不同提示
       if (error?.status === 403) {
         setErrorType('forbidden');
       } else if (error?.status === 404) {
@@ -74,94 +56,59 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     loadDetail();
   }, [loadDetail]);
 
-  // 执行审批操作
-  const handleAction = async () => {
-    if (!id || !actionType) return;
+  // 计算权限
+  const canOperate = detail?.status === 'pending' && nodes.some(n => n.status === 'pending');
+  const canWithdraw = detail?.status === 'pending';
 
-    if (actionType === 'transfer' && !transferUserId) {
-      message.warning('请选择转交人员');
-      return;
-    }
-
-    setActionLoading(true);
+  /** 同意审批 */
+  const handleApprove = async (comment: string) => {
+    if (!id) return;
     try {
-      switch (actionType) {
-        case 'approve':
-          await oaApprovalApi.approve(parseInt(id), { comment: actionComment });
-          message.success('审批通过');
-          break;
-        case 'reject':
-          await oaApprovalApi.reject(parseInt(id), { comment: actionComment });
-          message.success('已驳回');
-          break;
-        case 'transfer':
-          await oaApprovalApi.transfer(parseInt(id), { transferToUserId: transferUserId!, comment: actionComment });
-          message.success('已转交');
-          break;
-        case 'countersign':
-          message.warning('加签功能需要选择加签人员');
-          break;
-      }
-      setActionModalVisible(false);
-      setActionComment('');
-      setTransferUserId(null);
+      await oaApprovalApi.approve(parseInt(id), { comment });
+      message.success('审批通过');
       loadDetail();
-    } catch (error) {
-      message.error('操作失败');
-    } finally {
-      setActionLoading(false);
+    } catch (error: any) {
+      message.error(error.message || '操作失败');
+      throw error;
     }
   };
 
-  // 撤回审批
+  /** 驳回审批 */
+  const handleReject = async (comment: string) => {
+    if (!id) return;
+    try {
+      await oaApprovalApi.reject(parseInt(id), { comment });
+      message.success('已驳回');
+      loadDetail();
+    } catch (error: any) {
+      message.error(error.message || '操作失败');
+      throw error;
+    }
+  };
+
+  /** 转交审批 */
+  const handleTransfer = async (userId: number, comment: string) => {
+    if (!id) return;
+    try {
+      await oaApprovalApi.transfer(parseInt(id), { transferToUserId: userId, comment });
+      message.success('已转交');
+      loadDetail();
+    } catch (error: any) {
+      message.error(error.message || '操作失败');
+      throw error;
+    }
+  };
+
+  /** 撤回审批 */
   const handleWithdraw = async () => {
     if (!id) return;
-    setActionLoading(true);
     try {
       await oaApprovalApi.withdraw(parseInt(id));
       message.success('已撤回');
       loadDetail();
-    } catch (error) {
-      message.error('撤回失败');
-    } finally {
-      setActionLoading(false);
+    } catch (error: any) {
+      message.error(error.message || '撤回失败');
     }
-  };
-
-  // 打开操作弹窗
-  const openActionModal = (type: 'approve' | 'reject' | 'transfer' | 'countersign') => {
-    setActionType(type);
-    setActionModalVisible(true);
-    // 转交时加载候选人列表
-    if (type === 'transfer') {
-      oaApprovalApi.getTransferCandidates()
-        .then((users) => setTransferUsers(users))
-        .catch(() => setTransferUsers([]));
-    }
-  };
-
-  // 检查当前用户是否可以操作
-  const canOperate = () => {
-    if (!detail || detail.status !== 'pending') return false;
-    const currentNode = nodes.find((n) => n.status === 'pending');
-    if (!currentNode) return false;
-    return true;
-  };
-
-  // 检查是否可以撤回
-  const canWithdraw = () => {
-    if (!detail || detail.status !== 'pending') return false;
-    return true;
-  };
-
-  // 获取当前步骤索引
-  const getCurrentStep = () => {
-    const pendingIndex = nodes.findIndex((n) => n.status === 'pending');
-    if (pendingIndex === -1) {
-      if (detail?.status === 'approved') return nodes.length;
-      if (detail?.status === 'rejected') return 0;
-    }
-    return pendingIndex;
   };
 
   return {
@@ -170,21 +117,12 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     nodes,
     actions,
     errorType,
-    actionLoading,
-    actionModalVisible,
-    actionType,
-    actionComment,
-    transferUserId,
-    transferUsers,
-    setActionModalVisible,
-    setActionComment,
-    setTransferUserId,
-    openActionModal,
-    handleAction,
-    handleWithdraw,
     canOperate,
     canWithdraw,
-    getCurrentStep,
+    handleApprove,
+    handleReject,
+    handleTransfer,
+    handleWithdraw,
     loadDetail,
   };
 }

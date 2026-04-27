@@ -87,6 +87,122 @@
     background: #fff;
   }
 
+  // 操作记录条目（时间线合入节点）
+  .actionEntry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0 4px 42px;
+    font-size: 12px;
+    line-height: 20px;
+  }
+
+  .actionOperator {
+    font-weight: 500;
+    color: #333;
+  }
+
+  .actionComment {
+    color: #999;
+    font-style: italic;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .actionTime {
+    color: #999;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  // 操作类型标签
+  .actionTagSubmit {
+    background: rgba(24, 144, 255, 0.1);
+    color: #1890ff;
+    border-color: transparent;
+    font-size: 11px;
+    line-height: 18px;
+    padding: 0 4px;
+  }
+
+  .actionTagApprove {
+    background: rgba(82, 196, 26, 0.1);
+    color: #52c41a;
+    border-color: transparent;
+    font-size: 11px;
+    line-height: 18px;
+    padding: 0 4px;
+  }
+
+  .actionTagReject {
+    background: rgba(245, 34, 45, 0.1);
+    color: #f5222d;
+    border-color: transparent;
+    font-size: 11px;
+    line-height: 18px;
+    padding: 0 4px;
+  }
+
+  .actionTagTransfer {
+    background: rgba(250, 140, 22, 0.1);
+    color: #fa8c16;
+    border-color: transparent;
+    font-size: 11px;
+    line-height: 18px;
+    padding: 0 4px;
+  }
+
+  .actionTagCountersign {
+    background: rgba(114, 46, 209, 0.1);
+    color: #722ed1;
+    border-color: transparent;
+    font-size: 11px;
+    line-height: 18px;
+    padding: 0 4px;
+  }
+
+  .actionTagWithdraw {
+    background: rgba(0, 0, 0, 0.04);
+    color: #999;
+    border-color: transparent;
+    font-size: 11px;
+    line-height: 18px;
+    padding: 0 4px;
+  }
+
+  // ERP 处理节点
+  .erpStep {
+    font-size: 13px;
+    padding-top: 4px;
+  }
+
+  .erpInfoRow {
+    display: flex;
+    gap: 16px;
+    margin-top: 4px;
+    color: #666;
+  }
+
+  .erpErrorSection {
+    margin-top: 8px;
+  }
+
+  .erpErrorMsg {
+    font-size: 12px;
+    color: #f5222d;
+    padding: 6px 8px;
+    background: rgba(245, 34, 45, 0.06);
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  .erpRetryBtn {
+    font-size: 12px;
+  }
+
   // 抄送人区域
   .ccSection {
     margin-top: 16px;

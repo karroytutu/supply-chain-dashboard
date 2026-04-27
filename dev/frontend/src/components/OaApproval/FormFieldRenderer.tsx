@@ -5,7 +5,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-approval-erp';
 import { FileTextOutlined } from '@ant-design/icons';
 import ErpNameDisplay from './ErpNameDisplay';
-import styles from '../index.less';
+import styles from './FormFieldRenderer.less';
 
 const { Text } = Typography;
 
