@@ -17,7 +17,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --chown=nodejs:nodejs prod/backend/dist ./dist
 
 # 创建上传目录和日志目录并设置权限
-RUN mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/logs && \
+RUN mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/uploads/credit-license /app/logs && \
     chown -R nodejs:nodejs /app/uploads /app/logs
 
 USER nodejs
