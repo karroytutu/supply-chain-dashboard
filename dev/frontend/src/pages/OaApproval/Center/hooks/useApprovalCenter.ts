@@ -14,15 +14,23 @@ interface UseApprovalCenterReturn {
   searchText: string;
   selectedId: number | null;
   detail: ApprovalDetail | null;
-  canOperate: boolean;
-  canWithdraw: boolean;
+  rejectModalVisible: boolean;
+  rejectReason: string;
+  transferModalVisible: boolean;
+  transferUsers: Array<{ id: number; name: string }>;
+  transferUserId: number | null;
   setViewMode: (mode: ViewMode) => void;
   setPage: (page: number) => void;
   setSearchText: (text: string) => void;
   setSelectedId: (id: number | null) => void;
-  handleApprove: (comment: string) => Promise<void>;
-  handleReject: (comment: string) => Promise<void>;
-  handleTransfer: (userId: number, comment: string) => Promise<void>;
+  setRejectModalVisible: (visible: boolean) => void;
+  setRejectReason: (reason: string) => void;
+  setTransferModalVisible: (visible: boolean) => void;
+  setTransferUserId: (id: number | null) => void;
+  openTransferModal: () => void;
+  handleTransfer: () => Promise<void>;
+  handleApprove: () => Promise<void>;
+  handleReject: () => Promise<void>;
   handleWithdraw: () => Promise<void>;
   loadList: () => Promise<void>;
   loadStats: () => Promise<void>;
@@ -40,10 +48,11 @@ export function useApprovalCenter(): UseApprovalCenterReturn {
   const [searchText, setSearchText] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<ApprovalDetail | null>(null);
-
-  // 计算权限
-  const canOperate = viewMode === 'pending' && detail?.status === 'pending';
-  const canWithdraw = viewMode === 'my' && detail?.status === 'pending';
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [transferModalVisible, setTransferModalVisible] = useState(false);
+  const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
+  const [transferUserId, setTransferUserId] = useState<number | null>(null);
 
   const loadStats = async () => {
     try {
@@ -94,52 +103,40 @@ export function useApprovalCenter(): UseApprovalCenterReturn {
     }
   }, [selectedId]);
 
-  /** 同意审批 */
-  const handleApprove = async (comment: string) => {
+  // 同意审批
+  const handleApprove = async () => {
     if (!selectedId) return;
     try {
-      await oaApprovalApi.approve(selectedId, { comment });
+      await oaApprovalApi.approve(selectedId);
       message.success('审批通过');
       loadList();
       loadStats();
       loadDetail(selectedId);
     } catch (error: any) {
       message.error(error.message || '操作失败');
-      throw error;
     }
   };
 
-  /** 驳回审批 */
-  const handleReject = async (comment: string) => {
-    if (!selectedId) return;
+  // 拒绝审批
+  const handleReject = async () => {
+    if (!selectedId || !rejectReason.trim()) {
+      message.error('请填写拒绝原因');
+      return;
+    }
     try {
-      await oaApprovalApi.reject(selectedId, { comment });
-      message.success('已驳回');
+      await oaApprovalApi.reject(selectedId, { comment: rejectReason });
+      message.success('已拒绝');
+      setRejectModalVisible(false);
+      setRejectReason('');
       loadList();
       loadStats();
       loadDetail(selectedId);
     } catch (error: any) {
       message.error(error.message || '操作失败');
-      throw error;
     }
   };
 
-  /** 转交审批 */
-  const handleTransfer = async (userId: number, comment: string) => {
-    if (!selectedId) return;
-    try {
-      await oaApprovalApi.transfer(selectedId, { transferToUserId: userId, comment });
-      message.success('已转交');
-      loadList();
-      loadStats();
-      loadDetail(selectedId);
-    } catch (error: any) {
-      message.error(error.message || '操作失败');
-      throw error;
-    }
-  };
-
-  /** 撤回审批 */
+  // 撤回审批
   const handleWithdraw = async () => {
     if (!selectedId) return;
     try {
@@ -152,12 +149,41 @@ export function useApprovalCenter(): UseApprovalCenterReturn {
     }
   };
 
+  // 打开转交弹窗
+  const openTransferModal = () => {
+    setTransferModalVisible(true);
+    oaApprovalApi.getTransferCandidates()
+      .then((users) => setTransferUsers(users))
+      .catch(() => setTransferUsers([]));
+  };
+
+  // 转交审批
+  const handleTransfer = async () => {
+    if (!selectedId || !transferUserId) {
+      message.warning('请选择转交人员');
+      return;
+    }
+    try {
+      await oaApprovalApi.transfer(selectedId, { transferToUserId: transferUserId });
+      message.success('已转交');
+      setTransferModalVisible(false);
+      setTransferUserId(null);
+      loadList();
+      loadStats();
+      if (selectedId) loadDetail(selectedId);
+    } catch (error: any) {
+      message.error(error.message || '操作失败');
+    }
+  };
+
   return {
     loading, detailLoading, viewMode, stats, list, total, page,
-    searchText, selectedId, detail,
-    canOperate, canWithdraw,
+    searchText, selectedId, detail, rejectModalVisible, rejectReason,
+    transferModalVisible, transferUsers, transferUserId,
     setViewMode, setPage, setSearchText, setSelectedId,
-    handleApprove, handleReject, handleTransfer, handleWithdraw,
-    loadList, loadStats, loadDetail,
+    setRejectModalVisible, setRejectReason,
+    setTransferModalVisible, setTransferUserId,
+    openTransferModal, handleTransfer,
+    handleApprove, handleReject, handleWithdraw, loadList, loadStats, loadDetail,
   };
 }
