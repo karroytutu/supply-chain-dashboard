@@ -8,7 +8,7 @@ import {
 import type { ApprovalDetail, ViewMode } from '@/types/oa-approval';
 import { STATUS_LABELS, STATUS_COLORS, URGENCY_LABELS, URGENCY_COLORS } from '@/types/oa-approval';
 import ApprovalFlow from '@/components/OaApproval/ApprovalFlow';
-import FieldRenderer from '../../Detail/components/FormFieldRenderer';
+import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
 import { checkCondition } from '../../Form/components/ConditionalFieldWrapper';
 import styles from '../index.less';
 
