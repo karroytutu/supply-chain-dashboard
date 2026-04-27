@@ -78,7 +78,7 @@ export const markDifference = async (req: Request, res: Response) => {
     await markDifferenceService(taskId, {
       task_id: taskId,
       detail_ids: req.body.detailIds,
-      remark: req.body.description,
+      remark: req.body.remark,
       operator_id: operatorId,
       operator_name: operatorName,
     }, operatorId, operatorName, operatorRole);
@@ -143,7 +143,14 @@ export const resolveDifference = async (req: Request, res: Response) => {
     }
     const { userId: operatorId, name: operatorName, roles } = req.user!;
     const operatorRole = roles?.[0] || 'viewer';
-    await resolveDifferenceService(taskId, req.body, operatorId, operatorName, operatorRole);
+    // 前端传 camelCase，后端 service 期望 snake_case，在此做映射
+    await resolveDifferenceService(taskId, {
+      task_id: taskId,
+      detail_ids: req.body.detailIds,
+      remark: req.body.remark,
+      operator_id: operatorId,
+      operator_name: operatorName,
+    }, operatorId, operatorName, operatorRole);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '差异解决失败');

@@ -31,6 +31,7 @@ const ResolveDifferenceModal: React.FC<ResolveDifferenceModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
       await resolveDifference(task.id, {
+        detailIds: selectedDetails.map((d) => d.id),
         remark: values.remark,
       });
       message.success('差异处理结果已提交');
