@@ -8,7 +8,7 @@
 import { getUserRolesAndPermissions } from '../auth.service';
 import { erpUpdateMaxDebtDays, erpUpdateMaxDebtOrderNum, erpUploadBusinessLicense } from '../erp-client/erp-credit-update.service';
 import { erpMarkHoldOrders } from '../erp-client/erp-settlement.service';
-import { getCustomerLicenseInfo } from '../erp-client/erp-customer.service';
+import { getCustomerLicenseInfo, getErpCustomerProfile } from '../erp-client/erp-customer.service';
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import type { OaApprovalInstanceRow } from './oa-approval.types';
 
@@ -61,7 +61,19 @@ export async function beforeSubmitCustomerCredit(
   }
 
   // 注入 _submitterRole 到 formData，供条件节点判断
-  return { _submitterRole: submitterRole.code };
+  const extraData: Record<string, unknown> = { _submitterRole: submitterRole.code };
+
+  // 兜底：如果前端未正确存入 customerName，后端补全
+  if (customerId && !formData.customerName && !formData._customerName) {
+    try {
+      const profile = await getErpCustomerProfile(customerId);
+      extraData._customerName = profile?.name || '';
+    } catch {
+      // ERP 不可用时跳过，不影响提交流程
+    }
+  }
+
+  return extraData;
 }
 
 /**

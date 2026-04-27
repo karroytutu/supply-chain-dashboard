@@ -29,9 +29,11 @@ export const customerCreditFormType: FormTypeDefinition = {
         type: 'erp_customer',
         required: true,
         searchApi: 'erp_customers',
+        nameField: 'customerName',
         autoFill: {
           contactName: 'contactName',
           contactTel: 'contactTel',
+          customerName: 'name',
         },
       },
       // 联系人（自动填充，只读）
@@ -103,6 +105,7 @@ export const customerCreditFormType: FormTypeDefinition = {
         searchApi: 'erp_settlement_orders',
         multiple: true,
         cascadeFrom: 'customer',
+        nameField: 'holdSettlementOrderNames',
         visibleWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
         requiredWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
       },
@@ -122,6 +125,19 @@ export const customerCreditFormType: FormTypeDefinition = {
         type: 'textarea',
         required: false,
         maxLength: 500,
+      },
+      // 以下为隐藏字段，存储 ERP 显示名称（下划线开头不在详情页展示）
+      {
+        key: '_customerName',
+        label: '客户名称',
+        type: 'text',
+        required: false,
+      },
+      {
+        key: '_holdSettlementOrderNames',
+        label: '压单结算单名称',
+        type: 'text',
+        required: false,
       },
     ],
   },

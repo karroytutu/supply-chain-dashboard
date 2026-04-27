@@ -49,12 +49,16 @@ export const assetTransferFormType: FormTypeDefinition = {
           {
             key: 'toDeptId', label: '新使用部门', type: 'erp_department', required: true,
             searchApi: 'erp_departments',
+            nameField: 'toDeptName',
           },
           {
             key: 'toUserId', label: '新使用人', type: 'erp_staff', required: true,
             searchApi: 'erp_staff', cascadeFrom: 'toDeptId',
+            nameField: 'toUserName',
           },
           { key: 'toDepositAddress', label: '新存放地点', type: 'text', required: false },
+          { key: 'toDeptName', label: '部门名称', type: 'text', required: false },
+          { key: 'toUserName', label: '使用人名称', type: 'text', required: false },
         ],
       },
     ],

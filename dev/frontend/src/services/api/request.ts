@@ -1,9 +1,10 @@
 /**
  * API 请求封装
- * 包含 401/403 响应处理
+ * 包含 401/403 响应处理、GET 参数自动 toSnakeKeys 转换
  */
 import { message } from 'antd';
 import { history } from 'umi';
+import { toSnakeKeys } from '@/utils/keyConvert';
 
 const API_BASE = '/api';
 const TOKEN_KEY = 'auth_token';
@@ -52,11 +53,12 @@ function handleAuthError(status: number, errorData?: any): void {
 export async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', headers = {}, body, params, skipErrorHandler = false } = options;
 
-  // 处理查询参数
+  // 处理查询参数：GET 请求自动将 camelCase 参数名转为 snake_case
   let fullUrl = `${API_BASE}${url}`;
   if (params && method === 'GET') {
+    const snakeParams = toSnakeKeys(params);
     // 过滤掉 undefined 和 null 值
-    const filteredParams = Object.entries(params)
+    const filteredParams = Object.entries(snakeParams)
       .filter(([_, value]) => value !== undefined && value !== null && value !== '')
       .reduce((acc, [key, value]) => {
         acc[key] = String(value);

@@ -9,6 +9,7 @@ import type { ApprovalDetail, ViewMode } from '@/types/oa-approval';
 import { STATUS_LABELS, STATUS_COLORS, URGENCY_LABELS, URGENCY_COLORS } from '@/types/oa-approval';
 import ApprovalFlow from '@/components/OaApproval/ApprovalFlow';
 import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
+import { useErpFieldResolve } from '@/components/OaApproval/hooks/useErpFieldResolve';
 import { checkCondition } from '../../Form/components/ConditionalFieldWrapper';
 import styles from '../index.less';
 
@@ -58,6 +59,9 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
     );
   }
 
+  // 批量预解析 ERP 字段 ID
+  const { resolvedMap } = useErpFieldResolve(detail?.formSchema, detail?.formData);
+
   // 计算当前步骤索引
   const currentStep = detail.nodes.findIndex(n => n.status === 'pending');
 
@@ -93,7 +97,7 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
               <div key={field.key} className={styles.formDataRow}>
                 <span className={styles.formLabel}>{field.label}</span>
                 <span className={styles.formValue}>
-                  <FieldRenderer field={field} value={value} formData={detail.formData} />
+                  <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} />
                 </span>
               </div>
             );

@@ -3,7 +3,7 @@
  * 提供统一的权限缓存失效机制，确保权限修改后能及时生效
  */
 
-import { cache } from '../utils/cache';
+import { cache, CACHE_TTL } from '../utils/cache';
 import { appQuery } from '../db/appPool';
 
 // 缓存键前缀
@@ -100,6 +100,6 @@ export function getPermissionTreeCache<T>(): T | null {
  * @param data 权限树数据
  * @param ttl 缓存有效期（毫秒），默认5分钟
  */
-export function setPermissionTreeCache<T>(data: T, ttl: number = 5 * 60 * 1000): void {
+export function setPermissionTreeCache<T>(data: T, ttl: number = CACHE_TTL.LOW_FREQUENCY): void {
   cache.set(CACHE_KEY_PREFIX.PERMISSION_TREE, data, ttl);
 }

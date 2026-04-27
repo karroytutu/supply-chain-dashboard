@@ -22,6 +22,16 @@ export {
   syncCategoryPath,
 } from './strategic-product-mutation';
 
+// DTO 映射器
+export {
+  toStrategicProductDTO,
+  toStrategicProductStatsDTO,
+  toProductForSelectionDTO,
+} from './strategic-product.mapper';
+
+// 数据访问层
+export { invalidateProductCache } from './strategic-product.repository';
+
 // 类型定义
 export type {
   StrategicProduct,

@@ -1,11 +1,15 @@
 import { Router } from 'express';
 import { healthCheck, getDashboard, getWarningProductsController, getCategoryTreeController, getCategoryOutOfStockController } from '../controllers/dashboard.controller';
 import { getOverviewStatsController, getTrendDataController } from '../controllers/overview.controller';
+import { getThresholds } from '../controllers/config.controller';
 
 const router = Router();
 
 // 健康检查
 router.get('/health', healthCheck);
+
+// 业务阈值配置（供前端同步后端常量）
+router.get('/config/thresholds', getThresholds);
 
 // 数据总览 - 全局统计和趋势
 router.get('/overview/stats', getOverviewStatsController);

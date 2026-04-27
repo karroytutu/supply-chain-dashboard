@@ -19,6 +19,7 @@ import ApprovalTimeline from './components/ApprovalTimeline';
 import ApprovalActions from './components/ApprovalActions';
 import ErpStatusCard from './components/ErpStatusCard';
 import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
+import { useErpFieldResolve } from '@/components/OaApproval/hooks/useErpFieldResolve';
 import { checkCondition } from '../Form/components/ConditionalFieldWrapper';
 import styles from './index.less';
 
@@ -73,6 +74,9 @@ const ApprovalDetailPage: React.FC = () => {
     getCurrentStep,
     loadDetail,
   } = useApprovalDetail(id);
+
+  // 批量预解析 ERP 字段 ID
+  const { resolvedMap } = useErpFieldResolve(detail?.formSchema, detail?.formData);
 
   if (loading) {
     return (
@@ -168,7 +172,7 @@ const ApprovalDetailPage: React.FC = () => {
                 if (field.key.startsWith('_')) return null;
                 return (
                   <Descriptions.Item key={field.key} label={field.label}>
-                    <FieldRenderer field={field} value={value} formData={detail.formData} />
+                    <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} />
                   </Descriptions.Item>
                 );
               })}

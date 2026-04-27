@@ -132,8 +132,8 @@ export async function getTrendData(days: number = 7): Promise<TrendData> {
     period: `${days}天`,
   };
 
-  // 写入缓存（5分钟有效期）
-  cache.set(cacheKey, trendData, 5 * 60 * 1000);
+  // 写入缓存（低频变更数据）
+  cache.set(cacheKey, trendData, CACHE_TTL.LOW_FREQUENCY);
 
   return trendData;
 }

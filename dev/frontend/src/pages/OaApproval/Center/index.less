@@ -13,7 +13,7 @@
 
 // 左侧导航
 .nav {
-  width: 180px;
+  width: 140px;
   background: #fff;
   border-right: 1px solid #e8e8e8;
   padding: 16px 0;
@@ -23,7 +23,7 @@
 .navItem {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  padding: 10px 16px;
   cursor: pointer;
   transition: all 0.3s;
   border-left: 3px solid transparent;
@@ -48,9 +48,9 @@
 }
 
 .navIcon {
-  font-size: 16px;
+  font-size: 14px;
   color: #666;
-  margin-right: 12px;
+  margin-right: 8px;
 }
 
 .navLabel {
@@ -61,7 +61,7 @@
 
 // 中间列表
 .listPanel {
-  width: 360px;
+  width: 300px;
   background: #fff;
   border-right: 1px solid #e8e8e8;
   display: flex;
@@ -72,7 +72,7 @@
 .listHeader {
   display: flex;
   gap: 12px;
-  padding: 16px;
+  padding: 12px;
   border-bottom: 1px solid #e8e8e8;
 }
 
@@ -86,7 +86,7 @@
 }
 
 .listItem {
-  padding: 16px;
+  padding: 12px;
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
   transition: all 0.3s;
@@ -150,7 +150,7 @@
   justify-content: center;
   align-items: center;
   gap: 16px;
-  padding: 12px;
+  padding: 8px;
   border-top: 1px solid #e8e8e8;
   font-size: 13px;
   color: #666;
@@ -160,25 +160,132 @@
 .detailPanel {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
+  background: #f5f7fa;
+}
+
+// 详情头部信息
+.detailHeader {
+  margin-bottom: 16px;
+}
+
+.detailTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 8px 0;
+}
+
+.detailMeta {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+
+  span {
+    margin-right: 16px;
+  }
+}
+
+.detailStatus {
+  display: flex;
+  gap: 8px;
+}
+
+// 表单数据
+.formDataSection {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+
+  h3 {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    margin: 0 0 12px 0;
+  }
+}
+
+.formDataList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formDataRow {
+  display: flex;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.formLabel {
+  width: 100px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.formValue {
+  flex: 1;
+  color: #333;
+  word-break: break-all;
+}
+
+// 审批流程
+.flowSection {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  flex: 1;
+
+  h3 {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    margin: 0 0 16px 0;
+  }
+}
+
+// 操作栏
+.actionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #fff;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.actionLeft {
+  display: flex;
+  gap: 8px;
+}
+
+.actionRight {
+  display: flex;
+  gap: 12px;
 }
 
 // 响应式
 @media (max-width: 1200px) {
   .nav {
-    width: 60px;
+    width: 48px;
   }
 
   .navLabel {
     display: none;
   }
+
+  .navIcon {
+    margin-right: 0;
+  }
 }
 
 @media (max-width: 992px) {
   .listPanel {
-    width: 300px;
+    width: 260px;
   }
 }
 

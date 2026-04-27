@@ -1,5 +1,11 @@
 import type { TrendDirection, TrendResult } from '../types/dashboard';
 
+// 已迁移到 format.ts 的格式化函数，保留重新导出以兼容
+// @deprecated 请使用 @/utils/format 中的 formatPercent
+export { formatPercent } from './format';
+// @deprecated 请使用 @/utils/format 中的 formatNumber
+export { formatNumber } from './format';
+
 /**
  * 计算环比变化
  * @param current 当前值
@@ -46,23 +52,6 @@ export const formatTrendDisplay = (
     color,
     isPositive,
   };
-};
-
-/**
- * 格式化百分比
- * @param value 数值
- * @param decimals 小数位数
- */
-export const formatPercent = (value: number, decimals: number = 1): string => {
-  return `${value.toFixed(decimals)}%`;
-};
-
-/**
- * 格式化数字（添加千分位）
- * @param value 数值
- */
-export const formatNumber = (value: number): string => {
-  return value.toLocaleString('zh-CN');
 };
 
 /**

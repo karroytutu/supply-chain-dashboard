@@ -93,6 +93,8 @@ export interface FormField {
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
   cascadeFrom?: string;
+  /** ERP字段选中后，将显示名称存入 formData 的哪个 key（如 'customerName'） */
+  nameField?: string;
   /** asset_search 显示哪些子字段 */
   displayFields?: string[];
 }

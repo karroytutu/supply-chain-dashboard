@@ -5,6 +5,7 @@
  */
 
 import { erpGet, erpPost, getErpConfig, getErpDefaults } from '../erp-client';
+import { CACHE_TTL as CACHE_TTL_CONFIG } from '../../utils/cache';
 import type {
   ErpAsset,
   ErpAssetCategory,
@@ -19,7 +20,8 @@ import type {
 
 /** 资产列表缓存（5 分钟过期） */
 let assetCache: { data: ErpAsset[]; expireAt: number } | null = null;
-const CACHE_TTL = 5 * 60 * 1000;
+/** 资产列表缓存过期时间 */
+const ASSET_CACHE_TTL = CACHE_TTL_CONFIG.LOW_FREQUENCY;
 
 // =====================================================
 // 舟谱 API 代理查询
@@ -90,7 +92,7 @@ async function getAllErpAssets(): Promise<ErpAsset[]> {
     return assetCache.data;
   }
   const assets = await searchErpAssets('', '');
-  assetCache = { data: assets, expireAt: now + CACHE_TTL };
+  assetCache = { data: assets, expireAt: now + ASSET_CACHE_TTL };
   return assets;
 }
 

@@ -23,9 +23,12 @@ export {
   rollbackReturnOrder,
 } from './return-order.mutation';
 
-// 工具函数
-export { mapRowToReturnOrder, recordAction } from './return-order-utils';
+// DTO 映射器
+export { toReturnOrderDTO, toReturnActionDTO, toReturnOrderStatsDTO } from './return-order.mapper';
+
+// 数据访问层
 export type { ReturnOrderRow } from './return-order-utils';
+export { invalidateOrderCache } from './return-order.repository';
 
 // 类型定义
 export type {
