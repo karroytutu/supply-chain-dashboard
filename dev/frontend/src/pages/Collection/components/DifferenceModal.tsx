@@ -34,7 +34,7 @@ const DifferenceModal: React.FC<DifferenceModalProps> = ({
       setLoading(true);
       await markDifference(task.id, {
         detailIds: selectedDetails.map((d) => d.id),
-        description: values.description,
+        remark: values.remark,
       });
       message.success('差异已标记，将流转至财务处理');
       form.resetFields();
@@ -72,7 +72,7 @@ const DifferenceModal: React.FC<DifferenceModalProps> = ({
 
       <Form form={form} layout="vertical">
         <Form.Item
-          name="description"
+          name="remark"
           label="差异说明"
           rules={[
             { required: true, message: '请输入差异说明' },

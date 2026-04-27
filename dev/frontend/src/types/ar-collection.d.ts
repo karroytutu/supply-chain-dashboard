@@ -197,7 +197,7 @@ export interface ExtensionParams {
  */
 export interface DifferenceParams {
   detailIds: number[];
-  description: string;
+  remark: string;
 }
 
 /**
@@ -220,6 +220,7 @@ export interface ConfirmVerifyParams {
  * 处理差异参数
  */
 export interface ResolveDifferenceParams {
+  detailIds: number[];
   remark: string;
 }
 
