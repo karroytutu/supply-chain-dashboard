@@ -13,7 +13,7 @@ import {
   getErpPaymentAccounts,
   getErpAssetCategories,
 } from '../services/fixed-asset/fixed-asset.query';
-import { searchErpCustomersByKeyword, getErpCustomerProfile } from '../services/erp-client/erp-customer.service';
+import { searchErpCustomersByKeyword, getErpCustomerProfile, getCustomerLicenseInfo } from '../services/erp-client/erp-customer.service';
 import { searchErpSettlementOrders } from '../services/erp-client/erp-settlement.service';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
 
@@ -217,6 +217,33 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
     }
 
     res.json({ code: 200, data: resolved });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 获取客户营业执照信息
+ * GET /oa-approval/erp-reference/customers/:id/license-info
+ *
+ * 从 ERP 客户详情接口提取执照图片 URL，供前端表单展示已有执照
+ */
+export async function getCustomerLicense(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const customerId = Number(req.params.id);
+    if (isNaN(customerId) || customerId <= 0) {
+      res.status(400).json({ code: 400, message: '无效的客户ID' });
+      return;
+    }
+
+    try {
+      const licenseInfo = await getCustomerLicenseInfo(customerId);
+      res.json({ code: 200, data: licenseInfo });
+    } catch (erpError) {
+      // ERP 不可用时降级返回，保证表单仍可用
+      console.warn('[ERP] 获取客户执照信息失败，降级返回:', erpError instanceof Error ? erpError.message : erpError);
+      res.json({ code: 200, data: { hasLicense: false, imageCount: 0, attachedPicUrls: [] } });
+    }
   } catch (error) {
     next(error);
   }

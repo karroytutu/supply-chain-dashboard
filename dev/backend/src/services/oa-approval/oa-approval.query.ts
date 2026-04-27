@@ -285,6 +285,7 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
  * 审批详情返回类型
  */
 export interface ApprovalDetail extends InstanceListItem {
+  applicantAvatar: string | null;
   formData: Record<string, unknown>;
   formSchema: FormSchema;
   erpMeta: Record<string, unknown> | null;
@@ -330,16 +331,18 @@ export interface CcUserDetail {
  * 获取审批详情
  */
 export async function getApprovalDetail(instanceId: number): Promise<ApprovalDetail | null> {
-  // 查询实例基本信息（LEFT JOIN 防止表单类型停用后无法查看详情）
+  // 查询实例基本信息（LEFT JOIN 防止表单类型停用后无法查看详情，LEFT JOIN users 获取申请人头像）
   const instanceResult = await query<any>(`
     SELECT
       i.*,
       ft.code as form_type_code,
       ft.name as form_type_name,
       ft.icon as form_type_icon,
-      ft.form_schema as form_schema
+      ft.form_schema as form_schema,
+      u.avatar AS applicant_avatar
     FROM oa_approval_instances i
     LEFT JOIN oa_form_types ft ON i.form_type_id = ft.id
+    LEFT JOIN users u ON i.applicant_id = u.id
     WHERE i.id = $1
   `, [instanceId]);
 
@@ -391,6 +394,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     applicantId: instance.applicant_id,
     applicantName: instance.applicant_name,
     applicantDept: instance.applicant_dept,
+    applicantAvatar: instance.applicant_avatar || null,
     currentNodeOrder: instance.current_node_order,
     currentNodeName: nodesResult.rows.find(n => n.node_order === instance.current_node_order)?.node_name || null,
     submittedAt: instance.submitted_at,
@@ -625,6 +629,9 @@ export async function previewApprovers(
   const results: PreviewApprover[] = [];
 
   for (const node of nodes) {
+    // auto 类型节点无需解析审批人，跳过
+    if (node.type === 'auto') continue;
+
     const approverId = await resolveApproverId(node, userId);
     let approverName: string | null = null;
     let approverAvatar: string | null = null;

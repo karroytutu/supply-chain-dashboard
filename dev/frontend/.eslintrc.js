@@ -63,5 +63,6 @@ module.exports = {
     '.umi/',
     '*.config.js',
     '*.d.ts',
+    '*.less',
   ],
 };

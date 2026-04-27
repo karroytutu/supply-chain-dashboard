@@ -107,7 +107,7 @@ export interface FormSchema {
 // 审批流程相关类型
 // =====================================================
 
-export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign' | 'data_input';
+export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign' | 'data_input' | 'auto';
 
 export interface ConditionDef {
   field: string;
@@ -197,6 +197,8 @@ export interface ApprovalInstance {
   applicantId: number;
   applicantName: string;
   applicantDept: string | null;
+  /** 申请人头像URL */
+  applicantAvatar?: string | null;
   currentNodeOrder: number;
   currentNodeName: string | null;
   submittedAt: string;
@@ -244,7 +246,7 @@ export interface CcUser {
 
 /** ERP处理元数据 */
 export interface ErpMeta {
-  status: 'pending' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_failed';
+  status: 'pending' | 'processing' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_completed' | 'erp_failed';
   responseData: Record<string, unknown>;
   requestLog: Record<string, unknown> | null;
   applicationNo: string;

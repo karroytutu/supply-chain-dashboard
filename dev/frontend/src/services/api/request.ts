@@ -18,6 +18,8 @@ interface RequestOptions {
   params?: Record<string, any>;
   /** 是否跳过错误处理 */
   skipErrorHandler?: boolean;
+  /** 外部 AbortSignal，用于取消请求 */
+  signal?: AbortSignal;
 }
 
 /**
@@ -80,6 +82,15 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+
+  // 外部 signal 关联：当外部 abort 时也取消当前请求
+  if (options.signal) {
+    if (options.signal.aborted) {
+      controller.abort();
+    } else {
+      options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
 
   const config: RequestInit = {
     method,

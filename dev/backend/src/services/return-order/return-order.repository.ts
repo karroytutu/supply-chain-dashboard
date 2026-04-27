@@ -303,7 +303,7 @@ export async function batchConfirm(
   newStatus: ReturnOrderStatus,
   operatorId: number,
   orderIds: number[]
-) {
+): Promise<{ id: number; goods_id: string; goods_name: string }[]> {
   const result = await appQuery<{ id: number; goods_id: string; goods_name: string }>(
     `UPDATE expiring_return_orders
      SET status = $1, rule_confirmed_at = NOW(), rule_confirmed_by = $2, updated_at = NOW()
@@ -311,7 +311,7 @@ export async function batchConfirm(
      RETURNING id, goods_id, goods_name`,
     [newStatus, operatorId, orderIds]
   );
-  return result;
+  return result.rows;
 }
 
 /**

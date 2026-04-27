@@ -43,6 +43,7 @@ import {
   // ERP参考数据
   getErpReference,
   resolveErpReference,
+  getCustomerLicense,
   retryErpOperation,
 } from '../controllers/erp-reference.controller';
 import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
@@ -148,6 +149,9 @@ router.get('/erp-reference/:type', requirePermission(['oa:approval:read', 'oa:ap
 // 解析ERP ID→名称（供详情页展示使用）
 router.get('/erp-reference/:type/resolve', requirePermission(['oa:approval:read', 'oa:approval:write']), resolveErpReference);
 
+// 获取客户营业执照信息（供表单展示已有执照）
+router.get('/erp-reference/customers/:id/license-info', requirePermission(['oa:approval:read', 'oa:approval:write']), getCustomerLicense);
+
 // 重试失败的ERP操作
 router.post('/instances/:id/retry-erp', requirePermission('oa:approval:write'), retryErpOperation);
 
@@ -157,17 +161,17 @@ router.post('/instances/:id/retry-erp', requirePermission('oa:approval:write'), 
 
 router.post(
   '/upload-license',
-  requirePermission('finance:credit:write'),
-  uploadCreditLicense.array('files', 3),
+  requirePermission('oa:approval:write'),
+  uploadCreditLicense.single('file'),
   async (req: Request, res: Response) => {
     try {
-      const files = req.files as Express.Multer.File[];
-      if (!files || files.length === 0) {
+      const file = req.file;
+      if (!file) {
         res.status(400).json({ code: 400, message: '请上传文件' });
         return;
       }
-      const urls = files.map(f => getCreditLicenseUrl(f.filename));
-      res.json({ code: 200, data: { urls } });
+      const url = getCreditLicenseUrl(file.filename);
+      res.json({ code: 200, data: { url } });
     } catch (error) {
       res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '上传失败' });
     }

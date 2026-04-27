@@ -66,6 +66,13 @@ export interface CustomerLicenseInfo {
 }
 
 // =====================================================
+// 请求去重：同一 keyword 的并发请求共享同一 Promise
+// =====================================================
+
+/** 进行中的客户搜索请求，防止同一关键词重复调用 ERP API */
+const _inflightCustomerSearch = new Map<string, Promise<ErpCustomer[]>>();
+
+// =====================================================
 // 查询方法
 // =====================================================
 
@@ -127,15 +134,44 @@ export async function searchErpCustomers(keyword?: string): Promise<ErpCustomer[
  * 按关键字搜索 ERP 客户（仅查第一页，用于下拉搜索）
  * POST /redcoast/store-query/search
  *
+ * 优化策略：
+ * 1. 请求去重 — 同一 keyword 的并发请求共享同一 Promise
+ * 2. Stale-While-Revalidate — 缓存过期时返回旧数据，后台刷新
+ *
  * 响应字段同 searchErpCustomers
  */
 export async function searchErpCustomersByKeyword(keyword: string): Promise<ErpCustomer[]> {
-  /** 缓存键前缀，便于通过 cache.invalidate('erp_customer_search') 批量清除 */
   const cacheKey = `erp_customer_search:${keyword}`;
 
+  // 1. 缓存命中（数据新鲜）→ 直接返回
   const cached = cache.get<ErpCustomer[]>(cacheKey);
   if (cached) return cached;
 
+  // 2. 请求去重 — 同一 keyword 已有进行中的请求，复用 Promise
+  const inflight = _inflightCustomerSearch.get(keyword);
+  if (inflight) return inflight;
+
+  // 3. Stale-While-Revalidate — 缓存过期但有旧数据，先返回旧数据
+  const stale = cache.getStale<ErpCustomer[]>(cacheKey);
+  if (stale) {
+    // 后台刷新，不阻塞当前响应
+    refreshCustomerSearchCache(keyword).catch(() => {});
+    return stale;
+  }
+
+  // 4. 完全未命中 → 发起 ERP API 请求
+  const promise = fetchFromErp(keyword).finally(() => {
+    _inflightCustomerSearch.delete(keyword);
+  });
+  _inflightCustomerSearch.set(keyword, promise);
+  return promise;
+}
+
+/**
+ * 从 ERP API 获取客户搜索结果并写入缓存
+ */
+async function fetchFromErp(keyword: string): Promise<ErpCustomer[]> {
+  const cacheKey = `erp_customer_search:${keyword}`;
   const { cid, uid } = getErpDefaults();
   const body = { current: 1, size: 50, docState: 1, cid, uid, queryText: keyword };
   const result = await erpPost(
@@ -143,8 +179,23 @@ export async function searchErpCustomersByKeyword(keyword: string): Promise<ErpC
     { pathPrefix: '/redcoast/', businessType: 'customer_search' }
   ) as any;
   const records: ErpCustomer[] = result?.data?.records || result?.records || [];
-  cache.set(cacheKey, records, CACHE_TTL.ERP_CUSTOMER_SEARCH);
+  cache.set(cacheKey, records, CACHE_TTL.LOW_FREQUENCY);
   return records;
+}
+
+/**
+ * 后台刷新客户搜索缓存（Stale-While-Revalidate 的刷新阶段）
+ * 走请求去重 Map，避免与直接请求重复调用 ERP
+ */
+async function refreshCustomerSearchCache(keyword: string): Promise<void> {
+  // 如果已有进行中的请求，不需要重复刷新
+  if (_inflightCustomerSearch.has(keyword)) return;
+
+  const promise = fetchFromErp(keyword).finally(() => {
+    _inflightCustomerSearch.delete(keyword);
+  });
+  _inflightCustomerSearch.set(keyword, promise);
+  await promise;
 }
 
 /**
@@ -189,12 +240,28 @@ export async function getErpCustomerProfile(customerId: number): Promise<ErpCust
 /**
  * 获取客户营业执照信息
  * 从 ERP 客户档案 ext.attachedPicIds / attachedPicUrls 提取
- * 供 beforeSubmit 安全校验使用
+ * 供 beforeSubmit 安全校验及前端展示使用
+ *
+ * 注意：profile API 不返回 attachedPicUrls，需从搜索 API 补充
  */
 export async function getCustomerLicenseInfo(customerId: number): Promise<CustomerLicenseInfo> {
   const profile = await getErpCustomerProfile(customerId);
   const picIds = profile?.ext?.attachedPicIds || [];
-  const picUrls = profile?.attachedPicUrls || [];
+  let picUrls = profile?.attachedPicUrls || [];
+
+  // profile API 不返回 attachedPicUrls，从搜索 API 补充
+  if (picIds.length > 0 && picUrls.length === 0) {
+    try {
+      const customers = await searchErpCustomersByKeyword(String(profile?.name || ''));
+      const matched = customers.find((c) => c.id === customerId);
+      if (matched) {
+        picUrls = (matched as Record<string, unknown>).attachedPicUrls as string[] || [];
+      }
+    } catch {
+      // 搜索 API 失败不影响 hasLicense 判断
+    }
+  }
+
   return {
     hasLicense: picIds.length > 0,
     imageCount: picIds.length,

@@ -8,6 +8,7 @@ import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { getErpCustomerProfile } from './erp-customer.service';
 import type { ErpCustomerProfile } from './erp-customer.service';
+import { createLogEntry, writeErpLog } from './erp-logger';
 
 // =====================================================
 // 更新方法
@@ -45,15 +46,28 @@ export async function erpUpdateMaxDebtOrderNum(customerId: number, maxDebtOrderN
   );
 }
 
+/** erpUploadBusinessLicense 可同时更新的授信字段 */
+export interface CreditUpdateFields {
+  maxDebtDays?: number;
+  maxDebtOrderNum?: number;
+}
+
 /**
- * 上传营业执照照片到 ERP（3步流程）
+ * 上传营业执照照片到 ERP，同时可更新授信字段
  * 1. GET /redcoast/store-query/query-store-web 获取客户完整资料
  * 2. POST /saas/pro/file/uploadWithoutWaterMark 上传图片获取 imgId
- * 3. POST /saas/pro/web/consumer/update-consumer 更新客户资料（追加 attachedPicIds）
+ * 3. POST /saas/pro/web/consumer/update-consumer 更新客户资料
+ *    （追加 attachedPicIds + 更新授信字段）
+ *
+ * 将授信字段合并到同一次 update-consumer 调用中，避免以下问题：
+ *   先 batch-edit 更新 maxDebtDays，再 update-consumer 用旧快照覆盖回去
+ *
+ * 任一图片上传失败时抛出错误，不静默跳过
  */
 export async function erpUploadBusinessLicense(
   customerId: number,
-  photoUrls: string[]
+  photoUrls: string[],
+  creditFields?: CreditUpdateFields
 ): Promise<void> {
   // 步骤1：获取客户完整资料
   const customer = await getErpCustomerProfile(customerId);
@@ -64,21 +78,30 @@ export async function erpUploadBusinessLicense(
     const imgId = await erpUploadImage(photoUrl);
     if (imgId) {
       newImgIds.push(imgId);
+    } else {
+      throw new Error(`营业执照上传失败: 文件 ${photoUrl} 上传到 ERP 后未返回 imgId`);
     }
   }
 
-  // 步骤3：更新客户资料，追加 attachedPicIds
-  if (newImgIds.length > 0) {
-    const existingPicIds = customer?.ext?.attachedPicIds || [];
-    customer.ext = customer.ext || {};
-    customer.ext.attachedPicIds = [...existingPicIds, ...newImgIds];
+  // 步骤3：更新客户资料，追加 attachedPicIds + 更新授信字段
+  const existingPicIds = customer?.ext?.attachedPicIds || [];
+  customer.ext = customer.ext || {};
+  customer.ext.attachedPicIds = [...existingPicIds, ...newImgIds];
 
-    await erpPost(
-      '/web/consumer/update-consumer',
-      customer,
-      { pathPrefix: '/saas/pro/', businessType: 'credit_update_customer_profile' }
-    );
+  // 同步更新授信字段，避免 update-consumer 用旧快照覆盖之前的 batch-edit 结果
+  // 注意：ERP update-consumer 接口要求 maxDebtDays/maxDebtOrderNum 为字符串
+  if (creditFields?.maxDebtDays !== undefined) {
+    customer.maxDebtDays = String(creditFields.maxDebtDays);
   }
+  if (creditFields?.maxDebtOrderNum !== undefined) {
+    customer.maxDebtOrderNum = String(creditFields.maxDebtOrderNum);
+  }
+
+  await erpPost(
+    '/web/consumer/update-consumer',
+    customer,
+    { pathPrefix: '/saas/pro/', businessType: 'credit_update_customer_profile' }
+  );
 }
 
 // =====================================================
@@ -89,6 +112,9 @@ export async function erpUploadBusinessLicense(
  * 上传图片到 ERP，返回 imgId
  * POST /saas/pro/file/uploadWithoutWaterMark (multipart/form-data)
  * 返回: { code: 0, data: [{ imgId: "xxx", downloadUrl: "https://..." }] }
+ *
+ * 注意：此接口使用 multipart/form-data，无法走 erpRequest 统一客户端（仅支持 JSON），
+ * 但需自行实现日志记录和错误码检查
  */
 async function erpUploadImage(localFilePath: string): Promise<string | null> {
   const { getErpConfig } = await import('./erp-config');
@@ -99,26 +125,87 @@ async function erpUploadImage(localFilePath: string): Promise<string | null> {
   // 动态导入避免循环依赖
   const FormData = (await import('form-data')).default;
   const fs = await import('fs');
-  const path = await import('path');
 
   const form = new FormData();
-  form.append('file', fs.createReadStream(localFilePath));
+  form.append('files', fs.createReadStream(localFilePath));
+  form.append('categoryName', 'store');
+  form.append('serviceName', 'saas');
 
   const fullPath = `/saas/pro/file/uploadWithoutWaterMark`.replace(/\/+/g, '/');
   const url = `${config.baseUrl}${fullPath}`;
+  const requestId = createLogEntry();
+  const startTime = Date.now();
 
-  const axios = (await import('axios')).default;
-  const response = await axios.post(url, form, {
-    headers: {
-      'authorization': `Bearer ${token}`,
-      'cid': config.cid,
-      'uid': config.uid,
-      'SaasCid': config.cid,
-      ...form.getHeaders(),
-    },
-    timeout: config.timeout,
-  });
+  try {
+    const axios = (await import('axios')).default;
+    const response = await axios.post(url, form, {
+      headers: {
+        'authorization': `Bearer ${token}`,
+        'cid': config.cid,
+        'uid': config.uid,
+        'SaasCid': config.cid,
+        ...form.getHeaders(),
+      },
+      timeout: config.timeout,
+    });
 
-  const data = response.data?.data;
-  return Array.isArray(data) && data.length > 0 ? data[0].imgId : null;
+    const responseData = response.data;
+    const durationMs = Date.now() - startTime;
+
+    // 检查舟谱 API 错误码
+    if (responseData && typeof responseData === 'object' && responseData.code !== undefined && responseData.code !== 0) {
+      const errMsg = responseData.message || `舟谱API错误(code=${responseData.code})`;
+      // 记录失败日志
+      writeErpLog({
+        requestId,
+        method: 'POST',
+        path: fullPath,
+        requestHeaders: { 'Content-Type': 'multipart/form-data' },
+        responseStatus: response.status,
+        responseBody: responseData,
+        errorMessage: errMsg,
+        durationMs,
+        retryCount: 0,
+        businessType: 'credit_upload_license',
+      }).catch(() => {});
+      throw new Error(errMsg);
+    }
+
+    const data = responseData?.data;
+    const imgId = Array.isArray(data) && data.length > 0 ? data[0].imgId : null;
+
+    // 记录成功日志
+    writeErpLog({
+      requestId,
+      method: 'POST',
+      path: fullPath,
+      requestHeaders: { 'Content-Type': 'multipart/form-data' },
+      responseStatus: response.status,
+      responseBody: responseData,
+      durationMs,
+      retryCount: 0,
+      businessType: 'credit_upload_license',
+    }).catch(() => {});
+
+    return imgId;
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    const errMsg = error instanceof Error ? error.message : String(error);
+
+    // 非舟谱业务错误（网络错误等）也记录日志
+    if (!(error instanceof Error && error.message.includes('舟谱API错误'))) {
+      writeErpLog({
+        requestId,
+        method: 'POST',
+        path: fullPath,
+        requestHeaders: { 'Content-Type': 'multipart/form-data' },
+        errorMessage: errMsg,
+        durationMs,
+        retryCount: 0,
+        businessType: 'credit_upload_license',
+      }).catch(() => {});
+    }
+
+    throw error;
+  }
 }

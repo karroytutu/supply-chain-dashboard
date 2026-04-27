@@ -413,6 +413,10 @@ export async function resolveApproverId(
       );
       return supervisorResult.rows[0]?.id || null;
 
+    case 'auto':
+      // 自动节点无需审批人
+      return null;
+
     default:
       return null;
   }

@@ -3,7 +3,7 @@
  * @module services/api/oa-approval
  */
 
-import request from './request';
+import request, { requestFormData } from './request';
 import {
   FormTypeDefinition,
   FormCategory,
@@ -350,7 +350,8 @@ export interface ErpResolvedItem {
 export async function getErpReference(
   type: ErpReferenceType,
   keyword?: string,
-  extraParams?: Record<string, string>
+  extraParams?: Record<string, string>,
+  signal?: AbortSignal
 ): Promise<unknown[]> {
   const params: Record<string, string> = {};
   if (keyword) {
@@ -361,7 +362,7 @@ export async function getErpReference(
   }
   const res = await request<unknown[]>(
     `/oa-approval/erp-reference/${type}`,
-    { params }
+    { params, signal }
   );
   return res;
 }
@@ -394,6 +395,38 @@ export async function retryErpOperation(instanceId: number): Promise<void> {
     `/oa-approval/instances/${instanceId}/retry-erp`,
     { method: 'POST' }
   );
+}
+
+/** 客户营业执照信息 */
+export interface CustomerLicenseInfo {
+  hasLicense: boolean;
+  imageCount: number;
+  attachedPicUrls: string[];
+}
+
+/**
+ * 获取客户营业执照信息
+ * 从 ERP 客户详情接口获取执照图片 CDN URL，供表单展示已有执照
+ */
+export async function getCustomerLicenseInfo(customerId: number): Promise<CustomerLicenseInfo> {
+  const res = await request<CustomerLicenseInfo>(
+    `/oa-approval/erp-reference/customers/${customerId}/license-info`,
+  );
+  return res;
+}
+
+/**
+ * 上传营业执照图片到服务器
+ * 上传成功后返回服务端文件访问 URL
+ */
+export async function uploadLicense(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await requestFormData<{ code: number; data: { url: string } }>(
+    '/oa-approval/upload-license',
+    formData,
+  );
+  return res.data.url;
 }
 
 // =====================================================
@@ -431,5 +464,7 @@ export const oaApprovalApi = {
   getErpReference,
   resolveErpNames,
   retryErpOperation,
+  getCustomerLicenseInfo,
+  uploadLicense,
   getTransferCandidates,
 };
