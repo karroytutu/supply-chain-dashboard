@@ -18,7 +18,7 @@ import { useApprovalDetail } from './hooks/useApprovalDetail';
 import ApprovalTimeline from './components/ApprovalTimeline';
 import ApprovalActions from './components/ApprovalActions';
 import ErpStatusCard from './components/ErpStatusCard';
-import FieldRenderer from './components/FormFieldRenderer';
+import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
 import { checkCondition } from '../Form/components/ConditionalFieldWrapper';
 import styles from './index.less';
 
