@@ -147,10 +147,12 @@ export async function submitApproval(
     // 插入审批节点
     for (const node of filteredNodes) {
       const approverId = await resolveApproverId(node, userId);
-      
+
       // 获取审批人姓名
       let approverName: string | null = null;
-      if (approverId) {
+      if (node.type === 'auto') {
+        approverName = '系统';
+      } else if (approverId) {
         const userResult = await client.query<{ name: string }>(
           `SELECT name FROM users WHERE id = $1`,
           [approverId]
@@ -210,6 +212,14 @@ export async function submitApproval(
     });
   }
 
+  // 如果流程中包含 auto 节点，也初始化 erp_meta（applicationNo 为空）
+  const hasAutoNode = filteredNodes.some(n => n.type === 'auto');
+  if (hasAutoNode) {
+    await initErpMeta(result.id, '').catch(err => {
+      console.error(`[OA] erp_meta 初始化失败 [instanceId=${result.id}]:`, err);
+    });
+  }
+
   return {
     instanceId: result.id,
     instanceNo: result.instance_no,
@@ -243,6 +253,7 @@ export async function approveApproval(
   let callbackInputData: Record<string, unknown> | undefined;
   let callbackFormData: Record<string, unknown> | undefined;
   let isLastNode = false;
+  let autoNodeToExecute: OaApprovalNodeRow | null = null;
 
   await transaction(async (client) => {
     // 在事务内获取实例和表单类型（确保数据一致性）
@@ -328,14 +339,29 @@ export async function approveApproval(
     );
 
     if (nextNodeResult.rows.length > 0) {
-      // 流转到下一节点
       const nextNode = nextNodeResult.rows[0];
-      await client.query(
-        `UPDATE oa_approval_instances
-         SET current_node_order = $1, updated_at = NOW()
-         WHERE id = $2`,
-        [nextNode.node_order, instanceId]
-      );
+      if (nextNode.node_type === 'auto') {
+        // 自动节点：标记 ERP 处理中，实例保持 pending
+        await client.query(
+          `UPDATE oa_approval_instances
+           SET erp_meta = $1, current_node_order = $2, updated_at = NOW()
+           WHERE id = $3`,
+          [
+            JSON.stringify({ status: 'processing', responseData: {}, requestLog: null, applicationNo: '', retries: 0 }),
+            nextNode.node_order,
+            instanceId,
+          ]
+        );
+        autoNodeToExecute = nextNode;
+      } else {
+        // 普通节点流转
+        await client.query(
+          `UPDATE oa_approval_instances
+           SET current_node_order = $1, updated_at = NOW()
+           WHERE id = $2`,
+          [nextNode.node_order, instanceId]
+        );
+      }
     } else {
       // 所有节点已完成，审批通过
       await client.query(
@@ -379,7 +405,32 @@ export async function approveApproval(
         });
     }
 
-    if (isLastNode && formType.onApproved) {
+    if (autoNodeToExecute && formType.onApproved) {
+      // auto 节点：同步执行 onApproved，失败则抛出错误
+      const autoNode = autoNodeToExecute as OaApprovalNodeRow;
+      try {
+        await formType.onApproved(callbackInstance, callbackFormData || {});
+        // 成功：更新 auto 节点和实例状态
+        await query(
+          `UPDATE oa_approval_nodes SET status = 'approved', acted_at = NOW() WHERE id = $1`,
+          [autoNode.id]
+        );
+        await query(
+          `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW() WHERE id = $1`,
+          [instanceId]
+        );
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[OA] auto节点执行失败 [instanceId=${instanceId}]:`, error);
+        // 标记 auto 节点失败
+        await query(
+          `UPDATE oa_approval_nodes SET status = 'rejected', acted_at = NOW(), comment = $1 WHERE id = $2`,
+          [errMsg, autoNode.id]
+        );
+        throw error;
+      }
+    } else if (isLastNode && formType.onApproved) {
+      // 普通最终节点：保持现有异步回调
       formType.onApproved(callbackInstance, callbackFormData || {})
         .catch(err => {
           console.error(`[OA] 审批通过回调执行失败 [${ftCode}]:`, err);

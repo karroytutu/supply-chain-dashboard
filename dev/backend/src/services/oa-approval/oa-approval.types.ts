@@ -153,7 +153,7 @@ export interface FormSchema {
 /**
  * 审批节点类型
  */
-export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign' | 'data_input';
+export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign' | 'data_input' | 'auto';
 
 /**
  * 数据录入节点 - 录入字段定义

@@ -144,18 +144,18 @@ export const customerCreditFormType: FormTypeDefinition = {
 
   workflowDef: {
     nodes: [
-      // 节点1：营销主管审批（仅营销师提交时需要）
+      // 节点1：合理性审批（仅营销师提交时需要）
       {
         order: 1,
-        name: '营销主管',
+        name: '合理性审批',
         type: 'role',
         roleCode: 'marketing_manager',
         condition: { field: '_submitterRole', operator: '==', value: 'marketer' },
       },
-      // 节点2：往来会计审批（仅营销师提交时需要）
+      // 节点2：材料审批（仅营销师提交时需要）
       {
         order: 2,
-        name: '往来会计',
+        name: '材料审批',
         type: 'role',
         roleCode: 'current_accountant',
         condition: { field: '_submitterRole', operator: '==', value: 'marketer' },
@@ -163,9 +163,15 @@ export const customerCreditFormType: FormTypeDefinition = {
       // 节点3：总经理审批（始终需要）
       {
         order: 3,
-        name: '总经理',
+        name: '总经理审批',
         type: 'role',
         roleCode: 'general_manager',
+      },
+      // 节点4：自动更新ERP客户授信
+      {
+        order: 4,
+        name: '更新ERP客户授信',
+        type: 'auto',
       },
     ],
   },

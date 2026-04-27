@@ -37,6 +37,21 @@ class MemoryCache {
   }
 
   /**
+   * 获取缓存数据（含过期但未清理的数据）
+   * 用于 stale-while-revalidate 模式：返回过期数据的同时后台刷新
+   * 与 get() 的区别：过期条目不会被删除，仍然返回给调用方
+   * @param key 缓存键
+   * @returns 缓存数据，key 从未存储过则返回 null
+   */
+  getStale<T>(key: string): T | null {
+    const item = this.cache.get(key);
+    if (!item) {
+      return null;
+    }
+    return item.data as T;
+  }
+
+  /**
    * 设置缓存数据
    * @param key 缓存键
    * @param data 缓存数据

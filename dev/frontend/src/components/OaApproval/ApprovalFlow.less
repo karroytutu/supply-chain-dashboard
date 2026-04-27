@@ -1,108 +1,187 @@
 .approvalFlow {
-  .steps {
-    :global {
-      .ant-steps-item-title {
-        line-height: 22px;
-      }
+  // =====================================================
+  // 实际时间线模式
+  // =====================================================
+
+  .timeline {
+    padding: 8px 0;
+  }
+
+  .timelineItem {
+    display: flex;
+    position: relative;
+
+    &:not(:last-child) {
+      padding-bottom: 16px;
     }
   }
 
-  // 步骤标题
-  .stepTitle {
-    font-size: 14px;
-    font-weight: 500;
+  // 连线（定位上下文为 timelineItem，可跨越 padding 间隙）
+  .timelineLine {
+    position: absolute;
+    left: 24px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #e8e8e8;
   }
 
-  .nodeTypeTag {
-    margin-left: 6px;
-    font-size: 11px;
-    line-height: 18px;
-    padding: 0 4px;
-    vertical-align: middle;
-  }
-
-  // 步骤描述区
-  .stepDescription {
+  // 左侧图标区
+  .timelineLeft {
+    width: 48px;
+    flex-shrink: 0;
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    justify-content: center;
+    min-height: 48px;
+  }
+
+  .timelineDot {
+    position: relative;
+    z-index: 1;
     padding-top: 4px;
   }
 
-  // 审批人信息行
-  .stepApprover {
+  // 头像 + 对勾容器
+  .timelineAvatarWrap {
+    position: relative;
+    display: inline-block;
+
+    .timelineCheck {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      font-size: 12px;
+      color: #52c41a;
+      background: #fff;
+      border-radius: 50%;
+      line-height: 1;
+    }
+  }
+
+  // 系统图标（自动节点、抄送节点等）
+  .timelineSystemIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background: #e6f7ff;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
   }
 
-  .stepAvatar {
-    margin-right: 10px;
-    flex-shrink: 0;
-  }
-
-  .stepInfo {
+  // 右侧内容区
+  .timelineContent {
     flex: 1;
     min-width: 0;
+    padding-top: 4px;
+    padding-left: 12px;
+    padding-bottom: 4px;
   }
 
-  .stepName {
-    font-size: 13px;
-    color: #333;
+  .timelineHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .timelineTitle {
+    font-size: 14px;
     font-weight: 500;
-    line-height: 32px;
+    color: #333;
+    line-height: 22px;
   }
 
-  .stepMeta {
+  .timelineTime {
+    font-size: 12px;
+    color: #999;
+    flex-shrink: 0;
+    margin-left: 12px;
+  }
+
+  // 发起申请节点信息
+  .timelineMeta {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
-    line-height: 18px;
+    font-size: 13px;
+    line-height: 20px;
+    color: #666;
   }
 
-  .statusText {
-    font-size: 12px;
+  .timelineOperator {
+    color: #333;
   }
 
-  .timeText {
-    font-size: 12px;
+  .timelineDept {
+    color: #999;
   }
 
-  .stepComment {
+  // 审批节点组
+  .timelineApprovalGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .timelineApprovalNode {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .timelineApprovalBody {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  .timelineApprovalOperator {
+    color: #333;
+  }
+
+  .timelineApprovalStatus {
+    color: #999;
+  }
+
+  // 评论卡片
+  .timelineComment {
     margin-top: 4px;
-    padding: 4px 8px;
-    background: #fafafa;
+    padding: 8px 12px;
+    background: #f5f5f5;
     border-radius: 4px;
     font-size: 12px;
     color: #666;
     line-height: 20px;
+    word-break: break-word;
   }
 
-  // 空心圆点（未到达步骤）
-  .stepDot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 1.5px solid #d9d9d9;
-    background: #fff;
+  // 操作记录列表
+  .timelineActionList {
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
-  // 操作记录条目（时间线合入节点）
-  .actionEntry {
+  .timelineActionEntry {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 0 4px 42px;
     font-size: 12px;
     line-height: 20px;
+    flex-wrap: wrap;
   }
 
-  .actionOperator {
+  .timelineActionOperator {
     font-weight: 500;
     color: #333;
   }
 
-  .actionComment {
+  .timelineActionComment {
     color: #999;
     font-style: italic;
     flex: 1;
@@ -112,13 +191,102 @@
     white-space: nowrap;
   }
 
-  .actionTime {
+  .timelineActionTime {
     color: #999;
     font-size: 12px;
     flex-shrink: 0;
   }
 
-  // 操作类型标签
+  // 节点类型标签（加签等）
+  .nodeTypeTag {
+    margin-left: 4px;
+    font-size: 11px;
+    line-height: 18px;
+    padding: 0 4px;
+    vertical-align: middle;
+  }
+
+  // 抄送节点
+  .timelineCc {
+    margin-top: 4px;
+  }
+
+  .timelineCcHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .timelineCcTitle {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .timelineCcIcon {
+    margin-right: 6px;
+    color: #999;
+    font-size: 13px;
+  }
+
+  .timelineCcCount {
+    margin-left: 4px;
+    font-size: 12px;
+    color: #999;
+    font-weight: normal;
+  }
+
+  .timelineCcStatus {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #999;
+  }
+
+  .timelineCcArrow {
+    font-size: 10px;
+    color: #999;
+  }
+
+  .timelineCcList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+    padding-left: 4px;
+  }
+
+  .timelineCcItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .timelineCcName {
+    font-size: 11px;
+    color: #666;
+    max-width: 48px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .timelineCcRead {
+    font-size: 10px;
+    color: #52c41a;
+  }
+
+  // =====================================================
+  // 操作类型标签（共用）
+  // =====================================================
+
   .actionTagSubmit {
     background: rgba(24, 144, 255, 0.1);
     color: #1890ff;
@@ -126,6 +294,7 @@
     font-size: 11px;
     line-height: 18px;
     padding: 0 4px;
+    border-radius: 2px;
   }
 
   .actionTagApprove {
@@ -135,6 +304,7 @@
     font-size: 11px;
     line-height: 18px;
     padding: 0 4px;
+    border-radius: 2px;
   }
 
   .actionTagReject {
@@ -144,6 +314,7 @@
     font-size: 11px;
     line-height: 18px;
     padding: 0 4px;
+    border-radius: 2px;
   }
 
   .actionTagTransfer {
@@ -153,6 +324,7 @@
     font-size: 11px;
     line-height: 18px;
     padding: 0 4px;
+    border-radius: 2px;
   }
 
   .actionTagCountersign {
@@ -162,6 +334,7 @@
     font-size: 11px;
     line-height: 18px;
     padding: 0 4px;
+    border-radius: 2px;
   }
 
   .actionTagWithdraw {
@@ -171,9 +344,13 @@
     font-size: 11px;
     line-height: 18px;
     padding: 0 4px;
+    border-radius: 2px;
   }
 
-  // ERP 处理节点
+  // =====================================================
+  // ERP 处理节点（共用）
+  // =====================================================
+
   .erpStep {
     font-size: 13px;
     padding-top: 4px;
@@ -203,53 +380,46 @@
     font-size: 12px;
   }
 
-  // 抄送人区域
-  .ccSection {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #f0f0f0;
-  }
+  // =====================================================
+  // preview 模式样式
+  // =====================================================
 
-  .ccTitle {
-    display: flex;
-    align-items: center;
-    font-size: 13px;
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 12px;
+  &.previewMode {
+    background: #fff;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
-    .ccIcon {
-      margin-right: 6px;
+    .previewHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .previewTitle {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .previewConditionLabel {
       color: #999;
-      font-size: 13px;
+      font-style: italic;
     }
 
-    .ccCount {
-      margin-left: 4px;
+    .previewApproverRow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .previewApproverName {
       font-size: 12px;
+      color: #333;
     }
-  }
-
-  .ccList {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-
-  .ccItem {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .ccName {
-    font-size: 11px;
-    color: #666;
-    max-width: 48px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: center;
   }
 }

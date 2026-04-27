@@ -54,3 +54,14 @@ export const uploadCreditLicense = multer({
 export function getCreditLicenseUrl(filename: string): string {
   return `/uploads/credit-license/${filename}`;
 }
+
+/**
+ * 将 URL 路径解析为本地文件系统绝对路径
+ * 用于审批通过后 ERP 上传图片时读取本地文件
+ * @param url - 文件访问 URL（如 /uploads/credit-license/license-xxx.jpg）
+ * @returns 文件系统绝对路径
+ */
+export function resolveLicenseFilePath(url: string): string {
+  const filename = path.basename(url);
+  return path.join(uploadDir, filename);
+}

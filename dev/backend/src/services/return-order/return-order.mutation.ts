@@ -84,11 +84,11 @@ export async function batchConfirmReturnOrders(
     ruleDecision === 'can_return' ? 'pending_erp_fill' : 'pending_marketing_sale';
 
   // 批量更新状态
-  const result = await repo.batchConfirm(newStatus, operatorId, orderIds);
-  const successCount = result.rowCount ?? 0;
+  const confirmedRows = await repo.batchConfirm(newStatus, operatorId, orderIds);
+  const successCount = confirmedRows.length;
 
   // 为每个确认的退货单创建商品退货规则
-  for (const row of result.rows) {
+  for (const row of confirmedRows) {
     try {
       await createGoodsReturnRule({
         goodsId: row.goods_id,
@@ -103,7 +103,7 @@ export async function batchConfirmReturnOrders(
   }
 
   // 批量记录操作日志并发送通知
-  for (const row of result.rows) {
+  for (const row of confirmedRows) {
     await repo.recordAction(row.id, 'confirm_rule', operatorId, operatorName, undefined, {
       ruleDecision,
       newStatus,

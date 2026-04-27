@@ -5,11 +5,19 @@ import {
   TeamOutlined,
   MessageOutlined,
 } from '@ant-design/icons';
-import type { ApprovalDetail, ViewMode } from '@/types/oa-approval';
-import { STATUS_LABELS, STATUS_COLORS, URGENCY_LABELS, URGENCY_COLORS } from '@/types/oa-approval';
+import {
+  type ApprovalDetail,
+  type ViewMode,
+  STATUS_LABELS,
+  STATUS_COLORS,
+  URGENCY_LABELS,
+  URGENCY_COLORS,
+} from '@/types/oa-approval';
 import ApprovalFlow from '@/components/OaApproval/ApprovalFlow';
 import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
 import { useErpFieldResolve } from '@/components/OaApproval/hooks/useErpFieldResolve';
+import { useErpLicenseResolve } from '@/components/OaApproval/hooks/useErpLicenseResolve';
+import { usePermission } from '@/hooks/usePermission';
 import { checkCondition } from '../../Form/components/ConditionalFieldWrapper';
 import styles from '../index.less';
 
@@ -40,93 +48,57 @@ const renderUrgencyTag = (urgency: string) => {
   );
 };
 
-const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
-  detailLoading, detail, viewMode, onApprove, onReject, onWithdraw, onTransfer,
+/** 表单字段渲染 */
+const FormFieldsList: React.FC<{ detail: ApprovalDetail; resolvedMap: Record<string, string>; erpLicenseUrls: string[] }> = ({
+  detail, resolvedMap, erpLicenseUrls,
+}) => (
+  <div className={styles.formDataSection}>
+    <h3>表单数据</h3>
+    <div className={styles.formDataList}>
+      {detail.formSchema?.fields?.map((field) => {
+        const value = detail.formData[field.key];
+        if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return null;
+        if (field.key.startsWith('_')) return null;
+        return (
+          <div key={field.key} className={styles.formDataRow}>
+            <span className={styles.formLabel}>{field.label}</span>
+            <span className={styles.formValue}>
+              <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+/** 审批操作区 */
+const ActionBar: React.FC<{
+  viewMode: ViewMode;
+  detail: ApprovalDetail;
+  currentUserId: number | undefined;
+  onApprove: () => void;
+  onReject: () => void;
+  onWithdraw: () => void;
+  onTransfer: () => void;
+}> = ({
+  viewMode, detail, currentUserId, onApprove, onReject, onWithdraw, onTransfer,
 }) => {
-  if (detailLoading) {
-    return (
-      <div className={styles.detailPanel}>
-        <div className={styles.loadingContainer}><Spin /></div>
-      </div>
-    );
-  }
-
-  if (!detail) {
-    return (
-      <div className={styles.detailPanel}>
-        <Empty description="请选择审批单查看详情" />
-      </div>
-    );
-  }
-
-  // 批量预解析 ERP 字段 ID
-  const { resolvedMap } = useErpFieldResolve(detail?.formSchema, detail?.formData);
-
-  // 计算当前步骤索引
-  const currentStep = detail.nodes.findIndex(n => n.status === 'pending');
+  // 当前用户是否是 pending 节点的审批人
+  const isCurrentApprover = detail.nodes.some(
+    (n) => n.status === 'pending' && n.assignedUserId === currentUserId
+  );
+  // 当前用户是否是申请人
+  const isApplicant = detail.applicantId === currentUserId;
 
   return (
-    <div className={styles.detailPanel}>
-      {/* 头部信息 */}
-      <div className={styles.detailHeader}>
-        <h2 className={styles.detailTitle}>{detail.formTypeName}</h2>
-        <div className={styles.detailMeta}>
-          <span>编号: {detail.instanceNo}</span>
-          <span>申请人: {detail.applicantName}</span>
-          <span>部门: {detail.applicantDept || '-'}</span>
-        </div>
-        <div className={styles.detailStatus}>
-          {renderStatusTag(detail.status)}
-          {renderUrgencyTag(detail.urgency)}
-        </div>
-      </div>
-
-      {/* 表单数据 */}
-      <div className={styles.formDataSection}>
-        <h3>表单数据</h3>
-        <div className={styles.formDataList}>
-          {detail.formSchema?.fields?.map((field) => {
-            const value = detail.formData[field.key];
-            // 条件显示：不满足条件时隐藏字段
-            if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) {
-              return null;
-            }
-            // 跳过内部字段（以下划线开头）
-            if (field.key.startsWith('_')) return null;
-            return (
-              <div key={field.key} className={styles.formDataRow}>
-                <span className={styles.formLabel}>{field.label}</span>
-                <span className={styles.formValue}>
-                  <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} />
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 审批流程 */}
-      <div className={styles.flowSection}>
-        <h3>审批流程</h3>
-        <ApprovalFlow
-          nodes={detail.nodes}
-          ccUsers={detail.ccUsers}
-          currentStep={currentStep}
-          instanceStatus={detail.status}
-        />
-      </div>
-
-      {/* 操作区 */}
-      {viewMode === 'pending' && detail.status === 'pending' && (
+    <>
+      {viewMode === 'pending' && detail.status === 'pending' && isCurrentApprover && (
         <div className={styles.actionBar}>
           <div className={styles.actionLeft}>
             <Button icon={<SwapOutlined />} onClick={onTransfer}>转交</Button>
-            <Tooltip title="功能开发中">
-              <Button icon={<TeamOutlined />} disabled>加签</Button>
-            </Tooltip>
-            <Tooltip title="功能开发中">
-              <Button icon={<MessageOutlined />} disabled>评论</Button>
-            </Tooltip>
+            <Tooltip title="功能开发中"><Button icon={<TeamOutlined />} disabled>加签</Button></Tooltip>
+            <Tooltip title="功能开发中"><Button icon={<MessageOutlined />} disabled>评论</Button></Tooltip>
           </div>
           <div className={styles.actionRight}>
             <Button danger onClick={onReject}>拒绝</Button>
@@ -134,16 +106,71 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
           </div>
         </div>
       )}
-
-      {/* 撤回按钮 */}
-      {viewMode === 'my' && detail.status === 'pending' && (
+      {viewMode === 'my' && detail.status === 'pending' && isApplicant && (
         <div className={styles.actionBar}>
           <Popconfirm title="确定要撤回此审批吗？" onConfirm={onWithdraw} okText="确定" cancelText="取消">
             <Button danger>撤回审批</Button>
           </Popconfirm>
         </div>
       )}
+    </>
+  );
+};
+
+/** 详情内容（detail 非 null 时渲染） */
+const DetailContent: React.FC<{
+  detail: ApprovalDetail; viewMode: ViewMode;
+  onApprove: () => void; onReject: () => void; onWithdraw: () => void; onTransfer: () => void;
+}> = ({ detail, viewMode, onApprove, onReject, onWithdraw, onTransfer }) => {
+  const { currentUser } = usePermission();
+  const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
+  const { erpLicenseUrls } = useErpLicenseResolve(detail.formSchema, detail.formData);
+  const currentStep = detail.nodes.findIndex(n => n.status === 'pending');
+
+  return (
+    <div className={styles.detailPanel}>
+      <div className={styles.detailScroll}>
+        <div className={styles.detailHeader}>
+          <h2 className={styles.detailTitle}>{detail.formTypeName}</h2>
+          <div className={styles.detailMeta}>
+            <span>编号: {detail.instanceNo}</span>
+            <span>申请人: {detail.applicantName}</span>
+            <span>部门: {detail.applicantDept || '-'}</span>
+          </div>
+          <div className={styles.detailStatus}>
+            {renderStatusTag(detail.status)}
+            {renderUrgencyTag(detail.urgency)}
+          </div>
+        </div>
+        <FormFieldsList detail={detail} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
+        <div className={styles.flowSection}>
+          <h3>审批流程</h3>
+          <ApprovalFlow
+            nodes={detail.nodes} ccUsers={detail.ccUsers} currentStep={currentStep}
+            instanceStatus={detail.status} erpMeta={detail.erpMeta} instanceId={detail.id}
+            applicantName={detail.applicantName} applicantDept={detail.applicantDept}
+            applicantAvatar={detail.applicantAvatar} submittedAt={detail.submittedAt}
+          />
+        </div>
+      </div>
+      <ActionBar viewMode={viewMode} detail={detail} currentUserId={currentUser?.id}
+        onApprove={onApprove} onReject={onReject} onWithdraw={onWithdraw} onTransfer={onTransfer} />
     </div>
+  );
+};
+
+const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
+  detailLoading, detail, viewMode, onApprove, onReject, onWithdraw, onTransfer,
+}) => {
+  if (detailLoading) {
+    return <div className={styles.detailPanel}><div className={styles.loadingContainer}><Spin /></div></div>;
+  }
+  if (!detail) {
+    return <div className={styles.detailPanel}><Empty description="请选择审批单查看详情" /></div>;
+  }
+  return (
+    <DetailContent detail={detail} viewMode={viewMode}
+      onApprove={onApprove} onReject={onReject} onWithdraw={onWithdraw} onTransfer={onTransfer} />
   );
 };
 

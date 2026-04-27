@@ -97,7 +97,7 @@ export async function erpRequest<T = any>(
       const response = await axios(axiosConfig);
       const responseData = response.data;
 
-      // 写入日志
+      // 写入日志（fire-and-forget，不阻塞响应）
       if (!options?.skipLog) {
         writeErpLog({
           requestId,
@@ -111,7 +111,7 @@ export async function erpRequest<T = any>(
           retryCount,
           businessType: options?.businessType,
           businessId: options?.businessId,
-        });
+        }).catch(() => {}); // 日志写入失败不影响业务
       }
 
       // 舟谱 API 错误码检查
@@ -142,7 +142,7 @@ export async function erpRequest<T = any>(
             retryCount,
             businessType: options?.businessType,
             businessId: options?.businessId,
-          });
+          }).catch(() => {}); // 日志写入失败不影响业务
         }
         throw error;
       }
@@ -170,7 +170,7 @@ export async function erpRequest<T = any>(
       retryCount,
       businessType: options?.businessType,
       businessId: options?.businessId,
-    });
+    }).catch(() => {}); // 日志写入失败不影响业务
   }
 
   throw new ErpApiError(

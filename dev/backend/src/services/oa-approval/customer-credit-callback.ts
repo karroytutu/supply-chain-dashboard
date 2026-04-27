@@ -7,9 +7,11 @@
 
 import { getUserRolesAndPermissions } from '../auth.service';
 import { erpUpdateMaxDebtDays, erpUpdateMaxDebtOrderNum, erpUploadBusinessLicense } from '../erp-client/erp-credit-update.service';
+import type { CreditUpdateFields } from '../erp-client/erp-credit-update.service';
 import { erpMarkHoldOrders } from '../erp-client/erp-settlement.service';
 import { getCustomerLicenseInfo, getErpCustomerProfile } from '../erp-client/erp-customer.service';
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
+import { resolveLicenseFilePath } from '../../middleware/credit-upload';
 import type { OaApprovalInstanceRow } from './oa-approval.types';
 
 /** 允许提交客户授信申请的角色（admin 可提交所有表单） */
@@ -31,6 +33,9 @@ export async function beforeSubmitCustomerCredit(
     throw new Error('当前用户无权提交客户授信申请');
   }
 
+  // 注入额外数据到 formData
+  const extraData: Record<string, unknown> = { _submitterRole: submitterRole.code };
+
   // 安全校验：验证营业执照是否已提供
   // 防止前端篡改 _hasExistingLicense 绕过必填校验
   const customerId = Number(formData.customer);
@@ -44,6 +49,10 @@ export async function beforeSubmitCustomerCredit(
       if (!licenseInfo.hasLicense && !hasNewUpload) {
         throw new Error('客户营业执照不能为空');
       }
+      // 将 ERP 执照图片 URL 注入 formData，供审批详情展示
+      extraData._erpLicenseUrls = licenseInfo.hasLicense && licenseInfo.attachedPicUrls.length > 0
+        ? licenseInfo.attachedPicUrls
+        : [];
     } catch (error) {
       // "营业执照不能为空"错误直接抛出
       if (error instanceof Error && error.message === '客户营业执照不能为空') {
@@ -57,11 +66,10 @@ export async function beforeSubmitCustomerCredit(
       if (!hasNewUpload) {
         throw new Error('无法验证客户执照信息，请上传营业执照照片');
       }
+      // ERP 不可用时无法获取执照 URL，置空
+      extraData._erpLicenseUrls = [];
     }
   }
-
-  // 注入 _submitterRole 到 formData，供条件节点判断
-  const extraData: Record<string, unknown> = { _submitterRole: submitterRole.code };
 
   // 兜底：如果前端未正确存入 customerName，后端补全
   if (customerId && !formData.customerName && !formData._customerName) {
@@ -92,34 +100,59 @@ export async function onApprovedCustomerCredit(
   await updateErpMetaStatus(instanceId, 'processing');
 
   try {
+    // 计算授信字段
+    let creditFields: CreditUpdateFields | undefined;
     switch (creditType) {
       case 'payment_period':
-        // 账期：更新最大欠款天数
-        await erpUpdateMaxDebtDays(customerId, formData.maxOverdueDays as number);
+        creditFields = { maxDebtDays: formData.maxOverdueDays as number };
         break;
-
       case 'rolling_order':
-        // 滚单：更新最大欠款天数 + 最大欠款单数
-        await erpUpdateMaxDebtDays(customerId, formData.rollingMaxOverdueDays as number);
-        await erpUpdateMaxDebtOrderNum(customerId, formData.rollingMaxOverdueOrders as number);
+        creditFields = {
+          maxDebtDays: formData.rollingMaxOverdueDays as number,
+          maxDebtOrderNum: formData.rollingMaxOverdueOrders as number,
+        };
         break;
-
       case 'hold_order':
-        // 压单：标记压单结算单
-        await erpMarkHoldOrders(formData.holdSettlementOrders as number[]);
+        // 压单不涉及授信字段更新
         break;
-
       default:
         console.warn(`[CustomerCredit] 未知的授信类型: ${creditType}`);
     }
 
-    // 上传营业执照照片到 ERP
-    if (formData.businessLicensePhotos) {
-      const photos = formData.businessLicensePhotos;
-      const photoUrls = Array.isArray(photos) ? photos.map(String) : [String(photos)];
-      if (photoUrls.length > 0) {
-        await erpUploadBusinessLicense(customerId, photoUrls);
+    // 上传营业执照 + 更新授信字段
+    // 如果有营业执照需要上传，将授信字段一并传入 erpUploadBusinessLicense，
+    // 通过同一次 update-consumer 调用同时更新 attachedPicIds 和授信字段，
+    // 避免 update-consumer 用旧快照覆盖之前的 batch-edit 结果
+    const hasLicenseUpload = formData.businessLicensePhotos
+      && Array.isArray(formData.businessLicensePhotos)
+      && (formData.businessLicensePhotos as Array<{ url?: string }>).some(p => p.url);
+
+    if (hasLicenseUpload) {
+      const photos = formData.businessLicensePhotos as Array<{ url?: string }>;
+      const filePaths = photos
+        .map(p => p.url)
+        .filter((url): url is string => !!url)
+        .map(url => resolveLicenseFilePath(url));
+      if (filePaths.length > 0) {
+        await erpUploadBusinessLicense(customerId, filePaths, creditFields);
+        // 授信字段已随 update-consumer 一并更新，清除标记避免重复调用
+        creditFields = undefined;
       }
+    }
+
+    // 如果没有执照上传，单独更新授信字段
+    if (creditFields) {
+      if (creditFields.maxDebtDays !== undefined) {
+        await erpUpdateMaxDebtDays(customerId, creditFields.maxDebtDays);
+      }
+      if (creditFields.maxDebtOrderNum !== undefined) {
+        await erpUpdateMaxDebtOrderNum(customerId, creditFields.maxDebtOrderNum);
+      }
+    }
+
+    // 压单：标记压单结算单
+    if (creditType === 'hold_order') {
+      await erpMarkHoldOrders(formData.holdSettlementOrders as number[]);
     }
 
     // 标记 ERP 处理成功

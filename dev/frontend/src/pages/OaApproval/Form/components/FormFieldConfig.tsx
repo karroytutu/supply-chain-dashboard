@@ -1,10 +1,11 @@
 import React from 'react';
-import { Input, InputNumber, Select, DatePicker, Upload, Button, Image, message } from 'antd';
+import { Input, InputNumber, Select, DatePicker, Upload, Button, Image, Spin, message } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { UploadOutlined, PaperClipOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import type { FormField } from '@/types/oa-approval';
 import { numberToChineseUpper } from '@/utils/number';
+import { oaApprovalApi } from '@/services/api/oa-approval';
 import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
 import styles from '../index.less';
@@ -24,6 +25,8 @@ interface FormFieldConfigProps {
   onChange?: (value: unknown) => void;
   /** 客户已有执照信息 */
   customerLicenseInfo?: CustomerLicenseInfo | null;
+  /** 执照信息是否正在异步加载中 */
+  licenseLoading?: boolean;
   /** 客户选中时回调 */
   onCustomerSelect?: (licenseInfo: CustomerLicenseInfo | null) => void;
 }
@@ -35,7 +38,7 @@ function isErpFieldType(type: FormField['type']): boolean {
 
 /** 表单字段渲染组件 */
 const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
-  field, formData, form, value, onChange, customerLicenseInfo, onCustomerSelect,
+  field, formData, form, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect,
 }) => {
   const { type, placeholder, required, options, maxLength, maxCount, upper } = field;
 
@@ -170,11 +173,18 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
     case 'photo':
       return (
         <div>
-          {/* 客户已有营业执照时显示已有图片 */}
-          {customerLicenseInfo?.hasLicense && customerLicenseInfo.attachedPicUrls.length > 0 && (
+          {/* 正在异步获取执照图片 URL */}
+          {licenseLoading && (
+            <div className={styles.existingLicense}>
+              <Spin size="small" />
+              <span style={{ marginLeft: 8, color: '#999' }}>正在获取营业执照信息...</span>
+            </div>
+          )}
+          {/* 客户已有营业执照且有图片 URL 时展示 */}
+          {!licenseLoading && customerLicenseInfo?.hasLicense && customerLicenseInfo.attachedPicUrls.length > 0 && (
             <div className={styles.existingLicense}>
               <div className={styles.existingLicenseTip}>
-                <PaperClipOutlined /> 客户档案已有营业执照（{customerLicenseInfo.imageCount} 张），无需重复上传
+                <PaperClipOutlined /> 客户档案已有营业执照（{customerLicenseInfo.imageCount} 张）
               </div>
               <div className={styles.existingLicenseImages}>
                 {customerLicenseInfo.attachedPicUrls.map((url, idx) => (
@@ -190,6 +200,14 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
               </div>
             </div>
           )}
+          {/* 有执照记录但图片 URL 获取失败 */}
+          {!licenseLoading && customerLicenseInfo?.hasLicense && customerLicenseInfo.attachedPicUrls.length === 0 && (
+            <div className={styles.existingLicense}>
+              <div className={styles.existingLicenseTip}>
+                <PaperClipOutlined /> 客户档案有营业执照记录，但图片暂不可用，请上传新照片
+              </div>
+            </div>
+          )}
           <Upload listType="picture-card" accept="image/*" multiple maxCount={maxCount}
             fileList={(value as UploadFile[]) || []}
             beforeUpload={(file) => {
@@ -197,14 +215,29 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
                 message.error('图片大小不能超过 5MB');
                 return Upload.LIST_IGNORE;
               }
-              return false;
+              return true;
             }}
-            onChange={({ fileList: newList }) => onChange?.(newList)}
+            customRequest={async ({ file, onSuccess, onError }) => {
+              try {
+                const url = await oaApprovalApi.uploadLicense(file as File);
+                onSuccess?.({ url });
+              } catch (error) {
+                onError?.(error as Error);
+                message.error('图片上传失败');
+              }
+            }}
+            onChange={({ fileList: newList }) => {
+              const updatedList = newList.map(file => ({
+                ...file,
+                url: file.url || (file.response as { url?: string })?.url,
+              }));
+              onChange?.(updatedList);
+            }}
           >
             <div>上传图片</div>
           </Upload>
-          {customerLicenseInfo?.hasLicense && (
-            <div className={styles.uploadTip}>如需更新执照，可上传新图片替换</div>
+          {customerLicenseInfo?.hasLicense && !licenseLoading && (
+            <div className={styles.uploadTip}>如需补充执照图片，可在上方上传（新图片将追加到已有执照中）</div>
           )}
         </div>
       );

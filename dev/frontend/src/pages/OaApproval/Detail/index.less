@@ -2,6 +2,8 @@
   padding: 24px;
   background: #f0f2f5;
   min-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
 
   .pageHeader {
     display: flex;
@@ -29,6 +31,43 @@
     .headerActions {
       display: flex;
       gap: 8px;
+    }
+  }
+
+  .detailBody {
+    flex: 1;
+    display: flex;
+    gap: 24px;
+    min-height: 0;
+  }
+
+  .detailLeft {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .detailRight {
+    width: 360px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .detailRightScroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .actionBarFixed {
+    padding-top: 12px;
+    background: #fff;
+    border-top: 1px solid #f0f0f0;
+    border-radius: 0 0 8px 8px;
+
+    :global {
+      .ant-btn {
+        margin-top: 4px;
+      }
     }
   }
 }

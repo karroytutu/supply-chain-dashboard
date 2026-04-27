@@ -82,7 +82,7 @@ export const otherPaymentFormType: FormTypeDefinition = {
     nodes: [
       {
         order: 1,
-        name: '直属主管',
+        name: '直属主管审批',
         type: 'dynamic_supervisor',
       },
       {
@@ -94,7 +94,7 @@ export const otherPaymentFormType: FormTypeDefinition = {
       {
         // 条件节点：金额超过 50000 元才需要总经理审批
         order: 3,
-        name: '总经理',
+        name: '总经理审批',
         type: 'role',
         roleCode: 'admin',
         condition: {

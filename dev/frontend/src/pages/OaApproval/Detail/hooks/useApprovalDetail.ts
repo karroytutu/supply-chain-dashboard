@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { message } from 'antd';
 import type { ApprovalDetail, ApprovalNode, ApprovalAction } from '@/types/oa-approval';
 import { oaApprovalApi } from '@/services/api/oa-approval';
+import { usePermission } from '@/hooks/usePermission';
 
 /** 详情加载失败类型 */
 export type DetailErrorType = 'forbidden' | 'not_found' | 'server_error' | null;
@@ -31,6 +32,7 @@ interface UseApprovalDetailReturn {
 }
 
 export function useApprovalDetail(id: string | undefined): UseApprovalDetailReturn {
+  const { currentUser } = usePermission();
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<ApprovalDetail | null>(null);
   const [nodes, setNodes] = useState<ApprovalNode[]>([]);
@@ -140,17 +142,19 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     }
   };
 
-  // 检查当前用户是否可以操作
+  // 检查当前用户是否可以操作（审批人必须是当前登录用户）
   const canOperate = () => {
     if (!detail || detail.status !== 'pending') return false;
     const currentNode = nodes.find((n) => n.status === 'pending');
     if (!currentNode) return false;
+    if (currentNode.assignedUserId !== currentUser?.id) return false;
     return true;
   };
 
-  // 检查是否可以撤回
+  // 检查是否可以撤回（只有申请人可以撤回）
   const canWithdraw = () => {
     if (!detail || detail.status !== 'pending') return false;
+    if (detail.applicantId !== currentUser?.id) return false;
     return true;
   };
 
