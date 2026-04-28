@@ -17,25 +17,14 @@ import {
   buildMergedWarningMessage,
   type WarningDebtItem,
 } from './ar-collection-notify';
+import type { ERPDebtRecord, EnrichedDebtRecord } from './ar-debt.types';
+import { enrichDebtRecords, filterHoardDebts } from './ar-debt-enrichment.service';
 
 // ============================================
 // 类型定义
 // ============================================
 
-interface ERPDebtRecord {
-  billId: string;
-  bizStr: string;  // 结算单号
-  bizOrderStr: string;  // 订单号（单据编号）
-  consumerName: string;
-  managerUsers: string;
-  totalAmount: number;
-  leftAmount: number;
-  settleMethod: number;
-  consumerExpireDay: number;
-  workTime: string;
-}
-
-interface UpcomingDebt extends ERPDebtRecord {
+interface UpcomingDebt extends EnrichedDebtRecord {
   expireDate: Date;
   daysToExpire: number;
   managerUserId: number | null;
@@ -69,10 +58,14 @@ export async function checkUpcomingOverdueReminders(): Promise<void> {
     const erpResult = await query<ERPDebtRecord>(erpSql, []);
     const now = new Date();
 
-    // 2. 筛选即将到期的欠款（5天内）
+    // 2. 富化欠款数据（补充 hoardTag + 客户限额）并排除压单
+    const enrichedDebts = await enrichDebtRecords(erpResult.rows, now);
+    const nonHoardDebts = filterHoardDebts(enrichedDebts);
+
+    // 3. 筛选即将到期的欠款（5天内）
     const upcomingDebts: UpcomingDebt[] = [];
 
-    for (const debt of erpResult.rows) {
+    for (const debt of nonHoardDebts) {
       const workDate = new Date(debt.workTime);
       // 注意: PostgreSQL numeric 类型返回字符串，需要转换为数字比较
       const maxDays = Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE ? (Number(debt.consumerExpireDay) || 0) : AR_DEFAULT_EXPIRE_DAYS;

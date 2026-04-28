@@ -6,6 +6,8 @@
 
 // 类型导出
 export * from './ar-collection.types';
+export * from './ar-debt.types';
+export * from './ar-collection-entry-rules';
 
 // 同步任务导出
 export {
@@ -13,6 +15,11 @@ export {
   generateCollectionTasks,
   checkExtensionExpiry,
 } from './ar-collection-sync.task';
+
+// 压单对账服务
+export {
+  reconcileHoardDetailsByCustomer,
+} from './ar-hoard-reconcile';
 
 // 统计服务
 export {

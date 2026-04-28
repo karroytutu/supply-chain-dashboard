@@ -33,6 +33,7 @@ const DETAIL_STATUS: Record<CollectionDetailStatus, { label: string; color: stri
   difference_pending: { label: '差异待处理', color: 'orange' },
   difference_resolved: { label: '差异已解决', color: 'green' },
   escalated: { label: '已升级', color: 'red' },
+  hoard_excluded: { label: '压单排除', color: 'default' },
 };
 
 /** 格式化日期 */
@@ -124,9 +125,14 @@ const DetailTable: React.FC<DetailTableProps> = ({
       title: '状态',
       dataIndex: 'status',
       width: 100,
-      render: (status: CollectionDetailStatus) => {
+      render: (status: CollectionDetailStatus, record: CollectionDetail) => {
         const cfg = DETAIL_STATUS[status];
-        return cfg ? <Tag color={cfg.color}>{cfg.label}</Tag> : <Tag>{status}</Tag>;
+        return (
+          <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+            {cfg ? <Tag color={cfg.color}>{cfg.label}</Tag> : <Tag>{status}</Tag>}
+            {record.hoardTag === 'HOARD' && record.status !== 'hoard_excluded' && <Tag color="volcano">压单</Tag>}
+          </span>
+        );
       },
     },
   ];

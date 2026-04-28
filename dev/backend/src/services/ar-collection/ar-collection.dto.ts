@@ -13,6 +13,7 @@ import type {
   ActionResult,
   LegalActionType,
   ProcessType,
+  EntryRuleSnapshot,
 } from './ar-collection.types';
 
 // ==================== 响应 DTO ====================
@@ -48,6 +49,8 @@ export interface CollectionTaskDTO {
   lastCollectionAt: string | null;
   assessmentStartTime: string | null;
   assessmentTiers: string[];
+  entryReasons: string[];
+  entryRuleSnapshot: EntryRuleSnapshot | null;
   createdAt: string;
   updatedAt: string;
   currentHandlerName: string | null;
@@ -74,6 +77,7 @@ export interface CollectionDetailDTO {
   processedBy: number | null;
   processedByName: string | null;
   remark: string | null;
+  hoardTag: string | null;
   createdAt: string;
 }
 

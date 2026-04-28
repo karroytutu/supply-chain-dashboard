@@ -8,23 +8,11 @@
 import { query } from '../../db/pool';
 import { appQuery, getAppClient } from '../../db/appPool';
 import type { TaskStatus } from './ar-collection.types';
+import type { ERPDebtRecord } from './ar-debt.types';
+import { reconcileAllHoardDetails } from './ar-hoard-reconcile';
 
 // 从独立模块导出任务生成函数
 export { generateCollectionTasks } from './ar-collection-task-generator';
-
-/** ERP欠款记录 */
-interface ERPDebtRecord {
-  billId: string;
-  bizOrderStr: string;  // 订单号（单据编号）
-  consumerName: string;
-  managerUsers: string;
-  totalAmount: number;
-  leftAmount: number;
-  settleMethod: number;
-  consumerExpireDay: number;
-  billTypeName: string;
-  workTime: string;
-}
 
 /** 本地活跃明细 */
 interface LocalDetail {
@@ -104,6 +92,9 @@ export async function syncERPDebts(): Promise<void> {
 
     const duration = Date.now() - startTime;
     console.log(`[ARSync] 同步完成: 新增=${insertCount}, 更新=${updateCount}, 消失=${removedCount}, 耗时=${duration}ms`);
+
+    // 6. 压单对账（兜底机制）
+    await reconcileAllHoardDetails();
   } catch (error) {
     console.error('[ARSync] ERP欠款数据同步失败:', error);
     throw error;

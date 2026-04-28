@@ -27,7 +27,8 @@ export type DetailStatus =
   | 'extension'
   | 'difference_pending'
   | 'difference_resolved'
-  | 'escalated';
+  | 'escalated'
+  | 'hoard_excluded';
 
 /** 升级层级: 0=营销师, 1=营销主管, 2=财务 */
 export type EscalationLevel = 0 | 1 | 2;
@@ -51,7 +52,8 @@ export type ActionType =
   | 'file_lawsuit'
   | 'update_progress'
   | 'close'
-  | 'erp_auto_closed';
+  | 'erp_auto_closed'
+  | 'hoard_excluded';
 
 /** 法律操作类型 */
 export type LegalActionType = 'send_notice' | 'file_lawsuit' | 'update_progress';
@@ -67,6 +69,12 @@ export type ActionResult = 'success' | 'failed' | 'pending';
 
 /** 明细处理类型 */
 export type ProcessType = 'verify' | 'extension' | 'difference';
+
+/** 准入规则快照（存储在 entry_rule_snapshot 字段中） */
+export interface EntryRuleSnapshot {
+  rules: Record<string, Record<string, unknown>>;
+  evaluatedAt: string;
+}
 
 // ============================================
 // 实体接口
@@ -112,6 +120,17 @@ export interface CollectionTask {
   collection_count: number;
   last_collection_at: string | null;
 
+  // 准入规则
+  entry_reasons: string[];
+  entry_rule_snapshot: EntryRuleSnapshot | null;
+
+  // SQL JOIN 扩展字段（查询时通过别名注入，非表原生字段）
+  handler_name?: string | null;
+  manager_name?: string | null;
+  pending_role?: string | null;
+  assessment_start_time?: string | null;
+  assessment_tiers?: string[];
+
   created_at: string;
   updated_at: string;
 }
@@ -138,6 +157,12 @@ export interface CollectionDetail {
   process_at: string | null;
   processed_by: number | null;
   remark: string | null;
+
+  // 压单标记
+  hoard_tag: string | null;
+
+  // SQL JOIN 扩展字段（查询时通过别名注入，非表原生字段）
+  processed_by_name?: string | null;
 
   created_at: string;
 }

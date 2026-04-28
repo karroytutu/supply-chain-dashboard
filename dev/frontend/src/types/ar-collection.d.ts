@@ -34,12 +34,18 @@ export type CollectionDetailStatus =
   | 'extension'
   | 'difference_pending'
   | 'difference_resolved'
-  | 'escalated';
+  | 'escalated'
+  | 'hoard_excluded';
 
 /**
  * 法律催收操作类型
  */
 export type LegalActionType = 'send_notice' | 'file_lawsuit' | 'update_progress';
+
+/**
+ * 入催原因类型
+ */
+export type EntryRuleType = 'overdue_days' | 'max_overdue_orders';
 
 /**
  * 催收任务(客户维度)
@@ -71,6 +77,8 @@ export interface CollectionTask {
   priority: CollectionPriority;
   batchType: string;
   batchDate: string;
+  entryReasons: EntryRuleType[];
+  entryRuleSnapshot: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -97,6 +105,7 @@ export interface CollectionDetail {
   processedBy: number | null;
   processedByName: string | null;
   remark: string | null;
+  hoardTag: string | null;
   createdAt: string;
 }
 

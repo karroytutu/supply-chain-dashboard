@@ -109,9 +109,8 @@ const FormPage: React.FC = () => {
   }, [formType]);
 
   // 监听表单值变化
-  // 注意：allValues 不包含没有 Form.Item 注册的隐藏字段（如 _hasExistingLicense），
-  // 所以必须与现有 formData 合并，保留通过 handleCustomerSelect 等手动注入的隐藏字段，
-  // 否则 requiredWhen 条件判断会因隐藏字段丢失而失效（星号不显示）
+  // allValues 不包含没有 Form.Item 注册的隐藏字段（如 _hasExistingLicense），
+  // 所以必须与现有 formData 合并，避免隐藏字段丢失导致条件校验失效
   const handleValuesChange = (changedValues: any, allValues: any) => {
     setFormData(prev => ({ ...prev, ...allValues }));
   };

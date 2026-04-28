@@ -382,7 +382,7 @@ export async function getErpReference(
   if (extraParams) {
     Object.assign(params, extraParams);
   }
-  // ERP 参考数据 API 的参数名由后端定义（如 consumerId），不做 camelCase→snake_case 转换
+  // ERP 参考数据 API 的参数名由后端定义（如 consumerId），不做 camelCase→snake_case 转换，
   // 否则 consumerId 会被转为 consumer_id，后端无法识别导致返回 400
   const res = await request<unknown[]>(
     `/oa-approval/erp-reference/${type}`,
@@ -391,36 +391,42 @@ export async function getErpReference(
   return res;
 }
 
-/** 结算单分页查询结果 */
-export interface SettlementOrderPagedResult {
-  records: Array<Record<string, unknown>>;
-  total: number;
+/** 结算单分页查询参数 */
+export interface SettlementOrdersPagedParams {
+  consumerId: string | number;
+  keyword?: string;
   page: number;
   pageSize: number;
+  signal?: AbortSignal;
+}
+
+/** 结算单分页查询结果 */
+export interface SettlementOrdersPagedResult {
+  records: unknown[];
+  total: number;
 }
 
 /**
- * 分页查询结算单列表
- * 用于 SettlementOrderPicker 组件的服务端分页
+ * 分页查询结算单
+ * 用于客户授信申请的压单结算单选择器
  */
-export async function getSettlementOrdersPaged(params: {
-  consumerId: string | number;
-  keyword?: string;
-  page?: number;
-  pageSize?: number;
-  signal?: AbortSignal;
-}): Promise<SettlementOrderPagedResult> {
-  const queryParams: Record<string, string> = {
-    consumerId: String(params.consumerId),
-    page: String(params.page || 1),
-    pageSize: String(params.pageSize || 20),
-  };
-  if (params.keyword) {
-    queryParams.keyword = params.keyword;
-  }
-  const res = await request<SettlementOrderPagedResult>(
+export async function getSettlementOrdersPaged(
+  params: SettlementOrdersPagedParams
+): Promise<SettlementOrdersPagedResult> {
+  const { consumerId, keyword, page, pageSize, signal } = params;
+  // ERP 参考数据 API 的参数名由后端定义（如 consumerId、pageSize），不做 camelCase→snake_case 转换
+  const res = await request<SettlementOrdersPagedResult>(
     '/oa-approval/erp-reference/settlement-orders',
-    { params: queryParams, signal: params.signal, skipParamsSnakeCase: true }
+    {
+      params: {
+        consumerId: String(consumerId),
+        keyword: keyword || undefined,
+        page,
+        pageSize,
+      },
+      signal,
+      skipParamsSnakeCase: true,
+    }
   );
   return res;
 }
@@ -528,4 +534,5 @@ export const oaApprovalApi = {
   uploadLicenseFiles,
   getCustomerLicenseInfo,
   getTransferCandidates,
+  getSettlementOrdersPaged,
 };

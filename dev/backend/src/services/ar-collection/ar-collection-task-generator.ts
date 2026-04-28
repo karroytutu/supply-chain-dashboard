@@ -1,6 +1,8 @@
 /**
  * 催收任务生成服务
  * 从ERP逾期欠款数据生成催收任务，包含防重复和防并发机制
+ *
+ * 管线: queryRawDebts → enrichDebts → filterHoard → evaluateEntryRules → groupBy → createTasks
  */
 
 import { query } from '../../db/pool';
@@ -8,29 +10,17 @@ import { getAppClient } from '../../db/appPool';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import type { PoolClient } from 'pg';
 import type { BatchType } from './ar-collection.types';
+import type { ERPDebtRecord, EnrichedDebtRecord } from './ar-debt.types';
+import { enrichDebtRecords, filterHoardDebts } from './ar-debt-enrichment.service';
+import {
+  evaluateEntryRules,
+  extractEntryMetadata,
+  COLLECTION_ENTRY_RULES,
+  type CollectionEntryVerdict,
+} from './ar-collection-entry-rules';
 import { sendTaskCreatedNotifications } from './ar-collection-notify-task';
 import { calcPriority } from './ar-collection.utils';
 import { batchQueryExistingBillIds, batchQueryActiveTasks } from './ar-collection-batch-query';
-
-/** ERP欠款记录 */
-interface ERPDebtRecord {
-  billId: string;
-  bizOrderStr: string;
-  consumerName: string;
-  managerUsers: string;
-  totalAmount: number;
-  leftAmount: number;
-  settleMethod: number;
-  consumerExpireDay: number;
-  billTypeName: string;
-  workTime: string;
-}
-
-/** 逾期欠款记录（含计算字段） */
-interface OverdueDebt extends ERPDebtRecord {
-  overdueDays: number;
-  overdueDateStr: string;
-}
 
 /** Advisory Lock 标识（用于防止并发执行） */
 const ADVISORY_LOCK_ID = 20260421;
@@ -75,30 +65,49 @@ async function generateCollectionTasksInner(client: PoolClient): Promise<void> {
   const todayStr = now.toISOString().slice(0, 10);
 
   try {
-    // 1. 查询ERP中所有已逾期且未生成任务的欠款
-    const erpResult = await queryOverdueDebts();
+    // 1. 查询ERP中所有欠款数据
+    const rawDebts = await queryRawDebts();
+    console.log(`[ARSync] ERP查询到 ${rawDebts.length} 条欠款记录`);
 
-    // 2. 批量查询已存在的 billId（减少 N+1 查询）
-    const billIds = erpResult.rows.map(d => d.billId);
+    // 2. 富化欠款数据（补充 hoardTag + 客户限额 + 计算字段）
+    const enrichedDebts = await enrichDebtRecords(rawDebts, now);
+
+    // 3. 排除压单欠款（硬排除，不进入任何催收流程）
+    const nonHoardDebts = filterHoardDebts(enrichedDebts);
+    const hoardFilteredCount = enrichedDebts.length - nonHoardDebts.length;
+    if (hoardFilteredCount > 0) {
+      console.log(`[ARSync] 排除 ${hoardFilteredCount} 条压单欠款`);
+    }
+
+    // 4. 批量查询已存在的 billId（幂等检查）
+    const billIds = nonHoardDebts.map(d => d.billId);
     const existingBillIdSet = await batchQueryExistingBillIds(client, billIds);
 
-    // 3. 筛选出逾期且未生成任务的记录
-    const overdueDebts = filterOverdueDebts(erpResult.rows, now, existingBillIdSet);
+    // 5. 按客户分组，评估准入规则
+    const debtsByConsumer = groupByConsumer(nonHoardDebts);
+    const verdicts = evaluateEntryRules(debtsByConsumer, {
+      now,
+      ruleConfigs: COLLECTION_ENTRY_RULES,
+    });
 
-    if (overdueDebts.length === 0) {
-      console.log('[ARSync] 无新增逾期欠款');
+    // 6. 提取应入催的欠款 + 元数据，同时排除已存在的 billId
+    const { enteringDebts, entryReasons, entryRuleSnapshot } = extractEntryMetadata(verdicts);
+    const qualifiedDebts = enteringDebts.filter(d => !existingBillIdSet.has(d.billId));
+
+    if (qualifiedDebts.length === 0) {
+      console.log('[ARSync] 无新增需催收的欠款');
       return;
     }
-    console.log(`[ARSync] 发现 ${overdueDebts.length} 条新增逾期欠款`);
+    console.log(`[ARSync] 发现 ${qualifiedDebts.length} 条新增需催收的欠款，入催原因: [${entryReasons.join(', ')}]`);
 
-    // 4. 按客户+逾期触发日期分组
-    const groups = groupByConsumerAndOverdueDate(overdueDebts);
+    // 7. 按客户+逾期触发日期分组
+    const groups = groupByConsumerAndOverdueDate(qualifiedDebts);
 
-    // 5. 批量查询已存在的活跃任务（防止重复创建）
+    // 8. 批量查询已存在的活跃任务（防止重复创建）
     const existingActiveTasks = await batchQueryActiveTasks(client, Array.from(groups.keys()));
 
-    // 6. 为每组生成任务（事务内）
-    await createTasksInTransaction(client, groups, existingActiveTasks, todayStr, now);
+    // 9. 为每组生成任务（事务内）
+    await createTasksInTransaction(client, groups, existingActiveTasks, todayStr, now, entryReasons, entryRuleSnapshot);
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch { /* ignore */ }
     console.error('[ARSync] 催收任务生成失败:', error);
@@ -106,43 +115,30 @@ async function generateCollectionTasksInner(client: PoolClient): Promise<void> {
   }
 }
 
-/** 查询ERP欠款数据 */
-async function queryOverdueDebts(): Promise<{ rows: ERPDebtRecord[] }> {
+/** 查询ERP欠款原始数据 */
+async function queryRawDebts(): Promise<ERPDebtRecord[]> {
   const erpSql = `SELECT "billId", "bizOrderStr", "consumerName", "managerUsers",
     "totalAmount", "leftAmount", "settleMethod",
     "consumerExpireDay", "billTypeName", "workTime"
     FROM "客户欠款明细"
     WHERE "leftAmount"::numeric > 0`;
-  return query<ERPDebtRecord>(erpSql, []);
+  const result = await query<ERPDebtRecord>(erpSql, []);
+  return result.rows;
 }
 
-/** 筛选逾期且未生成明细的记录 */
-function filterOverdueDebts(
-  erpDebts: ERPDebtRecord[],
-  now: Date,
-  existingBillIdSet: Set<string>
-): OverdueDebt[] {
-  const overdueDebts: OverdueDebt[] = [];
-
-  for (const debt of erpDebts) {
-    const workDate = new Date(debt.workTime);
-    const ageDays = Math.floor((now.getTime() - workDate.getTime()) / 86400000);
-    const maxDays = Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE ? (Number(debt.consumerExpireDay) || 0) : AR_DEFAULT_EXPIRE_DAYS;
-    if (ageDays <= maxDays) continue;
-
-    // 幂等检查: 是否已存在该billId的催收明细
-    if (existingBillIdSet.has(debt.billId)) continue;
-
-    const overdueDate = new Date(workDate.getTime() + maxDays * 86400000);
-    const overdueDateStr = overdueDate.toISOString().slice(0, 10);
-    overdueDebts.push({ ...debt, overdueDays: ageDays - maxDays, overdueDateStr });
+/** 按客户名分组 */
+function groupByConsumer(debts: EnrichedDebtRecord[]): Map<string, EnrichedDebtRecord[]> {
+  const groups = new Map<string, EnrichedDebtRecord[]>();
+  for (const debt of debts) {
+    if (!groups.has(debt.consumerName)) groups.set(debt.consumerName, []);
+    groups.get(debt.consumerName)!.push(debt);
   }
-  return overdueDebts;
+  return groups;
 }
 
 /** 按客户+逾期触发日期分组 */
-function groupByConsumerAndOverdueDate(debts: OverdueDebt[]): Map<string, OverdueDebt[]> {
-  const groups = new Map<string, OverdueDebt[]>();
+function groupByConsumerAndOverdueDate(debts: EnrichedDebtRecord[]): Map<string, EnrichedDebtRecord[]> {
+  const groups = new Map<string, EnrichedDebtRecord[]>();
   for (const debt of debts) {
     const key = `${debt.consumerName}||${debt.overdueDateStr}`;
     if (!groups.has(key)) groups.set(key, []);
@@ -154,10 +150,12 @@ function groupByConsumerAndOverdueDate(debts: OverdueDebt[]): Map<string, Overdu
 /** 在事务内为每组生成任务 */
 async function createTasksInTransaction(
   client: PoolClient,
-  groups: Map<string, OverdueDebt[]>,
+  groups: Map<string, EnrichedDebtRecord[]>,
   existingActiveTasks: Map<string, number>,
   todayStr: string,
-  now: Date
+  now: Date,
+  globalEntryReasons: string[],
+  globalRuleSnapshot: Record<string, any>,
 ): Promise<void> {
   // 获取今日已有任务序号
   const seqResult = await client.query<{ max_seq: string }>(
@@ -193,6 +191,9 @@ async function createTasksInTransaction(
     const priority = calcPriority(maxOverdue);
     const batchType: BatchType = 'daily';
 
+    // 收集该组内所有触发的 entry reasons（去重）
+    const groupReasons = [...new Set(debts.flatMap(d => globalEntryReasons))];
+
     // 匹配责任人
     const managerName = debts[0].managerUsers || null;
     let managerUserId: number | null = null;
@@ -204,17 +205,20 @@ async function createTasksInTransaction(
       if (userResult.rows.length > 0) managerUserId = userResult.rows[0].id;
     }
 
-    // 插入任务
+    // 插入任务（包含 entry_reasons 和 entry_rule_snapshot）
     const taskResult = await client.query(
       `INSERT INTO ar_collection_tasks
         (task_no, consumer_code, consumer_name, manager_user_id, manager_user_name,
          total_amount, bill_count, status, batch_type, batch_date, priority,
-         first_overdue_date, max_overdue_days, current_handler_id, assessment_start_time)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'collecting', $8, $9, $10, $11, $12, $4, CURRENT_TIMESTAMP)
+         first_overdue_date, max_overdue_days, current_handler_id, assessment_start_time,
+         entry_reasons, entry_rule_snapshot)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'collecting', $8, $9, $10, $11, $12, $4, CURRENT_TIMESTAMP, $13, $14::jsonb)
        RETURNING id`,
       [taskNo, consumerName, consumerName, managerUserId, managerName,
        totalAmount, debts.length, batchType, overdueDateStr, priority,
-       overdueDateStr, maxOverdue]
+       overdueDateStr, maxOverdue,
+       groupReasons,
+       JSON.stringify(globalRuleSnapshot)]
     );
     const taskId = taskResult.rows[0].id;
 
@@ -228,7 +232,7 @@ async function createTasksInTransaction(
       `INSERT INTO ar_collection_actions
         (task_id, action_type, action_result, remark, operator_name)
        VALUES ($1, 'collect', 'success', $2, '系统')`,
-      [taskId, `系统自动生成催收任务，批次类型=${batchType}，包含${debts.length}笔欠款`]
+      [taskId, `系统自动生成催收任务，批次类型=${batchType}，包含${debts.length}笔欠款，入催原因=[${groupReasons.join(',')}]`]
     );
   }
 
@@ -251,7 +255,7 @@ async function createTasksInTransaction(
 async function insertDetailsForTask(
   client: PoolClient,
   taskId: number,
-  debts: OverdueDebt[],
+  debts: EnrichedDebtRecord[],
   now: Date
 ): Promise<void> {
   for (const debt of debts) {
@@ -263,11 +267,12 @@ async function insertDetailsForTask(
     await client.query(
       `INSERT INTO ar_collection_details
         (task_id, erp_bill_id, bill_no, bill_type_name, total_amount, left_amount,
-         bill_order_time, expire_time, overdue_days, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+         bill_order_time, expire_time, overdue_days, status, hoard_tag)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10)
        ON CONFLICT (erp_bill_id) DO NOTHING`,
       [taskId, debt.billId, debt.bizOrderStr || debt.billId, debt.billTypeName, debt.totalAmount,
-       debt.leftAmount, debt.workTime, expireDate.toISOString(), ageDays - maxDays]
+       debt.leftAmount, debt.workTime, expireDate.toISOString(), ageDays - maxDays,
+       debt.hoardTag ?? null]
     );
   }
 }

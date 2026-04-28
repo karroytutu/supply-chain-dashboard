@@ -8,6 +8,8 @@ import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import logger from '../../utils/logger';
+import type { ERPDebtRecord } from './ar-debt.types';
+import { enrichDebtRecords, filterHoardDebts } from './ar-debt-enrichment.service';
 
 // ============================================
 // 类型定义
@@ -30,6 +32,7 @@ export interface UpcomingWarningDetail {
   reminderCount: number;
   settleMethod: number;        // 结算方式: 1=现款7天, 2=挂账
   consumerExpireDay: number;   // 最大欠款天数
+  hoardTag: string | null;    // 压单标记
 }
 
 /** 预警汇总（3级） */
@@ -82,24 +85,6 @@ export interface ReminderQueryParams {
 }
 
 // ============================================
-// ERP欠款记录接口
-// ============================================
-
-interface ERPDebtRecord {
-  billId: string;
-  bizStr: string;
-  bizOrderStr: string;  // 订单号（单据编号）
-  consumerName: string;
-  managerUsers: string;
-  totalAmount: number;
-  leftAmount: number;
-  settleMethod: number;
-  consumerExpireDay: number;
-  billTypeName: string;
-  workTime: string;
-}
-
-// ============================================
 // 查询服务
 // ============================================
 
@@ -121,14 +106,18 @@ export async function getUpcomingWarnings(
   const erpResult = await query<ERPDebtRecord>(erpSql, []);
   const now = new Date();
 
-  // 2. 计算每条记录的到期日期和剩余天数
-  const upcomingDebts: (ERPDebtRecord & {
+  // 2. 富化欠款数据（补充 hoardTag + 客户限额）并排除压单
+  const enrichedDebts = await enrichDebtRecords(erpResult.rows, now);
+  const nonHoardDebts = filterHoardDebts(enrichedDebts);
+
+  // 3. 计算每条记录的到期日期和剩余天数
+  const upcomingDebts: (typeof nonHoardDebts[number] & {
     expireDate: Date;
     daysToExpire: number;
     warningLevel: WarningLevel;
   })[] = [];
 
-  for (const debt of erpResult.rows) {
+  for (const debt of nonHoardDebts) {
     const workDate = new Date(debt.workTime);
     // 注意: PostgreSQL numeric 类型返回字符串，需要转换为数字比较
     const maxDays = Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE ? (Number(debt.consumerExpireDay) || 0) : AR_DEFAULT_EXPIRE_DAYS;
@@ -198,6 +187,7 @@ export async function getUpcomingWarnings(
     reminderCount: reminderCounts.get(debt.billId) || 0,
     settleMethod: Number(debt.settleMethod),
     consumerExpireDay: Number(debt.consumerExpireDay) || 0,
+    hoardTag: debt.hoardTag ?? null,
   }));
 
   // 6. 筛选

@@ -33,16 +33,20 @@ import type {
  */
 export function toTaskDTO(task: CollectionTask | null): CollectionTaskDTO | null {
   if (!task) return task;
-  const base = toCamelKeys<any>(task);
+  // toCamelKeys 返回 snake_case 键名类型的对象，与 camelCase DTO 类型不兼容，
+  // 需通过 unknown 中转断言（运行时 toCamelKeys 已正确转换键名）
+  const base = toCamelKeys(task) as unknown as CollectionTaskDTO;
   return {
     ...base,
     totalAmount: Number(task.total_amount) || 0,
-    // 关联字段映射（SQL 查询中的别名）
-    currentHandlerName: (task as any).handler_name ?? null,
-    managerName: (task as any).manager_name ?? null,
-    pendingRole: (task as any).pending_role ?? null,
-    assessmentStartTime: (task as any).assessment_start_time ?? null,
-    assessmentTiers: (task as any).assessment_tiers ?? [],
+    // 关联字段映射（SQL 查询中的别名，已在类型中声明为可选扩展字段）
+    currentHandlerName: task.handler_name ?? null,
+    managerName: task.manager_name ?? null,
+    pendingRole: task.pending_role ?? null,
+    assessmentStartTime: task.assessment_start_time ?? null,
+    assessmentTiers: task.assessment_tiers ?? [],
+    entryReasons: task.entry_reasons ?? [],
+    entryRuleSnapshot: task.entry_rule_snapshot ?? null,
   };
 }
 
@@ -51,13 +55,14 @@ export function toTaskDTO(task: CollectionTask | null): CollectionTaskDTO | null
  */
 export function toDetailDTO(detail: CollectionDetail | null): CollectionDetailDTO | null {
   if (!detail) return detail;
-  const base = toCamelKeys<any>(detail);
+  const base = toCamelKeys(detail) as unknown as CollectionDetailDTO;
   return {
     ...base,
     totalAmount: Number(detail.total_amount) || 0,
     leftAmount: Number(detail.left_amount) || 0,
     processAmount: Number(detail.process_amount) || 0,
-    processedByName: (detail as any).processed_by_name ?? null,
+    processedByName: detail.processed_by_name ?? null,
+    hoardTag: detail.hoard_tag ?? null,
   };
 }
 
@@ -66,7 +71,7 @@ export function toDetailDTO(detail: CollectionDetail | null): CollectionDetailDT
  */
 export function toActionDTO(action: CollectionAction | null): CollectionActionDTO | null {
   if (!action) return action;
-  return toCamelKeys<any>(action) as CollectionActionDTO;
+  return toCamelKeys(action) as unknown as CollectionActionDTO;
 }
 
 /**
@@ -74,7 +79,7 @@ export function toActionDTO(action: CollectionAction | null): CollectionActionDT
  */
 export function toLegalProgressDTO(progress: LegalProgress | null): LegalProgressDTO | null {
   if (!progress) return progress;
-  return toCamelKeys<any>(progress) as LegalProgressDTO;
+  return toCamelKeys(progress) as unknown as LegalProgressDTO;
 }
 
 // ==================== DTO → 实体参数（用于请求） ====================
