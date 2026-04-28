@@ -4,12 +4,16 @@
  */
 
 import { FormTypeDefinition } from '../oa-approval.types';
-import { beforeSubmitCustomerCredit, onApprovedCustomerCredit } from '../customer-credit-callback';
+import { beforeSubmitCustomerCredit, getCustomerCreditCCRoles, onApprovedCustomerCredit, resolveCustomerCreditPreviewContext } from '../customer-credit-callback';
 
 /**
  * 客户授信申请表单类型定义
  * 支持三种授信类型：账期、滚单、压单
- * 动态审批流：营销师提交→3节点，营销主管/往来会计提交→1节点
+ * 分级审批流：根据最大欠款天数/压单金额确定审批节点
+ *   low(≤30天/≤500元): 营销主管 → 完成
+ *   medium(30-60天/500-1000元): 营销主管 → 往来会计 → 完成
+ *   high(>60天/>1000元): 营销主管 → 往来会计 → 总经理 → 完成
+ * 提交人自跳过：marketing_manager 跳过节点1，current_accountant 跳过节点2
  */
 export const customerCreditFormType: FormTypeDefinition = {
   code: 'customer_credit',
@@ -18,7 +22,7 @@ export const customerCreditFormType: FormTypeDefinition = {
   category: 'finance',
   sortOrder: 110,
   description: '申请客户授信，包括账期、滚单、压单',
-  version: 1,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -144,28 +148,29 @@ export const customerCreditFormType: FormTypeDefinition = {
 
   workflowDef: {
     nodes: [
-      // 节点1：合理性审批（仅营销师提交时需要）
+      // 节点1：营销主管审批（提交人为 marketing_manager 时跳过）
       {
         order: 1,
-        name: '合理性审批',
+        name: '营销主管审批',
         type: 'role',
         roleCode: 'marketing_manager',
-        condition: { field: '_submitterRole', operator: '==', value: 'marketer' },
+        condition: { field: '_needsManagerApproval', operator: '==', value: 'yes' },
       },
-      // 节点2：材料审批（仅营销师提交时需要）
+      // 节点2：往来会计审批（low级别跳过，提交人为 current_accountant 时跳过）
       {
         order: 2,
-        name: '材料审批',
+        name: '往来会计审批',
         type: 'role',
         roleCode: 'current_accountant',
-        condition: { field: '_submitterRole', operator: '==', value: 'marketer' },
+        condition: { field: '_needsAccountantApproval', operator: '==', value: 'yes' },
       },
-      // 节点3：总经理审批（始终需要）
+      // 节点3：总经理审批（仅 high 级别需要）
       {
         order: 3,
         name: '总经理审批',
         type: 'role',
         roleCode: 'general_manager',
+        condition: { field: '_needsGmApproval', operator: '==', value: 'yes' },
       },
       // 节点4：自动更新ERP客户授信
       {
@@ -176,8 +181,14 @@ export const customerCreditFormType: FormTypeDefinition = {
     ],
   },
 
-  // beforeSubmit: 注入提交者角色到 formData，供条件节点判断
+  // beforeSubmit: 注入分级审批字段和提交者角色到 formData，供条件节点判断
   beforeSubmit: beforeSubmitCustomerCredit,
+
+  // getCCRoles: 根据审批分级动态解析抄送角色
+  getCCRoles: getCustomerCreditCCRoles,
+
+  // resolvePreviewContext: 流程预览时动态注入分级字段，实现条件节点实时过滤
+  resolvePreviewContext: resolveCustomerCreditPreviewContext,
 
   // onApproved: 审批通过后调用 ERP API 更新授信信息
   onApproved: onApprovedCustomerCredit,

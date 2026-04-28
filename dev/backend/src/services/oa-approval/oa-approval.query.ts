@@ -16,6 +16,7 @@ import {
   ApprovalStatus,
   Urgency,
   FormSchema,
+  WorkflowNodeDef,
 } from './oa-approval.types';
 import { getFormTypeByCode } from './form-types';
 
@@ -612,20 +613,23 @@ export interface PreviewApprover {
   approverAvatar: string | null;
 }
 
+// =====================================================
+// 可复用的流程预览工具函数
+// =====================================================
+
 /**
- * 预解析表单类型的审批人
- * 根据工作流定义，预先解析每个节点可能的审批人
+ * 为指定的节点列表解析审批人
+ * 可复用于 previewApprovers（全量）和 preview-workflow（过滤后）
+ *
+ * @param nodes 需要解析审批人的节点列表
+ * @param userId 申请人ID，用于 dynamic_supervisor 类型节点
+ * @returns 预解析审批人列表
  */
-export async function previewApprovers(
-  formTypeCode: string,
+export async function resolvePreviewApproversForNodes(
+  nodes: WorkflowNodeDef[],
   userId: number
 ): Promise<PreviewApprover[]> {
-  const { getFormTypeByCode } = await import('./form-types');
-  const formType = await getFormTypeByCode(formTypeCode);
-  if (!formType) return [];
-
   const { resolveApproverId } = await import('./oa-approval-utils');
-  const nodes = formType.workflowDef.nodes;
   const results: PreviewApprover[] = [];
 
   for (const node of nodes) {
@@ -656,4 +660,18 @@ export async function previewApprovers(
   }
 
   return results;
+}
+
+/**
+ * 预解析表单类型的审批人（全量节点）
+ * 根据工作流定义，预先解析每个节点可能的审批人
+ */
+export async function previewApprovers(
+  formTypeCode: string,
+  userId: number
+): Promise<PreviewApprover[]> {
+  const formType = await getFormTypeByCode(formTypeCode);
+  if (!formType) return [];
+
+  return resolvePreviewApproversForNodes(formType.workflowDef.nodes, userId);
 }
