@@ -14,7 +14,7 @@ import {
   getErpAssetCategories,
 } from '../services/fixed-asset/fixed-asset.query';
 import { searchErpCustomersByKeyword, getErpCustomerProfile, getCustomerLicenseInfo } from '../services/erp-client/erp-customer.service';
-import { searchErpSettlementOrders } from '../services/erp-client/erp-settlement.service';
+import { searchErpSettlementOrders, searchErpSettlementOrdersPaged } from '../services/erp-client/erp-settlement.service';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
 
 /** 解析结果项 */
@@ -88,7 +88,22 @@ export async function getErpReference(req: Request, res: Response, next: NextFun
           res.status(400).json({ code: 400, message: '结算单查询需要 consumerId 参数' });
           return;
         }
-        data = await searchErpSettlementOrders({ traderId: consumerId, keyword });
+        // 支持分页模式：传 page 参数时返回分页结果
+        const pageParam = req.query.page as string | undefined;
+        if (pageParam) {
+          const page = parseInt(pageParam, 10) || 1;
+          const pageSize = parseInt(req.query.pageSize as string, 10) || 20;
+          const keyword = req.query.keyword as string | undefined;
+          data = await searchErpSettlementOrdersPaged({
+            traderId: consumerId,
+            keyword,
+            page,
+            pageSize,
+          });
+        } else {
+          // 兼容旧的全量查询模式
+          data = await searchErpSettlementOrders({ traderId: consumerId, keyword });
+        }
         break;
       }
 
@@ -206,8 +221,13 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
           return;
         }
         const all = await searchErpSettlementOrders({ traderId: consumerId });
-        const map = new Map(all.map((o) => [o.id, o.bizStr]));
-        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? id) }));
+        // 双模式查找：新数据存 bizId，旧数据存 id，两者均需支持
+        const bizIdMap = new Map(all.map((o) => [o.bizId, o.bizStr]));
+        const idMap = new Map(all.map((o) => [o.id, o.bizStr]));
+        resolved = ids.map((id) => ({
+          id,
+          label: String(bizIdMap.get(id) ?? idMap.get(id) ?? id),
+        }));
         break;
       }
 

@@ -382,9 +382,45 @@ export async function getErpReference(
   if (extraParams) {
     Object.assign(params, extraParams);
   }
+  // ERP 参考数据 API 的参数名由后端定义（如 consumerId），不做 camelCase→snake_case 转换
+  // 否则 consumerId 会被转为 consumer_id，后端无法识别导致返回 400
   const res = await request<unknown[]>(
     `/oa-approval/erp-reference/${type}`,
-    { params, signal }
+    { params, signal, skipParamsSnakeCase: true }
+  );
+  return res;
+}
+
+/** 结算单分页查询结果 */
+export interface SettlementOrderPagedResult {
+  records: Array<Record<string, unknown>>;
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * 分页查询结算单列表
+ * 用于 SettlementOrderPicker 组件的服务端分页
+ */
+export async function getSettlementOrdersPaged(params: {
+  consumerId: string | number;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+  signal?: AbortSignal;
+}): Promise<SettlementOrderPagedResult> {
+  const queryParams: Record<string, string> = {
+    consumerId: String(params.consumerId),
+    page: String(params.page || 1),
+    pageSize: String(params.pageSize || 20),
+  };
+  if (params.keyword) {
+    queryParams.keyword = params.keyword;
+  }
+  const res = await request<SettlementOrderPagedResult>(
+    '/oa-approval/erp-reference/settlement-orders',
+    { params: queryParams, signal: params.signal, skipParamsSnakeCase: true }
   );
   return res;
 }
@@ -402,9 +438,10 @@ export async function resolveErpNames(
   if (extraParams) {
     Object.assign(params, extraParams);
   }
+  // ERP 参考数据 API 的参数名由后端定义，不做 camelCase→snake_case 转换
   const res = await request<ErpResolvedItem[]>(
     `/oa-approval/erp-reference/${type}/resolve`,
-    { params }
+    { params, skipParamsSnakeCase: true }
   );
   return res;
 }

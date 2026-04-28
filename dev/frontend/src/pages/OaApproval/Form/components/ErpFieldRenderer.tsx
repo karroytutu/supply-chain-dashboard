@@ -85,7 +85,9 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     if (field.cascadeFrom && cascadeValue === undefined) { setOptions([]); return; }
 
     // 检查客户端缓存
-    const cacheKey = `${erpType}:${searchKeyword || ''}`;
+    // 缓存键包含级联参数（如 consumerId），避免不同客户的数据互相污染
+    const cascadeKeyPart = (erpType === 'settlement-orders' && cascadeValue) ? `:cid=${cascadeValue}` : '';
+    const cacheKey = `${erpType}:${searchKeyword || ''}${cascadeKeyPart}`;
     const cached = erpSearchCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < ERP_SEARCH_CACHE_TTL) {
       setOptions(cached.data);
@@ -218,21 +220,24 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     );
   }
 
-  // 结算单多选：使用弹窗表格选择器
+  // 结算单多选：使用弹窗表格选择器（服务端分页）
   if (erpType === 'settlement-orders' && field.multiple) {
     return (
-      <SettlementOrderPicker options={options} value={(value as number[]) || []}
-        onChange={(ids) => {
+      <SettlementOrderPicker
+        value={(value as number[]) || []}
+        consumerId={cascadeValue as string | number | undefined}
+        onChange={(ids, labels) => {
           onChange?.(ids);
-          // 写入 nameField：将选中项的 label 拼接后存入
+          // 写入 nameField：优先使用 SettlementOrderPicker 返回的 labels
           if (field.nameField && form) {
-            const selectedLabels = options
-              .filter(opt => ids.includes(opt.value as number))
-              .map(opt => opt.label);
-            form.setFieldsValue({ [field.nameField]: selectedLabels.join(', ') });
+            const nameLabels = labels && labels.length > 0
+              ? labels
+              : options.filter(opt => ids.includes(opt.value as number)).map(opt => opt.label);
+            form.setFieldsValue({ [field.nameField]: nameLabels.join(', ') });
           }
         }}
-        loading={loading} disabled={isDisabled}
+        disabled={isDisabled}
+        cachedOptions={options}
       />
     );
   }
