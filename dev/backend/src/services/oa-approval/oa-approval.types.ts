@@ -225,8 +225,8 @@ export interface WorkflowNodeDef {
   roleCode?: string;
   /** 指定用户ID（type=specific_user 时必填） */
   userId?: number;
-  /** 条件定义（条件节点） */
-  condition?: ConditionDef;
+  /** 条件定义（条件节点），支持单个条件或 AND 条件数组 */
+  condition?: ConditionDef | ConditionDef[];
   /** 数据录入表单 schema（仅 data_input 类型） */
   inputSchema?: NodeInputSchema;
 }
@@ -239,6 +239,19 @@ export interface WorkflowDef {
   nodes: WorkflowNodeDef[];
   /** 抄送角色列表 */
   ccRoles?: string[];
+}
+
+// =====================================================
+// 流程预览相关类型
+// =====================================================
+
+/**
+ * 流程预览上下文结果
+ * resolvePreviewContext 回调的返回值，用于在表单填写阶段动态注入计算字段
+ */
+export interface PreviewContextResult {
+  /** 注入到 formData 的上下文字段（如 _needsManagerApproval） */
+  contextFields: Record<string, unknown>;
 }
 
 // =====================================================
@@ -275,6 +288,22 @@ export interface FormTypeDefinition {
   onRejected?: (instance: OaApprovalInstanceRow, formData: Record<string, unknown>) => Promise<void>;
   /** data_input 节点完成回调（可选，按节点序号分发） */
   onNodeCompleted?: (instance: OaApprovalInstanceRow, nodeOrder: number, nodeData: Record<string, unknown>, formData: Record<string, unknown>) => Promise<void>;
+  /** 动态抄送角色解析（可选）
+   * 在 beforeSubmit 之后调用，接收已增强的 formData，
+   * 返回角色编码数组。优先级高于 workflowDef.ccRoles。
+   * 不提供此回调的表单类型继续使用 workflowDef.ccRoles 静态配置。
+   */
+  getCCRoles?: (formData: Record<string, unknown>) => string[];
+  /** 流程预览上下文解析（可选）
+   * 在表单填写阶段调用，根据当前表单数据动态注入计算字段，
+   * 用于流程预览中的条件节点过滤。
+   * 与 beforeSubmit 的区别：无校验、无副作用、出错时返回空上下文。
+   * 不提供此回调的表单类型，流程预览使用原始 formData 评估条件。
+   */
+  resolvePreviewContext?: (
+    formData: Record<string, unknown>,
+    userId: number
+  ) => Promise<PreviewContextResult>;
 }
 
 // =====================================================
@@ -302,13 +331,22 @@ export interface OaFormTypeRow {
 
 /**
  * 审批实例状态
+ * - pending: 等待人工审批
+ * - processing: auto 节点异步执行中（系统处理中）
+ * - approved: 审批通过（终态）
+ * - rejected: 人工驳回（终态）
+ * - erp_failed: auto 节点系统执行失败（可重试）
+ * - cancelled: 已取消（终态）
+ * - withdrawn: 已撤回（终态）
  */
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'withdrawn';
+export type ApprovalStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'erp_failed' | 'cancelled' | 'withdrawn';
 
 /**
  * 审批节点状态
+ * - processing: auto 节点异步执行中
+ * - failed: auto 节点执行失败（可重试，区别于人工 rejected）
  */
-export type ApprovalNodeStatus = 'pending' | 'approved' | 'rejected' | 'transferred' | 'skipped' | 'cancelled';
+export type ApprovalNodeStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'transferred' | 'failed' | 'skipped' | 'cancelled';
 
 /**
  * 紧急程度
@@ -316,11 +354,12 @@ export type ApprovalNodeStatus = 'pending' | 'approved' | 'rejected' | 'transfer
 export type Urgency = 'normal' | 'high' | 'urgent';
 
 /**
- * ERP 处理元数据
+ * 外部系统交互追踪元数据
  * 存储在 oa_approval_instances.erp_meta 中
+ * 用于追踪所有外部系统（ERP 等）的交互状态，非限于 ERP
  */
 export interface ErpMeta {
-  /** ERP处理状态 */
+  /** 外部系统处理状态 */
   status: 'pending' | 'processing' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_completed' | 'erp_failed';
   /** ERP返回数据（账单ID、资产ID等） */
   responseData: Record<string, unknown>;

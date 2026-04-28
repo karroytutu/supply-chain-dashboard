@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { message } from 'antd';
 import type { ApprovalDetail, ApprovalNode, ApprovalAction } from '@/types/oa-approval';
 import { oaApprovalApi } from '@/services/api/oa-approval';
@@ -6,6 +6,9 @@ import { usePermission } from '@/hooks/usePermission';
 
 /** 详情加载失败类型 */
 export type DetailErrorType = 'forbidden' | 'not_found' | 'server_error' | null;
+
+/** auto 节点轮询间隔（毫秒） */
+const AUTO_NODE_POLL_INTERVAL = 2000;
 
 interface UseApprovalDetailReturn {
   loading: boolean;
@@ -76,6 +79,40 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     loadDetail();
   }, [loadDetail]);
 
+  // auto 节点状态轮询：当实例处于 processing 状态时自动轮询
+  const pollFetchIdRef = useRef(0);
+  useEffect(() => {
+    if (!id || !detail || detail.status !== 'processing') return;
+
+    const fetchId = ++pollFetchIdRef.current;
+    const timer = setInterval(async () => {
+      if (fetchId !== pollFetchIdRef.current) return;
+      try {
+        const detailRes = await oaApprovalApi.getDetail(parseInt(id!));
+        if (fetchId !== pollFetchIdRef.current) return;
+        const detailData = detailRes.data;
+        setDetail(detailData);
+        setNodes(detailData.nodes || []);
+        setActions(detailData.actions || []);
+        if (detailData.status !== 'processing') {
+          clearInterval(timer);
+          if (detailData.status === 'approved') {
+            message.success('系统处理完成');
+          } else if (detailData.status === 'erp_failed') {
+            message.error('系统处理失败，请点击重试');
+          }
+        }
+      } catch {
+        // 轮询失败静默忽略
+      }
+    }, AUTO_NODE_POLL_INTERVAL);
+
+    return () => {
+      clearInterval(timer);
+      pollFetchIdRef.current++;
+    };
+  }, [id, detail?.status]);
+
   // 执行审批操作
   const handleAction = async () => {
     if (!id || !actionType) return;
@@ -89,8 +126,12 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     try {
       switch (actionType) {
         case 'approve':
-          await oaApprovalApi.approve(parseInt(id), { comment: actionComment });
-          message.success('审批通过');
+          const approveRes = await oaApprovalApi.approve(parseInt(id), { comment: actionComment }) as any;
+          if (approveRes?.data?.status === 'processing') {
+            message.success('审批已通过，系统处理中');
+          } else {
+            message.success('审批通过');
+          }
           break;
         case 'reject':
           await oaApprovalApi.reject(parseInt(id), { comment: actionComment });
@@ -142,7 +183,7 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     }
   };
 
-  // 检查当前用户是否可以操作（审批人必须是当前登录用户）
+  // 检查当前用户是否可以操作（审批人必须是当前登录用户，processing 状态不可操作）
   const canOperate = () => {
     if (!detail || detail.status !== 'pending') return false;
     const currentNode = nodes.find((n) => n.status === 'pending');
@@ -151,7 +192,7 @@ export function useApprovalDetail(id: string | undefined): UseApprovalDetailRetu
     return true;
   };
 
-  // 检查是否可以撤回（只有申请人可以撤回）
+  // 检查是否可以撤回（只有申请人可以撤回，processing 状态不可撤回）
   const canWithdraw = () => {
     if (!detail || detail.status !== 'pending') return false;
     if (detail.applicantId !== currentUser?.id) return false;

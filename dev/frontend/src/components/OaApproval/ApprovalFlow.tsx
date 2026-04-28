@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ApprovalFlowProps } from './flow-types';
+import type { ApprovalFlowProps, ApprovalFlowPreviewProps, ApprovalFlowActualProps } from './flow-types';
 import ApprovalFlowPreview from './ApprovalFlowPreview';
 import ApprovalFlowActual from './ApprovalFlowActual';
 import styles from './ApprovalFlow.less';
@@ -11,28 +11,10 @@ const ApprovalFlow: React.FC<ApprovalFlowProps> = (props) => {
 
   return (
     <div className={containerClass}>
-      {isPreview ? (
-        <ApprovalFlowPreview
-          workflowNodes={props.workflowNodes}
-          formTypeCode={props.formTypeCode}
-          fieldLabels={props.fieldLabels}
-          formData={props.formData}
-        />
-      ) : (
-        <ApprovalFlowActual
-          nodes={props.nodes}
-          ccUsers={props.ccUsers}
-          currentStep={props.currentStep}
-          instanceStatus={props.instanceStatus}
-          actions={props.actions}
-          erpMeta={props.erpMeta}
-          instanceId={props.instanceId}
-          applicantName={props.applicantName}
-          applicantDept={props.applicantDept}
-          applicantAvatar={props.applicantAvatar}
-          submittedAt={props.submittedAt}
-        />
-      )}
+      {isPreview
+        ? <ApprovalFlowPreview {...(props as ApprovalFlowPreviewProps)} />
+        : <ApprovalFlowActual {...(props as ApprovalFlowActualProps)} />
+      }
     </div>
   );
 };

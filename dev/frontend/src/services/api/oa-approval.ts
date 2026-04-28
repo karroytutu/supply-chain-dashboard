@@ -17,6 +17,7 @@ import {
   ViewMode,
   ApprovalNode,
   ApprovalAction,
+  WorkflowNodeDef,
 } from '@/types/oa-approval';
 
 // =====================================================
@@ -69,6 +70,27 @@ export async function previewApprovers(code: string): Promise<{ data: PreviewApp
     `/oa-approval/form-types/${code}/preview-approvers`
   );
   return { data: res };
+}
+
+/** 动态流程预览结果 */
+export interface WorkflowPreviewResult {
+  visibleNodes: WorkflowNodeDef[];
+  approvers: PreviewApprover[];
+}
+
+/**
+ * 动态流程预览（根据表单数据实时计算可见节点和审批人）
+ * 用于表单填写阶段的流程预览，随着用户输入动态更新
+ */
+export async function previewWorkflow(
+  code: string,
+  formData: Record<string, unknown>
+): Promise<WorkflowPreviewResult> {
+  const res = await request<WorkflowPreviewResult>(
+    `/oa-approval/form-types/${code}/preview-workflow`,
+    { method: 'POST', body: { formData } }
+  );
+  return res;
 }
 
 // =====================================================
@@ -397,6 +419,21 @@ export async function retryErpOperation(instanceId: number): Promise<void> {
   );
 }
 
+/**
+ * 上传客户营业执照照片（支持多文件）
+ * 先于表单提交调用，将 File 对象上传到服务器，获取 URL 后存入表单数据
+ */
+export async function uploadLicenseFiles(files: File[]): Promise<string[]> {
+  const formData = new FormData();
+  files.forEach(f => formData.append('files', f));
+  // requestFormData 返回原始 JSON 响应 { code, data: { urls } }
+  const res = await requestFormData<{ code: number; data: { urls: string[] } }>(
+    '/oa-approval/upload-license',
+    formData,
+  );
+  return res.data.urls;
+}
+
 /** 客户营业执照信息 */
 export interface CustomerLicenseInfo {
   hasLicense: boolean;
@@ -415,20 +452,6 @@ export async function getCustomerLicenseInfo(customerId: number): Promise<Custom
   return res;
 }
 
-/**
- * 上传营业执照图片到服务器
- * 上传成功后返回服务端文件访问 URL
- */
-export async function uploadLicense(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const res = await requestFormData<{ code: number; data: { url: string } }>(
-    '/oa-approval/upload-license',
-    formData,
-  );
-  return res.data.url;
-}
-
 // =====================================================
 // 导出 API 对象（供页面使用）
 // =====================================================
@@ -444,6 +467,7 @@ export const oaApprovalApi = {
   getFormTypesGrouped,
   getFormType,
   previewApprovers,
+  previewWorkflow,
   getApprovalList,
   getStats,
   getDetail,
@@ -464,7 +488,7 @@ export const oaApprovalApi = {
   getErpReference,
   resolveErpNames,
   retryErpOperation,
+  uploadLicenseFiles,
   getCustomerLicenseInfo,
-  uploadLicense,
   getTransferCandidates,
 };

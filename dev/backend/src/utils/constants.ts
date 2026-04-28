@@ -105,6 +105,48 @@ export const CACHE_TTL_STRATEGIC_PRODUCT = 5 * 60 * 1000;
 /** 权限缓存过期时间 @usedBy permission-cache.service.ts (权限缓存) */
 export const CACHE_TTL_PERMISSION = 30 * 1000;
 
+// ==================== 客户授信审批阈值 ====================
+
+/**
+ * OA审批 auto 节点卡住判定阈值（毫秒）
+ * 超过此时间的 processing 状态视为卡住，由定时任务或启动恢复处理
+ * @usedBy erp-meta-utils.ts (卡住任务恢复)
+ */
+export const OA_AUTO_NODE_STUCK_TIMEOUT_MS = 10 * 60 * 1000;
+
+/**
+ * OA审批 auto 节点前端轮询间隔（毫秒）
+ * @usedBy useAutoNodePolling.ts (轮询间隔)
+ */
+export const OA_AUTO_NODE_POLL_INTERVAL_MS = 2000;
+
+/** 客户授信-账期/滚单需往来会计审批的最大欠款天数
+ * @usedBy customer-credit-callback.ts (CREDIT_APPROVAL_TIERS 配置)
+ */
+export const CREDIT_OVERDUE_ACCOUNTANT_DAYS = 30;
+
+/** 客户授信-账期/滚单需总经理审批的最大欠款天数
+ * @usedBy customer-credit-callback.ts (CREDIT_APPROVAL_TIERS 配置)
+ */
+export const CREDIT_OVERDUE_GM_DAYS = 60;
+
+/** 客户授信-压单需往来会计审批的金额阈值
+ * @usedBy customer-credit-callback.ts (CREDIT_APPROVAL_TIERS 配置)
+ */
+export const CREDIT_HOLD_AMOUNT_ACCOUNTANT = 500;
+
+/** 客户授信-压单需总经理审批的金额阈值
+ * @usedBy customer-credit-callback.ts (CREDIT_APPROVAL_TIERS 配置)
+ */
+export const CREDIT_HOLD_AMOUNT_GM = 1000;
+
+/** 客户授信审批通过后设置的结算方式值（挂账）
+ * 与 AR_SETTLE_METHOD_CONSUMER_EXPIRE 值相同(=2)，但语义不同：
+ * 此处表示"授信后应设为挂账"，AR_SETTLE_METHOD_CONSUMER_EXPIRE 表示"挂账客户使用 consumerExpireDay"
+ * @usedBy customer-credit-callback.ts, erp-credit-update.service.ts
+ */
+export const CREDIT_SETTLE_METHOD_ON_ACCOUNT = 2;
+
 // ==================== 工具函数 ====================
 
 /**

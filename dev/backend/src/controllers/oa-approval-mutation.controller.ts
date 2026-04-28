@@ -62,8 +62,12 @@ export async function approve(req: Request, res: Response): Promise<void> {
 
     const instanceId = parseInt(req.params.id);
     const { comment, inputData } = req.body;
-    await approveApproval(instanceId, user.userId, user.name, comment, inputData);
-    res.json({ success: true, message: '审批通过' });
+    const result = await approveApproval(instanceId, user.userId, user.name, comment, inputData);
+    if (result.status === 'processing') {
+      res.status(202).json({ success: true, data: { status: 'processing' }, message: '审批已通过，系统处理中' });
+    } else {
+      res.json({ success: true, message: '审批通过' });
+    }
   } catch (error) {
     console.error('同意审批失败:', error);
     const message = error instanceof Error ? error.message : '同意审批失败';

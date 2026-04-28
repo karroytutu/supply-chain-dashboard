@@ -8,6 +8,7 @@ import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { getErpCustomerProfile } from './erp-customer.service';
 import type { ErpCustomerProfile } from './erp-customer.service';
+import { cache } from '../../utils/cache';
 import { createLogEntry, writeErpLog } from './erp-logger';
 
 // =====================================================
@@ -46,10 +47,12 @@ export async function erpUpdateMaxDebtOrderNum(customerId: number, maxDebtOrderN
   );
 }
 
-/** erpUploadBusinessLicense 可同时更新的授信字段 */
+/** erpUploadBusinessLicense / erpUpdateCustomerProfile 可同时更新的客户字段 */
 export interface CreditUpdateFields {
   maxDebtDays?: number;
   maxDebtOrderNum?: number;
+  /** 结算方式（2=挂账，参见 CREDIT_SETTLE_METHOD_ON_ACCOUNT） */
+  settleMethod?: number;
 }
 
 /**
@@ -96,12 +99,53 @@ export async function erpUploadBusinessLicense(
   if (creditFields?.maxDebtOrderNum !== undefined) {
     customer.maxDebtOrderNum = String(creditFields.maxDebtOrderNum);
   }
+  if (creditFields?.settleMethod !== undefined) {
+    customer.settleMethod = creditFields.settleMethod;
+  }
 
   await erpPost(
     '/web/consumer/update-consumer',
     customer,
     { pathPrefix: '/saas/pro/', businessType: 'credit_update_customer_profile' }
   );
+
+  // 写入后失效客户资料缓存，确保后续读取最新数据
+  cache.invalidate('erp:customer:profile:');
+}
+
+/**
+ * 通过 update-consumer API 原子更新客户资料字段
+ * 用于无执照上传时，将授信字段和结算方式合并到单次 update-consumer 调用，
+ * 避免 batch-edit + update-consumer 的快照竞态问题
+ *
+ * POST /saas/pro/web/consumer/update-consumer
+ */
+export async function erpUpdateCustomerProfile(
+  customerId: number,
+  updateFields: CreditUpdateFields
+): Promise<void> {
+  // 获取客户完整资料（含最新字段值）
+  const customer = await getErpCustomerProfile(customerId);
+
+  // 应用更新字段到 profile
+  if (updateFields.maxDebtDays !== undefined) {
+    customer.maxDebtDays = String(updateFields.maxDebtDays);
+  }
+  if (updateFields.maxDebtOrderNum !== undefined) {
+    customer.maxDebtOrderNum = String(updateFields.maxDebtOrderNum);
+  }
+  if (updateFields.settleMethod !== undefined) {
+    customer.settleMethod = updateFields.settleMethod;
+  }
+
+  await erpPost(
+    '/web/consumer/update-consumer',
+    customer,
+    { pathPrefix: '/saas/pro/', businessType: 'credit_update_customer_profile' }
+  );
+
+  // 写入后失效客户资料缓存
+  cache.invalidate('erp:customer:profile:');
 }
 
 // =====================================================

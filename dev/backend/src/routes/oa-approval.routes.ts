@@ -86,6 +86,53 @@ router.get('/form-types/:code/preview-approvers', requirePermission('oa:approval
   }
 });
 
+// 动态流程预览（根据表单数据实时计算可见节点和审批人）
+router.post('/form-types/:code/preview-workflow', requirePermission('oa:approval:read'), async (req: Request, res: Response) => {
+  try {
+    const { code } = req.params;
+    const { formData } = req.body as { formData?: Record<string, unknown> };
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      res.status(401).json({ code: 401, message: '未登录' });
+      return;
+    }
+
+    const { getFormTypeByCode } = await import('../services/oa-approval/form-types');
+    const formType = await getFormTypeByCode(code);
+    if (!formType) {
+      res.status(404).json({ code: 404, message: '表单类型不存在' });
+      return;
+    }
+
+    // 1. 丰富 formData：调用 resolvePreviewContext 注入计算字段
+    let enrichedData = formData || {};
+    if (formType.resolvePreviewContext) {
+      const { contextFields } = await formType.resolvePreviewContext(enrichedData, userId);
+      enrichedData = { ...enrichedData, ...contextFields };
+    }
+
+    // 2. 条件过滤：根据丰富的上下文过滤出可见节点
+    const { filterNodesByCondition } = await import('../services/oa-approval/oa-approval-utils');
+    const { resolvePreviewApproversForNodes } = await import('../services/oa-approval/oa-approval.query');
+    const visibleNodes = filterNodesByCondition(formType.workflowDef.nodes, enrichedData);
+
+    // 3. 解析审批人：仅为可见节点解析审批人
+    const approvers = await resolvePreviewApproversForNodes(visibleNodes, userId);
+
+    res.json({ code: 200, data: { visibleNodes, approvers } });
+  } catch (error) {
+    // 预览场景出错时降级：返回全量节点，不阻断用户操作
+    console.warn(`[preview-workflow] Error for ${req.params.code}:`, error instanceof Error ? error.message : error);
+    try {
+      const { getFormTypeByCode } = await import('../services/oa-approval/form-types');
+      const formType = await getFormTypeByCode(req.params.code);
+      res.json({ code: 200, data: { visibleNodes: formType?.workflowDef.nodes || [], approvers: [] } });
+    } catch {
+      res.json({ code: 200, data: { visibleNodes: [], approvers: [] } });
+    }
+  }
+});
+
 // =====================================================
 // 审批实例接口
 // =====================================================
@@ -161,17 +208,18 @@ router.post('/instances/:id/retry-erp', requirePermission('oa:approval:write'), 
 
 router.post(
   '/upload-license',
-  requirePermission('oa:approval:write'),
-  uploadCreditLicense.single('file'),
+  // 权限：finance:credit:write（授信专有）或 oa:approval:write（审批通用）均可上传
+  requirePermission(['finance:credit:write', 'oa:approval:write']),
+  uploadCreditLicense.array('files', 3),
   async (req: Request, res: Response) => {
     try {
-      const file = req.file;
-      if (!file) {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
         res.status(400).json({ code: 400, message: '请上传文件' });
         return;
       }
-      const url = getCreditLicenseUrl(file.filename);
-      res.json({ code: 200, data: { url } });
+      const urls = files.map(f => getCreditLicenseUrl(f.filename));
+      res.json({ code: 200, data: { urls } });
     } catch (error) {
       res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '上传失败' });
     }

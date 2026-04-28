@@ -115,10 +115,13 @@ export async function submitApproval(
     throw new Error('审批流程配置错误：至少需要一个审批节点');
   }
 
-  // 4. 解析抄送人
+  // 4. 解析抄送人（优先使用 getCCRoles 动态回调，回退到 workflowDef.ccRoles 静态配置）
   let ccUserIds: number[] = [];
-  if (formType.workflowDef.ccRoles && formType.workflowDef.ccRoles.length > 0) {
-    ccUserIds = await findUserIdsByRoleCodes(formType.workflowDef.ccRoles);
+  const ccRoles = formType.getCCRoles
+    ? formType.getCCRoles(req.formData)
+    : formType.workflowDef.ccRoles;
+  if (ccRoles && ccRoles.length > 0) {
+    ccUserIds = await findUserIdsByRoleCodes(ccRoles);
   }
 
   // 5. 数据库事务写入
@@ -239,7 +242,7 @@ export async function approveApproval(
   userName: string,
   comment?: string,
   inputData?: Record<string, unknown>
-): Promise<void> {
+): Promise<{ status: string }> {
   // 验证是否为当前审批人
   const canApprove = await isCurrentApprover(instanceId, userId);
   if (!canApprove) {
@@ -341,10 +344,10 @@ export async function approveApproval(
     if (nextNodeResult.rows.length > 0) {
       const nextNode = nextNodeResult.rows[0];
       if (nextNode.node_type === 'auto') {
-        // 自动节点：标记 ERP 处理中，实例保持 pending
+        // 自动节点：实例标记为 processing，erp_meta 标记处理中
         await client.query(
           `UPDATE oa_approval_instances
-           SET erp_meta = $1, current_node_order = $2, updated_at = NOW()
+           SET erp_meta = $1, current_node_order = $2, status = 'processing', updated_at = NOW()
            WHERE id = $3`,
           [
             JSON.stringify({ status: 'processing', responseData: {}, requestLog: null, applicationNo: '', retries: 0 }),
@@ -406,29 +409,12 @@ export async function approveApproval(
     }
 
     if (autoNodeToExecute && formType.onApproved) {
-      // auto 节点：同步执行 onApproved，失败则抛出错误
+      // auto 节点：异步执行 onApproved，不阻塞 HTTP 响应
       const autoNode = autoNodeToExecute as OaApprovalNodeRow;
-      try {
-        await formType.onApproved(callbackInstance, callbackFormData || {});
-        // 成功：更新 auto 节点和实例状态
-        await query(
-          `UPDATE oa_approval_nodes SET status = 'approved', acted_at = NOW() WHERE id = $1`,
-          [autoNode.id]
-        );
-        await query(
-          `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW() WHERE id = $1`,
-          [instanceId]
-        );
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error);
-        console.error(`[OA] auto节点执行失败 [instanceId=${instanceId}]:`, error);
-        // 标记 auto 节点失败
-        await query(
-          `UPDATE oa_approval_nodes SET status = 'rejected', acted_at = NOW(), comment = $1 WHERE id = $2`,
-          [errMsg, autoNode.id]
-        );
-        throw error;
-      }
+      setImmediate(() => {
+        executeAutoNodeCallback(instanceId, autoNode, formType!, callbackInstance!, callbackFormData || {})
+          .catch(err => console.error(`[OA] executeAutoNodeCallback 顶层错误:`, err));
+      });
     } else if (isLastNode && formType.onApproved) {
       // 普通最终节点：保持现有异步回调
       formType.onApproved(callbackInstance, callbackFormData || {})
@@ -436,6 +422,69 @@ export async function approveApproval(
           console.error(`[OA] 审批通过回调执行失败 [${ftCode}]:`, err);
         });
     }
+  }
+
+  // 返回审批结果状态
+  if (autoNodeToExecute) {
+    return { status: 'processing' };
+  }
+  return { status: 'approved' };
+}
+
+/**
+ * 通用 auto 节点异步执行器
+ * 所有含 auto 节点的表单类型共用此执行契约：
+ * 1. 标记 auto 节点为 processing
+ * 2. 执行 formType.onApproved()
+ * 3. 成功：auto 节点 → approved，实例 → approved
+ * 4. 失败：安全网 markErpFailed()，auto 节点 → failed，实例 → erp_failed
+ */
+async function executeAutoNodeCallback(
+  instanceId: number,
+  autoNode: OaApprovalNodeRow,
+  formType: FormTypeDefinition,
+  instance: OaApprovalInstanceRow,
+  formData: Record<string, unknown>
+): Promise<void> {
+  try {
+    // 标记 auto 节点为 processing
+    await query(
+      `UPDATE oa_approval_nodes SET status = 'processing', acted_at = NOW() WHERE id = $1`,
+      [autoNode.id]
+    );
+
+    await formType.onApproved!(instance, formData);
+
+    // 成功：auto 节点 → approved，实例 → approved
+    await query(
+      `UPDATE oa_approval_nodes SET status = 'approved' WHERE id = $1`,
+      [autoNode.id]
+    );
+    await query(
+      `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [instanceId]
+    );
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[OA] auto节点异步执行失败 [instanceId=${instanceId}]:`, error);
+
+    // 安全网：若回调未调用 markErpFailed，框架代为调用
+    try {
+      const { markErpFailed } = await import('../fixed-asset/erp-meta-utils');
+      await markErpFailed(instanceId, { error: errMsg, source: 'auto_node_framework' });
+    } catch (markErr) {
+      console.error(`[OA] markErpFailed 安全网调用失败:`, markErr);
+    }
+
+    // auto 节点 → failed，实例 → erp_failed
+    await query(
+      `UPDATE oa_approval_nodes SET status = 'failed', comment = $1 WHERE id = $2`,
+      [errMsg, autoNode.id]
+    );
+    await query(
+      `UPDATE oa_approval_instances SET status = 'erp_failed', updated_at = NOW() WHERE id = $1`,
+      [instanceId]
+    );
   }
 }
 

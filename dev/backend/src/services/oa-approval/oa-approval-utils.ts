@@ -449,7 +449,8 @@ export async function findUserIdsByRoleCodes(roleCodes: string[]): Promise<numbe
  */
 export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
   // 从代码定义中合并函数引用（beforeSubmit/onNodeCompleted/onApproved）
-  // 数据库只存储静态数据（schema、workflow），回调函数必须从代码获取
+  // 以及 workflowDef 和 formSchema（代码定义为权威来源，防止与数据库不一致）
+  // 数据库仅用于存储展示元数据（name/icon/sortOrder等），业务逻辑始终以代码为准
   const codeDefinition = getCodeFormTypeByCode(row.code);
 
   return {
@@ -460,11 +461,14 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     sortOrder: row.sort_order,
     description: row.description || '',
     version: row.version,
-    formSchema: row.form_schema,
-    workflowDef: row.workflow_def,
+    // 优先使用代码定义的 formSchema 和 workflowDef，避免代码与数据库不一致导致条件节点失效
+    formSchema: codeDefinition?.formSchema || row.form_schema,
+    workflowDef: codeDefinition?.workflowDef || row.workflow_def,
     ...(codeDefinition?.beforeSubmit && { beforeSubmit: codeDefinition.beforeSubmit }),
     ...(codeDefinition?.onNodeCompleted && { onNodeCompleted: codeDefinition.onNodeCompleted }),
     ...(codeDefinition?.onApproved && { onApproved: codeDefinition.onApproved }),
+    ...(codeDefinition?.getCCRoles && { getCCRoles: codeDefinition.getCCRoles }),
+    ...(codeDefinition?.resolvePreviewContext && { resolvePreviewContext: codeDefinition.resolvePreviewContext }),
   };
 }
 
@@ -486,8 +490,10 @@ export function getUrgencyLabel(urgency: Urgency): string {
 export function getStatusLabel(status: ApprovalStatus): string {
   const labels: Record<ApprovalStatus, string> = {
     pending: '审批中',
+    processing: '系统处理中',
     approved: '已通过',
     rejected: '已拒绝',
+    erp_failed: 'ERP处理失败',
     cancelled: '已取消',
     withdrawn: '已撤回',
   };
@@ -500,9 +506,11 @@ export function getStatusLabel(status: ApprovalStatus): string {
 export function getNodeStatusLabel(status: ApprovalNodeStatus): string {
   const labels: Record<ApprovalNodeStatus, string> = {
     pending: '待审批',
+    processing: '处理中',
     approved: '已通过',
     rejected: '已拒绝',
     transferred: '已转交',
+    failed: '处理失败',
     skipped: '已跳过',
     cancelled: '已取消',
   };

@@ -175,9 +175,9 @@ export interface FormTypeDefinition {
 // 审批状态相关类型
 // =====================================================
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'withdrawn';
+export type ApprovalStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'erp_failed' | 'cancelled' | 'withdrawn';
 
-export type ApprovalNodeStatus = 'pending' | 'approved' | 'rejected' | 'transferred' | 'skipped' | 'cancelled';
+export type ApprovalNodeStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'transferred' | 'failed' | 'skipped' | 'cancelled';
 
 export type Urgency = 'normal' | 'high' | 'urgent';
 
@@ -335,16 +335,20 @@ export interface InAppMessage {
 
 export const STATUS_LABELS: Record<ApprovalStatus, string> = {
   pending: '审批中',
+  processing: '处理中',
   approved: '已通过',
   rejected: '已拒绝',
+  erp_failed: '处理失败',
   cancelled: '已取消',
   withdrawn: '已撤回',
 };
 
 export const STATUS_COLORS: Record<ApprovalStatus, string> = {
   pending: 'blue',
+  processing: 'processing',
   approved: 'green',
   rejected: 'red',
+  erp_failed: 'error',
   cancelled: 'default',
   withdrawn: 'orange',
 };
@@ -363,18 +367,22 @@ export const URGENCY_COLORS: Record<Urgency, string> = {
 
 export const NODE_STATUS_LABELS: Record<ApprovalNodeStatus, string> = {
   pending: '待审批',
+  processing: '处理中',
   approved: '已通过',
   rejected: '已拒绝',
   transferred: '已转交',
+  failed: '执行失败',
   skipped: '已跳过',
   cancelled: '已取消',
 };
 
 export const NODE_STATUS_COLORS: Record<ApprovalNodeStatus, string> = {
   pending: 'blue',
+  processing: 'processing',
   approved: 'green',
   rejected: 'red',
   transferred: 'orange',
+  failed: 'error',
   skipped: 'default',
   cancelled: 'default',
 };
