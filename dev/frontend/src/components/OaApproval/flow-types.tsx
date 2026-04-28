@@ -36,9 +36,11 @@ export const NODE_TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: st
 
 export const NODE_STATUS_TEXT: Record<string, string> = {
   pending: '待审批',
+  processing: '处理中',
   approved: '已通过',
   rejected: '已拒绝',
   transferred: '已转交',
+  failed: '执行失败',
   skipped: '已跳过',
   cancelled: '已取消',
 };
@@ -62,10 +64,12 @@ export const ACTION_TYPE_CONFIG: Record<string, { label: string; cls: string }> 
 
 export const ERP_STATUS_CONFIG: Record<string, { color: string; text: string }> = {
   pending: { color: 'default', text: '待处理' },
+  processing: { color: 'processing', text: '处理中' },
   paying: { color: 'processing', text: '支付中' },
   purchasing: { color: 'processing', text: '采购中' },
   storing: { color: 'processing', text: '入库中' },
   completed: { color: 'success', text: '已完成' },
+  erp_completed: { color: 'success', text: '已完成' },
   erp_failed: { color: 'error', text: '失败' },
 };
 

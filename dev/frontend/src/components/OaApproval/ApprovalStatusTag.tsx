@@ -6,6 +6,7 @@ import {
   CloseCircleOutlined,
   RollbackOutlined,
   StopOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 
 export interface ApprovalStatusTagProps {
@@ -22,6 +23,11 @@ const statusConfig: Record<
     text: '审批中',
     icon: <ClockCircleOutlined />,
   },
+  processing: {
+    color: 'processing',
+    text: '处理中',
+    icon: <SyncOutlined spin />,
+  },
   approved: {
     color: 'success',
     text: '已通过',
@@ -30,6 +36,11 @@ const statusConfig: Record<
   rejected: {
     color: 'error',
     text: '已驳回',
+    icon: <CloseCircleOutlined />,
+  },
+  erp_failed: {
+    color: 'error',
+    text: '处理失败',
     icon: <CloseCircleOutlined />,
   },
   withdrawn: {

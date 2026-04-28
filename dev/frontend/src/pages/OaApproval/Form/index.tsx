@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { history, useParams, useAccess } from 'umi';
 import { Button, Spin, Form, message } from 'antd';
-import type { UploadFile } from 'antd/es/upload/interface';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
 import { FormTypeDefinition, ConditionDef } from '@/types/oa-approval';
@@ -136,29 +135,30 @@ const FormPage: React.FC = () => {
       const values = await form.validateFields();
       if (!formType) return;
 
-      // 裁剪 photo/upload 类型字段：移除 base64 数据，只保留服务端 URL
-      formType.formSchema.fields.forEach(field => {
-        if ((field.type === 'photo' || field.type === 'upload') && Array.isArray(values[field.key])) {
-          const files = values[field.key];
-          // 检查是否有文件仍在上传中
-          const hasUploading = files.some((f: UploadFile) => f.status === 'uploading');
-          if (hasUploading) {
-            message.warning('请等待图片上传完成');
-            throw new Error('UPLOADING');
-          }
-          // 只保留必要字段，移除 thumbUrl（base64）和 originFileObj（File 对象）
-          values[field.key] = files.map((f: UploadFile) => ({
-            uid: f.uid,
-            name: f.name,
-            url: f.url || (f.response as { url?: string })?.url,
-            status: f.status,
-          }));
-        }
-      });
-
       // 注入隐藏字段到提交数据（用于后端 requiredWhen 校验）
       if (formData._hasExistingLicense) {
         values._hasExistingLicense = formData._hasExistingLicense;
+      }
+
+      // 上传照片文件：将 UploadFile[] 中的原始 File 对象上传到服务器，
+      // 获取 URL 后替换为 { url } 对象数组，确保后端可正确读取照片地址
+      const photoFields = formType.formSchema.fields.filter(f => f.type === 'photo');
+      for (const field of photoFields) {
+        const photoValue = values[field.key];
+        if (Array.isArray(photoValue) && photoValue.length > 0) {
+          const filesToUpload = photoValue
+            .filter((item: any) => item.originFileObj instanceof File)
+            .map((item: any) => item.originFileObj as File);
+
+          if (filesToUpload.length > 0) {
+            const urls = await oaApprovalApi.uploadLicenseFiles(filesToUpload);
+            // 替换为包含服务器 URL 的对象数组
+            values[field.key] = urls.map((url: string) => ({ url }));
+          } else {
+            // 无新上传文件（可能只有已存在的 ERP 执照，不需要上传）
+            values[field.key] = [];
+          }
+        }
       }
 
       const title = generateTitle(formType, values);
@@ -180,7 +180,6 @@ const FormPage: React.FC = () => {
         history.push('/oa/center');
       }
     } catch (error: any) {
-      if (error.message === 'UPLOADING') return;
       if (error.errorFields) {
         message.error('请填写必填项');
       } else {
@@ -219,7 +218,9 @@ const FormPage: React.FC = () => {
       <div className={styles.content}>
         <div className={styles.formSection}>
           <Form form={form} layout="vertical" onValuesChange={handleValuesChange} className={styles.form}>
-            {formType.formSchema.fields.map((field) => (
+            {formType.formSchema.fields
+              .filter((field) => !field.key.startsWith('_'))
+              .map((field) => (
               <ConditionalFieldWrapper key={field.key} field={field} formData={formData}>
                 <Form.Item
                   name={field.key}

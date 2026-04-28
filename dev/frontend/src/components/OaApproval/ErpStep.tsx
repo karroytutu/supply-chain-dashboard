@@ -10,10 +10,10 @@ import styles from './ApprovalFlow.less';
 function getErpStepIcon(status: string) {
   const iconStyle: React.CSSProperties = { fontSize: 14 };
   if (status === 'erp_failed') return <CloseCircleOutlined style={{ ...iconStyle, color: '#f5222d' }} />;
-  if (['paying', 'purchasing', 'storing'].includes(status)) {
+  if (['processing', 'paying', 'purchasing', 'storing'].includes(status)) {
     return <LoadingOutlined style={{ ...iconStyle, color: '#722ed1' }} spin />;
   }
-  if (status === 'completed') return <CheckCircleOutlined style={{ ...iconStyle, color: '#52c41a' }} />;
+  if (['completed', 'erp_completed'].includes(status)) return <CheckCircleOutlined style={{ ...iconStyle, color: '#52c41a' }} />;
   return <SettingOutlined style={{ ...iconStyle, color: '#722ed1' }} />;
 }
 

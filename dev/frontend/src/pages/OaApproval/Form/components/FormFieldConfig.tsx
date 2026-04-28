@@ -5,7 +5,6 @@ import { UploadOutlined, PaperClipOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import type { FormField } from '@/types/oa-approval';
 import { numberToChineseUpper } from '@/utils/number';
-import { oaApprovalApi } from '@/services/api/oa-approval';
 import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
 import styles from '../index.less';
@@ -215,24 +214,9 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
                 message.error('图片大小不能超过 5MB');
                 return Upload.LIST_IGNORE;
               }
-              return true;
+              return false;
             }}
-            customRequest={async ({ file, onSuccess, onError }) => {
-              try {
-                const url = await oaApprovalApi.uploadLicense(file as File);
-                onSuccess?.({ url });
-              } catch (error) {
-                onError?.(error as Error);
-                message.error('图片上传失败');
-              }
-            }}
-            onChange={({ fileList: newList }) => {
-              const updatedList = newList.map(file => ({
-                ...file,
-                url: file.url || (file.response as { url?: string })?.url,
-              }));
-              onChange?.(updatedList);
-            }}
+            onChange={({ fileList: newList }) => onChange?.(newList)}
           >
             <div>上传图片</div>
           </Upload>

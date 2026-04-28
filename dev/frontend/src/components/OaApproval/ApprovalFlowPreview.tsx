@@ -1,23 +1,22 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Spin } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
 import UserAvatar from '@/components/UserAvatar';
 import { usePermission } from '@/hooks/usePermission';
 import type { WorkflowNodeDef } from '@/types/oa-approval';
-import { checkCondition } from '@/pages/OaApproval/Form/components/ConditionalFieldWrapper';
 import { NODE_TYPE_CONFIG } from './flow-types';
-import { usePreviewApprovers } from './hooks/usePreviewApprovers';
+import { useWorkflowPreview } from './hooks/useWorkflowPreview';
 import TimelineItem from './TimelineItem';
 import styles from './ApprovalFlow.less';
 
 export interface ApprovalFlowPreviewProps {
-  /** 流程定义节点列表 */
+  /** 流程定义节点列表（作为后端返回为空时的兜底展示） */
   workflowNodes: WorkflowNodeDef[];
-  /** 表单类型编码，用于预解析审批人 */
+  /** 表单类型编码，用于动态流程预览 */
   formTypeCode?: string;
   /** 字段 key → 标签映射（保留接口兼容，不再用于条件描述展示） */
   fieldLabels?: Record<string, string>;
-  /** 当前表单数据，用于条件节点过滤 */
+  /** 当前表单数据，用于动态流程预览 */
   formData?: Record<string, unknown>;
 }
 
@@ -36,26 +35,16 @@ const ApprovalFlowPreview: React.FC<ApprovalFlowPreviewProps> = ({
   formTypeCode,
   formData,
 }) => {
-  const { currentUser, roles } = usePermission();
-  const { approvers, loading: loadingApprovers } = usePreviewApprovers(formTypeCode);
+  const { currentUser } = usePermission();
+  const { visibleNodes, approvers, loading: loadingPreview } = useWorkflowPreview(formTypeCode, formData);
+
+  // 后端返回为空时（如首次加载或请求失败），兜底使用静态节点定义
+  const displayNodes = visibleNodes.length > 0 ? visibleNodes : workflowNodes;
 
   /** 根据 nodeOrder 查找预解析的审批人 */
   const getApprover = (nodeOrder: number) => {
     return approvers.find(a => a.nodeOrder === nodeOrder);
   };
-
-  /** 根据条件过滤可见节点 */
-  const visibleNodes = useMemo(() => {
-    if (!formData) return workflowNodes;
-
-    const currentUserRole = roles[0] || '';
-    const evalContext = { ...formData, _submitterRole: currentUserRole };
-
-    return workflowNodes.filter((node) => {
-      if (!node.condition) return true;
-      return checkCondition(node.condition, evalContext);
-    });
-  }, [workflowNodes, formData, roles]);
 
   const entries: React.ReactNode[] = [];
 
@@ -78,7 +67,7 @@ const ApprovalFlowPreview: React.FC<ApprovalFlowPreviewProps> = ({
       isFirst
       icon={startIcon}
       title="发起申请"
-      isLast={visibleNodes.length === 0}
+      isLast={displayNodes.length === 0}
     >
       <div className={styles.timelineMeta}>
         {currentUser ? (
@@ -96,9 +85,9 @@ const ApprovalFlowPreview: React.FC<ApprovalFlowPreviewProps> = ({
   );
 
   // 2. 审批节点（有预解析审批人时显示头像，否则显示类型图标）
-  visibleNodes.forEach((node, index) => {
+  displayNodes.forEach((node, index) => {
     const approver = getApprover(node.order);
-    const isLast = index === visibleNodes.length - 1;
+    const isLast = index === displayNodes.length - 1;
 
     // 有审批人时显示头像，否则使用类型图标
     const nodeIcon = (approver?.approverId && node.type !== 'auto')
@@ -143,7 +132,7 @@ const ApprovalFlowPreview: React.FC<ApprovalFlowPreviewProps> = ({
     <div>
       <div className={styles.previewHeader}>
         <span className={styles.previewTitle}>流程预览</span>
-        {loadingApprovers && <Spin size="small" />}
+        {loadingPreview && <Spin size="small" />}
       </div>
       <div className={styles.timeline}>{entries}</div>
     </div>
