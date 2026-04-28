@@ -12,6 +12,8 @@ import { erpMarkHoldOrders, searchErpSettlementOrders } from '../erp-client/erp-
 import { getCustomerLicenseInfo, getErpCustomerProfile } from '../erp-client/erp-customer.service';
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import { resolveLicenseFilePath } from '../../middleware/credit-upload';
+import { cache } from '../../utils/cache';
+import { reconcileHoardDetailsByCustomer } from '../ar-collection/ar-hoard-reconcile';
 import {
   CREDIT_OVERDUE_ACCOUNTANT_DAYS,
   CREDIT_OVERDUE_GM_DAYS,
@@ -343,7 +345,19 @@ export async function onApprovedCustomerCredit(
 
     // 压单：标记压单结算单
     if (creditType === 'hold_order') {
-      await erpMarkHoldOrders(formData.holdSettlementOrders as number[]);
+      await erpMarkHoldOrders(formData.holdSettlementOrders as number[], customerId);
+
+      // 压单审批通过后：清除 ERP 缓存 + 即时对账催收任务
+      cache.invalidate('erp:settlement:hoard:');
+      cache.invalidate('erp:customer:limits');
+      cache.invalidate('erp:customer:debt-name-map');
+
+      const consumerName = (formData._customerName || formData.customerName) as string;
+      if (consumerName) {
+        await reconcileHoardDetailsByCustomer(consumerName).catch(err => {
+          console.error('[CustomerCredit] 压单即时对账失败（兜底会在06:00执行）:', err);
+        });
+      }
     }
 
     // 标记 ERP 处理成功

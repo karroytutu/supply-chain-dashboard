@@ -92,6 +92,15 @@ export const AR_SETTLE_METHOD_CONSUMER_EXPIRE = 2;
 /** 催收考核起效日期 @usedBy ar-assessment-calculate.ts (判断考核是否生效) */
 export const AR_ASSESSMENT_EFFECTIVE_DATE = '2026-04-23';
 
+/** 催收压单标记-正常 @usedBy ar-debt-enrichment.service.ts */
+export const AR_HOARD_TAG_NORMAL = 'NORMAL';
+
+/** 催收压单标记-压单 @usedBy ar-debt-enrichment.service.ts */
+export const AR_HOARD_TAG_HOARD = 'HOARD';
+
+/** 催收明细压单排除状态 @usedBy ar-hoard-reconcile.ts (标记压单排除明细) */
+export const AR_DETAIL_STATUS_HOARD_EXCLUDED = 'hoard_excluded';
+
 // ==================== 退货考核阈值 ====================
 
 /** 退货时保质期不足阈值（天） @usedBy return-penalty-calculate.ts (判断退货考核规则) */

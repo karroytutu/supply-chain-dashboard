@@ -36,5 +36,5 @@ export const ERP_VALUE_FIELDS: Record<string, string> = {
   'payment-accounts': 'id',
   'asset-categories': 'id',
   customers: 'id',
-  'settlement-orders': 'id',
+  'settlement-orders': 'bizId',
 };

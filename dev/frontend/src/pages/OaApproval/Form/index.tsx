@@ -109,8 +109,10 @@ const FormPage: React.FC = () => {
   }, [formType]);
 
   // 监听表单值变化
+  // allValues 不包含没有 Form.Item 注册的隐藏字段（如 _hasExistingLicense），
+  // 所以必须与现有 formData 合并，避免隐藏字段丢失导致条件校验失效
   const handleValuesChange = (changedValues: any, allValues: any) => {
-    setFormData(allValues);
+    setFormData(prev => ({ ...prev, ...allValues }));
   };
 
   /** 判断字段是否在当前条件下必填 */

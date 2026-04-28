@@ -2,9 +2,15 @@ import React, { useMemo } from 'react';
 import { Tooltip, Tag } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
 import StatusCell from '../../../components/StatusCell';
-import type { CollectionTask, CollectionTaskStatus } from '@/types/ar-collection';
+import type { CollectionTask, CollectionTaskStatus, EntryRuleType } from '@/types/ar-collection';
 import type { AssessmentTier } from '@/types/ar-assessment';
 import { formatCreatedDate, calcAssessmentTime, TIER_LABELS, TIER_COLORS } from './utils';
+
+/** 入催原因标签配置 */
+const ENTRY_REASON_CONFIG: Record<EntryRuleType, { label: string; color: string }> = {
+  overdue_days: { label: '逾期超标', color: 'orange' },
+  max_overdue_orders: { label: '超单数', color: 'purple' },
+};
 
 interface UseColumnsParams {
   goToDetail: (id: number) => void;
@@ -125,6 +131,26 @@ export function useColumns({ goToDetail }: UseColumnsParams) {
               >
                 逾期 {days} 天
               </div>
+            </div>
+          );
+        },
+      },
+      {
+        title: '入催原因',
+        key: 'entryReasons',
+        width: 140,
+        render: (_: unknown, record: CollectionTask) => {
+          if (!record.entryReasons || record.entryReasons.length === 0) return '-';
+          return (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {record.entryReasons.map((reason) => {
+                const cfg = ENTRY_REASON_CONFIG[reason];
+                return cfg ? (
+                  <Tag key={reason} color={cfg.color}>
+                    {cfg.label}
+                  </Tag>
+                ) : null;
+              })}
             </div>
           );
         },

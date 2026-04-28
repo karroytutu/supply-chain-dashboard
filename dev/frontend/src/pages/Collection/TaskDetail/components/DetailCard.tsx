@@ -26,6 +26,7 @@ const DETAIL_STATUS: Record<CollectionDetailStatus, { label: string; color: stri
   difference_pending: { label: '差异待处理', color: 'orange' },
   difference_resolved: { label: '差异已解决', color: 'green' },
   escalated: { label: '已升级', color: 'red' },
+  hoard_excluded: { label: '压单排除', color: 'default' },
 };
 
 /** 格式化日期 */
@@ -69,6 +70,7 @@ const DetailCard: React.FC<DetailCardProps> = ({
           <span className={styles.amount}>
             ¥{(detail.leftAmount ?? 0).toLocaleString()}
           </span>
+          {detail.hoardTag === 'HOARD' && detail.status !== 'hoard_excluded' && <Tag color="volcano">压单</Tag>}
           <Tag color={statusCfg?.color}>{statusCfg?.label || detail.status}</Tag>
         </div>
       </div>
