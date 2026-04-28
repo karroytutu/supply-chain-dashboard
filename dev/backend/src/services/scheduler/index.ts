@@ -19,6 +19,7 @@ import {
 import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
 import { calculateArAssessments, notifyAssessmentCreated } from '../ar-assessment';
 import { handleRetry } from '../retry.handler';
+import { recoverStuckProcessing } from '../fixed-asset/erp-meta-utils';
 
 /**
  * 启动所有定时任务
@@ -195,6 +196,22 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // OA审批 auto 节点卡住恢复 - 每5分钟
+  cron.schedule(
+    '*/5 * * * *',
+    async () => {
+      try {
+        const recovered = await recoverStuckProcessing();
+        if (recovered > 0) {
+          console.log(`[Scheduler] auto节点卡住恢复完成，处理 ${recovered} 个实例`);
+        }
+      } catch (error) {
+        console.error('[Scheduler] auto节点卡住恢复失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   console.log('[Scheduler] 定时任务已注册:');
   console.log('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
   console.log('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
@@ -205,6 +222,7 @@ export function startScheduler(): void {
   console.log('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
   console.log('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
   console.log('  - 钉钉通知重试: 每5分钟 (Asia/Shanghai)');
+  console.log('  - auto节点卡住恢复: 每5分钟 (Asia/Shanghai)');
   console.log('[Scheduler] 定时任务调度器启动完成');
 }
 
