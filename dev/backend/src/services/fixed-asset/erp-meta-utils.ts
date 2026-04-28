@@ -6,6 +6,7 @@
 
 import { appQuery } from '../../db/appPool';
 import type { ErpMeta, OaApprovalInstanceRow } from '../oa-approval/oa-approval.types';
+import { OA_AUTO_NODE_STUCK_TIMEOUT_MS } from '../../utils/constants';
 
 /** ERP处理状态类型 */
 export type ErpMetaStatus = ErpMeta['status'];
@@ -118,23 +119,49 @@ export async function generateApplicationNo(): Promise<string> {
 /**
  * 重试 ERP 操作
  * 将 erp_failed 状态重置，重新触发回调
+ * 支持新的实例级 erp_failed 状态：重置实例为 processing，auto 节点为 pending
  */
 export async function retryErpOperation(instanceId: number): Promise<void> {
+  // 校验实例状态：必须为 erp_failed 才能重试，processing 时拒绝
+  const statusResult = await appQuery<{ status: string }>(
+    `SELECT status FROM oa_approval_instances WHERE id = $1`,
+    [instanceId]
+  );
+  if (statusResult.rows[0]?.status === 'processing') {
+    throw new Error('审批正在处理中，请稍后重试');
+  }
+  if (statusResult.rows[0]?.status !== 'erp_failed') {
+    throw new Error('审批实例状态不是 erp_failed，无法重试');
+  }
+
   const result = await appQuery<{ erp_meta: ErpMeta | null; form_type_id: number }>(
     `SELECT erp_meta, form_type_id FROM oa_approval_instances WHERE id = $1`,
     [instanceId]
   );
 
-  if (!result.rows[0]?.erp_meta || result.rows[0].erp_meta.status !== 'erp_failed') {
-    throw new Error('审批实例不存在或ERP状态不是 erp_failed');
+  if (!result.rows[0]?.erp_meta) {
+    throw new Error('审批实例不存在或无 erp_meta');
   }
 
-  // 重置状态为 pending（表示重新等待 ERP 处理）
+  // 重置 erp_meta 状态为 pending
   const erpMeta = result.rows[0].erp_meta;
   erpMeta.status = 'pending';
   erpMeta.requestLog = null;
 
   await setErpMeta(instanceId, erpMeta);
+
+  // 重置实例 → processing
+  await appQuery(
+    `UPDATE oa_approval_instances SET status = 'processing', updated_at = NOW() WHERE id = $1`,
+    [instanceId]
+  );
+
+  // 重置 auto 节点 → pending（清除失败信息）
+  await appQuery(
+    `UPDATE oa_approval_nodes SET status = 'pending', comment = NULL
+     WHERE instance_id = $1 AND node_type = 'auto'`,
+    [instanceId]
+  );
 
   // 获取表单类型并重新触发回调
   const formTypeResult = await appQuery<{ code: string }>(
@@ -154,11 +181,81 @@ export async function retryErpOperation(instanceId: number): Promise<void> {
       const instance = instanceResult.rows[0];
       if (instance) {
         const formData = instance.form_data as Record<string, unknown>;
-        // 异步触发回调
-        formType.onApproved(instance, formData).catch(err => {
+
+        // 标记 auto 节点为 processing
+        await appQuery(
+          `UPDATE oa_approval_nodes SET status = 'processing', acted_at = NOW()
+           WHERE instance_id = $1 AND node_type = 'auto'`,
+          [instanceId]
+        );
+
+        // 异步触发回调（与 executeAutoNodeCallback 契约一致）
+        formType.onApproved(instance, formData).then(async () => {
+          await appQuery(
+            `UPDATE oa_approval_nodes SET status = 'approved' WHERE instance_id = $1 AND node_type = 'auto'`,
+            [instanceId]
+          );
+          await appQuery(
+            `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+            [instanceId]
+          );
+        }).catch(async (err) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
           console.error(`[ERP Retry] 回调执行失败 [${formType.code}]:`, err);
+          await markErpFailed(instanceId, { error: errMsg, source: 'erp_retry' });
+          await appQuery(
+            `UPDATE oa_approval_nodes SET status = 'failed', comment = $1 WHERE instance_id = $2 AND node_type = 'auto'`,
+            [errMsg, instanceId]
+          );
+          await appQuery(
+            `UPDATE oa_approval_instances SET status = 'erp_failed', updated_at = NOW() WHERE id = $1`,
+            [instanceId]
+          );
         });
       }
     }
   }
+}
+
+/**
+ * 恢复卡住的 processing 实例
+ * 处理场景：服务器在回调执行中重启，实例永远停在 processing
+ * @returns 恢复的实例数量
+ */
+export async function recoverStuckProcessing(): Promise<number> {
+  const stuck = await appQuery<{ id: number; erp_meta: ErpMeta }>(
+    `SELECT id, erp_meta FROM oa_approval_instances
+     WHERE status = 'processing'
+       AND updated_at < NOW() - ($1 || ' milliseconds')::interval`,
+    [String(OA_AUTO_NODE_STUCK_TIMEOUT_MS)]
+  );
+
+  let recovered = 0;
+  for (const row of stuck.rows) {
+    const meta = row.erp_meta;
+    if (meta?.status === 'completed' || meta?.status === 'erp_completed') {
+      // erp_meta 已经是终态但实例仍 processing → 直接完成
+      await appQuery(
+        `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [row.id]
+      );
+      await appQuery(
+        `UPDATE oa_approval_nodes SET status = 'approved' WHERE instance_id = $1 AND node_type = 'auto'`,
+        [row.id]
+      );
+    } else {
+      // erp_meta 仍在中间态 → 标记失败
+      await markErpFailed(row.id, { error: 'Auto node stuck timeout', source: 'stuck_recovery' });
+      await appQuery(
+        `UPDATE oa_approval_instances SET status = 'erp_failed', updated_at = NOW() WHERE id = $1`,
+        [row.id]
+      );
+      await appQuery(
+        `UPDATE oa_approval_nodes SET status = 'failed', comment = '执行超时' WHERE instance_id = $1 AND node_type = 'auto'`,
+        [row.id]
+      );
+    }
+    recovered++;
+  }
+  return recovered;
 }

@@ -60,19 +60,33 @@ export interface ErpSettlementOrder {
 export async function searchErpSettlementOrders(params: {
   traderId: number | string;
   keyword?: string;
+  /** 期望获取的最大记录数，默认 100。设置大于 100 时会自动分页 */
+  maxRecords?: number;
 }): Promise<ErpSettlementOrder[]> {
   const { cid, uid } = getErpDefaults();
-  const result = await erpGet(
-    '/invoice/list-debt-list',
-    {
-      size: 100, total: 0, current: 1,
-      traderId: params.traderId,
-      traderType: 'STORE',
-      cid, uid,
-    },
-    { pathPrefix: '/saas/pro/', businessType: 'settlement_order_search' }
-  ) as any;
-  return result?.data?.records || result?.records || [];
+  const maxRecords = params.maxRecords || 100;
+  const allOrders: ErpSettlementOrder[] = [];
+  let current = 1;
+  const pageSize = 100;
+
+  while (allOrders.length < maxRecords) {
+    const result = await erpGet(
+      '/invoice/list-debt-list',
+      {
+        size: pageSize, total: 0, current,
+        traderId: params.traderId,
+        traderType: 'STORE',
+        cid, uid,
+      },
+      { pathPrefix: '/saas/pro/', businessType: 'settlement_order_search' }
+    ) as any;
+    const records: ErpSettlementOrder[] = result?.data?.records || result?.records || [];
+    allOrders.push(...records);
+    if (records.length < pageSize) break;
+    current++;
+  }
+
+  return allOrders;
 }
 
 /**
