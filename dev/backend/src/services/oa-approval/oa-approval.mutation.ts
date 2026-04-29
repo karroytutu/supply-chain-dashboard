@@ -28,6 +28,15 @@ import {
 } from './oa-approval-utils';
 import { getFormTypeByCode } from './form-types';
 import { initErpMeta } from '../fixed-asset/erp-meta-utils';
+import {
+  notifyPendingApproval,
+  notifyApproved,
+  notifyRejected,
+  notifyTransferred,
+  notifyCountersign,
+  notifyWithdrawn,
+  notifyCc,
+} from './oa-approval-notify';
 
 /**
  * 合并 inputData 到 form_data
@@ -260,6 +269,13 @@ export async function submitApproval(
     });
   }
 
+  // 异步发送通知（不阻塞提交响应）
+  setImmediate(() => {
+    sendSubmitNotifications(result, formType, ccUserIds, userId).catch(err => {
+      console.error('[OA] 提交通知发送失败:', err);
+    });
+  });
+
   return {
     instanceId: result.id,
     instanceNo: result.instance_no,
@@ -461,6 +477,15 @@ export async function approveApproval(
     }
   }
 
+  // 异步发送审批通过/流转通知
+  if (callbackInstance && formType) {
+    setImmediate(() => {
+      sendApprovalNotifications(instanceId, userId, userName, callbackInstance!, formType!, isLastNode).catch(err => {
+        console.error('[OA] 审批通知发送失败:', err);
+      });
+    });
+  }
+
   // 返回审批结果状态
   if (autoNodeToExecute) {
     return { status: 'processing' };
@@ -527,6 +552,28 @@ async function executeAutoNodeCallback(
            WHERE id = $2`,
           [nextNode.node_order, instanceId]
         );
+        // 通知下一个审批人
+        if (nextNode.assigned_user_id) {
+          const ftCode = formType.code;
+          const ftName = formType.name;
+          setImmediate(() => {
+            notifyPendingApproval(
+              {
+                instanceId,
+                instanceNo: instance.instance_no,
+                title: instance.title,
+                formTypeName: ftName,
+                applicantName: instance.applicant_name,
+                urgency: instance.urgency,
+                nodeName: nextNode.node_name,
+                nodeOrder: nextNode.node_order,
+                formSchema: formType.formSchema,
+                formData,
+              },
+              [nextNode.assigned_user_id!]
+            ).catch(err => console.error('[OA] auto节点流转通知失败:', err));
+          });
+        }
       }
     } else {
       // 无后续节点，审批完成
@@ -534,6 +581,21 @@ async function executeAutoNodeCallback(
         `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [instanceId]
       );
+      // 通知申请人审批通过
+      setImmediate(() => {
+        notifyApproved(
+          {
+            instanceId,
+            instanceNo: instance.instance_no,
+            title: instance.title,
+            formTypeName: formType.name,
+            applicantName: instance.applicant_name,
+            formSchema: formType.formSchema,
+            formData,
+          },
+          instance.applicant_id
+        ).catch(err => console.error('[OA] auto节点审批通过通知失败:', err));
+      });
     }
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
@@ -643,6 +705,13 @@ export async function rejectApproval(
       });
     }
   });
+
+  // 异步发送拒绝通知
+  setImmediate(() => {
+    sendRejectNotification(instanceId, userId, userName, comment).catch(err => {
+      console.error('[OA] 拒绝通知发送失败:', err);
+    });
+  });
 }
 
 /**
@@ -712,11 +781,14 @@ export async function transferApproval(
       ]
     );
   });
-}
 
-/**
- * 加签
- */
+  // 异步发送转交通知
+  setImmediate(() => {
+    sendTransferNotification(instanceId, userId, userName, transferToUserId).catch(err => {
+      console.error('[OA] 转交通知发送失败:', err);
+    });
+  });
+}
 export async function countersignApproval(
   instanceId: number,
   userId: number,
@@ -841,6 +913,13 @@ export async function countersignApproval(
       ]
     );
   });
+
+  // 异步发送加签通知
+  setImmediate(() => {
+    sendCountersignNotification(instanceId, userId, userName, countersignUserIds).catch(err => {
+      console.error('[OA] 加签通知发送失败:', err);
+    });
+  });
 }
 
 /**
@@ -898,10 +977,14 @@ export async function withdrawApproval(
       [instanceId, userId, userName]
     );
   });
-}
 
-// =====================================================
-// 站内消息
+  // 异步发送撤回通知
+  setImmediate(() => {
+    sendWithdrawNotification(instanceId, userId, userName).catch(err => {
+      console.error('[OA] 撤回通知发送失败:', err);
+    });
+  });
+}
 // =====================================================
 
 /**
@@ -938,4 +1021,265 @@ export async function markCcRead(instanceId: number, userId: number): Promise<vo
      WHERE instance_id = $1 AND user_id = $2`,
     [instanceId, userId]
   );
+}
+
+// =====================================================
+// 通知辅助函数（异步，不阻塞主流程）
+// =====================================================
+
+/** 构建通知参数的通用数据查询 */
+async function getInstanceNotifyData(instanceId: number) {
+  const instResult = await query<OaApprovalInstanceRow>(
+    `SELECT * FROM oa_approval_instances WHERE id = $1`,
+    [instanceId]
+  );
+  if (instResult.rows.length === 0) return null;
+  const instance = instResult.rows[0];
+
+  const ftResult = await query<{ code: string; name: string }>(
+    `SELECT code, name FROM oa_form_types WHERE id = $1`,
+    [instance.form_type_id]
+  );
+  const formTypeCode = ftResult.rows[0]?.code;
+  const formTypeName = ftResult.rows[0]?.name || '';
+  const formType = formTypeCode ? getFormTypeByCode(formTypeCode) : undefined;
+
+  return { instance, formTypeName, formType, formTypeCode };
+}
+
+/** 提交审批后发送通知 */
+async function sendSubmitNotifications(
+  instance: OaApprovalInstanceRow,
+  formType: FormTypeDefinition,
+  ccUserIds: number[],
+  applicantId: number
+): Promise<void> {
+  const data = await getInstanceNotifyData(instance.id);
+  if (!data) return;
+
+  // 查找第一个待审批节点的审批人
+  const nodeResult = await query<{ assigned_user_id: number; node_name: string; node_order: number }>(
+    `SELECT assigned_user_id, node_name, node_order FROM oa_approval_nodes
+     WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
+     ORDER BY node_order LIMIT 1`,
+    [instance.id]
+  );
+
+  if (nodeResult.rows.length > 0 && nodeResult.rows[0].assigned_user_id) {
+    const approverIds = [nodeResult.rows[0].assigned_user_id];
+    await notifyPendingApproval(
+      {
+        instanceId: instance.id,
+        instanceNo: instance.instance_no,
+        title: instance.title,
+        formTypeName: data.formTypeName,
+        applicantName: instance.applicant_name,
+        urgency: instance.urgency,
+        nodeName: nodeResult.rows[0].node_name,
+        nodeOrder: nodeResult.rows[0].node_order,
+        formSchema: data.formType?.formSchema,
+        formData: instance.form_data as Record<string, unknown>,
+      },
+      approverIds
+    );
+  }
+
+  // 抄送通知
+  const filteredCcUserIds = ccUserIds.filter(id => id !== applicantId);
+  if (filteredCcUserIds.length > 0) {
+    await notifyCc(
+      {
+        instanceId: instance.id,
+        instanceNo: instance.instance_no,
+        title: instance.title,
+        formTypeName: data.formTypeName,
+        applicantName: instance.applicant_name,
+        formSchema: data.formType?.formSchema,
+        formData: instance.form_data as Record<string, unknown>,
+      },
+      filteredCcUserIds
+    );
+  }
+}
+
+/** 审批通过后发送通知（流转到下一节点或最终通过） */
+async function sendApprovalNotifications(
+  instanceId: number,
+  approverUserId: number,
+  approverUserName: string,
+  callbackInstance: OaApprovalInstanceRow,
+  formType: FormTypeDefinition,
+  isLastNode: boolean
+): Promise<void> {
+  const data = await getInstanceNotifyData(instanceId);
+  if (!data) return;
+
+  if (isLastNode) {
+    // 最终通过：通知申请人
+    await notifyApproved(
+      {
+        instanceId,
+        instanceNo: callbackInstance.instance_no,
+        title: callbackInstance.title,
+        formTypeName: data.formTypeName,
+        applicantName: callbackInstance.applicant_name,
+        formSchema: data.formType?.formSchema,
+        formData: callbackInstance.form_data as Record<string, unknown>,
+      },
+      callbackInstance.applicant_id
+    );
+  } else {
+    // 流转到下一节点：通知下一审批人
+    const nextNodeResult = await query<{ assigned_user_id: number; node_name: string; node_order: number }>(
+      `SELECT assigned_user_id, node_name, node_order FROM oa_approval_nodes
+       WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
+       ORDER BY node_order LIMIT 1`,
+      [instanceId]
+    );
+
+    if (nextNodeResult.rows.length > 0 && nextNodeResult.rows[0].assigned_user_id) {
+      // 先获取最新的实例数据（form_data可能被data_input节点更新过）
+      const latestInst = await query<OaApprovalInstanceRow>(
+        `SELECT * FROM oa_approval_instances WHERE id = $1`, [instanceId]
+      );
+      const formData = latestInst.rows[0]?.form_data || callbackInstance.form_data;
+
+      await notifyPendingApproval(
+        {
+          instanceId,
+          instanceNo: callbackInstance.instance_no,
+          title: callbackInstance.title,
+          formTypeName: data.formTypeName,
+          applicantName: callbackInstance.applicant_name,
+          urgency: callbackInstance.urgency,
+          nodeName: nextNodeResult.rows[0].node_name,
+          nodeOrder: nextNodeResult.rows[0].node_order,
+          formSchema: data.formType?.formSchema,
+          formData: formData as Record<string, unknown>,
+        },
+        [nextNodeResult.rows[0].assigned_user_id]
+      );
+    }
+  }
+}
+
+/** 拒绝审批后发送通知 */
+async function sendRejectNotification(
+  instanceId: number,
+  rejectUserId: number,
+  rejectUserName: string,
+  reason: string
+): Promise<void> {
+  const data = await getInstanceNotifyData(instanceId);
+  if (!data) return;
+
+  await notifyRejected(
+    {
+      instanceId,
+      instanceNo: data.instance.instance_no,
+      title: data.instance.title,
+      formTypeName: data.formTypeName,
+      applicantName: data.instance.applicant_name,
+      reason,
+      rejectUserName,
+      formSchema: data.formType?.formSchema,
+      formData: data.instance.form_data as Record<string, unknown>,
+    },
+    data.instance.applicant_id,
+    reason,
+    rejectUserName
+  );
+}
+
+/** 转交审批后发送通知 */
+async function sendTransferNotification(
+  instanceId: number,
+  fromUserId: number,
+  fromUserName: string,
+  transferToUserId: number
+): Promise<void> {
+  const data = await getInstanceNotifyData(instanceId);
+  if (!data) return;
+
+  // 获取当前节点信息
+  const nodeResult = await query<{ node_name: string; node_order: number }>(
+    `SELECT node_name, node_order FROM oa_approval_nodes
+     WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
+     ORDER BY node_order LIMIT 1`,
+    [instanceId, transferToUserId]
+  );
+
+  await notifyTransferred(
+    {
+      instanceId,
+      instanceNo: data.instance.instance_no,
+      title: data.instance.title,
+      formTypeName: data.formTypeName,
+      applicantName: data.instance.applicant_name,
+      fromUserName,
+      nodeName: nodeResult.rows[0]?.node_name,
+      nodeOrder: nodeResult.rows[0]?.node_order,
+      formSchema: data.formType?.formSchema,
+      formData: data.instance.form_data as Record<string, unknown>,
+    },
+    transferToUserId
+  );
+}
+
+/** 加签审批后发送通知 */
+async function sendCountersignNotification(
+  instanceId: number,
+  fromUserId: number,
+  fromUserName: string,
+  countersignUserIds: number[]
+): Promise<void> {
+  const data = await getInstanceNotifyData(instanceId);
+  if (!data) return;
+
+  await notifyCountersign(
+    {
+      instanceId,
+      instanceNo: data.instance.instance_no,
+      title: data.instance.title,
+      formTypeName: data.formTypeName,
+      applicantName: data.instance.applicant_name,
+      fromUserName,
+      formSchema: data.formType?.formSchema,
+      formData: data.instance.form_data as Record<string, unknown>,
+    },
+    countersignUserIds
+  );
+}
+
+/** 撤回审批后发送通知 */
+async function sendWithdrawNotification(
+  instanceId: number,
+  applicantId: number,
+  applicantName: string
+): Promise<void> {
+  const data = await getInstanceNotifyData(instanceId);
+  if (!data) return;
+
+  // 获取所有待审批节点的审批人
+  const nodeResult = await query<{ assigned_user_id: number }>(
+    `SELECT DISTINCT assigned_user_id FROM oa_approval_nodes
+     WHERE instance_id = $1 AND status = 'cancelled' AND assigned_user_id IS NOT NULL`,
+    [instanceId]
+  );
+  const approverIds = nodeResult.rows.map(r => r.assigned_user_id);
+
+  if (approverIds.length > 0) {
+    await notifyWithdrawn(
+      {
+        instanceId,
+        instanceNo: data.instance.instance_no,
+        title: data.instance.title,
+        formTypeName: data.formTypeName,
+        applicantName,
+        formSchema: data.formType?.formSchema,
+        formData: data.instance.form_data as Record<string, unknown>,
+      },
+      approverIds
+    );
+  }
 }

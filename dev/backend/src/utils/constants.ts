@@ -156,6 +156,24 @@ export const CREDIT_HOLD_AMOUNT_GM = 1000;
  */
 export const CREDIT_SETTLE_METHOD_ON_ACCOUNT = 2;
 
+// ==================== OA审批钉钉通知配置 ====================
+
+/** OA审批操作Token过期时间（分钟） @usedBy oa-action-token.ts (Token过期时间) */
+export const OA_ACTION_TOKEN_EXPIRY_MINUTES = 30;
+
+/** OA审批通知中表单摘要最大字段数 @usedBy oa-approval-dingtalk.ts (表单摘要提取) */
+export const OA_NOTIFICATION_FORM_SUMMARY_MAX_FIELDS = 5;
+
+/** OA审批钉钉通知状态栏映射 @usedBy oa-approval-notify.ts (状态栏更新) */
+export const OA_DINGTALK_STATUS = {
+  PENDING:    { value: '待审批', bg: '#FA8C16' },
+  PROCESSING: { value: '处理中', bg: '#1890FF' },
+  APPROVED:   { value: '已通过', bg: '#52C41A' },
+  REJECTED:   { value: '已拒绝', bg: '#F5222D' },
+  WITHDRAWN:  { value: '已撤回', bg: '#999999' },
+  CC:         { value: '抄送',   bg: '#1890FF' },
+} as const;
+
 // ==================== 角色编码 ====================
 
 /** 管理角色编码（用于权限判断） @usedBy ar-collection-query.controller.ts */
