@@ -29,23 +29,13 @@
 
 .riskGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 16px;
 }
 
 .customerGrid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
-}
-
-.col2 {
-  min-width: 0;
-}
-
-.col1 {
-  min-width: 0;
+  /* 单列布局，CustomerStructure 撑满宽度 */
 }
 
 .threeCol {
@@ -62,6 +52,9 @@
 
 @media (max-width: 1280px) {
   .metricGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .riskGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

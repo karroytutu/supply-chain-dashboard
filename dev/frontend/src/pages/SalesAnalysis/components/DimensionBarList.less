@@ -1,23 +1,23 @@
 .list {
   display: grid;
-  gap: 12px;
+  gap: 6px;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 72px 1fr 60px;
-  gap: 12px;
+  grid-template-columns: 56px 1fr 48px;
+  gap: 8px;
   align-items: center;
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
 }
 
 .label {
   text-align: right;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
 }
 
 .bar {
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
   background: #f0f0f0;
   overflow: hidden;
@@ -26,12 +26,12 @@
     display: block;
     height: 100%;
     border-radius: 999px;
-    background: #91caff;
     transition: width 0.3s ease;
   }
 }
 
-.meta {
-  font-size: 12px;
+.count {
+  text-align: right;
+  font-size: 11px;
   color: rgba(0, 0, 0, 0.45);
 }

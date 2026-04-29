@@ -1,17 +1,17 @@
 /**
  * 客户钻取弹窗状态管理 Hook
- * 管理：当前风险等级、视图模式、筛选条件、选中客户、弹窗开关
+ * 管理：当前钻取维度、视图模式、筛选条件、选中客户、弹窗开关
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import type { RiskLevel, DrilldownRiskGroup, DrilldownCustomer } from '@/types/sales-analysis';
+import type { DrilldownRiskGroup, DrilldownCustomer } from '@/types/sales-analysis';
 import { CUSTOMER_DRILLDOWN } from '@/constants/salesAnalysis';
 
 const CURRENT_USER = '张晨';
 
 const INITIAL_STATE = {
   open: false,
-  riskLevel: 'red' as RiskLevel,
+  drilldownKey: '' as string,
   viewMode: 'all' as 'all' | 'mine',
   filterKey: 'all',
   selectedCustomerId: null as string | null,
@@ -20,8 +20,8 @@ const INITIAL_STATE = {
 export function useCustomerDrilldown() {
   const [state, setState] = useState(INITIAL_STATE);
 
-  const openModal = useCallback((level: RiskLevel) => {
-    setState({ open: true, riskLevel: level, viewMode: 'all', filterKey: 'all', selectedCustomerId: null });
+  const openModal = useCallback((key: string) => {
+    setState({ open: true, drilldownKey: key, viewMode: 'all', filterKey: 'all', selectedCustomerId: null });
   }, []);
 
   const closeModal = useCallback(() => {
@@ -40,7 +40,7 @@ export function useCustomerDrilldown() {
     setState((prev) => ({ ...prev, selectedCustomerId: id }));
   }, []);
 
-  const riskGroup = CUSTOMER_DRILLDOWN[state.riskLevel];
+  const riskGroup = CUSTOMER_DRILLDOWN[state.drilldownKey];
   const filteredCustomers = useFilteredCustomers(riskGroup, state.viewMode, state.filterKey);
   const selectedCustomer = useSelectedCustomer(filteredCustomers, state.selectedCustomerId);
 
@@ -54,8 +54,9 @@ export function useCustomerDrilldown() {
 }
 
 /** 筛选客户列表 */
-function useFilteredCustomers(riskGroup: DrilldownRiskGroup, viewMode: string, filterKey: string) {
+function useFilteredCustomers(riskGroup: DrilldownRiskGroup | undefined, viewMode: string, filterKey: string) {
   return useMemo(() => {
+    if (!riskGroup) return [];
     let customers = riskGroup.customers;
     if (viewMode === 'mine') {
       customers = customers.filter((c) => c.owner === CURRENT_USER);

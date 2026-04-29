@@ -1,47 +1,61 @@
 /**
  * 客户结构
- * 包含等级分布和类型分布两个子模块
+ * 按销量和毛利额四象限分类，支持渠道/片区维度切换
  */
 
-import React from 'react';
-import { Card } from 'antd';
-import GradeMiniCard from './GradeMiniCard';
-import TypeDistribution from './TypeDistribution';
-import type { GradeData, TypeDistributionItem } from '@/types/sales-analysis';
+import React, { useState } from 'react';
+import { Card, Segmented } from 'antd';
+import QuadrantCard from './QuadrantCard';
+import type { CustomerQuadrantData, QuadrantKey, DimensionKey } from '@/types/sales-analysis';
 import styles from './CustomerStructure.less';
 
+const QUADRANT_KEYS: QuadrantKey[] = ['star', 'traffic', 'potential', 'problem'];
+
+const QUADRANT_COLORS: Record<QuadrantKey, string> = {
+  star: '#faad14',
+  traffic: '#1890ff',
+  potential: '#52c41a',
+  problem: '#8c8c8c',
+};
+
 interface CustomerStructureProps {
-  grades: GradeData[];
-  typeDistribution: TypeDistributionItem[];
+  data: CustomerQuadrantData;
 }
 
-const CustomerStructure: React.FC<CustomerStructureProps> = ({ grades, typeDistribution }) => {
+const CustomerStructure: React.FC<CustomerStructureProps> = ({ data }) => {
+  const [dimension, setDimension] = useState<DimensionKey>('channel');
+
+  const dimTitle = dimension === 'channel' ? '渠道分布' : '片区分布';
+
   return (
     <Card className={styles.card} size="small" title={null}>
       <div className={styles.cardTitleRow}>
-        <div>
+        <div className={styles.titleLeft}>
           <h3 className={styles.cardTitle}>客户结构</h3>
-          <p className={styles.cardSubtitle}>
-            辅助判断客户池是否健康，以及风险是否集中在某类客户上。
-          </p>
-          <p className={styles.cardInsight}>
-            我的客户里 A/B 类占比较高，当前预警主要集中在便利店和商超，适合优先做重点维护。
-          </p>
         </div>
+        <Segmented
+          value={dimension}
+          onChange={(v) => setDimension(v as DimensionKey)}
+          options={[
+            { label: '渠道', value: 'channel' },
+            { label: '片区', value: 'district' },
+          ]}
+        />
       </div>
-      <div className={styles.structure}>
-        <div className={styles.subsection}>
-          <div className={styles.subtitle}>客户等级分布</div>
-          <div className={styles.metaGrid}>
-            {grades.map((grade) => (
-              <GradeMiniCard key={grade.label} data={grade} />
-            ))}
-          </div>
-        </div>
-        <div className={styles.subsection}>
-          <div className={styles.subtitle}>客户类型分布</div>
-          <TypeDistribution data={typeDistribution} />
-        </div>
+      <div className={styles.quadrantGrid}>
+        {QUADRANT_KEYS.map((key) => (
+          <QuadrantCard
+            key={key}
+            data={data.quadrants[key]}
+            dimensionItems={data.dimensionData[dimension][key]}
+            barColor={QUADRANT_COLORS[key]}
+            dimTitle={dimTitle}
+          />
+        ))}
+      </div>
+      <div className={styles.bottomBar}>
+        分界线：销量中位数 {data.salesMedian} 件/月 ｜ 毛利额中位数 ¥{data.profitMedian.toLocaleString()}/月。
+        维度切换至「片区」可查看各象限客户的地域分布。
       </div>
     </Card>
   );

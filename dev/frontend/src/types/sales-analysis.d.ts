@@ -6,6 +6,9 @@
 /** 风险等级 */
 export type RiskLevel = 'red' | 'yellow' | 'blue';
 
+/** 客户指标类型 */
+export type CustomerMetricType = 'visit_insufficient' | 'order_decline' | 'category_incomplete' | 'low_expense_ratio' | 'public_pool';
+
 /** 指标卡值格式类型 */
 export type MetricValueType = 'currency' | 'count' | 'days' | 'percent';
 
@@ -27,34 +30,64 @@ export interface MetricSparkData {
 /** 风险卡片数据 */
 export interface RiskCardData {
   level: RiskLevel;
-  kicker: string;
   title: string;
-  tag: { text: string; color: string };
   count: number;
   unit: string;
-  caption: string;
   meta: Array<{ label: string; value: string | number }>;
   linkText: string;
   linkHint: string;
 }
 
-/** 客户等级小卡片 */
-export interface GradeData {
+/** 客户指标卡数据（替换 RiskCardData 在页面中的使用） */
+export interface CustomerMetricData {
+  metricType: CustomerMetricType;
+  title: string;
+  count: number;
+  unit: string;
+  /** 环比变化百分比 */
+  momChange: number;
+  /** 环比方向是否为负面（如拜访不足客户增加是负面） */
+  isNegative: boolean;
+  /** 上期数值 */
+  previousCount: number;
+  meta: Array<{ label: string; value: string | number }>;
+  linkText: string;
+  linkHint: string;
+}
+
+/** 四象限标识 */
+export type QuadrantKey = 'star' | 'traffic' | 'potential' | 'problem';
+
+/** 维度标识 */
+export type DimensionKey = 'channel' | 'district';
+
+/** 象限卡片数据 */
+export interface QuadrantCardData {
+  key: QuadrantKey;
   label: string;
+  tagColor: string;
+  tagText: string;
   count: number;
   percentage: string;
   strategy: string;
-  tagColor: string;
-  tagText: string;
-  note: string;
+  salesLabel: string;
+  profitLabel: string;
 }
 
-/** 客户类型分布项 */
-export interface TypeDistributionItem {
+/** 维度分布单项 */
+export interface DimensionDistributionItem {
   label: string;
   percentage: number;
   count: number;
   countLabel: string;
+}
+
+/** 客户结构四象限完整数据 */
+export interface CustomerQuadrantData {
+  salesMedian: number;
+  profitMedian: number;
+  quadrants: Record<QuadrantKey, QuadrantCardData>;
+  dimensionData: Record<DimensionKey, Record<QuadrantKey, DimensionDistributionItem[]>>;
 }
 
 /** Top 客户数据 */

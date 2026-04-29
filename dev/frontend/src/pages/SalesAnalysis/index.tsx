@@ -6,9 +6,8 @@
 import React from 'react';
 import { Alert } from 'antd';
 import MetricSparkCard from './components/MetricSparkCard';
-import RiskCard from './components/RiskCard';
+import CustomerMetricCard from './components/CustomerMetricCard';
 import CustomerStructure from './components/CustomerStructure';
-import CoreCustomerValue from './components/CoreCustomerValue';
 import ProductRanking from './components/ProductRanking';
 import ProductMatrix from './components/ProductMatrix';
 import ComboInventory from './components/ComboInventory';
@@ -20,18 +19,15 @@ import CustomerDrilldownModal from './components/CustomerDrilldownModal';
 import { useCustomerDrilldown } from './hooks/useCustomerDrilldown';
 import {
   ALL_METRICS,
-  RISK_CARD_DATA,
-  GRADES_DATA,
-  TYPE_DISTRIBUTION,
-  TOP_CUSTOMERS,
-  DISTRICT_SHARE,
+  CUSTOMER_METRIC_DATA,
+  CUSTOMER_QUADRANT_DATA,
   PRODUCT_RANKING,
   PRODUCT_MATRIX,
   INVENTORY_MATCH,
   SALES_REP_PERFORMANCE,
   DIAGNOSIS_ITEMS,
 } from '@/constants/salesAnalysis';
-import type { RiskLevel } from '@/types/sales-analysis';
+import type { CustomerMetricType } from '@/types/sales-analysis';
 import styles from './index.less';
 
 const SalesAnalysis: React.FC = () => {
@@ -54,7 +50,7 @@ const SalesAnalysis: React.FC = () => {
         </div>
       </section>
 
-      <CustomerSection onRiskClick={(l: RiskLevel) => drilldown.actions.openModal(l)} />
+      <CustomerSection onMetricClick={(t: CustomerMetricType) => drilldown.actions.openModal(t)} />
 
       <ProductSection />
 
@@ -66,21 +62,16 @@ const SalesAnalysis: React.FC = () => {
 };
 
 /** 客户分析板块 */
-const CustomerSection: React.FC<{ onRiskClick: (level: RiskLevel) => void }> = ({ onRiskClick }) => (
+const CustomerSection: React.FC<{ onMetricClick: (metricType: CustomerMetricType) => void }> = ({ onMetricClick }) => (
   <section className={styles.section}>
     <h2 className={styles.sectionTitle}>客户分析</h2>
     <div className={styles.riskGrid}>
-      {Object.values(RISK_CARD_DATA).map((risk) => (
-        <RiskCard key={risk.level} data={risk} onClick={onRiskClick} />
+      {Object.values(CUSTOMER_METRIC_DATA).map((metric) => (
+        <CustomerMetricCard key={metric.metricType} data={metric} onClick={onMetricClick} />
       ))}
     </div>
     <div className={styles.customerGrid}>
-      <div className={styles.col2}>
-        <CustomerStructure grades={GRADES_DATA} typeDistribution={TYPE_DISTRIBUTION} />
-      </div>
-      <div className={styles.col1}>
-        <CoreCustomerValue topCustomers={TOP_CUSTOMERS} districtShare={DISTRICT_SHARE} />
-      </div>
+      <CustomerStructure data={CUSTOMER_QUADRANT_DATA} />
     </div>
   </section>
 );

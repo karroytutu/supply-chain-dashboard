@@ -6,8 +6,10 @@
 import type {
   MetricSparkData,
   RiskCardData,
-  GradeData,
-  TypeDistributionItem,
+  CustomerMetricData,
+  QuadrantCardData,
+  DimensionDistributionItem,
+  CustomerQuadrantData,
   TopCustomerData,
   DistrictShareItem,
   RankedProduct,
@@ -198,28 +200,21 @@ export const ALL_METRICS: MetricSparkData[] = [
 export const RISK_CARD_DATA: Record<string, RiskCardData> = {
   red: {
     level: 'red',
-    kicker: '风险等级',
-    title: '红色高风险',
-    tag: { text: '立即处理', color: 'red' },
+    title: '红色风险',
     count: 28,
     unit: '客户',
-    caption: '当前优先级最高，建议管理层先处理回款与停单风险。',
     meta: [
-      { label: '回款异常', value: 11 },
-      { label: '30天未下单', value: 17 },
-      { label: '最高风险客户', value: '华东旗舰店' },
+      { label: '超过30天未下单', value: 17 },
+      { label: '超过30天未拜访', value: 11 },
     ],
-    linkText: '查看高风险客户',
+    linkText: '查看风险客户',
     linkHint: '打开弹窗查看名单与详情',
   },
   yellow: {
     level: 'yellow',
-    kicker: '风险等级',
     title: '黄色预警',
-    tag: { text: '尽快跟进', color: 'orange' },
     count: 46,
     unit: '客户',
-    caption: '关注订单下滑和跟进不足，适合销售主管分派跟进动作。',
     meta: [
       { label: '订单下滑', value: 19 },
       { label: '跟进不足', value: 27 },
@@ -230,12 +225,9 @@ export const RISK_CARD_DATA: Record<string, RiskCardData> = {
   },
   blue: {
     level: 'blue',
-    kicker: '机会等级',
     title: '蓝色机会',
-    tag: { text: '增长机会', color: 'blue' },
     count: 33,
     unit: '客户',
-    caption: '用于优先识别扩品空间，辅助制定增购与品类覆盖策略。',
     meta: [
       { label: '品类过少', value: 33 },
       { label: 'Top1机会客户', value: '城市便利店A03' },
@@ -246,55 +238,186 @@ export const RISK_CARD_DATA: Record<string, RiskCardData> = {
   },
 };
 
-/** 客户等级分布 */
-export const GRADES_DATA: GradeData[] = [
-  {
-    label: 'A级客户',
-    count: 32,
-    percentage: '10%',
-    strategy: '重点保留',
-    tagColor: 'blue',
-    tagText: '核心',
-    note: '核心维护，重点关注回款与续单稳定性。',
+/** 客户指标卡数据（替代 RiskCardData 在页面中使用） */
+export const CUSTOMER_METRIC_DATA: Record<string, CustomerMetricData> = {
+  visit_insufficient: {
+    metricType: 'visit_insufficient',
+    title: '拜访不足客户',
+    count: 34,
+    unit: '家',
+    momChange: 6.3,
+    isNegative: true,
+    previousCount: 28,
+    meta: [
+      { label: 'A/B类超9天未拜访', value: 22 },
+      { label: '拜访频次低于目标', value: 12 },
+    ],
+    linkText: '查看拜访不足客户',
+    linkHint: '打开弹窗查看名单与详情',
   },
-  {
-    label: 'B级客户',
-    count: 87,
-    percentage: '28%',
-    strategy: '兼顾增长',
-    tagColor: 'green',
-    tagText: '稳定',
-    note: '兼顾潜力开发与风险防控。',
+  order_decline: {
+    metricType: 'order_decline',
+    title: '订单下滑客户',
+    count: 19,
+    unit: '家',
+    momChange: -3.8,
+    isNegative: true,
+    previousCount: 22,
+    meta: [
+      { label: '环比下降>20%', value: 14 },
+      { label: '连续两期下滑', value: 5 },
+    ],
+    linkText: '查看订单下滑客户',
+    linkHint: '打开弹窗查看名单与详情',
   },
-  {
-    label: 'C级客户',
-    count: 156,
-    percentage: '49%',
-    strategy: '轻量触达',
-    tagColor: 'orange',
-    tagText: '批量维护',
-    note: '适合批量管理和轻量化维护。',
+  category_incomplete: {
+    metricType: 'category_incomplete',
+    title: '品类不齐客户',
+    count: 33,
+    unit: '家',
+    momChange: 2.1,
+    isNegative: true,
+    previousCount: 30,
+    meta: [
+      { label: '品类低于同类60%', value: 21 },
+      { label: '扩品空间>5类', value: 12 },
+    ],
+    linkText: '查看品类不齐客户',
+    linkHint: '打开弹窗查看名单与详情',
   },
-  {
-    label: '沉睡客户',
-    count: 41,
-    percentage: '13%',
-    strategy: '挽回优先',
-    tagColor: 'red',
-    tagText: '待唤醒',
-    note: '优先评估是否存在挽回价值。',
+  low_expense_ratio: {
+    metricType: 'low_expense_ratio',
+    title: '费销比过低客户',
+    count: 12,
+    unit: '家',
+    momChange: 15.4,
+    isNegative: true,
+    previousCount: 9,
+    meta: [
+      { label: '费用占比>同类1.5倍', value: 8 },
+      { label: '连续2期费销比超标', value: 4 },
+    ],
+    linkText: '查看费销比过低客户',
+    linkHint: '打开弹窗查看名单与详情',
   },
-];
+  public_pool: {
+    metricType: 'public_pool',
+    title: '公海客户',
+    count: 15,
+    unit: '家',
+    momChange: -8.2,
+    isNegative: false,
+    previousCount: 23,
+    meta: [
+      { label: '无客户经理', value: 9 },
+      { label: '长期未跟进(>30天)', value: 6 },
+    ],
+    linkText: '查看公海客户',
+    linkHint: '打开弹窗查看名单与详情',
+  },
+};
 
-/** 客户类型分布 */
-export const TYPE_DISTRIBUTION: TypeDistributionItem[] = [
-  { label: '便利店', percentage: 82, count: 96, countLabel: '96 家' },
-  { label: '商超', percentage: 58, count: 68, countLabel: '68 家' },
-  { label: '餐饮店', percentage: 76, count: 89, countLabel: '89 家' },
-  { label: '网吧', percentage: 31, count: 24, countLabel: '24 家' },
-  { label: 'KTV', percentage: 25, count: 18, countLabel: '18 家' },
-  { label: '麻将馆', percentage: 22, count: 15, countLabel: '15 家' },
-];
+/** 客户结构四象限数据 */
+export const CUSTOMER_QUADRANT_DATA: CustomerQuadrantData = {
+  salesMedian: 420,
+  profitMedian: 8600,
+  quadrants: {
+    star: {
+      key: 'star',
+      label: '明星客户',
+      tagColor: 'gold',
+      tagText: '高销高利',
+      count: 89,
+      percentage: '28%',
+      strategy: '重点维护，确保持续产出',
+      salesLabel: '销量高于中位数',
+      profitLabel: '毛利额高于中位数',
+    },
+    traffic: {
+      key: 'traffic',
+      label: '流量客户',
+      tagColor: 'blue',
+      tagText: '高销低利',
+      count: 72,
+      percentage: '23%',
+      strategy: '优化产品组合提升毛利',
+      salesLabel: '销量高于中位数',
+      profitLabel: '毛利额低于中位数',
+    },
+    potential: {
+      key: 'potential',
+      label: '潜力客户',
+      tagColor: 'green',
+      tagText: '低销高利',
+      count: 68,
+      percentage: '22%',
+      strategy: '扩大销量规模释放潜力',
+      salesLabel: '销量低于中位数',
+      profitLabel: '毛利额高于中位数',
+    },
+    problem: {
+      key: 'problem',
+      label: '问题客户',
+      tagColor: 'default',
+      tagText: '低销低利',
+      count: 87,
+      percentage: '27%',
+      strategy: '评估价值，制定激活或退出策略',
+      salesLabel: '销量低于中位数',
+      profitLabel: '毛利额低于中位数',
+    },
+  },
+  dimensionData: {
+    channel: {
+      star: [
+        { label: '便利店', percentage: 100, count: 16, countLabel: '16 家' },
+        { label: '餐饮店', percentage: 75, count: 12, countLabel: '12 家' },
+        { label: '商超', percentage: 50, count: 8, countLabel: '8 家' },
+      ],
+      traffic: [
+        { label: '便利店', percentage: 100, count: 18, countLabel: '18 家' },
+        { label: '商超', percentage: 67, count: 12, countLabel: '12 家' },
+        { label: '餐饮店', percentage: 33, count: 6, countLabel: '6 家' },
+      ],
+      potential: [
+        { label: '餐饮店', percentage: 100, count: 15, countLabel: '15 家' },
+        { label: '便利店', percentage: 67, count: 10, countLabel: '10 家' },
+        { label: '商超', percentage: 40, count: 6, countLabel: '6 家' },
+      ],
+      problem: [
+        { label: '便利店', percentage: 100, count: 22, countLabel: '22 家' },
+        { label: '商超', percentage: 73, count: 16, countLabel: '16 家' },
+        { label: '餐饮店', percentage: 36, count: 8, countLabel: '8 家' },
+        { label: 'KTV', percentage: 27, count: 6, countLabel: '6 家' },
+        { label: '麻将馆', percentage: 18, count: 4, countLabel: '4 家' },
+      ],
+    },
+    district: {
+      star: [
+        { label: '华东', percentage: 100, count: 24, countLabel: '24 家' },
+        { label: '华南', percentage: 54, count: 13, countLabel: '13 家' },
+        { label: '华北', percentage: 38, count: 9, countLabel: '9 家' },
+      ],
+      traffic: [
+        { label: '华东', percentage: 100, count: 20, countLabel: '20 家' },
+        { label: '华中', percentage: 50, count: 10, countLabel: '10 家' },
+        { label: '华南', percentage: 35, count: 7, countLabel: '7 家' },
+      ],
+      potential: [
+        { label: '华南', percentage: 100, count: 18, countLabel: '18 家' },
+        { label: '华东', percentage: 72, count: 13, countLabel: '13 家' },
+        { label: '西南', percentage: 44, count: 8, countLabel: '8 家' },
+      ],
+      problem: [
+        { label: '华东', percentage: 100, count: 28, countLabel: '28 家' },
+        { label: '华南', percentage: 46, count: 13, countLabel: '13 家' },
+        { label: '华中', percentage: 32, count: 9, countLabel: '9 家' },
+        { label: '华北', percentage: 21, count: 6, countLabel: '6 家' },
+        { label: '西南', percentage: 14, count: 4, countLabel: '4 家' },
+      ],
+    },
+  },
+};
 
 /** Top 客户 */
 export const TOP_CUSTOMERS: TopCustomerData[] = [
