@@ -3,30 +3,27 @@
 
 FROM node:20-alpine
 
-# 创建非 root 用户运行服务
-RUN addgroup -g 1001 -S nodejs && \
+# 基础系统层（极少变动，永久缓存命中）
+# 1. 将 apk 源换为阿里云镜像，避免 dl-cdn.alpinelinux.org 国内访问慢
+# 2. 安装 gosu（entrypoint 以 root 修权后降权到 nodejs 使用）
+# 3. 创建非 root 用户 nodejs
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk add --no-cache gosu && \
+    addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 WORKDIR /app
 
-# 安装生产依赖
+# 依赖层（仅在 package.json 变动时失效）
 COPY dev/backend/package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# 复制预编译的后端产物
+# 代码层（频繁变动，放最后，避免影响上游缓存）
 COPY --chown=nodejs:nodejs prod/backend/dist ./dist
-
-# 创建上传目录和日志目录并设置权限
-RUN mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/uploads/credit-license /app/logs && \
-    chown -R nodejs:nodejs /app/uploads /app/logs
-
-# 复制 entrypoint 脚本（容器启动时修复 volume 挂载导致的权限问题）
 COPY --chown=nodejs:nodejs deploy/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-# 需要先以 root 身份启动 entrypoint 修复权限，再切换到 nodejs 用户执行应用
-# gosu 在 alpine 中可用，用于安全降权
-RUN apk add --no-cache gosu
+RUN chmod +x /app/entrypoint.sh && \
+    mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/uploads/credit-license /app/logs && \
+    chown -R nodejs:nodejs /app/uploads /app/logs
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 
