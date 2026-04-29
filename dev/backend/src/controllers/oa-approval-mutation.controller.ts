@@ -13,25 +13,26 @@ import {
   countersignApproval,
   withdrawApproval,
 } from '../services/oa-approval/oa-approval.mutation';
+import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 /** 提交审批 */
 export async function submit(req: Request, res: Response): Promise<void> {
   try {
     const user = (req as any).user;
     if (!user) {
-      res.status(401).json({ success: false, message: '未登录' });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     const { formTypeCode, formData, title, urgency } = req.body;
     if (!formTypeCode || !formData || !title) {
-      res.status(400).json({ success: false, message: '缺少必要参数' });
+      res.status(400).json(buildErrorResponse(400, '缺少必要参数'));
       return;
     }
 
     const formType = await getFormTypeByCodeQuery(formTypeCode);
     if (!formType) {
-      res.status(400).json({ success: false, message: '表单类型不存在' });
+      res.status(400).json(buildErrorResponse(400, '表单类型不存在'));
       return;
     }
 
@@ -43,11 +44,11 @@ export async function submit(req: Request, res: Response): Promise<void> {
       user.department_name
     );
 
-    res.json({ success: true, data: result, message: '提交成功' });
+    res.json(buildSuccessResponse(result, '提交成功'));
   } catch (error) {
     console.error('提交审批失败:', error);
     const message = error instanceof Error ? error.message : '提交审批失败';
-    res.status(400).json({ success: false, message });
+    res.status(400).json(buildErrorResponse(400, message));
   }
 }
 
@@ -56,7 +57,7 @@ export async function approve(req: Request, res: Response): Promise<void> {
   try {
     const user = (req as any).user;
     if (!user) {
-      res.status(401).json({ success: false, message: '未登录' });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
@@ -64,14 +65,14 @@ export async function approve(req: Request, res: Response): Promise<void> {
     const { comment, inputData } = req.body;
     const result = await approveApproval(instanceId, user.userId, user.name, comment, inputData);
     if (result.status === 'processing') {
-      res.status(202).json({ success: true, data: { status: 'processing' }, message: '审批已通过，系统处理中' });
+      res.status(202).json(buildSuccessResponse({ status: 'processing' }, '审批已通过，系统处理中'));
     } else {
-      res.json({ success: true, message: '审批通过' });
+      res.json(buildSuccessResponse(null, '审批通过'));
     }
   } catch (error) {
     console.error('同意审批失败:', error);
     const message = error instanceof Error ? error.message : '同意审批失败';
-    res.status(400).json({ success: false, message });
+    res.status(400).json(buildErrorResponse(400, message));
   }
 }
 
@@ -80,23 +81,23 @@ export async function reject(req: Request, res: Response): Promise<void> {
   try {
     const user = (req as any).user;
     if (!user) {
-      res.status(401).json({ success: false, message: '未登录' });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     const instanceId = parseInt(req.params.id);
     const { comment } = req.body;
     if (!comment) {
-      res.status(400).json({ success: false, message: '请填写拒绝原因' });
+      res.status(400).json(buildErrorResponse(400, '请填写拒绝原因'));
       return;
     }
 
     await rejectApproval(instanceId, user.userId, user.name, comment);
-    res.json({ success: true, message: '已拒绝' });
+    res.json(buildSuccessResponse(null, '已拒绝'));
   } catch (error) {
     console.error('拒绝审批失败:', error);
     const message = error instanceof Error ? error.message : '拒绝审批失败';
-    res.status(400).json({ success: false, message });
+    res.status(400).json(buildErrorResponse(400, message));
   }
 }
 
@@ -105,23 +106,23 @@ export async function transfer(req: Request, res: Response): Promise<void> {
   try {
     const user = (req as any).user;
     if (!user) {
-      res.status(401).json({ success: false, message: '未登录' });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     const instanceId = parseInt(req.params.id);
     const { transferToUserId, comment } = req.body;
     if (!transferToUserId) {
-      res.status(400).json({ success: false, message: '请选择转交对象' });
+      res.status(400).json(buildErrorResponse(400, '请选择转交对象'));
       return;
     }
 
     await transferApproval(instanceId, user.userId, user.name, transferToUserId, comment);
-    res.json({ success: true, message: '转交成功' });
+    res.json(buildSuccessResponse(null, '转交成功'));
   } catch (error) {
     console.error('转交审批失败:', error);
     const message = error instanceof Error ? error.message : '转交审批失败';
-    res.status(400).json({ success: false, message });
+    res.status(400).json(buildErrorResponse(400, message));
   }
 }
 
@@ -130,23 +131,23 @@ export async function countersign(req: Request, res: Response): Promise<void> {
   try {
     const user = (req as any).user;
     if (!user) {
-      res.status(401).json({ success: false, message: '未登录' });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     const instanceId = parseInt(req.params.id);
     const { countersignType, countersignUserIds, comment } = req.body;
     if (!countersignType || !countersignUserIds || countersignUserIds.length === 0) {
-      res.status(400).json({ success: false, message: '请选择加签类型和加签人' });
+      res.status(400).json(buildErrorResponse(400, '请选择加签类型和加签人'));
       return;
     }
 
     await countersignApproval(instanceId, user.userId, user.name, countersignType, countersignUserIds, comment);
-    res.json({ success: true, message: '加签成功' });
+    res.json(buildSuccessResponse(null, '加签成功'));
   } catch (error) {
     console.error('加签失败:', error);
     const message = error instanceof Error ? error.message : '加签失败';
-    res.status(400).json({ success: false, message });
+    res.status(400).json(buildErrorResponse(400, message));
   }
 }
 
@@ -155,16 +156,16 @@ export async function withdraw(req: Request, res: Response): Promise<void> {
   try {
     const user = (req as any).user;
     if (!user) {
-      res.status(401).json({ success: false, message: '未登录' });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     const instanceId = parseInt(req.params.id);
     await withdrawApproval(instanceId, user.userId, user.name);
-    res.json({ success: true, message: '撤回成功' });
+    res.json(buildSuccessResponse(null, '撤回成功'));
   } catch (error) {
     console.error('撤回审批失败:', error);
     const message = error instanceof Error ? error.message : '撤回审批失败';
-    res.status(400).json({ success: false, message });
+    res.status(400).json(buildErrorResponse(400, message));
   }
 }

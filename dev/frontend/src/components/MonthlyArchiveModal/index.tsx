@@ -6,12 +6,12 @@ import { getProcurementArchive, type MonthlyArchiveRecord } from '@/services/api
 import styles from './index.less';
 
 interface MonthlyArchiveModalProps {
-  open: boolean;
+  visible: boolean;
   onClose: () => void;
 }
 
 const MonthlyArchiveModal: React.FC<MonthlyArchiveModalProps> = ({
-  open,
+  visible,
   onClose,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -26,15 +26,13 @@ const MonthlyArchiveModal: React.FC<MonthlyArchiveModalProps> = ({
     setLoading(true);
     try {
       const result = await getProcurementArchive({ page, pageSize });
-      if (result.success) {
-        setData(result.data);
-        setPagination(prev => ({
-          ...prev,
-          current: result.page,
-          pageSize: result.pageSize,
-          total: result.total,
-        }));
-      }
+      setData(result.data);
+      setPagination(prev => ({
+        ...prev,
+        current: result.page,
+        pageSize: result.pageSize,
+        total: result.total,
+      }));
     } catch (error) {
       console.error('[MonthlyArchiveModal] 加载数据失败:', error);
     } finally {
@@ -43,10 +41,10 @@ const MonthlyArchiveModal: React.FC<MonthlyArchiveModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (open) {
+    if (visible) {
       loadData(1, 12);
     }
-  }, [open, loadData]);
+  }, [visible, loadData]);
 
   // 格式化月份显示
   const formatMonth = (monthStr: string) => {
@@ -137,7 +135,7 @@ const MonthlyArchiveModal: React.FC<MonthlyArchiveModalProps> = ({
   return (
     <Modal
       title="采购绩效月度存档"
-      open={open}
+      open={visible}
       onCancel={onClose}
       footer={null}
       width={800}

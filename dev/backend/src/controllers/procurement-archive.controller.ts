@@ -4,6 +4,7 @@
 
 import { Request, Response } from 'express';
 import { getMonthlyArchiveList } from '../services/procurement-archive';
+import { buildPagedResponse, buildErrorResponse } from '../utils/response';
 
 /**
  * 获取月度存档列表
@@ -20,19 +21,9 @@ export async function getArchiveList(req: Request, res: Response): Promise<void>
       endMonth: endMonth as string | undefined,
     });
 
-    res.json({
-      success: true,
-      data: result.records,
-      total: result.total,
-      page: result.page,
-      pageSize: result.pageSize,
-      totalPages: result.totalPages,
-    });
+    res.json(buildPagedResponse(result.records, result.total, result.page, result.pageSize));
   } catch (error) {
     console.error('[ProcurementArchiveController] 获取存档列表失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取存档列表失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '获取存档列表失败'));
   }
 }

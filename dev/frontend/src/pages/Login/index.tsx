@@ -39,7 +39,7 @@ export default function LoginPage() {
       const authCode = await getAuthCode(envInfo.clientType === 'outside' ? 'pc' : envInfo.clientType, corpId, agentId);
       const result = await dingtalkAutoLogin(authCode);
       
-      if (result.success && result.token) {
+      if (result.token) {
         handleLoginSuccess(result.token, result.user);
       } else {
         setError(result.message || '登录失败');
@@ -59,7 +59,7 @@ export default function LoginPage() {
       const result = await dingtalkCallback(authCode);
       console.log('[Login] 扫码登录结果:', result);
       
-      if (result.success && result.token) {
+      if (result.token) {
         handleLoginSuccess(result.token, result.user);
       } else {
         setError(result.message || '登录失败');
@@ -78,7 +78,7 @@ export default function LoginPage() {
       setDevLoginLoading(true);
       const result = await devLogin();
       
-      if (result.success && result.token) {
+      if (result.token) {
         handleLoginSuccess(result.token, result.user);
       } else {
         setError(result.message || '开发登录失败');

@@ -156,6 +156,19 @@ export const CREDIT_HOLD_AMOUNT_GM = 1000;
  */
 export const CREDIT_SETTLE_METHOD_ON_ACCOUNT = 2;
 
+// ==================== 角色编码 ====================
+
+/** 管理角色编码（用于权限判断） @usedBy ar-collection-query.controller.ts */
+export const ROLE_CODES = {
+  ADMIN: 'admin',
+  MANAGER: 'manager',
+  MARKETING_MANAGER: 'marketing_manager',
+  MARKETING_SUPERVISOR: 'marketing_supervisor',
+} as const;
+
+/** 具有管理权限的角色列表 */
+export const MANAGER_ROLES = Object.values(ROLE_CODES);
+
 // ==================== 工具函数 ====================
 
 /**

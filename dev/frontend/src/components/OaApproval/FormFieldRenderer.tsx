@@ -1,62 +1,16 @@
 import React from 'react';
-import { Tag, Typography, Table, Image } from 'antd';
+import { Tag, Typography, Table } from 'antd';
 import type { FormField } from '@/types/oa-approval';
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-approval-erp';
-import { FileTextOutlined, PaperClipOutlined } from '@ant-design/icons';
+import { FileTextOutlined } from '@ant-design/icons';
 import ErpNameDisplay from './ErpNameDisplay';
 import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
+import { renderCellValue } from './cellValueRenderer';
+import PhotoFieldDisplay from './PhotoFieldDisplay';
 import styles from './FormFieldRenderer.less';
 
 const { Text } = Typography;
-
-/** 渲染表格单元格值 */
-function renderCellValue(
-  childField: FormField,
-  cellValue: unknown,
-  rowData?: Record<string, unknown>,
-  resolvedMap?: ErpResolvedMap,
-): React.ReactNode {
-  if (cellValue === null || cellValue === undefined || cellValue === '') {
-    return <Text type="secondary">-</Text>;
-  }
-  switch (childField.type) {
-    case 'money':
-      return formatCurrency(cellValue as number);
-    case 'number':
-      return (cellValue as number).toLocaleString();
-    case 'select':
-      const option = childField.options?.find((o) => o.value === cellValue);
-      return option?.label || String(cellValue);
-    case 'erp_customer':
-    case 'erp_department':
-    case 'erp_staff':
-    case 'erp_payment_account':
-    case 'erp_asset_category':
-    case 'asset_search': {
-      // 第一优先级：行数据中已存储的名称（nameField）
-      if (childField.nameField && rowData?.[childField.nameField]) {
-        const storedName = String(rowData[childField.nameField]).trim();
-        if (storedName) return storedName;
-      }
-      // 第二优先级：批量预解析结果
-      if (childField.searchApi) {
-        const erpType = ERP_SEARCH_API_MAP[childField.searchApi];
-        if (erpType) {
-          const cacheKey = `${erpType}:${cellValue}`;
-          if (resolvedMap?.[cacheKey]) {
-            return resolvedMap[cacheKey];
-          }
-          // 第三优先级：ErpNameDisplay 兜底
-          return <ErpNameDisplay erpType={erpType} id={cellValue} />;
-        }
-      }
-      return String(cellValue);
-    }
-    default:
-      return String(cellValue);
-  }
-}
 
 /** 字段渲染器 */
 const FieldRenderer: React.FC<{
@@ -115,58 +69,8 @@ const FieldRenderer: React.FC<{
           ))}
         </div>
       );
-    case 'photo': {
-      const photos = value as Array<{ uid?: string; name?: string; url?: string; thumbUrl?: string; status?: string }>;
-      // 获取 ERP 执照图片 URL
-      // 第一优先级：formData 中已存储的 _erpLicenseUrls（beforeSubmit 注入，新提交的审批）
-      // 第二优先级：外部传入的 erpLicenseUrls（由 useErpLicenseResolve 动态获取，兼容历史数据）
-      const licenseUrls = (formData?._erpLicenseUrls && Array.isArray(formData._erpLicenseUrls) && (formData._erpLicenseUrls as string[]).length > 0)
-        ? (formData._erpLicenseUrls as string[])
-        : (erpLicenseUrls || []);
-      const hasUploaded = photos && photos.length > 0;
-      const hasErpLicense = licenseUrls.length > 0;
-      if (!hasUploaded && !hasErpLicense) return <Text type="secondary">-</Text>;
-      return (
-        <div className={styles.photoContainer}>
-          <Image.PreviewGroup>
-            {hasErpLicense && (
-              <div className={styles.erpLicenseSection}>
-                <div className={styles.erpLicenseTip}>
-                  <PaperClipOutlined /> 客户档案已有营业执照（{licenseUrls.length} 张）
-                </div>
-                <div className={styles.erpLicenseImages}>
-                  {licenseUrls.map((url, idx) => (
-                    <Image
-                      key={`erp-${idx}`}
-                      src={url}
-                      width={60}
-                      height={60}
-                      style={{ objectFit: 'cover', borderRadius: 4, marginRight: 8 }}
-                      alt="营业执照"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            {hasUploaded && photos.map((photo, index) => {
-              const src = photo.thumbUrl || photo.url;
-              if (!src) return null;
-              return (
-                <Image
-                  key={photo.uid || index}
-                  src={src}
-                  width={60}
-                  height={60}
-                  style={{ objectFit: 'cover', borderRadius: 4, marginRight: 8 }}
-                  alt={photo.name || '图片'}
-                  preview={photo.url ? { src: photo.url } : undefined}
-                />
-              );
-            })}
-          </Image.PreviewGroup>
-        </div>
-      );
-    }
+    case 'photo':
+      return <PhotoFieldDisplay value={value} formData={formData} erpLicenseUrls={erpLicenseUrls} />;
     case 'user':
     case 'dept':
       return <Text>{(value as { name?: string })?.name || String(value)}</Text>;

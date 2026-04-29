@@ -159,7 +159,7 @@ const Dashboard: React.FC = () => {
 
       {/* 月度存档弹窗 */}
       <MonthlyArchiveModal
-        open={archiveModalVisible}
+        visible={archiveModalVisible}
         onClose={() => setArchiveModalVisible(false)}
       />
     </div>

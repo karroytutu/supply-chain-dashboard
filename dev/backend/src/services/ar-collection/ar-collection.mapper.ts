@@ -24,6 +24,8 @@ import type {
   EscalateDTO,
   ResolveDifferenceDTO,
 } from './ar-collection.dto';
+import type { AssessmentRecord } from '../ar-assessment/ar-assessment.types';
+import { STATUS_NAMES, ROLE_NAMES } from '../ar-assessment/ar-assessment.types';
 
 // ==================== 实体 → DTO（用于响应） ====================
 
@@ -80,6 +82,27 @@ export function toActionDTO(action: CollectionAction | null): CollectionActionDT
 export function toLegalProgressDTO(progress: LegalProgress | null): LegalProgressDTO | null {
   if (!progress) return progress;
   return toCamelKeys(progress) as unknown as LegalProgressDTO;
+}
+
+/**
+ * 考核记录 → 操作日志 DTO
+ * 将考核记录转换为统一的操作日志格式，用于合并显示
+ */
+export function assessmentToActionDTO(record: AssessmentRecord): CollectionActionDTO {
+  return {
+    id: 1000000 + record.id,
+    taskId: record.taskId,
+    detailIds: null,
+    actionType: `assessment_${record.assessmentTier}` as CollectionActionDTO['actionType'],
+    actionResult: STATUS_NAMES[record.status] as unknown as CollectionActionDTO['actionResult'],
+    remark: `${record.assessmentUserName}(${ROLE_NAMES[record.assessmentRole]})`,
+    operatorId: 0,
+    operatorName: '系统',
+    operatorRole: '系统',
+    createdAt: record.calculatedAt instanceof Date
+      ? record.calculatedAt.toISOString()
+      : record.calculatedAt,
+  };
 }
 
 // ==================== DTO → 实体参数（用于请求） ====================

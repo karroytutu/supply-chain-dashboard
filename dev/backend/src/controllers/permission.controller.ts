@@ -7,13 +7,14 @@ import {
   updatePermission,
   deletePermission,
 } from '../services/permission.service';
+import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 /**
  * 获取所有权限
  */
 export async function listPermissions(req: Request, res: Response) {
   const permissions = await getAllPermissions();
-  res.json({ success: true, data: permissions });
+  res.json(buildSuccessResponse(permissions));
 }
 
 /**
@@ -21,7 +22,7 @@ export async function listPermissions(req: Request, res: Response) {
  */
 export async function getPermissionTreeHandler(req: Request, res: Response) {
   const tree = await getPermissionTree();
-  res.json({ success: true, data: tree });
+  res.json(buildSuccessResponse(tree));
 }
 
 /**
@@ -31,18 +32,18 @@ export async function getPermission(req: Request, res: Response) {
   const id = parseInt(req.params.id);
   
   if (isNaN(id)) {
-    res.status(400).json({ success: false, message: '无效的权限ID' });
+    res.status(400).json(buildErrorResponse(400, '无效的权限ID'));
     return;
   }
   
   const permission = await getPermissionById(id);
   
   if (!permission) {
-    res.status(404).json({ success: false, message: '权限不存在' });
+    res.status(404).json(buildErrorResponse(404, '权限不存在'));
     return;
   }
   
-  res.json({ success: true, data: permission });
+  res.json(buildSuccessResponse(permission));
 }
 
 /**
@@ -52,7 +53,7 @@ export async function createNewPermission(req: Request, res: Response) {
   const { code, name, resource_type, resource_key, action, parent_id, sort_order } = req.body;
   
   if (!code || !name || !resource_type || !resource_key || !action) {
-    res.status(400).json({ success: false, message: '缺少必要参数' });
+    res.status(400).json(buildErrorResponse(400, '缺少必要参数'));
     return;
   }
   
@@ -66,10 +67,10 @@ export async function createNewPermission(req: Request, res: Response) {
       parent_id,
       sort_order,
     });
-    res.json({ success: true, data: permission, message: '权限创建成功' });
+    res.json(buildSuccessResponse(permission, '权限创建成功'));
   } catch (error: any) {
     if (error.code === '23505') {
-      res.status(400).json({ success: false, message: '权限编码已存在' });
+      res.status(400).json(buildErrorResponse(400, '权限编码已存在'));
       return;
     }
     throw error;
@@ -83,18 +84,18 @@ export async function updatePermissionInfo(req: Request, res: Response) {
   const id = parseInt(req.params.id);
   
   if (isNaN(id)) {
-    res.status(400).json({ success: false, message: '无效的权限ID' });
+    res.status(400).json(buildErrorResponse(400, '无效的权限ID'));
     return;
   }
   
   const permission = await updatePermission(id, req.body);
   
   if (!permission) {
-    res.status(404).json({ success: false, message: '权限不存在' });
+    res.status(404).json(buildErrorResponse(404, '权限不存在'));
     return;
   }
   
-  res.json({ success: true, data: permission });
+  res.json(buildSuccessResponse(permission));
 }
 
 /**
@@ -104,7 +105,7 @@ export async function deletePermissionHandler(req: Request, res: Response) {
   const id = parseInt(req.params.id);
   
   if (isNaN(id)) {
-    res.status(400).json({ success: false, message: '无效的权限ID' });
+    res.status(400).json(buildErrorResponse(400, '无效的权限ID'));
     return;
   }
   
@@ -112,12 +113,12 @@ export async function deletePermissionHandler(req: Request, res: Response) {
     const success = await deletePermission(id);
     
     if (!success) {
-      res.status(404).json({ success: false, message: '权限不存在' });
+      res.status(404).json(buildErrorResponse(404, '权限不存在'));
       return;
     }
     
-    res.json({ success: true, message: '权限删除成功' });
+    res.json(buildSuccessResponse(null, '权限删除成功'));
   } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json(buildErrorResponse(400, error.message));
   }
 }

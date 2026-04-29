@@ -5,13 +5,13 @@ import type { StrategicMonthlyAvailabilityData, DailyAvailabilityRate } from '@/
 import styles from './index.less';
 
 interface MonthlyAvailabilityModalProps {
-  open: boolean;
+  visible: boolean;
   onClose: () => void;
   data: StrategicMonthlyAvailabilityData | null | undefined;
 }
 
 const MonthlyAvailabilityModal: React.FC<MonthlyAvailabilityModalProps> = ({
-  open,
+  visible,
   onClose,
   data,
 }) => {
@@ -109,7 +109,7 @@ const MonthlyAvailabilityModal: React.FC<MonthlyAvailabilityModalProps> = ({
   return (
     <Modal
       title="战略商品月度齐全率明细"
-      open={open}
+      open={visible}
       onCancel={onClose}
       footer={null}
       width={640}

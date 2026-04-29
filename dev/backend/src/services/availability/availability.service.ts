@@ -392,7 +392,7 @@ export async function getCategoryTreeData(): Promise<CategoryTreeNode[]> {
   l1Nodes.sort((a, b) => a.availabilityRate - b.availabilityRate);
 
   // 存入缓存
-  cache.set(cacheKey, l1Nodes, CACHE_TTL.CATEGORY_STATS);
+  cache.set(cacheKey, l1Nodes, CACHE_TTL.LOW_FREQUENCY);
   console.log(`[getCategoryTreeData] 数据已缓存，共 ${l1Nodes.length} 个一级品类`);
 
   return l1Nodes;

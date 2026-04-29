@@ -85,9 +85,9 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
           titleKey: 'name',
           descriptionKey: 'description',
           codeKey: 'code',
-          tagKey: 'is_system',
+          tagKey: 'isSystem',
           mode: 'single',
-          disabledKey: item => !isAdmin && item.is_system === true,
+          disabledKey: item => !isAdmin && item.isSystem === true,
           disabledTooltip: '系统角色仅管理员可分配',
           columns: 2,
         }}

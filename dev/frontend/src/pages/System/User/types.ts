@@ -31,7 +31,7 @@ export interface RoleInfo {
   code: string;
   name: string;
   description?: string;
-  is_system?: boolean;
+  isSystem?: boolean;
 }
 
 /** 部门信息 */

@@ -8,7 +8,50 @@ import type {
   StrategicProduct,
   StrategicProductStats,
   ProductForSelection,
+  AddStrategicProductsParams,
 } from './strategic-product.types';
+
+// ==================== 数据库行类型 ====================
+
+/** 战略商品数据库行（snake_case） */
+export interface StrategicProductRow {
+  id: number;
+  goods_id: string;
+  goods_name: string;
+  category_path: string;
+  status: string;
+  created_by: number | null;
+  created_at: Date;
+  updated_at: Date;
+  procurement_confirmed: boolean;
+  procurement_confirmed_by: number | null;
+  procurement_confirmed_at: Date | null;
+  procurement_confirmer_name?: string;
+  marketing_confirmed: boolean;
+  marketing_confirmed_by: number | null;
+  marketing_confirmed_at: Date | null;
+  marketing_confirmer_name?: string;
+  confirmed_at: Date | null;
+}
+
+/** 统计数据库行 */
+export interface StrategicProductStatsRow {
+  pending?: string;
+  confirmed?: string;
+  rejected?: string;
+  total?: string;
+}
+
+/** 商品选择数据库行 */
+export interface ProductForSelectionRow {
+  goods_id: string;
+  goods_name: string;
+  category_path: string | null;
+  stock: string;
+  pkg_unit_name?: string;
+  base_unit_name?: string;
+  unit_factor?: number;
+}
 
 // ==================== 实体 → DTO（用于响应） ====================
 
@@ -16,7 +59,7 @@ import type {
  * 战略商品行 → StrategicProduct 实体
  * 使用 toCamelKeys 做键名转换，额外处理关联字段
  */
-export function toStrategicProductDTO(row: any): StrategicProduct {
+export function toStrategicProductDTO(row: StrategicProductRow): StrategicProduct {
   const base = toCamelKeys<any>(row);
   return {
     ...base,
@@ -28,7 +71,7 @@ export function toStrategicProductDTO(row: any): StrategicProduct {
 /**
  * 统计行 → StrategicProductStats
  */
-export function toStrategicProductStatsDTO(row: any): StrategicProductStats {
+export function toStrategicProductStatsDTO(row: StrategicProductStatsRow): StrategicProductStats {
   return {
     pending: parseInt(row?.pending as any) || 0,
     confirmed: parseInt(row?.confirmed as any) || 0,
@@ -40,7 +83,7 @@ export function toStrategicProductStatsDTO(row: any): StrategicProductStats {
 /**
  * 商品选择行 → ProductForSelection
  */
-export function toProductForSelectionDTO(row: any, strategicGoodsIds: Set<string>): ProductForSelection {
+export function toProductForSelectionDTO(row: ProductForSelectionRow, strategicGoodsIds: Set<string>): ProductForSelection {
   // 生成规格字符串（单位换算关系）
   let specification = '';
   const pkgUnit = row.pkg_unit_name;
@@ -68,6 +111,6 @@ export function toProductForSelectionDTO(row: any, strategicGoodsIds: Set<string
 /**
  * 创建战略商品请求 → 数据库插入参数
  */
-export function fromAddStrategicProductsDTO(dto: any): any {
+export function fromAddStrategicProductsDTO(dto: AddStrategicProductsParams): unknown {
   return toSnakeKeys(dto);
 }

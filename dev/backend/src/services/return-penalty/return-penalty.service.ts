@@ -12,57 +12,7 @@ import type {
   PENALTY_TYPE_NAMES,
   PenaltyStatus,
 } from './return-penalty.types';
-
-/** 数据库行映射 */
-interface PenaltyRow {
-  id: number;
-  return_order_id: number;
-  penalty_type: PenaltyType;
-  penalty_user_id: number;
-  penalty_user_name: string;
-  penalty_role: string;
-  base_amount: string;
-  penalty_rate: string;
-  overdue_days: number;
-  penalty_amount: string;
-  status: string;
-  penalty_rule_snapshot: string | null;
-  calculated_at: Date;
-  created_at: Date;
-  updated_at: Date;
-  // 关联信息
-  return_no?: string;
-  goods_name?: string;
-  quantity?: string;
-}
-
-/**
- * 将数据库行映射为实体对象
- */
-function mapRowToPenaltyRecord(row: PenaltyRow): PenaltyRecord {
-  return {
-    id: row.id,
-    returnOrderId: row.return_order_id,
-    penaltyType: row.penalty_type as PenaltyType,
-    penaltyUserId: row.penalty_user_id,
-    penaltyUserName: row.penalty_user_name,
-    penaltyRole: row.penalty_role as PenaltyRecord['penaltyRole'],
-    baseAmount: parseFloat(row.base_amount) || 0,
-    penaltyRate: parseFloat(row.penalty_rate) || 0,
-    overdueDays: row.overdue_days,
-    penaltyAmount: parseFloat(row.penalty_amount) || 0,
-    status: row.status as PenaltyRecord['status'],
-    penaltyRuleSnapshot: row.penalty_rule_snapshot
-      ? JSON.parse(row.penalty_rule_snapshot)
-      : null,
-    calculatedAt: row.calculated_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    returnNo: row.return_no,
-    goodsName: row.goods_name,
-    quantity: row.quantity ? parseFloat(row.quantity) : undefined,
-  };
-}
+import { toPenaltyRecordDTO, type PenaltyRow } from './return-penalty.mapper';
 
 /**
  * 获取考核记录列表
@@ -164,7 +114,7 @@ export async function getPenalties(
     [...queryParams, pageSize, offset]
   );
 
-  const data = result.rows.map(mapRowToPenaltyRecord);
+  const data = result.rows.map(toPenaltyRecordDTO);
 
   return {
     data,
@@ -223,7 +173,7 @@ export async function getPenaltyById(id: number): Promise<PenaltyRecord | null> 
     return null;
   }
 
-  return mapRowToPenaltyRecord(result.rows[0]);
+  return toPenaltyRecordDTO(result.rows[0]);
 }
 
 /**
@@ -317,5 +267,5 @@ export async function updatePenaltyStatus(
     return null;
   }
 
-  return mapRowToPenaltyRecord(result.rows[0]);
+  return toPenaltyRecordDTO(result.rows[0]);
 }

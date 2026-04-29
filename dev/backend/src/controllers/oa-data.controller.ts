@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import { getDataListAll } from '../services/oa-approval/oa-approval.query';
 import { ApprovalListParams } from '../services/oa-approval/oa-approval.types';
+import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 /**
  * 获取数据列表
@@ -15,10 +16,7 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user?.userId;
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        message: '未登录',
-      });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
@@ -35,16 +33,10 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
     // 数据管理查看所有审批数据（不限视图模式）
     const result = await getDataListAll(params);
 
-    res.json({
-      success: true,
-      data: result,
-    });
+    res.json(buildSuccessResponse(result));
   } catch (error) {
     console.error('获取数据列表失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取数据列表失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '获取数据列表失败'));
   }
 }
 
@@ -56,25 +48,14 @@ export async function exportData(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user?.userId;
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        message: '未登录',
-      });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     // 导出功能暂返回提示
-    res.json({
-      success: true,
-      data: {
-        message: '导出功能开发中',
-      },
-    });
+    res.json(buildSuccessResponse({ message: '导出功能开发中' }));
   } catch (error) {
     console.error('导出数据失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '导出数据失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '导出数据失败'));
   }
 }

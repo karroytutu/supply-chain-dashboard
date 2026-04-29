@@ -17,7 +17,7 @@ interface RoleItem {
   code: string;
   name: string;
   description: string;
-  is_system: boolean;
+  isSystem: boolean;
   status: number;
   permissions: { id: number; code: string; name: string }[];
 }

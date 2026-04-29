@@ -12,6 +12,7 @@ import {
   notifyPendingWarehouseExecute,
 } from './return-order-notify';
 import { createReturnExpireInsufficientPenalty } from '../return-penalty';
+import { RETURN_EXPIRE_INSUFFICIENT_DAYS } from '../../utils/constants';
 import { createGoodsReturnRule } from '../goods-return-rules';
 import type {
   ReturnOrder,
@@ -115,7 +116,7 @@ export async function batchConfirmReturnOrders(
         const order = toReturnOrderDTO(orderRow);
 
         // 检查规则3：退货时保质期不足考核
-        if (order.daysToExpireAtReturn && order.daysToExpireAtReturn < 15) {
+        if (order.daysToExpireAtReturn && order.daysToExpireAtReturn < RETURN_EXPIRE_INSUFFICIENT_DAYS) {
           createReturnExpireInsufficientPenalty({
             id: order.id,
             returnNo: order.returnNo,

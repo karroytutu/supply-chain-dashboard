@@ -27,11 +27,36 @@ export const sendPaginatedSuccess = (res: Response, data: any[], total: number, 
 export function handleMutationError(res: Response, error: unknown, fallbackMsg: string): void {
   const msg = error instanceof Error ? error.message : fallbackMsg;
   if (msg.includes('不存在')) {
-    res.status(404).json({ code: 404, message: msg });
+    res.status(404).json(buildErrorResponse(404, msg));
   } else if (msg.includes('不允许') || msg.includes('无权') || msg.includes('已') || msg.includes('不能')) {
-    res.status(400).json({ code: 400, message: msg });
+    res.status(400).json(buildErrorResponse(400, msg));
   } else {
     console.error('Mutation error:', error);
-    res.status(500).json({ code: 500, message: msg });
+    res.status(500).json(buildErrorResponse(500, msg));
   }
 }
+
+/** 构建标准成功响应 { code, message, data } */
+export const buildSuccessResponse = (data: any, message = 'success', code = 200) => ({
+  code,
+  message,
+  data,
+});
+
+/** 构建标准错误响应 */
+export const buildErrorResponse = (code: number, message: string) => ({
+  code,
+  message,
+  data: null,
+});
+
+/** 构建分页响应 */
+export const buildPagedResponse = (data: any[], total: number, page: number, pageSize: number) => ({
+  code: 200,
+  message: 'success',
+  data,
+  total,
+  page,
+  pageSize,
+  totalPages: Math.ceil(total / pageSize),
+});

@@ -21,29 +21,13 @@ import type { UserItem } from './types';
 export default function UserManage() {
   const [activeTab, setActiveTab] = useState('users');
 
-  // 用户列表数据
+  // 用户列表数据（分组返回值）
   const {
-    loading,
-    dataSource,
-    total,
-    page,
-    pageSize,
-    stats,
-    selectedRowKeys,
-    batchLoading,
-    roles,
-    filters,
-    activeStatus,
-    setFilters,
-    setActiveStatus,
-    setSelectedRowKeys,
-    handleSearch,
-    handleReset,
-    handlePageChange,
-    handleToggleStatus,
-    handleBatchEnable,
-    handleBatchDisable,
-    handleBatchAssignRoles,
+    data: { loading, dataSource, total, stats, roles },
+    pagination: { page, pageSize },
+    filters: { filters, activeStatus, setFilters, setActiveStatus },
+    selection: { selectedRowKeys, setSelectedRowKeys, batchLoading },
+    actions,
   } = useUsers();
 
   // 钉钉同步数据
@@ -84,7 +68,7 @@ export default function UserManage() {
 
   const handleRoleConfirm = async (roleIds: number[]) => {
     if (batchRoleMode) {
-      await handleBatchAssignRoles(roleIds);
+      await actions.batch.assignRoles(roleIds);
     } else if (currentUser) {
       const { assignUserRoles } = await import('@/services/api/auth');
       await assignUserRoles(currentUser.id, roleIds);
@@ -125,16 +109,16 @@ export default function UserManage() {
               filters={filters}
               roles={roles}
               onFilterChange={setFilters}
-              onSearch={handleSearch}
-              onReset={handleReset}
+              onSearch={actions.search}
+              onReset={actions.reset}
             />
             <BatchActionBar
               selectedCount={selectedRowKeys.length}
               totalCount={dataSource.length}
               checked={allChecked}
               onCheckChange={handleCheckAll}
-              onBatchEnable={handleBatchEnable}
-              onBatchDisable={handleBatchDisable}
+              onBatchEnable={actions.batch.enable}
+              onBatchDisable={actions.batch.disable}
               onBatchAssignRoles={openBatchAssignModal}
               loading={batchLoading}
             />
@@ -145,10 +129,10 @@ export default function UserManage() {
               page={page}
               pageSize={pageSize}
               selectedRowKeys={selectedRowKeys}
-              onPageChange={handlePageChange}
+              onPageChange={actions.pageChange}
               onSelectedRowKeysChange={setSelectedRowKeys}
               onAssignRoles={openAssignModal}
-              onToggleStatus={handleToggleStatus}
+              onToggleStatus={actions.toggleStatus}
             />
           </Card>
         </>

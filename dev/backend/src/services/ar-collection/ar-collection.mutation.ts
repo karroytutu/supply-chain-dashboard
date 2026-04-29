@@ -19,6 +19,7 @@ import type {
   ResolveDifferenceParams,
   CollectionTask,
   EscalationLevel,
+  OperatorInfo,
 } from './ar-collection.types';
 import {
   sendCollectionNotification,
@@ -59,9 +60,7 @@ async function logAction(
   actionType: ActionType,
   actionResult: ActionResult,
   remark: string | null,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   await query(
     `INSERT INTO ar_collection_actions
@@ -74,9 +73,9 @@ async function logAction(
       actionType,
       actionResult,
       remark,
-      operatorId,
-      operatorName,
-      operatorRole,
+      operator.id,
+      operator.name,
+      operator.role,
     ]
   );
 }
@@ -89,9 +88,7 @@ async function logAction(
 export async function submitVerify(
   taskId: number,
   params: VerifyParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   const client = await getClient();
   try {
@@ -116,14 +113,14 @@ export async function submitVerify(
         `UPDATE ar_collection_details SET status = 'pending_verify',
            process_type = 'verify', processed_by = $1, process_at = NOW()
          WHERE task_id = $2 AND id = ANY($3)`,
-        [operatorId, taskId, detailIds]
+        [operator.id, taskId, detailIds]
       );
     } else {
       await client.query(
         `UPDATE ar_collection_details SET status = 'pending_verify',
            process_type = 'verify', processed_by = $1, process_at = NOW()
          WHERE task_id = $2`,
-        [operatorId, taskId]
+        [operator.id, taskId]
       );
     }
 
@@ -139,7 +136,7 @@ export async function submitVerify(
     invalidateStatsCache();
 
     // 记录操作日志
-    await logAction(taskId, detailIds, 'verify', 'success', params.remark || null, operatorId, operatorName, operatorRole);
+    await logAction(taskId, detailIds, 'verify', 'success', params.remark || null, operator);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -156,9 +153,7 @@ export async function submitVerify(
 export async function applyExtension(
   taskId: number,
   params: ExtensionParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   const client = await getClient();
   try {
@@ -198,7 +193,7 @@ export async function applyExtension(
         extensionUntil,
         params.evidence_file_id || null,
         params.signature_url || null,
-        operatorId,
+        operator.id,
       ]
     );
 
@@ -226,7 +221,7 @@ export async function applyExtension(
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
-    await logAction(taskId, params.detail_ids, 'extension', 'success', params.remark || null, operatorId, operatorName, operatorRole);
+    await logAction(taskId, params.detail_ids, 'extension', 'success', params.remark || null, operator);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -243,9 +238,7 @@ export async function applyExtension(
 export async function markDifference(
   taskId: number,
   params: DifferenceParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   const client = await getClient();
   try {
@@ -273,7 +266,7 @@ export async function markDifference(
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
-    await logAction(taskId, params.detail_ids, 'difference', 'success', params.remark, operatorId, operatorName, operatorRole);
+    await logAction(taskId, params.detail_ids, 'difference', 'success', params.remark, operator);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -290,9 +283,7 @@ export async function markDifference(
 export async function escalateTask(
   taskId: number,
   params: EscalateParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   const client = await getClient();
   try {
@@ -328,7 +319,7 @@ export async function escalateTask(
            escalation_reason = $3, current_handler_role = $4,
            updated_at = NOW()
        WHERE id = $5`,
-      [targetLevel, operatorId, params.reason, targetRole, taskId]
+      [targetLevel, operator.id, params.reason, targetRole, taskId]
     );
 
     // 标记选中的明细为已升级
@@ -344,7 +335,7 @@ export async function escalateTask(
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
-    await logAction(taskId, params.detail_ids, 'escalate', 'success', params.reason, operatorId, operatorName, operatorRole);
+    await logAction(taskId, params.detail_ids, 'escalate', 'success', params.reason, operator);
 
     // 发送升级通知（ActionCard）
     try {
@@ -352,7 +343,7 @@ export async function escalateTask(
         task,
         currentLevel,
         targetLevel as EscalationLevel,
-        operatorName
+        operator.name
       );
       await sendCollectionNotificationByRole(targetRole, actionCard.title, '', {
         msgType: 'actionCard',
@@ -380,9 +371,7 @@ export async function escalateTask(
 export async function confirmVerify(
   taskId: number,
   params: ConfirmVerifyParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   const client = await getClient();
   try {
@@ -458,7 +447,7 @@ export async function confirmVerify(
     const actionRemark = allErpBillsGone
       ? '核销确认通过，ERP欠款已结清，系统自动关闭任务'
       : (params.remark || null);
-    await logAction(taskId, params.detail_ids, 'confirm_verify', result, actionRemark, operatorId, operatorName, operatorRole);
+    await logAction(taskId, params.detail_ids, 'confirm_verify', result, actionRemark, operator);
 
     // 发送核销结果通知（ActionCard）
     try {
@@ -474,7 +463,7 @@ export async function confirmVerify(
         const notifyRemark = allErpBillsGone
           ? 'ERP欠款已结清，任务已自动关闭'
           : params.remark;
-        const actionCard = buildVerifyResultActionCard(task, params.confirmed, operatorName, notifyRemark);
+        const actionCard = buildVerifyResultActionCard(task, params.confirmed, operator.name, notifyRemark);
         await sendCollectionNotification({
           userIds: submitterIds,
           title: actionCard.title,
@@ -507,9 +496,7 @@ export async function confirmVerify(
 export async function resolveDifference(
   taskId: number,
   params: ResolveDifferenceParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   const client = await getClient();
   try {
@@ -537,7 +524,7 @@ export async function resolveDifference(
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
-    await logAction(taskId, params.detail_ids, 'resolve_difference', 'success', params.remark, operatorId, operatorName, operatorRole);
+    await logAction(taskId, params.detail_ids, 'resolve_difference', 'success', params.remark, operator);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

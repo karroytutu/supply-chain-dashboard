@@ -138,14 +138,4 @@ export const CACHE_TTL = {
   DASHBOARD: 60 * 1000,
   /** 低频变更数据：品类、ERP、战略商品（5分钟） */
   LOW_FREQUENCY: 5 * 60 * 1000,
-
-  // ---- 旧名称别名（@deprecated，请使用上方三档常量）----
-  /** @deprecated 使用 HIGH_FREQUENCY */
-  WARNING_LIST: 30 * 1000,
-  /** @deprecated 使用 LOW_FREQUENCY */
-  CATEGORY_STATS: 5 * 60 * 1000,
-  /** @deprecated 使用 LOW_FREQUENCY */
-  ERP_CUSTOMER_SEARCH: 5 * 60 * 1000,
-  /** @deprecated 使用 LOW_FREQUENCY */
-  ERP_CUSTOMER_PROFILE: 5 * 60 * 1000,
 };

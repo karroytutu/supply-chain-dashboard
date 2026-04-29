@@ -16,6 +16,7 @@ import {
   fileLawsuit as fileLawsuitService,
   updateLegalProgress as updateLegalProgressService,
 } from '../services/ar-collection';
+import type { OperatorInfo } from '../services/ar-collection/ar-collection.types';
 import { getFileUrl } from '../middleware/upload';
 import { handleMutationError } from '../utils/response';
 import {
@@ -25,6 +26,12 @@ import {
   fromResolveDifferenceDTO,
 } from '../services/ar-collection/ar-collection.mapper';
 
+/** 从请求中提取操作人信息 */
+function getOperator(req: Request): OperatorInfo {
+  const { userId: id, name, roles } = req.user!;
+  return { id, name, role: roles?.[0] || 'viewer' };
+}
+
 /** 核销回款申请 */
 export const submitVerify = async (req: Request, res: Response) => {
   try {
@@ -33,9 +40,8 @@ export const submitVerify = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await submitVerifyService(taskId, req.body, operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await submitVerifyService(taskId, req.body, operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '核销操作失败');
@@ -50,9 +56,8 @@ export const applyExtension = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await applyExtensionService(taskId, fromExtensionDTO(req.body, taskId, operatorId, operatorName), operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await applyExtensionService(taskId, fromExtensionDTO(req.body, taskId, operator.id, operator.name), operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '延期申请失败');
@@ -67,9 +72,8 @@ export const markDifference = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await markDifferenceService(taskId, fromDifferenceDTO(req.body, taskId, operatorId, operatorName), operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await markDifferenceService(taskId, fromDifferenceDTO(req.body, taskId, operator.id, operator.name), operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '标记差异失败');
@@ -84,9 +88,8 @@ export const escalateTask = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await escalateTaskService(taskId, fromEscalateDTO(req.body, taskId, operatorId, operatorName), operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await escalateTaskService(taskId, fromEscalateDTO(req.body, taskId, operator.id, operator.name), operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '升级处理失败');
@@ -105,9 +108,8 @@ export const confirmVerify = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: 'confirmed 参数必须为布尔值' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await confirmVerifyService(taskId, req.body, operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await confirmVerifyService(taskId, req.body, operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '确认核销失败');
@@ -122,9 +124,8 @@ export const resolveDifference = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await resolveDifferenceService(taskId, fromResolveDifferenceDTO(req.body, taskId, operatorId, operatorName), operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await resolveDifferenceService(taskId, fromResolveDifferenceDTO(req.body, taskId, operator.id, operator.name), operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '差异解决失败');
@@ -139,9 +140,8 @@ export const sendNotice = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await sendCollectionNotice(taskId, req.body, operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await sendCollectionNotice(taskId, req.body, operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '发送催收函失败');
@@ -156,9 +156,8 @@ export const fileLawsuit = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await fileLawsuitService(taskId, req.body, operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await fileLawsuitService(taskId, req.body, operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '提起诉讼失败');
@@ -173,9 +172,8 @@ export const updateLegalProgress = async (req: Request, res: Response) => {
       res.status(400).json({ code: 400, message: '无效的任务ID' });
       return;
     }
-    const { userId: operatorId, name: operatorName, roles } = req.user!;
-    const operatorRole = roles?.[0] || 'viewer';
-    await updateLegalProgressService(taskId, req.body, operatorId, operatorName, operatorRole);
+    const operator = getOperator(req);
+    await updateLegalProgressService(taskId, req.body, operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '更新法律进展失败');

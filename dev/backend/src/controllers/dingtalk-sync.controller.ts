@@ -13,6 +13,7 @@ import {
   updateSyncLog,
 } from '../services/dingtalk-sync';
 import { hasRunningSync } from '../services/dingtalk-sync/dingtalk-sync-log.query';
+import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '../utils/response';
 
 /**
  * 触发全量同步
@@ -22,10 +23,7 @@ export async function triggerFullSync(req: Request, res: Response) {
     // 防并发检查
     const { running, stuckLogId } = await hasRunningSync();
     if (running && !stuckLogId) {
-      res.status(409).json({
-        success: false,
-        message: '已有同步任务在运行中，请稍后再试',
-      });
+      res.status(409).json(buildErrorResponse(409, '已有同步任务在运行中，请稍后再试'));
       return;
     }
 
@@ -52,10 +50,7 @@ export async function triggerFullSync(req: Request, res: Response) {
         duration_ms: durationMs,
       });
 
-      res.json({
-        success: true,
-        data: { sync_log_id: logId, stats, duration_ms: durationMs },
-      });
+      res.json(buildSuccessResponse({ sync_log_id: logId, stats, duration_ms: durationMs }));
     } catch (error: any) {
       const durationMs = Date.now() - startTime;
       await updateSyncLog(logId, {
@@ -68,10 +63,7 @@ export async function triggerFullSync(req: Request, res: Response) {
     }
   } catch (error: any) {
     console.error('[DingtalkSync] 全量同步失败:', error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message || '同步失败',
-    });
+    res.status(500).json(buildErrorResponse(500, error.message || '同步失败'));
   }
 }
 
@@ -82,16 +74,13 @@ export async function triggerDeptSync(req: Request, res: Response) {
   try {
     const { running } = await hasRunningSync();
     if (running) {
-      res.status(409).json({
-        success: false,
-        message: '已有同步任务在运行中，请稍后再试',
-      });
+      res.status(409).json(buildErrorResponse(409, '已有同步任务在运行中，请稍后再试'));
       return;
     }
 
     const deptId = req.params.deptId;
     if (!deptId) {
-      res.status(400).json({ success: false, message: '缺少部门ID' });
+      res.status(400).json(buildErrorResponse(400, '缺少部门ID'));
       return;
     }
 
@@ -118,10 +107,7 @@ export async function triggerDeptSync(req: Request, res: Response) {
         duration_ms: durationMs,
       });
 
-      res.json({
-        success: true,
-        data: { sync_log_id: logId, stats, duration_ms: durationMs },
-      });
+      res.json(buildSuccessResponse({ sync_log_id: logId, stats, duration_ms: durationMs }));
     } catch (error: any) {
       const durationMs = Date.now() - startTime;
       await updateSyncLog(logId, {
@@ -134,10 +120,7 @@ export async function triggerDeptSync(req: Request, res: Response) {
     }
   } catch (error: any) {
     console.error('[DingtalkSync] 部门同步失败:', error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message || '同步失败',
-    });
+    res.status(500).json(buildErrorResponse(500, error.message || '同步失败'));
   }
 }
 
@@ -153,19 +136,10 @@ export async function listSyncLogs(req: Request, res: Response) {
 
     const result = await getSyncLogs({ page, pageSize, status, sync_type });
 
-    res.json({
-      success: true,
-      data: result.list,
-      total: result.total,
-      page,
-      pageSize,
-    });
+    res.json(buildPagedResponse(result.list, result.total, page, pageSize));
   } catch (error: any) {
     console.error('[DingtalkSync] 获取同步日志失败:', error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message || '获取日志失败',
-    });
+    res.status(500).json(buildErrorResponse(500, error.message || '获取日志失败'));
   }
 }
 
@@ -176,23 +150,20 @@ export async function getSyncLogDetail(req: Request, res: Response) {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      res.status(400).json({ success: false, message: '无效的日志ID' });
+      res.status(400).json(buildErrorResponse(400, '无效的日志ID'));
       return;
     }
 
     const log = await getSyncLogById(id);
     if (!log) {
-      res.status(404).json({ success: false, message: '日志不存在' });
+      res.status(404).json(buildErrorResponse(404, '日志不存在'));
       return;
     }
 
-    res.json({ success: true, data: log });
+    res.json(buildSuccessResponse(log));
   } catch (error: any) {
     console.error('[DingtalkSync] 获取同步日志详情失败:', error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message || '获取日志详情失败',
-    });
+    res.status(500).json(buildErrorResponse(500, error.message || '获取日志详情失败'));
   }
 }
 
@@ -202,12 +173,9 @@ export async function getSyncLogDetail(req: Request, res: Response) {
 export async function getCurrentSyncStatus(req: Request, res: Response) {
   try {
     const status = await getSyncStatus();
-    res.json({ success: true, data: status });
+    res.json(buildSuccessResponse(status));
   } catch (error: any) {
     console.error('[DingtalkSync] 获取同步状态失败:', error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message || '获取同步状态失败',
-    });
+    res.status(500).json(buildErrorResponse(500, error.message || '获取同步状态失败'));
   }
 }

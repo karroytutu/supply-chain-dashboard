@@ -159,9 +159,13 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
     }
     // 格式2: code + data 格式
     if ('code' in result && 'data' in result) {
-      const { code, message: respMessage, data } = result;
+      const { code, message: respMessage, data, ...rest } = result;
       // code 为 200 时正常返回 data
       if (code === 200) {
+        // 分页格式: { code, message, data: [...], total, page, pageSize }
+        if ('total' in rest) {
+          return { data, ...rest } as T;
+        }
         return data as T;
       }
       // code 非 200 时视为错误

@@ -44,7 +44,7 @@ export async function getDailySalesMap(): Promise<Map<string, number>> {
   }
 
   // 存入缓存
-  cache.set(cacheKey, salesMap, CACHE_TTL.CATEGORY_STATS);
+  cache.set(cacheKey, salesMap, CACHE_TTL.LOW_FREQUENCY);
   console.log(`[getDailySalesMap] 数据已缓存，共 ${salesMap.size} 条记录`);
 
   return salesMap;
@@ -80,7 +80,7 @@ export async function getStockSummaryMap(): Promise<Map<string, number>> {
   }
 
   // 存入缓存
-  cache.set(cacheKey, stockMap, CACHE_TTL.CATEGORY_STATS);
+  cache.set(cacheKey, stockMap, CACHE_TTL.LOW_FREQUENCY);
   console.log(`[getStockSummaryMap] 数据已缓存，共 ${stockMap.size} 条记录`);
 
   return stockMap;

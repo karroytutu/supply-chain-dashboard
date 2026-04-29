@@ -11,13 +11,14 @@ import {
   getApprovalDetail,
 } from '../services/oa-approval/oa-approval.query';
 import { ApprovalListParams } from '../services/oa-approval/oa-approval.types';
+import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '../utils/response';
 
 /** 获取审批列表 */
 export async function listApprovals(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, message: '未登录' });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
@@ -33,16 +34,10 @@ export async function listApprovals(req: Request, res: Response): Promise<void> 
     };
 
     const result = await getApprovalList(params, userId);
-    res.json({
-      success: true,
-      data: result.list,
-      total: result.total,
-      page: params.page,
-      pageSize: params.pageSize,
-    });
+    res.json(buildPagedResponse(result.list, result.total, params.page!, params.pageSize!));
   } catch (error) {
     console.error('获取审批列表失败:', error);
-    res.status(500).json({ success: false, message: '获取审批列表失败' });
+    res.status(500).json(buildErrorResponse(500, '获取审批列表失败'));
   }
 }
 
@@ -51,15 +46,15 @@ export async function getStats(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, message: '未登录' });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     const stats = await getApprovalStats(userId);
-    res.json({ success: true, data: stats });
+    res.json(buildSuccessResponse(stats));
   } catch (error) {
     console.error('获取审批统计失败:', error);
-    res.status(500).json({ success: false, message: '获取审批统计失败' });
+    res.status(500).json(buildErrorResponse(500, '获取审批统计失败'));
   }
 }
 
@@ -68,19 +63,19 @@ export async function getDetail(req: Request, res: Response): Promise<void> {
   try {
     const instanceId = parseInt(req.params.id);
     if (isNaN(instanceId)) {
-      res.status(400).json({ success: false, message: '无效的审批ID' });
+      res.status(400).json(buildErrorResponse(400, '无效的审批ID'));
       return;
     }
 
     const detail = await getApprovalDetail(instanceId);
     if (!detail) {
-      res.status(404).json({ success: false, message: '审批实例不存在' });
+      res.status(404).json(buildErrorResponse(404, '审批实例不存在'));
       return;
     }
 
-    res.json({ success: true, data: detail });
+    res.json(buildSuccessResponse(detail));
   } catch (error) {
     console.error('获取审批详情失败:', error);
-    res.status(500).json({ success: false, message: '获取审批详情失败' });
+    res.status(500).json(buildErrorResponse(500, '获取审批详情失败'));
   }
 }

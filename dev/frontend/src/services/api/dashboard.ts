@@ -88,12 +88,11 @@ export interface MonthlyArchiveRecord {
  * 采购绩效存档响应
  */
 export interface ProcurementArchiveResponse {
-  success: boolean;
   data: MonthlyArchiveRecord[];
   total: number;
   page: number;
   pageSize: number;
-  totalPages: number;
+  totalPages?: number;
 }
 
 /**

@@ -5,6 +5,7 @@
  */
 
 import { Request, Response } from 'express';
+import { buildSuccessResponse } from '../utils/response';
 import {
   TURNOVER_EXCELLENT_DAYS,
   TURNOVER_GOOD_DAYS,
@@ -33,7 +34,7 @@ import {
  * 返回所有业务阈值配置，供前端同步使用
  */
 export function getThresholds(_req: Request, res: Response): void {
-  res.json({
+  res.json(buildSuccessResponse({
     // 周转相关
     turnover: {
       excellentDays: TURNOVER_EXCELLENT_DAYS,
@@ -75,5 +76,5 @@ export function getThresholds(_req: Request, res: Response): void {
     returnPenalty: {
       expireInsufficientDays: RETURN_EXPIRE_INSUFFICIENT_DAYS,
     },
-  });
+  }));
 }
