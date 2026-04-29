@@ -141,7 +141,13 @@ export const sendNotice = async (req: Request, res: Response) => {
       return;
     }
     const operator = getOperator(req);
-    await sendCollectionNotice(taskId, req.body, operator);
+    const params = {
+      task_id: taskId,
+      description: req.body.description,
+      attachment_url: req.body.attachmentUrl || null,
+      operator_id: operator.id,
+    };
+    await sendCollectionNotice(taskId, params, operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '发送催收函失败');
@@ -157,7 +163,13 @@ export const fileLawsuit = async (req: Request, res: Response) => {
       return;
     }
     const operator = getOperator(req);
-    await fileLawsuitService(taskId, req.body, operator);
+    const params = {
+      task_id: taskId,
+      description: req.body.description,
+      attachment_url: req.body.attachmentUrl || null,
+      operator_id: operator.id,
+    };
+    await fileLawsuitService(taskId, params, operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '提起诉讼失败');
@@ -173,7 +185,13 @@ export const updateLegalProgress = async (req: Request, res: Response) => {
       return;
     }
     const operator = getOperator(req);
-    await updateLegalProgressService(taskId, req.body, operator);
+    const params = {
+      task_id: taskId,
+      description: req.body.description,
+      attachment_url: req.body.attachmentUrl || null,
+      operator_id: operator.id,
+    };
+    await updateLegalProgressService(taskId, params, operator);
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '更新法律进展失败');

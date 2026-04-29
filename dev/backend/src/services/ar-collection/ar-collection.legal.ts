@@ -4,6 +4,7 @@
  */
 
 import { appQuery as query } from '../../db/appPool';
+import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
 import type {
   ActionType,
   ActionResult,
@@ -28,13 +29,14 @@ async function logAction(
   actionType: ActionType,
   actionResult: ActionResult,
   remark: string | null,
-  operator: OperatorInfo
+  operator: OperatorInfo,
+  attachmentUrl?: string | null
 ): Promise<void> {
   await query(
     `INSERT INTO ar_collection_actions
        (task_id, detail_ids, action_type, action_result, remark,
-        operator_id, operator_name, operator_role)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        operator_id, operator_name, operator_role, attachment_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [
       taskId,
       detailIds && detailIds.length > 0 ? JSON.stringify(detailIds) : null,
@@ -44,6 +46,7 @@ async function logAction(
       operator.id,
       operator.name,
       operator.role,
+      attachmentUrl || null,
     ]
   );
 }
@@ -63,7 +66,9 @@ export async function sendCollectionNotice(
     [taskId, params.description || null, params.attachment_url, operator.id]
   );
 
-  await logAction(taskId, null, 'send_notice', 'success', params.description || '发送催收函', operator);
+  await logAction(taskId, null, 'send_notice', 'success', params.description || '发送催收函', operator, params.attachment_url);
+  invalidateTaskCache(taskId);
+  invalidateStatsCache();
 }
 
 /** 提起诉讼 */
@@ -80,7 +85,9 @@ export async function fileLawsuit(
     [taskId, params.description, params.attachment_url || null, operator.id]
   );
 
-  await logAction(taskId, null, 'file_lawsuit', 'success', params.description, operator);
+  await logAction(taskId, null, 'file_lawsuit', 'success', params.description, operator, params.attachment_url);
+  invalidateTaskCache(taskId);
+  invalidateStatsCache();
 }
 
 /** 更新法律进展 */
@@ -97,5 +104,7 @@ export async function updateLegalProgress(
     [taskId, params.description, params.attachment_url || null, operator.id]
   );
 
-  await logAction(taskId, null, 'update_progress', 'success', params.description, operator);
+  await logAction(taskId, null, 'update_progress', 'success', params.description, operator, params.attachment_url);
+  invalidateTaskCache(taskId);
+  invalidateStatsCache();
 }

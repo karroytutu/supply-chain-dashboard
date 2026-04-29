@@ -1,19 +1,17 @@
 /**
  * 任务详情数据管理 Hook
- * 获取任务信息、欠款明细、操作历史、法律进展，管理选中状态和弹窗状态
+ * 获取任务信息、欠款明细、操作历史，管理选中状态和弹窗状态
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   getCollectionTaskById,
   getCollectionTaskDetails,
   getCollectionTaskActions,
-  getLegalProgress,
 } from '@/services/api/ar-collection';
 import type {
   CollectionTask,
   CollectionDetail,
   CollectionAction,
-  LegalProgress,
 } from '@/types/ar-collection';
 
 /** 弹窗类型 */
@@ -26,7 +24,6 @@ export type ModalType =
   | 'resolveDifference'
   | 'sendNotice'
   | 'lawsuit'
-  | 'updateLegalProgress'
   | null;
 
 interface UseTaskDetailReturn {
@@ -36,8 +33,6 @@ interface UseTaskDetailReturn {
   details: CollectionDetail[];
   /** 操作历史 */
   actions: CollectionAction[];
-  /** 法律催收进展 */
-  legalProgress: LegalProgress[];
   /** 加载状态 */
   loading: boolean;
   /** 错误信息 */
@@ -68,7 +63,6 @@ export function useTaskDetail(taskId: number | undefined): UseTaskDetailReturn {
   const [task, setTask] = useState<CollectionTask | null>(null);
   const [details, setDetails] = useState<CollectionDetail[]>([]);
   const [actions, setActions] = useState<CollectionAction[]>([]);
-  const [legalProgress, setLegalProgress] = useState<LegalProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDetailIds, setSelectedDetailIds] = useState<number[]>([]);
@@ -89,12 +83,6 @@ export function useTaskDetail(taskId: number | undefined): UseTaskDetailReturn {
       setTask(taskData);
       setDetails(detailsData);
       setActions(actionsData);
-
-      // 仅在升级至财务时加载法律进展
-      if (taskData.escalationLevel === 2) {
-        const progressData = await getLegalProgress(taskId);
-        setLegalProgress(progressData);
-      }
     } catch (err: any) {
       setError(err?.message || '加载失败');
     } finally {
@@ -150,7 +138,6 @@ export function useTaskDetail(taskId: number | undefined): UseTaskDetailReturn {
     task,
     details,
     actions,
-    legalProgress,
     loading,
     error,
     selectedDetailIds,

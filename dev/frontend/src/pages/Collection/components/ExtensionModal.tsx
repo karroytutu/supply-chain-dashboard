@@ -41,11 +41,9 @@ const ExtensionModal: React.FC<ExtensionModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
 
-      // 上传凭证文件
-      let evidenceFileId: number | undefined;
+      // 上传凭证文件（文件已保存至服务器，evidence_file_id 暂不关联）
       if (fileList.length > 0 && fileList[0].originFileObj) {
-        const uploadRes = await uploadEvidence(fileList[0].originFileObj);
-        evidenceFileId = uploadRes.fileId;
+        await uploadEvidence(fileList[0].originFileObj);
       }
 
       const extensionDate = values.extensionDate as dayjs.Dayjs;
@@ -54,7 +52,6 @@ const ExtensionModal: React.FC<ExtensionModalProps> = ({
       await applyExtension(task.id, {
         extensionDays,
         detailIds: selectedDetails.map((d) => d.id),
-        evidenceFileId,
         reason: values.reason,
       });
 

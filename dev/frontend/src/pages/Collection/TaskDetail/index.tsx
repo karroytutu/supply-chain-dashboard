@@ -1,6 +1,6 @@
 /**
  * 催收任务详情页
- * 整合 TaskHeader、DetailTable、ActionButtons、MoreInfo、LegalProgress 及所有弹窗
+ * 整合 TaskHeader、DetailTable、ActionButtons、MoreInfo 及所有弹窗
  */
 import React, { useMemo } from 'react';
 import { Spin, Result, Button } from 'antd';
@@ -11,7 +11,6 @@ import TaskHeader from './components/TaskHeader';
 import DetailTable from './components/DetailTable';
 import ActionButtons from './components/ActionButtons';
 import MoreInfo from './components/MoreInfo';
-import LegalProgressSection from './components/LegalProgress';
 import VerifyModal from '../components/VerifyModal';
 import ExtensionModal from '../components/ExtensionModal';
 import DifferenceModal from '../components/DifferenceModal';
@@ -20,7 +19,6 @@ import RejectVerifyModal from '../components/RejectVerifyModal';
 import ResolveDifferenceModal from '../components/ResolveDifferenceModal';
 import SendNoticeModal from '../components/SendNoticeModal';
 import LawsuitModal from '../components/LawsuitModal';
-import UpdateLegalProgressModal from '../components/UpdateLegalProgressModal';
 import type { CollectionDetail } from '@/types/ar-collection';
 import type { ModalType } from './hooks/useTaskDetail';
 import './index.less';
@@ -33,7 +31,6 @@ const TaskDetailPage: React.FC = () => {
     task,
     details,
     actions,
-    legalProgress,
     loading,
     error,
     selectedDetailIds,
@@ -97,8 +94,6 @@ const TaskDetailPage: React.FC = () => {
     );
   }
 
-  const showLegalProgress = task.escalationLevel === 2;
-
   return (
     <div className="task-detail-page">
       <TaskHeader task={task} />
@@ -120,10 +115,6 @@ const TaskDetailPage: React.FC = () => {
       />
 
       <MoreInfo actions={actions} />
-
-      {showLegalProgress && (
-        <LegalProgressSection progress={legalProgress} onAction={handleAction} />
-      )}
 
       {/* 弹窗集合 */}
       {task && (
@@ -178,13 +169,6 @@ const TaskDetailPage: React.FC = () => {
           />
           <LawsuitModal
             visible={activeModal === 'lawsuit'}
-            onClose={closeModal}
-            onSuccess={handleSuccess}
-            task={task}
-            selectedDetails={modalDetails}
-          />
-          <UpdateLegalProgressModal
-            visible={activeModal === 'updateLegalProgress'}
             onClose={closeModal}
             onSuccess={handleSuccess}
             task={task}

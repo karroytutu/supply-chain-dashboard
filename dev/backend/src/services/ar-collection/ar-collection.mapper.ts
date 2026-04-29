@@ -96,6 +96,7 @@ export function assessmentToActionDTO(record: AssessmentRecord): CollectionActio
     actionType: `assessment_${record.assessmentTier}` as CollectionActionDTO['actionType'],
     actionResult: STATUS_NAMES[record.status] as unknown as CollectionActionDTO['actionResult'],
     remark: `${record.assessmentUserName}(${ROLE_NAMES[record.assessmentRole]})`,
+    attachmentUrl: null,
     operatorId: 0,
     operatorName: '系统',
     operatorRole: '系统',

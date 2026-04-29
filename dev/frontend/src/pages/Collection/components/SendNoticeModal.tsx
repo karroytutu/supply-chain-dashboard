@@ -40,7 +40,7 @@ const SendNoticeModal: React.FC<SendNoticeModalProps> = ({
 
       const uploadRes = await uploadEvidence(fileList[0].originFileObj);
       await sendNotice(task.id, {
-        attachmentFileId: uploadRes.fileId,
+        attachmentUrl: uploadRes.url,
         description: form.getFieldValue('description') || undefined,
       });
 

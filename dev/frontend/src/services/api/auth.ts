@@ -99,10 +99,17 @@ export async function devSwitchUser(userId: number): Promise<LoginResult> {
   return request.post('/auth/dev-switch', { userId }, { skipErrorHandler: true });
 }
 
+export interface DevUserItem {
+  id: number;
+  name: string;
+  avatar?: string;
+  roles: RoleInfo[];
+}
+
 /**
  * 开发环境获取用户列表（仅开发环境可用，无需特殊权限）
  */
-export async function devGetUsers(): Promise<{ data: any[]; total: number }> {
+export async function devGetUsers(): Promise<DevUserItem[]> {
   return request.get('/auth/dev-users', { skipErrorHandler: true });
 }
 
