@@ -23,7 +23,9 @@ export default function AuthWrapper() {
 
       if (!token) {
         setLoading(false);
-        history.push('/login');
+        // 保留当前路径和查询参数作为登录后重定向目标
+        const currentPath = history.location.pathname + history.location.search;
+        history.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
         return;
       }
 
@@ -48,7 +50,8 @@ export default function AuthWrapper() {
         console.error('[AuthWrapper] 获取用户信息失败:', error);
         localStorage.removeItem(TOKEN_KEY);
         setGlobalUser(null);
-        window.location.href = '/login';
+        const currentPath = history.location.pathname + history.location.search;
+        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
         // 不设置 setLoading(false)，保持 Spin 加载状态直到页面跳转生效
         // 避免在跳转前渲染出空白或 403 页面
         return;

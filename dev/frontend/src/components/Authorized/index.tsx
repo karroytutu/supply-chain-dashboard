@@ -61,11 +61,18 @@ export const Authorized: React.FC<AuthorizedProps> = ({
 }) => {
   const { hasRole, hasAllPermissions, hasAnyPermission, currentUser } = usePermission();
 
-  /** 无权限时统一渲染逻辑 */
+  /**
+   * 无权限时统一渲染逻辑
+   * 默认行为：无 fallback 时返回 null（隐藏子元素），仅展示默认的"无权限"提示
+   * 有 fallback 时：渲染自定义 fallback 内容
+   */
   const renderUnauthorized = (detail?: { permissions?: string[] }) => {
+    // 有显式 fallback 时渲染替代内容
     if (fallback !== null && fallback !== undefined) {
       return <>{fallback}</>;
     }
+    // 无 fallback 时，仅在 detail（权限检查）场景显示无权限页面
+    // 角色检查场景默认只隐藏子元素，不显示无权限
     if (detail?.permissions) {
       return (
         <Result
@@ -87,7 +94,8 @@ export const Authorized: React.FC<AuthorizedProps> = ({
         />
       );
     }
-    return <Result status="403" title="无权限" subTitle="您没有权限访问此页面" />;
+    // 默认行为：无 fallback 且为角色检查时，仅隐藏子元素
+    return null;
   };
 
   // 未登录时显示提示

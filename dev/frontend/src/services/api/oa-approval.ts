@@ -255,6 +255,54 @@ export async function withdraw(instanceId: number): Promise<void> {
 }
 
 // =====================================================
+// Token快速操作接口（钉钉ActionCard按钮跳转使用，无需JWT）
+// =====================================================
+
+/** Token验证结果 */
+export interface TokenValidationResult {
+  valid: boolean;
+  action?: string;
+  instanceId?: number;
+  instanceNo?: string;
+  title?: string;
+  formTypeName?: string;
+  instanceStatus?: string;
+}
+
+/**
+ * 验证Token有效性
+ */
+export async function validateActionToken(token: string): Promise<TokenValidationResult> {
+  const res = await fetch('/api/oa-approval/validate-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  const result = await res.json();
+  return result.data;
+}
+
+/**
+ * 通过Token执行审批操作
+ */
+export async function executeActionByToken(
+  token: string,
+  action: 'approve' | 'reject',
+  comment?: string
+): Promise<{ status?: string }> {
+  const res = await fetch('/api/oa-approval/action-by-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, action, comment }),
+  });
+  const result = await res.json();
+  if (result.code !== 200) {
+    throw new Error(result.message || '操作失败');
+  }
+  return result.data;
+}
+
+// =====================================================
 // 数据管理接口
 // =====================================================
 

@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .approvalFlow {
   // =====================================================
   // 实际时间线模式
@@ -420,6 +422,83 @@
     .previewApproverName {
       font-size: 12px;
       color: #333;
+    }
+  }
+
+  // =====================================================
+  // 响应式断点
+  // =====================================================
+
+  @media (max-width: @screen-md) {
+    .timelineLeft {
+      width: 40px;
+      min-height: 40px;
+    }
+    .timelineSystemIcon {
+      width: 28px;
+      height: 28px;
+    }
+    .timelineContent {
+      padding-left: 8px;
+    }
+    .timelineItem:not(:last-child) {
+      padding-bottom: 12px;
+    }
+    &.previewMode {
+      padding: 12px;
+    }
+  }
+
+  @media (max-width: @screen-sm) {
+    .timelineLeft {
+      width: 32px;
+      min-height: 32px;
+    }
+    .timelineSystemIcon {
+      width: 24px;
+      height: 24px;
+    }
+    .timelineContent {
+      padding-left: @spacing-sm;
+      padding-top: 2px;
+    }
+    .timelineItem:not(:last-child) {
+      padding-bottom: 8px;
+    }
+    .timelineTitle {
+      font-size: 13px;
+    }
+    .timelineTime {
+      font-size: 11px;
+      margin-left: 8px;
+    }
+    .timelineComment {
+      padding: 6px 8px;
+      font-size: 11px;
+    }
+    &.previewMode {
+      padding: 10px;
+    }
+    .timelineCcList {
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .timelineCcName {
+      font-size: 10px;
+      max-width: 40px;
+    }
+  }
+
+  @media (max-width: @screen-xs) {
+    .timelineHeader {
+      flex-wrap: wrap;
+    }
+    .timelineTime {
+      margin-left: 0;
+      margin-top: 2px;
+    }
+    .timelineApprovalBody {
+      font-size: 12px;
     }
   }
 }

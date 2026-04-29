@@ -108,6 +108,12 @@ export default defineConfig({
       ],
     },
     {
+      path: '/oa/quick-action',
+      component: '@/pages/OaApproval/QuickAction',
+      name: '快速审批',
+      hideInMenu: true,
+    },
+    {
       path: '/oa',
       name: 'OA审批',
       icon: 'AuditOutlined',

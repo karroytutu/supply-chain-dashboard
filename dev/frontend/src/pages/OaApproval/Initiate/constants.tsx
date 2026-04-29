@@ -11,13 +11,13 @@ import {
 } from '@ant-design/icons';
 import type { FormCategory } from '@/types/oa-approval';
 
-/** 分类图标（18px，用于卡片） */
+/** 分类图标（字号由 .iconCircle CSS 类控制，支持响应式断点覆盖） */
 export const CATEGORY_ICONS: Record<FormCategory, React.ReactNode> = {
-  finance: <PayCircleOutlined style={{ fontSize: 18 }} />,
-  supply_chain: <ShoppingCartOutlined style={{ fontSize: 18 }} />,
-  marketing: <TeamOutlined style={{ fontSize: 18 }} />,
-  hr: <SolutionOutlined style={{ fontSize: 18 }} />,
-  admin: <BankOutlined style={{ fontSize: 18 }} />,
+  finance: <PayCircleOutlined />,
+  supply_chain: <ShoppingCartOutlined />,
+  marketing: <TeamOutlined />,
+  hr: <SolutionOutlined />,
+  admin: <BankOutlined />,
 };
 
 /** 分类色值 */

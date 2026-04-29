@@ -50,6 +50,7 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({
         })}
       </div>
       <Input
+        size="small"
         className={styles.searchInput}
         placeholder="搜索表单类型..."
         prefix={<SearchOutlined />}

@@ -8,6 +8,7 @@ import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { FormField } from '@/types/oa-approval';
 import ErpFieldRenderer from './ErpFieldRenderer';
+import styles from '../index.less';
 
 /** ERP 字段类型集合 */
 const ERP_FIELD_TYPES = new Set([
@@ -169,7 +170,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   ];
 
   return (
-    <div>
+    <div className={styles.tableFieldWrapper}>
       <Table
         columns={tableColumns}
         dataSource={value.map((row, idx) => ({ ...row, _key: idx }))}

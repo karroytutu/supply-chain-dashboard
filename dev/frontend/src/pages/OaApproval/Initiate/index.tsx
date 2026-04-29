@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { history } from 'umi';
 import { Spin, Empty, Button } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
 import { FormTypeDefinition, FormCategory, CATEGORY_LABELS } from '@/types/oa-approval';
 import { useRecentForms, QuickAccessItem } from '../hooks/useRecentForms';
@@ -18,7 +18,12 @@ const Initiate: React.FC = () => {
   const [formTypesGrouped, setFormTypesGrouped] = useState<Record<FormCategory, FormTypeDefinition[]> | null>(null);
   const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState<ActiveCategory>('all');
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const { quickAccessItems, recordUsage } = useRecentForms();
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
     loadFormTypes();
@@ -86,29 +91,33 @@ const Initiate: React.FC = () => {
   /** 渲染分类区域 */
   const renderCategorySection = (category: FormCategory, formTypes: FormTypeDefinition[], showHeader: boolean) => {
     if (formTypes.length === 0) return null;
+    const isCollapsed = collapsedSections[category];
 
     return (
       <div key={category} className={styles.categorySection}>
         {showHeader && (
-          <div className={styles.sectionHeader}>
+          <div className={styles.sectionHeader} onClick={() => toggleSection(category)}>
             <span
               className={styles.sectionDot}
               style={{ backgroundColor: CATEGORY_COLORS[category] }}
             />
             <span className={styles.sectionName}>{CATEGORY_LABELS[category]}</span>
             <span className={styles.sectionCount}>{formTypes.length}</span>
+            <span className={styles.collapseArrow}>{isCollapsed ? <RightOutlined /> : <DownOutlined />}</span>
           </div>
         )}
-        <div className={styles.cardGrid}>
-          {formTypes.map((ft) => (
-            <FormCard
-              key={ft.code}
-              name={ft.name}
-              category={category}
-              onClick={() => handleFormClick(ft)}
-            />
-          ))}
-        </div>
+        {!isCollapsed && (
+          <div className={styles.cardGrid}>
+            {formTypes.map((ft) => (
+              <FormCard
+                key={ft.code}
+                name={ft.name}
+                category={category}
+                onClick={() => handleFormClick(ft)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -116,24 +125,28 @@ const Initiate: React.FC = () => {
   /** 渲染最近使用区域（与分类区域同样的样式） */
   const renderRecentSection = () => {
     if (quickAccessItems.length === 0) return null;
+    const isCollapsed = collapsedSections['recent'];
 
     return (
       <div className={styles.categorySection}>
-        <div className={styles.sectionHeader}>
+        <div className={styles.sectionHeader} onClick={() => toggleSection('recent')}>
           <ClockCircleOutlined className={styles.sectionIcon} />
           <span className={styles.sectionName}>最近使用</span>
           <span className={styles.sectionCount}>{quickAccessItems.length}</span>
+          <span className={styles.collapseArrow}>{isCollapsed ? <RightOutlined /> : <DownOutlined />}</span>
         </div>
-        <div className={styles.cardGrid}>
-          {quickAccessItems.map((item) => (
-            <FormCard
-              key={item.code}
-              name={item.name}
-              category={item.category}
-              onClick={() => handleRecentClick(item)}
-            />
-          ))}
-        </div>
+        {!isCollapsed && (
+          <div className={styles.cardGrid}>
+            {quickAccessItems.map((item) => (
+              <FormCard
+                key={item.code}
+                name={item.name}
+                category={item.category}
+                onClick={() => handleRecentClick(item)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     );
   };
