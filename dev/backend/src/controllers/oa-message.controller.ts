@@ -12,6 +12,7 @@ import {
   markMessageRead,
   markAllMessagesRead,
 } from '../services/oa-approval/oa-approval.mutation';
+import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '../utils/response';
 
 /**
  * 获取站内消息列表
@@ -21,10 +22,7 @@ export async function listMessages(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user?.userId;
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        message: '未登录',
-      });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
@@ -32,19 +30,10 @@ export async function listMessages(req: Request, res: Response): Promise<void> {
     const pageSize = parseInt(req.query.pageSize as string) || 20;
 
     const result = await getMessages(userId, page, pageSize);
-    res.json({
-      success: true,
-      data: result.list,
-      total: result.total,
-      page,
-      pageSize,
-    });
+    res.json(buildPagedResponse(result.list, result.total, page, pageSize));
   } catch (error) {
     console.error('获取消息列表失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取消息列表失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '获取消息列表失败'));
   }
 }
 
@@ -56,24 +45,15 @@ export async function getUnreadCount(req: Request, res: Response): Promise<void>
   try {
     const userId = (req as any).user?.userId;
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        message: '未登录',
-      });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     const count = await getUnreadMessageCount(userId);
-    res.json({
-      success: true,
-      data: { count },
-    });
+    res.json(buildSuccessResponse({ count }));
   } catch (error) {
     console.error('获取未读消息数量失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取未读消息数量失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '获取未读消息数量失败'));
   }
 }
 
@@ -85,26 +65,17 @@ export async function readMessage(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user?.userId;
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        message: '未登录',
-      });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     const messageId = parseInt(req.params.id);
     await markMessageRead(messageId, userId);
 
-    res.json({
-      success: true,
-      message: '已标记已读',
-    });
+    res.json(buildSuccessResponse(null, '已标记已读'));
   } catch (error) {
     console.error('标记已读失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '标记已读失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '标记已读失败'));
   }
 }
 
@@ -116,24 +87,15 @@ export async function readAllMessages(req: Request, res: Response): Promise<void
   try {
     const userId = (req as any).user?.userId;
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        message: '未登录',
-      });
+      res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
     }
 
     await markAllMessagesRead(userId);
 
-    res.json({
-      success: true,
-      message: '已全部标记已读',
-    });
+    res.json(buildSuccessResponse(null, '已全部标记已读'));
   } catch (error) {
     console.error('标记全部已读失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '标记全部已读失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '标记全部已读失败'));
   }
 }

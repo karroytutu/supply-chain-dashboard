@@ -1,12 +1,12 @@
 import React from 'react';
-import { Input, InputNumber, Select, DatePicker, Upload, Button, Image, Spin, message } from 'antd';
-import type { UploadFile } from 'antd/es/upload/interface';
-import { UploadOutlined, PaperClipOutlined } from '@ant-design/icons';
+import { Input, InputNumber, Select, DatePicker, Upload, Button } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import type { FormField } from '@/types/oa-approval';
 import { numberToChineseUpper } from '@/utils/number';
 import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
+import PhotoFieldRenderer from './PhotoFieldRenderer';
 import styles from '../index.less';
 
 const { TextArea } = Input;
@@ -171,59 +171,13 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
 
     case 'photo':
       return (
-        <div>
-          {/* 正在异步获取执照图片 URL */}
-          {licenseLoading && (
-            <div className={styles.existingLicense}>
-              <Spin size="small" />
-              <span style={{ marginLeft: 8, color: '#999' }}>正在获取营业执照信息...</span>
-            </div>
-          )}
-          {/* 客户已有营业执照且有图片 URL 时展示 */}
-          {!licenseLoading && customerLicenseInfo?.hasLicense && customerLicenseInfo.attachedPicUrls.length > 0 && (
-            <div className={styles.existingLicense}>
-              <div className={styles.existingLicenseTip}>
-                <PaperClipOutlined /> 客户档案已有营业执照（{customerLicenseInfo.imageCount} 张）
-              </div>
-              <div className={styles.existingLicenseImages}>
-                {customerLicenseInfo.attachedPicUrls.map((url, idx) => (
-                  <Image
-                    key={idx}
-                    src={url}
-                    className={styles.licenseThumbnail}
-                    width={80}
-                    height={80}
-                    style={{ objectFit: 'cover', borderRadius: 4 }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-          {/* 有执照记录但图片 URL 获取失败 */}
-          {!licenseLoading && customerLicenseInfo?.hasLicense && customerLicenseInfo.attachedPicUrls.length === 0 && (
-            <div className={styles.existingLicense}>
-              <div className={styles.existingLicenseTip}>
-                <PaperClipOutlined /> 客户档案有营业执照记录，但图片暂不可用，请上传新照片
-              </div>
-            </div>
-          )}
-          <Upload listType="picture-card" accept="image/*" multiple maxCount={maxCount}
-            fileList={(value as UploadFile[]) || []}
-            beforeUpload={(file) => {
-              if (file.size / 1024 / 1024 >= 5) {
-                message.error('图片大小不能超过 5MB');
-                return Upload.LIST_IGNORE;
-              }
-              return false;
-            }}
-            onChange={({ fileList: newList }) => onChange?.(newList)}
-          >
-            <div>上传图片</div>
-          </Upload>
-          {customerLicenseInfo?.hasLicense && !licenseLoading && (
-            <div className={styles.uploadTip}>如需补充执照图片，可在上方上传（新图片将追加到已有执照中）</div>
-          )}
-        </div>
+        <PhotoFieldRenderer
+          value={value}
+          onChange={onChange}
+          maxCount={maxCount}
+          customerLicenseInfo={customerLicenseInfo}
+          licenseLoading={licenseLoading}
+        />
       );
 
     case 'table':

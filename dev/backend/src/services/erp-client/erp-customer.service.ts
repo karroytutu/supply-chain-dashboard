@@ -7,6 +7,7 @@
 import { erpPost, erpGet } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { CACHE_KEY } from '../../utils/cache-keys';
 import type { ErpPageResponse } from './erp-client.types';
 
 // =====================================================
@@ -131,7 +132,7 @@ export async function searchErpCustomers(keyword?: string): Promise<ErpCustomer[
  */
 export async function searchErpCustomersByKeyword(keyword: string): Promise<ErpCustomer[]> {
   /** 缓存键前缀，便于通过 cache.invalidate('erp:customer:search') 批量清除 */
-  const cacheKey = `erp:customer:search:${keyword}`;
+  const cacheKey = CACHE_KEY.ERP_CUSTOMER_SEARCH(keyword);
 
   const cached = cache.get<ErpCustomer[]>(cacheKey);
   if (cached) return cached;
@@ -143,7 +144,7 @@ export async function searchErpCustomersByKeyword(keyword: string): Promise<ErpC
     { pathPrefix: '/redcoast/', businessType: 'customer_search' }
   ) as any;
   const records: ErpCustomer[] = result?.data?.records || result?.records || [];
-  cache.set(cacheKey, records, CACHE_TTL.ERP_CUSTOMER_SEARCH);
+  cache.set(cacheKey, records, CACHE_TTL.LOW_FREQUENCY);
   return records;
 }
 
@@ -171,7 +172,7 @@ export async function searchErpCustomersByKeyword(keyword: string): Promise<ErpC
  *   ext.attachedPicIds  - 营业执照图片ID数组
  */
 export async function getErpCustomerProfile(customerId: number): Promise<ErpCustomerProfile> {
-  const cacheKey = `erp:customer:profile:${customerId}`;
+  const cacheKey = CACHE_KEY.ERP_CUSTOMER_PROFILE(customerId);
   const cached = cache.get<ErpCustomerProfile>(cacheKey);
   if (cached) return cached;
 
@@ -182,7 +183,7 @@ export async function getErpCustomerProfile(customerId: number): Promise<ErpCust
     { pathPrefix: '/redcoast/', businessType: 'customer_profile' }
   ) as any;
   const profile = (result?.data ?? result) as ErpCustomerProfile;
-  cache.set(cacheKey, profile, CACHE_TTL.ERP_CUSTOMER_PROFILE);
+  cache.set(cacheKey, profile, CACHE_TTL.LOW_FREQUENCY);
   return profile;
 }
 

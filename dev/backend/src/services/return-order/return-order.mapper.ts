@@ -9,6 +9,7 @@ import type {
   ReturnOrder,
   ReturnAction,
   ReturnOrderStats,
+  CreateReturnOrderParams,
 } from './return-order.types';
 
 // ==================== 实体 → DTO（用于响应） ====================
@@ -40,16 +41,42 @@ export function toReturnOrderDTO(row: ReturnOrderRow): ReturnOrder {
 }
 
 /**
+ * 操作记录数据库行类型
+ */
+export interface ReturnActionRow {
+  id: number;
+  order_id: number;
+  action_type: string;
+  operator_id: number | null;
+  operator_name: string | null;
+  action_at: Date;
+  comment: string | null;
+  details: Record<string, any> | null;
+}
+
+/**
  * 操作记录行 → ReturnAction 实体
  */
-export function toReturnActionDTO(row: any): ReturnAction {
+export function toReturnActionDTO(row: ReturnActionRow): ReturnAction {
   return toCamelKeys<any>(row) as ReturnAction;
+}
+
+/**
+ * 统计行数据库行类型
+ */
+export interface ReturnOrderStatsRow {
+  pending_confirm?: string;
+  pending_erp_fill?: string;
+  pending_warehouse_execute?: string;
+  pending_marketing_sale?: string;
+  completed?: string;
+  total?: string;
 }
 
 /**
  * 统计行 → ReturnOrderStats
  */
-export function toReturnOrderStatsDTO(row: any): ReturnOrderStats {
+export function toReturnOrderStatsDTO(row: ReturnOrderStatsRow): ReturnOrderStats {
   return {
     pendingConfirm: parseInt(row?.pending_confirm as any) || 0,
     pendingErpFill: parseInt(row?.pending_erp_fill as any) || 0,
@@ -65,6 +92,6 @@ export function toReturnOrderStatsDTO(row: any): ReturnOrderStats {
 /**
  * 创建退货单请求 → 数据库插入参数
  */
-export function fromCreateReturnOrderDTO(dto: any): any {
+export function fromCreateReturnOrderDTO(dto: CreateReturnOrderParams): unknown {
   return toSnakeKeys(dto);
 }

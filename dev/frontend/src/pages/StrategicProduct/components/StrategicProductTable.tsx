@@ -2,13 +2,10 @@
  * 战略商品表格组件
  */
 import React, { useState, useEffect } from 'react';
-import { Table, Input, Button, Space, Badge, Dropdown, Segmented, Select } from 'antd';
-import { SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, DownOutlined, SyncOutlined, DownloadOutlined } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
+import { Table, Button, Badge } from 'antd';
 import type { StrategicProduct, StrategicProductStatus } from '@/types/strategic-product';
 import { getColumns } from '../utils/columns';
-import { Authorized } from '@/components/Authorized';
-import { PERMISSIONS } from '@/constants/permissions';
+import StrategicProductToolbar from './StrategicProductToolbar';
 import styles from '../index.less';
 
 interface StrategicProductTableProps {
@@ -82,106 +79,27 @@ const StrategicProductTable: React.FC<StrategicProductTableProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // 批量操作菜单
-  const batchMenuItems: MenuProps['items'] = [
-    { key: 'confirm', label: '批量确认', icon: <CheckOutlined /> },
-    { key: 'reject', label: '批量驳回', icon: <CloseOutlined /> },
-    { type: 'divider' },
-    { key: 'delete', label: '批量删除', icon: <DeleteOutlined />, danger: true },
-  ];
-
-  const handleBatchMenuClick: MenuProps['onClick'] = ({ key }) => {
-    if (key === 'confirm') onBatchConfirm('confirm');
-    else if (key === 'reject') onBatchConfirm('reject');
-    else if (key === 'delete') onBatchDelete();
-  };
-
-  // 导出菜单
-  const exportMenuItems: MenuProps['items'] = [
-    { key: 'all', label: '导出全部数据' },
-    { key: 'page', label: '导出本页数据' },
-    { key: 'selected', label: '导出选中数据', disabled: selectedRowKeys.length === 0 && !selectAll },
-  ];
-
-  const handleExportMenuClick: MenuProps['onClick'] = ({ key }) => {
-    if (key === 'all' || key === 'page' || key === 'selected') {
-      onExport(key);
-    }
-  };
-
   return (
     <div className={styles.tableCard}>
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <Input
-            placeholder="搜索商品名称/编码"
-            value={keyword}
-            onChange={e => onKeywordChange(e.target.value)}
-            onPressEnter={onSearch}
-            style={{ width: isMobile ? '100%' : 200 }}
-            prefix={<SearchOutlined />}
-          />
-          {isMobile ? (
-            <Select
-              value={statusFilter ?? 'all'}
-              onChange={(val) => onStatusFilterChange(val === 'all' ? undefined : val as StrategicProductStatus)}
-              style={{ width: '100%' }}
-              options={[
-                { value: 'all', label: '全部' },
-                { value: 'pending', label: '待确认' },
-                { value: 'confirmed', label: '已确认' },
-                { value: 'rejected', label: '已驳回' },
-              ]}
-            />
-          ) : (
-            <Segmented
-              value={statusFilter ?? 'all'}
-              onChange={(val) => onStatusFilterChange(val === 'all' ? undefined : val as StrategicProductStatus)}
-              options={[
-                { value: 'all', label: '全部' },
-                { value: 'pending', label: '待确认' },
-                { value: 'confirmed', label: '已确认' },
-                { value: 'rejected', label: '已驳回' },
-              ]}
-            />
-          )}
-          <Button type="primary" onClick={onSearch} block={isMobile}>搜索</Button>
-        </div>
-        <div className={styles.toolbarRight}>
-          <Button
-            icon={<SyncOutlined />}
-            onClick={onSyncCategory}
-            loading={syncLoading}
-            block={isMobile}
-          >
-            同步品类
-          </Button>
-          <Authorized permission={PERMISSIONS.STRATEGIC.EXPORT}>
-            <Dropdown
-              menu={{ items: exportMenuItems, onClick: handleExportMenuClick }}
-            >
-              <Button icon={<DownloadOutlined />} loading={exportLoading} block={isMobile}>
-                导出
-              </Button>
-            </Dropdown>
-          </Authorized>
-          <Dropdown
-            menu={{ items: batchMenuItems, onClick: handleBatchMenuClick }}
-            disabled={selectedRowKeys.length === 0 && !selectAll}
-          >
-            <Button icon={<DownOutlined />} loading={batchLoading} block={isMobile}>
-              批量操作 {selectAll ? (
-                <Badge count={total} style={{ marginLeft: 6 }} />
-              ) : selectedRowKeys.length > 0 && (
-                <Badge count={selectedRowKeys.length} style={{ marginLeft: 6 }} />
-              )}
-            </Button>
-          </Dropdown>
-          <Button type="primary" icon={<PlusOutlined />} onClick={onAddClick} block={isMobile}>
-            添加战略商品
-          </Button>
-        </div>
-      </div>
+      <StrategicProductToolbar
+        keyword={keyword}
+        statusFilter={statusFilter}
+        isMobile={isMobile}
+        total={total}
+        selectAll={selectAll}
+        selectedRowKeys={selectedRowKeys}
+        syncLoading={syncLoading}
+        exportLoading={exportLoading}
+        batchLoading={batchLoading}
+        onKeywordChange={onKeywordChange}
+        onSearch={onSearch}
+        onStatusFilterChange={onStatusFilterChange}
+        onBatchConfirm={onBatchConfirm}
+        onBatchDelete={onBatchDelete}
+        onAddClick={onAddClick}
+        onSyncCategory={onSyncCategory}
+        onExport={onExport}
+      />
 
       {/* 全选全部提示 */}
       {selectAll && (

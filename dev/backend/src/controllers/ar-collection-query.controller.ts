@@ -18,7 +18,6 @@ import {
   getWarningReminders,
 } from '../services/ar-collection';
 import { getAssessmentsByTaskId } from '../services/ar-assessment';
-import { STATUS_NAMES, ROLE_NAMES } from '../services/ar-assessment/ar-assessment.types';
 import type { CollectionActionDTO } from '../services/ar-collection/ar-collection.dto';
 import type { TaskStatus, Priority, EscalationLevel } from '../services/ar-collection/ar-collection.types';
 import type { WarningLevel } from '../services/ar-collection/ar-warning.query';
@@ -27,7 +26,9 @@ import {
   toDetailDTO,
   toActionDTO,
   toLegalProgressDTO,
+  assessmentToActionDTO,
 } from '../services/ar-collection/ar-collection.mapper';
+import { MANAGER_ROLES } from '../utils/constants';
 
 /** 获取催收统计概览 */
 export const getStats = async (req: Request, res: Response) => {
@@ -132,20 +133,7 @@ export const getTaskActions = async (req: Request, res: Response) => {
     // 转换操作记录，过滤 null（toActionDTO 可能返回 null）
     const actionItems = actions.map(toActionDTO).filter((x): x is CollectionActionDTO => x !== null);
     // 将考核记录转换为操作记录格式
-    const assessmentItems = assessments.map((record) => ({
-      id: 1000000 + record.id,
-      taskId: record.taskId,
-      detailIds: null,
-      actionType: `assessment_${record.assessmentTier}`,
-      actionResult: STATUS_NAMES[record.status],
-      remark: `${record.assessmentUserName}(${ROLE_NAMES[record.assessmentRole]})`,
-      operatorId: 0,
-      operatorName: '系统',
-      operatorRole: '系统',
-      createdAt: record.calculatedAt instanceof Date
-        ? record.calculatedAt.toISOString()
-        : record.calculatedAt,
-    }));
+    const assessmentItems = assessments.map(assessmentToActionDTO);
     // 合并并按时间倒序排列
     const merged = [...actionItems, ...assessmentItems].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -210,7 +198,7 @@ export const getWarnings = async (req: Request, res: Response) => {
 
     // 非管理员只能查看自己负责的预警
     const role = req.user!.roles?.[0] || 'viewer';
-    if (role !== 'admin' && role !== 'manager' && role !== 'marketing_manager' && role !== 'marketing_supervisor') {
+    if (!MANAGER_ROLES.includes(role as any)) {
       params.managerUserId = userId;
     }
 
@@ -235,7 +223,7 @@ export const getReminders = async (req: Request, res: Response) => {
 
     // 非管理员只能查看自己的提醒记录
     const role = req.user!.roles?.[0] || 'viewer';
-    if (role !== 'admin' && role !== 'manager' && role !== 'marketing_manager' && role !== 'marketing_supervisor') {
+    if (!MANAGER_ROLES.includes(role as any)) {
       params.managerUserId = userId;
     }
 

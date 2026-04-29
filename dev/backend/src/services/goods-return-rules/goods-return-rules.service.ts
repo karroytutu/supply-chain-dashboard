@@ -13,6 +13,7 @@ import type {
   BatchSetRulesParams,
   BatchSetRulesResult,
 } from './goods-return-rules.types';
+import { toGoodsReturnRuleDTO, type GoodsReturnRuleRow } from './goods-return-rules.mapper';
 
 /**
  * 获取商品退货规则列表
@@ -46,19 +47,7 @@ export async function getGoodsReturnRules(
 
   // 查询列表
   const listParams = [...queryParams, pageSize, offset];
-  const result = await appQuery<{
-    id: number;
-    goods_id: string;
-    goods_name: string;
-    can_return_to_supplier: boolean;
-    confirmed_by: number | null;
-    confirmed_at: Date | null;
-    comment: string | null;
-    is_active: boolean;
-    created_at: Date;
-    updated_at: Date;
-    confirmed_by_name: string | null;
-  }>(
+  const result = await appQuery<GoodsReturnRuleRow>(
     `SELECT 
       grr.*,
       u.name as confirmed_by_name
@@ -70,19 +59,7 @@ export async function getGoodsReturnRules(
     listParams
   );
 
-  const data: GoodsReturnRule[] = result.rows.map(row => ({
-    id: row.id,
-    goodsId: row.goods_id,
-    goodsName: row.goods_name,
-    canReturnToSupplier: row.can_return_to_supplier,
-    confirmedBy: row.confirmed_by,
-    confirmedAt: row.confirmed_at,
-    comment: row.comment,
-    isActive: row.is_active,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    confirmedByName: row.confirmed_by_name || undefined,
-  }));
+  const data: GoodsReturnRule[] = result.rows.map(toGoodsReturnRuleDTO);
 
   return {
     data,
@@ -97,11 +74,7 @@ export async function getGoodsReturnRules(
  * 获取商品退货规则统计数据
  */
 export async function getGoodsReturnRuleStats(): Promise<GoodsReturnRuleStats> {
-  const result = await appQuery<{
-    can_return: number;
-    cannot_return: number;
-    total: number;
-  }>(
+  const result = await appQuery<any>(
     `SELECT 
       COUNT(*) as total,
       COUNT(CASE WHEN can_return_to_supplier = TRUE THEN 1 END) as can_return,
@@ -135,18 +108,7 @@ export async function createGoodsReturnRule(
   );
 
   // 创建新规则
-  const result = await appQuery<{
-    id: number;
-    goods_id: string;
-    goods_name: string;
-    can_return_to_supplier: boolean;
-    confirmed_by: number | null;
-    confirmed_at: Date | null;
-    comment: string | null;
-    is_active: boolean;
-    created_at: Date;
-    updated_at: Date;
-  }>(
+  const result = await appQuery<GoodsReturnRuleRow>(
     `INSERT INTO goods_return_rules 
      (goods_id, goods_name, can_return_to_supplier, confirmed_by, confirmed_at, comment, is_active)
      VALUES ($1, $2, $3, $4, NOW(), $5, TRUE)
@@ -154,19 +116,7 @@ export async function createGoodsReturnRule(
     [goodsId, goodsName, canReturnToSupplier, userId, comment || null]
   );
 
-  const row = result.rows[0];
-  return {
-    id: row.id,
-    goodsId: row.goods_id,
-    goodsName: row.goods_name,
-    canReturnToSupplier: row.can_return_to_supplier,
-    confirmedBy: row.confirmed_by,
-    confirmedAt: row.confirmed_at,
-    comment: row.comment,
-    isActive: row.is_active,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+  return toGoodsReturnRuleDTO(result.rows[0]);
 }
 
 /**
@@ -199,18 +149,7 @@ export async function updateGoodsReturnRule(
   );
 
   // 创建新规则（保留原商品信息）
-  const result = await appQuery<{
-    id: number;
-    goods_id: string;
-    goods_name: string;
-    can_return_to_supplier: boolean;
-    confirmed_by: number | null;
-    confirmed_at: Date | null;
-    comment: string | null;
-    is_active: boolean;
-    created_at: Date;
-    updated_at: Date;
-  }>(
+  const result = await appQuery<GoodsReturnRuleRow>(
     `INSERT INTO goods_return_rules 
      (goods_id, goods_name, can_return_to_supplier, confirmed_by, confirmed_at, comment, is_active)
      SELECT goods_id, goods_name, $1, $2, NOW(), $3, TRUE
@@ -219,19 +158,7 @@ export async function updateGoodsReturnRule(
     [canReturnToSupplier, userId, comment || null, id]
   );
 
-  const row = result.rows[0];
-  return {
-    id: row.id,
-    goodsId: row.goods_id,
-    goodsName: row.goods_name,
-    canReturnToSupplier: row.can_return_to_supplier,
-    confirmedBy: row.confirmed_by,
-    confirmedAt: row.confirmed_at,
-    comment: row.comment,
-    isActive: row.is_active,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+  return toGoodsReturnRuleDTO(result.rows[0]);
 }
 
 /**
@@ -293,18 +220,7 @@ export async function batchSetGoodsReturnRules(
 export async function checkGoodsReturnRule(
   goodsId: string
 ): Promise<GoodsReturnRule | null> {
-  const result = await appQuery<{
-    id: number;
-    goods_id: string;
-    goods_name: string;
-    can_return_to_supplier: boolean;
-    confirmed_by: number | null;
-    confirmed_at: Date | null;
-    comment: string | null;
-    is_active: boolean;
-    created_at: Date;
-    updated_at: Date;
-  }>(
+  const result = await appQuery<GoodsReturnRuleRow>(
     `SELECT * FROM goods_return_rules 
      WHERE goods_id = $1 AND is_active = TRUE
      ORDER BY created_at DESC
@@ -316,17 +232,5 @@ export async function checkGoodsReturnRule(
     return null;
   }
 
-  const row = result.rows[0];
-  return {
-    id: row.id,
-    goodsId: row.goods_id,
-    goodsName: row.goods_name,
-    canReturnToSupplier: row.can_return_to_supplier,
-    confirmedBy: row.confirmed_by,
-    confirmedAt: row.confirmed_at,
-    comment: row.comment,
-    isActive: row.is_active,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+  return toGoodsReturnRuleDTO(result.rows[0]);
 }

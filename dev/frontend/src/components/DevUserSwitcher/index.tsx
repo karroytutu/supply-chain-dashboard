@@ -100,7 +100,7 @@ const DevUserSwitcher: React.FC<DevUserSwitcherProps> = ({ children, onSwitch })
       setSwitchingId(userId);
       try {
         const result = await devSwitchUser(userId);
-        if (!result.success || !result.token) {
+        if (!result.token) {
           message.error(result.message || '切换用户失败');
           return;
         }

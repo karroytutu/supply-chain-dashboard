@@ -9,6 +9,7 @@ import {
   getFormTypeByCodeQuery,
   getFormTypesGroupedByCategory,
 } from '../services/oa-approval/oa-form-type.query';
+import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 /**
  * 获取所有表单类型
@@ -17,16 +18,10 @@ import {
 export async function listFormTypes(req: Request, res: Response): Promise<void> {
   try {
     const formTypes = await getActiveFormTypes();
-    res.json({
-      success: true,
-      data: formTypes,
-    });
+    res.json(buildSuccessResponse(formTypes));
   } catch (error) {
     console.error('获取表单类型失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取表单类型失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '获取表单类型失败'));
   }
 }
 
@@ -37,16 +32,10 @@ export async function listFormTypes(req: Request, res: Response): Promise<void> 
 export async function listFormTypesGrouped(req: Request, res: Response): Promise<void> {
   try {
     const grouped = await getFormTypesGroupedByCategory();
-    res.json({
-      success: true,
-      data: grouped,
-    });
+    res.json(buildSuccessResponse(grouped));
   } catch (error) {
     console.error('获取表单类型分组失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取表单类型分组失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '获取表单类型分组失败'));
   }
 }
 
@@ -60,22 +49,13 @@ export async function getFormType(req: Request, res: Response): Promise<void> {
     const formType = await getFormTypeByCodeQuery(code);
 
     if (!formType) {
-      res.status(404).json({
-        success: false,
-        message: '表单类型不存在',
-      });
+      res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
       return;
     }
 
-    res.json({
-      success: true,
-      data: formType,
-    });
+    res.json(buildSuccessResponse(formType));
   } catch (error) {
     console.error('获取表单类型失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取表单类型失败',
-    });
+    res.status(500).json(buildErrorResponse(500, '获取表单类型失败'));
   }
 }

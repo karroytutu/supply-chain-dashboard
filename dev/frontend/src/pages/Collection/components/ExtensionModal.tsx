@@ -9,7 +9,7 @@ import dayjs from 'dayjs';
 import { applyExtension, uploadEvidence } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import type { UploadFile } from 'antd/es/upload/interface';
-import styles from './ModalMobile.less';
+import styles from './collection-modal-shared.less';
 
 interface ExtensionModalProps {
   visible: boolean;

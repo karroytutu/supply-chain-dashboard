@@ -10,7 +10,7 @@ interface RoleItem {
   code: string;
   name: string;
   description: string;
-  is_system: boolean;
+  isSystem: boolean;
   status: number;
   permissions: { id: number; code: string; name: string }[];
 }
@@ -52,8 +52,8 @@ const RoleTable: React.FC<RoleTableProps> = ({
     },
     {
       title: '类型',
-      dataIndex: 'is_system',
-      key: 'is_system',
+      dataIndex: 'isSystem',
+      key: 'isSystem',
       width: 100,
       render: (isSystem: boolean) => (
         <Tag color={isSystem ? 'red' : 'blue'}>{isSystem ? '系统角色' : '自定义'}</Tag>
@@ -89,7 +89,7 @@ const RoleTable: React.FC<RoleTableProps> = ({
           <Button type="link" size="small" onClick={() => onEdit(record)}>
             编辑
           </Button>
-          {!record.is_system && (
+          {!record.isSystem && (
             <Popconfirm
               title="确认删除"
               description={`确定要删除角色 "${record.name}" 吗？`}

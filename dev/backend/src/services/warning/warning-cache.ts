@@ -5,9 +5,10 @@
 
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { CACHE_KEY } from '../../utils/cache-keys';
 
 /** 战略商品缓存 key 前缀 */
-const STRATEGIC_PRODUCT_CACHE_KEY = 'strategic:product:ids';
+const STRATEGIC_PRODUCT_CACHE_KEY = CACHE_KEY.STRATEGIC_PRODUCT_IDS;
 
 /**
  * 获取已确认的战略商品 ID 集合

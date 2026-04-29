@@ -8,6 +8,13 @@
 // 枚举/联合类型
 // ============================================
 
+/** 操作人信息（封装重复的 operatorId/operatorName/operatorRole 参数） */
+export interface OperatorInfo {
+  id: number;
+  name: string;
+  role: string;
+}
+
 /** 任务状态 */
 export type TaskStatus =
   | 'collecting'

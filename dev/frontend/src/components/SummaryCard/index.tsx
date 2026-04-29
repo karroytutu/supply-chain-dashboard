@@ -111,7 +111,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
       {/* 月度齐全率明细弹窗 */}
       <div onClick={(e) => e.stopPropagation()}>
         <MonthlyAvailabilityModal
-          open={modalVisible}
+          visible={modalVisible}
           onClose={() => setModalVisible(false)}
           data={monthlyData || null}
         />

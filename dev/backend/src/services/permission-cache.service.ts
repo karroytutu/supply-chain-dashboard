@@ -4,12 +4,13 @@
  */
 
 import { cache, CACHE_TTL } from '../utils/cache';
+import { CACHE_KEY } from '../utils/cache-keys';
 import { appQuery } from '../db/appPool';
 
 // 缓存键前缀
 const CACHE_KEY_PREFIX = {
   USER_PERMISSIONS: 'user_permissions:',
-  PERMISSION_TREE: 'permission_tree',
+  PERMISSION_TREE: CACHE_KEY.PERMISSION_TREE,
 };
 
 /**

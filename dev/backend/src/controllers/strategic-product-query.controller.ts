@@ -10,6 +10,7 @@ import {
   getCategoryTree,
   getProductsForSelection,
 } from '../services/strategic-product';
+import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 /** 获取战略商品列表 */
 export async function getStrategicProductsController(req: Request, res: Response) {
@@ -24,10 +25,10 @@ export async function getStrategicProductsController(req: Request, res: Response
       keyword: keyword as string,
     });
 
-    res.json(result);
+    res.json(buildSuccessResponse(result));
   } catch (error) {
     console.error('获取战略商品列表失败:', error);
-    res.status(500).json({ success: false, message: '获取战略商品列表失败' });
+    res.status(500).json(buildErrorResponse(500, '获取战略商品列表失败'));
   }
 }
 
@@ -35,10 +36,10 @@ export async function getStrategicProductsController(req: Request, res: Response
 export async function getStrategicProductStatsController(req: Request, res: Response) {
   try {
     const stats = await getStrategicProductStats();
-    res.json(stats);
+    res.json(buildSuccessResponse(stats));
   } catch (error) {
     console.error('获取战略商品统计失败:', error);
-    res.status(500).json({ success: false, message: '获取战略商品统计失败' });
+    res.status(500).json(buildErrorResponse(500, '获取战略商品统计失败'));
   }
 }
 
@@ -46,10 +47,10 @@ export async function getStrategicProductStatsController(req: Request, res: Resp
 export async function getCategoryTreeController(req: Request, res: Response) {
   try {
     const tree = await getCategoryTree();
-    res.json(tree);
+    res.json(buildSuccessResponse(tree));
   } catch (error) {
     console.error('获取品类树失败:', error);
-    res.status(500).json({ success: false, message: '获取品类树失败' });
+    res.status(500).json(buildErrorResponse(500, '获取品类树失败'));
   }
 }
 
@@ -65,9 +66,9 @@ export async function getProductsForSelectionController(req: Request, res: Respo
       pageSize: pageSize ? parseInt(pageSize as string) : 50,
     });
 
-    res.json(result);
+    res.json(buildSuccessResponse(result));
   } catch (error) {
     console.error('获取商品列表失败:', error);
-    res.status(500).json({ success: false, message: '获取商品列表失败' });
+    res.status(500).json(buildErrorResponse(500, '获取商品列表失败'));
   }
 }

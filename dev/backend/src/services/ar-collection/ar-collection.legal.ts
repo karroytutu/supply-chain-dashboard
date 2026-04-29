@@ -10,6 +10,7 @@ import type {
   SendNoticeParams,
   FileLawsuitParams,
   UpdateLegalProgressParams,
+  OperatorInfo,
 } from './ar-collection.types';
 
 /** 检查催收任务是否存在 */
@@ -27,9 +28,7 @@ async function logAction(
   actionType: ActionType,
   actionResult: ActionResult,
   remark: string | null,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   await query(
     `INSERT INTO ar_collection_actions
@@ -42,9 +41,9 @@ async function logAction(
       actionType,
       actionResult,
       remark,
-      operatorId,
-      operatorName,
-      operatorRole,
+      operator.id,
+      operator.name,
+      operator.role,
     ]
   );
 }
@@ -53,9 +52,7 @@ async function logAction(
 export async function sendCollectionNotice(
   taskId: number,
   params: SendNoticeParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   await ensureTaskExists(taskId);
 
@@ -63,46 +60,42 @@ export async function sendCollectionNotice(
   await query(
     `INSERT INTO ar_legal_progress (task_id, action, description, attachment_url, operator_id)
      VALUES ($1, 'send_notice', $2, $3, $4)`,
-    [taskId, params.description || null, params.attachment_url, operatorId]
+    [taskId, params.description || null, params.attachment_url, operator.id]
   );
 
-  await logAction(taskId, null, 'send_notice', 'success', params.description || '发送催收函', operatorId, operatorName, operatorRole);
+  await logAction(taskId, null, 'send_notice', 'success', params.description || '发送催收函', operator);
 }
 
 /** 提起诉讼 */
 export async function fileLawsuit(
   taskId: number,
   params: FileLawsuitParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   await ensureTaskExists(taskId);
 
   await query(
     `INSERT INTO ar_legal_progress (task_id, action, description, attachment_url, operator_id)
      VALUES ($1, 'file_lawsuit', $2, $3, $4)`,
-    [taskId, params.description, params.attachment_url || null, operatorId]
+    [taskId, params.description, params.attachment_url || null, operator.id]
   );
 
-  await logAction(taskId, null, 'file_lawsuit', 'success', params.description, operatorId, operatorName, operatorRole);
+  await logAction(taskId, null, 'file_lawsuit', 'success', params.description, operator);
 }
 
 /** 更新法律进展 */
 export async function updateLegalProgress(
   taskId: number,
   params: UpdateLegalProgressParams,
-  operatorId: number,
-  operatorName: string,
-  operatorRole: string
+  operator: OperatorInfo
 ): Promise<void> {
   await ensureTaskExists(taskId);
 
   await query(
     `INSERT INTO ar_legal_progress (task_id, action, description, attachment_url, operator_id)
      VALUES ($1, 'update_progress', $2, $3, $4)`,
-    [taskId, params.description, params.attachment_url || null, operatorId]
+    [taskId, params.description, params.attachment_url || null, operator.id]
   );
 
-  await logAction(taskId, null, 'update_progress', 'success', params.description, operatorId, operatorName, operatorRole);
+  await logAction(taskId, null, 'update_progress', 'success', params.description, operator);
 }

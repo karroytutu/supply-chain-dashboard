@@ -1,7 +1,7 @@
 import request from './request';
+import { toCamelKeys } from '@/utils/keyConvert';
 
 export interface LoginResult {
-  success: boolean;
   token?: string;
   user?: UserInfo;
   message?: string;
@@ -25,7 +25,7 @@ export interface RoleInfo {
   code: string;
   name: string;
   description?: string;
-  is_system?: boolean;
+  isSystem?: boolean;
 }
 
 export interface QrcodeConfig {
@@ -137,7 +137,8 @@ export async function assignUserRoles(id: number, roleIds: number[]): Promise<{ 
  * 获取所有角色
  */
 export async function getAllRoles(): Promise<RoleInfo[]> {
-  return request.get('/roles/all');
+  const data = await request.get<RoleInfo[]>('/roles/all');
+  return toCamelKeys(data);
 }
 
 /**
@@ -148,7 +149,8 @@ export async function getRoleList(params: {
   pageSize?: number;
   keyword?: string;
 }): Promise<{ data: any[]; total: number }> {
-  return request.get('/roles', { params });
+  const result = await request.get<{ data: any[]; total: number }>('/roles', { params });
+  return toCamelKeys(result);
 }
 
 /**

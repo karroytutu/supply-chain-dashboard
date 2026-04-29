@@ -6,6 +6,7 @@
 
 import { query } from '../../db/pool';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { CACHE_KEY } from '../../utils/cache-keys';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE, AR_HOARD_TAG_HOARD } from '../../utils/constants';
 import { searchErpCustomers } from '../erp-client/erp-customer.service';
 import { searchErpSettlementOrders } from '../erp-client/erp-settlement.service';
@@ -15,8 +16,8 @@ import type { ERPDebtRecord, EnrichedDebtRecord, CustomerLimits } from './ar-deb
 // 缓存 Key 常量
 // ============================================
 
-const CACHE_KEY_CUSTOMER_NAME_MAP = 'erp:customer:debt-name-map';
-const CACHE_KEY_CUSTOMER_LIMITS = 'erp:customer:limits';
+const CACHE_KEY_CUSTOMER_NAME_MAP = CACHE_KEY.CUSTOMER_NAME_MAP;
+const CACHE_KEY_CUSTOMER_LIMITS = CACHE_KEY.CUSTOMER_LIMITS;
 const CACHE_KEY_SETTLEMENT_HOARD = 'erp:settlement:hoard';
 
 // ============================================

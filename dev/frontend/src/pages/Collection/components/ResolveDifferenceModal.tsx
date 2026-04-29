@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Alert, message } from 'antd';
 import { resolveDifference } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
-import styles from './ModalMobile.less';
+import styles from './collection-modal-shared.less';
 
 interface ResolveDifferenceModalProps {
   visible: boolean;

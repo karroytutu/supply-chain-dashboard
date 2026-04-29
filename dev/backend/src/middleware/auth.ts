@@ -6,6 +6,8 @@ import {
   getUserPermissionCache,
   setUserPermissionCache,
 } from '../services/permission-cache.service';
+import { CACHE_TTL } from '../utils/cache';
+import { buildErrorResponse } from '../utils/response';
 
 // 扩展Express Request类型
 declare global {
@@ -25,20 +27,14 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   const token = extractTokenFromHeader(authHeader);
   
   if (!token) {
-    res.status(401).json({
-      success: false,
-      message: '未提供认证令牌',
-    });
+    res.status(401).json(buildErrorResponse(401, '未提供认证令牌'));
     return;
   }
   
   const payload = verifyToken(token);
   
   if (!payload) {
-    res.status(401).json({
-      success: false,
-      message: '无效的认证令牌',
-    });
+    res.status(401).json(buildErrorResponse(401, '无效的认证令牌'));
     return;
   }
   
@@ -50,18 +46,12 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     );
     
     if (result.rows.length === 0 || result.rows[0].status !== 1) {
-      res.status(401).json({
-        success: false,
-        message: '用户已被禁用',
-      });
+      res.status(401).json(buildErrorResponse(401, '用户已被禁用'));
       return;
     }
   } catch (error) {
     console.error('检查用户状态失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '服务器错误',
-    });
+    res.status(500).json(buildErrorResponse(500, '服务器错误'));
     return;
   }
   
@@ -76,7 +66,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
         permissions,
       };
       // 缓存30秒
-      setUserPermissionCache(payload.userId, permissionData, 30000);
+      setUserPermissionCache(payload.userId, permissionData, CACHE_TTL.HIGH_FREQUENCY);
     }
     
     // 挂载用户信息和权限到请求对象
@@ -89,10 +79,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     next();
   } catch (error) {
     console.error('获取用户权限失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '服务器错误',
-    });
+    res.status(500).json(buildErrorResponse(500, '服务器错误'));
   }
 }
 

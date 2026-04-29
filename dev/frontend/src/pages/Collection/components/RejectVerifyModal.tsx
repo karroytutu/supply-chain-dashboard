@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Descriptions, message } from 'antd';
 import { confirmVerify } from '@/services/api/ar-collection';
 import type { CollectionTask } from '@/types/ar-collection';
-import styles from './ModalMobile.less';
+import styles from './collection-modal-shared.less';
 
 interface RejectVerifyModalProps {
   visible: boolean;

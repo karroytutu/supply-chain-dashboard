@@ -241,27 +241,25 @@ describe('markErpFailed', () => {
 
 describe('retryErpOperation', () => {
   it('非 erp_failed 状态时应抛出错误', async () => {
-    const existingMeta: ErpMeta = {
-      status: 'completed',
-      responseData: {},
-      requestLog: null,
-      applicationNo: 'APA20260420001',
-      retries: 0,
-    };
-
+    // 第一次查询：检查 status（非 erp_failed）
     mockAppQuery.mockResolvedValueOnce({
-      rows: [{ erp_meta: existingMeta, form_type_id: 1 }],
+      rows: [{ status: 'completed' }],
     } as never);
 
-    await expect(retryErpOperation(1)).rejects.toThrow('审批实例不存在或ERP状态不是 erp_failed');
+    await expect(retryErpOperation(1)).rejects.toThrow('审批实例状态不是 erp_failed，无法重试');
   });
 
   it('erp_meta 为 null 时应抛出错误', async () => {
+    // 第一次查询：检查 status（erp_failed 通过）
+    mockAppQuery.mockResolvedValueOnce({
+      rows: [{ status: 'erp_failed' }],
+    } as never);
+    // 第二次查询：获取 erp_meta（为 null）
     mockAppQuery.mockResolvedValueOnce({
       rows: [{ erp_meta: null, form_type_id: 1 }],
     } as never);
 
-    await expect(retryErpOperation(1)).rejects.toThrow('审批实例不存在或ERP状态不是 erp_failed');
+    await expect(retryErpOperation(1)).rejects.toThrow('审批实例不存在或无 erp_meta');
   });
 
   it('erp_failed 状态时应重置为 pending 并触发回调', async () => {
@@ -273,7 +271,12 @@ describe('retryErpOperation', () => {
       retries: 1,
     };
 
-    // 第一次查询：获取 erp_meta 和 form_type_id
+    // 第一次查询：检查 status
+    mockAppQuery.mockResolvedValueOnce({
+      rows: [{ status: 'erp_failed' }],
+    } as never);
+
+    // 第二次查询：获取 erp_meta 和 form_type_id
     mockAppQuery.mockResolvedValueOnce({
       rows: [{ erp_meta: { ...failedMeta }, form_type_id: 1 }],
     } as never);
@@ -281,12 +284,18 @@ describe('retryErpOperation', () => {
     // setErpMeta 的 UPDATE
     mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
 
-    // 第三次查询：获取 form_type code
+    // UPDATE instances SET status='processing'
+    mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
+
+    // UPDATE nodes SET status='pending'
+    mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
+
+    // 获取 form_type code
     mockAppQuery.mockResolvedValueOnce({
       rows: [{ code: 'asset_purchase' }],
     } as never);
 
-    // 第四次查询：获取实例详情（用于回调）
+    // 获取实例详情（用于回调）
     const mockInstance = createMockInstance({ ...failedMeta, status: 'pending' });
     mockAppQuery.mockResolvedValueOnce({
       rows: [mockInstance],

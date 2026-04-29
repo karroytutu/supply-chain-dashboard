@@ -102,7 +102,7 @@ export const getStrategicLevels = (): Promise<StrategicLevelData[]> => {
 /**
  * 同步战略商品品类路径
  */
-export const syncCategoryPath = (): Promise<{ success: boolean; message: string; data: { updatedCount: number; totalCount: number } }> => {
+export const syncCategoryPath = (): Promise<{ updatedCount: number; totalCount: number }> => {
   return request.post('/strategic-products/sync-category');
 };
 

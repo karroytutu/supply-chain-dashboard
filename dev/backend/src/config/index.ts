@@ -26,8 +26,10 @@ if (env === 'production') {
   }
 }
 
+const DEFAULT_BACKEND_PORT = 8100;
+
 export const config = {
-  port: parseInt(process.env.PORT || '8100', 10),
+  port: parseInt(process.env.PORT || String(DEFAULT_BACKEND_PORT), 10),
   
   // 数据源数据库（只读，查询业务数据）
   database: {

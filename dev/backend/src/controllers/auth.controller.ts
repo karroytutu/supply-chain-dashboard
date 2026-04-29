@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { autoLogin, qrcodeCallback, getCurrentUser, devLogin, devSwitchUser, devGetUsers } from '../services/auth.service';
 import { config } from '../config';
 import crypto from 'crypto';
+import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 // 存储state值（生产环境应使用Redis）
 const stateStore = new Map<string, { expiresAt: number }>();
@@ -25,12 +26,12 @@ export async function checkEnv(req: Request, res: Response) {
     }
   }
   
-  res.json({
+  res.json(buildSuccessResponse({
     isInDingtalk,
     clientType,
     corpId: config.dingtalk.corpId,
     agentId: config.dingtalk.agentId,
-  });
+  }));
 }
 
 /**
@@ -42,10 +43,7 @@ export async function dingtalkAutoLogin(req: Request, res: Response) {
   console.log('[Auth] 收到免登请求, authCode:', authCode ? `${authCode.substring(0, 10)}... (长度: ${authCode.length})` : '空');
   
   if (!authCode) {
-    res.status(400).json({
-      success: false,
-      message: '缺少authCode参数',
-    });
+    res.status(400).json(buildErrorResponse(400, '缺authCode参数'));
     return;
   }
   
@@ -55,9 +53,9 @@ export async function dingtalkAutoLogin(req: Request, res: Response) {
   const result = await autoLogin(authCode, ipAddress, userAgent);
   
   if (result.success) {
-    res.json(result);
+    res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
   } else {
-    res.status(401).json(result);
+    res.status(401).json(buildErrorResponse(401, result.message || '登录失败'));
   }
 }
 
@@ -82,11 +80,11 @@ export async function getQrcodeConfig(req: Request, res: Response) {
   const baseUrl = config.app.baseUrl;
   const redirectUri = `${baseUrl}/login/callback`;
   
-  res.json({
+  res.json(buildSuccessResponse({
     appId: config.dingtalk.appKey,
     redirectUri,
     state,
-  });
+  }));
 }
 
 /**
@@ -99,10 +97,7 @@ export async function dingtalkCallback(req: Request, res: Response) {
   const actualCode = authCode || code;
   
   if (!actualCode) {
-    res.status(400).json({
-      success: false,
-      message: '缺少授权码',
-    });
+    res.status(400).json(buildErrorResponse(400, '缺少授权码'));
     return;
   }
   
@@ -126,9 +121,9 @@ export async function dingtalkCallback(req: Request, res: Response) {
   const result = await qrcodeCallback(actualCode, ipAddress, userAgent);
   
   if (result.success) {
-    res.json(result);
+    res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
   } else {
-    res.status(401).json(result);
+    res.status(401).json(buildErrorResponse(401, result.message || '登录失败'));
   }
 }
 
@@ -137,24 +132,18 @@ export async function dingtalkCallback(req: Request, res: Response) {
  */
 export async function getMe(req: Request, res: Response) {
   if (!req.user) {
-    res.status(401).json({
-      success: false,
-      message: '未登录',
-    });
+    res.status(401).json(buildErrorResponse(401, '未登录'));
     return;
   }
   
   const user = await getCurrentUser(req.user.userId);
   
   if (!user) {
-    res.status(404).json({
-      success: false,
-      message: '用户不存在',
-    });
+    res.status(404).json(buildErrorResponse(404, '用户不存在'));
     return;
   }
   
-  res.json(user);
+  res.json(buildSuccessResponse(user));
 }
 
 /**
@@ -163,10 +152,7 @@ export async function getMe(req: Request, res: Response) {
 export async function logout(req: Request, res: Response) {
   // JWT是无状态的，登出只需前端删除Token
   // 如果需要服务端控制，可以实现Token黑名单
-  res.json({
-    success: true,
-    message: '已登出',
-  });
+  res.json(buildSuccessResponse(null, '已登出'));
 }
 
 /**
@@ -175,10 +161,7 @@ export async function logout(req: Request, res: Response) {
 export async function developmentLogin(req: Request, res: Response) {
   // 仅允许开发环境
   if (process.env.NODE_ENV === 'production') {
-    res.status(403).json({
-      success: false,
-      message: '开发登录仅用于开发环境',
-    });
+    res.status(403).json(buildErrorResponse(403, '开发登录仅用于开发环境'));
     return;
   }
 
@@ -188,9 +171,9 @@ export async function developmentLogin(req: Request, res: Response) {
   const result = await devLogin(ipAddress, userAgent);
 
   if (result.success) {
-    res.json(result);
+    res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
   } else {
-    res.status(401).json(result);
+    res.status(401).json(buildErrorResponse(401, result.message || '登录失败'));
   }
 }
 
@@ -200,20 +183,13 @@ export async function developmentLogin(req: Request, res: Response) {
 export async function developmentGetUsers(req: Request, res: Response) {
   // 仅允许开发环境
   if (process.env.NODE_ENV === 'production') {
-    res.status(403).json({
-      success: false,
-      message: '开发用户列表仅用于开发环境',
-    });
+    res.status(403).json(buildErrorResponse(403, '开发用户列表仅用于开发环境'));
     return;
   }
 
   const users = await devGetUsers();
 
-  res.json({
-    success: true,
-    data: users,
-    total: users.length,
-  });
+  res.json(buildSuccessResponse(users));
 }
 
 /**
@@ -222,28 +198,22 @@ export async function developmentGetUsers(req: Request, res: Response) {
 export async function developmentSwitchUser(req: Request, res: Response) {
   // 仅允许开发环境
   if (process.env.NODE_ENV === 'production') {
-    res.status(403).json({
-      success: false,
-      message: '用户切换仅用于开发环境',
-    });
+    res.status(403).json(buildErrorResponse(403, '用户切换仅用于开发环境'));
     return;
   }
-
+  
   const { userId } = req.body;
-
+  
   if (!userId || typeof userId !== 'number') {
-    res.status(400).json({
-      success: false,
-      message: '缺少userId参数',
-    });
+    res.status(400).json(buildErrorResponse(400, '缺userId参数'));
     return;
   }
-
+  
   const result = await devSwitchUser(userId);
-
+  
   if (result.success) {
-    res.json(result);
+    res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
   } else {
-    res.status(401).json(result);
+    res.status(401).json(buildErrorResponse(401, result.message || '切换失败'));
   }
 }
