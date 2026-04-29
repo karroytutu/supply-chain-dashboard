@@ -51,7 +51,9 @@ export async function calculateArAssessments(): Promise<CalculationResult[]> {
             total_amount, assessment_start_time
      FROM ar_collection_tasks
      WHERE status IN ('collecting', 'escalated', 'difference_processing')
-       AND assessment_start_time IS NOT NULL`
+       AND assessment_start_time IS NOT NULL
+       AND created_at >= $1`,
+    [EFFECTIVE_DATE]
   );
 
   if (taskResult.rows.length === 0) {

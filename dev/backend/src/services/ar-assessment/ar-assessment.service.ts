@@ -34,6 +34,7 @@ interface AssessmentRow {
   calculated_at: Date;
   created_at: Date;
   updated_at: Date;
+  task_created_at: Date | null;
 }
 
 /** 行转实体 */
@@ -62,6 +63,7 @@ function mapRowToRecord(row: AssessmentRow): AssessmentRecord {
     calculatedAt: row.calculated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    taskCreateTime: row.task_created_at,
   };
 }
 
@@ -159,7 +161,8 @@ export async function getAssessments(
       a.handled_at,
       a.calculated_at,
       a.created_at,
-      a.updated_at
+      a.updated_at,
+      t.created_at as task_created_at
     FROM ar_assessment_records a
     LEFT JOIN ar_collection_tasks t ON a.task_id = t.id
     WHERE ${whereClause}
@@ -211,7 +214,8 @@ export async function getAssessmentById(id: number): Promise<AssessmentRecord | 
       a.handled_at,
       a.calculated_at,
       a.created_at,
-      a.updated_at
+      a.updated_at,
+      t.created_at as task_created_at
     FROM ar_assessment_records a
     LEFT JOIN ar_collection_tasks t ON a.task_id = t.id
     WHERE a.id = $1`,
@@ -325,14 +329,15 @@ export async function updateAssessmentHandleStatus(
 
   // 补充关联信息
   const record = result.rows[0];
-  const taskResult = await appQuery<{ task_no: string; consumer_name: string }>(
-    `SELECT task_no, consumer_name FROM ar_collection_tasks WHERE id = $1`,
+  const taskResult = await appQuery<{ task_no: string; consumer_name: string; created_at: Date }>(
+    `SELECT task_no, consumer_name, created_at FROM ar_collection_tasks WHERE id = $1`,
     [record.task_id]
   );
 
   if (taskResult.rows.length > 0) {
     record.task_no = taskResult.rows[0].task_no;
     record.consumer_name = taskResult.rows[0].consumer_name;
+    record.task_created_at = taskResult.rows[0].created_at;
   }
 
   return mapRowToRecord(record);
@@ -364,7 +369,8 @@ export async function getAssessmentsByTaskId(
       a.handled_at,
       a.calculated_at,
       a.created_at,
-      a.updated_at
+      a.updated_at,
+      t.created_at as task_created_at
     FROM ar_assessment_records a
     LEFT JOIN ar_collection_tasks t ON a.task_id = t.id
     WHERE a.task_id = $1

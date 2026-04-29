@@ -32,6 +32,7 @@ export interface AssessmentRecord {
   calculatedAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  taskCreateTime?: Date | null;
 }
 
 /** 考核查询参数 */
