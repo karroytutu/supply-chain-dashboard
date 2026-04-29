@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import { updateLegalProgress, uploadEvidence } from '@/services/api/ar-collection';
+import { fileLawsuit, uploadEvidence } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import type { UploadFile } from 'antd/es/upload/interface';
 import styles from './collection-modal-shared.less';
@@ -34,15 +34,15 @@ const UpdateLegalProgressModal: React.FC<UpdateLegalProgressModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
 
-      let attachmentFileId: number | undefined;
+      let attachmentUrl: string | undefined;
       if (fileList.length > 0 && fileList[0].originFileObj) {
         const uploadRes = await uploadEvidence(fileList[0].originFileObj);
-        attachmentFileId = uploadRes.fileId;
+        attachmentUrl = uploadRes.url;
       }
 
-      await updateLegalProgress(task.id, {
+      await fileLawsuit(task.id, {
         description: values.description,
-        attachmentFileId,
+        attachmentUrl,
       });
 
       message.success('法律进展已更新');

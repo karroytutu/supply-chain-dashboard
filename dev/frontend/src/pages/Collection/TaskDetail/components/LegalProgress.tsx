@@ -122,9 +122,6 @@ const LegalProgress: React.FC<LegalProgressProps> = ({ progress, onAction }) => 
       <Timeline items={items} />
       <div className="legal-actions">
         <Space>
-          <Button size="small" onClick={() => onAction('updateLegalProgress')}>
-            更新进展
-          </Button>
           <Button size="small" onClick={() => onAction('sendNotice')}>
             发送催收函
           </Button>

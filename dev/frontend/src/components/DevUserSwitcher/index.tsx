@@ -1,18 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Popover, Input, Spin, message } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import { devGetUsers, devSwitchUser, getCurrentUser, type UserInfo } from '@/services/api/auth';
+import { devGetUsers, devSwitchUser, getCurrentUser, type UserInfo, type DevUserItem } from '@/services/api/auth';
 import { useModel, history } from 'umi';
 import './index.less';
 
 const TOKEN_KEY = 'auth_token';
-
-interface UserItem {
-  id: number;
-  name: string;
-  avatar?: string;
-  roles?: { name: string }[];
-}
 
 interface SwitchPayload {
   name: string;
@@ -26,13 +19,13 @@ interface DevUserSwitcherProps {
   onSwitch: (payload: SwitchPayload) => void;
 }
 
-function getUserGroup(user: UserItem): string {
+function getUserGroup(user: DevUserItem): string {
   if (!user.roles || user.roles.length === 0) return '未分组';
   return user.roles[0].name;
 }
 
-function groupUsers(users: UserItem[]): { group: string; users: UserItem[] }[] {
-  const map = new Map<string, UserItem[]>();
+function groupUsers(users: DevUserItem[]): { group: string; users: DevUserItem[] }[] {
+  const map = new Map<string, DevUserItem[]>();
   users.forEach((u) => {
     const group = getUserGroup(u);
     if (!map.has(group)) map.set(group, []);
@@ -40,7 +33,7 @@ function groupUsers(users: UserItem[]): { group: string; users: UserItem[] }[] {
   });
 
   const order = ['管理员', '系统管理', '运营', '财务', '采购', '仓储', '营销'];
-  const result: { group: string; users: UserItem[] }[] = [];
+  const result: { group: string; users: DevUserItem[] }[] = [];
   order.forEach((g) => {
     if (map.has(g)) {
       result.push({ group: g, users: map.get(g)! });
@@ -63,7 +56,7 @@ const DevUserSwitcher: React.FC<DevUserSwitcherProps> = ({ children, onSwitch })
   const setCurrentUser = authModel?.setCurrentUser as ((user: UserInfo | null) => void) | undefined;
 
   const [open, setOpen] = useState(false);
-  const [users, setUsers] = useState<UserItem[]>([]);
+  const [users, setUsers] = useState<DevUserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [switchingId, setSwitchingId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState('');
@@ -72,7 +65,7 @@ const DevUserSwitcher: React.FC<DevUserSwitcherProps> = ({ children, onSwitch })
     if (!open || users.length > 0) return;
     setLoading(true);
     devGetUsers()
-      .then((res) => setUsers(res.data || []))
+      .then((userList) => setUsers(userList || []))
       .catch(() => message.error('获取用户列表失败'))
       .finally(() => setLoading(false));
   }, [open, users.length]);

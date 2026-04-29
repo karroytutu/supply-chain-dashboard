@@ -14,6 +14,7 @@ import {
   SendOutlined,
   FileTextOutlined,
   AuditOutlined,
+  PaperClipOutlined,
 } from '@ant-design/icons';
 import type { CollectionAction } from '@/types/ar-collection';
 
@@ -144,6 +145,16 @@ const ActionTimeline: React.FC<ActionTimelineProps> = ({
           <div style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
             {action.remark || '-'}
           </div>
+          {action.attachmentUrl && (
+            <a
+              href={action.attachmentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontSize: 13, marginTop: 2, display: 'inline-block' }}
+            >
+              <PaperClipOutlined /> 查看附件
+            </a>
+          )}
           <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
             {formatTime(action.createdAt)} · {action.operatorName}
             {action.operatorRole && ` (${action.operatorRole})`}

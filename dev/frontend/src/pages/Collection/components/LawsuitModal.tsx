@@ -34,15 +34,15 @@ const LawsuitModal: React.FC<LawsuitModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
 
-      let attachmentFileId: number | undefined;
+      let attachmentUrl: string | undefined;
       if (fileList.length > 0 && fileList[0].originFileObj) {
         const uploadRes = await uploadEvidence(fileList[0].originFileObj);
-        attachmentFileId = uploadRes.fileId;
+        attachmentUrl = uploadRes.url;
       }
 
       await fileLawsuit(task.id, {
         description: values.description,
-        attachmentFileId,
+        attachmentUrl,
       });
 
       message.success('诉讼记录已提交');

@@ -89,6 +89,7 @@ export interface CollectionActionDTO {
   actionType: ActionType;
   actionResult: ActionResult | null;
   remark: string | null;
+  attachmentUrl: string | null;
   operatorId: number | null;
   operatorName: string | null;
   operatorRole: string | null;

@@ -40,7 +40,7 @@ export type CollectionDetailStatus =
 /**
  * 法律催收操作类型
  */
-export type LegalActionType = 'send_notice' | 'file_lawsuit' | 'update_progress';
+export type LegalActionType = 'send_notice' | 'file_lawsuit';
 
 /**
  * 入催原因类型
@@ -146,6 +146,7 @@ export interface CollectionAction {
   actionType: string;
   actionResult: string | null;
   remark: string | null;
+  attachmentUrl: string | null;
   operatorId: number;
   operatorName: string;
   operatorRole: string;
@@ -237,7 +238,7 @@ export interface ResolveDifferenceParams {
  * 发送催收函参数
  */
 export interface SendNoticeParams {
-  attachmentFileId: number;
+  attachmentUrl: string;
   description?: string;
 }
 
@@ -246,25 +247,17 @@ export interface SendNoticeParams {
  */
 export interface FileLawsuitParams {
   description: string;
-  attachmentFileId?: number;
-}
-
-/**
- * 更新法律催收进展参数
- */
-export interface UpdateLegalProgressParams {
-  description: string;
-  attachmentFileId?: number;
+  attachmentUrl?: string;
 }
 
 /**
  * 上传凭证响应
  */
 export interface UploadEvidenceResponse {
-  success: boolean;
-  fileId: number;
+  filename: string;
   url: string;
-  fileName: string;
+  originalName: string;
+  size: number;
 }
 
 /**

@@ -19,7 +19,6 @@ import type {
   ResolveDifferenceParams,
   SendNoticeParams,
   FileLawsuitParams,
-  UpdateLegalProgressParams,
   UploadEvidenceResponse,
   Handler,
   UpcomingWarningData,
@@ -145,22 +144,14 @@ export const fileLawsuit = (id: number, data: FileLawsuitParams): Promise<Collec
 };
 
 /**
- * 更新法律催收进展
- */
-export const updateLegalProgress = (
-  id: number,
-  data: UpdateLegalProgressParams
-): Promise<CollectionTask> => {
-  return request.post<CollectionTask>(`/ar-collection/tasks/${id}/update-legal-progress`, data);
-};
-
-/**
  * 上传催收凭证
  */
 export const uploadEvidence = async (file: File): Promise<UploadEvidenceResponse> => {
   const formData = new FormData();
   formData.append('file', file);
-  return requestFormData<UploadEvidenceResponse>('/ar-collection/upload', formData);
+  const result = await requestFormData<{ code: number; data: UploadEvidenceResponse }>('/ar-collection/upload', formData);
+  // requestFormData 返回完整响应 { code, data: {...} }，需要提取 data
+  return result.data;
 };
 
 /**

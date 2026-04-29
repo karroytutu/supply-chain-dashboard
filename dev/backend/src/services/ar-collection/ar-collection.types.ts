@@ -221,6 +221,7 @@ export interface CollectionAction {
   action_type: ActionType;
   action_result: ActionResult | null;
   remark: string | null;
+  attachment_url: string | null;
 
   // 操作人
   operator_id: number | null;
