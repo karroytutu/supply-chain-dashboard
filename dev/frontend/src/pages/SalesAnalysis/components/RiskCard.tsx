@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Card, Tag } from 'antd';
+import { Card } from 'antd';
 import type { RiskCardData, RiskLevel } from '@/types/sales-analysis';
 import styles from './RiskCard.less';
 
@@ -29,18 +29,11 @@ const RiskCard: React.FC<RiskCardProps> = ({ data, onClick }) => {
       tabIndex={0}
       onClick={() => onClick?.(data.level)}
     >
-      <div className={styles.head}>
-        <div>
-          <div className={styles.kicker}>{data.kicker}</div>
-          <h3 className={styles.title}>{data.title}</h3>
-        </div>
-        <Tag color={data.tag.color}>{data.tag.text}</Tag>
-      </div>
+      <h3 className={styles.title}>{data.title}</h3>
       <div className={styles.countRow}>
         <div className={styles.count}>{data.count}</div>
         <div className={styles.unit}>{data.unit}</div>
       </div>
-      <div className={styles.caption}>{data.caption}</div>
       <div className={styles.meta}>
         {data.meta.map((item, idx) => (
           <div key={idx} className={styles.metaRow}>

@@ -7,14 +7,14 @@ import React from 'react';
 import { Modal, Tag, Button } from 'antd';
 import CustomerListPanel from './CustomerListPanel';
 import CustomerDetailPanel from './CustomerDetailPanel';
-import type { RiskLevel, DrilldownRiskGroup, DrilldownCustomer, RiskDefinitionItem } from '@/types/sales-analysis';
+import type { DrilldownRiskGroup, DrilldownCustomer, RiskDefinitionItem } from '@/types/sales-analysis';
 import styles from './CustomerDrilldownModal.less';
 
 interface CustomerDrilldownModalProps {
   drilldown: {
     state: {
       open: boolean;
-      riskLevel: RiskLevel;
+      drilldownKey: string;
       viewMode: 'all' | 'mine';
       filterKey: string;
       selectedCustomerId: string | null;
@@ -25,13 +25,14 @@ interface CustomerDrilldownModalProps {
       setFilterKey: (key: string) => void;
       selectCustomer: (id: string) => void;
     };
-    riskGroup: DrilldownRiskGroup;
+    riskGroup: DrilldownRiskGroup | undefined;
     filteredCustomers: DrilldownCustomer[];
     selectedCustomer: DrilldownCustomer | null;
   };
 }
 
 const CustomerDrilldownModal: React.FC<CustomerDrilldownModalProps> = ({ drilldown }) => {
+  if (!drilldown.riskGroup) return null;
   const footer = (
     <div className={styles.modalFooter}>
       <Button onClick={drilldown.actions.closeModal}>关闭</Button>
