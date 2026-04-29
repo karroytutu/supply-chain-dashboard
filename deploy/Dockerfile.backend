@@ -20,7 +20,17 @@ COPY --chown=nodejs:nodejs prod/backend/dist ./dist
 RUN mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/uploads/credit-license /app/logs && \
     chown -R nodejs:nodejs /app/uploads /app/logs
 
-USER nodejs
+# 复制 entrypoint 脚本（容器启动时修复 volume 挂载导致的权限问题）
+COPY --chown=nodejs:nodejs deploy/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# 需要先以 root 身份启动 entrypoint 修复权限，再切换到 nodejs 用户执行应用
+# gosu 在 alpine 中可用，用于安全降权
+RUN apk add --no-cache gosu
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# 注意：不使用 USER 指令，entrypoint 以 root 启动修复权限后通过 gosu 降权到 nodejs
 
 ENV NODE_ENV=production
 

@@ -1,6 +1,8 @@
+@import '~@/styles/variables.less';
+
 .container {
   padding: 24px;
-  background: #f0f2f5;
+  background: #f5f7fa;
   min-height: calc(100vh - 64px);
 }
 
@@ -70,10 +72,10 @@
   margin-left: auto;
 }
 
-// 卡片网格 - 5列
+// 卡片网格 - 6列
 .cardGrid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 8px;
 }
 
@@ -86,13 +88,13 @@
 }
 
 // 响应式
-@media (max-width: 1200px) {
+@media (max-width: @screen-xl) {
   .cardGrid {
     grid-template-columns: repeat(4, 1fr);
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: @screen-md) {
   .container {
     padding: 16px;
   }
@@ -110,8 +112,65 @@
   }
 }
 
-@media (max-width: 576px) {
+@media (max-width: @screen-sm) {
+  .container {
+    padding: 12px;
+  }
+
+  .pageHeader {
+    padding: 12px 14px;
+  }
+
+  .categorySection {
+    padding: 12px 14px;
+  }
+
+  .sectionHeader {
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .collapseArrow {
+    font-size: 12px;
+    color: var(--color-text-muted, #8c8c8c);
+    margin-left: 4px;
+  }
+
   .cardGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+}
+
+@media (max-width: @screen-xs) {
+  .container {
+    padding: @spacing-sm;
+  }
+
+  .pageHeader {
+    padding: 10px 12px;
+  }
+
+  .categorySection {
+    padding: 10px 12px;
+  }
+
+  .sectionName {
+    font-size: 13px;
+  }
+
+  .cardGrid {
+    gap: @spacing-xs;
+  }
+}
+
+@media (max-width: @screen-xxs) {
+  .pageTitle {
+    font-size: 16px;
+  }
+
+  .sectionCount {
+    display: none;
   }
 }

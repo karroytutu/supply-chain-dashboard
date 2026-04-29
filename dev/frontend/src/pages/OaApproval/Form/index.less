@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .container {
   display: flex;
   flex-direction: column;
@@ -121,14 +123,272 @@
   border-top: 1px solid #e8e8e8;
 }
 
+// 表格字段滚动容器
+.tableFieldWrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+}
+
 // 响应式
-@media (max-width: 768px) {
+@media (max-width: @screen-md) {
   .content {
     flex-direction: column;
-    padding: 16px;
+    padding: @spacing-md;
+    overflow-y: auto;
+  }
+
+  .header {
+    padding: 10px @spacing-md;
+  }
+
+  .formTitle {
+    font-size: 14px;
+  }
+
+  .version {
+    display: none;
+  }
+
+  .form {
+    padding: @spacing-md;
+
+    :global {
+      .ant-form-item {
+        margin-bottom: 16px;
+      }
+
+      .ant-form-item-label {
+        padding-bottom: 4px;
+
+        > label {
+          font-size: 13px;
+        }
+      }
+
+      .ant-input,
+      .ant-input-number,
+      .ant-select-selector,
+      .ant-picker {
+        height: 34px !important;
+        font-size: 13px;
+      }
+
+      .ant-input-number-input {
+        height: 32px;
+      }
+
+      .ant-input-number-handler-wrap {
+        height: 32px;
+      }
+
+      .ant-select-selection-item {
+        line-height: 32px !important;
+      }
+
+      .ant-select-selection-placeholder {
+        line-height: 32px !important;
+      }
+
+      .ant-picker-input > input {
+        font-size: 13px;
+      }
+
+      .ant-input-textarea textarea {
+        font-size: 13px;
+      }
+    }
+  }
+
+  .formSection {
+    flex: none;
+  }
+
+  .footer {
+    padding: 12px @spacing-md;
+    gap: 12px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .content {
+    padding-bottom: 60px;
   }
 
   .sidebar {
     width: 100%;
+  }
+}
+
+@media (max-width: @screen-sm) {
+  .container {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .header {
+    padding: 8px @spacing-sm;
+  }
+
+  .headerLeft {
+    gap: @spacing-sm;
+  }
+
+  .formTitle {
+    font-size: 13px;
+  }
+
+  .divider {
+    height: 16px;
+  }
+
+  .content {
+    padding: @spacing-sm;
+    gap: @spacing-sm;
+    padding-bottom: 64px;
+  }
+
+  .form {
+    padding: @spacing-md 12px;
+    border-radius: 6px;
+
+    :global {
+      .ant-form-item {
+        margin-bottom: 12px;
+      }
+
+      .ant-form-item-label {
+        padding-bottom: 2px;
+
+        > label {
+          font-size: 13px;
+          height: auto;
+        }
+      }
+
+      .ant-input,
+      .ant-input-number,
+      .ant-select-selector,
+      .ant-picker {
+        height: 32px !important;
+        font-size: 13px;
+      }
+
+      .ant-input-number-input {
+        height: 30px;
+      }
+
+      .ant-input-number-handler-wrap {
+        height: 30px;
+      }
+
+      .ant-select-selection-item {
+        line-height: 30px !important;
+        font-size: 13px;
+      }
+
+      .ant-select-selection-placeholder {
+        line-height: 30px !important;
+        font-size: 13px;
+      }
+
+      .ant-picker-input > input {
+        font-size: 13px;
+      }
+
+      .ant-input-textarea textarea {
+        font-size: 13px;
+        min-height: 56px !important;
+      }
+    }
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .footer {
+    padding: 10px @spacing-sm;
+    gap: @spacing-sm;
+    flex-wrap: wrap;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+
+    :global(.ant-btn) {
+      min-height: @touch-target-size;
+      flex: 1;
+    }
+  }
+}
+
+@media (max-width: @screen-xs) {
+  .form {
+    padding: 12px 10px;
+
+    :global {
+      .ant-form-item {
+        margin-bottom: 10px;
+      }
+
+      .ant-input,
+      .ant-input-number,
+      .ant-select-selector,
+      .ant-picker {
+        height: 30px !important;
+        font-size: 12px;
+      }
+
+      .ant-input-number-input {
+        height: 28px;
+      }
+
+      .ant-input-number-handler-wrap {
+        height: 28px;
+      }
+
+      .ant-select-selection-item {
+        line-height: 28px !important;
+        font-size: 12px;
+      }
+
+      .ant-select-selection-placeholder {
+        line-height: 28px !important;
+        font-size: 12px;
+      }
+
+      .ant-picker-input > input {
+        font-size: 12px;
+      }
+
+      .ant-input-textarea textarea {
+        font-size: 12px;
+        min-height: 48px !important;
+      }
+    }
+  }
+
+  .formTitle {
+    font-size: 12px;
+  }
+
+  .existingLicenseImages {
+    gap: 4px;
   }
 }

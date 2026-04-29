@@ -34,7 +34,7 @@ export interface DingtalkUserDetail {
 export type MessageType = 'markdown' | 'actionCard' | 'oa';
 
 /** 业务类型 */
-export type BusinessType = 'collection' | 'return_order' | 'return_penalty' | 'ar_assessment';
+export type BusinessType = 'collection' | 'return_order' | 'return_penalty' | 'ar_assessment' | 'oa_approval';
 
 /** 推送记录状态 */
 export type NotificationStatus = 'pending' | 'sent' | 'failed' | 'recalled';
@@ -59,12 +59,46 @@ export interface ActionCardContent {
   btnOrientation?: '0' | '1';
 }
 
+/** OA消息表单行 */
+export interface OaMessageFormRow {
+  key: string;
+  value: string;
+}
+
+/** OA 消息内容 */
+export interface OaMessageContent {
+  head: {
+    text: string;
+    bgColor?: string;
+  };
+  statusBar?: {
+    statusValue: string;
+    statusBg: string;
+  };
+  body: {
+    title: string;
+    form?: OaMessageFormRow[];
+    content?: string;
+    rich?: {
+      num: string;
+      unit: string;
+    };
+    image?: string;
+    fileCount?: number;
+    author?: string;
+  };
+  messageUrl?: string;
+  pcMessageUrl?: string;
+}
+
 /** 发送消息选项 */
 export interface SendMessageOptions {
   /** 消息类型 */
   msgType: MessageType;
   /** ActionCard 内容 */
   actionCard?: ActionCardContent;
+  /** OA消息内容 */
+  oaMessage?: OaMessageContent;
   /** 业务类型 */
   businessType?: BusinessType;
   /** 业务ID */
@@ -450,11 +484,11 @@ export function clearAccessTokenCache(): void {
 /**
  * 发送钉钉工作通知
  * 使用旧版 SDK 调用 asyncsend_v2 API 发送工作通知消息
- * 支持 markdown 和 actionCard 消息类型
+ * 支持 markdown、actionCard 和 oa 消息类型
  * @param userIdList 接收者的用户ID列表
  * @param title 消息标题
  * @param content 消息内容（支持Markdown格式）
- * @param options 发送选项（支持 ActionCard 等扩展消息类型）
+ * @param options 发送选项（支持 ActionCard、OA 等扩展消息类型）
  * @returns 发送结果
  */
 export async function sendWorkNotification(
@@ -474,22 +508,83 @@ export async function sendWorkNotification(
 
     // 构建消息体（根据官方文档格式）
     let msg: any;
+    let contentForLog: string = content;
 
     switch (msgType) {
-      case 'actionCard':
+      case 'actionCard': {
         if (!options?.actionCard) {
           return { success: false, message: 'ActionCard 内容为空' };
         }
-        msg = {
-          msgtype: 'action_card',
-          action_card: {
-            title: options.actionCard.title,
-            markdown: options.actionCard.markdown,
-            single_title: options.actionCard.singleTitle || '查看详情',
-            single_url: options.actionCard.singleUrl,
-          },
-        };
+        const ac = options.actionCard;
+        // 支持双按钮模式(btnJsonList)和单按钮模式(singleUrl)
+        if (ac.btnJsonList && ac.btnJsonList.length > 0) {
+          msg = {
+            msgtype: 'action_card',
+            action_card: {
+              title: ac.title,
+              markdown: ac.markdown,
+              btn_orientation: ac.btnOrientation || '0',
+              btn_json_list: ac.btnJsonList.map(btn => ({
+                title: btn.title,
+                action_url: btn.actionUrl,
+              })),
+            },
+          };
+        } else {
+          msg = {
+            msgtype: 'action_card',
+            action_card: {
+              title: ac.title,
+              markdown: ac.markdown,
+              single_title: ac.singleTitle || '查看详情',
+              single_url: ac.singleUrl,
+            },
+          };
+        }
+        contentForLog = JSON.stringify(ac);
         break;
+      }
+
+      case 'oa': {
+        if (!options?.oaMessage) {
+          return { success: false, message: 'OA 消息内容为空' };
+        }
+        const oa = options.oaMessage;
+        const oaBody: any = {
+          title: oa.body.title,
+        };
+        if (oa.body.form) {
+          oaBody.form = oa.body.form.map(row => ({ key: row.key, value: row.value }));
+        }
+        if (oa.body.content) oaBody.content = oa.body.content;
+        if (oa.body.rich) oaBody.rich = oa.body.rich;
+        if (oa.body.image) oaBody.image = oa.body.image;
+        if (oa.body.fileCount) oaBody.file_count = oa.body.fileCount;
+        if (oa.body.author) oaBody.author = oa.body.author;
+
+        const oaMsg: any = {
+          head: {
+            text: oa.head.text,
+            ...(oa.head.bgColor ? { bgcolor: oa.head.bgColor } : {}),
+          },
+          body: oaBody,
+        };
+        if (oa.statusBar) {
+          oaMsg.status_bar = {
+            status_value: oa.statusBar.statusValue,
+            status_bg: oa.statusBar.statusBg,
+          };
+        }
+        if (oa.messageUrl) oaMsg.message_url = oa.messageUrl;
+        if (oa.pcMessageUrl) oaMsg.pc_message_url = oa.pcMessageUrl;
+
+        msg = {
+          msgtype: 'oa',
+          oa: oaMsg,
+        };
+        contentForLog = JSON.stringify(oa);
+        break;
+      }
 
       case 'markdown':
       default:
@@ -500,6 +595,7 @@ export async function sendWorkNotification(
             text: content,
           },
         };
+        contentForLog = content;
         break;
     }
 
@@ -528,7 +624,7 @@ export async function sendWorkNotification(
         businessNo: options?.businessNo,
         msgType,
         title,
-        content: msgType === 'markdown' ? content : JSON.stringify(options?.actionCard),
+        content: contentForLog,
         taskId,
         receiverIds: userIdList,
         createdBy: options?.createdBy,
@@ -549,7 +645,7 @@ export async function sendWorkNotification(
         businessNo: options?.businessNo,
         msgType,
         title,
-        content: msgType === 'markdown' ? content : JSON.stringify(options?.actionCard),
+        content: contentForLog,
         receiverIds: userIdList,
         createdBy: options?.createdBy,
       });
@@ -613,4 +709,40 @@ export async function sendDingtalkRequest(
     req.write(postData);
     req.end();
   });
+}
+
+/**
+ * 更新工作通知状态栏
+ * 调用钉钉 /topapi/message/corpconversation/status_bar/update API
+ * @param taskId 工作通知的task_id
+ * @param statusValue 状态值文本（如"已通过"）
+ * @param statusBg 状态背景色（如"#52C41A"）
+ */
+export async function updateNotificationStatusBar(
+  taskId: number,
+  statusValue: string,
+  statusBg: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const accessToken = await getAccessToken();
+
+    const result = await oapiRequest(accessToken, '/topapi/message/corpconversation/status_bar/update', {
+      agent_id: config.dingtalk.agentId,
+      task_id: taskId,
+      status_value: statusValue,
+      status_bg: statusBg,
+    });
+
+    if (result.errcode === 0) {
+      console.log('[Dingtalk] 通知状态栏更新成功:', { taskId, statusValue, statusBg });
+      return { success: true, message: '状态栏更新成功' };
+    } else {
+      const errMsg = result.errmsg || '状态栏更新失败';
+      console.error('[Dingtalk] 通知状态栏更新失败:', errMsg);
+      return { success: false, message: errMsg };
+    }
+  } catch (error: any) {
+    console.error('[Dingtalk] 通知状态栏更新异常:', error.message);
+    return { success: false, message: error.message || '状态栏更新异常' };
+  }
 }

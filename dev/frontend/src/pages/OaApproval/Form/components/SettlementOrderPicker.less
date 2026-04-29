@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .triggerArea {
   display: flex;
   align-items: center;
@@ -63,5 +65,41 @@
 
   span {
     color: rgba(0, 0, 0, 0.45);
+  }
+}
+
+.settlementModal {
+  :global(.ant-modal) {
+    max-width: calc(100vw - 32px);
+  }
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+}
+
+@media (max-width: @screen-md) {
+  .modalFooter {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+    text-align: center;
+  }
+}
+
+@media (max-width: @screen-sm) {
+  .triggerArea {
+    min-height: @touch-target-size;
   }
 }

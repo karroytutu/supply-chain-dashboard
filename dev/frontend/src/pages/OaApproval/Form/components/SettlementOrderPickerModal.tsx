@@ -123,6 +123,7 @@ const SettlementOrderPickerModal: React.FC<SettlementOrderPickerModalProps> = ({
   return (
     <Modal
       title="选择压单结算单" open={open} width={1080}
+      className={styles.settlementModal}
       onCancel={handleClose}
       footer={
         <div className={styles.modalFooter}>
@@ -140,24 +141,26 @@ const SettlementOrderPickerModal: React.FC<SettlementOrderPickerModalProps> = ({
         onSearch={(val) => { setCurrentPage(1); fetchData(1, val); }}
         loading={tableLoading}
       />
-      <Table<SettlementRecord>
-        rowKey="bizId" size="small" columns={TABLE_COLUMNS}
-        dataSource={dataSource}
-        scroll={{ y: 400 }}
-        loading={tableLoading}
-        rowSelection={{
-          selectedRowKeys: draftKeys,
-          onChange: (keys) => setDraftKeys(keys as number[]),
-        }}
-        pagination={{
-          current: currentPage,
-          pageSize: PAGE_SIZE,
-          total,
-          showSizeChanger: false,
-          showTotal: (t) => `共 ${t} 条`,
-          onChange: handlePageChange,
-        }}
-      />
+      <div className={styles.tableWrapper}>
+        <Table<SettlementRecord>
+          rowKey="bizId" size="small" columns={TABLE_COLUMNS}
+          dataSource={dataSource}
+          scroll={{ x: 800 }}
+          loading={tableLoading}
+          rowSelection={{
+            selectedRowKeys: draftKeys,
+            onChange: (keys) => setDraftKeys(keys as number[]),
+          }}
+          pagination={{
+            current: currentPage,
+            pageSize: PAGE_SIZE,
+            total,
+            showSizeChanger: false,
+            showTotal: (t) => `共 ${t} 条`,
+            onChange: handlePageChange,
+          }}
+        />
+      </div>
     </Modal>
   );
 };

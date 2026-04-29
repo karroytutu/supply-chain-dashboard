@@ -1,15 +1,28 @@
 /**
  * OA审批通知服务
+ * 待审批通知使用 ActionCard（含"同意"+"查看详情"双按钮）
+ * 结果/抄送通知使用 OA消息（带状态栏颜色反馈）
+ * 审批状态变更后自动更新钉钉通知状态栏
  * @module services/oa-approval/oa-approval-notify
  */
 
 import { appQuery as query } from '../../db/appPool';
-import { sendWorkNotification } from '../dingtalk.service';
+import { updateNotificationStatusBar } from '../dingtalk.service';
 import {
   CreateMessageParams,
-  OaApprovalInstanceRow,
-  OaFormTypeRow,
+  FormSchema,
 } from './oa-approval.types';
+import {
+  DingtalkNotifyParams,
+  buildPendingActionCard,
+  buildResultOaMessage,
+  buildCcOaMessage,
+  buildTransferActionCard,
+  sendPendingNotification,
+  sendResultNotification,
+  sendCcNotification,
+} from './oa-approval-dingtalk';
+import { OA_DINGTALK_STATUS } from '../../utils/constants';
 
 // =====================================================
 // 站内消息
@@ -40,7 +53,7 @@ export async function createInAppMessages(
 }
 
 // =====================================================
-// 钉钉通知
+// 通知参数类型
 // =====================================================
 
 interface NotifyParams {
@@ -51,9 +64,17 @@ interface NotifyParams {
   applicantName: string;
   urgency?: string;
   nodeName?: string;
+  nodeOrder?: number;
   reason?: string;
   fromUserName?: string;
+  rejectUserName?: string;
+  formSchema?: FormSchema;
+  formData?: Record<string, unknown>;
 }
+
+// =====================================================
+// 辅助函数
+// =====================================================
 
 /**
  * 获取用户的钉钉ID
@@ -68,13 +89,84 @@ async function getDingtalkUserIds(userIds: number[]): Promise<string[]> {
 }
 
 /**
- * 发送待审批通知
+ * 构建 DingtalkNotifyParams
+ */
+function toDingtalkParams(params: NotifyParams): DingtalkNotifyParams {
+  return {
+    instanceId: params.instanceId,
+    instanceNo: params.instanceNo,
+    title: params.title,
+    formTypeName: params.formTypeName,
+    applicantName: params.applicantName,
+    urgency: params.urgency,
+    nodeName: params.nodeName,
+    nodeOrder: params.nodeOrder,
+    reason: params.reason,
+    fromUserName: params.fromUserName,
+    rejectUserName: params.rejectUserName,
+    formSchema: params.formSchema,
+    formData: params.formData,
+  };
+}
+
+/**
+ * 保存通知TaskId映射（用于后续状态栏更新）
+ */
+async function saveTaskMapping(
+  instanceId: number,
+  taskId: number | undefined,
+  receiverUserIds: number[],
+  notificationType: string
+): Promise<void> {
+  if (!taskId) return;
+  for (const userId of receiverUserIds) {
+    await query(
+      `INSERT INTO oa_notification_task_mapping (instance_id, task_id, receiver_user_id, notification_type)
+       VALUES ($1, $2, $3, $4)`,
+      [instanceId, taskId, userId, notificationType]
+    );
+  }
+}
+
+/**
+ * 更新审批实例所有通知的状态栏
+ * 查询该实例所有pending类型的taskId，批量调用状态栏更新API
+ */
+export async function updateInstanceNotificationStatus(
+  instanceId: number,
+  statusValue: string,
+  statusBg: string
+): Promise<void> {
+  const result = await query<{ task_id: string }>(
+    `SELECT DISTINCT task_id FROM oa_notification_task_mapping
+     WHERE instance_id = $1 AND notification_type = 'pending'`,
+    [instanceId]
+  );
+
+  for (const row of result.rows) {
+    const taskId = parseInt(row.task_id, 10);
+    if (!isNaN(taskId)) {
+      try {
+        await updateNotificationStatusBar(taskId, statusValue, statusBg);
+      } catch (error) {
+        console.error(`[OA] 更新通知状态栏失败 (taskId=${taskId}):`, error);
+      }
+    }
+  }
+}
+
+// =====================================================
+// 通知发送函数
+// =====================================================
+
+/**
+ * 发送待审批通知（ActionCard + 双按钮）
  */
 export async function notifyPendingApproval(
   params: NotifyParams,
   approverIds: number[]
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName, applicantName, urgency, nodeName } = params;
+  const { instanceId, instanceNo, title, formTypeName, applicantName } = params;
 
   // 站内消息
   await createInAppMessages(
@@ -87,38 +179,44 @@ export async function notifyPendingApproval(
     }))
   );
 
-  // 钉钉通知
-  const urgencyText = urgency === 'urgent' ? '【非常紧急】' : urgency === 'high' ? '【紧急】' : '';
+  // 钉钉ActionCard通知
   const dingtalkUserIds = await getDingtalkUserIds(approverIds);
+  if (dingtalkUserIds.length === 0) return;
 
-  if (dingtalkUserIds.length > 0) {
-    const markdown = `## ${urgencyText}待审批通知
+  // 为每个审批人单独构建ActionCard（每个用户有独立的Token）
+  const userIdToDingtalkId = new Map<number, string>();
+  if (approverIds.length > 0 && dingtalkUserIds.length > 0) {
+    const userRows = await query<{ id: number; dingtalk_userid: string }>(
+      `SELECT id, dingtalk_userid FROM users WHERE id = ANY($1) AND dingtalk_userid IS NOT NULL`,
+      [approverIds]
+    );
+    for (const row of userRows.rows) {
+      userIdToDingtalkId.set(row.id, row.dingtalk_userid);
+    }
+  }
 
-**标题**: ${title}
-**编号**: ${instanceNo}
-**类型**: ${formTypeName}
-**申请人**: ${applicantName}
-**当前节点**: ${nodeName || '-'}
-**紧急程度**: ${urgency === 'urgent' ? '非常紧急' : urgency === 'high' ? '紧急' : '普通'}
-
-请尽快处理审批。`;
+  for (const approverId of approverIds) {
+    const dingtalkId = userIdToDingtalkId.get(approverId);
+    if (!dingtalkId) continue;
 
     try {
-      await sendWorkNotification(dingtalkUserIds, '待审批通知', markdown);
+      const actionCard = await buildPendingActionCard(toDingtalkParams(params), approverId);
+      const taskId = await sendPendingNotification([dingtalkId], actionCard, instanceId, instanceNo);
+      await saveTaskMapping(instanceId, taskId, [approverId], 'pending');
     } catch (error) {
-      console.error('Failed to send DingTalk notification:', error);
+      console.error('Failed to send pending ActionCard notification:', error);
     }
   }
 }
 
 /**
- * 发送审批通过通知（给申请人）
+ * 发送审批通过通知（OA消息 + 更新状态栏）
  */
 export async function notifyApproved(
   params: NotifyParams,
   applicantId: number
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName } = params;
+  const { instanceId, instanceNo, title, formTypeName, applicantName } = params;
 
   // 站内消息
   await createInAppMessage({
@@ -129,28 +227,25 @@ export async function notifyApproved(
     instanceId,
   });
 
-  // 钉钉通知
+  // 钉钉OA结果通知
   const dingtalkUserIds = await getDingtalkUserIds([applicantId]);
-
   if (dingtalkUserIds.length > 0) {
-    const markdown = `## 审批通过通知
-
-**标题**: ${title}
-**编号**: ${instanceNo}
-**类型**: ${formTypeName}
-
-您的审批申请已通过。`;
-
     try {
-      await sendWorkNotification(dingtalkUserIds, '审批通过通知', markdown);
+      const oaMessage = buildResultOaMessage(toDingtalkParams(params), 'approved');
+      const taskId = await sendResultNotification(dingtalkUserIds, oaMessage, instanceId, instanceNo);
+      await saveTaskMapping(instanceId, taskId, [applicantId], 'approved');
     } catch (error) {
-      console.error('Failed to send DingTalk notification:', error);
+      console.error('Failed to send approved OA notification:', error);
     }
   }
+
+  // 更新该实例所有pending通知的状态栏为"已通过"
+  const statusConfig = OA_DINGTALK_STATUS.APPROVED;
+  await updateInstanceNotificationStatus(instanceId, statusConfig.value, statusConfig.bg);
 }
 
 /**
- * 发送审批拒绝通知（给申请人）
+ * 发送审批拒绝通知（OA消息 + 更新状态栏）
  */
 export async function notifyRejected(
   params: NotifyParams,
@@ -169,36 +264,32 @@ export async function notifyRejected(
     instanceId,
   });
 
-  // 钉钉通知
+  // 钉钉OA结果通知
   const dingtalkUserIds = await getDingtalkUserIds([applicantId]);
-
   if (dingtalkUserIds.length > 0) {
-    const markdown = `## 审批被拒绝通知
-
-**标题**: ${title}
-**编号**: ${instanceNo}
-**类型**: ${formTypeName}
-**拒绝人**: ${rejectUserName}
-**拒绝原因**: ${reason}
-
-您的审批申请已被拒绝。`;
-
     try {
-      await sendWorkNotification(dingtalkUserIds, '审批被拒绝通知', markdown);
+      const rejectParams = { ...toDingtalkParams(params), reason, rejectUserName };
+      const oaMessage = buildResultOaMessage(rejectParams, 'rejected');
+      const taskId = await sendResultNotification(dingtalkUserIds, oaMessage, instanceId, instanceNo);
+      await saveTaskMapping(instanceId, taskId, [applicantId], 'rejected');
     } catch (error) {
-      console.error('Failed to send DingTalk notification:', error);
+      console.error('Failed to send rejected OA notification:', error);
     }
   }
+
+  // 更新该实例所有pending通知的状态栏为"已拒绝"
+  const statusConfig = OA_DINGTALK_STATUS.REJECTED;
+  await updateInstanceNotificationStatus(instanceId, statusConfig.value, statusConfig.bg);
 }
 
 /**
- * 发送转交通知（给新审批人）
+ * 发送转交通知（ActionCard + 更新原通知状态栏）
  */
 export async function notifyTransferred(
   params: NotifyParams,
   newApproverId: number
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName, applicantName, fromUserName, nodeName } = params;
+  const { instanceId, instanceNo, title, formTypeName, applicantName, fromUserName } = params;
 
   // 站内消息
   await createInAppMessage({
@@ -209,31 +300,21 @@ export async function notifyTransferred(
     instanceId,
   });
 
-  // 钉钉通知
+  // 钉钉ActionCard通知
   const dingtalkUserIds = await getDingtalkUserIds([newApproverId]);
-
   if (dingtalkUserIds.length > 0) {
-    const markdown = `## 转交待审批通知
-
-**标题**: ${title}
-**编号**: ${instanceNo}
-**类型**: ${formTypeName}
-**原申请人**: ${applicantName}
-**转交人**: ${fromUserName}
-**当前节点**: ${nodeName || '-'}
-
-此审批已转交给您处理。`;
-
     try {
-      await sendWorkNotification(dingtalkUserIds, '转交待审批通知', markdown);
+      const actionCard = await buildTransferActionCard(toDingtalkParams(params), newApproverId);
+      const taskId = await sendPendingNotification(dingtalkUserIds, actionCard, instanceId, instanceNo);
+      await saveTaskMapping(instanceId, taskId, [newApproverId], 'pending');
     } catch (error) {
-      console.error('Failed to send DingTalk notification:', error);
+      console.error('Failed to send transfer ActionCard notification:', error);
     }
   }
 }
 
 /**
- * 发送加签通知（给加签人）
+ * 发送加签通知（ActionCard）
  */
 export async function notifyCountersign(
   params: NotifyParams,
@@ -252,30 +333,32 @@ export async function notifyCountersign(
     }))
   );
 
-  // 钉钉通知
-  const dingtalkUserIds = await getDingtalkUserIds(countersignerIds);
+  // 钉钉ActionCard通知（为每个加签人单独构建，含独立Token）
+  const userRows = await query<{ id: number; dingtalk_userid: string }>(
+    `SELECT id, dingtalk_userid FROM users WHERE id = ANY($1) AND dingtalk_userid IS NOT NULL`,
+    [countersignerIds]
+  );
+  const userIdToDingtalkId = new Map<number, string>();
+  for (const row of userRows.rows) {
+    userIdToDingtalkId.set(row.id, row.dingtalk_userid);
+  }
 
-  if (dingtalkUserIds.length > 0) {
-    const markdown = `## 加签待审批通知
-
-**标题**: ${title}
-**编号**: ${instanceNo}
-**类型**: ${formTypeName}
-**申请人**: ${applicantName}
-**加签发起人**: ${fromUserName}
-
-您被邀请参与此审批的加签流程。`;
+  for (const countersignerId of countersignerIds) {
+    const dingtalkId = userIdToDingtalkId.get(countersignerId);
+    if (!dingtalkId) continue;
 
     try {
-      await sendWorkNotification(dingtalkUserIds, '加签待审批通知', markdown);
+      const actionCard = await buildPendingActionCard(toDingtalkParams(params), countersignerId);
+      const taskId = await sendPendingNotification([dingtalkId], actionCard, instanceId, instanceNo);
+      await saveTaskMapping(instanceId, taskId, [countersignerId], 'pending');
     } catch (error) {
-      console.error('Failed to send DingTalk notification:', error);
+      console.error('Failed to send countersign ActionCard notification:', error);
     }
   }
 }
 
 /**
- * 发送撤回通知（给原审批人）
+ * 发送撤回通知（OA消息 + 更新状态栏）
  */
 export async function notifyWithdrawn(
   params: NotifyParams,
@@ -294,29 +377,25 @@ export async function notifyWithdrawn(
     }))
   );
 
-  // 钉钉通知
+  // 钉钉OA结果通知
   const dingtalkUserIds = await getDingtalkUserIds(approverIds);
-
   if (dingtalkUserIds.length > 0) {
-    const markdown = `## 审批已撤回通知
-
-**标题**: ${title}
-**编号**: ${instanceNo}
-**类型**: ${formTypeName}
-**撤回人**: ${applicantName}
-
-此审批已被申请人撤回。`;
-
     try {
-      await sendWorkNotification(dingtalkUserIds, '审批已撤回通知', markdown);
+      const oaMessage = buildResultOaMessage(toDingtalkParams(params), 'withdrawn');
+      const taskId = await sendResultNotification(dingtalkUserIds, oaMessage, instanceId, instanceNo);
+      await saveTaskMapping(instanceId, taskId, approverIds, 'withdrawn');
     } catch (error) {
-      console.error('Failed to send DingTalk notification:', error);
+      console.error('Failed to send withdrawn OA notification:', error);
     }
   }
+
+  // 更新该实例所有pending通知的状态栏为"已撤回"
+  const statusConfig = OA_DINGTALK_STATUS.WITHDRAWN;
+  await updateInstanceNotificationStatus(instanceId, statusConfig.value, statusConfig.bg);
 }
 
 /**
- * 发送抄送通知
+ * 发送抄送通知（OA消息）
  */
 export async function notifyCc(
   params: NotifyParams,
@@ -335,23 +414,15 @@ export async function notifyCc(
     }))
   );
 
-  // 钉钉通知
+  // 钉钉OA抄送通知
   const dingtalkUserIds = await getDingtalkUserIds(ccUserIds);
-
   if (dingtalkUserIds.length > 0) {
-    const markdown = `## 抄送通知
-
-**标题**: ${title}
-**编号**: ${instanceNo}
-**类型**: ${formTypeName}
-**申请人**: ${applicantName}
-
-此审批已抄送给您。`;
-
     try {
-      await sendWorkNotification(dingtalkUserIds, '抄送通知', markdown);
+      const oaMessage = buildCcOaMessage(toDingtalkParams(params));
+      const taskId = await sendCcNotification(dingtalkUserIds, oaMessage, instanceId, instanceNo);
+      await saveTaskMapping(instanceId, taskId, ccUserIds, 'cc');
     } catch (error) {
-      console.error('Failed to send DingTalk notification:', error);
+      console.error('Failed to send CC OA notification:', error);
     }
   }
 }

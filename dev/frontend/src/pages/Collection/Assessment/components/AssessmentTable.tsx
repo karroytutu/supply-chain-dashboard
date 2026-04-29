@@ -4,6 +4,7 @@
 import React from 'react';
 import { Table, Button, Tag } from 'antd';
 import { FormOutlined } from '@ant-design/icons';
+import { history } from 'umi';
 import type { ColumnsType } from 'antd/es/table';
 import type { AssessmentRecord, AssessmentTier, AssessmentRole, AssessmentStatus } from '@/types/ar-assessment.d';
 import { TIER_NAMES, ROLE_NAMES, STATUS_NAMES } from '@/types/ar-assessment.d';
@@ -23,7 +24,20 @@ interface AssessmentTableProps {
 const useColumns = (onMark: (record: AssessmentRecord) => void): ColumnsType<AssessmentRecord> => [
   {
     title: '任务编号', dataIndex: 'taskNo', width: 150,
-    render: (text) => text || '-',
+    render: (text, record) => (
+      <Button
+        type="link"
+        size="small"
+        style={{ padding: 0 }}
+        onClick={() => history.push(`/collection/task/${record.taskId}`)}
+      >
+        {text || '-'}
+      </Button>
+    ),
+  },
+  {
+    title: '任务创建日期', dataIndex: 'taskCreateTime', width: 160,
+    render: (text) => text ? new Date(text).toLocaleDateString('zh-CN') : '-',
   },
   {
     title: '客户名称', dataIndex: 'consumerName', width: 120, ellipsis: true,
