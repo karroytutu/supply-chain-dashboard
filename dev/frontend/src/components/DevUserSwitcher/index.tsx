@@ -17,6 +17,8 @@ interface SwitchPayload {
 interface DevUserSwitcherProps {
   children: React.ReactNode;
   onSwitch: (payload: SwitchPayload) => void;
+  /** 是否为开发环境（影响面板标签显示） */
+  isDev?: boolean;
 }
 
 function getUserGroup(user: DevUserItem): string {
@@ -45,12 +47,13 @@ function groupUsers(users: DevUserItem[]): { group: string; users: DevUserItem[]
 }
 
 /**
- * 开发环境用户切换面板
+ * 用户切换面板
  *
  * 点击子元素后弹出搜索面板，支持按角色分组浏览和搜索过滤用户。
  * 切换用户后无感刷新权限状态，不触发页面 reload。
+ * 开发环境免权限使用，生产环境需 system:user:switch 权限。
  */
-const DevUserSwitcher: React.FC<DevUserSwitcherProps> = ({ children, onSwitch }) => {
+const DevUserSwitcher: React.FC<DevUserSwitcherProps> = ({ children, onSwitch, isDev = false }) => {
   const authModel = useModel('auth');
   const currentUser = authModel?.currentUser as UserInfo | null;
   const setCurrentUser = authModel?.setCurrentUser as ((user: UserInfo | null) => void) | undefined;
@@ -127,7 +130,11 @@ const DevUserSwitcher: React.FC<DevUserSwitcherProps> = ({ children, onSwitch })
     <div className="dev-user-switcher-panel">
       <div className="panel-header">
         <span className="panel-title">切换用户</span>
-        <span className="panel-dev-tag">dev</span>
+        {isDev ? (
+          <span className="panel-dev-tag">dev</span>
+        ) : (
+          <span className="panel-auth-tag">授权</span>
+        )}
       </div>
       <div className="panel-search">
         <Input

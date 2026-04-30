@@ -7,6 +7,8 @@ import UserAvatar from '@/components/UserAvatar';
 import DevUserSwitcher from '@/components/DevUserSwitcher';
 import ChunkErrorBoundary from '@/components/ChunkErrorBoundary';
 import { initChunkErrorGlobalListener } from '@/utils/chunk-error-handler';
+import { usePermission } from '@/hooks/usePermission';
+import { PERMISSIONS } from '@/constants/permissions';
 
 // 在 React 渲染之前注册全局 chunk 加载错误监听
 initChunkErrorGlobalListener();
@@ -29,7 +31,7 @@ interface LayoutRuntimeConfig {
 
 /**
  * 右上角头像及菜单组件
- * 开发环境下显示用户切换功能
+ * 开发环境或拥有 system:user:switch 权限时显示用户切换功能
  */
 function RightAvatar({
   initialState,
@@ -40,6 +42,9 @@ function RightAvatar({
   setInitialState: (state: LayoutInitialState | ((prev: LayoutInitialState) => LayoutInitialState)) => void;
   runtimeConfig: LayoutRuntimeConfig;
 }) {
+  const { hasPermission } = usePermission();
+  const canSwitchUser = isDev || hasPermission(PERMISSIONS.SYSTEM.USER.SWITCH);
+
   if (!initialState) {
     return (
       <div className="umi-plugin-layout-right">
@@ -78,12 +83,13 @@ function RightAvatar({
     },
   ];
 
-  // 开发环境：在退出登录上方插入切换用户入口（弹出搜索面板）
-  if (isDev) {
+  // 开发环境或有权限：在退出登录上方插入切换用户入口（弹出搜索面板）
+  if (canSwitchUser) {
     menuItems.unshift({
       key: 'switch-user',
       label: (
         <DevUserSwitcher
+          isDev={isDev}
           onSwitch={({ name, avatar, permissions, roles }) => {
             setInitialState((s) => ({ ...s, name, avatar, permissions, roles }));
           }}
@@ -91,9 +97,15 @@ function RightAvatar({
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <SwapOutlined />
             切换用户
-            <Tag color="orange" style={{ marginLeft: 4, fontSize: 10, lineHeight: '14px' }}>
-              dev
-            </Tag>
+            {isDev ? (
+              <Tag color="orange" style={{ marginLeft: 4, fontSize: 10, lineHeight: '14px' }}>
+                dev
+              </Tag>
+            ) : (
+              <Tag color="blue" style={{ marginLeft: 4, fontSize: 10, lineHeight: '14px' }}>
+                授权
+              </Tag>
+            )}
           </span>
         </DevUserSwitcher>
       ),
