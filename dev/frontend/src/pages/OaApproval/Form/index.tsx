@@ -12,6 +12,7 @@ import { useFormData } from './hooks/useFormData';
 import FormFieldConfig from './components/FormFieldConfig';
 import ConditionalFieldWrapper, { checkCondition } from './components/ConditionalFieldWrapper';
 import { ApprovalFlow } from '@/components/OaApproval';
+import { initDingtalkViewportHeight } from '@/utils/dingtalk/utils';
 import styles from './index.less';
 
 const FormPage: React.FC = () => {
@@ -25,6 +26,11 @@ const FormPage: React.FC = () => {
 
   const { loading, formType, customerLicenseInfo, licenseLoading, loadFormType, handleCustomerSelect } =
     useFormData(form, formData, setFormData);
+
+  // 钉钉 WebView 视口高度修正
+  useEffect(() => {
+    return initDingtalkViewportHeight();
+  }, []);
 
   // 加载表单类型
   useEffect(() => {

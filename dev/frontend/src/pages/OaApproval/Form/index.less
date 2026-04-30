@@ -3,7 +3,9 @@
 .container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
+  height: calc(var(--vh, 1vh) * 100 - 64px);  // 钉钉 JS 修正高度
+  height: calc(100dvh - 64px);                  // 现代浏览器：动态视口高度
+  height: calc(100vh - 64px);                    // 回退：不支持 dvh 的浏览器
   background: #f5f7fa;
 }
 
@@ -60,6 +62,7 @@
 .formSection {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;  // iOS WebView 惯性滚动
 }
 
 .form {
@@ -236,6 +239,7 @@
 @media (max-width: @screen-sm) {
   .container {
     height: auto;
+    min-height: 100dvh;
     min-height: 100vh;
   }
 
