@@ -126,6 +126,33 @@ if [ ! -f "$PROJECT_ROOT/prod/backend/dist/app.js" ]; then
 fi
 log_info "构建产物验证通过"
 
+# 构建新鲜度检查
+STALE_THRESHOLD=$((24 * 3600))  # 24小时
+CURRENT_TIME=$(date +%s)
+
+check_stale() {
+    local file_path="$1"
+    local file_name="$2"
+    local file_mtime=$(stat -c %Y "$file_path" 2>/dev/null || echo 0)
+    local file_age=$((CURRENT_TIME - file_mtime))
+
+    if [ "$file_age" -gt "$STALE_THRESHOLD" ]; then
+        local hours_old=$((file_age / 3600))
+        if [ "$SKIP_BUILD" = true ]; then
+            log_error "${file_name}构建产物已过期（${hours_old}小时前构建）"
+            log_error "使用了 --skip-build 但构建产物超过24小时，请移除 --skip-build 重新构建"
+            exit 1
+        else
+            log_warn "${file_name}构建产物已过期（${hours_old}小时前构建），将重新构建"
+        fi
+    else
+        log_info "${file_name}构建产物新鲜度检查通过"
+    fi
+}
+
+check_stale "$PROJECT_ROOT/prod/frontend/dist/index.html" "前端"
+check_stale "$PROJECT_ROOT/prod/backend/dist/app.js" "后端"
+
 # 恢复环境配置
 if [ -f "prod/backend/.env.backup" ]; then
     cp prod/backend/.env.backup prod/backend/.env
