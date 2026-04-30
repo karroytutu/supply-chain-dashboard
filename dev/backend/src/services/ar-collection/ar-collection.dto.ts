@@ -41,6 +41,7 @@ export interface CollectionTaskDTO {
   lastEscalatedAt: string | null;
   lastEscalatedBy: number | null;
   escalationReason: string | null;
+  preEscalationStatus: TaskStatus | null;
   extensionCount: number;
   currentExtensionId: number | null;
   extensionUntil: string | null;
@@ -133,4 +134,9 @@ export interface EscalateDTO {
 export interface ResolveDifferenceDTO {
   detailIds: number[];
   remark: string;
+}
+
+/** 退回升级请求 DTO */
+export interface RollbackDTO {
+  reason: string;
 }

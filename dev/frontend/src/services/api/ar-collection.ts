@@ -19,6 +19,7 @@ import type {
   ResolveDifferenceParams,
   SendNoticeParams,
   FileLawsuitParams,
+  RollbackParams,
   UploadEvidenceResponse,
   Handler,
   UpcomingWarningData,
@@ -110,6 +111,13 @@ export const markDifference = (id: number, data: DifferenceParams): Promise<Coll
  */
 export const escalateTask = (id: number, data: EscalateParams): Promise<CollectionTask> => {
   return request.post<CollectionTask>(`/ar-collection/tasks/${id}/escalate`, data);
+};
+
+/**
+ * 退回操作
+ */
+export const rollbackEscalation = (id: number, data: RollbackParams): Promise<CollectionTask> => {
+  return request.post<CollectionTask>(`/ar-collection/tasks/${id}/rollback`, data);
 };
 
 /**

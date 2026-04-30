@@ -45,6 +45,7 @@ export {
   escalateTask,
   confirmVerify,
   resolveDifference,
+  rollbackEscalation,
 } from './ar-collection.mutation';
 
 // 法律催收服务
@@ -63,6 +64,8 @@ export {
   buildVerifyResultMessage,
   buildEscalationActionCard,
   buildVerifyResultActionCard,
+  buildRollbackActionCard,
+  ESCALATION_LEVEL_NAMES,
 } from './ar-collection-notify';
 
 // 任务创建通知服务

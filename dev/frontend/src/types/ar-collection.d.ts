@@ -67,6 +67,7 @@ export interface CollectionTask {
   maxOverdueDays: number;
   escalationLevel: EscalationLevel;
   escalationCount: number;
+  preEscalationStatus: CollectionTaskStatus | null;
   extensionCount: number;
   extensionUntil: string | null;
   canExtend: boolean;
@@ -232,6 +233,13 @@ export interface ConfirmVerifyParams {
 export interface ResolveDifferenceParams {
   detailIds: number[];
   remark: string;
+}
+
+/**
+ * 退回操作参数
+ */
+export interface RollbackParams {
+  reason: string;
 }
 
 /**

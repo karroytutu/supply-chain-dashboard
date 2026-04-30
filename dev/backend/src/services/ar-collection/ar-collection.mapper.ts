@@ -13,6 +13,7 @@ import type {
   DifferenceParams,
   EscalateParams,
   ResolveDifferenceParams,
+  RollbackParams,
 } from './ar-collection.types';
 import type {
   CollectionTaskDTO,
@@ -23,6 +24,7 @@ import type {
   MarkDifferenceDTO,
   EscalateDTO,
   ResolveDifferenceDTO,
+  RollbackDTO,
 } from './ar-collection.dto';
 import type { AssessmentRecord } from '../ar-assessment/ar-assessment.types';
 import { STATUS_NAMES, ROLE_NAMES } from '../ar-assessment/ar-assessment.types';
@@ -49,6 +51,7 @@ export function toTaskDTO(task: CollectionTask | null): CollectionTaskDTO | null
     assessmentTiers: task.assessment_tiers ?? [],
     entryReasons: task.entry_reasons ?? [],
     entryRuleSnapshot: task.entry_rule_snapshot ?? null,
+    preEscalationStatus: task.pre_escalation_status ?? null,
   };
 }
 
@@ -178,6 +181,23 @@ export function fromResolveDifferenceDTO(
     task_id: taskId,
     detail_ids: dto.detailIds,
     remark: dto.remark,
+    operator_id: operatorId,
+    operator_name: operatorName,
+  };
+}
+
+/**
+ * 退回升级请求 DTO → 服务层参数
+ */
+export function fromRollbackDTO(
+  dto: RollbackDTO,
+  taskId: number,
+  operatorId: number,
+  operatorName: string,
+): RollbackParams {
+  return {
+    task_id: taskId,
+    reason: dto.reason,
     operator_id: operatorId,
     operator_name: operatorName,
   };

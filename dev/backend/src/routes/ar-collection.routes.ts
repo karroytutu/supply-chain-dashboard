@@ -58,6 +58,9 @@ router.post('/tasks/:id/difference', requirePermission('ar:collection:write'), m
 // 升级处理（催收升级属于写操作）
 router.post('/tasks/:id/escalate', requirePermission('ar:collection:write'), mutationController.escalateTask);
 
+// 退回升级
+router.post('/tasks/:id/rollback', requirePermission('ar:collection:rollback'), mutationController.rollbackEscalation);
+
 // 出纳确认核销（催收核实属于写操作）
 router.post('/tasks/:id/confirm-verify', requirePermission(['ar:collection:write', 'ar:collection:verify']), mutationController.confirmVerify);
 

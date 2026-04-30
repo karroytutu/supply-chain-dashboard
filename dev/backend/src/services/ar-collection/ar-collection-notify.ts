@@ -26,8 +26,12 @@ interface MessageTemplate {
   content: string;
 }
 
-/** 升级层级中文映射 */
-const ESCALATION_LEVEL_NAMES: Record<EscalationLevel, string> = {
+/**
+ * 升级层级中文映射
+ * @syncTo 前端 RollbackModal.tsx 中的 LEVEL_LABELS 必须与此保持一致
+ * @usedBy ar-collection-notify.ts (通知消息), ar-collection.mutation.ts (退回日志)
+ */
+export const ESCALATION_LEVEL_NAMES: Record<EscalationLevel, string> = {
   0: '营销师',
   1: '营销主管',
   2: '财务',
@@ -499,4 +503,41 @@ ${sections.join('\n\n')}
 推送时间：${formatTimestamp()}`;
 
   return { title, content };
+}
+
+/**
+ * 构建退回通知 ActionCard 消息
+ */
+export function buildRollbackActionCard(
+  task: CollectionTask,
+  fromLevel: EscalationLevel,
+  toLevel: EscalationLevel,
+  rollbackByName?: string,
+  restoredStatus?: string,
+): ActionCardContent {
+  const fromName = ESCALATION_LEVEL_NAMES[fromLevel];
+  const toName = ESCALATION_LEVEL_NAMES[toLevel];
+  const consumerName = task.consumer_name || task.consumer_code;
+  const STATUS_LABELS: Record<string, string> = {
+    collecting: '催收中',
+    extension: '延期中',
+    difference_processing: '差异处理',
+  };
+
+  const markdown = `催收任务已退回，需要您继续处理：
+
+- **任务编号**: ${task.task_no}
+- **客户名称**: ${consumerName}
+- **逾期总额**: ${formatAmount(task.total_amount)}
+- **退回路径**: ${fromName} → ${toName}
+- **恢复状态**: ${STATUS_LABELS[restoredStatus || 'collecting'] || restoredStatus}${rollbackByName ? `\n- **退回操作人**: ${rollbackByName}` : ''}
+
+请及时继续跟进该催收任务！`;
+
+  return {
+    title: `【催收退回】${consumerName} 已退回至${toName}`,
+    markdown,
+    singleTitle: '查看详情',
+    singleUrl: ACTION_URL,
+  };
 }

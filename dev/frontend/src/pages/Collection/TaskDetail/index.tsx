@@ -19,6 +19,7 @@ import RejectVerifyModal from '../components/RejectVerifyModal';
 import ResolveDifferenceModal from '../components/ResolveDifferenceModal';
 import SendNoticeModal from '../components/SendNoticeModal';
 import LawsuitModal from '../components/LawsuitModal';
+import RollbackModal from '../components/RollbackModal';
 import type { CollectionDetail } from '@/types/ar-collection';
 import type { ModalType } from './hooks/useTaskDetail';
 import './index.less';
@@ -173,6 +174,12 @@ const TaskDetailPage: React.FC = () => {
             onSuccess={handleSuccess}
             task={task}
             selectedDetails={modalDetails}
+          />
+          <RollbackModal
+            visible={activeModal === 'rollback'}
+            onClose={closeModal}
+            onSuccess={handleSuccess}
+            task={task}
           />
         </>
       )}

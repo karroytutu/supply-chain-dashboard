@@ -20,6 +20,7 @@ export type ModalType =
   | 'extension'
   | 'difference'
   | 'escalate'
+  | 'rollback'
   | 'rejectVerify'
   | 'resolveDifference'
   | 'sendNotice'

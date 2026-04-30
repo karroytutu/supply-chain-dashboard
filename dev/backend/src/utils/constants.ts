@@ -78,6 +78,25 @@ export const EXPIRING_RATE_WARNING = 3;
 /** 临期率 - 关注阈值（%） @usedBy overview.service.ts, frontend/warning.ts */
 export const EXPIRING_RATE_ATTENTION = 1;
 
+// ==================== 角色编码 ====================
+
+/** 管理角色编码（用于权限判断和角色映射）
+ * @usedBy ar-collection-query.controller.ts, ar-collection.mutation.ts
+ */
+export const ROLE_CODES = {
+  ADMIN: 'admin',
+  MANAGER: 'manager',
+  MARKETER: 'marketer',
+  MARKETING_MANAGER: 'marketing_manager',
+  MARKETING_SUPERVISOR: 'marketing_supervisor',
+  CURRENT_ACCOUNTANT: 'current_accountant',
+  FINANCE_STAFF: 'finance_staff',
+  CASHIER: 'cashier',
+} as const;
+
+/** 具有管理权限的角色列表 */
+export const MANAGER_ROLES = Object.values(ROLE_CODES);
+
 // ==================== 催收相关阈值 ====================
 
 /** 催收延期最大天数 @usedBy ar-collection.mutation.ts (校验延期天数) */
@@ -100,6 +119,23 @@ export const AR_HOARD_TAG_HOARD = 'HOARD';
 
 /** 催收明细压单排除状态 @usedBy ar-hoard-reconcile.ts (标记压单排除明细) */
 export const AR_DETAIL_STATUS_HOARD_EXCLUDED = 'hoard_excluded';
+
+/** 升级处理角色映射: 升级层级 → 处理角色编码
+ * @usedBy ar-collection.mutation.ts (升级时确定目标角色)
+ * @usedBy ar-collection.mutation.ts (退回时确定恢复角色)
+ */
+export const AR_ESCALATION_HANDLER_ROLES: Record<number, string> = {
+  1: ROLE_CODES.MARKETING_MANAGER,
+  2: ROLE_CODES.CURRENT_ACCOUNTANT,
+};
+
+/** 退回目标角色映射: 当前升级层级 → 退回后处理角色编码
+ * @usedBy ar-collection.mutation.ts (退回时确定恢复角色)
+ */
+export const AR_ROLLBACK_HANDLER_ROLES: Record<number, string> = {
+  2: ROLE_CODES.MARKETING_MANAGER,   // L2→L1: 财务退回给营销主管
+  1: ROLE_CODES.MARKETER,            // L1→L0: 营销主管退回给营销师
+};
 
 // ==================== 退货考核阈值 ====================
 
@@ -173,19 +209,6 @@ export const OA_DINGTALK_STATUS = {
   WITHDRAWN:  { value: '已撤回', bg: '#999999' },
   CC:         { value: '抄送',   bg: '#1890FF' },
 } as const;
-
-// ==================== 角色编码 ====================
-
-/** 管理角色编码（用于权限判断） @usedBy ar-collection-query.controller.ts */
-export const ROLE_CODES = {
-  ADMIN: 'admin',
-  MANAGER: 'manager',
-  MARKETING_MANAGER: 'marketing_manager',
-  MARKETING_SUPERVISOR: 'marketing_supervisor',
-} as const;
-
-/** 具有管理权限的角色列表 */
-export const MANAGER_ROLES = Object.values(ROLE_CODES);
 
 // ==================== 工具函数 ====================
 

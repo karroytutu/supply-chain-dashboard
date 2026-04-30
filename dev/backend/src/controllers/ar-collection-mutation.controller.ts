@@ -12,6 +12,7 @@ import {
   escalateTask as escalateTaskService,
   confirmVerify as confirmVerifyService,
   resolveDifference as resolveDifferenceService,
+  rollbackEscalation as rollbackEscalationService,
   sendCollectionNotice,
   fileLawsuit as fileLawsuitService,
   updateLegalProgress as updateLegalProgressService,
@@ -24,6 +25,7 @@ import {
   fromDifferenceDTO,
   fromEscalateDTO,
   fromResolveDifferenceDTO,
+  fromRollbackDTO,
 } from '../services/ar-collection/ar-collection.mapper';
 
 /** 从请求中提取操作人信息 */
@@ -93,6 +95,22 @@ export const escalateTask = async (req: Request, res: Response) => {
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '升级处理失败');
+  }
+};
+
+/** 退回升级 */
+export const rollbackEscalation = async (req: Request, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.id);
+    if (isNaN(taskId)) {
+      res.status(400).json({ code: 400, message: '无效的任务ID' });
+      return;
+    }
+    const operator = getOperator(req);
+    await rollbackEscalationService(taskId, fromRollbackDTO(req.body, taskId, operator.id, operator.name), operator);
+    res.json({ code: 200, message: 'success', data: null });
+  } catch (error) {
+    handleMutationError(res, error, '退回操作失败');
   }
 };
 

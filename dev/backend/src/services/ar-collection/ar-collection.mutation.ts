@@ -5,7 +5,7 @@
 
 import { appQuery as query, getAppClient as getClient } from '../../db/appPool';
 import { query as erpQuery } from '../../db/pool';
-import { AR_EXTENSION_MAX_DAYS } from '../../utils/constants';
+import { AR_EXTENSION_MAX_DAYS, AR_ESCALATION_HANDLER_ROLES, AR_ROLLBACK_HANDLER_ROLES } from '../../utils/constants';
 import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
 import type {
   TaskStatus,
@@ -17,6 +17,7 @@ import type {
   EscalateParams,
   ConfirmVerifyParams,
   ResolveDifferenceParams,
+  RollbackParams,
   CollectionTask,
   EscalationLevel,
   OperatorInfo,
@@ -26,6 +27,8 @@ import {
   sendCollectionNotificationByRole,
   buildEscalationActionCard,
   buildVerifyResultActionCard,
+  buildRollbackActionCard,
+  ESCALATION_LEVEL_NAMES,
 } from './ar-collection-notify';
 
 // ============================================
@@ -304,11 +307,7 @@ export async function escalateTask(
     }
 
     // 确定目标处理角色
-    const handlerRoleMap: Record<number, string> = {
-      1: 'marketing_manager',
-      2: 'current_accountant',
-    };
-    const targetRole = handlerRoleMap[targetLevel];
+    const targetRole = AR_ESCALATION_HANDLER_ROLES[targetLevel];
 
     // 更新任务
     await client.query(
@@ -317,9 +316,9 @@ export async function escalateTask(
            escalation_count = escalation_count + 1,
            last_escalated_at = NOW(), last_escalated_by = $2,
            escalation_reason = $3, current_handler_role = $4,
-           updated_at = NOW()
-       WHERE id = $5`,
-      [targetLevel, operator.id, params.reason, targetRole, taskId]
+           pre_escalation_status = $5, updated_at = NOW()
+       WHERE id = $6`,
+      [targetLevel, operator.id, params.reason, targetRole, task.status, taskId]
     );
 
     // 标记选中的明细为已升级
@@ -525,6 +524,110 @@ export async function resolveDifference(
     invalidateStatsCache();
 
     await logAction(taskId, params.detail_ids, 'resolve_difference', 'success', params.remark, operator);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ============================================
+// 退回升级
+// ============================================
+
+/** 退回升级 */
+export async function rollbackEscalation(
+  taskId: number,
+  params: RollbackParams,
+  operator: OperatorInfo
+): Promise<void> {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    const taskResult = await client.query<CollectionTask>(
+      'SELECT * FROM ar_collection_tasks WHERE id = $1 FOR UPDATE',
+      [taskId]
+    );
+    if (taskResult.rows.length === 0) throw new Error('催收任务不存在');
+    const task = taskResult.rows[0];
+
+    // 验证：仅升级后的任务可退回
+    if (task.status !== 'escalated') {
+      throw new Error('仅升级后的任务可以退回');
+    }
+    if (task.escalation_level < 1) {
+      throw new Error('当前为营销师层级，无法继续退回');
+    }
+
+    const targetLevel = task.escalation_level - 1;
+    const targetRole = AR_ROLLBACK_HANDLER_ROLES[task.escalation_level];
+    const targetStatus: TaskStatus = task.pre_escalation_status || 'collecting';
+
+    // 更新任务状态
+    await client.query(
+      `UPDATE ar_collection_tasks
+       SET status = $1, escalation_level = $2, current_handler_role = $3,
+           current_handler_id = NULL, pre_escalation_status = NULL, updated_at = NOW()
+       WHERE id = $4`,
+      [targetStatus, targetLevel, targetRole, taskId]
+    );
+
+    // 恢复已升级的明细状态
+    await client.query(
+      `UPDATE ar_collection_details SET status = $1
+       WHERE task_id = $2 AND status = 'escalated'`,
+      [targetStatus, taskId]
+    );
+
+    await client.query('COMMIT');
+    invalidateTaskCache(taskId);
+    invalidateStatsCache();
+
+    await logAction(
+      taskId,
+      null,
+      'rollback',
+      'success',
+      `退回至${ESCALATION_LEVEL_NAMES[targetLevel as EscalationLevel]}，恢复状态: ${targetStatus}。原因: ${params.reason}`,
+      operator
+    );
+
+    // 发送退回通知
+    try {
+      const actionCard = buildRollbackActionCard(
+        task,
+        task.escalation_level,
+        targetLevel as EscalationLevel,
+        operator.name,
+        targetStatus
+      );
+      const notifyOptions = {
+        msgType: 'actionCard' as const,
+        actionCard,
+        businessType: 'collection' as const,
+        businessId: taskId,
+        businessNo: task.task_no,
+      };
+
+      if (targetLevel === 0) {
+        // L1→L0: 通知任务关联的营销师（manager_user_id）
+        if (task.manager_user_id) {
+          await sendCollectionNotification({
+            userIds: [task.manager_user_id],
+            title: actionCard.title,
+            content: '',
+            options: notifyOptions,
+          });
+        }
+      } else {
+        // L2→L1: 通知营销主管角色
+        await sendCollectionNotificationByRole(targetRole, actionCard.title, '', notifyOptions);
+      }
+    } catch (notifyErr) {
+      console.error('[CollectionMutation] 发送退回通知失败:', notifyErr);
+    }
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

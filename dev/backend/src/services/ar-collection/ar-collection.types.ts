@@ -60,7 +60,8 @@ export type ActionType =
   | 'update_progress'
   | 'close'
   | 'erp_auto_closed'
-  | 'hoard_excluded';
+  | 'hoard_excluded'
+  | 'rollback';
 
 /** 法律操作类型 */
 export type LegalActionType = 'send_notice' | 'file_lawsuit' | 'update_progress';
@@ -116,6 +117,7 @@ export interface CollectionTask {
   last_escalated_at: string | null;
   last_escalated_by: number | null;
   escalation_reason: string | null;
+  pre_escalation_status: TaskStatus | null;
 
   // 延期相关
   extension_count: number;
@@ -343,6 +345,14 @@ export interface ResolveDifferenceParams {
   task_id: number;
   detail_ids: number[];
   remark: string;
+  operator_id: number;
+  operator_name: string;
+}
+
+/** 退回升级参数 */
+export interface RollbackParams {
+  task_id: number;
+  reason: string;
   operator_id: number;
   operator_name: string;
 }
