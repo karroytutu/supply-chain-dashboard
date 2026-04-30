@@ -7,7 +7,11 @@ import cron from 'node-cron';
 import { syncReturnOrders, sendNewReturnReminder } from './sync-return-orders.task';
 import { sendDailyPendingErpReminder } from '../return-order/return-order-notify';
 import { getPendingErpOrders } from '../return-order/return-order.query';
-import { calculateReturnPenalties, notifyPenaltyCreated } from '../return-penalty';
+// [统一考核迁移] 旧模块已停用，由统一考核模块替代
+// import { calculateReturnPenalties, notifyPenaltyCreated } from '../return-penalty';
+import { runCalculation } from '../assessment/assessment-calculate';
+import { sendAssessmentNotifications } from '../assessment/assessment-notify';
+import * as assessmentRepository from '../assessment/assessment.repository';
 import {
   syncERPDebts,
   generateCollectionTasks,
@@ -17,7 +21,8 @@ import {
   checkExtensionExpiryReminders,
 } from '../ar-collection/ar-collection-reminder.task';
 import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
-import { calculateArAssessments, notifyAssessmentCreated } from '../ar-assessment';
+// [统一考核迁移] 旧模块已停用，由统一考核模块替代
+// import { calculateArAssessments, notifyAssessmentCreated } from '../ar-assessment';
 import { handleRetry } from '../retry.handler';
 import { recoverStuckProcessing } from '../fixed-asset/erp-meta-utils';
 
@@ -68,7 +73,7 @@ export function startScheduler(): void {
     }
   );
 
-  // 注册退货考核计算任务
+  // 注册退货考核计算任务（统一考核模块）
   // 每天08:45执行: 0 45 8 * * *
   // 在退货数据同步(08:30)和待填ERP提醒(08:35)之后
   cron.schedule(
@@ -76,13 +81,16 @@ export function startScheduler(): void {
     async () => {
       console.log('[Scheduler] 执行退货考核计算任务...');
       try {
-        const results = await calculateReturnPenalties();
-        const totalCreated = results.reduce((sum, r) => sum + r.createdCount, 0);
-        console.log(`[Scheduler] 退货考核计算完成，共创建 ${totalCreated} 条考核记录`);
-        
-        // 发送考核通知
-        if (totalCreated > 0) {
-          await notifyPenaltyCreated(totalCreated);
+        const result = await runCalculation({ triggered_by: 'scheduled', category: 'return_order' });
+        console.log(`[Scheduler] 退货考核计算完成: ${result.totalRecords} 条记录, ${result.newRecords} 条新增`);
+
+        // 发送考核通知：查询新增的 pending 记录后发送
+        if (result.newRecords > 0) {
+          const pendingRecords = await assessmentRepository.getRecords({
+            category: 'return_order', status: 'pending' as any,
+            page: 1, page_size: 1000,
+          });
+          await sendAssessmentNotifications(pendingRecords.rows);
         }
       } catch (error) {
         console.error('[Scheduler] 退货考核计算失败:', error);
@@ -123,18 +131,21 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
-  // 催收考核计算 - 每日20:30（在催收任务生成之后）
+  // 催收考核计算（统一考核模块） - 每日20:30（在催收任务生成之后）
   cron.schedule(
     '0 30 20 * * *',
     async () => {
       console.log('[Scheduler] 执行催收考核计算任务...');
       try {
-        const results = await calculateArAssessments();
-        const totalCreated = results.reduce((sum, r) => sum + r.createdCount, 0);
-        console.log(`[Scheduler] 催收考核计算完成，共创建 ${totalCreated} 条考核记录`);
+        const result = await runCalculation({ triggered_by: 'scheduled', category: 'ar_collection' });
+        console.log(`[Scheduler] 催收考核计算完成: ${result.totalRecords} 条记录, ${result.newRecords} 条新增`);
 
-        if (totalCreated > 0) {
-          await notifyAssessmentCreated(totalCreated);
+        if (result.newRecords > 0) {
+          const pendingRecords = await assessmentRepository.getRecords({
+            category: 'ar_collection', status: 'pending' as any,
+            page: 1, page_size: 1000,
+          });
+          await sendAssessmentNotifications(pendingRecords.rows);
         }
       } catch (error) {
         console.error('[Scheduler] 催收考核计算失败:', error);

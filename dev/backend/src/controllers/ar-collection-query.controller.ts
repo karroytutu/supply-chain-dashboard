@@ -54,17 +54,17 @@ export const getTasks = async (req: Request, res: Response) => {
       keyword: req.query.keyword as string | undefined,
       status: req.query.status as TaskStatus | undefined,
       priority: req.query.priority as Priority | undefined,
-      escalation_level: req.query.escalationLevel
-        ? parseInt(req.query.escalationLevel as string) as EscalationLevel
+      escalation_level: req.query.escalation_level
+        ? parseInt(req.query.escalation_level as string) as EscalationLevel
         : undefined,
-      handler_id: req.query.handlerId ? parseInt(req.query.handlerId as string) : undefined,
-      start_date: req.query.startDate as string | undefined,
-      end_date: req.query.endDate as string | undefined,
+      handler_id: req.query.handler_id ? parseInt(req.query.handler_id as string) : undefined,
+      start_date: req.query.start_date as string | undefined,
+      end_date: req.query.end_date as string | undefined,
       sort_by: req.query.sort_by as string | undefined,
       sort_order: req.query.sort_order as 'asc' | 'desc' | undefined,
       userId,
       role,
-      viewAll: req.query.viewAll === 'true',
+      viewAll: req.query.view_all === 'true',
     };
     const result = await getCollectionTasks(params);
     // 转换字段名
