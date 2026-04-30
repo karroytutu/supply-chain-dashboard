@@ -12,6 +12,7 @@ import {
   developmentGetUsers,
 } from '../controllers/auth.controller';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -28,13 +29,10 @@ router.post('/dingtalk/auto-login', authLimiter, dingtalkAutoLogin);
 router.get('/dingtalk/qrcode-config', getQrcodeConfig);
 router.post('/dingtalk/callback', authLimiter, dingtalkCallback);
 
-// 开发环境登录（仅开发环境可用）
+// 开发环境管理员免认证登录（仅开发环境可用，绕过钉钉认证，安全级别与切换用户不同）
 if (process.env.NODE_ENV === 'development') {
   router.post('/dev-login', authLimiter, developmentLogin);
-  router.post('/dev-switch', authLimiter, developmentSwitchUser);
-  router.get('/dev-users', authLimiter, developmentGetUsers);
 } else {
-  // 非开发环境返回 403
   router.post('/dev-login', authLimiter, (_req, res) => {
     res.status(403).json({
       code: 403,
@@ -42,21 +40,17 @@ if (process.env.NODE_ENV === 'development') {
       data: null,
     });
   });
-  router.post('/dev-switch', authLimiter, (_req, res) => {
-    res.status(403).json({
-      code: 403,
-      message: '用户切换端点仅在开发环境可用',
-      data: null,
-    });
-  });
-  router.get('/dev-users', authLimiter, (_req, res) => {
-    res.status(403).json({
-      code: 403,
-      message: '开发用户列表端点仅在开发环境可用',
-      data: null,
-    });
-  });
 }
+
+// 用户切换：始终注册，环境感知权限
+// 开发环境：仅需登录（authMiddleware）
+// 生产环境：需登录 + system:user:switch 权限
+const switchAuth = process.env.NODE_ENV === 'development'
+  ? [authMiddleware]
+  : [authMiddleware, requirePermission('system:user:switch')];
+
+router.post('/dev-switch', authLimiter, ...switchAuth, developmentSwitchUser);
+router.get('/dev-users', authLimiter, ...switchAuth, developmentGetUsers);
 
 // 需要认证的路由
 router.get('/me', authMiddleware, getMe);

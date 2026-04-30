@@ -178,30 +178,22 @@ export async function developmentLogin(req: Request, res: Response) {
 }
 
 /**
- * 开发环境获取用户列表（仅用于开发调试）
+ * 获取可切换用户列表
+ * 开发环境：仅需登录
+ * 生产环境：需 system:user:switch 权限（由路由层中间件控制）
  */
 export async function developmentGetUsers(req: Request, res: Response) {
-  // 仅允许开发环境
-  if (process.env.NODE_ENV === 'production') {
-    res.status(403).json(buildErrorResponse(403, '开发用户列表仅用于开发环境'));
-    return;
-  }
-
   const users = await devGetUsers();
 
   res.json(buildSuccessResponse(users));
 }
 
 /**
- * 开发环境切换用户（仅用于开发调试）
+ * 切换用户
+ * 开发环境：仅需登录
+ * 生产环境：需 system:user:switch 权限（由路由层中间件控制）
  */
 export async function developmentSwitchUser(req: Request, res: Response) {
-  // 仅允许开发环境
-  if (process.env.NODE_ENV === 'production') {
-    res.status(403).json(buildErrorResponse(403, '用户切换仅用于开发环境'));
-    return;
-  }
-  
   const { userId } = req.body;
   
   if (!userId || typeof userId !== 'number') {

@@ -22,6 +22,7 @@ export const PERMISSIONS = {
     USER: {
       READ: 'system:user:read',
       WRITE: 'system:user:write',
+      SWITCH: 'system:user:switch',
     },
     // 角色管理
     ROLE: {

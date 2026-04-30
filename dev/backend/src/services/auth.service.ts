@@ -324,17 +324,11 @@ async function recordLoginLog(
 }
 
 /**
- * 开发环境切换用户（仅用于开发调试）
+ * 切换用户
+ * 开发环境：仅需登录（由路由层控制）
+ * 生产环境：需 system:user:switch 权限（由路由层中间件控制）
  */
 export async function devSwitchUser(userId: number): Promise<LoginResult> {
-  // 仅允许开发环境
-  if (process.env.NODE_ENV === 'production') {
-    return {
-      success: false,
-      message: '用户切换仅用于开发环境',
-    };
-  }
-
   try {
     const user = await getCurrentUser(userId);
 
@@ -385,14 +379,11 @@ export async function devSwitchUser(userId: number): Promise<LoginResult> {
 }
 
 /**
- * 开发环境获取用户列表（仅用于开发调试）
+ * 获取可切换用户列表
+ * 开发环境：仅需登录（由路由层控制）
+ * 生产环境：需 system:user:switch 权限（由路由层中间件控制）
  */
 export async function devGetUsers(): Promise<{ id: number; name: string; avatar?: string; roles: RoleInfo[] }[]> {
-  // 仅允许开发环境
-  if (process.env.NODE_ENV === 'production') {
-    return [];
-  }
-
   try {
     const result = await appQuery<any>(
       `SELECT u.id, u.name, u.avatar,
