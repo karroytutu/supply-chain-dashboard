@@ -101,7 +101,7 @@ export async function submitVerify(
     );
     if (taskResult.rows.length === 0) throw new Error(`催收任务不存在: ${taskId}`);
     const task = taskResult.rows[0];
-    const allowed: TaskStatus[] = ['collecting', 'extension', 'escalated'];
+    const allowed: TaskStatus[] = ['collecting', 'extension', 'escalated', 'difference_processing'];
     if (!allowed.includes(task.status)) {
       throw new Error(`任务状态"${task.status}"不允许核销操作`);
     }
