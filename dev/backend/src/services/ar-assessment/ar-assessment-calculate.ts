@@ -26,10 +26,10 @@ interface ActiveTask {
   assessment_start_time: Date;
 }
 
-/** 已有考核记录行 */
+/** 已有考核记录行（适配统一考核表） */
 interface ExistingRecord {
-  task_id: number;
-  assessment_tier: AssessmentTier;
+  source_id: number;
+  rule_type: AssessmentTier;
   assessment_user_id: number;
 }
 
@@ -65,15 +65,15 @@ export async function calculateArAssessments(): Promise<CalculationResult[]> {
   // 2. 查询已有考核记录（防止重复）
   const taskIds = taskResult.rows.map(t => t.id);
   const existingResult = await appQuery<ExistingRecord>(
-    `SELECT task_id, assessment_tier, assessment_user_id
-     FROM ar_assessment_records
-     WHERE task_id = ANY($1)`,
+    `SELECT source_id, rule_type, assessment_user_id
+     FROM assessment_records
+     WHERE source_id = ANY($1) AND source_type = 'ar_collection_task'`,
     [taskIds]
   );
 
   const existingSet = new Set<string>();
   for (const row of existingResult.rows) {
-    existingSet.add(`${row.task_id}:${row.assessment_tier}:${row.assessment_user_id}`);
+    existingSet.add(`${row.source_id}:${row.rule_type}:${row.assessment_user_id}`);
   }
 
   // 3. 获取营销主管用户列表
@@ -171,6 +171,7 @@ function calculatePenaltyAmount(
 
 /**
  * 插入考核记录（幂等：ON CONFLICT DO NOTHING）
+ * 已适配统一考核表 assessment_records
  */
 async function insertAssessmentRecord(
   taskId: number,
@@ -183,20 +184,33 @@ async function insertAssessmentRecord(
   penaltyAmount: number,
   rule: typeof ASSESSMENT_RULES[AssessmentTier]
 ): Promise<void> {
+  // 查询任务编号和客户名称
+  const taskResult = await appQuery<{ task_no: string; consumer_name: string }>(
+    `SELECT task_no, consumer_name FROM ar_collection_tasks WHERE id = $1`,
+    [taskId]
+  );
+  const taskNo = taskResult.rows[0]?.task_no || '';
+  const consumerName = taskResult.rows[0]?.consumer_name || '';
+
   await appQuery(
-    `INSERT INTO ar_assessment_records (
-      task_id, assessment_tier, assessment_user_id, assessment_user_name,
-      assessment_role, base_amount, overdue_days, penalty_amount,
-      assessment_rule_snapshot, calculated_at, status
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'pending')
-    ON CONFLICT (task_id, assessment_tier, assessment_user_id) DO NOTHING`,
+    `INSERT INTO assessment_records (
+      category, rule_type, source_type, source_id, source_no, source_name,
+      assessment_user_id, assessment_user_name, assessment_role,
+      base_amount, overdue_days, penalty_amount,
+      rule_snapshot, calculated_at, status
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), 'pending')
+    ON CONFLICT (source_id, source_type, rule_type, assessment_user_id) DO NOTHING`,
     [
-      taskId,
+      'ar_collection',
       tier,
+      'ar_collection_task',
+      taskId,
+      taskNo,
+      consumerName,
       userId,
       userName,
       role,
-      baseAmount,
+      baseAmount || null,
       overdueDays,
       penaltyAmount,
       JSON.stringify({

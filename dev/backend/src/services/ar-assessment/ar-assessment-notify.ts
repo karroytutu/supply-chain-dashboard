@@ -185,26 +185,26 @@ export async function notifyAssessmentCreated(
     const result = await appQuery<any>(
       `SELECT
         a.id,
-        a.task_id,
-        a.assessment_tier,
+        a.source_id AS task_id,
+        a.source_no AS task_no,
+        a.source_name AS consumer_name,
+        a.rule_type AS assessment_tier,
         a.assessment_user_id,
         a.assessment_user_name,
         a.assessment_role,
         a.base_amount,
         a.overdue_days,
         a.penalty_amount,
-        a.assessment_rule_snapshot,
+        a.rule_snapshot AS assessment_rule_snapshot,
         a.status,
         a.calculated_at,
         a.created_at,
-        a.updated_at,
-        t.task_no,
-        t.consumer_name
-      FROM ar_assessment_records a
-      LEFT JOIN ar_collection_tasks t ON a.task_id = t.id
-      WHERE a.created_at::date = CURRENT_DATE
+        a.updated_at
+      FROM assessment_records a
+      WHERE a.source_type = 'ar_collection_task'
+        AND a.created_at::date = CURRENT_DATE
         AND a.status = 'pending'
-      ORDER BY a.assessment_user_id, a.assessment_tier`
+      ORDER BY a.assessment_user_id, a.rule_type`
     );
 
     if (result.rows.length === 0) return;

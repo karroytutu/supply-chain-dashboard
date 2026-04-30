@@ -70,6 +70,7 @@ function mapRowToRecord(row: AssessmentRow): AssessmentRecord {
 
 /**
  * 获取考核记录列表
+ * 已适配统一考核表 assessment_records
  */
 export async function getAssessments(
   params: AssessmentQueryParams
@@ -87,12 +88,12 @@ export async function getAssessments(
   } = params;
 
   const offset = (page - 1) * pageSize;
-  const conditions: string[] = ['1=1'];
+  const conditions: string[] = ['a.source_type = \'ar_collection_task\''];
   const queryParams: any[] = [];
   let paramIndex = 1;
 
   if (assessmentTier) {
-    conditions.push(`a.assessment_tier = $${paramIndex++}`);
+    conditions.push(`a.rule_type = $${paramIndex++}`);
     queryParams.push(assessmentTier);
   }
 
@@ -107,8 +108,10 @@ export async function getAssessments(
   }
 
   if (status) {
+    // 适配新表状态名：handled→confirmed, skipped→cancelled
+    const mappedStatus = status === 'handled' ? 'confirmed' : status === 'skipped' ? 'cancelled' : status;
     conditions.push(`a.status = $${paramIndex++}`);
-    queryParams.push(status);
+    queryParams.push(mappedStatus);
   }
 
   if (startDate) {
@@ -123,7 +126,7 @@ export async function getAssessments(
 
   if (keyword) {
     conditions.push(
-      `(t.task_no ILIKE $${paramIndex} OR t.consumer_name ILIKE $${paramIndex} OR a.assessment_user_name ILIKE $${paramIndex})`
+      `(a.source_no ILIKE $${paramIndex} OR a.source_name ILIKE $${paramIndex} OR a.assessment_user_name ILIKE $${paramIndex})`
     );
     queryParams.push(`%${keyword}%`);
     paramIndex++;
@@ -134,8 +137,7 @@ export async function getAssessments(
   // 查询总数
   const countResult = await appQuery<{ count: string }>(
     `SELECT COUNT(*) as count
-     FROM ar_assessment_records a
-     LEFT JOIN ar_collection_tasks t ON a.task_id = t.id
+     FROM assessment_records a
      WHERE ${whereClause}`,
     queryParams
   );
@@ -145,17 +147,17 @@ export async function getAssessments(
   const result = await appQuery<AssessmentRow>(
     `SELECT
       a.id,
-      a.task_id,
-      t.task_no,
-      t.consumer_name,
-      a.assessment_tier,
+      a.source_id AS task_id,
+      a.source_no AS task_no,
+      a.source_name AS consumer_name,
+      a.rule_type AS assessment_tier,
       a.assessment_user_id,
       a.assessment_user_name,
       a.assessment_role,
       a.base_amount,
       a.overdue_days,
       a.penalty_amount,
-      a.assessment_rule_snapshot,
+      a.rule_snapshot AS assessment_rule_snapshot,
       a.status,
       a.handle_remark,
       a.handled_by,
@@ -163,9 +165,9 @@ export async function getAssessments(
       a.calculated_at,
       a.created_at,
       a.updated_at,
-      t.created_at as task_created_at
-    FROM ar_assessment_records a
-    LEFT JOIN ar_collection_tasks t ON a.task_id = t.id
+      t.created_at AS task_created_at
+    FROM assessment_records a
+    LEFT JOIN ar_collection_tasks t ON a.source_id = t.id
     WHERE ${whereClause}
     ORDER BY a.created_at DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
@@ -193,22 +195,23 @@ export async function getMyAssessments(
 
 /**
  * 获取单条考核记录
+ * 已适配统一考核表 assessment_records
  */
 export async function getAssessmentById(id: number): Promise<AssessmentRecord | null> {
   const result = await appQuery<AssessmentRow>(
     `SELECT
       a.id,
-      a.task_id,
-      t.task_no,
-      t.consumer_name,
-      a.assessment_tier,
+      a.source_id AS task_id,
+      a.source_no AS task_no,
+      a.source_name AS consumer_name,
+      a.rule_type AS assessment_tier,
       a.assessment_user_id,
       a.assessment_user_name,
       a.assessment_role,
       a.base_amount,
       a.overdue_days,
       a.penalty_amount,
-      a.assessment_rule_snapshot,
+      a.rule_snapshot AS assessment_rule_snapshot,
       a.status,
       a.handle_remark,
       a.handled_by,
@@ -216,10 +219,10 @@ export async function getAssessmentById(id: number): Promise<AssessmentRecord | 
       a.calculated_at,
       a.created_at,
       a.updated_at,
-      t.created_at as task_created_at
-    FROM ar_assessment_records a
-    LEFT JOIN ar_collection_tasks t ON a.task_id = t.id
-    WHERE a.id = $1`,
+      t.created_at AS task_created_at
+    FROM assessment_records a
+    LEFT JOIN ar_collection_tasks t ON a.source_id = t.id
+    WHERE a.id = $1 AND a.source_type = 'ar_collection_task'`,
     [id]
   );
 
@@ -229,6 +232,7 @@ export async function getAssessmentById(id: number): Promise<AssessmentRecord | 
 
 /**
  * 获取考核统计数据
+ * 已适配统一考核表 assessment_records
  */
 export async function getAssessmentStats(): Promise<AssessmentStats> {
   const baseStatsResult = await appQuery<{
@@ -247,14 +251,15 @@ export async function getAssessmentStats(): Promise<AssessmentStats> {
       COALESCE(SUM(penalty_amount), 0) as total_amount,
       COALESCE(COUNT(*) FILTER (WHERE status = 'pending'), 0) as pending_count,
       COALESCE(SUM(penalty_amount) FILTER (WHERE status = 'pending'), 0) as pending_amount,
-      COALESCE(COUNT(*) FILTER (WHERE status = 'handled'), 0) as handled_count,
-      COALESCE(SUM(penalty_amount) FILTER (WHERE status = 'handled'), 0) as handled_amount,
-      COALESCE(COUNT(*) FILTER (WHERE status = 'skipped'), 0) as skipped_count,
-      COALESCE(SUM(penalty_amount) FILTER (WHERE status = 'skipped'), 0) as skipped_amount,
+      COALESCE(COUNT(*) FILTER (WHERE status = 'confirmed'), 0) as handled_count,
+      COALESCE(SUM(penalty_amount) FILTER (WHERE status = 'confirmed'), 0) as handled_amount,
+      COALESCE(COUNT(*) FILTER (WHERE status = 'cancelled'), 0) as skipped_count,
+      COALESCE(SUM(penalty_amount) FILTER (WHERE status = 'cancelled'), 0) as skipped_amount,
       COALESCE(COUNT(DISTINCT assessment_user_id), 0) as user_count,
       COALESCE(COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE), 0) as today_count,
       COALESCE(SUM(penalty_amount) FILTER (WHERE created_at::date = CURRENT_DATE), 0) as today_amount
-    FROM ar_assessment_records`
+    FROM assessment_records
+    WHERE source_type = 'ar_collection_task'`
   );
 
   const baseStats = baseStatsResult.rows[0];
@@ -266,11 +271,12 @@ export async function getAssessmentStats(): Promise<AssessmentStats> {
     amount: string;
   }>(
     `SELECT
-      assessment_tier as tier,
+      rule_type as tier,
       COUNT(*) as count,
       COALESCE(SUM(penalty_amount), 0) as amount
-    FROM ar_assessment_records
-    GROUP BY assessment_tier
+    FROM assessment_records
+    WHERE source_type = 'ar_collection_task'
+    GROUP BY rule_type
     ORDER BY amount DESC`
   );
 
@@ -298,8 +304,9 @@ export async function getAssessmentStats(): Promise<AssessmentStats> {
 
 /**
  * 更新考核处理状态
+ * 已适配统一考核表 assessment_records
  * @param id 记录ID
- * @param status 新状态（handled | skipped）
+ * @param status 新状态（handled | skipped）- 会映射为新表状态（confirmed | cancelled）
  * @param remark 处理备注（skipped 时必填）
  * @param handledBy 处理人ID
  */
@@ -309,8 +316,10 @@ export async function updateAssessmentHandleStatus(
   remark: string | null,
   handledBy: number
 ): Promise<AssessmentRecord | null> {
-  const result = await appQuery<AssessmentRow>(
-    `UPDATE ar_assessment_records
+  // 适配新表状态名：handled→confirmed, skipped→cancelled
+  const mappedStatus = status === 'handled' ? 'confirmed' : status === 'skipped' ? 'cancelled' : status;
+  const result = await appQuery<any>(
+    `UPDATE assessment_records
      SET status = $1,
          handle_remark = $2,
          handled_by = $3,
@@ -318,34 +327,57 @@ export async function updateAssessmentHandleStatus(
          updated_at = NOW()
      WHERE id = $4
        AND status = 'pending'
-     RETURNING id, task_id, assessment_tier, assessment_user_id,
-       assessment_user_name, assessment_role, base_amount,
-       overdue_days, penalty_amount, assessment_rule_snapshot,
+       AND source_type = 'ar_collection_task'
+     RETURNING id, source_id, source_no, source_name, rule_type,
+       assessment_user_id, assessment_user_name, assessment_role,
+       base_amount, overdue_days, penalty_amount, rule_snapshot,
        status, handle_remark, handled_by, handled_at,
        calculated_at, created_at, updated_at`,
-    [status, remark, handledBy, id]
+    [mappedStatus, remark, handledBy, id]
   );
 
   if (result.rows.length === 0) return null;
 
-  // 补充关联信息
-  const record = result.rows[0];
-  const taskResult = await appQuery<{ task_no: string; consumer_name: string; created_at: Date }>(
-    `SELECT task_no, consumer_name, created_at FROM ar_collection_tasks WHERE id = $1`,
-    [record.task_id]
-  );
+  // 将新表字段映射为旧接口格式
+  const row = result.rows[0];
+  const mappedRow: AssessmentRow = {
+    id: row.id,
+    task_id: row.source_id,
+    task_no: row.source_no,
+    consumer_name: row.source_name,
+    assessment_tier: row.rule_type,
+    assessment_user_id: row.assessment_user_id,
+    assessment_user_name: row.assessment_user_name,
+    assessment_role: row.assessment_role,
+    base_amount: row.base_amount,
+    overdue_days: row.overdue_days,
+    penalty_amount: row.penalty_amount,
+    assessment_rule_snapshot: row.rule_snapshot,
+    status: row.status === 'confirmed' ? 'handled' : row.status === 'cancelled' ? 'skipped' : row.status,
+    handle_remark: row.handle_remark,
+    handled_by: row.handled_by,
+    handled_at: row.handled_at,
+    calculated_at: row.calculated_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    task_created_at: null,
+  };
 
+  // 补充任务创建时间
+  const taskResult = await appQuery<{ created_at: Date }>(
+    `SELECT created_at FROM ar_collection_tasks WHERE id = $1`,
+    [mappedRow.task_id]
+  );
   if (taskResult.rows.length > 0) {
-    record.task_no = taskResult.rows[0].task_no;
-    record.consumer_name = taskResult.rows[0].consumer_name;
-    record.task_created_at = taskResult.rows[0].created_at;
+    mappedRow.task_created_at = taskResult.rows[0].created_at;
   }
 
-  return mapRowToRecord(record);
+  return mapRowToRecord(mappedRow);
 }
 
 /**
  * 按任务查询考核记录
+ * 已适配统一考核表 assessment_records（原 ar_assessment_records 已重命名）
  */
 export async function getAssessmentsByTaskId(
   taskId: number
@@ -353,17 +385,17 @@ export async function getAssessmentsByTaskId(
   const result = await appQuery<AssessmentRow>(
     `SELECT
       a.id,
-      a.task_id,
-      t.task_no,
-      t.consumer_name,
-      a.assessment_tier,
+      a.source_id AS task_id,
+      a.source_no AS task_no,
+      a.source_name AS consumer_name,
+      a.rule_type AS assessment_tier,
       a.assessment_user_id,
       a.assessment_user_name,
       a.assessment_role,
       a.base_amount,
       a.overdue_days,
       a.penalty_amount,
-      a.assessment_rule_snapshot,
+      a.rule_snapshot AS assessment_rule_snapshot,
       a.status,
       a.handle_remark,
       a.handled_by,
@@ -371,11 +403,11 @@ export async function getAssessmentsByTaskId(
       a.calculated_at,
       a.created_at,
       a.updated_at,
-      t.created_at as task_created_at
-    FROM ar_assessment_records a
-    LEFT JOIN ar_collection_tasks t ON a.task_id = t.id
-    WHERE a.task_id = $1
-    ORDER BY a.assessment_tier, a.assessment_role`,
+      t.created_at AS task_created_at
+    FROM assessment_records a
+    LEFT JOIN ar_collection_tasks t ON a.source_id = t.id
+    WHERE a.source_id = $1 AND a.source_type = 'ar_collection_task'
+    ORDER BY a.rule_type, a.assessment_role`,
     [taskId]
   );
 

@@ -15,7 +15,7 @@ export const PENDING_ROLE_SQL = `
 
 /** 考核层级子查询 SQL 片段 */
 export const ASSESSMENT_TIERS_SQL = `(
-  SELECT array_agg(DISTINCT assessment_tier)
-  FROM ar_assessment_records
-  WHERE task_id = t.id
+  SELECT array_agg(DISTINCT rule_type)
+  FROM assessment_records
+  WHERE source_id = t.id AND source_type = 'ar_collection_task'
 ) AS assessment_tiers`;
