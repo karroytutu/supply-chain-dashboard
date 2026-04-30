@@ -11,7 +11,9 @@ import {
   notifyPendingMarketingSale,
   notifyPendingWarehouseExecute,
 } from './return-order-notify';
-import { createReturnExpireInsufficientPenalty } from '../return-penalty';
+// [统一考核迁移] 旧模块已停用，由统一考核模块替代
+// import { createReturnExpireInsufficientPenalty } from '../return-penalty';
+import { runCalculation } from '../assessment/assessment-calculate';
 import { RETURN_EXPIRE_INSUFFICIENT_DAYS } from '../../utils/constants';
 import { createGoodsReturnRule } from '../goods-return-rules';
 import type {
@@ -115,17 +117,15 @@ export async function batchConfirmReturnOrders(
       if (orderRow) {
         const order = toReturnOrderDTO(orderRow);
 
-        // 检查规则3：退货时保质期不足考核
+        // 检查规则3：退货时保质期不足考核（统一考核模块）
         if (order.daysToExpireAtReturn && order.daysToExpireAtReturn < RETURN_EXPIRE_INSUFFICIENT_DAYS) {
-          createReturnExpireInsufficientPenalty({
-            id: order.id,
-            returnNo: order.returnNo,
-            goodsName: order.goodsName,
-            marketingManager: order.marketingManager,
-            purchasePrice: order.purchasePrice || 0,
-            daysToExpireAtReturn: order.daysToExpireAtReturn,
+          runCalculation({
+            triggered_by: 'realtime',
+            category: 'return_order',
+            rule_type: 'return_expire_insufficient',
+            source_id: order.id,
           }).catch(error => {
-            console.error('[ReturnPenalty] 规则3考核创建失败:', error);
+            console.error('[Assessment] 退货保质期不足考核计算失败:', error);
           });
         }
 

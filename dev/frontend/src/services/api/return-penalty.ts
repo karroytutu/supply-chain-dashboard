@@ -1,3 +1,4 @@
+/** @deprecated 已迁移到统一考核 API services/api/assessment.ts，请勿继续使用此文件 */
 /**
  * 退货考核 API 服务
  */

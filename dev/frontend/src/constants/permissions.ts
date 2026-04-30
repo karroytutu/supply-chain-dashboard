@@ -99,6 +99,12 @@ export const PERMISSIONS = {
     },
   },
 
+  // 统一考核模块
+  ASSESSMENT: {
+    READ: 'assessment:read',
+    WRITE: 'assessment:write',
+  },
+
   // OA审批模块
   OA: {
     APPROVAL: {

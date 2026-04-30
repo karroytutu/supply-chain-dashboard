@@ -1,3 +1,4 @@
+/** @deprecated 已迁移到统一考核类型 types/assessment.d.ts，请勿继续使用此文件 */
 /**
  * 退货考核类型定义
  */

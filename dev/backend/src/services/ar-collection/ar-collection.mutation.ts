@@ -35,7 +35,15 @@ import {
 // 辅助函数
 // ============================================
 
-/** 获取任务并验证状态 */
+/**
+ * 获取任务并验证状态
+ *
+ * @deprecated 该函数使用 appQuery（独立连接池）查询，不在事务内，
+ * 无法获取行锁（FOR UPDATE），可能导致 MVCC 快照不一致和竞态条件。
+ * 新代码应使用事务内的 inline FOR UPDATE 查询替代。
+ * @see applyExtension 中的 inline FOR UPDATE 模式
+ * @see markDifference 中的 inline FOR UPDATE 模式
+ */
 async function getTaskAndValidate(
   taskId: number,
   allowedStatuses: TaskStatus[]
@@ -169,6 +177,8 @@ export async function applyExtension(
     if (taskResult.rows.length === 0) throw new Error(`催收任务不存在: ${taskId}`);
     const task = taskResult.rows[0];
 
+    console.log('[CollectionMutation] applyExtension: taskId=%d, currentStatus=%s, canExtend=%s, requestedDays=%d', taskId, task.status, task.can_extend, params.extension_days);
+
     if (!task.can_extend) {
       throw new Error('该任务已使用过延期机会，不可再次延期');
     }
@@ -220,13 +230,17 @@ export async function applyExtension(
       );
     }
 
+    console.log('[CollectionMutation] applyExtension: committing status=extension for taskId=%d', taskId);
     await client.query('COMMIT');
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
+    console.log('[CollectionMutation] applyExtension: committed and cache invalidated for taskId=%d', taskId);
+
     await logAction(taskId, params.detail_ids, 'extension', 'success', params.remark || null, operator);
   } catch (err) {
     await client.query('ROLLBACK');
+    console.error('[CollectionMutation] applyExtension FAILED for taskId=%d:', taskId, err instanceof Error ? err.message : err);
     throw err;
   } finally {
     client.release();
@@ -247,7 +261,20 @@ export async function markDifference(
   try {
     await client.query('BEGIN');
 
-    await getTaskAndValidate(taskId, ['collecting', 'extension', 'escalated']);
+    const taskResult = await client.query<CollectionTask>(
+      'SELECT * FROM ar_collection_tasks WHERE id = $1 FOR UPDATE',
+      [taskId]
+    );
+    if (taskResult.rows.length === 0) throw new Error(`催收任务不存在: ${taskId}`);
+    const task = taskResult.rows[0];
+    const allowedStatuses: TaskStatus[] = ['collecting', 'extension', 'escalated'];
+    if (!allowedStatuses.includes(task.status)) {
+      throw new Error(
+        `任务当前状态为"${task.status}"，不允许此操作（允许: ${allowedStatuses.join(', ')}）`
+      );
+    }
+
+    console.log('[CollectionMutation] markDifference: taskId=%d, currentStatus=%s', taskId, task.status);
 
     // 更新任务状态
     await client.query(
@@ -265,13 +292,17 @@ export async function markDifference(
       );
     }
 
+    console.log('[CollectionMutation] markDifference: committing status=difference_processing for taskId=%d', taskId);
     await client.query('COMMIT');
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
+    console.log('[CollectionMutation] markDifference: committed and cache invalidated for taskId=%d', taskId);
+
     await logAction(taskId, params.detail_ids, 'difference', 'success', params.remark, operator);
   } catch (err) {
     await client.query('ROLLBACK');
+    console.error('[CollectionMutation] markDifference FAILED for taskId=%d:', taskId, err instanceof Error ? err.message : err);
     throw err;
   } finally {
     client.release();
@@ -501,7 +532,15 @@ export async function resolveDifference(
   try {
     await client.query('BEGIN');
 
-    await getTaskAndValidate(taskId, ['difference_processing']);
+    const taskResult = await client.query<CollectionTask>(
+      'SELECT * FROM ar_collection_tasks WHERE id = $1 FOR UPDATE',
+      [taskId]
+    );
+    if (taskResult.rows.length === 0) throw new Error(`催收任务不存在: ${taskId}`);
+    const task = taskResult.rows[0];
+    if (task.status !== 'difference_processing') {
+      throw new Error(`任务状态"${task.status}"不允许差异解决操作（需: difference_processing）`);
+    }
 
     // 更新明细
     if (params.detail_ids && params.detail_ids.length > 0) {

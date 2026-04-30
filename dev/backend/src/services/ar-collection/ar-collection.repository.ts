@@ -37,6 +37,13 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
         params: [],
         nextIndex: paramIndex,
       };
+    case 'marketing_supervisor':
+    case 'marketing_manager':
+      return {
+        sql: `(t.status = 'escalated' AND t.escalation_level = 1)`,
+        params: [],
+        nextIndex: paramIndex,
+      };
     default:
       return { sql: '1=1', params: [], nextIndex: paramIndex };
   }
@@ -54,6 +61,9 @@ function checkTaskAccess(task: any, userId: number, role: string): boolean {
       return task.status === 'difference_processing' || (task.status === 'escalated' && task.escalation_level === 2);
     case 'cashier':
       return task.status === 'pending_verify';
+    case 'marketing_supervisor':
+    case 'marketing_manager':
+      return task.status === 'escalated' && task.escalation_level === 1;
     default:
       return true;
   }
@@ -91,7 +101,7 @@ export async function getTasks(params: TaskQueryParams & { userId: number; role:
   let paramIndex = 1;
 
   // 角色数据权限过滤
-  const isAdmin = role === 'admin' || role === 'manager';
+  const isAdmin = role === 'admin' || role === 'manager' || role === 'marketing_manager' || role === 'marketing_supervisor';
   if (!(isAdmin && viewAll)) {
     const roleFilter = buildRoleFilter(role, userId, paramIndex);
     conditions.push(roleFilter.sql);

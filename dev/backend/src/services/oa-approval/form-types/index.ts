@@ -12,6 +12,7 @@ import { assetTransferFormType } from './asset-transfer';
 import { assetMaintenanceFormType } from './asset-maintenance';
 import { assetDisposalFormType } from './asset-disposal';
 import { customerCreditFormType } from './customer-credit';
+import { assessmentAppealFormType } from './assessment-appeal';
 
 /**
  * 所有已注册的表单类型
@@ -25,6 +26,7 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   assetMaintenanceFormType,
   assetDisposalFormType,
   customerCreditFormType,
+  assessmentAppealFormType,
 ];
 
 /**
@@ -62,3 +64,4 @@ export { assetTransferFormType } from './asset-transfer';
 export { assetMaintenanceFormType } from './asset-maintenance';
 export { assetDisposalFormType } from './asset-disposal';
 export { customerCreditFormType } from './customer-credit';
+export { assessmentAppealFormType } from './assessment-appeal';

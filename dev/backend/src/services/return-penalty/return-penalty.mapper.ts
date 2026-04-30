@@ -1,3 +1,4 @@
+/** @deprecated 已迁移到统一考核模块 services/assessment/，请勿继续使用此文件 */
 /**
  * 退货考核 DTO 映射器
  * 负责数据库实体(snake_case) ↔ API DTO(camelCase) 的双向转换

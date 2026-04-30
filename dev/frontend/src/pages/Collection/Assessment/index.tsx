@@ -1,3 +1,4 @@
+/** @deprecated 已迁移到统一考核页面 pages/Assessment/，请勿继续使用此文件 */
 /**
  * 催收考核管理页面
  */

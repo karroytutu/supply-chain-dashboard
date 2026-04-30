@@ -1,3 +1,4 @@
+/** @deprecated 已迁移到统一考核模块 services/assessment/，请勿继续使用此文件 */
 /**
  * 退货考核查询服务
  */

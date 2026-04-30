@@ -10,6 +10,7 @@ import { appQuery, getAppClient } from '../../db/appPool';
 import type { TaskStatus } from './ar-collection.types';
 import type { ERPDebtRecord } from './ar-debt.types';
 import { reconcileAllHoardDetails } from './ar-hoard-reconcile';
+import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
 
 // 从独立模块导出任务生成函数
 export { generateCollectionTasks } from './ar-collection-task-generator';
@@ -154,7 +155,14 @@ export async function checkExtensionExpiry(): Promise<void> {
       }
 
       await client.query('COMMIT');
-      console.log(`[ARSync] 处理了 ${result.rows.length} 个到期延期任务`);
+
+      // 失效所有任务列表缓存（批量操作可能影响多个任务）
+      for (const task of result.rows) {
+        invalidateTaskCache(task.id);
+      }
+      invalidateStatsCache();
+
+      console.log(`[ARSync] 处理了 ${result.rows.length} 个到期延期任务，已失效相关缓存`);
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -199,5 +207,7 @@ async function handleRemovedDebt(detail: LocalDetail): Promise<void> {
      VALUES ($1, 'erp_auto_closed', 'success', $2, '系统')`,
     [task.id, `ERP数据已消失，系统自动关闭任务。原状态: ${task.status}`]
   );
+  invalidateTaskCache(detail.task_id);
+  invalidateStatsCache();
   console.log(`[ARSync] 自动关闭任务 #${task.id}(${task.consumer_name})，原状态=${task.status}`);
 }

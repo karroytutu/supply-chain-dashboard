@@ -72,9 +72,7 @@ export default defineConfig({
             },
             {
               path: 'penalty',
-              component: '@/pages/ProcurementReturn/Penalty',
-              name: '考核管理',
-              access: PERMISSIONS.RETURN.PENALTY.READ,
+              redirect: '/assessment?category=return_order',
             },
           ],
         },
@@ -101,11 +99,17 @@ export default defineConfig({
         },
         {
           path: 'assessment',
-          component: '@/pages/Collection/Assessment',
-          name: '考核管理',
-          access: PERMISSIONS.FINANCE.AR_PENALTY.READ,
+          redirect: '/assessment?category=ar_collection',
         },
       ],
+    },
+    {
+      path: '/assessment',
+      name: '考核中心',
+      icon: 'AuditOutlined',
+      component: '@/pages/Assessment/index',
+      wrappers: ['@/wrappers/auth'],
+      access: PERMISSIONS.ASSESSMENT.READ,
     },
     {
       path: '/oa/quick-action',
