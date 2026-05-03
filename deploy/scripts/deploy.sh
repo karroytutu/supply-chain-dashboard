@@ -85,31 +85,133 @@ if [ -d "prod" ]; then
     log_info "当前版本已保存到 prod.backup"
 fi
 
-# 构建步骤
+# ========== 辅助函数 ==========
+
+# 判断是否需要执行 npm ci（package.json 是否变更）
+needs_npm_ci() {
+    local dir="$1"
+    if [ ! -d "$dir/node_modules" ]; then
+        return 0
+    fi
+    local pkg_hash
+    pkg_hash=$(md5sum "$dir/package.json" 2>/dev/null | awk '{print $1}')
+    if [ -f "$dir/node_modules/.package-hash" ]; then
+        local saved_hash
+        saved_hash=$(cat "$dir/node_modules/.package-hash" 2>/dev/null)
+        if [ "$pkg_hash" = "$saved_hash" ]; then
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# 检查源码是否比产物更新
+check_source_freshness() {
+    local src_dir="$1"
+    local dist_file="$2"
+    local name="$3"
+
+    if [ ! -f "$dist_file" ]; then
+        log_warn "$name 构建产物不存在"
+        return
+    fi
+
+    local latest_src
+    latest_src=$(find "$src_dir" -type f -exec stat -c %Y {} + 2>/dev/null | sort -n | tail -1)
+    local dist_mtime
+    dist_mtime=$(stat -c %Y "$dist_file" 2>/dev/null || echo 0)
+
+    if [ "$latest_src" -gt "$dist_mtime" ] 2>/dev/null; then
+        log_warn "$name 源码有更新，但产物较旧（产物时间: $(date -d @"$dist_mtime" '+%Y-%m-%d %H:%M:%S')）"
+    fi
+}
+
+# 构建产物摘要
+print_build_summary() {
+    local dist_dir="$1"
+    local name="$2"
+    if [ -d "$dist_dir" ]; then
+        local size files
+        size=$(du -sh "$dist_dir" 2>/dev/null | cut -f1)
+        files=$(find "$dist_dir" -type f 2>/dev/null | wc -l)
+        log_info "$name 产物摘要: $size, $files 个文件"
+    fi
+}
+
+# 前端构建（后台执行）
+build_frontend_async() {
+    cd "$PROJECT_ROOT/dev/frontend"
+    if needs_npm_ci "$PROJECT_ROOT/dev/frontend"; then
+        log_info "前端依赖有变更，执行 npm ci..."
+        npm ci
+        md5sum "$PROJECT_ROOT/dev/frontend/package.json" | awk '{print $1}' > "$PROJECT_ROOT/dev/frontend/node_modules/.package-hash"
+    else
+        log_info "前端依赖未变更，跳过 npm ci"
+    fi
+    npm run build
+}
+
+# 后端构建（后台执行）
+build_backend_async() {
+    cd "$PROJECT_ROOT/dev/backend"
+    if needs_npm_ci "$PROJECT_ROOT/dev/backend"; then
+        log_info "后端依赖有变更，执行 npm ci..."
+        npm ci
+        md5sum "$PROJECT_ROOT/dev/backend/package.json" | awk '{print $1}' > "$PROJECT_ROOT/dev/backend/node_modules/.package-hash"
+    else
+        log_info "后端依赖未变更，跳过 npm ci"
+    fi
+    npm run build
+}
+
+# 构建步骤（并行 + 原子替换）
 if [ "$SKIP_BUILD" = false ]; then
     log_info "开始构建..."
 
-    # 构建前端
-    log_info "构建前端..."
-    cd "$PROJECT_ROOT/dev/frontend"
-    npm install
-    npm run build
-    if [ $? -ne 0 ]; then
-        log_error "前端构建失败"
-        exit 1
-    fi
-    log_info "前端构建完成"
+    # 源码-产物新鲜度预检
+    check_source_freshness "$PROJECT_ROOT/dev/frontend/src" "$PROJECT_ROOT/prod/frontend/dist/index.html" "前端"
+    check_source_freshness "$PROJECT_ROOT/dev/backend/src" "$PROJECT_ROOT/prod/backend/dist/app.js" "后端"
 
-    # 构建后端
-    log_info "构建后端..."
-    cd "$PROJECT_ROOT/dev/backend"
-    npm install
-    npm run build
-    if [ $? -ne 0 ]; then
+    # 备份当前产物（用于构建失败时回滚）
+    cp -r "$PROJECT_ROOT/prod" "$PROJECT_ROOT/prod.backup.before-build"
+
+    # 前后端并行构建
+    build_frontend_async > /tmp/build-frontend.log 2>&1 &
+    FRONTEND_PID=$!
+
+    build_backend_async > /tmp/build-backend.log 2>&1 &
+    BACKEND_PID=$!
+
+    # 等待前端构建
+    FRONTEND_FAILED=0
+    if wait $FRONTEND_PID; then
+        log_info "前端构建成功"
+    else
+        log_error "前端构建失败"
+        cat /tmp/build-frontend.log
+        FRONTEND_FAILED=1
+    fi
+
+    # 等待后端构建
+    BACKEND_FAILED=0
+    if wait $BACKEND_PID; then
+        log_info "后端构建成功"
+    else
         log_error "后端构建失败"
+        cat /tmp/build-backend.log
+        BACKEND_FAILED=1
+    fi
+
+    # 原子性检查：任一失败则恢复备份
+    if [ $FRONTEND_FAILED -eq 1 ] || [ $BACKEND_FAILED -eq 1 ]; then
+        rm -rf "$PROJECT_ROOT/prod"
+        mv "$PROJECT_ROOT/prod.backup.before-build" "$PROJECT_ROOT/prod"
+        log_error "构建失败，已自动恢复原始产物"
         exit 1
     fi
-    log_info "后端构建完成"
+
+    rm -rf "$PROJECT_ROOT/prod.backup.before-build"
+    log_info "构建产物原子替换完成"
 fi
 
 # 验证构建产物存在
@@ -158,6 +260,10 @@ if [ -f "prod/backend/.env.backup" ]; then
     cp prod/backend/.env.backup prod/backend/.env
     log_info "环境配置已恢复"
 fi
+
+# 构建产物摘要
+print_build_summary "$PROJECT_ROOT/prod/frontend/dist" "前端"
+print_build_summary "$PROJECT_ROOT/prod/backend/dist" "后端"
 
 # 部署 Docker 容器
 log_info "部署 Docker 容器..."
