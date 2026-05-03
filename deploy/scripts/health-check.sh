@@ -58,16 +58,13 @@ check_backend() {
     local retry=0
     while [ $retry -lt $MAX_RETRIES ]; do
         local response
-        response=$(curl -sf --connect-timeout 5 "http://localhost:$BACKEND_PORT/api/health" 2>/dev/null)
+        response=$(curl -sf --connect-timeout 5 "http://localhost:$BACKEND_PORT/api/health" 2>/dev/null || true)
 
-        if [ $? -eq 0 ]; then
-            # 检查响应内容
-            if echo "$response" | grep -q '"status"'; then
-                BACKEND_OK=true
-                log_info "后端服务正常 (端口 $BACKEND_PORT)"
-                log_info "健康检查响应: $response"
-                return 0
-            fi
+        if [ -n "$response" ] && echo "$response" | grep -q '"status"'; then
+            BACKEND_OK=true
+            log_info "后端服务正常 (端口 $BACKEND_PORT)"
+            log_info "健康检查响应: $response"
+            return 0
         fi
 
         retry=$((retry + 1))
