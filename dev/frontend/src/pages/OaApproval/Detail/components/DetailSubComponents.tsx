@@ -6,6 +6,7 @@ import { useErpLicenseResolve } from '@/components/OaApproval/hooks/useErpLicens
 import { formatDateTime } from '@/utils/format';
 import { checkCondition } from '../../Form/components/ConditionalFieldWrapper';
 import ErpStatusCard from './ErpStatusCard';
+import LicenseDeferredCard from './LicenseDeferredCard';
 import styles from '../index.less';
 
 /** 审批状态标签 */
@@ -57,6 +58,16 @@ export const DetailLeftColumn: React.FC<{
     </Card>
     {detail.erpMeta && (
       <ErpStatusCard instanceId={detail.id} erpMeta={detail.erpMeta} cardClassName={styles.card} />
+    )}
+    {/* 客户授信审批通过后，展示营业执照延期补交卡片 */}
+    {detail.formTypeCode === 'customer_credit' && (
+      <LicenseDeferredCard
+        instanceId={detail.id}
+        approvalStatus={detail.status}
+        applicantId={detail.applicantId}
+        customerId={detail.formData?.customerId as number | undefined}
+        cardClassName={styles.card}
+      />
     )}
     <Card title="表单内容" className={styles.card}>
       <Descriptions column={2} bordered size="small">

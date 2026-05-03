@@ -192,6 +192,28 @@ export const CREDIT_HOLD_AMOUNT_GM = 1000;
  */
 export const CREDIT_SETTLE_METHOD_ON_ACCOUNT = 2;
 
+/** 客户授信-营业执照补交时限(天)
+ * @usedBy customer-credit-callback.ts (计算补交截止日期)
+ * @usedBy credit-license-reminder.task.ts (查询待提醒记录)
+ * @usedBy credit-license-rules.ts (判断是否超期)
+ */
+export const CREDIT_LICENSE_DEFERRED_DEADLINE_DAYS = 7;
+
+/** 客户授信-营业执照补交第3天提醒偏移(天)
+ * @usedBy credit-license-reminder.task.ts (第3天提醒判断)
+ */
+export const CREDIT_LICENSE_REMINDER_DAY_OFFSET_1 = 3;
+
+/** 客户授信-营业执照补交到期前1天提醒偏移(天)
+ * @usedBy credit-license-reminder.task.ts (到期前1天提醒判断)
+ */
+export const CREDIT_LICENSE_REMINDER_DAY_OFFSET_2 = 6;
+
+/** 客户授信-营业执照补交逾期每日考核金额(元)
+ * @usedBy credit-license-rules.ts (每日考核金额)
+ */
+export const CREDIT_LICENSE_PENALTY_PER_DAY = 10;
+
 // ==================== OA审批钉钉通知配置 ====================
 
 /** OA审批操作Token过期时间（分钟） @usedBy oa-action-token.ts (Token过期时间) */

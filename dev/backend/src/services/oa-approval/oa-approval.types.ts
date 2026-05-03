@@ -542,7 +542,7 @@ export interface ApprovalStats {
 /**
  * 站内消息类型
  */
-export type InAppMessageType = 'approval_pending' | 'cc' | 'result';
+export type InAppMessageType = 'approval_pending' | 'cc' | 'result' | 'license_reminder';
 
 /**
  * 创建站内消息参数

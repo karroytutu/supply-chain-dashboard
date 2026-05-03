@@ -18,6 +18,7 @@ import returnPenaltyRoutes from './routes/return-penalty.routes';
 import arCollectionRoutes from './routes/ar-collection.routes';
 import arAssessmentRoutes from './routes/ar-assessment.routes';
 import assessmentRoutes from './routes/assessment.routes';
+import creditLicenseRoutes from './routes/credit-license.routes';
 import oaApprovalRoutes from './routes/oa-approval.routes';
 import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
@@ -89,6 +90,7 @@ app.use('/api/ar-collection', arCollectionRoutes);
 // [统一考核迁移] 旧路由已停用，由 /api/assessment 替代
 // app.use('/api/ar-assessment', arAssessmentRoutes);
 app.use('/api/assessment', assessmentRoutes);
+app.use('/api/credit-license', creditLicenseRoutes);
 app.use('/api/oa-approval', oaApprovalRoutes);
 app.use('/api/dingtalk-sync', dingtalkSyncRoutes);
 

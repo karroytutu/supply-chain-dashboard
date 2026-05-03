@@ -379,6 +379,26 @@ export async function batchUpsertRecords(
   return successCount;
 }
 
+/**
+ * 取消指定来源的 pending 考核记录
+ * 用于营业执照补交后取消对应的待处理考核
+ * @param sourceId 来源ID（如 deferred_upload.id）
+ * @param sourceType 来源类型（如 'credit_license_deferred'）
+ */
+export async function cancelPendingBySource(sourceId: number, sourceType: string): Promise<number> {
+  const result = await query(
+    `UPDATE assessment_records
+     SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+     WHERE source_id = $1 AND source_type = $2 AND status = 'pending'`,
+    [sourceId, sourceType]
+  );
+
+  if (result.rowCount && result.rowCount > 0) {
+    invalidateCache();
+  }
+  return result.rowCount || 0;
+}
+
 // ==================== 内部工具函数 ====================
 
 /**

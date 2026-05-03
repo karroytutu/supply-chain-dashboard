@@ -48,6 +48,7 @@ export { toDTO, toDTOList, toStatsDTO } from './assessment.mapper';
 // 规则注册（导入即执行注册）
 import './rules/ar-collection-rules';
 import './rules/return-order-rules';
+import './rules/credit-license-rules';
 
 // 计算引擎
 export { runCalculation } from './assessment-calculate';
