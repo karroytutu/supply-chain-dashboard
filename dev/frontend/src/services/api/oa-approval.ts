@@ -4,6 +4,7 @@
  */
 
 import request, { requestFormData } from './request';
+import type { RcFile } from 'antd/es/upload/interface';
 import {
   FormTypeDefinition,
   FormCategory,
@@ -553,6 +554,74 @@ export async function getTransferCandidates(): Promise<Array<{ id: number; name:
   return res;
 }
 
+// =====================================================
+// 营业执照延期补交接口
+// =====================================================
+
+/** 延期补交记录状态 */
+export type LicenseDeferredStatus = 'pending' | 'reminded' | 'overdue' | 'completed';
+
+/** 延期补交记录 DTO */
+export interface LicenseDeferredRecord {
+  id: number;
+  oaInstanceId: number;
+  customerId: number;
+  customerName: string | null;
+  applicantId: number;
+  applicantName: string | null;
+  status: LicenseDeferredStatus;
+  deadline: string;
+  lastReminderAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** 计算字段: 剩余天数(未逾期时) */
+  remainingDays?: number;
+  /** 计算字段: 逾期天数(已逾期时) */
+  overdueDays?: number;
+  /** 计算字段: 累计考核金额(已逾期时) */
+  penaltyAmount?: number;
+}
+
+/** 补交营业执照 */
+export async function supplementLicense(
+  instanceId: number,
+  files: File[] | RcFile[],
+  customerId: number,
+): Promise<LicenseDeferredRecord> {
+  const formData = new FormData();
+  formData.append('customerId', String(customerId));
+  files.forEach(f => formData.append('files', f));
+  const res = await requestFormData<{ code: number; data: LicenseDeferredRecord }>(
+    `/credit-license/${instanceId}/supplement-license`,
+    formData,
+  );
+  return res.data;
+}
+
+/** 根据审批实例ID查询延期补交记录 */
+export async function getLicenseDeferredByInstance(
+  instanceId: number,
+): Promise<LicenseDeferredRecord | null> {
+  const res = await request<{ code: number; data: LicenseDeferredRecord | null }>(
+    `/credit-license/instance/${instanceId}`,
+  );
+  return (res as any).data ?? res;
+}
+
+/** 营销员查看自己的待补交列表 */
+export async function getMyLicenseDeferredUploads(params: {
+  page?: number;
+  pageSize?: number;
+  status?: LicenseDeferredStatus;
+}): Promise<{ list: LicenseDeferredRecord[]; total: number }> {
+  const res = await request<{ code: number; data: LicenseDeferredRecord[]; total: number }>(
+    '/credit-license/my',
+    { params },
+  );
+  return { list: (res as any).data ?? [], total: (res as any).total ?? 0 };
+}
+
 export const oaApprovalApi = {
   getFormTypes,
   getFormTypesGrouped,
@@ -583,4 +652,7 @@ export const oaApprovalApi = {
   getCustomerLicenseInfo,
   getTransferCandidates,
   getSettlementOrdersPaged,
+  supplementLicense,
+  getLicenseDeferredByInstance,
+  getMyLicenseDeferredUploads,
 };

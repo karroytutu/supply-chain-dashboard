@@ -6,7 +6,7 @@
 // ==================== 枚举类型 ====================
 
 /** 考核分类 */
-export type AssessmentCategory = 'ar_collection' | 'return_order';
+export type AssessmentCategory = 'ar_collection' | 'return_order' | 'credit_license';
 
 /**
  * 规则类型按 category 区分:
@@ -15,7 +15,8 @@ export type AssessmentCategory = 'ar_collection' | 'return_order';
  */
 export type ArCollectionRuleType = 'tier1' | 'tier2' | 'tier3';
 export type ReturnOrderRuleType = 'procurement_confirm_timeout' | 'marketing_sales_timeout' | 'return_expire_insufficient' | 'erp_entry_timeout' | 'warehouse_execute_timeout';
-export type AssessmentRuleType = ArCollectionRuleType | ReturnOrderRuleType;
+export type CreditLicenseRuleType = 'license_timeout';
+export type AssessmentRuleType = ArCollectionRuleType | ReturnOrderRuleType | CreditLicenseRuleType;
 
 /** 考核记录状态 */
 export type AssessmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'appealed';
@@ -184,4 +185,5 @@ export const ASSESSMENT_ROLE_LABELS: Record<AssessmentRole, string> = {
 export const ASSESSMENT_CATEGORY_LABELS: Record<AssessmentCategory, string> = {
   ar_collection: '催收考核',
   return_order: '退货考核',
+  credit_license: '执照考核',
 };

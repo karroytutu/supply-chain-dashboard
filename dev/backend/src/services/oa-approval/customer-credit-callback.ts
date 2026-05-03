@@ -176,8 +176,7 @@ export async function beforeSubmitCustomerCredit(
   // 注入额外数据到 formData
   const extraData: Record<string, unknown> = { _submitterRole: tierData.submitterRole };
 
-  // 安全校验：验证营业执照是否已提供
-  // 防止前端篡改 _hasExistingLicense 绕过必填校验
+  // 安全校验：检测营业执照状态，标记是否需要后补上传
   const customerId = Number(formData.customer);
   if (customerId) {
     try {
@@ -185,28 +184,16 @@ export async function beforeSubmitCustomerCredit(
       const hasNewUpload = formData.businessLicensePhotos
         && Array.isArray(formData.businessLicensePhotos)
         && formData.businessLicensePhotos.length > 0;
-      // ERP 无执照且本次也未上传 → 拒绝提交
-      if (!licenseInfo.hasLicense && !hasNewUpload) {
-        throw new Error('客户营业执照不能为空');
-      }
+      // ERP 无执照且本次也未上传 → 标记为延期补交
+      extraData._licenseDeferred = !licenseInfo.hasLicense && !hasNewUpload;
       // 将 ERP 执照图片 URL 注入 formData，供审批详情展示
       extraData._erpLicenseUrls = licenseInfo.hasLicense && licenseInfo.attachedPicUrls.length > 0
         ? licenseInfo.attachedPicUrls
         : [];
     } catch (error) {
-      // "营业执照不能为空"错误直接抛出
-      if (error instanceof Error && error.message === '客户营业执照不能为空') {
-        throw error;
-      }
-      // ERP 查询失败 — fail-safe：不信任前端 _hasExistingLicense，强制要求上传
-      console.warn('[CustomerCredit] ERP执照查询失败，强制要求上传:', error instanceof Error ? error.message : error);
-      const hasNewUpload = formData.businessLicensePhotos
-        && Array.isArray(formData.businessLicensePhotos)
-        && formData.businessLicensePhotos.length > 0;
-      if (!hasNewUpload) {
-        throw new Error('无法验证客户执照信息，请上传营业执照照片');
-      }
-      // ERP 不可用时无法获取执照 URL，置空
+      // ERP 查询失败 — 标记为延期补交（允许提交，审批通过后补交）
+      console.warn('[CustomerCredit] ERP执照查询失败，标记为延期补交:', error instanceof Error ? error.message : error);
+      extraData._licenseDeferred = true;
       extraData._erpLicenseUrls = [];
     }
   }
@@ -362,6 +349,24 @@ export async function onApprovedCustomerCredit(
 
     // 标记 ERP 处理成功
     await updateErpMetaStatus(instanceId, 'erp_completed');
+
+    // 营业执照延期补交：如果未上传执照，创建延期追踪记录
+    if (formData._licenseDeferred) {
+      try {
+        const { createDeferredUploadAfterApproval } = await import('../credit-license');
+        await createDeferredUploadAfterApproval(
+          instanceId,
+          customerId,
+          (formData._customerName || formData.customerName) as string,
+          instance.applicant_id,
+          instance.applicant_name,
+        );
+        console.log(`[CustomerCredit] 已创建营业执照延期补交记录(instance=${instanceId})`);
+      } catch (err) {
+        // 延期记录创建失败不影响主流程
+        console.error('[CustomerCredit] 营业执照延期记录创建失败:', err);
+      }
+    }
   } catch (error) {
     console.error('[CustomerCredit] ERP更新失败:', error);
     // 记录错误到 erp_meta，便于前端展示和重试

@@ -25,6 +25,7 @@ import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task'
 // import { calculateArAssessments, notifyAssessmentCreated } from '../ar-assessment';
 import { handleRetry } from '../retry.handler';
 import { recoverStuckProcessing } from '../fixed-asset/erp-meta-utils';
+import { checkLicenseDeferredReminders, markOverdueDeferredUploads } from '../credit-license';
 
 /**
  * 启动所有定时任务
@@ -223,6 +224,50 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // 营业执照补交提醒 - 每天 09:00
+  cron.schedule(
+    '0 9 * * *',
+    async () => {
+      console.log('[Scheduler] 执行营业执照补交提醒检查...');
+      try {
+        await checkLicenseDeferredReminders();
+        console.log('[Scheduler] 营业执照补交提醒检查完成');
+      } catch (error) {
+        console.error('[Scheduler] 营业执照补交提醒检查失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // 营业执照补交逾期标记 + 考核计算 - 每天 09:15
+  cron.schedule(
+    '0 15 9 * * *',
+    async () => {
+      console.log('[Scheduler] 执行营业执照补交逾期标记...');
+      try {
+        const overdueCount = await markOverdueDeferredUploads();
+        if (overdueCount > 0) {
+          console.log(`[Scheduler] ${overdueCount} 条营业执照补交记录标记为逾期`);
+          const result = await runCalculation({ triggered_by: 'scheduled', category: 'credit_license' });
+          console.log(`[Scheduler] 执照考核计算完成: ${result.totalRecords} 条记录, ${result.newRecords} 条新增`);
+
+          if (result.newRecords > 0) {
+            const pendingRecords = await assessmentRepository.getRecords({
+              category: 'credit_license', status: 'pending' as any,
+              page: 1, page_size: 1000,
+            });
+            await sendAssessmentNotifications(pendingRecords.rows);
+          }
+        } else {
+          console.log('[Scheduler] 无逾期营业执照补交记录');
+        }
+      } catch (error) {
+        console.error('[Scheduler] 营业执照补交逾期处理失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   console.log('[Scheduler] 定时任务已注册:');
   console.log('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
   console.log('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
@@ -234,6 +279,8 @@ export function startScheduler(): void {
   console.log('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
   console.log('  - 钉钉通知重试: 每5分钟 (Asia/Shanghai)');
   console.log('  - auto节点卡住恢复: 每5分钟 (Asia/Shanghai)');
+  console.log('  - 营业执照补交提醒: 每天 09:00 (Asia/Shanghai)');
+  console.log('  - 营业执照补交逾期+考核: 每天 09:15 (Asia/Shanghai)');
   console.log('[Scheduler] 定时任务调度器启动完成');
 }
 
