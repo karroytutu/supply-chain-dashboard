@@ -7,6 +7,7 @@
     "dev": "cross-env NODE_ENV=development nodemon src/app.ts",
     "build": "tsc",
     "start": "cross-env NODE_ENV=production node dist/app.js",
+    "migrate": "ts-node src/db/migrate.ts",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
