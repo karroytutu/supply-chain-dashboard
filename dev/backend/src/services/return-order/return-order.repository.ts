@@ -239,6 +239,7 @@ export async function createOrder(params: any): Promise<ReturnOrderRow> {
       expire_date, shelf_life, days_to_expire, days_to_expire_at_return, source_bill_no,
       consumer_name, marketing_manager, status, purchase_price)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+     ON CONFLICT (source_bill_no, goods_id, unit) DO NOTHING
      RETURNING *`,
     [
       returnNo, goodsId, goodsName, quantity, unit || null,
@@ -248,6 +249,11 @@ export async function createOrder(params: any): Promise<ReturnOrderRow> {
       orderStatus, purchasePrice || null,
     ]
   );
+
+  // ON CONFLICT DO NOTHING 时 RETURNING 返回空结果
+  if (result.rows.length === 0) {
+    return null as any;
+  }
 
   return result.rows[0];
 }

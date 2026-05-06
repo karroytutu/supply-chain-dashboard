@@ -34,8 +34,13 @@ import type {
  */
 export async function createReturnOrder(
   params: CreateReturnOrderParams
-): Promise<ReturnOrder> {
+): Promise<ReturnOrder | null> {
   const row = await repo.createOrder(params);
+
+  // ON CONFLICT DO NOTHING 时返回 null，表示记录已存在
+  if (!row) {
+    return null;
+  }
 
   // 记录创建操作
   await repo.recordCreateAction(row.id);

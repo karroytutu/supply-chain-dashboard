@@ -72,8 +72,8 @@ export async function syncReturnOrders(): Promise<{
 
   for (const record of returnRecords) {
     try {
-      // 2. 幂等性检查：检查退货单号是否已存在
-      const exists = await checkReturnOrderExists(record.sourceBillNo, record.goodsId);
+      // 2. 幂等性检查：检查退货单号是否已存在（与数据库唯一约束一致）
+      const exists = await checkReturnOrderExists(record.sourceBillNo, record.goodsId, record.unitName);
       if (exists) {
         console.log(`[SyncReturnOrders] 跳过已存在的记录: ${record.sourceBillNo}, 商品: ${record.goodsName}`);
         skippedCount++;
@@ -120,8 +120,8 @@ export async function syncReturnOrders(): Promise<{
       // 9. 生成退货单号
       const returnNo = generateReturnNo();
 
-      // 10. 创建退货单
-      await createReturnOrder({
+      // 10. 创建退货单（ON CONFLICT 时返回 null，保证幂等）
+      const created = await createReturnOrder({
         returnNo,
         goodsId: record.goodsId,
         goodsName: record.goodsName,
@@ -138,6 +138,12 @@ export async function syncReturnOrders(): Promise<{
         status: status as any,
         purchasePrice: purchasePrice || undefined,
       });
+
+      if (!created) {
+        console.log(`[SyncReturnOrders] 退货单已存在，跳过: ${record.sourceBillNo}, 商品: ${record.goodsName}`);
+        skippedCount++;
+        continue;
+      }
 
       createdCount++;
       console.log(`[SyncReturnOrders] 创建退货单成功: ${returnNo}, 状态: ${status}`);
@@ -245,16 +251,17 @@ async function queryGoodsInfo(goodsName: string): Promise<GoodsInfo | null> {
 
 /**
  * 检查退货单是否已存在
- * 基于 sourceBillNo 和 goodsId 进行幂等性检查
+ * 基于 sourceBillNo、goodsId 和 unit 进行幂等性检查（与数据库唯一约束一致）
  */
 async function checkReturnOrderExists(
   sourceBillNo: string,
-  goodsId: string
+  goodsId: string,
+  unit: string
 ): Promise<boolean> {
   const result = await appQuery<{ count: number }>(
     `SELECT COUNT(*) as count FROM expiring_return_orders 
-     WHERE source_bill_no = $1 AND goods_id = $2`,
-    [sourceBillNo, goodsId]
+     WHERE source_bill_no = $1 AND goods_id = $2 AND unit = $3`,
+    [sourceBillNo, goodsId, unit]
   );
 
   return parseInt(result.rows[0].count as any) > 0;
