@@ -30,7 +30,7 @@ export async function listApprovals(req: Request, res: Response): Promise<void> 
       startDate: req.query.startDate as string,
       endDate: req.query.endDate as string,
       page: parseInt(req.query.page as string) || 1,
-      pageSize: parseInt(req.query.pageSize as string) || 20,
+      pageSize: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
     };
 
     const result = await getApprovalList(params, userId);

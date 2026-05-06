@@ -15,7 +15,7 @@ import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '..
  */
 export async function listRoles(req: Request, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
   const keyword = req.query.keyword as string;
   const status = req.query.status !== undefined ? parseInt(req.query.status as string) : undefined;
   

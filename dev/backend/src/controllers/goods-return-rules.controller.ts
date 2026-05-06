@@ -23,7 +23,7 @@ export const getGoodsReturnRulesController = async (req: Request, res: Response)
     const keyword = req.query.keyword as string;
     const canReturnToSupplier = req.query.canReturnToSupplier === 'true' ? true : req.query.canReturnToSupplier === 'false' ? false : undefined;
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20;
 
     const result = await getGoodsReturnRules({
       keyword,

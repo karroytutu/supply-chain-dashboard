@@ -92,7 +92,7 @@ export async function getErpReference(req: Request, res: Response, next: NextFun
         const pageParam = req.query.page as string | undefined;
         if (pageParam) {
           const page = parseInt(pageParam, 10) || 1;
-          const pageSize = parseInt(req.query.pageSize as string, 10) || 20;
+          const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string), 10) || 20;
           const keyword = req.query.keyword as string | undefined;
           data = await searchErpSettlementOrdersPaged({
             traderId: consumerId,

@@ -27,7 +27,7 @@ export async function listMessages(req: Request, res: Response): Promise<void> {
     }
 
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20;
 
     const result = await getMessages(userId, page, pageSize);
     res.json(buildPagedResponse(result.list, result.total, page, pageSize));
