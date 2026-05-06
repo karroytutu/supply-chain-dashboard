@@ -27,7 +27,7 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
       startDate: req.query.startDate as string,
       endDate: req.query.endDate as string,
       page: parseInt(req.query.page as string) || 1,
-      pageSize: parseInt(req.query.pageSize as string) || 20,
+      pageSize: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
     };
 
     // 数据管理查看所有审批数据（不限视图模式）

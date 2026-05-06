@@ -130,7 +130,7 @@ export async function triggerDeptSync(req: Request, res: Response) {
 export async function listSyncLogs(req: Request, res: Response) {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 10;
+    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
     const status = req.query.status as string;
     const sync_type = req.query.sync_type as string;
 

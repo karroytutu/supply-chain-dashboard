@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
-import { getArchiveList } from '../controllers/procurement-archive.controller';
+import { getArchiveList, generateArchive } from '../controllers/procurement-archive.controller';
 
 const router = Router();
 
@@ -17,6 +17,13 @@ router.get(
   '/archive',
   requirePermission('procurement:archive:read'),
   getArchiveList
+);
+
+// 手动触发月度存档
+router.post(
+  '/archive/generate',
+  requirePermission('procurement:archive:read'),
+  generateArchive
 );
 
 export default router;

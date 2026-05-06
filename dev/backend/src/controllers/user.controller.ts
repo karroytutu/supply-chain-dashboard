@@ -16,7 +16,7 @@ import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '..
  */
 export async function listUsers(req: Request, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
   const keyword = req.query.keyword as string;
   const status = req.query.status !== undefined ? parseInt(req.query.status as string) : undefined;
   const roleId = req.query.roleId !== undefined ? parseInt(req.query.roleId as string) : undefined;
@@ -129,7 +129,7 @@ export async function getLoginLogs(req: Request, res: Response) {
   }
   
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
   
   const result = await getUserLoginLogs(id, page, pageSize);
   

@@ -22,7 +22,7 @@ export const getReturnOrdersController = async (req: Request, res: Response) => 
     const startDate = req.query.startDate as string;
     const endDate = req.query.endDate as string;
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20;
 
     const result = await getReturnOrders({ keyword, status, startDate, endDate, page, pageSize });
     res.json(buildSuccessResponse(result));

@@ -58,7 +58,7 @@ export const listMyDeferredUploadsController = async (req: Request, res: Respons
     }
 
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 10;
+    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
     const status = req.query.status as string | undefined;
 
     const result = await getMyDeferredUploads(userId, {
@@ -78,7 +78,7 @@ export const listMyDeferredUploadsController = async (req: Request, res: Respons
 export const listDeferredUploadsController = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 10;
+    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
     const status = req.query.status as string | undefined;
     const applicantId = req.query.applicantId ? parseInt(req.query.applicantId as string) : undefined;
 

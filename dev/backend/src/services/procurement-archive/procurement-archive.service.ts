@@ -62,8 +62,9 @@ export async function calculateMonthlyAvailability(
   // 计算指定月份的月初和月末日期
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd = new Date(year, month, 0); // 当月第0天 = 上月最后一天
-  const monthStartStr = monthStart.toISOString().split('T')[0];
-  const monthEndStr = monthEnd.toISOString().split('T')[0];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const monthStartStr = `${monthStart.getFullYear()}-${pad(monthStart.getMonth() + 1)}-${pad(monthStart.getDate())}`;
+  const monthEndStr = `${monthEnd.getFullYear()}-${pad(monthEnd.getMonth() + 1)}-${pad(monthEnd.getDate())}`;
 
   // 查询该月每日战略商品库存状态
   const dailyStockResult = await query<{
@@ -185,7 +186,7 @@ export async function saveMonthlyArchive(
   const year = archiveMonth.getFullYear();
   const month = archiveMonth.getMonth() + 1;
   const monthFirstDay = getMonthFirstDay(archiveMonth);
-  const monthFirstDayStr = monthFirstDay.toISOString().split('T')[0];
+  const monthFirstDayStr = `${monthFirstDay.getFullYear()}-${String(monthFirstDay.getMonth() + 1).padStart(2, '0')}-${String(monthFirstDay.getDate()).padStart(2, '0')}`;
 
   console.log(`[ProcurementArchive] 开始存档 ${year}-${month} 数据...`);
 
@@ -299,7 +300,7 @@ export async function getMonthlyArchiveList(
   const records: MonthlyArchiveRecord[] = dataResult.rows.map(row => ({
     id: row.id,
     archiveMonth: row.archive_month instanceof Date
-      ? row.archive_month.toISOString().split('T')[0]
+      ? `${row.archive_month.getFullYear()}-${String(row.archive_month.getMonth() + 1).padStart(2, '0')}-${String(row.archive_month.getDate()).padStart(2, '0')}`
       : String(row.archive_month),
     strategicAvailabilityRate: row.strategic_availability_rate !== null
       ? parseFloat(row.strategic_availability_rate)

@@ -33,7 +33,7 @@ export const getWarningProductsController = async (req: Request, res: Response) 
   try {
     const { type } = req.params;
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20;
     const strategicLevel = req.query.strategicLevel as StrategicLevel | undefined;
 
     // 验证 strategicLevel 参数
@@ -72,7 +72,7 @@ export const getCategoryOutOfStockController = async (req: Request, res: Respons
   try {
     const categoryPath = req.query.categoryPath as string;
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20;
 
     if (!categoryPath) {
       res.status(400).json(buildErrorResponse(400, 'categoryPath 参数不能为空'));

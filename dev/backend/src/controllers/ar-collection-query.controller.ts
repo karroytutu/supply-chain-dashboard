@@ -191,7 +191,7 @@ export const getWarnings = async (req: Request, res: Response) => {
     const userId = req.user!.userId;
     const params = {
       page: parseInt(req.query.page as string) || 1,
-      pageSize: parseInt(req.query.pageSize as string) || 20,
+      pageSize: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
       warningLevel: req.query.warningLevel as WarningLevel | undefined,
       managerUserId: req.query.managerUserId ? parseInt(req.query.managerUserId as string) : undefined,
     };
@@ -216,7 +216,7 @@ export const getReminders = async (req: Request, res: Response) => {
     const userId = req.user!.userId;
     const params = {
       page: parseInt(req.query.page as string) || 1,
-      pageSize: parseInt(req.query.pageSize as string) || 20,
+      pageSize: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
       erpBillId: req.query.erpBillId as string | undefined,
       managerUserId: req.query.managerUserId ? parseInt(req.query.managerUserId as string) : undefined,
     };

@@ -26,6 +26,7 @@ import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task'
 import { handleRetry } from '../retry.handler';
 import { recoverStuckProcessing } from '../fixed-asset/erp-meta-utils';
 import { checkLicenseDeferredReminders, markOverdueDeferredUploads } from '../credit-license';
+import { saveMonthlyArchive, getLastMonthEndDate } from '../procurement-archive';
 
 /**
  * 启动所有定时任务
@@ -268,6 +269,22 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // 采购绩效月度存档 - 每月1号 01:00（对上月数据进行存档）
+  cron.schedule(
+    '0 1 1 * *',
+    async () => {
+      console.log('[Scheduler] 执行采购绩效月度存档...');
+      try {
+        const lastMonthEnd = getLastMonthEndDate();
+        await saveMonthlyArchive(lastMonthEnd, 'scheduler');
+        console.log('[Scheduler] 采购绩效月度存档完成');
+      } catch (error) {
+        console.error('[Scheduler] 采购绩效月度存档失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   console.log('[Scheduler] 定时任务已注册:');
   console.log('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
   console.log('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
@@ -281,6 +298,7 @@ export function startScheduler(): void {
   console.log('  - auto节点卡住恢复: 每5分钟 (Asia/Shanghai)');
   console.log('  - 营业执照补交提醒: 每天 09:00 (Asia/Shanghai)');
   console.log('  - 营业执照补交逾期+考核: 每天 09:15 (Asia/Shanghai)');
+  console.log('  - 采购绩效月度存档: 每月1号 01:00 (Asia/Shanghai)');
   console.log('[Scheduler] 定时任务调度器启动完成');
 }
 
