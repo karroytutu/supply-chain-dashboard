@@ -24,6 +24,8 @@ import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 import logger from './utils/logger';
+import { runMigrations } from './db/migrate';
+import { appQuery } from './db/appPool';
 
 // 全局异常处理 - 防止未捕获的异常导致进程崩溃
 process.on('uncaughtException', (error) => {
@@ -98,9 +100,17 @@ app.use('/api/dingtalk-sync', dingtalkSyncRoutes);
 app.use(errorHandler);
 
 // 启动服务器
-app.listen(config.port, () => {
+app.listen(config.port, async () => {
   logger.info(`服务器已启动: http://localhost:${config.port}`);
   logger.info(`API 文档: http://localhost:${config.port}/api/health`);
+
+  // 自动执行数据库迁移
+  try {
+    await runMigrations(appQuery);
+  } catch (error) {
+    logger.error('数据库迁移失败，服务将终止:', error);
+    process.exit(1);
+  }
 
   // 启动定时任务调度器
   startScheduler();
