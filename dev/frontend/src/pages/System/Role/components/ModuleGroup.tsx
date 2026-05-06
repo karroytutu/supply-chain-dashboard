@@ -11,20 +11,30 @@ import styles from './ModuleGroup.less';
 
 // 模块名称映射
 const moduleNames: Record<string, string> = {
+  dashboard: '仪表盘',
   system: '系统管理',
   procurement: '采购管理',
   return: '退货管理',
   'goods-rules': '退货规则',
   strategic: '战略商品',
+  finance: '财务',
+  sales: '销售分析',
+  assessment: '统一考核',
+  oa: 'OA审批',
 };
 
 // 模块颜色映射
 const moduleColors: Record<string, string> = {
+  dashboard: '#52c41a',
   system: '#1677ff',
   procurement: '#fa8c16',
   return: '#13c2c2',
   'goods-rules': '#722ed1',
   strategic: '#eb2f96',
+  finance: '#faad14',
+  sales: '#1890ff',
+  assessment: '#f5222d',
+  oa: '#13c2c2',
 };
 
 interface ModuleGroupProps {
