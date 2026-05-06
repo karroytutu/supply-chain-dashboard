@@ -91,18 +91,28 @@ export const getModulePermissionIds = (items: PermissionItem[]): number[] => {
 
 /**
  * 按模块分组权限
+ * 递归遍历所有权限节点（包括子节点），确保非根节点也能正确分组
  */
 export const groupByModule = (items: PermissionItem[] = []): Map<string, PermissionItem[]> => {
   const groups = new Map<string, PermissionItem[]>();
-  
-  items.forEach(item => {
-    // 从权限编码中提取模块：system:user:read -> system
-    const moduleCode = item.code.split(':')[0];
-    if (!groups.has(moduleCode)) {
-      groups.set(moduleCode, []);
-    }
-    groups.get(moduleCode)!.push(item);
-  });
-  
+
+  const traverse = (nodes: PermissionItem[]) => {
+    nodes.forEach(item => {
+      // 从权限编码中提取模块：system:user:read -> system
+      const moduleCode = item.code.split(':')[0];
+      if (!groups.has(moduleCode)) {
+        groups.set(moduleCode, []);
+      }
+      groups.get(moduleCode)!.push(item);
+
+      // 递归处理子节点
+      if (item.children && item.children.length > 0) {
+        traverse(item.children);
+      }
+    });
+  };
+
+  traverse(items);
+
   return groups;
 };

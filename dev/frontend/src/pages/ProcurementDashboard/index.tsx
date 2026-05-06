@@ -13,6 +13,8 @@ import { dataCache, CACHE_KEYS, CACHE_TTL } from '@/utils/cache';
 import SummaryCard from '@/components/SummaryCard';
 import WarningPanel from '@/components/WarningPanel';
 import MonthlyArchiveModal from '@/components/MonthlyArchiveModal';
+import { Authorized } from '@/components/Authorized';
+import { PERMISSIONS } from '@/constants/permissions';
 import CategoryAvailabilityCard from './components/CategoryAvailabilityCard';
 import styles from './index.less';
 
@@ -69,13 +71,15 @@ const Dashboard: React.FC = () => {
           </span>
         </div>
         <div className={styles.headerActions}>
-          <Button
-            type="link"
-            icon={<HistoryOutlined />}
-            onClick={() => setArchiveModalVisible(true)}
-          >
-            月度存档
-          </Button>
+          <Authorized permission={PERMISSIONS.PROCUREMENT.ARCHIVE.READ}>
+            <Button
+              type="link"
+              icon={<HistoryOutlined />}
+              onClick={() => setArchiveModalVisible(true)}
+            >
+              月度存档
+            </Button>
+          </Authorized>
         </div>
       </div>
 
