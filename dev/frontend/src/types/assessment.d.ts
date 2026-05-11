@@ -8,9 +8,9 @@ declare type AssessmentCategory = 'ar_collection' | 'return_order';
 declare type AssessmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'appealed';
 declare type AssessmentRole =
   | 'marketer'
-  | 'marketing_supervisor'
   | 'procurement_manager'
   | 'marketing_manager'
+  | 'marketing_supervisor'
   | 'warehouse_manager'
   | 'warehouse_keeper'
   | 'logistics_manager';

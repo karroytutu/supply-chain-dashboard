@@ -81,7 +81,7 @@ router.post(
   batchDeleteStrategicProductsController
 );
 
-// 确认战略商品（采购主管或营销主管）
+// 确认战略商品（采购主管或营销经理）
 router.post(
   '/:id/confirm',
   requirePermission(['strategic:confirm:procurement', 'strategic:confirm:marketing']),

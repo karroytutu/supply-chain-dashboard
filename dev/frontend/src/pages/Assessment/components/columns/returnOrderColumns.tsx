@@ -15,7 +15,7 @@ const ROLE_LABELS: Record<string, string> = {
   warehouse_keeper: '仓储员',
   logistics_manager: '物流经理',
   marketer: '营销师',
-  marketing_supervisor: '营销主管',
+  marketing_supervisor: '营销经理',
 };
 
 /** 退货考核类型映射 */

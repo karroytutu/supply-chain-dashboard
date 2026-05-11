@@ -6,6 +6,7 @@
 import { appQuery as query, getAppClient } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import type { AssessmentRecordRow, AssessmentQueryParams, AssessmentStatsRow } from './assessment.types';
+import { normalizeAssessmentRole } from './assessment.types';
 
 // ==================== 缓存配置 ====================
 
@@ -208,7 +209,7 @@ export async function upsertRecord(data: {
   const values = [
     data.category, data.rule_type, data.source_type, data.source_id,
     data.source_no, data.source_name, data.assessment_user_id,
-    data.assessment_user_name, data.assessment_role, data.base_amount,
+    data.assessment_user_name, normalizeAssessmentRole(data.assessment_role), data.base_amount,
     data.penalty_rate, data.overdue_days, data.penalty_amount,
     JSON.stringify(data.rule_snapshot),
   ];
@@ -359,7 +360,7 @@ export async function batchUpsertRecords(
       const values = [
         record.category, record.rule_type, record.source_type, record.source_id,
         record.source_no, record.source_name, record.assessment_user_id,
-        record.assessment_user_name, record.assessment_role, record.base_amount,
+        record.assessment_user_name, normalizeAssessmentRole(record.assessment_role), record.base_amount,
         record.penalty_rate, record.overdue_days, record.penalty_amount,
         JSON.stringify(record.rule_snapshot),
       ];

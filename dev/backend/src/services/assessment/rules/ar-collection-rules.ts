@@ -3,9 +3,9 @@
  * 从 ar-assessment-calculate.ts 迁移到统一规则框架
  *
  * 规则说明：
- * - tier1(3-5天): 营销师 10元/任务, 营销主管 20元/任务（固定金额）
- * - tier2(5-7天): 营销师 20元/任务, 营销主管 40元/任务（固定金额，累加到 tier1）
- * - tier3(7天以上): 营销师 按欠款70%, 营销主管 按欠款30%（比例）
+ * - tier1(3-5天): 营销师 10元/任务, 营销经理 20元/任务（固定金额）
+ * - tier2(5-7天): 营销师 20元/任务, 营销经理 40元/任务（固定金额，累加到 tier1）
+ * - tier3(7天以上): 营销师 按欠款70%, 营销经理 按欠款30%（比例）
  */
 
 import { registerAssessmentRule, DEFAULT_ALLOWED_TRANSITIONS, DEFAULT_STATUS_LABELS } from '../assessment.rules';
@@ -99,7 +99,7 @@ function calculateOverdueDays(assessmentStartTime: Date): number {
  */
 function buildArNotification(records: AssessmentRecordRow[], role: string): NotificationContent {
   const totalAmount = records.reduce((sum, r) => sum + parseFloat(r.penalty_amount || '0'), 0);
-  const roleName = role === 'marketer' ? '营销师' : '营销主管';
+  const roleName = role === 'marketer' ? '营销师' : '营销经理';
 
   const tableRows = records.map(r => {
     return `| ${r.source_no || '-'} | ${r.source_name || '-'} | ${r.overdue_days}天 | ¥${parseFloat(r.penalty_amount).toFixed(2)} |`;
@@ -132,7 +132,7 @@ registerAssessmentRule({
   category: 'ar_collection',
   ruleType: 'tier1',
   name: AR_TIER_CONFIG.tier1.name,
-  description: '催收任务超时3-5天，营销师考核10元/任务，营销主管考核20元/任务',
+  description: '催收任务超时3-5天，营销师考核10元/任务，营销经理考核20元/任务',
   triggerMode: 'scheduled',
   calculationModel: 'fixed_amount',
   allowedTransitions: DEFAULT_ALLOWED_TRANSITIONS,
@@ -147,7 +147,7 @@ registerAssessmentRule({
 
     const sourceIds = tasks.map(t => t.id);
     const existingSet = await queryExistingRecords(sourceIds, 'tier1');
-    const supervisors = await getUsersByRole('marketing_supervisor');
+    const supervisors = await getUsersByRole('marketing_manager');
     const results: CalculationResult[] = [];
 
     for (const task of tasks) {
@@ -176,7 +176,7 @@ registerAssessmentRule({
         });
       }
 
-      // 营销主管记录
+      // 营销经理记录
       for (const supervisor of supervisors) {
         if (!existingSet.has(`${task.id}:${supervisor.id}`)) {
           results.push({
@@ -188,7 +188,7 @@ registerAssessmentRule({
             source_name: task.consumer_name,
             assessment_user_id: supervisor.id,
             assessment_user_name: supervisor.name,
-            assessment_role: 'marketing_supervisor',
+            assessment_role: 'marketing_manager',
             base_amount: totalAmount,
             penalty_rate: 0,
             overdue_days: overdueDays,
@@ -211,7 +211,7 @@ registerAssessmentRule({
   category: 'ar_collection',
   ruleType: 'tier2',
   name: AR_TIER_CONFIG.tier2.name,
-  description: '催收任务超时5-7天，营销师考核20元/任务，营销主管考核40元/任务',
+  description: '催收任务超时5-7天，营销师考核20元/任务，营销经理考核40元/任务',
   triggerMode: 'scheduled',
   calculationModel: 'fixed_amount',
   allowedTransitions: DEFAULT_ALLOWED_TRANSITIONS,
@@ -226,7 +226,7 @@ registerAssessmentRule({
 
     const sourceIds = tasks.map(t => t.id);
     const existingSet = await queryExistingRecords(sourceIds, 'tier2');
-    const supervisors = await getUsersByRole('marketing_supervisor');
+    const supervisors = await getUsersByRole('marketing_manager');
     const results: CalculationResult[] = [];
 
     for (const task of tasks) {
@@ -255,7 +255,7 @@ registerAssessmentRule({
         });
       }
 
-      // 营销主管记录
+      // 营销经理记录
       for (const supervisor of supervisors) {
         if (!existingSet.has(`${task.id}:${supervisor.id}`)) {
           results.push({
@@ -267,7 +267,7 @@ registerAssessmentRule({
             source_name: task.consumer_name,
             assessment_user_id: supervisor.id,
             assessment_user_name: supervisor.name,
-            assessment_role: 'marketing_supervisor',
+            assessment_role: 'marketing_manager',
             base_amount: totalAmount,
             penalty_rate: 0,
             overdue_days: overdueDays,
@@ -290,7 +290,7 @@ registerAssessmentRule({
   category: 'ar_collection',
   ruleType: 'tier3',
   name: AR_TIER_CONFIG.tier3.name,
-  description: '催收任务超时7天以上，营销师按欠款70%考核，营销主管按欠款30%考核',
+  description: '催收任务超时7天以上，营销师按欠款70%考核，营销经理按欠款30%考核',
   triggerMode: 'scheduled',
   calculationModel: 'ratio',
   allowedTransitions: DEFAULT_ALLOWED_TRANSITIONS,
@@ -305,7 +305,7 @@ registerAssessmentRule({
 
     const sourceIds = tasks.map(t => t.id);
     const existingSet = await queryExistingRecords(sourceIds, 'tier3');
-    const supervisors = await getUsersByRole('marketing_supervisor');
+    const supervisors = await getUsersByRole('marketing_manager');
     const results: CalculationResult[] = [];
 
     for (const task of tasks) {
@@ -335,7 +335,7 @@ registerAssessmentRule({
         });
       }
 
-      // 营销主管记录：按欠款金额 30% 考核
+      // 营销经理记录：按欠款金额 30% 考核
       for (const supervisor of supervisors) {
         if (!existingSet.has(`${task.id}:${supervisor.id}`)) {
           const penaltyAmount = Math.round(totalAmount * config.supervisorRatio * 100) / 100;
@@ -348,7 +348,7 @@ registerAssessmentRule({
             source_name: task.consumer_name,
             assessment_user_id: supervisor.id,
             assessment_user_name: supervisor.name,
-            assessment_role: 'marketing_supervisor',
+            assessment_role: 'marketing_manager',
             base_amount: totalAmount,
             penalty_rate: config.supervisorRatio,
             overdue_days: overdueDays,

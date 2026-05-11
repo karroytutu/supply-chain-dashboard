@@ -2,9 +2,8 @@
  * API 请求封装
  * 包含 401/403 响应处理、GET 参数自动 toSnakeKeys 转换
  */
-import { message } from 'antd';
-import { history } from 'umi';
 import { toSnakeKeys } from '@/utils/keyConvert';
+import { showErrorMessage } from '@/utils/appMessage';
 
 const API_BASE = '/api';
 const TOKEN_KEY = 'auth_token';
@@ -38,9 +37,9 @@ function handleAuthError(status: number, errorData?: any): void {
     // 根据后端返回的message显示具体错误
     const backendMessage = errorData?.message || '';
     if (backendMessage.includes('禁用')) {
-      message.error('账户已被禁用，请联系管理员');
+      showErrorMessage('账户已被禁用，请联系管理员');
     } else {
-      message.error('登录已过期，请重新登录');
+      showErrorMessage('登录已过期，请重新登录');
     }
 
     // 立即跳转登录页，不用 setTimeout 延迟
@@ -48,8 +47,24 @@ function handleAuthError(status: number, errorData?: any): void {
     window.location.href = '/login';
   } else if (status === 403) {
     // 无权限访问
-    message.error(errorData?.message || '您没有权限访问此资源');
+    showErrorMessage(errorData?.message || '您没有权限访问此资源');
   }
+}
+
+function normalizeNetworkError(error: unknown): Error {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return new Error('请求超时，请稍后重试');
+  }
+
+  if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+    return new Error('网络连接失败，请确认前端代理和后端服务是否正常');
+  }
+
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new Error('网络请求失败，请稍后重试');
 }
 
 /**
@@ -115,10 +130,7 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
     response = await fetch(fullUrl, config);
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('请求超时，请稍后重试');
-    }
-    throw error;
+    throw normalizeNetworkError(error);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -220,10 +232,11 @@ export async function requestFormData<T = any>(
     });
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    const normalizedError = normalizeNetworkError(error);
+    if (normalizedError.message === '请求超时，请稍后重试') {
       throw new Error('上传超时，请稍后重试');
     }
-    throw error;
+    throw normalizedError;
   } finally {
     clearTimeout(timeoutId);
   }

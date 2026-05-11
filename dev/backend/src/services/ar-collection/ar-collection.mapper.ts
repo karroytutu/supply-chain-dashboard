@@ -14,6 +14,7 @@ import type {
   EscalateParams,
   ResolveDifferenceParams,
   RollbackParams,
+  EscalationLevel,
 } from './ar-collection.types';
 import type {
   CollectionTaskDTO,
@@ -162,6 +163,7 @@ export function fromEscalateDTO(
   return {
     task_id: taskId,
     detail_ids: [],
+    target_level: dto.targetLevel as EscalationLevel | undefined,
     reason: dto.reason,
     operator_id: operatorId,
     operator_name: operatorName,

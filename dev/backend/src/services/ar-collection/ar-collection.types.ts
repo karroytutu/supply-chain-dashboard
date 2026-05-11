@@ -37,7 +37,7 @@ export type DetailStatus =
   | 'escalated'
   | 'hoard_excluded';
 
-/** 升级层级: 0=营销师, 1=营销主管, 2=财务 */
+/** 升级层级: 0=营销师, 1=营销经理, 2=财务 */
 export type EscalationLevel = 0 | 1 | 2;
 
 /** 优先级 */
@@ -325,6 +325,7 @@ export interface DifferenceParams {
 export interface EscalateParams {
   task_id: number;
   detail_ids: number[];
+  target_level?: EscalationLevel;
   reason: string;
   operator_id: number;
   operator_name: string;

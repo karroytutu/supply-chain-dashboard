@@ -39,7 +39,7 @@ export const renderConfirmStatus = (record: StrategicProduct) => {
           )}
         </span>
       </Tooltip>
-      <Tooltip title={`营销主管：${marketingStatus}`}>
+      <Tooltip title={`营销经理：${marketingStatus}`}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
           <span style={{ fontSize: 12, color: '#8c8c8c' }}>营</span>
           {record.marketingConfirmed ? (

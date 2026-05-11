@@ -9,6 +9,7 @@ import { AR_EXTENSION_MAX_DAYS, AR_ESCALATION_HANDLER_ROLES, AR_ROLLBACK_HANDLER
 import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
 import type {
   TaskStatus,
+  DetailStatus,
   ActionType,
   ActionResult,
   VerifyParams,
@@ -62,6 +63,26 @@ async function getTaskAndValidate(
     );
   }
   return task;
+}
+
+/**
+ * 任务状态 → 明细状态映射
+ * 任务与明细的状态体系不同，退回升级等场景需要正确映射
+ */
+function mapTaskStatusToDetailStatus(taskStatus: TaskStatus): DetailStatus {
+  switch (taskStatus) {
+    case 'collecting':
+      return 'pending';
+    case 'difference_processing':
+      return 'difference_pending';
+    case 'verified':
+      return 'full_verified';
+    case 'closed':
+      return 'full_verified';
+    default:
+      // extension, pending_verify, escalated 等任务状态与明细状态同名
+      return taskStatus as DetailStatus;
+  }
 }
 
 /** 记录操作日志 */
@@ -182,8 +203,8 @@ export async function applyExtension(
     if (!task.can_extend) {
       throw new Error('该任务已使用过延期机会，不可再次延期');
     }
-    if (params.extension_days > AR_EXTENSION_MAX_DAYS) {
-      throw new Error(`延期天数不得超过${AR_EXTENSION_MAX_DAYS}天`);
+    if (!Number.isInteger(params.extension_days) || params.extension_days <= 0 || params.extension_days > AR_EXTENSION_MAX_DAYS) {
+      throw new Error(`延期天数必须是1-${AR_EXTENSION_MAX_DAYS}之间的整数`);
     }
 
     // 创建延期记录
@@ -332,9 +353,18 @@ export async function escalateTask(
 
     // 逐级升级验证
     const currentLevel = task.escalation_level;
-    const targetLevel = currentLevel + 1;
-    if (targetLevel > 2) {
-      throw new Error('已达到最高升级级别，无法继续升级');
+    let targetLevel: EscalationLevel;
+    if (params.target_level !== undefined) {
+      if (params.target_level <= currentLevel || params.target_level > 2) {
+        throw new Error('无效的升级目标级别');
+      }
+      targetLevel = params.target_level;
+    } else {
+      const nextLevel = currentLevel + 1;
+      if (nextLevel > 2) {
+        throw new Error('已达到最高升级级别，无法继续升级');
+      }
+      targetLevel = nextLevel as EscalationLevel;
     }
 
     // 确定目标处理角色
@@ -372,7 +402,7 @@ export async function escalateTask(
       const actionCard = buildEscalationActionCard(
         task,
         currentLevel,
-        targetLevel as EscalationLevel,
+        targetLevel,
         operator.name
       );
       await sendCollectionNotificationByRole(targetRole, actionCard.title, '', {
@@ -613,11 +643,12 @@ export async function rollbackEscalation(
       [targetStatus, targetLevel, targetRole, taskId]
     );
 
-    // 恢复已升级的明细状态
+    // 恢复已升级的明细状态（任务状态需映射为明细状态）
+    const detailStatus = mapTaskStatusToDetailStatus(targetStatus);
     await client.query(
       `UPDATE ar_collection_details SET status = $1
        WHERE task_id = $2 AND status = 'escalated'`,
-      [targetStatus, taskId]
+      [detailStatus, taskId]
     );
 
     await client.query('COMMIT');
@@ -661,7 +692,7 @@ export async function rollbackEscalation(
           });
         }
       } else {
-        // L2→L1: 通知营销主管角色
+        // L2→L1: 通知营销经理角色
         await sendCollectionNotificationByRole(targetRole, actionCard.title, '', notifyOptions);
       }
     } catch (notifyErr) {

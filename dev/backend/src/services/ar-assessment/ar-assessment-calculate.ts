@@ -76,8 +76,8 @@ export async function calculateArAssessments(): Promise<CalculationResult[]> {
     existingSet.add(`${row.source_id}:${row.rule_type}:${row.assessment_user_id}`);
   }
 
-  // 3. 获取营销主管用户列表
-  const supervisors = await getUsersByRole('marketing_supervisor');
+  // 3. 获取营销经理用户列表
+  const supervisors = await getUsersByRole('marketing_manager');
   const supervisorMap = new Map(supervisors.map(s => [s.id, s.name]));
 
   // 4. 计算当前时间（北京时区）
@@ -119,14 +119,14 @@ export async function calculateArAssessments(): Promise<CalculationResult[]> {
         }
       }
 
-      // 为每个营销主管创建记录
+      // 为每个营销经理创建记录
       for (const [supervisorId, supervisorName] of supervisorMap) {
         const key = `${task.id}:${tier}:${supervisorId}`;
         if (!existingSet.has(key)) {
-          const penaltyAmount = calculatePenaltyAmount(tier, 'marketing_supervisor', totalAmount);
+          const penaltyAmount = calculatePenaltyAmount(tier, 'marketing_manager', totalAmount);
           await insertAssessmentRecord(
             task.id, tier, supervisorId, supervisorName,
-            'marketing_supervisor', totalAmount, overdueDays, penaltyAmount, rule
+            'marketing_manager', totalAmount, overdueDays, penaltyAmount, rule
           );
           existingSet.add(key);
           createdCount++;

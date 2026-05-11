@@ -34,7 +34,7 @@ const ALLOWED_ROLES = ['admin', 'marketer', 'marketing_manager', 'current_accoun
 interface ApprovalTierResult {
   /** 分级名称：low / medium / high */
   tier: 'low' | 'medium' | 'high';
-  /** 是否需要营销主管审批 */
+  /** 是否需要营销经理审批 */
   needsManagerApproval: boolean;
   /** 是否需要往来会计审批（含提交人自跳过逻辑） */
   needsAccountantApproval: boolean;

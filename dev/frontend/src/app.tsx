@@ -1,12 +1,13 @@
 import React from 'react';
 import './styles/global.less';
-import { Dropdown, Spin, Tag } from 'antd';
+import { App as AntdApp, Dropdown, Spin, Tag } from 'antd';
 import { LogoutOutlined, SwapOutlined } from '@ant-design/icons';
 import { getCurrentUser } from '@/services/api/auth';
 import UserAvatar from '@/components/UserAvatar';
 import DevUserSwitcher from '@/components/DevUserSwitcher';
 import ChunkErrorBoundary from '@/components/ChunkErrorBoundary';
 import { initChunkErrorGlobalListener } from '@/utils/chunk-error-handler';
+import { AppMessageBridge } from '@/utils/appMessage';
 import { usePermission } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/constants/permissions';
 
@@ -217,5 +218,14 @@ export function onRouteChange({ location }: { location: { pathname: string } }) 
  * 捕获 React.lazy() 动态导入的 chunk 加载失败错误，自动刷新恢复
  */
 export function rootContainer(container: React.ReactElement): React.ReactElement {
-  return React.createElement(ChunkErrorBoundary, null, container);
+  return React.createElement(
+    ChunkErrorBoundary,
+    null,
+    React.createElement(
+      AntdApp,
+      null,
+      React.createElement(AppMessageBridge),
+      container,
+    ),
+  );
 }

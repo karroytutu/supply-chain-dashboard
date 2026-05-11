@@ -10,6 +10,18 @@ interface DingtalkQrcodeProps {
 // 消息类型常量
 const DINGTALK_CALLBACK_TYPE = 'DINGTALK_CALLBACK';
 
+function getOriginFromUrl(url?: string | null): string | null {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
 export default function DingtalkQrcode({ onCallback }: DingtalkQrcodeProps) {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<{ appId: string; redirectUri: string; state: string } | null>(null);
@@ -18,10 +30,15 @@ export default function DingtalkQrcode({ onCallback }: DingtalkQrcodeProps) {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       console.log('[DingtalkQrcode] 收到消息:', event.data, '来源:', event.origin);
-      
+
+      const expectedOrigin = getOriginFromUrl(config?.redirectUri) || window.location.origin;
+
       // 安全验证：检查消息来源
-      if (event.origin !== window.location.origin) {
-        console.warn('收到来自非预期来源的消息:', event.origin);
+      if (event.origin !== expectedOrigin) {
+        console.warn('[DingtalkQrcode] 收到来自非预期来源的消息:', {
+          actualOrigin: event.origin,
+          expectedOrigin,
+        });
         return;
       }
 
@@ -40,12 +57,20 @@ export default function DingtalkQrcode({ onCallback }: DingtalkQrcodeProps) {
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [onCallback]);
+  }, [config?.redirectUri, onCallback]);
 
   useEffect(() => {
     const loadConfig = async () => {
       try {
         const result = await getQrcodeConfig();
+        const redirectOrigin = getOriginFromUrl(result.redirectUri);
+        if (redirectOrigin && redirectOrigin !== window.location.origin) {
+          console.warn('[DingtalkQrcode] 回调地址与当前页面来源不一致:', {
+            currentOrigin: window.location.origin,
+            redirectOrigin,
+            redirectUri: result.redirectUri,
+          });
+        }
         setConfig(result);
       } catch (error) {
         console.error('获取扫码配置失败:', error);
@@ -60,7 +85,8 @@ export default function DingtalkQrcode({ onCallback }: DingtalkQrcodeProps) {
   if (loading) {
     return (
       <div className={styles.qrcodeContainer}>
-        <Spin tip="加载中..." />
+        <Spin size="large" />
+        <div style={{ marginTop: 12 }}>加载中...</div>
       </div>
     );
   }

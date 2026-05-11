@@ -21,8 +21,23 @@ export type AssessmentRuleType = ArCollectionRuleType | ReturnOrderRuleType | Cr
 /** 考核记录状态 */
 export type AssessmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'appealed';
 
-/** 被考核角色 */
-export type AssessmentRole = 'marketer' | 'marketing_supervisor' | 'procurement_manager' | 'marketing_manager' | 'warehouse_manager' | 'warehouse_keeper' | 'logistics_manager';
+/**
+ * 被考核角色
+ * @deprecated marketing_supervisor 已废弃，请使用 marketing_manager。
+ *   写入前请调用 normalizeAssessmentRole() 进行规范化。
+ */
+export type AssessmentRole = 'marketer' | 'marketing_manager' | 'marketing_supervisor' | 'procurement_manager' | 'warehouse_manager' | 'warehouse_keeper' | 'logistics_manager';
+
+/**
+ * 规范化被考核角色值
+ * 将废弃的 marketing_supervisor 映射为 marketing_manager
+ */
+export function normalizeAssessmentRole(role: string): string {
+  if (role === 'marketing_supervisor') {
+    return 'marketing_manager';
+  }
+  return role;
+}
 
 // ==================== 数据库行类型 (snake_case) ====================
 
@@ -172,9 +187,9 @@ export const ASSESSMENT_STATUS_LABELS: Record<AssessmentStatus, string> = {
 
 export const ASSESSMENT_ROLE_LABELS: Record<AssessmentRole, string> = {
   marketer: '营销师',
-  marketing_supervisor: '营销主管',
   procurement_manager: '采购主管',
   marketing_manager: '营销经理',
+  marketing_supervisor: '营销经理',
   warehouse_manager: '仓储主管',
   warehouse_keeper: '仓储人员',
   logistics_manager: '物流经理',

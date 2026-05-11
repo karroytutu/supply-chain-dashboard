@@ -26,7 +26,7 @@ const RETURN_RULE_OPTIONS = [
 /** 催收考核角色选项 */
 const AR_ROLE_OPTIONS = [
   { value: 'marketer', label: '营销师' },
-  { value: 'marketing_supervisor', label: '营销主管' },
+  { value: 'marketing_manager', label: '营销经理' },
 ];
 
 /** 退货考核角色选项 */

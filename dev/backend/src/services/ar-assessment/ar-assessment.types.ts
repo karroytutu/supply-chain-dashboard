@@ -7,7 +7,7 @@
 export type AssessmentTier = 'tier1' | 'tier2' | 'tier3';
 
 /** 被考核角色 */
-export type AssessmentRole = 'marketer' | 'marketing_supervisor';
+export type AssessmentRole = 'marketer' | 'marketing_manager' | 'marketing_supervisor';
 
 /** 考核状态 */
 export type AssessmentStatus = 'pending' | 'handled' | 'skipped';
@@ -95,7 +95,8 @@ export const TIER_NAMES: Record<AssessmentTier, string> = {
 /** 角色名称映射 */
 export const ROLE_NAMES: Record<AssessmentRole, string> = {
   marketer: '营销师',
-  marketing_supervisor: '营销主管',
+  marketing_manager: '营销经理',
+  marketing_supervisor: '营销经理',
 };
 
 /** 状态名称映射 */
@@ -134,10 +135,12 @@ export const ASSESSMENT_RULES = {
 export const NEXT_TIER_WARNING: Record<AssessmentTier, Record<AssessmentRole, string> | null> = {
   tier1: {
     marketer: '若5天内仍未处理，将触发二级考核：20元/次',
+    marketing_manager: '若5天内仍未处理，将触发二级考核：40元/次',
     marketing_supervisor: '若5天内仍未处理，将触发二级考核：40元/次',
   },
   tier2: {
     marketer: '若7天内仍未处理，将触发三级考核：按欠款金额全额的70%考核',
+    marketing_manager: '若7天内仍未处理，将触发三级考核：按欠款金额全额的30%考核',
     marketing_supervisor: '若7天内仍未处理，将触发三级考核：按欠款金额全额的30%考核',
   },
   tier3: null,

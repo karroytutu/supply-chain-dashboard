@@ -19,7 +19,7 @@ export type CollectionTaskStatus =
 export type CollectionPriority = 'critical' | 'high' | 'medium' | 'low';
 
 /**
- * 升级层级: 0=营销师, 1=营销主管, 2=财务
+ * 升级层级: 0=营销师, 1=营销经理, 2=财务
  */
 export type EscalationLevel = 0 | 1 | 2;
 
