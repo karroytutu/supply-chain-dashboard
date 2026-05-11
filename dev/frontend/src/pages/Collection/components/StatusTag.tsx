@@ -22,15 +22,15 @@ interface StatusTagProps {
 /** 升级层级配置 */
 const ESCALATION_LEVEL_CONFIG: Record<number, { label: string; color: string }> = {
   0: { label: 'L0', color: 'orange' },
-  1: { label: 'L1-营销主管', color: 'red' },
+  1: { label: 'L1-营销经理', color: 'red' },
   2: { label: 'L2-财务', color: 'magenta' },
 };
 
 /** 角色名称映射 */
 const ROLE_NAMES: Record<string, string> = {
   marketer: '营销师',
-  marketing_manager: '营销主管',
-  marketing_supervisor: '营销主管',
+  marketing_manager: '营销经理',
+  marketing_supervisor: '营销经理',
   current_accountant: '财务',
   finance_staff: '财务',
   cashier: '出纳',
@@ -49,7 +49,7 @@ const STATUS_CONFIG: Record<CollectionTaskStatus, { label: string; color: string
 
 /** 根据升级层级获取显示标签和颜色 */
 function getEscalatedDisplay(escalationLevel?: EscalationLevel): { label: string; color: string } {
-  if (escalationLevel === 1) return { label: '升级至主管', color: 'red' };
+  if (escalationLevel === 1) return { label: '升级至营销经理', color: 'red' };
   if (escalationLevel === 2) return { label: '升级至财务', color: 'volcano' };
   return { label: '已升级', color: 'red' };
 }

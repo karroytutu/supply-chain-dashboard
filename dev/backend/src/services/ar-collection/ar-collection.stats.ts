@@ -30,7 +30,7 @@ function buildStatsRoleFilter(role: string, userId: number, paramIndex: number):
         nextIndex: paramIndex,
       };
     default:
-      // admin / manager / marketing_manager / marketing_supervisor: 全部
+      // admin / manager / marketing_manager / marketing_supervisor(兼容旧角色): 全部
       return { sql: '1=1', params: [], nextIndex: paramIndex };
   }
 }
@@ -148,9 +148,9 @@ export async function getMyTasks(userId: number, role: string) {
     } else if (role === 'marketing_manager' || role === 'marketing_supervisor') {
       return await getAdminTasks();
     } else if (role === 'current_accountant' || role === 'finance_staff') {
-      return await getFinanceTasks(userId);
+      return await getFinanceTasks();
     } else if (role === 'cashier') {
-      return await getCashierTasks(userId);
+      return await getCashierTasks();
     }
     // admin/manager/operations_manager 返回总览
     return await getAdminTasks();
@@ -186,7 +186,7 @@ async function getMarketerTasks(userId: number) {
 }
 
 /** 财务人员待办 */
-async function getFinanceTasks(userId: number) {
+async function getFinanceTasks() {
   const result = await query(
     `SELECT
       COUNT(CASE WHEN status = 'difference_processing' THEN 1 END) AS difference,
@@ -206,7 +206,7 @@ async function getFinanceTasks(userId: number) {
 }
 
 /** 出纳待办 */
-async function getCashierTasks(userId: number) {
+async function getCashierTasks() {
   const result = await query(
     `SELECT
       COUNT(CASE WHEN status = 'pending_verify' THEN 1 END) AS pending_verify,

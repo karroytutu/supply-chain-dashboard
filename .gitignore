@@ -48,3 +48,9 @@ coverage/
 
 # 上传文件目录
 uploads/
+
+# Qoder IDE 自动生成文件
+.qoder/
+
+# Trae IDE 自动生成文件
+.trae/

@@ -1,6 +1,6 @@
 /**
  * 升级处理弹窗
- * 根据当前升级层级显示不同内容，支持升级至营销主管或财务
+ * 根据当前升级层级显示不同内容，支持升级至营销经理或财务
  */
 import React, { useState } from 'react';
 import { Modal, Form, Input, Radio, Alert, Descriptions, message } from 'antd';
@@ -31,7 +31,7 @@ const EscalateModal: React.FC<EscalateModalProps> = ({
   /** 根据当前层级确定可升级目标 */
   const getTargetOptions = () => {
     if (currentLevel === 0) {
-      return [{ value: 1, label: '营销主管' }];
+      return [{ value: 1, label: '营销经理' }];
     }
     if (currentLevel === 1) {
       return [{ value: 2, label: '财务人员（发送催收函/起诉）' }];
@@ -65,7 +65,7 @@ const EscalateModal: React.FC<EscalateModalProps> = ({
     onClose();
   };
 
-  const targetLabel = currentLevel === 0 ? '升级至营销主管' : '升级至财务';
+  const targetLabel = currentLevel === 0 ? '升级至营销经理' : '升级至财务';
 
   return (
     <Modal

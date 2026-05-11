@@ -127,6 +127,7 @@ export interface MarkDifferenceDTO {
 
 /** 升级处理请求 DTO */
 export interface EscalateDTO {
+  targetLevel?: number;
   reason: string;
 }
 

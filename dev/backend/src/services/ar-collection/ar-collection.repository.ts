@@ -11,6 +11,13 @@ import { PENDING_ROLE_SQL, ASSESSMENT_TIERS_SQL } from './ar-collection.query.sq
 
 const CACHE_PREFIX = 'ar:collection';
 
+function hasCollectionFullAccess(role: string): boolean {
+  return role === 'admin'
+    || role === 'manager'
+    || role === 'marketing_manager'
+    || role === 'marketing_supervisor';
+}
+
 // ==================== 辅助函数 ====================
 
 /**
@@ -39,11 +46,7 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
       };
     case 'marketing_supervisor':
     case 'marketing_manager':
-      return {
-        sql: `(t.status = 'escalated' AND t.escalation_level = 1)`,
-        params: [],
-        nextIndex: paramIndex,
-      };
+      return { sql: '1=1', params: [], nextIndex: paramIndex };
     default:
       return { sql: '1=1', params: [], nextIndex: paramIndex };
   }
@@ -53,6 +56,10 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
  * 校验用户是否有权访问指定任务
  */
 function checkTaskAccess(task: any, userId: number, role: string): boolean {
+  if (hasCollectionFullAccess(role)) {
+    return true;
+  }
+
   switch (role) {
     case 'marketer':
       return task.manager_user_id === userId;
@@ -61,9 +68,6 @@ function checkTaskAccess(task: any, userId: number, role: string): boolean {
       return task.status === 'difference_processing' || (task.status === 'escalated' && task.escalation_level === 2);
     case 'cashier':
       return task.status === 'pending_verify';
-    case 'marketing_supervisor':
-    case 'marketing_manager':
-      return task.status === 'escalated' && task.escalation_level === 1;
     default:
       return true;
   }
@@ -85,13 +89,24 @@ export async function getTasks(params: TaskQueryParams & { userId: number; role:
     sort_order = 'desc',
     userId,
     role,
-    viewAll,
     start_date,
     end_date,
   } = params;
 
   // 缓存 key 基于查询参数
-  const cacheKey = `${CACHE_PREFIX}:tasks:${JSON.stringify({ page, page_size, keyword, status, priority, sort_by, sort_order, userId, role, viewAll, start_date, end_date })}`;
+  const cacheKey = `${CACHE_PREFIX}:tasks:${JSON.stringify({
+    page,
+    page_size,
+    keyword,
+    status,
+    priority,
+    sort_by,
+    sort_order,
+    userId,
+    role,
+    start_date,
+    end_date,
+  })}`;
   const cached = cache.get<any>(cacheKey);
   if (cached) return cached;
 
@@ -101,8 +116,7 @@ export async function getTasks(params: TaskQueryParams & { userId: number; role:
   let paramIndex = 1;
 
   // 角色数据权限过滤
-  const isAdmin = role === 'admin' || role === 'manager' || role === 'marketing_manager' || role === 'marketing_supervisor';
-  if (!(isAdmin && viewAll)) {
+  if (!hasCollectionFullAccess(role)) {
     const roleFilter = buildRoleFilter(role, userId, paramIndex);
     conditions.push(roleFilter.sql);
     queryParams.push(...roleFilter.params);

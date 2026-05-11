@@ -1,8 +1,11 @@
 /**
  * 催收总览 - 筛选状态管理 Hook
  * 管理筛选条件、分页、URL 同步
+ *
+ * 状态持久化到 URL，刷新后保留，支持分享
  */
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useSearchParams } from 'umi';
 import dayjs from 'dayjs';
 import type { CollectionTaskStatus, CollectionTaskQueryParams, EscalationLevel } from '@/types/ar-collection';
 import { usePermission } from '@/hooks/usePermission';
@@ -28,7 +31,9 @@ export function tabToApiParams(tab: StatusTab): { status?: CollectionTaskStatus;
  * 根据用户真实角色映射到催收业务角色视图
  */
 export function getCollectionRole(roles: string[]): RoleView {
-  if (roles.includes(ROLES.ADMIN) || roles.includes(ROLES.MANAGER) || roles.includes(ROLES.MARKETING_MANAGER) || roles.includes(ROLES.MARKETING_SUPERVISOR)) return 'admin';
+  if (roles.includes(ROLES.ADMIN) || roles.includes(ROLES.MANAGER) || roles.includes(ROLES.MARKETING_MANAGER)) return 'admin';
+  // 兼容历史遗留角色编码，当前业务口径统一收敛到营销经理。
+  if (roles.includes(ROLES.MARKETING_SUPERVISOR)) return 'admin';
   if (roles.includes(ROLES.CURRENT_ACCOUNTANT) || roles.includes(ROLES.FINANCE_STAFF)) return 'finance';
   if (roles.includes(ROLES.CASHIER)) return 'cashier';
   if (roles.includes(ROLES.MARKETER)) return 'marketer';
@@ -65,82 +70,149 @@ export function useCollectionFilters() {
   const isAdmin = hasAnyRole([ROLES.ADMIN, ROLES.MANAGER, ROLES.MARKETING_MANAGER, ROLES.MARKETING_SUPERVISOR]);
   const userRole = getCollectionRole(roles);
 
-  const [filters, setFilters] = useState<CollectionFilters>({
-    page: 1,
-    pageSize: 10,
-    statusTab: getDefaultStatusTab(userRole),
-    searchKeyword: '',
-    handlerId: null,
-    dateRange: null,
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  // 从 URL 读取筛选条件
+  const statusTab = (searchParams.get('tab') || getDefaultStatusTab(userRole)) as StatusTab;
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+  const pageSize = Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10));
+  const searchKeyword = searchParams.get('keyword') || '';
+  const handlerIdRaw = searchParams.get('handlerId');
+  const handlerId = handlerIdRaw ? parseInt(handlerIdRaw, 10) : null;
+  const startDateStr = searchParams.get('startDate') || '';
+  const endDateStr = searchParams.get('endDate') || '';
+
+  /** 日期范围（从 URL 字符串反序列化） */
+  const dateRange = useMemo(() => {
+    if (!startDateStr && !endDateStr) return null;
+    return [
+      startDateStr ? dayjs(startDateStr) : null,
+      endDateStr ? dayjs(endDateStr) : null,
+    ] as [dayjs.Dayjs | null, dayjs.Dayjs | null];
+  }, [startDateStr, endDateStr]);
+
+  /** 聚合筛选状态（兼容旧接口） */
+  const filters = useMemo<CollectionFilters>(
+    () => ({
+      page,
+      pageSize,
+      statusTab,
+      searchKeyword,
+      handlerId,
+      dateRange,
+    }),
+    [page, pageSize, statusTab, searchKeyword, handlerId, dateRange],
+  );
+
+  /** 日期范围缓存键（用于数据依赖检测） */
   const dateRangeKey = useMemo(() => {
-    if (!filters.dateRange || !filters.dateRange[0] || !filters.dateRange[1]) {
-      return '';
-    }
-    return `${filters.dateRange[0].format('YYYY-MM-DD')}_${filters.dateRange[1].format('YYYY-MM-DD')}`;
-  }, [filters.dateRange]);
+    if (!startDateStr || !endDateStr) return '';
+    return `${startDateStr}_${endDateStr}`;
+  }, [startDateStr, endDateStr]);
 
   /** 构建查询参数 */
   const buildQueryParams = useCallback((): CollectionTaskQueryParams => {
     const params: CollectionTaskQueryParams = {
-      page: filters.page,
-      pageSize: filters.pageSize,
+      page,
+      pageSize,
     };
-    const { status, escalationLevel } = tabToApiParams(filters.statusTab);
+    const { status, escalationLevel } = tabToApiParams(statusTab);
     params.status = status;
     if (escalationLevel !== undefined) {
       params.escalationLevel = escalationLevel;
     }
-    if (filters.searchKeyword) {
-      params.keyword = filters.searchKeyword;
+    if (searchKeyword) {
+      params.keyword = searchKeyword;
     }
-    if (filters.handlerId) {
-      params.handlerId = filters.handlerId;
+    if (handlerId) {
+      params.handlerId = handlerId;
     }
-    if (filters.dateRange && filters.dateRange[0] && filters.dateRange[1]) {
-      params.startDate = filters.dateRange[0].format('YYYY-MM-DD');
-      params.endDate = filters.dateRange[1].format('YYYY-MM-DD');
+    if (startDateStr && endDateStr) {
+      params.startDate = startDateStr;
+      params.endDate = endDateStr;
     }
     if (!isAdmin) {
       params.tab = 'mine';
     }
     return params;
-  }, [filters.page, filters.pageSize, filters.statusTab, filters.searchKeyword, filters.handlerId, dateRangeKey, isAdmin]);
+  }, [page, pageSize, statusTab, searchKeyword, handlerId, startDateStr, endDateStr, isAdmin]);
 
-  const setStatusTab = useCallback((tab: StatusTab) => {
-    setFilters((s) => ({ ...s, statusTab: tab, page: 1 }));
-  }, []);
+  /**
+   * 更新 URL 参数（保留其他参数）
+   */
+  const updateParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const next: Record<string, string> = {};
+      searchParams.forEach((v, k) => {
+        next[k] = v;
+      });
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === '') {
+          delete next[key];
+        } else {
+          next[key] = value;
+        }
+      });
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams],
+  );
 
-  const setSearchKeyword = useCallback((keyword: string) => {
-    setFilters((s) => ({ ...s, searchKeyword: keyword, page: 1 }));
-  }, []);
+  const setStatusTab = useCallback(
+    (tab: StatusTab) => {
+      updateParams({ tab, page: '1' });
+    },
+    [updateParams],
+  );
 
-  const setPage = useCallback((page: number) => {
-    setFilters((s) => ({ ...s, page }));
-  }, []);
+  const setSearchKeyword = useCallback(
+    (keyword: string) => {
+      updateParams({ keyword: keyword || null, page: '1' });
+    },
+    [updateParams],
+  );
 
-  const setPageSize = useCallback((pageSize: number) => {
-    setFilters((s) => ({ ...s, pageSize, page: 1 }));
-  }, []);
+  const setPage = useCallback(
+    (p: number) => {
+      updateParams({ page: String(p) });
+    },
+    [updateParams],
+  );
 
-  const setHandlerId = useCallback((handlerId: number | null) => {
-    setFilters((s) => ({ ...s, handlerId, page: 1 }));
-  }, []);
+  const setPageSize = useCallback(
+    (ps: number) => {
+      updateParams({ pageSize: String(ps), page: '1' });
+    },
+    [updateParams],
+  );
 
-  const setDateRange = useCallback((dateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null) => {
-    setFilters((s) => ({ ...s, dateRange, page: 1 }));
-  }, []);
+  const setHandlerId = useCallback(
+    (id: number | null) => {
+      updateParams({ handlerId: id !== null ? String(id) : null, page: '1' });
+    },
+    [updateParams],
+  );
+
+  const setDateRange = useCallback(
+    (range: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null) => {
+      updateParams({
+        startDate: range?.[0]?.format('YYYY-MM-DD') || null,
+        endDate: range?.[1]?.format('YYYY-MM-DD') || null,
+        page: '1',
+      });
+    },
+    [updateParams],
+  );
 
   const clearAllFilters = useCallback(() => {
-    setFilters((s) => ({
-      ...s,
-      searchKeyword: '',
+    updateParams({
+      keyword: null,
       handlerId: null,
-      dateRange: null,
-      page: 1,
-    }));
-  }, []);
+      startDate: null,
+      endDate: null,
+      page: '1',
+    });
+  }, [updateParams]);
 
   return {
     filters,

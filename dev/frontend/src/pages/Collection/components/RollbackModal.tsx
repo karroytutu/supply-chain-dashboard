@@ -1,6 +1,6 @@
 /**
  * 退回操作弹窗
- * 营销主管退回给营销师(L1→L0) 或 财务退回给营销主管(L2→L1)
+ * 营销经理退回给营销师(L1→L0) 或 财务退回给营销经理(L2→L1)
  * 任务恢复升级前状态，通知被退回人
  */
 import React, { useState } from 'react';
@@ -16,7 +16,7 @@ import styles from './collection-modal-shared.less';
  */
 const LEVEL_LABELS: Record<number, string> = {
   0: '营销师',
-  1: '营销主管',
+  1: '营销经理',
   2: '财务',
 };
 

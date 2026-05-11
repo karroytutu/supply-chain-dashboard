@@ -11,6 +11,17 @@ const TOKEN_KEY = 'auth_token';
 // 检测是否为开发环境
 const isDev = process.env.NODE_ENV === 'development';
 
+function getLoginErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.message.includes('网络连接失败')) {
+      return '扫码回调请求失败，请确认前端代理和后端服务是否已启动';
+    }
+    return error.message;
+  }
+
+  return '登录失败';
+}
+
 export default function LoginPage() {
   const [loading, setLoading] = useState(true);
   const [devLoginLoading, setDevLoginLoading] = useState(false);
@@ -45,7 +56,7 @@ export default function LoginPage() {
         setError(result.message || '登录失败');
       }
     } catch (err: any) {
-      setError(err.message || '免登失败');
+      setError(getLoginErrorMessage(err) || '免登失败');
     } finally {
       setLoading(false);
     }
@@ -66,7 +77,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error('[Login] 扫码登录异常:', err);
-      setError(err.message || '登录失败');
+      setError(getLoginErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -84,7 +95,7 @@ export default function LoginPage() {
         setError(result.message || '开发登录失败');
       }
     } catch (err: any) {
-      setError(err.message || '开发登录失败');
+      setError(getLoginErrorMessage(err) || '开发登录失败');
     } finally {
       setDevLoginLoading(false);
     }
@@ -147,7 +158,8 @@ export default function LoginPage() {
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
-        <Spin size="large" tip="正在登录..." />
+        <Spin size="large" />
+        <div style={{ marginTop: 12 }}>正在登录...</div>
       </div>
     );
   }

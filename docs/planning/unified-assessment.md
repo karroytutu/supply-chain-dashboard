@@ -20,7 +20,7 @@
 AssessmentCategory = 'ar_collection' | 'return_order'
 AssessmentRuleType = string  // tier1/tier2/tier3 | procurement_confirm_timeout/...
 AssessmentStatus   = 'pending' | 'confirmed' | 'cancelled' | 'appealed'
-AssessmentRole     = 'marketer' | 'marketing_supervisor' | 'procurement_manager' | 'marketing_manager' | 'warehouse_manager' | 'warehouse_keeper' | 'logistics_manager'
+AssessmentRole     = 'marketer' | 'marketing_manager' | 'procurement_manager' | 'warehouse_manager' | 'warehouse_keeper' | 'logistics_manager'
 ```
 
 ### 状态映射
@@ -423,7 +423,7 @@ dev/frontend/src/pages/Assessment/
 │                                                                      │
 │  ↑ AssessmentFilter: Input + Select + RangePicker + Button          │
 │  ↑ 规则类型下拉：催收=层级(tier1/2/3), 退货=5种类型                    │
-│  ↑ 角色下拉：催收=营销师/营销主管, 退货=5种角色                         │
+│  ↑ 角色下拉：催收=营销师/营销经理, 退货=5种角色                         │
 │  ↑ 状态下拉：待处理/已处理/无需考核/申诉中 (两种category统一)            │
 │                                                                      │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -446,11 +446,11 @@ dev/frontend/src/pages/Assessment/
 │  ├─────────────────────────────────────────────────────────────────┤  │
 │  │ (催收 Tab)                        │(退货 Tab)                   │  │
 │  │ 1. 一级考核(3-5天)：营销师10元/   │1. 采购确认超时：10元/天/SKU│  │
-│  │    任务，营销主管20元/任务        │2. 营销销售超时：按进价全额 │  │
+│  │    任务，营销经理20元/任务        │2. 营销销售超时：按进价全额 │  │
 │  │ 2. 二级考核(5-7天)：追加营销师    │3. 退货保质期不足：按进价全额│  │
-│  │    20元/任务，营销主管40元/任务   │4. ERP录入超时：10元/天/SKU│  │
+│  │    20元/任务，营销经理40元/任务   │4. ERP录入超时：10元/天/SKU│  │
 │  │ 3. 三级考核(7天以上)：按欠款金额  │5. 仓储执行超时：10元/天/SKU│  │
-│  │    营销师70%、营销主管30%         │                             │  │
+│  │    营销师70%、营销经理30%         │                             │  │
 │  │ 说明：阶梯累进，延期重置计时器    │                             │  │
 │  │ 生效日期：2026-04-23             │                             │  │
 │  └─────────────────────────────────────────────────────────────────┘  │

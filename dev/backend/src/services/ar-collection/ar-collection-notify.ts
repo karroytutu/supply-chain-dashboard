@@ -33,7 +33,7 @@ interface MessageTemplate {
  */
 export const ESCALATION_LEVEL_NAMES: Record<EscalationLevel, string> = {
   0: '营销师',
-  1: '营销主管',
+  1: '营销经理',
   2: '财务',
 };
 

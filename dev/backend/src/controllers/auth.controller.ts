@@ -7,6 +7,63 @@ import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 // 存储state值（生产环境应使用Redis）
 const stateStore = new Map<string, { expiresAt: number }>();
 
+function normalizeOrigin(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function getAllowedAppOrigins(): Set<string> {
+  const defaultOrigins = ['http://localhost:3000', 'http://localhost:3100'];
+  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .map((origin) => normalizeOrigin(origin))
+    .filter((origin): origin is string => Boolean(origin));
+
+  for (const origin of defaultOrigins) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (normalizedOrigin) {
+      envOrigins.push(normalizedOrigin);
+    }
+  }
+
+  const configuredBaseUrl = normalizeOrigin(config.app.baseUrl);
+  if (configuredBaseUrl) {
+    envOrigins.push(configuredBaseUrl);
+  }
+
+  return new Set(envOrigins);
+}
+
+function resolveAppBaseUrl(req: Request): string {
+  const allowedOrigins = getAllowedAppOrigins();
+  const candidateOrigins = [
+    normalizeOrigin(req.get('origin')),
+    normalizeOrigin(req.get('referer')),
+  ].filter((origin): origin is string => Boolean(origin));
+
+  for (const origin of candidateOrigins) {
+    if (allowedOrigins.has(origin)) {
+      return origin;
+    }
+  }
+
+  const fallbackOrigin = normalizeOrigin(config.app.baseUrl);
+  if (fallbackOrigin) {
+    return fallbackOrigin;
+  }
+  throw new Error(`应用基础URL配置无效: ${config.app.baseUrl}`);
+}
+
 /**
  * 检测钉钉环境
  */
@@ -77,8 +134,15 @@ export async function getQrcodeConfig(req: Request, res: Response) {
   }
   
   // 使用配置的基础URL构建回调地址
-  const baseUrl = config.app.baseUrl;
+  const baseUrl = resolveAppBaseUrl(req);
   const redirectUri = `${baseUrl}/login/callback`;
+
+  console.info('[Auth] 生成扫码配置', {
+    requestOrigin: req.get('origin') || null,
+    requestReferer: req.get('referer') || null,
+    resolvedBaseUrl: baseUrl,
+    redirectUri,
+  });
   
   res.json(buildSuccessResponse({
     appId: config.dingtalk.appKey,
@@ -101,19 +165,23 @@ export async function dingtalkCallback(req: Request, res: Response) {
     return;
   }
   
-  // 验证state（可选，增强安全性）
-  // if (state && !stateStore.has(state)) {
-  //   res.status(400).json({
-  //     success: false,
-  //     message: '无效的state参数',
-  //   });
-  //   return;
-  // }
-  
+  // 验证state（防CSRF）
+  if (state && !stateStore.has(state)) {
+    res.status(400).json(buildErrorResponse(400, '无效的state参数'));
+    return;
+  }
+
   // 清除已使用的state
   if (state) {
     stateStore.delete(state);
   }
+
+  console.info('[Auth] 收到扫码回调请求', {
+    hasState: Boolean(state),
+    codeLength: actualCode.length,
+    requestOrigin: req.get('origin') || null,
+    requestReferer: req.get('referer') || null,
+  });
   
   const ipAddress = req.ip || req.socket.remoteAddress;
   const userAgent = req.headers['user-agent'];
@@ -123,6 +191,10 @@ export async function dingtalkCallback(req: Request, res: Response) {
   if (result.success) {
     res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
   } else {
+    console.warn('[Auth] 扫码登录失败', {
+      message: result.message || '登录失败',
+      hasState: Boolean(state),
+    });
     res.status(401).json(buildErrorResponse(401, result.message || '登录失败'));
   }
 }

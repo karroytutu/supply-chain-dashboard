@@ -10,9 +10,9 @@ import { beforeSubmitCustomerCredit, getCustomerCreditCCRoles, onApprovedCustome
  * 客户授信申请表单类型定义
  * 支持三种授信类型：账期、滚单、压单
  * 分级审批流：根据最大欠款天数/压单金额确定审批节点
- *   low(≤30天/≤500元): 营销主管 → 完成
- *   medium(30-60天/500-1000元): 营销主管 → 往来会计 → 完成
- *   high(>60天/>1000元): 营销主管 → 往来会计 → 总经理 → 完成
+ *   low(≤30天/≤500元): 营销经理 → 完成
+ *   medium(30-60天/500-1000元): 营销经理 → 往来会计 → 完成
+ *   high(>60天/>1000元): 营销经理 → 往来会计 → 总经理 → 完成
  * 提交人自跳过：marketing_manager 跳过节点1，current_accountant 跳过节点2
  */
 export const customerCreditFormType: FormTypeDefinition = {
@@ -148,10 +148,10 @@ export const customerCreditFormType: FormTypeDefinition = {
 
   workflowDef: {
     nodes: [
-      // 节点1：营销主管审批（提交人为 marketing_manager 时跳过）
+      // 节点1：营销经理审批（提交人为 marketing_manager 时跳过）
       {
         order: 1,
-        name: '营销主管审批',
+        name: '营销经理审批',
         type: 'role',
         roleCode: 'marketing_manager',
         condition: { field: '_needsManagerApproval', operator: '==', value: 'yes' },

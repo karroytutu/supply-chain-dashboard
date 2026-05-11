@@ -132,6 +132,7 @@ export const ROLES = {
   CURRENT_ACCOUNTANT: 'current_accountant',
   CASHIER: 'cashier',
   MARKETING_MANAGER: 'marketing_manager',
+  /** @deprecated 历史遗留角色编码，兼容读取时按 MARKETING_MANAGER 处理 */
   MARKETING_SUPERVISOR: 'marketing_supervisor',
   MARKETER: 'marketer',
   ADMIN_STAFF: 'admin_staff',

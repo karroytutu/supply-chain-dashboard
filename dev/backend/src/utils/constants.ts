@@ -88,14 +88,20 @@ export const ROLE_CODES = {
   MANAGER: 'manager',
   MARKETER: 'marketer',
   MARKETING_MANAGER: 'marketing_manager',
+  /** @deprecated 历史遗留角色编码，兼容读取时按 MARKETING_MANAGER 处理 */
   MARKETING_SUPERVISOR: 'marketing_supervisor',
   CURRENT_ACCOUNTANT: 'current_accountant',
   FINANCE_STAFF: 'finance_staff',
   CASHIER: 'cashier',
 } as const;
 
-/** 具有管理权限的角色列表 */
-export const MANAGER_ROLES = Object.values(ROLE_CODES);
+/** 可查看催收全量数据的角色列表 */
+export const MANAGER_ROLES = [
+  ROLE_CODES.ADMIN,
+  ROLE_CODES.MANAGER,
+  ROLE_CODES.MARKETING_MANAGER,
+  ROLE_CODES.MARKETING_SUPERVISOR,
+] as const;
 
 // ==================== 催收相关阈值 ====================
 
@@ -133,8 +139,8 @@ export const AR_ESCALATION_HANDLER_ROLES: Record<number, string> = {
  * @usedBy ar-collection.mutation.ts (退回时确定恢复角色)
  */
 export const AR_ROLLBACK_HANDLER_ROLES: Record<number, string> = {
-  2: ROLE_CODES.MARKETING_MANAGER,   // L2→L1: 财务退回给营销主管
-  1: ROLE_CODES.MARKETER,            // L1→L0: 营销主管退回给营销师
+  2: ROLE_CODES.MARKETING_MANAGER,   // L2→L1: 财务退回给营销经理
+  1: ROLE_CODES.MARKETER,            // L1→L0: 营销经理退回给营销师
 };
 
 // ==================== 退货考核阈值 ====================

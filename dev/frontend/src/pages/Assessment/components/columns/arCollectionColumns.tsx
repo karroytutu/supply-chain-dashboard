@@ -9,7 +9,8 @@ import dayjs from 'dayjs';
 /** 角色中文映射 */
 const ROLE_LABELS: Record<string, string> = {
   marketer: '营销师',
-  marketing_supervisor: '营销主管',
+  marketing_manager: '营销经理',
+  marketing_supervisor: '营销经理',
 };
 
 /** 考核层级映射 */

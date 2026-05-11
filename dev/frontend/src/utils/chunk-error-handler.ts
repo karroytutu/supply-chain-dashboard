@@ -3,6 +3,8 @@
  * 检测并自动恢复因部署更新或网络问题导致的 chunk 加载失败
  */
 
+import { showLoadingMessage } from '@/utils/appMessage';
+
 const RELOAD_COUNT_KEY = 'chunk_reload_count';
 const RELOAD_TIME_KEY = 'chunk_reload_time';
 const MAX_RELOAD_COUNT = 3;
@@ -19,6 +21,9 @@ export function isChunkLoadError(error: unknown): boolean {
   if (name === 'ChunkLoadError') return true;
   // webpack 经典消息格式
   if (/Loading (CSS )?chunk \d+ failed/.test(message)) return true;
+  // Umi/webpack 在具名分包场景下的报错
+  if (/umi__plugin-layout__.*\.(async\.js|chunk\.css)/.test(message)) return true;
+  if (/Loading chunk failed/i.test(message)) return true;
   // 动态 import 网络错误（部分浏览器表现）
   if (message.includes('Failed to fetch dynamically imported module')) return true;
   return false;
@@ -51,10 +56,7 @@ export function handleChunkError(error: unknown): boolean {
   sessionStorage.setItem(RELOAD_COUNT_KEY, String(reloadCount));
   sessionStorage.setItem(RELOAD_TIME_KEY, String(now));
 
-  // 动态导入 antd message，避免在 React 渲染前加载完整 antd
-  import('antd').then(({ message }) => {
-    message.loading('应用已更新，正在刷新页面...', 1.5);
-  });
+  showLoadingMessage('应用已更新，正在刷新页面...', 1.5);
 
   setTimeout(() => {
     window.location.reload();
@@ -76,8 +78,8 @@ export function initChunkErrorGlobalListener(): () => void {
     const tagName = target.tagName?.toLowerCase();
     if (tagName === 'script' || tagName === 'link') {
       const src = (target as HTMLScriptElement).src || (target as HTMLLinkElement).href;
-      // 匹配 chunk 文件名格式（数字 + hash + .async.js）
-      if (src && /\.\d+\.[0-9a-f]{8,}\..*\.js/.test(src)) {
+      // 覆盖 Umi 的数字 chunk 与具名插件 chunk 两类资源
+      if (src && (/\.async\.js($|\?)/.test(src) || /\.chunk\.css($|\?)/.test(src))) {
         handleChunkError(new Error(`Loading chunk failed: ${src}`));
       }
     }

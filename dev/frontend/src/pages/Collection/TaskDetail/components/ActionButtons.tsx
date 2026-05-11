@@ -28,7 +28,7 @@ interface ActionButtonsProps {
   confirmVerifyLoading?: boolean;
 }
 
-type ViewType = 'collector' | 'supervisor' | 'finance' | 'cashier';
+type ViewType = 'collector' | 'manager' | 'finance' | 'cashier';
 
 /** 营销师/运营人员视角 */
 function isCollectorView(hasAnyRole: (roles: string[]) => boolean, status: string): boolean {
@@ -46,8 +46,8 @@ function isFinanceView(
   return status === 'difference_processing' || (status === 'escalated' && level === 2);
 }
 
-/** 营销主管视角(含旧角色 marketing_supervisor) */
-function isSupervisorView(
+/** 营销经理视角(兼容旧角色 marketing_supervisor) */
+function isManagerView(
   hasAnyRole: (roles: string[]) => boolean,
   status: string,
   level: number,
@@ -69,7 +69,7 @@ function getActiveView(
 
   const isAdmin = hasAnyRole([ROLES.ADMIN, ROLES.MARKETING_MANAGER, ROLES.MARKETING_SUPERVISOR]);
   if (isAdmin && !['verified', 'closed'].includes(status)) {
-    return isSupervisorView(hasAnyRole, status, escalationLevel) ? 'supervisor' : 'collector';
+    return isManagerView(hasAnyRole, status, escalationLevel) ? 'manager' : 'collector';
   }
 
   return null;
@@ -97,8 +97,8 @@ const CollectorButtons: React.FC<ActionButtonsProps> = ({ onAction }) => (
   </div>
 );
 
-/** 营销主管按钮组 */
-const SupervisorButtons: React.FC<ActionButtonsProps> = ({ onAction }) => (
+/** 营销经理按钮组 */
+const ManagerButtons: React.FC<ActionButtonsProps> = ({ onAction }) => (
   <div className="action-bar">
     <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => onAction('verify')}>
       <span className="btn-text-full">核销回款</span>
@@ -146,7 +146,7 @@ const FinanceButtons: React.FC<ActionButtonsProps> = ({ onAction }) => (
     </Button>
     <Authorized permission={PERMISSIONS.FINANCE.AR.ROLLBACK}>
       <Button icon={<RollbackOutlined />} onClick={() => onAction('rollback')}>
-        <span className="btn-text-full">退回营销主管</span>
+        <span className="btn-text-full">退回营销经理</span>
         <span className="btn-text-short">退回</span>
       </Button>
     </Authorized>
@@ -170,7 +170,7 @@ const CashierButtons: React.FC<ActionButtonsProps> = ({ onAction, onConfirmVerif
 const VIEW_RENDERERS: Record<ViewType, React.FC<ActionButtonsProps>> = {
   cashier: CashierButtons,
   finance: FinanceButtons,
-  supervisor: SupervisorButtons,
+  manager: ManagerButtons,
   collector: CollectorButtons,
 };
 
