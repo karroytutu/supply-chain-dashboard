@@ -44,6 +44,7 @@ export function toTaskDTO(task: CollectionTask | null): CollectionTaskDTO | null
   return {
     ...base,
     totalAmount: Number(task.total_amount) || 0,
+    maxOverdueDays: Number(task.dynamic_max_overdue_days ?? task.max_overdue_days) || 0,
     // 关联字段映射（SQL 查询中的别名，已在类型中声明为可选扩展字段）
     currentHandlerName: task.handler_name ?? null,
     managerName: task.manager_name ?? null,
@@ -66,6 +67,7 @@ export function toDetailDTO(detail: CollectionDetail | null): CollectionDetailDT
     ...base,
     totalAmount: Number(detail.total_amount) || 0,
     leftAmount: Number(detail.left_amount) || 0,
+    overdueDays: Number(detail.dynamic_overdue_days ?? detail.overdue_days) || 0,
     processAmount: Number(detail.process_amount) || 0,
     processedByName: detail.processed_by_name ?? null,
     hoardTag: detail.hoard_tag ?? null,

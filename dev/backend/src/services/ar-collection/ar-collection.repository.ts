@@ -10,6 +10,8 @@ import type { TaskQueryParams } from './ar-collection.types';
 import { PENDING_ROLE_SQL, ASSESSMENT_TIERS_SQL } from './ar-collection.query.sql';
 
 const CACHE_PREFIX = 'ar:collection';
+const TASK_MAX_OVERDUE_DAYS_SQL = 'COALESCE(detail_stats.dynamic_max_overdue_days, t.max_overdue_days, 0)';
+const DETAIL_OVERDUE_DAYS_SQL = 'COALESCE(GREATEST(0, CURRENT_DATE - d.expire_time::date), d.overdue_days, 0)';
 
 function hasCollectionFullAccess(role: string): boolean {
   return role === 'admin'
@@ -160,8 +162,14 @@ export async function getTasks(params: TaskQueryParams & { userId: number; role:
 
   const whereClause = conditions.length > 0 ? conditions.join(' AND ') : '1=1';
 
-  const allowedSorts = ['max_overdue_days', 'total_amount', 'created_at', 'updated_at', 'priority'];
-  const sortField = allowedSorts.includes(sort_by) ? sort_by : 'max_overdue_days';
+  const sortExpressions: Record<string, string> = {
+    max_overdue_days: TASK_MAX_OVERDUE_DAYS_SQL,
+    total_amount: 't.total_amount',
+    created_at: 't.created_at',
+    updated_at: 't.updated_at',
+    priority: 't.priority',
+  };
+  const sortField = sortExpressions[sort_by] || TASK_MAX_OVERDUE_DAYS_SQL;
   const sortDir = sort_order === 'asc' ? 'ASC' : 'DESC';
 
   const countResult = await query(
@@ -174,13 +182,21 @@ export async function getTasks(params: TaskQueryParams & { userId: number; role:
   const result = await query(
     `SELECT
       t.*,
+      ${TASK_MAX_OVERDUE_DAYS_SQL}::int AS dynamic_max_overdue_days,
       u.name AS handler_name,
       ${PENDING_ROLE_SQL},
       ${ASSESSMENT_TIERS_SQL}
     FROM ar_collection_tasks t
+    LEFT JOIN (
+      SELECT
+        task_id,
+        MAX(COALESCE(GREATEST(0, CURRENT_DATE - expire_time::date), overdue_days, 0))::int AS dynamic_max_overdue_days
+      FROM ar_collection_details
+      GROUP BY task_id
+    ) detail_stats ON detail_stats.task_id = t.id
     LEFT JOIN users u ON t.current_handler_id = u.id
     WHERE ${whereClause}
-    ORDER BY t.${sortField} ${sortDir}
+    ORDER BY ${sortField} ${sortDir}
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
     listParams
   );
@@ -208,11 +224,19 @@ export async function getTaskById(id: number, userId?: number, role?: string) {
   const result = await query(
     `SELECT
       t.*,
+      ${TASK_MAX_OVERDUE_DAYS_SQL}::int AS dynamic_max_overdue_days,
       u.name AS handler_name,
       m.name AS manager_name,
       ${PENDING_ROLE_SQL},
       ${ASSESSMENT_TIERS_SQL}
     FROM ar_collection_tasks t
+    LEFT JOIN (
+      SELECT
+        task_id,
+        MAX(COALESCE(GREATEST(0, CURRENT_DATE - expire_time::date), overdue_days, 0))::int AS dynamic_max_overdue_days
+      FROM ar_collection_details
+      GROUP BY task_id
+    ) detail_stats ON detail_stats.task_id = t.id
     LEFT JOIN users u ON t.current_handler_id = u.id
     LEFT JOIN users m ON t.manager_user_id = m.id
     WHERE t.id = $1`,
@@ -244,11 +268,12 @@ export async function getTaskDetails(taskId: number) {
   const result = await query(
     `SELECT
       d.*,
+      ${DETAIL_OVERDUE_DAYS_SQL}::int AS dynamic_overdue_days,
       u.name AS processed_by_name
     FROM ar_collection_details d
     LEFT JOIN users u ON d.processed_by = u.id
     WHERE d.task_id = $1
-    ORDER BY d.overdue_days DESC NULLS LAST, d.id ASC`,
+    ORDER BY ${DETAIL_OVERDUE_DAYS_SQL} DESC NULLS LAST, d.id ASC`,
     [taskId]
   );
 

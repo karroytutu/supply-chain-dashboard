@@ -12,20 +12,20 @@ function buildStatsRoleFilter(role: string, userId: number, paramIndex: number):
   switch (role) {
     case 'marketer':
       return {
-        sql: `manager_user_id = $${paramIndex}`,
+        sql: `t.manager_user_id = $${paramIndex}`,
         params: [userId],
         nextIndex: paramIndex + 1,
       };
     case 'current_accountant':
     case 'finance_staff':
       return {
-        sql: `(status = 'difference_processing' OR (status = 'escalated' AND escalation_level = 2))`,
+        sql: `(t.status = 'difference_processing' OR (t.status = 'escalated' AND t.escalation_level = 2))`,
         params: [],
         nextIndex: paramIndex,
       };
     case 'cashier':
       return {
-        sql: `status = 'pending_verify'`,
+        sql: `t.status = 'pending_verify'`,
         params: [],
         nextIndex: paramIndex,
       };
@@ -48,15 +48,22 @@ export async function getCollectionStats(userId: number, role: string) {
     // 指标卡统计
     const statsResult = await query(
       `SELECT
-        COUNT(CASE WHEN status = 'collecting' THEN 1 END) AS collecting_count,
-        COALESCE(SUM(CASE WHEN status = 'collecting' THEN total_amount END), 0) AS collecting_amount,
-        COUNT(CASE WHEN status IN ('difference_processing', 'extension', 'escalated') THEN 1 END) AS waiting_count,
-        COALESCE(SUM(CASE WHEN status IN ('difference_processing', 'extension', 'escalated') THEN total_amount END), 0) AS waiting_amount,
-        COUNT(CASE WHEN status = 'pending_verify' OR max_overdue_days >= ${AR_EXTENSION_MAX_DAYS} THEN 1 END) AS attention_count,
-        COALESCE(SUM(CASE WHEN status = 'pending_verify' OR max_overdue_days >= ${AR_EXTENSION_MAX_DAYS} THEN total_amount END), 0) AS attention_amount,
-        COUNT(CASE WHEN status IN ('verified', 'closed') AND created_at >= date_trunc('month', CURRENT_DATE) THEN 1 END) AS collected_count,
-        COALESCE(SUM(CASE WHEN status IN ('verified', 'closed') AND created_at >= date_trunc('month', CURRENT_DATE) THEN total_amount END), 0) AS collected_amount
-      FROM ar_collection_tasks
+        COUNT(CASE WHEN t.status = 'collecting' THEN 1 END) AS collecting_count,
+        COALESCE(SUM(CASE WHEN t.status = 'collecting' THEN t.total_amount END), 0) AS collecting_amount,
+        COUNT(CASE WHEN t.status IN ('difference_processing', 'extension', 'escalated') THEN 1 END) AS waiting_count,
+        COALESCE(SUM(CASE WHEN t.status IN ('difference_processing', 'extension', 'escalated') THEN t.total_amount END), 0) AS waiting_amount,
+        COUNT(CASE WHEN t.status = 'pending_verify' OR COALESCE(detail_stats.dynamic_max_overdue_days, t.max_overdue_days, 0) >= ${AR_EXTENSION_MAX_DAYS} THEN 1 END) AS attention_count,
+        COALESCE(SUM(CASE WHEN t.status = 'pending_verify' OR COALESCE(detail_stats.dynamic_max_overdue_days, t.max_overdue_days, 0) >= ${AR_EXTENSION_MAX_DAYS} THEN t.total_amount END), 0) AS attention_amount,
+        COUNT(CASE WHEN t.status IN ('verified', 'closed') AND t.created_at >= date_trunc('month', CURRENT_DATE) THEN 1 END) AS collected_count,
+        COALESCE(SUM(CASE WHEN t.status IN ('verified', 'closed') AND t.created_at >= date_trunc('month', CURRENT_DATE) THEN t.total_amount END), 0) AS collected_amount
+      FROM ar_collection_tasks t
+      LEFT JOIN (
+        SELECT
+          task_id,
+          MAX(COALESCE(GREATEST(0, CURRENT_DATE - expire_time::date), overdue_days, 0))::int AS dynamic_max_overdue_days
+        FROM ar_collection_details
+        GROUP BY task_id
+      ) detail_stats ON detail_stats.task_id = t.id
       WHERE ${whereClause}`,
       whereParams
     );
@@ -64,12 +71,12 @@ export async function getCollectionStats(userId: number, role: string) {
     // 状态分布
     const distResult = await query(
       `SELECT
-        status,
+        t.status,
         COUNT(*) AS count,
-        COALESCE(SUM(total_amount), 0) AS amount
-      FROM ar_collection_tasks
+        COALESCE(SUM(t.total_amount), 0) AS amount
+      FROM ar_collection_tasks t
       WHERE ${whereClause}
-      GROUP BY status`,
+      GROUP BY t.status`,
       whereParams
     );
 
@@ -86,10 +93,10 @@ export async function getCollectionStats(userId: number, role: string) {
 
     // 升级任务按层级分组，添加 escalated_l1 / escalated_l2 虚拟状态条目
     const escalatedDistResult = await query(
-      `SELECT escalation_level, COUNT(*) AS count, COALESCE(SUM(total_amount), 0) AS amount
-       FROM ar_collection_tasks
-       WHERE ${whereClause} AND status = 'escalated'
-       GROUP BY escalation_level`,
+      `SELECT t.escalation_level, COUNT(*) AS count, COALESCE(SUM(t.total_amount), 0) AS amount
+       FROM ar_collection_tasks t
+       WHERE ${whereClause} AND t.status = 'escalated'
+       GROUP BY t.escalation_level`,
       whereParams
     );
     escalatedDistResult.rows.forEach((r: any) => {
