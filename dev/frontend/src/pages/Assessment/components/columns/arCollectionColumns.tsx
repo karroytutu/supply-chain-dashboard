@@ -2,9 +2,10 @@
  * 催收考核表格列定义
  */
 import React from 'react';
-import { Tag } from 'antd';
+import { Button, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { history } from 'umi';
 
 /** 角色中文映射 */
 const ROLE_LABELS: Record<string, string> = {
@@ -35,9 +36,22 @@ export function getArCollectionColumns(): ColumnsType<AssessmentRecord> {
       title: '业务编号',
       dataIndex: 'sourceNo',
       width: 150,
-      render: (text: string) => (
-        <span style={{ color: '#1890ff', cursor: 'pointer' }}>{text || '-'}</span>
-      ),
+      render: (text: string | null, record: AssessmentRecord) => {
+        if (!text || !record.sourceId) {
+          return text || '-';
+        }
+
+        return (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0 }}
+            onClick={() => history.push(`/collection/task/${record.sourceId}`)}
+          >
+            {text}
+          </Button>
+        );
+      },
     },
     {
       title: '客户名称',

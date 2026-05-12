@@ -139,6 +139,7 @@ export interface CollectionTask {
   pending_role?: string | null;
   assessment_start_time?: string | null;
   assessment_tiers?: string[];
+  dynamic_max_overdue_days?: number | null;
 
   created_at: string;
   updated_at: string;
@@ -172,6 +173,7 @@ export interface CollectionDetail {
 
   // SQL JOIN 扩展字段（查询时通过别名注入，非表原生字段）
   processed_by_name?: string | null;
+  dynamic_overdue_days?: number | null;
 
   created_at: string;
 }
