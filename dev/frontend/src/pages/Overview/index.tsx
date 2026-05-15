@@ -43,7 +43,7 @@ const Overview: React.FC = () => {
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
-        <Spin size="large" tip="加载中..." />
+        <Spin size="large" />
       </div>
     );
   }
