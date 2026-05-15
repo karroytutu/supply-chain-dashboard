@@ -75,7 +75,7 @@ const TaskDetailPage: React.FC = () => {
   if (loading) {
     return (
       <div className="task-detail-loading">
-        <Spin size="large" tip="加载中..." />
+        <Spin size="large" />
       </div>
     );
   }

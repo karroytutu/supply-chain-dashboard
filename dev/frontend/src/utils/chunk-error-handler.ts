@@ -26,6 +26,9 @@ export function isChunkLoadError(error: unknown): boolean {
   if (/Loading chunk failed/i.test(message)) return true;
   // 动态 import 网络错误（部分浏览器表现）
   if (message.includes('Failed to fetch dynamically imported module')) return true;
+  // 浏览器将 JS chunk 响应成 HTML 时的 MIME 报错
+  if (/Expected a JavaScript-or-Wasm module script/i.test(message)) return true;
+  if (/MIME type of ["']text\/html["']/.test(message)) return true;
   return false;
 }
 
