@@ -2,18 +2,6 @@ import { useEffect, useState } from 'react';
 import { Spin, Result } from 'antd';
 import styles from './index.less';
 
-function resolveParentOrigin(): string | null {
-  if (!document.referrer) {
-    return null;
-  }
-
-  try {
-    return new URL(document.referrer).origin;
-  } catch {
-    return null;
-  }
-}
-
 export default function LoginCallback() {
   const [status, setStatus] = useState<'loading' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -43,13 +31,7 @@ export default function LoginCallback() {
         };
 
         try {
-          const parentOrigin = resolveParentOrigin();
-          if (!parentOrigin) {
-            console.error('无法解析父窗口来源，document.referrer 为空或无效');
-            setStatus('error');
-            setErrorMessage('登录回调失败，无法确定父窗口来源');
-            return;
-          }
+          const parentOrigin = window.location.origin;
           // 发送消息给父窗口
           window.parent.postMessage(message, parentOrigin);
         } catch (error) {
