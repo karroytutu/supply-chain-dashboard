@@ -81,11 +81,28 @@ interface NotifyParams {
  */
 async function getDingtalkUserIds(userIds: number[]): Promise<string[]> {
   if (userIds.length === 0) return [];
-  const result = await query<{ dingtalk_userid: string | null }>(
-    `SELECT dingtalk_userid FROM users WHERE id = ANY($1) AND dingtalk_userid IS NOT NULL`,
+  const result = await query<{ dingtalk_user_id: string | null }>(
+    `SELECT dingtalk_user_id FROM users WHERE id = ANY($1) AND dingtalk_user_id IS NOT NULL`,
     [userIds]
   );
-  return result.rows.map(r => r.dingtalk_userid).filter((id): id is string => !!id);
+  return result.rows.map(r => r.dingtalk_user_id).filter((id): id is string => !!id);
+}
+
+/**
+ * 构建 userId → dingtalk_user_id 映射表
+ * 用于 ActionCard 通知时为每个用户生成独立 Token
+ */
+async function buildUserIdToDingtalkIdMap(userIds: number[]): Promise<Map<number, string>> {
+  const map = new Map<number, string>();
+  if (userIds.length === 0) return map;
+  const userRows = await query<{ id: number; dingtalk_user_id: string }>(
+    `SELECT id, dingtalk_user_id FROM users WHERE id = ANY($1) AND dingtalk_user_id IS NOT NULL`,
+    [userIds]
+  );
+  for (const row of userRows.rows) {
+    map.set(row.id, row.dingtalk_user_id);
+  }
+  return map;
 }
 
 /**
@@ -184,16 +201,7 @@ export async function notifyPendingApproval(
   if (dingtalkUserIds.length === 0) return;
 
   // 为每个审批人单独构建ActionCard（每个用户有独立的Token）
-  const userIdToDingtalkId = new Map<number, string>();
-  if (approverIds.length > 0 && dingtalkUserIds.length > 0) {
-    const userRows = await query<{ id: number; dingtalk_userid: string }>(
-      `SELECT id, dingtalk_userid FROM users WHERE id = ANY($1) AND dingtalk_userid IS NOT NULL`,
-      [approverIds]
-    );
-    for (const row of userRows.rows) {
-      userIdToDingtalkId.set(row.id, row.dingtalk_userid);
-    }
-  }
+  const userIdToDingtalkId = await buildUserIdToDingtalkIdMap(approverIds);
 
   for (const approverId of approverIds) {
     const dingtalkId = userIdToDingtalkId.get(approverId);
@@ -334,14 +342,7 @@ export async function notifyCountersign(
   );
 
   // 钉钉ActionCard通知（为每个加签人单独构建，含独立Token）
-  const userRows = await query<{ id: number; dingtalk_userid: string }>(
-    `SELECT id, dingtalk_userid FROM users WHERE id = ANY($1) AND dingtalk_userid IS NOT NULL`,
-    [countersignerIds]
-  );
-  const userIdToDingtalkId = new Map<number, string>();
-  for (const row of userRows.rows) {
-    userIdToDingtalkId.set(row.id, row.dingtalk_userid);
-  }
+  const userIdToDingtalkId = await buildUserIdToDingtalkIdMap(countersignerIds);
 
   for (const countersignerId of countersignerIds) {
     const dingtalkId = userIdToDingtalkId.get(countersignerId);

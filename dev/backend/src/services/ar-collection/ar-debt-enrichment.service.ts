@@ -5,9 +5,11 @@
  */
 
 import { query } from '../../db/pool';
+import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
-import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE, AR_HOARD_TAG_HOARD } from '../../utils/constants';
+import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE, AR_HOARD_TAG_HOARD, AR_HOARD_TAG_NORMAL, AR_HOLD_TYPE_TIME_LIMITED } from '../../utils/constants';
+import type { ArHoldType } from '../../utils/constants';
 import { searchErpCustomers } from '../erp-client/erp-customer.service';
 import { searchErpSettlementOrders } from '../erp-client/erp-settlement.service';
 import type { ERPDebtRecord, EnrichedDebtRecord, CustomerLimits } from './ar-debt.types';
@@ -42,11 +44,29 @@ export async function enrichDebtRecords(
   // 2. 获取 hoardTag 映射（billId → hoardTag）
   const hoardTagMap = await fetchHoardTags(debts, nameToTraderId);
 
+  // 2.5. 获取本地 hold 元数据（用于期限压单过期判断）
+  const holdExpiryMap = await fetchHoldExpiryState(debts);
+
   // 3. 组装富化记录
   return debts.map(debt => {
     const traderId = nameToTraderId.get(debt.consumerName) ?? null;
     const limits = customerLimitsMap.get(debt.consumerName);
-    const hoardTag = resolveHoardTag(debt, hoardTagMap);
+    const rawHoardTag = resolveHoardTag(debt, hoardTagMap);
+
+    // 查找 hold 元数据
+    const holdMeta = holdExpiryMap.get(debt.billId);
+    const holdType = holdMeta?.holdType ?? null;
+    const holdUntil = holdMeta?.holdUntil ?? null;
+
+    // 期限压单已到期 → 覆盖 hoardTag 为 NORMAL（不再排除催收）
+    // 使用字符串比较避免时区偏移：holdUntil 格式为 'YYYY-MM-DD'，与当天日期字符串直接比较
+    let hoardTag = rawHoardTag;
+    if (rawHoardTag === AR_HOARD_TAG_HOARD
+      && holdType === AR_HOLD_TYPE_TIME_LIMITED
+      && holdUntil
+      && holdUntil < now.toISOString().slice(0, 10)) {
+      hoardTag = AR_HOARD_TAG_NORMAL;
+    }
 
     // 计算逾期相关字段
     const workDate = new Date(debt.workTime);
@@ -62,6 +82,8 @@ export async function enrichDebtRecords(
     return {
       ...debt,
       hoardTag,
+      holdType,
+      holdUntil,
       traderId,
       overdueDays,
       overdueDateStr,
@@ -243,10 +265,53 @@ export async function fetchHoardTags(
  * 解析单条欠款的 hoardTag
  * 优先使用映射中的值，其次使用原始记录中的值，最后为 null
  */
-function resolveHoardTag(debt: ERPDebtRecord, hoardTagMap: Map<string, string>): 'NORMAL' | 'HOARD' | null {
+function resolveHoardTag(debt: ERPDebtRecord, hoardTagMap: Map<string, string>): typeof AR_HOARD_TAG_NORMAL | typeof AR_HOARD_TAG_HOARD | null {
   const tag = hoardTagMap.get(debt.billId) || debt.hoardTag;
-  if (tag === 'HOARD' || tag === 'NORMAL') return tag;
+  if (tag === AR_HOARD_TAG_HOARD || tag === AR_HOARD_TAG_NORMAL) return tag;
   return null;
+}
+
+// ============================================
+// Hold 元数据获取
+// ============================================
+
+/** hold 元数据（来自本地 ar_collection_details） */
+interface HoldMeta {
+  holdType: ArHoldType;
+  holdUntil: string | null;
+}
+
+/**
+ * 获取 billId → hold 元数据映射
+ * 从本地 ar_collection_details 查询 hold_type 和 hold_until
+ * 用于判断期限压单是否已到期
+ */
+async function fetchHoldExpiryState(debts: ERPDebtRecord[]): Promise<Map<string, HoldMeta>> {
+  const holdExpiryMap = new Map<string, HoldMeta>();
+  if (debts.length === 0) return holdExpiryMap;
+
+  try {
+    const billIds = debts.map(d => d.billId);
+    const result = await appQuery<{ erp_bill_id: string; hold_type: string; hold_until: string | null }>(
+      `SELECT erp_bill_id, hold_type, hold_until::text
+       FROM ar_collection_details
+       WHERE erp_bill_id = ANY($1)
+         AND hold_type IS NOT NULL`,
+      [billIds]
+    );
+
+    for (const row of result.rows) {
+      holdExpiryMap.set(row.erp_bill_id, {
+        holdType: row.hold_type as ArHoldType,
+        holdUntil: row.hold_until,
+      });
+    }
+  } catch (error) {
+    console.error('[DebtEnrichment] 获取hold元数据失败:', error);
+    // 容错：holdExpiryMap 保持空，不影响主流程
+  }
+
+  return holdExpiryMap;
 }
 
 // ============================================

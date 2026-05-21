@@ -22,16 +22,25 @@ export async function listApprovals(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // 前端请求拦截器自动将 camelCase 参数转为 snake_case，后端统一按 snake_case 读取
     const params: ApprovalListParams = {
-      viewMode: (req.query.viewMode as ApprovalListParams['viewMode']) || 'pending',
-      formTypeCode: req.query.formTypeCode as string,
+      viewMode: (req.query.view_mode as ApprovalListParams['viewMode']) || 'pending',
+      formTypeCode: req.query.form_type_code as string,
       status: req.query.status as ApprovalListParams['status'],
       urgency: req.query.urgency as ApprovalListParams['urgency'],
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string,
+      startDate: req.query.start_date as string,
+      endDate: req.query.end_date as string,
       page: parseInt(req.query.page as string) || 1,
-      pageSize: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
+      pageSize: parseInt(req.query.page_size as string) || 20,
     };
+
+    // 参数校验：确保 viewMode 和 pageSize 为合法值
+    if (!['pending', 'processed', 'my', 'cc'].includes(params.viewMode!)) {
+      params.viewMode = 'pending';
+    }
+    if (!params.pageSize || params.pageSize < 1 || params.pageSize > 100) {
+      params.pageSize = 20;
+    }
 
     const result = await getApprovalList(params, userId);
     res.json(buildPagedResponse(result.list, result.total, params.page!, params.pageSize!));

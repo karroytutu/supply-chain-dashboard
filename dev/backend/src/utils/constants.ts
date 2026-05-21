@@ -126,6 +126,15 @@ export const AR_HOARD_TAG_HOARD = 'HOARD';
 /** 催收明细压单排除状态 @usedBy ar-hoard-reconcile.ts (标记压单排除明细) */
 export const AR_DETAIL_STATUS_HOARD_EXCLUDED = 'hoard_excluded';
 
+/** 压单类型-长期压单 @usedBy ar-hoard-reconcile.ts, ar-debt-enrichment.service.ts, customer-credit-callback.ts */
+export const AR_HOLD_TYPE_LONG_TERM = 'long_term';
+
+/** 压单类型-期限压单 @usedBy ar-hoard-reconcile.ts, ar-debt-enrichment.service.ts, ar-collection-sync.task.ts, customer-credit-callback.ts */
+export const AR_HOLD_TYPE_TIME_LIMITED = 'time_limited';
+
+/** 压单类型联合 @usedBy ar-debt.types.ts, ar-debt-enrichment.service.ts */
+export type ArHoldType = typeof AR_HOLD_TYPE_LONG_TERM | typeof AR_HOLD_TYPE_TIME_LIMITED;
+
 /** 升级处理角色映射: 升级层级 → 处理角色编码
  * @usedBy ar-collection.mutation.ts (升级时确定目标角色)
  * @usedBy ar-collection.mutation.ts (退回时确定恢复角色)

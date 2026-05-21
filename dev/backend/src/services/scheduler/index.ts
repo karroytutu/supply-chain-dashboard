@@ -16,6 +16,7 @@ import {
   syncERPDebts,
   generateCollectionTasks,
   checkExtensionExpiry,
+  checkHoldExpiry,
 } from '../ar-collection/ar-collection-sync.task';
 import {
   checkExtensionExpiryReminders,
@@ -171,6 +172,21 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // 期限压单到期检查 - 每2小时
+  cron.schedule(
+    '0 */2 * * *',
+    async () => {
+      console.log('[Scheduler] 执行期限压单到期检查...');
+      try {
+        await checkHoldExpiry();
+        console.log('[Scheduler] 期限压单到期检查完成');
+      } catch (error) {
+        console.error('[Scheduler] 期限压单到期检查失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   // 催收预警提醒 - 每天晚上 20:00
   cron.schedule(
     '0 20 * * *',
@@ -293,6 +309,7 @@ export function startScheduler(): void {
   console.log('  - 催收任务生成: 每天 20:00 (Asia/Shanghai)');
   console.log('  - 催收考核计算: 每天 20:30 (Asia/Shanghai)');
   console.log('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
+  console.log('  - 期限压单到期检查: 每2小时 (Asia/Shanghai)');
   console.log('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
   console.log('  - 钉钉通知重试: 每5分钟 (Asia/Shanghai)');
   console.log('  - auto节点卡住恢复: 每5分钟 (Asia/Shanghai)');

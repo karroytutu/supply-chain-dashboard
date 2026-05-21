@@ -4,6 +4,7 @@ import {
   SwapOutlined,
   TeamOutlined,
   MessageOutlined,
+  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import {
   type ApprovalDetail,
@@ -29,6 +30,8 @@ interface ApprovalDetailPanelProps {
   onReject: () => void;
   onWithdraw: () => void;
   onTransfer: () => void;
+  isMobile?: boolean;
+  onBack?: () => void;
 }
 
 /** 渲染状态标签 */
@@ -121,7 +124,8 @@ const ActionBar: React.FC<{
 const DetailContent: React.FC<{
   detail: ApprovalDetail; viewMode: ViewMode;
   onApprove: () => void; onReject: () => void; onWithdraw: () => void; onTransfer: () => void;
-}> = ({ detail, viewMode, onApprove, onReject, onWithdraw, onTransfer }) => {
+  isMobile?: boolean; onBack?: () => void;
+}> = ({ detail, viewMode, onApprove, onReject, onWithdraw, onTransfer, isMobile, onBack }) => {
   const { currentUser } = usePermission();
   const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
   const { erpLicenseUrls } = useErpLicenseResolve(detail.formSchema, detail.formData);
@@ -129,6 +133,12 @@ const DetailContent: React.FC<{
 
   return (
     <div className={styles.detailPanel}>
+      {isMobile && (
+        <div className={styles.mobileBackBar}>
+          <ArrowLeftOutlined onClick={onBack} style={{ fontSize: 16, cursor: 'pointer' }} />
+          <span className={styles.mobileBackTitle}>{detail.formTypeName}</span>
+        </div>
+      )}
       <div className={styles.detailScroll}>
         <div className={styles.detailHeader}>
           <h2 className={styles.detailTitle}>{detail.formTypeName}</h2>
@@ -160,7 +170,7 @@ const DetailContent: React.FC<{
 };
 
 const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
-  detailLoading, detail, viewMode, onApprove, onReject, onWithdraw, onTransfer,
+  detailLoading, detail, viewMode, onApprove, onReject, onWithdraw, onTransfer, isMobile, onBack,
 }) => {
   if (detailLoading) {
     return <div className={styles.detailPanel}><div className={styles.loadingContainer}><Spin /></div></div>;
@@ -170,7 +180,8 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
   }
   return (
     <DetailContent detail={detail} viewMode={viewMode}
-      onApprove={onApprove} onReject={onReject} onWithdraw={onWithdraw} onTransfer={onTransfer} />
+      onApprove={onApprove} onReject={onReject} onWithdraw={onWithdraw} onTransfer={onTransfer}
+      isMobile={isMobile} onBack={onBack} />
   );
 };
 

@@ -11,7 +11,6 @@ import {
   OaMessageContent,
   sendWorkNotification,
 } from '../dingtalk.service';
-import { generateActionToken } from './oa-action-token';
 import { FormSchema } from './oa-approval.types';
 import { OA_DINGTALK_STATUS } from '../../utils/constants';
 import { extractFormSummary, buildFormSummaryMarkdown } from './oa-approval-form-summary';
@@ -43,17 +42,14 @@ export interface DingtalkNotifyParams {
 
 /**
  * 构建待审批ActionCard消息
- * 包含"同意"和"查看详情"两个按钮
+ * 仅包含"查看详情"按钮
  */
 export async function buildPendingActionCard(
   params: DingtalkNotifyParams,
-  userId: number
+  _userId: number
 ): Promise<ActionCardContent> {
   const baseUrl = config.app.baseUrl;
   const { instanceId, title, formTypeName, applicantName, urgency, nodeName, formSchema, formData } = params;
-
-  // 生成一次性Token用于"同意"按钮
-  const approveToken = await generateActionToken(instanceId, userId, 'approve', params.nodeOrder || 1);
 
   const urgencyText = urgency === 'urgent' ? '【非常紧急】' : urgency === 'high' ? '【紧急】' : '';
   const urgencyLabel = urgency === 'urgent' ? '非常紧急' : urgency === 'high' ? '紧急' : '普通';
@@ -75,12 +71,8 @@ ${buildFormSummaryMarkdown(formSchema, formData, extraRows)}
 
   const btnJsonList: ActionCardButton[] = [
     {
-      title: '同意',
-      actionUrl: `${baseUrl}/oa/quick-action?token=${approveToken}&action=approve`,
-    },
-    {
       title: '查看详情',
-      actionUrl: `${baseUrl}/oa/detail/${instanceId}?token=${approveToken}`,
+      actionUrl: `${baseUrl}/oa/detail/${instanceId}`,
     },
   ];
 
@@ -88,7 +80,7 @@ ${buildFormSummaryMarkdown(formSchema, formData, extraRows)}
     title: `待审批 - ${formTypeName}`,
     markdown,
     btnJsonList,
-    btnOrientation: '0',
+    btnOrientation: '1',
   };
 }
 
@@ -169,15 +161,14 @@ export function buildCcOaMessage(params: DingtalkNotifyParams): OaMessageContent
 
 /**
  * 构建转交/加签的待审批ActionCard消息
+ * 仅包含"查看详情"按钮
  */
 export async function buildTransferActionCard(
   params: DingtalkNotifyParams,
-  userId: number
+  _userId: number
 ): Promise<ActionCardContent> {
   const baseUrl = config.app.baseUrl;
   const { instanceId, title, formTypeName, applicantName, fromUserName, nodeName, formSchema, formData } = params;
-
-  const approveToken = await generateActionToken(instanceId, userId, 'approve', params.nodeOrder || 1);
 
   const extraRows: Array<{ key: string; value: string }> = [
     { key: '申请人', value: applicantName },
@@ -197,12 +188,8 @@ ${buildFormSummaryMarkdown(formSchema, formData, extraRows)}
 
   const btnJsonList: ActionCardButton[] = [
     {
-      title: '同意',
-      actionUrl: `${baseUrl}/oa/quick-action?token=${approveToken}&action=approve`,
-    },
-    {
       title: '查看详情',
-      actionUrl: `${baseUrl}/oa/detail/${instanceId}?token=${approveToken}`,
+      actionUrl: `${baseUrl}/oa/detail/${instanceId}`,
     },
   ];
 
@@ -210,7 +197,7 @@ ${buildFormSummaryMarkdown(formSchema, formData, extraRows)}
     title: `转交待审批 - ${formTypeName}`,
     markdown,
     btnJsonList,
-    btnOrientation: '0',
+    btnOrientation: '1',
   };
 }
 

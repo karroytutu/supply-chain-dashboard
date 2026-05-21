@@ -20,6 +20,8 @@ import {
   CREDIT_HOLD_AMOUNT_ACCOUNTANT,
   CREDIT_HOLD_AMOUNT_GM,
   CREDIT_SETTLE_METHOD_ON_ACCOUNT,
+  AR_HOLD_TYPE_LONG_TERM,
+  AR_HOLD_TYPE_TIME_LIMITED,
 } from '../../utils/constants';
 import type { OaApprovalInstanceRow, PreviewContextResult } from './oa-approval.types';
 
@@ -339,9 +341,14 @@ export async function onApprovedCustomerCredit(
       cache.invalidate('erp:customer:limits');
       cache.invalidate('erp:customer:debt-name-map');
 
+      // 提取压单类型和天数，传递给对账函数
+      const rawHoardType = formData.hoardType as string;
+      const hoardType = rawHoardType === AR_HOLD_TYPE_TIME_LIMITED ? AR_HOLD_TYPE_TIME_LIMITED : AR_HOLD_TYPE_LONG_TERM;
+      const holdDays = hoardType === AR_HOLD_TYPE_TIME_LIMITED ? (Number(formData.holdDays) || null) : null;
+
       const consumerName = (formData._customerName || formData.customerName) as string;
       if (consumerName) {
-        await reconcileHoardDetailsByCustomer(consumerName).catch(err => {
+        await reconcileHoardDetailsByCustomer(consumerName, { holdType: hoardType, holdDays }).catch(err => {
           console.error('[CustomerCredit] 压单即时对账失败（兜底会在06:00执行）:', err);
         });
       }

@@ -3,6 +3,7 @@
  * - syncERPDebts: 每日06:00从ERP同步欠款数据
  * - generateCollectionTasks: 每日20:00生成催收任务（已提取到 ar-collection-task-generator.ts）
  * - checkExtensionExpiry: 每2小时检查延期到期
+ * - checkHoldExpiry: 每2小时检查期限压单到期
  */
 
 import { query } from '../../db/pool';
@@ -11,6 +12,7 @@ import type { TaskStatus } from './ar-collection.types';
 import type { ERPDebtRecord } from './ar-debt.types';
 import { reconcileAllHoardDetails } from './ar-hoard-reconcile';
 import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
+import { AR_HOLD_TYPE_TIME_LIMITED, AR_HOARD_TAG_HOARD, AR_DETAIL_STATUS_HOARD_EXCLUDED } from '../../utils/constants';
 
 // 从独立模块导出任务生成函数
 export { generateCollectionTasks } from './ar-collection-task-generator';
@@ -176,7 +178,132 @@ export async function checkExtensionExpiry(): Promise<void> {
 }
 
 // ============================================
-// 3. handleRemovedDebt - 处理ERP中消失的欠款
+// 3. checkHoldExpiry - 检查期限压单到期
+// ============================================
+
+/** 到期压单明细 */
+interface ExpiredHoldDetail {
+  id: number;
+  task_id: number;
+  hold_type: string;
+  hold_until: string;
+}
+
+export async function checkHoldExpiry(): Promise<void> {
+  console.log('[ARSync] 检查期限压单到期...');
+  try {
+    // 查询已到期的期限压单明细（利用部分索引高效扫描）
+    const result = await appQuery<ExpiredHoldDetail>(
+      `SELECT id, task_id, hold_type, hold_until::text
+       FROM ar_collection_details
+       WHERE hold_type = $1
+         AND hold_until <= CURRENT_DATE
+         AND hoard_tag = $2
+         AND status = $3`,
+      [AR_HOLD_TYPE_TIME_LIMITED, AR_HOARD_TAG_HOARD, AR_DETAIL_STATUS_HOARD_EXCLUDED]
+    );
+
+    if (result.rows.length === 0) {
+      console.log('[ARSync] 无到期期限压单');
+      return;
+    }
+
+    const client = await getAppClient();
+    try {
+      await client.query('BEGIN');
+
+      // 按 task_id 分组处理
+      const byTask = new Map<number, ExpiredHoldDetail[]>();
+      for (const detail of result.rows) {
+        const existing = byTask.get(detail.task_id) || [];
+        existing.push(detail);
+        byTask.set(detail.task_id, existing);
+      }
+
+      const affectedTaskIds: number[] = [];
+
+      for (const [taskId, details] of byTask) {
+        const detailIds = details.map(d => d.id);
+
+        // 1. 恢复明细状态：hoard_excluded → pending，清除 hold 元数据
+        await client.query(
+          `UPDATE ar_collection_details
+           SET status = 'pending', hoard_tag = NULL,
+               hold_type = NULL, hold_days = NULL, hold_until = NULL
+           WHERE id = ANY($1)`,
+          [detailIds]
+        );
+
+        // 2. 重算任务指标
+        const recalcResult = await client.query<{ total: string; cnt: string; max_overdue: string }>(
+          `SELECT COALESCE(SUM(left_amount), 0)::numeric as total,
+                  COUNT(*)::int as cnt,
+                  COALESCE(MAX(overdue_days), 0)::int as max_overdue
+           FROM ar_collection_details
+           WHERE task_id = $1 AND status != $2`,
+          [taskId, AR_DETAIL_STATUS_HOARD_EXCLUDED]
+        );
+        const newTotal = Number(recalcResult.rows[0].total);
+        const newCount = Number(recalcResult.rows[0].cnt);
+        const newMaxOverdue = Number(recalcResult.rows[0].max_overdue);
+
+        await client.query(
+          `UPDATE ar_collection_tasks
+           SET total_amount = $1, bill_count = $2, max_overdue_days = $3
+           WHERE id = $4`,
+          [newTotal, newCount, newMaxOverdue, taskId]
+        );
+
+        // 3. 若任务因所有明细被排除而关闭 → 重新打开
+        const taskResult = await client.query<{ status: string }>(
+          `SELECT status FROM ar_collection_tasks WHERE id = $1`,
+          [taskId]
+        );
+        if (taskResult.rows[0]?.status === 'closed' && newCount > 0) {
+          await client.query(
+            `UPDATE ar_collection_tasks SET status = 'collecting' WHERE id = $1`,
+            [taskId]
+          );
+        }
+
+        // 4. 记录操作日志
+        await client.query(
+          `INSERT INTO ar_collection_actions
+            (task_id, action_type, action_result, remark, operator_name)
+           VALUES ($1, $2, 'success', $3, '系统')`,
+          [
+            taskId,
+            AR_DETAIL_STATUS_HOARD_EXCLUDED,
+            `${details.length}笔期限压单到期，自动恢复催收。到期日: ${details[0].hold_until}`,
+          ]
+        );
+
+        affectedTaskIds.push(taskId);
+      }
+
+      await client.query('COMMIT');
+
+      // 5. 失效缓存
+      for (const taskId of affectedTaskIds) {
+        invalidateTaskCache(taskId);
+      }
+      invalidateStatsCache();
+
+      console.log(`[ARSync] 处理了 ${result.rows.length} 条到期期限压单，涉及 ${affectedTaskIds.length} 个任务，已失效相关缓存`);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('[ARSync] 期限压单到期检查失败:', error);
+    throw error;
+  }
+}
+
+// ============================================
+// 4. handleRemovedDebt - 处理ERP中消失的欠款
 // ============================================
 
 async function handleRemovedDebt(detail: LocalDetail): Promise<void> {

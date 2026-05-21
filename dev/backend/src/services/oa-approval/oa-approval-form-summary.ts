@@ -87,5 +87,5 @@ export function buildFormSummaryMarkdown(
 
   if (allRows.length === 0) return '';
 
-  return allRows.map(r => `**${r.key}**: ${r.value}`).join('\n');
+  return allRows.map(r => `**${r.key}**: ${r.value}`).join('\n\n');
 }
