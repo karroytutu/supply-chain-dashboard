@@ -68,7 +68,7 @@ export const COLLECTION_ENTRY_RULES: Record<EntryRuleType, EntryRuleConfig> = {
   max_overdue_orders: {
     type: 'max_overdue_orders',
     name: '超过最大欠款单数',
-    description: '客户欠款单数超过最大欠款单数时，超限新单进入催收',
+    description: '客户欠款单数超过最大欠款单数时，超限旧单（最早欠款）进入催收',
     enabled: true,
     priority: 2,
   },
@@ -134,7 +134,7 @@ registerEvaluator('overdue_days', overdueDaysEvaluator);
 
 /**
  * 最大欠款单数评估器
- * 按客户分组后，按 workTime 升序排列（最早优先保留）
+ * 按客户分组后，按 workTime 降序排列（最新优先保留），最旧的超限入催
  * 前 maxDebtOrderNum 单为"额度内"，之后的为"超限单"
  */
 const maxOverdueOrdersEvaluator: EntryRuleEvaluator = (
@@ -157,11 +157,11 @@ const maxOverdueOrdersEvaluator: EntryRuleEvaluator = (
     return results;
   }
 
-  // 按 workTime 升序排列（最早优先保留）
+  // 按 workTime 降序排列（最新优先保留）
   const sortedWithIndex = debts.map((debt, index) => ({ debt, index }));
-  sortedWithIndex.sort((a, b) => new Date(a.debt.workTime).getTime() - new Date(b.debt.workTime).getTime());
+  sortedWithIndex.sort((a, b) => new Date(b.debt.workTime).getTime() - new Date(a.debt.workTime).getTime());
 
-  // 前 maxDebtOrderNum 单保留，之后的为超限单
+  // 前 maxDebtOrderNum 单（最新）保留，之后的（最旧）为超限单
   const excessStartIndex = maxDebtOrderNum;
   const excessCount = debts.length - maxDebtOrderNum;
 
@@ -169,7 +169,7 @@ const maxOverdueOrdersEvaluator: EntryRuleEvaluator = (
     const { debt, index } = sortedWithIndex[i];
     results.set(index, {
       triggeredRule: 'max_overdue_orders',
-      reason: `客户欠款${debts.length}单，超过最大欠款单数${maxDebtOrderNum}，最新${excessCount}单超限入催`,
+      reason: `客户欠款${debts.length}单，超过最大欠款单数${maxDebtOrderNum}，最旧${excessCount}单超限入催`,
       ruleSnapshot: {
         type: ruleConfig.type,
         name: ruleConfig.name,
