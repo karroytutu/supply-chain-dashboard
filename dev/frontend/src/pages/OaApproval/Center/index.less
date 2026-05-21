@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .container {
   display: flex;
   height: calc(100vh - 64px);
@@ -165,6 +167,17 @@
   min-height: 0; // 允许 flex 子元素正确收缩
 }
 
+// 移动端详情返回栏（默认隐藏，移动端 @media 中显示）
+.mobileBackBar {
+  display: none;
+}
+
+.mobileBackTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
 // 详情可滚动内容区
 .detailScroll {
   flex: 1;
@@ -276,7 +289,8 @@
 }
 
 // 响应式
-@media (max-width: 1200px) {
+// ── 大屏 → 中屏 (≤1400px)：导航收起为图标 ──
+@media (max-width: @screen-xxl) {
   .nav {
     width: 48px;
   }
@@ -290,29 +304,42 @@
   }
 }
 
-@media (max-width: 992px) {
+// ── 中屏 (≤992px)：列表宽度缩减 ──
+@media (max-width: @screen-lg) {
   .listPanel {
     width: 260px;
   }
 }
 
-@media (max-width: 768px) {
+// ── 移动端 (≤768px)：单列布局 + 列表↔详情切换 ──
+@media (max-width: @screen-md) {
   .container {
     flex-direction: column;
+    overflow: hidden;
   }
 
+  // 导航：水平可滚动 Tab
   .nav {
     width: 100%;
     display: flex;
     flex-direction: row;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 0;
+    flex-shrink: 0;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
 
     .navItem {
       flex-direction: column;
-      padding: 12px;
+      align-items: center;
+      padding: 8px 12px;
       border-left: none;
       border-bottom: 3px solid transparent;
+      flex-shrink: 0;
+      min-width: @touch-target-size;
     }
 
     .navItemActive {
@@ -323,16 +350,181 @@
     .navLabel {
       display: block;
       font-size: 12px;
-      margin-top: 4px;
+      margin-top: 2px;
     }
   }
 
+  // 列表面板：弹性高度
   .listPanel {
     width: 100%;
-    height: 300px;
+    flex: 1;
+    min-height: 0;
+    height: auto;
   }
 
+  // 搜索区：纵向堆叠
+  .listHeader {
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 12px;
+
+    :global(.ant-btn) {
+      width: 100%;
+    }
+  }
+
+  // 列表项：触摸友好
+  .listItem {
+    padding: 14px 12px;
+    min-height: @touch-target-size;
+  }
+
+  .itemTitle {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  // 详情面板
   .detailPanel {
-    padding: 16px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .detailScroll {
+    padding: 12px;
+  }
+
+  .detailTitle {
+    font-size: 16px;
+  }
+
+  // 表单数据：纵向堆叠
+  .formDataRow {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .formLabel {
+    width: auto;
+  }
+
+  // 操作栏：固定在底部
+  .actionBar {
+    position: sticky;
+    bottom: 0;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+    z-index: 10;
+  }
+
+  .actionLeft {
+    width: 100%;
+    justify-content: space-between;
+
+    :global(.ant-btn) {
+      flex: 1;
+    }
+  }
+
+  .actionRight {
+    width: 100%;
+
+    :global(.ant-btn) {
+      flex: 1;
+    }
+  }
+
+  // 移动端详情返回栏
+  .mobileBackBar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+  }
+}
+
+// ── 小屏手机 (≤576px) ──
+@media (max-width: @screen-sm) {
+  .listItem {
+    padding: 10px 8px;
+  }
+
+  .itemTitle {
+    font-size: 13px;
+  }
+
+  .itemInfo {
+    font-size: 12px;
+  }
+
+  .itemDate {
+    font-size: 11px;
+  }
+
+  .detailScroll {
+    padding: 8px;
+  }
+
+  .formDataSection,
+  .flowSection {
+    padding: 10px;
+  }
+
+  .actionBar {
+    padding: 8px;
+  }
+}
+
+// ── 超小屏手机 (≤480px) ──
+@media (max-width: @screen-xs) {
+  .nav {
+    .navItem {
+      padding: 6px 8px;
+    }
+
+    .navLabel {
+      font-size: 10px;
+    }
+  }
+
+  .itemFooter {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .actionLeft,
+  .actionRight {
+    :global(.ant-btn) {
+      font-size: 12px;
+      padding: 4px 8px;
+    }
+  }
+}
+
+// ── iPhone SE 级别 (≤375px) ──
+@media (max-width: @screen-xxs) {
+  .nav {
+    .navItem {
+      padding: 4px 6px;
+    }
+
+    .navLabel {
+      font-size: 9px;
+    }
+  }
+
+  .detailMeta span {
+    display: block;
+    margin-right: 0;
+    margin-bottom: 2px;
   }
 }

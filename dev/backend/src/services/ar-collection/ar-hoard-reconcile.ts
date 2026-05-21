@@ -9,7 +9,7 @@
  */
 
 import { appQuery, getAppClient } from '../../db/appPool';
-import { AR_HOARD_TAG_HOARD, AR_DETAIL_STATUS_HOARD_EXCLUDED } from '../../utils/constants';
+import { AR_HOARD_TAG_HOARD, AR_DETAIL_STATUS_HOARD_EXCLUDED, AR_HOLD_TYPE_LONG_TERM, AR_HOLD_TYPE_TIME_LIMITED } from '../../utils/constants';
 import { fetchCustomerData, fetchHoardTags } from './ar-debt-enrichment.service';
 import type { ERPDebtRecord } from './ar-debt.types';
 
@@ -27,6 +27,14 @@ interface ReconcilableDetail {
   hoard_tag: string | null;
   consumer_name: string;
   task_status: string;
+}
+
+/** 压单选项（审批回调传入） */
+export interface HoldOptions {
+  /** 压单类型: long_term | time_limited */
+  holdType: string;
+  /** 期限压单天数（仅 time_limited 有效） */
+  holdDays: number | null;
 }
 
 // ============================================
@@ -76,8 +84,12 @@ export async function reconcileAllHoardDetails(): Promise<void> {
  * 对指定客户的活跃任务执行压单对账（即时触发）
  * 在压单审批通过后调用
  * @param consumerName 客户名称
+ * @param holdOptions 压单选项（类型+天数），来自审批表单
  */
-export async function reconcileHoardDetailsByCustomer(consumerName: string): Promise<void> {
+export async function reconcileHoardDetailsByCustomer(
+  consumerName: string,
+  holdOptions?: HoldOptions,
+): Promise<void> {
   console.log(`[HoardReconcile] 开始客户压单对账: ${consumerName}`);
   const startTime = Date.now();
 
@@ -97,7 +109,7 @@ export async function reconcileHoardDetailsByCustomer(consumerName: string): Pro
     }
 
     // 3. 处理变更
-    const result = await processHoardChanges(changedDetails);
+    const result = await processHoardChanges(changedDetails, holdOptions);
 
     const duration = Date.now() - startTime;
     console.log(
@@ -180,13 +192,19 @@ async function detectHoardChanges(details: ReconcilableDetail[]): Promise<Reconc
 /**
  * 处理压单变更
  * 按 task_id 分组：更新明细状态/标记 → 重算任务指标 → 级联关闭 → 记录日志
+ * @param holdOptions 压单选项（类型+天数），即时对账时由审批回调传入，定时兜底时为空（默认长期压单）
  */
 async function processHoardChanges(
   changedDetails: ReconcilableDetail[],
+  holdOptions?: HoldOptions,
 ): Promise<{ excludedCount: number; recalculatedTasks: number; closedTasks: number }> {
   let excludedCount = 0;
   let recalculatedTasks = 0;
   let closedTasks = 0;
+
+  // 压单元数据：未传入时默认为长期压单
+  const holdType = holdOptions?.holdType || AR_HOLD_TYPE_LONG_TERM;
+  const holdDays = holdOptions?.holdDays ?? null;
 
   // 按 task_id 分组
   const byTask = new Map<number, ReconcilableDetail[]>();
@@ -209,22 +227,30 @@ async function processHoardChanges(
         .filter(d => d.status !== 'pending')
         .map(d => d.id);
 
-      // 更新 pending 明细：标记为 hoard_excluded + 更新 hoard_tag
+      // 更新 pending 明细：标记为 hoard_excluded + 更新 hoard_tag + hold 元数据
       if (pendingIds.length > 0) {
         await client.query(
           `UPDATE ar_collection_details
-           SET status = $1, hoard_tag = $2
-           WHERE id = ANY($3)`,
-          [AR_DETAIL_STATUS_HOARD_EXCLUDED, AR_HOARD_TAG_HOARD, pendingIds]
+           SET status = $1, hoard_tag = $2, hold_type = $3, hold_days = $4,
+               hold_until = CASE WHEN $3 = $5 AND $4 IS NOT NULL
+                                 THEN CURRENT_DATE + $4::integer
+                                 ELSE NULL END
+           WHERE id = ANY($6)`,
+          [AR_DETAIL_STATUS_HOARD_EXCLUDED, AR_HOARD_TAG_HOARD, holdType, holdDays, AR_HOLD_TYPE_TIME_LIMITED, pendingIds]
         );
         excludedCount += pendingIds.length;
       }
 
-      // 更新非 pending 明细：仅更新 hoard_tag（不中断已有业务流程）
+      // 更新非 pending 明细：仅更新 hoard_tag + hold 元数据（不中断已有业务流程）
       if (nonPendingIds.length > 0) {
         await client.query(
-          `UPDATE ar_collection_details SET hoard_tag = $1 WHERE id = ANY($2)`,
-          [AR_HOARD_TAG_HOARD, nonPendingIds]
+          `UPDATE ar_collection_details
+           SET hoard_tag = $1, hold_type = $2, hold_days = $3,
+               hold_until = CASE WHEN $2 = $4 AND $3 IS NOT NULL
+                                 THEN CURRENT_DATE + $3::integer
+                                 ELSE NULL END
+           WHERE id = ANY($5)`,
+          [AR_HOARD_TAG_HOARD, holdType, holdDays, AR_HOLD_TYPE_TIME_LIMITED, nonPendingIds]
         );
       }
 
@@ -258,11 +284,12 @@ async function processHoardChanges(
       const pendingCount = pendingIds.length;
       const nonPendingCount = nonPendingIds.length;
       const remarkParts: string[] = [];
+      const holdTypeLabel = holdType === AR_HOLD_TYPE_TIME_LIMITED ? `期限压单(${holdDays}天)` : '长期压单';
       if (pendingCount > 0) {
-        remarkParts.push(`${pendingCount}笔待处理明细标记为压单排除`);
+        remarkParts.push(`${pendingCount}笔待处理明细标记为压单排除[${holdTypeLabel}]`);
       }
       if (nonPendingCount > 0) {
-        remarkParts.push(`${nonPendingCount}笔处理中明细标记压单（状态不变）`);
+        remarkParts.push(`${nonPendingCount}笔处理中明细标记压单[${holdTypeLabel}]（状态不变）`);
       }
       if (newCount === 0) {
         remarkParts.push('所有明细已排除，任务自动关闭');

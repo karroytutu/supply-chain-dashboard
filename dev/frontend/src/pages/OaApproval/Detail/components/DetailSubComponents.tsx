@@ -44,7 +44,7 @@ export const DetailLeftColumn: React.FC<{
   return (
   <>
     <Card title="基本信息" className={styles.card}>
-      <Descriptions column={2} bordered size="small">
+      <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
         <Descriptions.Item label="申请编号">{detail.instanceNo}</Descriptions.Item>
         <Descriptions.Item label="申请类型">{detail.formTypeName}</Descriptions.Item>
         <Descriptions.Item label="申请人">{detail.applicantName}</Descriptions.Item>
@@ -70,7 +70,7 @@ export const DetailLeftColumn: React.FC<{
       />
     )}
     <Card title="表单内容" className={styles.card}>
-      <Descriptions column={2} bordered size="small">
+      <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
         {detail.formSchema?.fields?.map((field) => {
           const value = detail.formData[field.key];
           if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return null;

@@ -22,7 +22,7 @@ export const customerCreditFormType: FormTypeDefinition = {
   category: 'finance',
   sortOrder: 110,
   description: '申请客户授信，包括账期、滚单、压单',
-  version: 3,
+  version: 4,
 
   formSchema: {
     fields: [
@@ -112,6 +112,31 @@ export const customerCreditFormType: FormTypeDefinition = {
         nameField: 'holdSettlementOrderNames',
         visibleWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
         requiredWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
+      },
+      // 压单类型
+      {
+        key: 'hoardType',
+        label: '压单类型',
+        type: 'select',
+        required: false,
+        defaultValue: 'long_term',
+        options: [
+          { value: 'long_term', label: '长期压单' },
+          { value: 'time_limited', label: '期限压单' },
+        ],
+        visibleWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
+        requiredWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
+      },
+      // 压单天数（仅期限压单需要）
+      {
+        key: 'holdDays',
+        label: '压单天数',
+        type: 'number',
+        required: false,
+        min: 1,
+        suffix: '天',
+        visibleWhen: { field: 'hoardType', operator: '==', value: 'time_limited' },
+        requiredWhen: { field: 'hoardType', operator: '==', value: 'time_limited' },
       },
       // 营业执照照片（客户已有执照时非必填）
       {

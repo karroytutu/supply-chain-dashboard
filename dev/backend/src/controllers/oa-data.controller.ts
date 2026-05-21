@@ -20,15 +20,21 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // 前端请求拦截器自动将 camelCase 参数转为 snake_case，后端统一按 snake_case 读取
     const params: ApprovalListParams = {
       viewMode: 'my', // 数据管理默认查看所有
-      formTypeCode: req.query.formTypeCode as string,
+      formTypeCode: req.query.form_type_code as string,
       status: req.query.status as ApprovalListParams['status'],
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string,
+      startDate: req.query.start_date as string,
+      endDate: req.query.end_date as string,
       page: parseInt(req.query.page as string) || 1,
-      pageSize: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
+      pageSize: parseInt(req.query.page_size as string) || 20,
     };
+
+    // 参数校验：确保 pageSize 为合法值
+    if (!params.pageSize || params.pageSize < 1 || params.pageSize > 100) {
+      params.pageSize = 20;
+    }
 
     // 数据管理查看所有审批数据（不限视图模式）
     const result = await getDataListAll(params);

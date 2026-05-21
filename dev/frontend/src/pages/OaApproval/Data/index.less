@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .dataPage {
   padding: 24px;
   background: #f0f2f5;
@@ -91,5 +93,81 @@
     .ant-pagination {
       margin-top: 16px;
     }
+  }
+}
+
+// ── 平板/小屏 (≤768px) ──
+@media (max-width: @screen-md) {
+  .dataPage {
+    padding: 12px;
+  }
+
+  .statsRow {
+    margin-bottom: 16px;
+
+    :global {
+      .ant-col {
+        margin-bottom: 8px;
+      }
+
+      .ant-statistic-content {
+        font-size: 22px !important;
+      }
+    }
+  }
+
+  .filterSection {
+    :global {
+      .ant-row {
+        flex-direction: column;
+        gap: 8px;
+
+        .ant-col {
+          max-width: 100% !important;
+          flex: 0 0 100% !important;
+        }
+      }
+    }
+  }
+
+  .toolbar {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+}
+
+// ── 小屏手机 (≤576px) ──
+@media (max-width: @screen-sm) {
+  .dataPage {
+    padding: 8px;
+  }
+
+  .mainCard {
+    :global {
+      .ant-card-body {
+        padding: 12px;
+      }
+
+      .ant-table {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+    }
+  }
+}
+
+// ── 超小屏手机 (≤480px) ──
+@media (max-width: @screen-xs) {
+  .dataPage {
+    padding: 6px;
+  }
+
+  .mainCard :global(.ant-card-body) {
+    padding: 8px;
+  }
+
+  .statsRow :global(.ant-statistic-content) {
+    font-size: 20px !important;
   }
 }
