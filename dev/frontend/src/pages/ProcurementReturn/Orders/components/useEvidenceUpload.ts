@@ -55,7 +55,7 @@ export function useEvidenceUpload() {
     setUploading(true);
     try {
       const result = await uploadReturnEvidence(actualFiles);
-      if (result.success && result.urls) {
+      if (result.urls && result.urls.length > 0) {
         const newFiles: UploadFile[] = result.urls.map((url, index) => ({
           uid: `${Date.now()}-${index}-${Math.random()}`,
           name: actualFiles[index]?.name || `image-${index}`,

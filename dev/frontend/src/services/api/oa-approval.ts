@@ -518,12 +518,11 @@ export async function retryErpOperation(instanceId: number): Promise<void> {
 export async function uploadLicenseFiles(files: File[]): Promise<string[]> {
   const formData = new FormData();
   files.forEach(f => formData.append('files', f));
-  // requestFormData 返回原始 JSON 响应 { code, data: { urls } }
-  const res = await requestFormData<{ code: number; data: { urls: string[] } }>(
+  const urls = await requestFormData<{ urls: string[] }>(
     '/oa-approval/upload-license',
     formData,
   );
-  return res.data.urls;
+  return urls.urls;
 }
 
 /** 客户营业执照信息 */
@@ -592,11 +591,10 @@ export async function supplementLicense(
   const formData = new FormData();
   formData.append('customerId', String(customerId));
   files.forEach(f => formData.append('files', f));
-  const res = await requestFormData<{ code: number; data: LicenseDeferredRecord }>(
+  return requestFormData<LicenseDeferredRecord>(
     `/credit-license/${instanceId}/supplement-license`,
     formData,
   );
-  return res.data;
 }
 
 /** 根据审批实例ID查询延期补交记录 */
