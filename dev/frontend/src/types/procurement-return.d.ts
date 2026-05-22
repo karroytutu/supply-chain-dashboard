@@ -137,7 +137,6 @@ export interface WarehouseExecuteParams {
  * 上传凭证响应
  */
 export interface UploadReturnEvidenceResponse {
-  success: boolean;
   urls: string[];  // 上传成功的URL列表
 }
 

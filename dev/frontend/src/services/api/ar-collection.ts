@@ -157,9 +157,7 @@ export const fileLawsuit = (id: number, data: FileLawsuitParams): Promise<Collec
 export const uploadEvidence = async (file: File): Promise<UploadEvidenceResponse> => {
   const formData = new FormData();
   formData.append('file', file);
-  const result = await requestFormData<{ code: number; data: UploadEvidenceResponse }>('/ar-collection/upload', formData);
-  // requestFormData 返回完整响应 { code, data: {...} }，需要提取 data
-  return result.data;
+  return requestFormData<UploadEvidenceResponse>('/ar-collection/upload', formData);
 };
 
 /**

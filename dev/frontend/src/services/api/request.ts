@@ -252,7 +252,22 @@ export async function requestFormData<T = any>(
     throw new Error(errorData.message || '上传失败');
   }
 
-  return response.json();
+  const result = await response.json();
+
+  // 处理标准响应格式（与 request 函数保持一致）
+  // 格式1: { success: true, data: {...} }
+  if (result && typeof result === 'object' && 'success' in result && 'data' in result) {
+    return result.data as T;
+  }
+  // 格式2: { code: 200, message: 'success', data: {...} }
+  if (result && typeof result === 'object' && 'code' in result && 'data' in result) {
+    if (result.code === 200) {
+      return result.data as T;
+    }
+    throw new Error(result.message || `请求失败: code ${result.code}`);
+  }
+
+  return result;
 }
 
 export default request;
