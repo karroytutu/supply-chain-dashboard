@@ -29,6 +29,8 @@ export function useApprovalCenter() {
       list: data.list,
       total: data.total,
       detail: data.detail,
+      loadList: data.loadList,
+      loadStats: data.loadStats,
     },
     pagination: {
       page: filters.page,

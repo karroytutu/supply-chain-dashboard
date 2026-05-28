@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input, Button, List, Spin, Empty, Tag } from 'antd';
 import { SearchOutlined, FilterOutlined } from '@ant-design/icons';
+import { ApprovalStatusTag } from '@/components/OaApproval';
 import type { ApprovalInstance } from '@/types/oa-approval';
 import styles from '../index.less';
 
@@ -48,7 +49,20 @@ const ApprovalList: React.FC<ApprovalListProps> = ({
                 onClick={() => onItemClick(item)}
               >
                 <div className={styles.itemHeader}>
-                  <span className={styles.itemTitle}>{item.title}</span>
+                  <span className={styles.itemTitle}>
+                    {item.isUnread && (
+                      <span style={{
+                        display: 'inline-block',
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        backgroundColor: '#f5222d',
+                        marginRight: 6,
+                        verticalAlign: 'middle',
+                      }} />
+                    )}
+                    {item.title}
+                  </span>
                   <span className={styles.itemDate}>
                     {new Date(item.submittedAt).toLocaleDateString()}
                   </span>
@@ -58,7 +72,11 @@ const ApprovalList: React.FC<ApprovalListProps> = ({
                   <span className={styles.itemType}>{item.formTypeName}</span>
                 </div>
                 <div className={styles.itemFooter}>
-                  <Tag color="orange">等待 {item.currentNodeName || '处理'}</Tag>
+                  {item.status === 'pending' ? (
+                    <Tag color="orange">等待 {item.currentNodeName || '处理'}</Tag>
+                  ) : (
+                    <ApprovalStatusTag status={item.status} />
+                  )}
                 </div>
               </div>
             )}

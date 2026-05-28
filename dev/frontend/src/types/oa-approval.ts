@@ -200,6 +200,8 @@ export interface ApprovalInstance {
   currentNodeName: string | null;
   submittedAt: string;
   completedAt: string | null;
+  /** 抄送是否未读（仅"抄送我的"列表中有意义） */
+  isUnread?: boolean;
 }
 
 export interface ApprovalNode {

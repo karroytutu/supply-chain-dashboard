@@ -254,6 +254,16 @@ export async function withdraw(instanceId: number): Promise<void> {
   );
 }
 
+/** 标记抄送已读 */
+export async function markCcRead(instanceId: number): Promise<void> {
+  await request<{ success: boolean; message: string }>(
+    `/oa-approval/instances/${instanceId}/cc-read`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
 // =====================================================
 // Token快速操作接口（钉钉ActionCard按钮跳转使用，无需JWT）
 // =====================================================

@@ -123,16 +123,7 @@ export async function submitApproval(
     throw new Error('审批流程配置错误：至少需要一个审批节点');
   }
 
-  // 4. 解析抄送人（优先使用 getCCRoles 动态回调，回退到 workflowDef.ccRoles 静态配置）
-  let ccUserIds: number[] = [];
-  const ccRoles = formType.getCCRoles
-    ? formType.getCCRoles(req.formData)
-    : formType.workflowDef.ccRoles;
-  if (ccRoles && ccRoles.length > 0) {
-    ccUserIds = await findUserIdsByRoleCodes(ccRoles);
-  }
-
-  // 5. 数据库事务写入
+  // 4. 数据库事务写入
   let autoNodeToExecute: OaApprovalNodeRow | null = null;
   const firstNodeIsAuto = filteredNodes[0].type === 'auto';
   const hasAutoNode = filteredNodes.some(n => n.type === 'auto');
@@ -196,23 +187,6 @@ export async function submitApproval(
       );
     }
 
-    // 插入抄送记录
-    for (const ccUserId of ccUserIds) {
-      if (ccUserId !== userId) {
-        const ccUserResult = await client.query<{ name: string }>(
-          `SELECT name FROM users WHERE id = $1`,
-          [ccUserId]
-        );
-        
-        await client.query(
-          `INSERT INTO oa_approval_cc (instance_id, user_id, user_name)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (instance_id, user_id) DO NOTHING`,
-          [instance.id, ccUserId, ccUserResult.rows[0]?.name || null]
-        );
-      }
-    }
-
     // 记录操作日志
     await client.query(
       `INSERT INTO oa_approval_actions
@@ -269,7 +243,7 @@ export async function submitApproval(
 
   // 异步发送通知（不阻塞提交响应）
   setImmediate(() => {
-    sendSubmitNotifications(result, formType, ccUserIds, userId).catch(err => {
+    sendSubmitNotifications(result, formType, userId).catch(err => {
       console.error('[OA] 提交通知发送失败:', err);
     });
   });
@@ -475,11 +449,15 @@ export async function approveApproval(
     }
   }
 
-  // 异步发送审批通过/流转通知
+  // 异步发送审批通过/流转通知，并检查是否触发抄送
   if (callbackInstance && formType) {
     setImmediate(() => {
       sendApprovalNotifications(instanceId, userId, userName, callbackInstance!, formType!, isLastNode).catch(err => {
         console.error('[OA] 审批通知发送失败:', err);
+      });
+      // 检查是否需要在当前节点通过后触发抄送
+      triggerCcIfApplicable(instanceId, callbackNodeOrder, formType!, callbackInstance!).catch(err => {
+        console.error('[OA] CC 触发失败:', err);
       });
     });
   }
@@ -520,6 +498,9 @@ async function executeAutoNodeCallback(
       `UPDATE oa_approval_nodes SET status = 'approved' WHERE id = $1`,
       [autoNode.id]
     );
+
+    // 检查是否需要在 auto 节点通过后触发抄送
+    await triggerCcIfApplicable(instanceId, autoNode.node_order, formType, instance);
 
     // 检查是否有下一个待审批节点（auto 节点可能不是最终节点）
     const nextNodeResult = await query<OaApprovalNodeRow>(
@@ -1044,11 +1025,10 @@ async function getInstanceNotifyData(instanceId: number) {
   return { instance, formTypeName, formType, formTypeCode };
 }
 
-/** 提交审批后发送通知 */
+/** 提交审批后发送通知（仅通知首个审批人，抄送在节点通过后触发） */
 async function sendSubmitNotifications(
   instance: OaApprovalInstanceRow,
   formType: FormTypeDefinition,
-  ccUserIds: number[],
   applicantId: number
 ): Promise<void> {
   const data = await getInstanceNotifyData(instance.id);
@@ -1079,23 +1059,79 @@ async function sendSubmitNotifications(
       approverIds
     );
   }
+}
 
-  // 抄送通知
-  const filteredCcUserIds = ccUserIds.filter(id => id !== applicantId);
-  if (filteredCcUserIds.length > 0) {
-    await notifyCc(
-      {
-        instanceId: instance.id,
-        instanceNo: instance.instance_no,
-        title: instance.title,
-        formTypeName: data.formTypeName,
-        applicantName: instance.applicant_name,
-        formSchema: data.formType?.formSchema,
-        formData: instance.form_data as Record<string, unknown>,
-      },
-      filteredCcUserIds
+/**
+ * 检查当前通过的节点是否为 CC 触发节点，如是则创建抄送记录并发送通知。
+ * 抄送不在提交时触发，而是在指定审批节点通过后才触发，避免审批被拒绝时抄送人收到无效通知。
+ */
+async function triggerCcIfApplicable(
+  instanceId: number,
+  approvedNodeOrder: number,
+  formType: FormTypeDefinition,
+  instance: OaApprovalInstanceRow
+): Promise<void> {
+  // 1. 计算 CC 触发节点 order
+  let ccTriggerOrder = formType.workflowDef.ccAfterNode;
+  if (ccTriggerOrder === undefined) {
+    // 默认：最后一个审批节点的 order
+    const maxOrderResult = await query<{ max_order: number }>(
+      `SELECT MAX(node_order) as max_order FROM oa_approval_nodes WHERE instance_id = $1`,
+      [instanceId]
+    );
+    ccTriggerOrder = maxOrderResult.rows[0]?.max_order;
+  }
+
+  // 2. 当前通过的节点不匹配触发节点，直接返回
+  if (approvedNodeOrder !== ccTriggerOrder) return;
+
+  // 3. 重新获取最新 instance 数据（事务中可能有 data_input 节点更新了 form_data）
+  const freshResult = await query<OaApprovalInstanceRow>(
+    `SELECT * FROM oa_approval_instances WHERE id = $1`, [instanceId]
+  );
+  const freshInstance = freshResult.rows[0] || instance;
+
+  // 4. 解析抄送角色（优先动态回调，回退静态配置）
+  const formData = freshInstance.form_data as Record<string, unknown>;
+  const ccRoles = formType.getCCRoles
+    ? formType.getCCRoles(formData)
+    : formType.workflowDef.ccRoles;
+  if (!ccRoles || ccRoles.length === 0) return;
+
+  // 5. 查找抄送用户 ID（过滤申请人自己）
+  const ccUserIds = await findUserIdsByRoleCodes(ccRoles);
+  const filteredCcUserIds = ccUserIds.filter(id => id !== freshInstance.applicant_id);
+  if (filteredCcUserIds.length === 0) return;
+
+  // 6. 批量查询用户名（避免 N+1 查询）
+  const usersResult = await query<{ id: number; name: string }>(
+    `SELECT id, name FROM users WHERE id = ANY($1)`, [filteredCcUserIds]
+  );
+  const nameMap = new Map(usersResult.rows.map(r => [r.id, r.name]));
+
+  // 7. 插入抄送记录（幂等：ON CONFLICT DO NOTHING）
+  for (const ccUserId of filteredCcUserIds) {
+    await query(
+      `INSERT INTO oa_approval_cc (instance_id, user_id, user_name)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (instance_id, user_id) DO NOTHING`,
+      [instanceId, ccUserId, nameMap.get(ccUserId) || null]
     );
   }
+
+  // 8. 发送抄送通知
+  await notifyCc(
+    {
+      instanceId,
+      instanceNo: freshInstance.instance_no,
+      title: freshInstance.title,
+      formTypeName: formType.name,
+      applicantName: freshInstance.applicant_name,
+      formSchema: formType.formSchema,
+      formData,
+    },
+    filteredCcUserIds
+  );
 }
 
 /** 审批通过后发送通知（流转到下一节点或最终通过） */

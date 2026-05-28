@@ -239,6 +239,8 @@ export interface WorkflowDef {
   nodes: WorkflowNodeDef[];
   /** 抄送角色列表 */
   ccRoles?: string[];
+  /** 指定在哪个审批节点（node_order）通过后触发抄送。未配置时默认为最后一个审批节点的 order */
+  ccAfterNode?: number;
 }
 
 // =====================================================
