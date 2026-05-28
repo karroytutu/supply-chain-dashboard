@@ -2,6 +2,7 @@ import React from 'react';
 import { Tag, Typography, Table } from 'antd';
 import type { FormField } from '@/types/oa-approval';
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
+import { getFieldLinkUrl } from '@/utils/oa-approval';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-approval-erp';
 import { FileTextOutlined } from '@ant-design/icons';
 import ErpNameDisplay from './ErpNameDisplay';
@@ -32,6 +33,17 @@ const FieldRenderer: React.FC<{
   }
 
   switch (field.type) {
+    case 'text': {
+      const linkUrl = getFieldLinkUrl(field, formData);
+      if (linkUrl) {
+        return (
+          <a href={linkUrl} target="_blank" rel="noopener noreferrer">
+            {String(value)}
+          </a>
+        );
+      }
+      return <Text>{String(value)}</Text>;
+    }
     case 'money':
       return <Text strong>{formatCurrency(value as number)}</Text>;
     case 'number':

@@ -28,7 +28,7 @@ const AppealStatusTag: React.FC<AppealStatusTagProps> = ({ record }) => {
         style={{ cursor: 'pointer' }}
         onClick={() => {
           if (record.oaInstanceId) {
-            window.open(`/oa-approval/center?instanceId=${record.oaInstanceId}`);
+            window.open(`/oa/detail/${record.oaInstanceId}`);
           }
         }}
       >

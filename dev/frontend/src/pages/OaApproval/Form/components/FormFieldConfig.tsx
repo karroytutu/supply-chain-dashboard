@@ -4,6 +4,7 @@ import { UploadOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import type { FormField } from '@/types/oa-approval';
 import { numberToChineseUpper } from '@/utils/number';
+import { getFieldLinkUrl } from '@/utils/oa-approval';
 import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
 import PhotoFieldRenderer from './PhotoFieldRenderer';
@@ -58,7 +59,16 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
   }
 
   switch (type) {
-    case 'text':
+    case 'text': {
+      // 通用链接支持：formData 中存在安全的 _xxxUrl → 渲染为可点击链接
+      const linkUrl = getFieldLinkUrl(field, formData);
+      if (linkUrl) {
+        return (
+          <a href={linkUrl} target="_blank" rel="noopener noreferrer">
+            {value as string}
+          </a>
+        );
+      }
       return (
         <Input
           value={value as string | undefined}
@@ -69,6 +79,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           disabled={field.disabled}
         />
       );
+    }
 
     case 'textarea':
       return (

@@ -165,11 +165,17 @@ export async function submitAppeal(
       formData: {
         assessmentId: record.id,
         assessmentCategory: record.category,
+        sourceNo: record.source_no,
+        sourceName: record.source_name,
         assessmentRuleType: record.rule_type,
         assessmentUserName: record.assessment_user_name,
         penaltyAmount: parseFloat(record.penalty_amount),
         appealReason: reason,
         supportingDocuments: documents || [],
+        // 来源编号跳转URL：催收任务有详情页，退货单暂无
+        _sourceNoUrl: record.source_type === 'ar_collection_task'
+          ? `/collection/task/${record.source_id}`
+          : null,
       },
       title: `考核申诉 - ${record.assessment_user_name || ''}`,
     },

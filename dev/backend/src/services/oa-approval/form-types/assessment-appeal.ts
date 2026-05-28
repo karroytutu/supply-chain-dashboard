@@ -18,7 +18,7 @@ export const assessmentAppealFormType: FormTypeDefinition = {
   category: 'supply_chain',
   sortOrder: 50,
   description: '员工对考核结果提出申诉',
-  version: 1,
+  version: 2,
 
   formSchema: {
     fields: [
@@ -39,6 +39,20 @@ export const assessmentAppealFormType: FormTypeDefinition = {
           { value: 'ar_collection', label: '催收考核' },
           { value: 'return_order', label: '退货考核' },
         ],
+      },
+      {
+        key: 'sourceNo',
+        label: '来源编号',
+        type: 'text',
+        required: true,
+        disabled: true,
+      },
+      {
+        key: 'sourceName',
+        label: '来源名称',
+        type: 'text',
+        required: true,
+        disabled: true,
       },
       {
         key: 'assessmentRuleType',
@@ -75,6 +89,13 @@ export const assessmentAppealFormType: FormTypeDefinition = {
         type: 'upload',
         required: false,
         maxCount: 5,
+      },
+      {
+        key: '_sourceNoUrl',
+        label: '来源编号链接',
+        type: 'text',
+        required: false,
+        disabled: true,
       },
     ],
   },
