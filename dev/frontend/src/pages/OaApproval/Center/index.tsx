@@ -16,9 +16,7 @@ const Center: React.FC = () => {
 
   // 点击导航
   const handleNavClick = (mode: ViewMode) => {
-    filters.setViewMode(mode);
-    filters.setPage(1);
-    filters.setSelectedId(null);
+    filters.switchViewMode(mode);
     if (mobile.isMobile) mobile.setMobileView('list');
   };
 

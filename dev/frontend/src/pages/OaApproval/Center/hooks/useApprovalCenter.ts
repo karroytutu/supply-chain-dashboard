@@ -37,7 +37,7 @@ export function useApprovalCenter() {
       viewMode: filters.viewMode,
       searchText: filters.searchText,
       selectedId: filters.selectedId,
-      setViewMode: filters.setViewMode,
+      switchViewMode: filters.switchViewMode,
       setPage: filters.setPage,
       setSearchText: filters.setSearchText,
       setSelectedId: filters.setSelectedId,
