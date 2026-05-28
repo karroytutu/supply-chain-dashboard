@@ -102,8 +102,6 @@ export interface ApprovalFlowActualProps {
   instanceId?: number;
   /** 申请人姓名（用于渲染发起申请节点） */
   applicantName?: string;
-  /** 申请人部门（用于渲染发起申请节点） */
-  applicantDept?: string | null;
   /** 申请人头像URL（用于渲染发起申请节点） */
   applicantAvatar?: string | null;
   /** 提交时间（用于渲染发起申请节点） */

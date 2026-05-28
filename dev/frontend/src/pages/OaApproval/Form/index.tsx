@@ -109,7 +109,6 @@ const FormPage: React.FC = () => {
         formTypeCode: formType.code,
         formData: values,
         title,
-        urgency: 'normal',
       });
 
       recordUsage(formType);

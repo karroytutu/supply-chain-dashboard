@@ -14,7 +14,6 @@ import {
   OaApprovalActionRow,
   OaFormTypeRow,
   ApprovalStatus,
-  Urgency,
   FormSchema,
   WorkflowNodeDef,
 } from './oa-approval.types';
@@ -100,13 +99,6 @@ function buildListWhereClause(
     paramIndex++;
   }
 
-  // 紧急程度筛选
-  if (params.urgency) {
-    conditions.push(`i.urgency = $${paramIndex}`);
-    queryParams.push(params.urgency);
-    paramIndex++;
-  }
-
   // 时间范围筛选
   if (params.startDate) {
     conditions.push(`i.submitted_at >= $${paramIndex}`);
@@ -156,7 +148,6 @@ export async function getApprovalList(
       i.title,
       i.form_data,
       i.status,
-      i.urgency,
       i.applicant_id,
       i.applicant_name,
       i.applicant_dept,
@@ -197,7 +188,6 @@ interface InstanceListItem {
   formTypeIcon: string | null;
   title: string;
   status: ApprovalStatus;
-  urgency: Urgency;
   applicantId: number;
   applicantName: string;
   applicantDept: string | null;
@@ -216,7 +206,6 @@ function formatInstanceListItem(row: any): InstanceListItem {
     formTypeIcon: row.form_type_icon as string | null,
     title: row.title as string,
     status: row.status as ApprovalStatus,
-    urgency: row.urgency as Urgency,
     applicantId: row.applicant_id as number,
     applicantName: row.applicant_name as string,
     applicantDept: row.applicant_dept as string | null,
@@ -391,7 +380,6 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     formTypeIcon: instance.form_type_icon || codeFallback?.icon,
     title: instance.title,
     status: instance.status,
-    urgency: instance.urgency,
     applicantId: instance.applicant_id,
     applicantName: instance.applicant_name,
     applicantDept: instance.applicant_dept,
@@ -571,7 +559,6 @@ export async function getDataListAll(
       i.title,
       i.form_data,
       i.status,
-      i.urgency,
       i.applicant_id,
       i.applicant_name,
       i.applicant_dept,

@@ -19,6 +19,9 @@
     .headerInfo {
       flex: 1;
       margin-left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
 
       h4 {
         margin: 0;
@@ -28,10 +31,16 @@
       span {
         font-size: 12px;
       }
+
+      .headerMeta {
+        font-size: 13px;
+      }
     }
 
     .headerActions {
       display: flex;
+      align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
     }
   }

@@ -13,7 +13,6 @@ import {
   OaApprovalNodeRow,
   ApprovalStatus,
   ApprovalNodeStatus,
-  Urgency,
   NodeInputSchema,
 } from './oa-approval.types';
 import {
@@ -145,9 +144,9 @@ export async function submitApproval(
     const initialNodeOrder = firstNodeIsAuto ? filteredNodes[0].order : 1;
     const instanceResult = await client.query<OaApprovalInstanceRow>(
       `INSERT INTO oa_approval_instances
-        (instance_no, form_type_id, title, form_data, status, urgency, applicant_id, applicant_name, applicant_dept, current_node_order)
+        (instance_no, form_type_id, title, form_data, status, applicant_id, applicant_name, applicant_dept, current_node_order)
        VALUES
-        ($1, (SELECT id FROM oa_form_types WHERE code = $2), $3, $4, $5, $6, $7, $8, $9, $10)
+        ($1, (SELECT id FROM oa_form_types WHERE code = $2), $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         instanceNo,
@@ -155,7 +154,6 @@ export async function submitApproval(
         req.title,
         JSON.stringify(req.formData),
         initialStatus,
-        req.urgency || 'normal',
         userId,
         userName,
         userDept,
@@ -564,7 +562,6 @@ async function executeAutoNodeCallback(
                 title: instance.title,
                 formTypeName: ftName,
                 applicantName: instance.applicant_name,
-                urgency: instance.urgency,
                 nodeName: nextNode.node_name,
                 nodeOrder: nextNode.node_order,
                 formSchema: formType.formSchema,
@@ -1074,7 +1071,6 @@ async function sendSubmitNotifications(
         title: instance.title,
         formTypeName: data.formTypeName,
         applicantName: instance.applicant_name,
-        urgency: instance.urgency,
         nodeName: nodeResult.rows[0].node_name,
         nodeOrder: nodeResult.rows[0].node_order,
         formSchema: data.formType?.formSchema,
@@ -1151,7 +1147,6 @@ async function sendApprovalNotifications(
           title: callbackInstance.title,
           formTypeName: data.formTypeName,
           applicantName: callbackInstance.applicant_name,
-          urgency: callbackInstance.urgency,
           nodeName: nextNodeResult.rows[0].node_name,
           nodeOrder: nextNodeResult.rows[0].node_order,
           formSchema: data.formType?.formSchema,

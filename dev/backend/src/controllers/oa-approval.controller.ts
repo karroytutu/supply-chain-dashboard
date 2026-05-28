@@ -27,7 +27,6 @@ export async function listApprovals(req: Request, res: Response): Promise<void> 
       viewMode: (req.query.view_mode as ApprovalListParams['viewMode']) || 'pending',
       formTypeCode: req.query.form_type_code as string,
       status: req.query.status as ApprovalListParams['status'],
-      urgency: req.query.urgency as ApprovalListParams['urgency'],
       startDate: req.query.start_date as string,
       endDate: req.query.end_date as string,
       page: parseInt(req.query.page as string) || 1,

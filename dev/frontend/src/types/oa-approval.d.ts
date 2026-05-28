@@ -177,8 +177,6 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' |
 
 export type ApprovalNodeStatus = 'pending' | 'approved' | 'rejected' | 'transferred' | 'skipped' | 'cancelled';
 
-export type Urgency = 'normal' | 'high' | 'urgent';
-
 // =====================================================
 // 审批实例相关类型
 // =====================================================
@@ -191,7 +189,6 @@ export interface ApprovalInstance {
   formTypeIcon: string | null;
   title: string;
   status: ApprovalStatus;
-  urgency: Urgency;
   applicantId: number;
   applicantName: string;
   applicantDept: string | null;
@@ -282,7 +279,6 @@ export interface ApprovalListParams {
   viewMode: ViewMode;
   formTypeCode?: string;
   status?: ApprovalStatus;
-  urgency?: Urgency;
   startDate?: string;
   endDate?: string;
   page?: number;
@@ -297,7 +293,6 @@ export interface SubmitApprovalRequest {
   formTypeCode: string;
   formData: Record<string, unknown>;
   title: string;
-  urgency?: Urgency;
 }
 
 export interface ApprovalActionRequest {
@@ -343,18 +338,6 @@ export const STATUS_COLORS: Record<ApprovalStatus, string> = {
   rejected: 'red',
   cancelled: 'default',
   withdrawn: 'orange',
-};
-
-export const URGENCY_LABELS: Record<Urgency, string> = {
-  normal: '普通',
-  high: '紧急',
-  urgent: '非常紧急',
-};
-
-export const URGENCY_COLORS: Record<Urgency, string> = {
-  normal: 'default',
-  high: 'orange',
-  urgent: 'red',
 };
 
 export const NODE_STATUS_LABELS: Record<ApprovalNodeStatus, string> = {

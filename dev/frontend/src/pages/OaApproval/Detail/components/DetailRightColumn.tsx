@@ -42,7 +42,7 @@ export const DetailRightColumn: React.FC<{
       <Card title="审批流程" style={{ marginBottom: 16 }}>
         <ApprovalFlow mode="actual" nodes={nodes} actions={actions} ccUsers={detail.ccUsers}
           currentStep={getCurrentStep()} instanceStatus={detail.status} erpMeta={detail.erpMeta}
-          instanceId={detail.id} applicantName={detail.applicantName} applicantDept={detail.applicantDept}
+          instanceId={detail.id} applicantName={detail.applicantName}
           applicantAvatar={detail.applicantAvatar} submittedAt={detail.submittedAt} />
       </Card>
     </div>

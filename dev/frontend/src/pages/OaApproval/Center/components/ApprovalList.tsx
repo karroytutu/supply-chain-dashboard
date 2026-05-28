@@ -2,7 +2,6 @@ import React from 'react';
 import { Input, Button, List, Spin, Empty, Tag } from 'antd';
 import { SearchOutlined, FilterOutlined } from '@ant-design/icons';
 import type { ApprovalInstance } from '@/types/oa-approval';
-import { URGENCY_LABELS, URGENCY_COLORS } from '@/types/oa-approval';
 import styles from '../index.less';
 
 interface ApprovalListProps {
@@ -16,16 +15,6 @@ interface ApprovalListProps {
   onItemClick: (item: ApprovalInstance) => void;
   onPageChange: (page: number) => void;
 }
-
-/** 渲染紧急程度标签 */
-const renderUrgencyTag = (urgency: string) => {
-  if (urgency === 'normal') return null;
-  return (
-    <Tag color={URGENCY_COLORS[urgency as keyof typeof URGENCY_COLORS]}>
-      {URGENCY_LABELS[urgency as keyof typeof URGENCY_LABELS]}
-    </Tag>
-  );
-};
 
 const ApprovalList: React.FC<ApprovalListProps> = ({
   loading, list, total, page, searchText, selectedId,
@@ -70,7 +59,6 @@ const ApprovalList: React.FC<ApprovalListProps> = ({
                 </div>
                 <div className={styles.itemFooter}>
                   <Tag color="orange">等待 {item.currentNodeName || '处理'}</Tag>
-                  {renderUrgencyTag(item.urgency)}
                 </div>
               </div>
             )}

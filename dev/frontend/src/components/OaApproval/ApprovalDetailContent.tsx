@@ -5,7 +5,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import type { ApprovalDetail } from '@/types/oa-approval';
-import { ApprovalStatusTag, UrgencyTag, ApprovalFlow, FormFieldRenderer } from '@/components/OaApproval';
+import { ApprovalStatusTag, ApprovalFlow, FormFieldRenderer } from '@/components/OaApproval';
 import { useErpFieldResolve } from './hooks/useErpFieldResolve';
 import { useErpLicenseResolve } from './hooks/useErpLicenseResolve';
 import ActionModal from './ActionModal';
@@ -133,7 +133,6 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
         </div>
         <div className={styles.detailTags}>
           <ApprovalStatusTag status={detail.status} />
-          {detail.urgency !== 'normal' && <UrgencyTag urgency={detail.urgency} />}
         </div>
       </div>
 
@@ -171,7 +170,6 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
           erpMeta={detail.erpMeta}
           instanceId={detail.id}
           applicantName={detail.applicantName}
-          applicantDept={detail.applicantDept}
           applicantAvatar={detail.applicantAvatar}
           submittedAt={detail.submittedAt}
         />
