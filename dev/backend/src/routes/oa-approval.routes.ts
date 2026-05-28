@@ -26,6 +26,7 @@ import {
   transfer,
   countersign,
   withdraw,
+  markCcAsRead,
 } from '../controllers/oa-approval-mutation.controller';
 import {
   // 数据管理
@@ -275,6 +276,9 @@ router.post('/instances/:id/countersign', requirePermission('oa:approval:write')
 
 // 撤回审批
 router.post('/instances/:id/withdraw', requirePermission('oa:approval:write'), withdraw);
+
+// 标记抄送已读
+router.post('/instances/:id/cc-read', requirePermission('oa:approval:read'), markCcAsRead);
 
 // 获取转交候选人列表
 router.get('/transfer-candidates', requirePermission('oa:approval:write'), async (req: Request, res: Response) => {

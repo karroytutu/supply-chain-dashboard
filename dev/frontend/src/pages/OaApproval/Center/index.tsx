@@ -5,6 +5,7 @@
 import React from 'react';
 import { Modal, Input, Select } from 'antd';
 import { useApprovalCenter } from './hooks/useApprovalCenter';
+import { markCcRead } from '@/services/api/oa-approval';
 import ApprovalNav from './components/ApprovalNav';
 import ApprovalList from './components/ApprovalList';
 import ApprovalDetailPanel from './components/ApprovalDetailPanel';
@@ -24,6 +25,14 @@ const Center: React.FC = () => {
   const handleItemClick = (item: any) => {
     filters.setSelectedId(item.id);
     if (mobile.isMobile) mobile.setMobileView('detail');
+
+    // 抄送视图下，点击时标记已读
+    if (filters.viewMode === 'cc' && item.isUnread) {
+      markCcRead(item.id).then(() => {
+        data.loadList();
+        data.loadStats();
+      }).catch(() => {/* 静默失败 */});
+    }
   };
 
   // 移动端返回列表

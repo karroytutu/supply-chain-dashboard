@@ -12,6 +12,7 @@ import {
   transferApproval,
   countersignApproval,
   withdrawApproval,
+  markCcRead,
 } from '../services/oa-approval/oa-approval.mutation';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
@@ -166,6 +167,25 @@ export async function withdraw(req: Request, res: Response): Promise<void> {
   } catch (error) {
     console.error('撤回审批失败:', error);
     const message = error instanceof Error ? error.message : '撤回审批失败';
+    res.status(400).json(buildErrorResponse(400, message));
+  }
+}
+
+/** 标记抄送已读 */
+export async function markCcAsRead(req: Request, res: Response): Promise<void> {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      res.status(401).json(buildErrorResponse(401, '未登录'));
+      return;
+    }
+
+    const instanceId = parseInt(req.params.id);
+    await markCcRead(instanceId, user.userId);
+    res.json(buildSuccessResponse(null, '已标记已读'));
+  } catch (error) {
+    console.error('标记抄送已读失败:', error);
+    const message = error instanceof Error ? error.message : '标记已读失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
 }

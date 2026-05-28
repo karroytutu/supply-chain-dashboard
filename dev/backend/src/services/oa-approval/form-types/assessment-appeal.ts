@@ -18,7 +18,7 @@ export const assessmentAppealFormType: FormTypeDefinition = {
   category: 'supply_chain',
   sortOrder: 50,
   description: '员工对考核结果提出申诉',
-  version: 2,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -104,14 +104,9 @@ export const assessmentAppealFormType: FormTypeDefinition = {
     nodes: [
       {
         order: 1,
-        name: '直属主管初审',
-        type: 'dynamic_supervisor',
-      },
-      {
-        order: 2,
-        name: '部门负责人审核',
+        name: '总经理审批',
         type: 'role',
-        roleCode: 'operations_manager',
+        roleCode: 'general_manager',
       },
     ],
   },

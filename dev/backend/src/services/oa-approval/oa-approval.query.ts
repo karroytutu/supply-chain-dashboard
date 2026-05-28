@@ -139,6 +139,17 @@ export async function getApprovalList(
 
   const total = countResult.rows[0]?.total || 0;
 
+  // cc_read_at 子查询仅在 cc 视图模式下有意义
+  const ccReadAtColumn = params.viewMode === 'cc'
+    ? `(
+        SELECT cc.read_at
+        FROM oa_approval_cc cc
+        WHERE cc.instance_id = i.id
+          AND cc.user_id = $1
+        LIMIT 1
+      ) as cc_read_at`
+    : `NULL as cc_read_at`;
+
   // 查询列表
   const listResult = await query<any>(`
     SELECT 
@@ -163,7 +174,8 @@ export async function getApprovalList(
         WHERE n.instance_id = i.id
           AND n.node_order = i.current_node_order
         LIMIT 1
-      ) as current_node_name
+      ) as current_node_name,
+      ${ccReadAtColumn}
     FROM oa_approval_instances i
     JOIN oa_form_types ft ON i.form_type_id = ft.id
     ${whereClause}
@@ -172,7 +184,7 @@ export async function getApprovalList(
   `, [...queryParams, pageSize, offset]);
 
   return {
-    list: listResult.rows.map(formatInstanceListItem),
+    list: listResult.rows.map(row => formatInstanceListItem(row, params.viewMode)),
     total,
   };
 }
@@ -195,9 +207,11 @@ interface InstanceListItem {
   currentNodeName: string | null;
   submittedAt: Date;
   completedAt: Date | null;
+  /** 抄送是否未读（仅 viewMode='cc' 时有意义） */
+  isUnread?: boolean;
 }
 
-function formatInstanceListItem(row: any): InstanceListItem {
+function formatInstanceListItem(row: any, viewMode?: string): InstanceListItem {
   return {
     id: row.id as number,
     instanceNo: row.instance_no as string,
@@ -213,6 +227,7 @@ function formatInstanceListItem(row: any): InstanceListItem {
     currentNodeName: row.current_node_name as string | null,
     submittedAt: row.submitted_at as Date,
     completedAt: row.completed_at as Date | null,
+    isUnread: viewMode === 'cc' ? row.cc_read_at === null : undefined,
   };
 }
 
@@ -583,7 +598,7 @@ export async function getDataListAll(
   `, [...queryParams, pageSize, offset]);
 
   return {
-    list: listResult.rows.map(formatInstanceListItem),
+    list: listResult.rows.map(row => formatInstanceListItem(row)),
     total,
   };
 }

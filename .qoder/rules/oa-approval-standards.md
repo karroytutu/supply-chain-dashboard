@@ -180,6 +180,7 @@ interface FormField {
 interface WorkflowDef {
   nodes: WorkflowNodeDef[];
   ccRoles?: string[];    // 抄送角色列表
+  ccAfterNode?: number;  // 指定在哪个节点（node_order）通过后触发抄送，未配置时默认为最后一个审批节点
 }
 
 interface WorkflowNodeDef {
@@ -216,6 +217,7 @@ type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user';
 - 至少包含1个审批节点
 - `dynamic_supervisor` 通常作为第一个节点
 - `ccRoles` 中的角色用户仅收到抄送通知，不参与审批
+- **抄送触发时机**：抄送在指定审批节点通过后才触发（由 `ccAfterNode` 配置），而非提交时立即触发。未配置 `ccAfterNode` 时默认为最后一个审批节点通过后触发。如果审批在到达抄送节点前被拒绝/撤回，则不产生抄送
 
 ---
 
