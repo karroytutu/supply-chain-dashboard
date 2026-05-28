@@ -16,13 +16,11 @@ interface TimelineApprovalGroupProps {
 /** 渲染单条操作记录 */
 function ActionEntry({ action }: { action: ApprovalAction }) {
   const config = ACTION_TYPE_CONFIG[action.actionType];
-  const operatorName = action.operatorName || action.actionUserName || '系统';
   return (
     <div key={action.id} className={styles.timelineActionEntry}>
       <span className={config?.cls || styles.actionTagSubmit}>
         {config?.label || action.actionType}
       </span>
-      <span className={styles.timelineActionOperator}>{operatorName}</span>
       {action.comment && (
         <span className={styles.timelineActionComment}>{action.comment}</span>
       )}

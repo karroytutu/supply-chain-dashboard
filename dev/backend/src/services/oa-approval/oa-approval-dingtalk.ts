@@ -26,7 +26,6 @@ export interface DingtalkNotifyParams {
   title: string;
   formTypeName: string;
   applicantName: string;
-  urgency?: string;
   nodeName?: string;
   nodeOrder?: number;
   reason?: string;
@@ -49,21 +48,17 @@ export async function buildPendingActionCard(
   _userId: number
 ): Promise<ActionCardContent> {
   const baseUrl = config.app.baseUrl;
-  const { instanceId, title, formTypeName, applicantName, urgency, nodeName, formSchema, formData } = params;
-
-  const urgencyText = urgency === 'urgent' ? '【非常紧急】' : urgency === 'high' ? '【紧急】' : '';
-  const urgencyLabel = urgency === 'urgent' ? '非常紧急' : urgency === 'high' ? '紧急' : '普通';
+  const { instanceId, title, formTypeName, applicantName, nodeName, formSchema, formData } = params;
 
   // 构建Markdown摘要
   const extraRows: Array<{ key: string; value: string }> = [
     { key: '申请人', value: applicantName },
-    { key: '紧急程度', value: urgencyLabel },
   ];
   if (nodeName) {
     extraRows.push({ key: '当前节点', value: nodeName });
   }
 
-  const markdown = `## ${urgencyText}待审批 - ${formTypeName}
+  const markdown = `## 待审批 - ${formTypeName}
 
 ${buildFormSummaryMarkdown(formSchema, formData, extraRows)}
 

@@ -4,9 +4,10 @@ import { Button, Spin, Typography, Result, Alert, Space } from 'antd';
 import { ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { type DetailErrorType, useApprovalDetail } from './hooks/useApprovalDetail';
 import { useErpFieldResolve } from '@/components/OaApproval/hooks/useErpFieldResolve';
-import { DetailLeftColumn, ApprovalStatusTag, UrgencyTag } from './components/DetailSubComponents';
+import { DetailLeftColumn, ApprovalStatusTag } from './components/DetailSubComponents';
 import { DetailRightColumn } from './components/DetailRightColumn';
 import { validateActionToken, executeActionByToken } from '@/services/api/oa-approval';
+import { formatDateTime } from '@/utils/format';
 import styles from './index.less';
 
 const { Text, Title } = Typography;
@@ -166,10 +167,15 @@ const ApprovalDetailPage: React.FC = () => {
         <div className={styles.headerInfo}>
           <Title level={4}>{detail.formTypeName}</Title>
           <Text type="secondary">编号：{detail.instanceNo}</Text>
+          <Text type="secondary" className={styles.headerMeta}>
+            {detail.applicantName} | {detail.applicantDept || '-'} | {formatDateTime(detail.submittedAt, 'YYYY-MM-DD')}
+          </Text>
         </div>
         <div className={styles.headerActions}>
           <ApprovalStatusTag status={detail.status} />
-          <UrgencyTag urgency={detail.urgency} />
+          {detail.completedAt && (
+            <Text type="secondary">完成: {formatDateTime(detail.completedAt, 'YYYY-MM-DD')}</Text>
+          )}
         </div>
       </div>
       <div className={styles.detailBody}>

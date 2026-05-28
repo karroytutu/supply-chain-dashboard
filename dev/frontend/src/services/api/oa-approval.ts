@@ -116,7 +116,6 @@ export async function getApprovalList(
       viewMode: params.viewMode,
       formTypeCode: params.formTypeCode,
       status: params.status,
-      urgency: params.urgency,
       startDate: params.startDate,
       endDate: params.endDate,
       page: params.page,

@@ -16,13 +16,6 @@ const statusMap: Record<string, { color: string; text: string }> = {
   cancelled: { color: 'warning', text: '已取消' },
 };
 
-// 紧急程度映射
-const urgencyMap: Record<string, { color: string; text: string }> = {
-  normal: { color: 'default', text: '普通' },
-  urgent: { color: 'warning', text: '紧急' },
-  very_urgent: { color: 'error', text: '非常紧急' },
-};
-
 /** 表格列定义 */
 const columns: ColumnsType<ApprovalInstance> = [
   {
@@ -37,13 +30,6 @@ const columns: ColumnsType<ApprovalInstance> = [
   {
     title: '申请时间', dataIndex: 'submittedAt', key: 'submittedAt', width: 160, sorter: true,
     render: (text) => formatDateTime(text),
-  },
-  {
-    title: '紧急程度', dataIndex: 'urgency', key: 'urgency', width: 100,
-    render: (urgency) => {
-      const config = urgencyMap[urgency] || { color: 'default', text: urgency };
-      return <Tag color={config.color}>{config.text}</Tag>;
-    },
   },
   {
     title: '状态', dataIndex: 'status', key: 'status', width: 100,

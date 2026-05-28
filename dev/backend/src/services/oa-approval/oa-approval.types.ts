@@ -349,11 +349,6 @@ export type ApprovalStatus = 'pending' | 'processing' | 'approved' | 'rejected' 
 export type ApprovalNodeStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'transferred' | 'failed' | 'skipped' | 'cancelled';
 
 /**
- * 紧急程度
- */
-export type Urgency = 'normal' | 'high' | 'urgent';
-
-/**
  * 外部系统交互追踪元数据
  * 存储在 oa_approval_instances.erp_meta 中
  * 用于追踪所有外部系统（ERP 等）的交互状态，非限于 ERP
@@ -381,7 +376,6 @@ export interface OaApprovalInstanceRow {
   title: string;
   form_data: Record<string, unknown>;
   status: ApprovalStatus;
-  urgency: Urgency;
   applicant_id: number;
   applicant_name: string;
   applicant_dept: string | null;
@@ -506,8 +500,6 @@ export interface SubmitApprovalRequest {
   formData: Record<string, unknown>;
   /** 摘要标题 */
   title: string;
-  /** 紧急程度 */
-  urgency?: Urgency;
 }
 
 /**
@@ -522,7 +514,6 @@ export interface ApprovalListParams {
   viewMode: ViewMode;
   formTypeCode?: string;
   status?: ApprovalStatus;
-  urgency?: Urgency;
   startDate?: string;
   endDate?: string;
   page?: number;

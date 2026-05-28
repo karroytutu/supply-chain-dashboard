@@ -17,7 +17,6 @@ import {
   OaApprovalNodeRow,
   ApprovalStatus,
   ApprovalNodeStatus,
-  Urgency,
   SubmitApprovalRequest,
   NodeInputSchema,
 } from './oa-approval.types';
@@ -470,18 +469,6 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     ...(codeDefinition?.getCCRoles && { getCCRoles: codeDefinition.getCCRoles }),
     ...(codeDefinition?.resolvePreviewContext && { resolvePreviewContext: codeDefinition.resolvePreviewContext }),
   };
-}
-
-/**
- * 获取紧急程度显示文本
- */
-export function getUrgencyLabel(urgency: Urgency): string {
-  const labels: Record<Urgency, string> = {
-    normal: '普通',
-    high: '紧急',
-    urgent: '非常紧急',
-  };
-  return labels[urgency];
 }
 
 /**

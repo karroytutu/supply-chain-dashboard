@@ -115,7 +115,6 @@ export interface ApprovalFlowActualProps {
   erpMeta?: ErpMeta | null;
   instanceId?: number;
   applicantName?: string;
-  applicantDept?: string | null;
   applicantAvatar?: string | null;
   submittedAt?: string;
 }
@@ -127,7 +126,6 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
   erpMeta,
   instanceId,
   applicantName,
-  applicantDept,
   applicantAvatar,
   submittedAt,
 }) => {
@@ -152,7 +150,7 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
       time={submittedAt ? formatDateTime(submittedAt) : null}
       isLast={groupedNodes.length === 0 && (!ccUsers || ccUsers.length === 0)}
     >
-      <TimelineStartNode applicantName={applicantName} applicantDept={applicantDept} />
+      <TimelineStartNode applicantName={applicantName} />
     </TimelineItem>
   );
 

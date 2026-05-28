@@ -62,7 +62,6 @@ interface NotifyParams {
   title: string;
   formTypeName: string;
   applicantName: string;
-  urgency?: string;
   nodeName?: string;
   nodeOrder?: number;
   reason?: string;
@@ -115,7 +114,6 @@ function toDingtalkParams(params: NotifyParams): DingtalkNotifyParams {
     title: params.title,
     formTypeName: params.formTypeName,
     applicantName: params.applicantName,
-    urgency: params.urgency,
     nodeName: params.nodeName,
     nodeOrder: params.nodeOrder,
     reason: params.reason,

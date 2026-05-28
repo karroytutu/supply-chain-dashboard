@@ -36,7 +36,6 @@ function createMockInstance(erpMeta: ErpMeta | null = null): OaApprovalInstanceR
     form_data: {},
     status: 'approved',
     current_node_order: 1,
-    urgency: 'normal',
     erp_meta: erpMeta,
     submitted_at: new Date(),
     created_at: new Date(),

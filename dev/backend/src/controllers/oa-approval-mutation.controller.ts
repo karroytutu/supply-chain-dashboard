@@ -24,7 +24,7 @@ export async function submit(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const { formTypeCode, formData, title, urgency } = req.body;
+    const { formTypeCode, formData, title } = req.body;
     if (!formTypeCode || !formData || !title) {
       res.status(400).json(buildErrorResponse(400, '缺少必要参数'));
       return;
@@ -37,7 +37,7 @@ export async function submit(req: Request, res: Response): Promise<void> {
     }
 
     const result = await submitApproval(
-      { formTypeCode, formData, title, urgency },
+      { formTypeCode, formData, title },
       formType,
       user.userId,
       user.name,

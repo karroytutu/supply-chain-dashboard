@@ -11,8 +11,6 @@ import {
   type ViewMode,
   STATUS_LABELS,
   STATUS_COLORS,
-  URGENCY_LABELS,
-  URGENCY_COLORS,
 } from '@/types/oa-approval';
 import ApprovalFlow from '@/components/OaApproval/ApprovalFlow';
 import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
@@ -40,16 +38,6 @@ const renderStatusTag = (status: string) => (
     {STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status}
   </Tag>
 );
-
-/** 渲染紧急程度标签 */
-const renderUrgencyTag = (urgency: string) => {
-  if (urgency === 'normal') return null;
-  return (
-    <Tag color={URGENCY_COLORS[urgency as keyof typeof URGENCY_COLORS]}>
-      {URGENCY_LABELS[urgency as keyof typeof URGENCY_LABELS]}
-    </Tag>
-  );
-};
 
 /** 表单字段渲染 */
 const FormFieldsList: React.FC<{ detail: ApprovalDetail; resolvedMap: Record<string, string>; erpLicenseUrls: string[] }> = ({
@@ -149,7 +137,6 @@ const DetailContent: React.FC<{
           </div>
           <div className={styles.detailStatus}>
             {renderStatusTag(detail.status)}
-            {renderUrgencyTag(detail.urgency)}
           </div>
         </div>
         <FormFieldsList detail={detail} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
@@ -158,7 +145,7 @@ const DetailContent: React.FC<{
           <ApprovalFlow
             nodes={detail.nodes} ccUsers={detail.ccUsers} currentStep={currentStep}
             instanceStatus={detail.status} erpMeta={detail.erpMeta} instanceId={detail.id}
-            applicantName={detail.applicantName} applicantDept={detail.applicantDept}
+            applicantName={detail.applicantName}
             applicantAvatar={detail.applicantAvatar} submittedAt={detail.submittedAt}
           />
         </div>

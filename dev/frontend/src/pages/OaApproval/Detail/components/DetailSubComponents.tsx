@@ -1,39 +1,14 @@
 import React from 'react';
-import { Card, Descriptions, Tag } from 'antd';
+import { Card, Descriptions } from 'antd';
 import type { ApprovalDetail } from '@/types/oa-approval';
 import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
+export { default as ApprovalStatusTag } from '@/components/OaApproval/ApprovalStatusTag';
 import { useErpLicenseResolve } from '@/components/OaApproval/hooks/useErpLicenseResolve';
-import { formatDateTime } from '@/utils/format';
 import { checkCondition } from '../../Form/components/ConditionalFieldWrapper';
-import ErpStatusCard from './ErpStatusCard';
 import LicenseDeferredCard from './LicenseDeferredCard';
 import styles from '../index.less';
 
-/** 审批状态标签 */
-export const ApprovalStatusTag: React.FC<{ status: string }> = ({ status }) => {
-  const statusMap: Record<string, { color: string; text: string }> = {
-    pending: { color: 'processing', text: '审批中' },
-    approved: { color: 'success', text: '已通过' },
-    rejected: { color: 'error', text: '已驳回' },
-    withdrawn: { color: 'default', text: '已撤回' },
-    cancelled: { color: 'warning', text: '已取消' },
-  };
-  const config = statusMap[status] || { color: 'default', text: status };
-  return <Tag color={config.color}>{config.text}</Tag>;
-};
-
-/** 紧急程度标签 */
-export const UrgencyTag: React.FC<{ urgency: string }> = ({ urgency }) => {
-  const urgencyMap: Record<string, { color: string; text: string }> = {
-    normal: { color: 'default', text: '普通' },
-    urgent: { color: 'warning', text: '紧急' },
-    very_urgent: { color: 'error', text: '非常紧急' },
-  };
-  const config = urgencyMap[urgency] || { color: 'default', text: urgency };
-  return <Tag color={config.color}>{config.text}</Tag>;
-};
-
-/** 左侧栏：基本信息 + ERP 状态 + 表单内容 */
+/** 左侧栏：表单内容（+ 条件性的营业执照补交卡片） */
 export const DetailLeftColumn: React.FC<{
   detail: ApprovalDetail;
   resolvedMap: Record<string, string>;
@@ -43,22 +18,6 @@ export const DetailLeftColumn: React.FC<{
 
   return (
   <>
-    <Card title="基本信息" className={styles.card}>
-      <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
-        <Descriptions.Item label="申请编号">{detail.instanceNo}</Descriptions.Item>
-        <Descriptions.Item label="申请类型">{detail.formTypeName}</Descriptions.Item>
-        <Descriptions.Item label="申请人">{detail.applicantName}</Descriptions.Item>
-        <Descriptions.Item label="申请部门">{detail.applicantDept || '-'}</Descriptions.Item>
-        <Descriptions.Item label="申请时间">{formatDateTime(detail.submittedAt)}</Descriptions.Item>
-        <Descriptions.Item label="紧急程度"><UrgencyTag urgency={detail.urgency} /></Descriptions.Item>
-        <Descriptions.Item label="审批状态" span={2}>
-          <ApprovalStatusTag status={detail.status} />
-        </Descriptions.Item>
-      </Descriptions>
-    </Card>
-    {detail.erpMeta && (
-      <ErpStatusCard instanceId={detail.id} erpMeta={detail.erpMeta} cardClassName={styles.card} />
-    )}
     {/* 客户授信审批通过后，展示营业执照延期补交卡片 */}
     {detail.formTypeCode === 'customer_credit' && (
       <LicenseDeferredCard
