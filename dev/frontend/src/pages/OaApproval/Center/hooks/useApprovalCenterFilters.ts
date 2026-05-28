@@ -40,9 +40,13 @@ export function useApprovalCenterFilters() {
     [searchParams, setSearchParams],
   );
 
-  const setViewMode = (mode: ViewMode) => {
-    updateParams({ tab: mode, page: '1', selectedId: null });
-  };
+  /** 切换视图模式（原子更新 tab + page + selectedId，避免多次 setSearchParams 竞态） */
+  const switchViewMode = useCallback(
+    (mode: ViewMode) => {
+      updateParams({ tab: mode, page: '1', selectedId: null });
+    },
+    [updateParams],
+  );
 
   const setPage = (p: number) => {
     updateParams({ page: String(p) });
@@ -59,6 +63,6 @@ export function useApprovalCenterFilters() {
   return {
     viewMode, page, searchText, selectedId,
     isMobile, mobileView,
-    setViewMode, setPage, setSearchText, setSelectedId, setMobileView,
+    switchViewMode, setPage, setSearchText, setSelectedId, setMobileView,
   };
 }
