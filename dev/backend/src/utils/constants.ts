@@ -180,26 +180,6 @@ export const OA_AUTO_NODE_STUCK_TIMEOUT_MS = 10 * 60 * 1000;
  */
 export const OA_AUTO_NODE_POLL_INTERVAL_MS = 2000;
 
-/** 客户授信-账期/滚单需往来会计审批的最大欠款天数
- * @usedBy customer-credit-callback.ts (CREDIT_APPROVAL_TIERS 配置)
- */
-export const CREDIT_OVERDUE_ACCOUNTANT_DAYS = 30;
-
-/** 客户授信-账期/滚单需总经理审批的最大欠款天数
- * @usedBy customer-credit-callback.ts (CREDIT_APPROVAL_TIERS 配置)
- */
-export const CREDIT_OVERDUE_GM_DAYS = 60;
-
-/** 客户授信-压单需往来会计审批的金额阈值
- * @usedBy customer-credit-callback.ts (CREDIT_APPROVAL_TIERS 配置)
- */
-export const CREDIT_HOLD_AMOUNT_ACCOUNTANT = 500;
-
-/** 客户授信-压单需总经理审批的金额阈值
- * @usedBy customer-credit-callback.ts (CREDIT_APPROVAL_TIERS 配置)
- */
-export const CREDIT_HOLD_AMOUNT_GM = 1000;
-
 /** 客户授信审批通过后设置的结算方式值（挂账）
  * 与 AR_SETTLE_METHOD_CONSUMER_EXPIRE 值相同(=2)，但语义不同：
  * 此处表示"授信后应设为挂账"，AR_SETTLE_METHOD_CONSUMER_EXPIRE 表示"挂账客户使用 consumerExpireDay"
