@@ -6,6 +6,7 @@ import { Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { STATUS_MAP } from './arCollectionColumns';
+import AppealStatusTag from '../AppealStatusTag';
 
 /** 退货考核角色中文映射 */
 const ROLE_LABELS: Record<string, string> = {
@@ -83,7 +84,10 @@ export function getReturnOrderColumns(): ColumnsType<AssessmentRecord> {
       title: '处理状态',
       dataIndex: 'status',
       width: 100,
-      render: (status: string) => {
+      render: (status: string, record: AssessmentRecord) => {
+        if (status === 'appealed') {
+          return <AppealStatusTag record={record} />;
+        }
         const config = STATUS_MAP[status];
         return config ? <Tag color={config.color}>{config.text}</Tag> : status;
       },

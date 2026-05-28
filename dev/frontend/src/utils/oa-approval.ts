@@ -3,7 +3,7 @@
  * @module utils/oa-approval
  */
 
-import type { ConditionDef } from '@/types/oa-approval';
+import type { ConditionDef, FormField } from '@/types/oa-approval';
 
 /** 角色 roleCode → 中文显示名映射 */
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
@@ -54,4 +54,26 @@ export function humanizeCondition(
     ? condition.value.toLocaleString('zh-CN')
     : String(condition.value);
   return `${label}${opLabel}${value}时`;
+}
+
+/**
+ * 校验 URL 是否安全（防止 javascript: 等 XSS 向量）
+ * 仅允许以 /、http://、https:// 开头的 URL
+ */
+export function isSafeUrl(url: string): boolean {
+  return /^\/[^/]|^https?:\/\//.test(url);
+}
+
+/**
+ * 获取表单字段的链接 URL
+ * 当 field.type 为 text 且 formData 中存在 `_${field.key}Url` 时返回安全 URL，否则返回 null
+ */
+export function getFieldLinkUrl(
+  field: FormField,
+  formData?: Record<string, unknown>,
+): string | null {
+  if (field.type !== 'text' || !formData) return null;
+  const url = formData[`_${field.key}Url`];
+  if (typeof url === 'string' && url && isSafeUrl(url)) return url;
+  return null;
 }
