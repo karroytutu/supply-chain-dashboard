@@ -9,11 +9,8 @@ import { beforeSubmitCustomerCredit, getCustomerCreditCCRoles, onApprovedCustome
 /**
  * 客户授信申请表单类型定义
  * 支持三种授信类型：账期、滚单、压单
- * 分级审批流：根据最大欠款天数/压单金额确定审批节点
- *   low(≤30天/≤500元): 营销经理 → 完成
- *   medium(30-60天/500-1000元): 营销经理 → 往来会计 → 完成
- *   high(>60天/>1000元): 营销经理 → 往来会计 → 总经理 → 完成
- * 提交人自跳过：marketing_manager 跳过节点1，current_accountant 跳过节点2
+ * 审批流：营销经理 → 往来会计 → 自动更新ERP客户授信
+ * 抄送：总经理
  */
 export const customerCreditFormType: FormTypeDefinition = {
   code: 'customer_credit',
@@ -22,7 +19,7 @@ export const customerCreditFormType: FormTypeDefinition = {
   category: 'finance',
   sortOrder: 110,
   description: '申请客户授信，包括账期、滚单、压单',
-  version: 4,
+  version: 5,
 
   formSchema: {
     fields: [
@@ -173,46 +170,36 @@ export const customerCreditFormType: FormTypeDefinition = {
 
   workflowDef: {
     nodes: [
-      // 节点1：营销经理审批（提交人为 marketing_manager 时跳过）
+      // 节点1：营销经理审批
       {
         order: 1,
         name: '营销经理审批',
         type: 'role',
         roleCode: 'marketing_manager',
-        condition: { field: '_needsManagerApproval', operator: '==', value: 'yes' },
       },
-      // 节点2：往来会计审批（low级别跳过，提交人为 current_accountant 时跳过）
+      // 节点2：往来会计审批
       {
         order: 2,
         name: '往来会计审批',
         type: 'role',
         roleCode: 'current_accountant',
-        condition: { field: '_needsAccountantApproval', operator: '==', value: 'yes' },
       },
-      // 节点3：总经理审批（仅 high 级别需要）
+      // 节点3：自动更新ERP客户授信
       {
         order: 3,
-        name: '总经理审批',
-        type: 'role',
-        roleCode: 'general_manager',
-        condition: { field: '_needsGmApproval', operator: '==', value: 'yes' },
-      },
-      // 节点4：自动更新ERP客户授信
-      {
-        order: 4,
         name: '更新ERP客户授信',
         type: 'auto',
       },
     ],
   },
 
-  // beforeSubmit: 注入分级审批字段和提交者角色到 formData，供条件节点判断
+  // beforeSubmit: 校验提交者角色、检测营业执照状态、补全客户名称
   beforeSubmit: beforeSubmitCustomerCredit,
 
-  // getCCRoles: 根据审批分级动态解析抄送角色
+  // getCCRoles: 固定抄送总经理
   getCCRoles: getCustomerCreditCCRoles,
 
-  // resolvePreviewContext: 流程预览时动态注入分级字段，实现条件节点实时过滤
+  // resolvePreviewContext: 流程预览上下文（当前无需注入额外字段）
   resolvePreviewContext: resolveCustomerCreditPreviewContext,
 
   // onApproved: 审批通过后调用 ERP API 更新授信信息
