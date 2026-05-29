@@ -1,45 +1,45 @@
 /**
  * 客户列表面板
- * 弹窗左侧：筛选器 + 我的视图 + 客户列表
+ * 弹窗内：筛选器 + 搜索栏 + 客户表格
  */
 
-import React from 'react';
-import { Tag, Empty } from 'antd';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
+import { Tag, Empty, Table, Input, Select } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import type { DrilldownRiskGroup, DrilldownCustomer, DrilldownMyView } from '@/types/sales-analysis';
 import styles from './CustomerListPanel.less';
-
-const CURRENT_USER = '张晨';
 
 interface CustomerListPanelProps {
   riskGroup: DrilldownRiskGroup;
   customers: DrilldownCustomer[];
   viewMode: 'all' | 'mine';
   filterKey: string;
-  selectedCustomerId: string | null;
+  keyword: string;
+  ownerFilter: string;
+  ownerOptions: string[];
   onFilterChange: (key: string) => void;
-  onSelectCustomer: (id: string) => void;
+  onKeywordChange: (keyword: string) => void;
+  onOwnerFilterChange: (owner: string) => void;
 }
 
 const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
-  riskGroup, customers, viewMode, filterKey, selectedCustomerId, onFilterChange, onSelectCustomer,
+  riskGroup, customers, viewMode, filterKey, keyword, ownerFilter, ownerOptions,
+  onFilterChange, onKeywordChange, onOwnerFilterChange,
 }) => (
   <div className={styles.wrap}>
     <FilterBar filters={riskGroup.filters} filterKey={filterKey} note={riskGroup.filterNote} onChange={onFilterChange} />
+    <SearchBar
+      keyword={keyword}
+      ownerFilter={ownerFilter}
+      ownerOptions={ownerOptions}
+      onKeywordChange={onKeywordChange}
+      onOwnerFilterChange={onOwnerFilterChange}
+    />
     {viewMode === 'mine' && <MyViewSummary myView={riskGroup.myView} />}
     {customers.length === 0 ? (
       <Empty description={viewMode === 'mine' ? '当前分类下暂无我的客户' : '当前筛选条件下暂无客户'} className={styles.empty} />
     ) : (
-      <div className={styles.customerList}>
-        {customers.map((customer) => (
-          <CustomerItem
-            key={customer.id}
-            customer={customer}
-            active={customer.id === selectedCustomerId}
-            isMine={customer.owner === CURRENT_USER}
-            onClick={() => onSelectCustomer(customer.id)}
-          />
-        ))}
-      </div>
+      <CustomerTable customers={customers} />
     )}
   </div>
 );
@@ -68,6 +68,101 @@ const FilterBar: React.FC<{
   </div>
 );
 
+/** 搜索栏：关键词搜索 + 负责人筛选 */
+const SearchBar: React.FC<{
+  keyword: string;
+  ownerFilter: string;
+  ownerOptions: string[];
+  onKeywordChange: (keyword: string) => void;
+  onOwnerFilterChange: (owner: string) => void;
+}> = ({ keyword, ownerFilter, ownerOptions, onKeywordChange, onOwnerFilterChange }) => {
+  const [inputValue, setInputValue] = useState(keyword);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    timerRef.current = setTimeout(() => onKeywordChange(inputValue), 300);
+    return () => clearTimeout(timerRef.current);
+  }, [inputValue, onKeywordChange]);
+
+  return (
+    <div className={styles.searchBar}>
+      <Input.Search
+        placeholder="搜索客户名称"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        allowClear
+        style={{ flex: 1 }}
+      />
+      <Select
+        placeholder="负责人"
+        value={ownerFilter || undefined}
+        onChange={(val) => onOwnerFilterChange(val || '')}
+        allowClear
+        style={{ width: 140 }}
+        options={ownerOptions.map((o) => ({ value: o, label: o }))}
+      />
+    </div>
+  );
+};
+
+/** 客户表格 */
+const CustomerTable: React.FC<{ customers: DrilldownCustomer[] }> = ({ customers }) => {
+  const columns = useTableColumns(customers);
+  return (
+    <div className={styles.tableWrapper}>
+      <Table
+        dataSource={customers}
+        columns={columns}
+        rowKey="id"
+        size="small"
+        pagination={false}
+        scroll={{ x: 720 }}
+      />
+    </div>
+  );
+};
+
+/** 动态生成表格列 */
+function useTableColumns(customers: DrilldownCustomer[]): ColumnsType<DrilldownCustomer> {
+  return useMemo(() => {
+    const labelSet = new Set<string>();
+    customers.forEach(c => c.detail.metrics.forEach(m => labelSet.add(m.label)));
+    const metricLabels = Array.from(labelSet);
+
+    const fixedColumns: ColumnsType<DrilldownCustomer> = [
+      {
+        title: '客户名称',
+        dataIndex: 'name',
+        width: 160,
+        render: (name: string, record) => (
+          <div>
+            <div style={{ fontWeight: 500 }}>{name}</div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+              {record.tags.map((tag) => (
+                <Tag key={tag.text} color={tag.color} style={{ marginRight: 0 }}>{tag.text}</Tag>
+              ))}
+            </div>
+          </div>
+        ),
+      },
+      { title: '负责人', dataIndex: 'owner', width: 80, render: (v: string) => v || '-' },
+      { title: '最近下单', dataIndex: 'order', width: 120 },
+      { title: '最近跟进', dataIndex: 'followUp', width: 120 },
+    ];
+
+    const metricColumns: ColumnsType<DrilldownCustomer> = metricLabels.map((label) => ({
+      title: label,
+      width: 110,
+      render: (_: unknown, record: DrilldownCustomer) => {
+        const metric = record.detail.metrics.find(m => m.label === label);
+        return metric?.value || '-';
+      },
+    }));
+
+    return [...fixedColumns, ...metricColumns];
+  }, [customers]);
+}
+
 /** 我的视图概要 */
 const MyViewSummary: React.FC<{ myView: DrilldownMyView }> = ({ myView }) => (
   <div className={styles.myViewSummary}>
@@ -83,35 +178,6 @@ const MyViewSummary: React.FC<{ myView: DrilldownMyView }> = ({ myView }) => (
       </div>
       <div className={styles.myViewFocusName}>{myView.focusName}</div>
       <p className={styles.myViewFocusNote}>{myView.focusNote}</p>
-    </div>
-  </div>
-);
-
-/** 客户列表项 */
-const CustomerItem: React.FC<{
-  customer: DrilldownCustomer;
-  active: boolean;
-  isMine: boolean;
-  onClick: () => void;
-}> = ({ customer, active, isMine, onClick }) => (
-  <div
-    className={`${styles.customerItem} ${active ? styles.active : ''} ${isMine ? styles.mine : ''}`}
-    onClick={onClick}
-    role="button"
-    tabIndex={0}
-  >
-    <div className={styles.customerItemTop}>
-      <span className={styles.customerName}>{customer.name}</span>
-      <div className={styles.customerTags}>
-        {isMine && <Tag color="purple">我的客户</Tag>}
-        {customer.tags.map((tag) => (
-          <Tag key={tag.text} color={tag.color}>{tag.text}</Tag>
-        ))}
-      </div>
-    </div>
-    <p className={styles.customerDesc}>{customer.summary}</p>
-    <div className={styles.customerMeta}>
-      负责人：{customer.owner} | {customer.order} | {customer.followUp}
     </div>
   </div>
 );

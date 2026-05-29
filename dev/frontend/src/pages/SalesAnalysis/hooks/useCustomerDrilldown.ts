@@ -1,10 +1,10 @@
 /**
  * 客户钻取弹窗状态管理 Hook
- * 管理：当前钻取维度、视图模式、筛选条件、选中客户、弹窗开关
+ * 管理：当前钻取维度、视图模式、筛选条件、搜索关键词、负责人筛选、弹窗开关
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import type { DrilldownRiskGroup, DrilldownCustomer } from '@/types/sales-analysis';
+import type { DrilldownRiskGroup } from '@/types/sales-analysis';
 import { CUSTOMER_DRILLDOWN } from '@/constants/salesAnalysis';
 
 const CURRENT_USER = '张晨';
@@ -14,14 +14,15 @@ const INITIAL_STATE = {
   drilldownKey: '' as string,
   viewMode: 'all' as 'all' | 'mine',
   filterKey: 'all',
-  selectedCustomerId: null as string | null,
+  keyword: '',
+  ownerFilter: '',
 };
 
 export function useCustomerDrilldown() {
   const [state, setState] = useState(INITIAL_STATE);
 
   const openModal = useCallback((key: string) => {
-    setState({ open: true, drilldownKey: key, viewMode: 'all', filterKey: 'all', selectedCustomerId: null });
+    setState({ open: true, drilldownKey: key, viewMode: 'all', filterKey: 'all', keyword: '', ownerFilter: '' });
   }, []);
 
   const closeModal = useCallback(() => {
@@ -29,32 +30,50 @@ export function useCustomerDrilldown() {
   }, []);
 
   const setViewMode = useCallback((mode: 'all' | 'mine') => {
-    setState((prev) => ({ ...prev, viewMode: mode, selectedCustomerId: null }));
+    setState((prev) => ({ ...prev, viewMode: mode }));
   }, []);
 
   const setFilterKey = useCallback((key: string) => {
-    setState((prev) => ({ ...prev, filterKey: key, selectedCustomerId: null }));
+    setState((prev) => ({ ...prev, filterKey: key }));
   }, []);
 
-  const selectCustomer = useCallback((id: string) => {
-    setState((prev) => ({ ...prev, selectedCustomerId: id }));
+  const setKeyword = useCallback((keyword: string) => {
+    setState((prev) => ({ ...prev, keyword }));
+  }, []);
+
+  const setOwnerFilter = useCallback((ownerFilter: string) => {
+    setState((prev) => ({ ...prev, ownerFilter }));
   }, []);
 
   const riskGroup = CUSTOMER_DRILLDOWN[state.drilldownKey];
-  const filteredCustomers = useFilteredCustomers(riskGroup, state.viewMode, state.filterKey);
-  const selectedCustomer = useSelectedCustomer(filteredCustomers, state.selectedCustomerId);
+
+  const ownerOptions = useMemo(() => {
+    if (!riskGroup) return [];
+    const owners = new Set(riskGroup.customers.map((c) => c.owner).filter(Boolean));
+    return Array.from(owners);
+  }, [riskGroup]);
+
+  const filteredCustomers = useFilteredCustomers(
+    riskGroup, state.viewMode, state.filterKey, state.keyword, state.ownerFilter,
+  );
 
   return {
     state,
-    actions: { openModal, closeModal, setViewMode, setFilterKey, selectCustomer },
+    actions: { openModal, closeModal, setViewMode, setFilterKey, setKeyword, setOwnerFilter },
     riskGroup,
     filteredCustomers,
-    selectedCustomer,
+    ownerOptions,
   };
 }
 
 /** 筛选客户列表 */
-function useFilteredCustomers(riskGroup: DrilldownRiskGroup | undefined, viewMode: string, filterKey: string) {
+function useFilteredCustomers(
+  riskGroup: DrilldownRiskGroup | undefined,
+  viewMode: string,
+  filterKey: string,
+  keyword: string,
+  ownerFilter: string,
+) {
   return useMemo(() => {
     if (!riskGroup) return [];
     let customers = riskGroup.customers;
@@ -64,17 +83,12 @@ function useFilteredCustomers(riskGroup: DrilldownRiskGroup | undefined, viewMod
     if (filterKey !== 'all') {
       customers = customers.filter((c) => c.filters.includes(filterKey));
     }
-    return customers;
-  }, [riskGroup, viewMode, filterKey]);
-}
-
-/** 获取选中的客户 */
-function useSelectedCustomer(customers: DrilldownCustomer[], id: string | null) {
-  return useMemo(() => {
-    if (id) {
-      const found = customers.find((c) => c.id === id);
-      if (found) return found;
+    if (keyword) {
+      customers = customers.filter((c) => c.name.includes(keyword));
     }
-    return customers[0] || null;
-  }, [customers, id]);
+    if (ownerFilter) {
+      customers = customers.filter((c) => c.owner === ownerFilter);
+    }
+    return customers;
+  }, [riskGroup, viewMode, filterKey, keyword, ownerFilter]);
 }

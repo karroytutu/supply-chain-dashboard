@@ -1,13 +1,12 @@
 /**
  * 风险客户钻取弹窗
- * 包含视图切换、筛选、客户列表和详情面板
+ * 表格视图：筛选 + 搜索 + 客户表格
  */
 
 import React from 'react';
 import { Modal, Tag, Button } from 'antd';
 import CustomerListPanel from './CustomerListPanel';
-import CustomerDetailPanel from './CustomerDetailPanel';
-import type { DrilldownRiskGroup, DrilldownCustomer, RiskDefinitionItem } from '@/types/sales-analysis';
+import type { DrilldownRiskGroup, DrilldownCustomer } from '@/types/sales-analysis';
 import styles from './CustomerDrilldownModal.less';
 
 interface CustomerDrilldownModalProps {
@@ -17,36 +16,34 @@ interface CustomerDrilldownModalProps {
       drilldownKey: string;
       viewMode: 'all' | 'mine';
       filterKey: string;
-      selectedCustomerId: string | null;
+      keyword: string;
+      ownerFilter: string;
     };
     actions: {
       closeModal: () => void;
       setViewMode: (mode: 'all' | 'mine') => void;
       setFilterKey: (key: string) => void;
-      selectCustomer: (id: string) => void;
+      setKeyword: (keyword: string) => void;
+      setOwnerFilter: (owner: string) => void;
     };
     riskGroup: DrilldownRiskGroup | undefined;
     filteredCustomers: DrilldownCustomer[];
-    selectedCustomer: DrilldownCustomer | null;
+    ownerOptions: string[];
   };
 }
 
 const CustomerDrilldownModal: React.FC<CustomerDrilldownModalProps> = ({ drilldown }) => {
   if (!drilldown.riskGroup) return null;
-  const footer = (
-    <div className={styles.modalFooter}>
-      <Button onClick={drilldown.actions.closeModal}>关闭</Button>
-      <Button type="primary">分派动作</Button>
-    </div>
-  );
 
   return (
     <Modal
       open={drilldown.state.open}
       onCancel={drilldown.actions.closeModal}
-      width={960}
+      width="min(900px, 95vw)"
       title={null}
-      footer={footer}
+      footer={
+        <Button onClick={drilldown.actions.closeModal}>关闭</Button>
+      }
       styles={{ body: { padding: 0 } }}
     >
       <DrilldownHeader
@@ -60,17 +57,19 @@ const CustomerDrilldownModal: React.FC<CustomerDrilldownModalProps> = ({ drilldo
           customers={drilldown.filteredCustomers}
           viewMode={drilldown.state.viewMode}
           filterKey={drilldown.state.filterKey}
-          selectedCustomerId={drilldown.selectedCustomer?.id || null}
+          keyword={drilldown.state.keyword}
+          ownerFilter={drilldown.state.ownerFilter}
+          ownerOptions={drilldown.ownerOptions}
           onFilterChange={drilldown.actions.setFilterKey}
-          onSelectCustomer={drilldown.actions.selectCustomer}
+          onKeywordChange={drilldown.actions.setKeyword}
+          onOwnerFilterChange={drilldown.actions.setOwnerFilter}
         />
-        <CustomerDetailPanel customer={drilldown.selectedCustomer} />
       </div>
     </Modal>
   );
 };
 
-/** 弹窗头部子组件 */
+/** 弹窗头部：描述 + 视图切换 */
 const DrilldownHeader: React.FC<{
   riskGroup: DrilldownRiskGroup;
   viewMode: 'all' | 'mine';
@@ -79,40 +78,25 @@ const DrilldownHeader: React.FC<{
   <div className={styles.drilldownHeader}>
     <div className={styles.drilldownHeaderLeft}>
       <p className={styles.drilldownDesc}>{riskGroup.desc}</p>
-      <div className={styles.definitionList}>
-        {riskGroup.definition.map((item) => (
-          <DefinitionItem key={item.label} item={item} />
-        ))}
-      </div>
-    </div>
-    <div className={styles.drilldownHeaderRight}>
-      <div className={styles.viewSwitch}>
-        <button
-          type="button"
-          className={`${styles.viewBtn} ${viewMode === 'all' ? styles.viewActive : ''}`}
-          onClick={() => onViewModeChange('all')}
-        >
-          全部客户
-        </button>
-        <button
-          type="button"
-          className={`${styles.viewBtn} ${viewMode === 'mine' ? styles.viewActive : ''}`}
-          onClick={() => onViewModeChange('mine')}
-        >
-          我的客户
-        </button>
-      </div>
       <Tag color={riskGroup.tagColor}>{riskGroup.tagText}</Tag>
       <span className={styles.drilldownCount}>{riskGroup.countText}</span>
     </div>
-  </div>
-);
-
-/** 定义条目 */
-const DefinitionItem: React.FC<{ item: RiskDefinitionItem }> = ({ item }) => (
-  <div className={styles.definitionItem}>
-    <span className={styles.definitionLabel}>{item.label}</span>
-    <span className={styles.definitionDesc}>{item.desc}</span>
+    <div className={styles.viewSwitch}>
+      <button
+        type="button"
+        className={`${styles.viewBtn} ${viewMode === 'all' ? styles.viewActive : ''}`}
+        onClick={() => onViewModeChange('all')}
+      >
+        全部客户
+      </button>
+      <button
+        type="button"
+        className={`${styles.viewBtn} ${viewMode === 'mine' ? styles.viewActive : ''}`}
+        onClick={() => onViewModeChange('mine')}
+      >
+        我的客户
+      </button>
+    </div>
   </div>
 );
 

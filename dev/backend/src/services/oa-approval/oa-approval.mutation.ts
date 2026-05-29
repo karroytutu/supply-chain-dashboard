@@ -24,6 +24,7 @@ import {
   findUserIdsByRoleCodes,
   isCurrentApprover,
   isApplicant,
+  getCurrentApproverNode,
 } from './oa-approval-utils';
 import { getFormTypeByCode } from './form-types';
 import { initErpMeta } from '../fixed-asset/erp-meta-utils';
@@ -297,18 +298,10 @@ export async function approveApproval(
     );
     formType = formTypeCode.rows[0] ? getFormTypeByCode(formTypeCode.rows[0].code) : undefined;
     // 获取当前节点
-    const nodeResult = await client.query<OaApprovalNodeRow>(
-      `SELECT * FROM oa_approval_nodes
-       WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-       ORDER BY node_order LIMIT 1`,
-      [instanceId, userId]
-    );
-
-    if (nodeResult.rows.length === 0) {
+    const currentNode = await getCurrentApproverNode(client, instanceId, userId);
+    if (!currentNode) {
       throw new Error('未找到待审批节点');
     }
-
-    const currentNode = nodeResult.rows[0];
 
     // data_input 节点处理：校验 + 保存 inputData + 合并 form_data
     if (currentNode.node_type === 'data_input' && inputData) {
@@ -616,18 +609,10 @@ export async function rejectApproval(
 
   await transaction(async (client) => {
     // 获取当前节点
-    const nodeResult = await client.query<OaApprovalNodeRow>(
-      `SELECT * FROM oa_approval_nodes
-       WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-       ORDER BY node_order LIMIT 1`,
-      [instanceId, userId]
-    );
-
-    if (nodeResult.rows.length === 0) {
+    const currentNode = await getCurrentApproverNode(client, instanceId, userId);
+    if (!currentNode) {
       throw new Error('未找到待审批节点');
     }
-
-    const currentNode = nodeResult.rows[0];
 
     // 更新节点状态
     await client.query(
@@ -722,18 +707,10 @@ export async function transferApproval(
 
   await transaction(async (client) => {
     // 获取当前节点
-    const nodeResult = await client.query<OaApprovalNodeRow>(
-      `SELECT * FROM oa_approval_nodes
-       WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-       ORDER BY node_order LIMIT 1`,
-      [instanceId, userId]
-    );
-
-    if (nodeResult.rows.length === 0) {
+    const currentNode = await getCurrentApproverNode(client, instanceId, userId);
+    if (!currentNode) {
       throw new Error('未找到待审批节点');
     }
-
-    const currentNode = nodeResult.rows[0];
 
     // 更新原节点：转交新审批人，保持 pending 状态
     await client.query(
@@ -795,18 +772,10 @@ export async function countersignApproval(
 
   await transaction(async (client) => {
     // 获取当前节点
-    const nodeResult = await client.query<OaApprovalNodeRow>(
-      `SELECT * FROM oa_approval_nodes
-       WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-       ORDER BY node_order LIMIT 1`,
-      [instanceId, userId]
-    );
-
-    if (nodeResult.rows.length === 0) {
+    const currentNode = await getCurrentApproverNode(client, instanceId, userId);
+    if (!currentNode) {
       throw new Error('未找到待审批节点');
     }
-
-    const currentNode = nodeResult.rows[0];
 
     // 获取所有节点，调整顺序
     const allNodesResult = await client.query<OaApprovalNodeRow>(

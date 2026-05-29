@@ -4,6 +4,7 @@
  */
 
 import { appQuery as query } from '../../db/appPool';
+import type { PoolClient } from 'pg';
 import { getFormTypeByCode as getCodeFormTypeByCode } from './form-types';
 import {
   FormField,
@@ -509,21 +510,39 @@ export function getNodeStatusLabel(status: ApprovalNodeStatus): string {
 // =====================================================
 
 /**
+ * 获取当前审批节点（基于 current_node_order 精确定位）
+ * @param client - PoolClient（事务中使用）或 null（使用默认 query）
+ * @param instanceId - 审批实例 ID
+ * @param userId - 审批人用户 ID
+ * @returns 当前节点行，不存在时返回 null
+ */
+export async function getCurrentApproverNode(
+  client: PoolClient | null,
+  instanceId: number,
+  userId: number
+): Promise<OaApprovalNodeRow | null> {
+  const sql = `SELECT n.* FROM oa_approval_nodes n
+     JOIN oa_approval_instances i ON i.id = n.instance_id
+     WHERE n.instance_id = $1
+       AND n.assigned_user_id = $2
+       AND n.status = 'pending'
+       AND n.node_order = i.current_node_order
+     LIMIT 1`;
+  const result = client
+    ? await client.query<OaApprovalNodeRow>(sql, [instanceId, userId])
+    : await query<OaApprovalNodeRow>(sql, [instanceId, userId]);
+  return result.rows[0] || null;
+}
+
+/**
  * 检查用户是否为审批实例的当前审批人
  */
 export async function isCurrentApprover(
   instanceId: number,
   userId: number
 ): Promise<boolean> {
-  const result = await query(
-    `SELECT 1 FROM oa_approval_nodes
-     WHERE instance_id = $1
-       AND assigned_user_id = $2
-       AND status = 'pending'
-     LIMIT 1`,
-    [instanceId, userId]
-  );
-  return result.rows.length > 0;
+  const node = await getCurrentApproverNode(null, instanceId, userId);
+  return node !== null;
 }
 
 /**

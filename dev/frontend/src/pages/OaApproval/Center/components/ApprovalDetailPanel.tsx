@@ -75,10 +75,9 @@ const ActionBar: React.FC<{
 }> = ({
   viewMode, detail, currentUserId, onApprove, onReject, onWithdraw, onTransfer,
 }) => {
-  // 当前用户是否是 pending 节点的审批人
-  const isCurrentApprover = detail.nodes.some(
-    (n) => n.status === 'pending' && n.assignedUserId === currentUserId
-  );
+  // 当前用户是否是当前流程节点的审批人（基于 currentNodeOrder 精确定位）
+  const currentNode = detail.nodes.find((n) => n.nodeOrder === detail.currentNodeOrder);
+  const isCurrentApprover = currentNode?.assignedUserId === currentUserId;
   // 当前用户是否是申请人
   const isApplicant = detail.applicantId === currentUserId;
 
