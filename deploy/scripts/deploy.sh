@@ -273,9 +273,11 @@ cd "$DEPLOY_DIR"
 log_info "初始化上传目录..."
 mkdir -p /data/uploads/return-evidence
 mkdir -p /data/uploads/ar-evidence
+mkdir -p /data/uploads/credit-license
 chmod 755 /data/uploads
 chmod 755 /data/uploads/return-evidence
 chmod 755 /data/uploads/ar-evidence
+chmod 755 /data/uploads/credit-license
 log_info "上传目录已创建: /data/uploads"
 
 # 停止现有容器

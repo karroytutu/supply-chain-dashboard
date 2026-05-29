@@ -14,6 +14,7 @@ import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-util
 import { resolveLicenseFilePath } from '../../middleware/credit-upload';
 import { cache } from '../../utils/cache';
 import { reconcileHoardDetailsByCustomer } from '../ar-collection/ar-hoard-reconcile';
+import fs from 'fs';
 import {
   CREDIT_SETTLE_METHOD_ON_ACCOUNT,
   AR_HOLD_TYPE_LONG_TERM,
@@ -145,7 +146,15 @@ export async function onApprovedCustomerCredit(
       const filePaths = photos
         .map(p => p.url)
         .filter((url): url is string => !!url)
-        .map(url => resolveLicenseFilePath(url));
+        .map(url => resolveLicenseFilePath(url))
+        // 预检：过滤不存在的文件，避免上传时抛异常（TOCTOU 可接受，实际概率极低）
+        .filter(fp => {
+          if (!fs.existsSync(fp)) {
+            console.warn(`[CustomerCredit] 营业执照文件不存在，跳过上传: ${fp}`);
+            return false;
+          }
+          return true;
+        });
       if (filePaths.length > 0) {
         await erpUploadBusinessLicense(customerId, filePaths, creditFields);
         // 授信字段已随 update-consumer 一并更新，清除标记避免重复调用

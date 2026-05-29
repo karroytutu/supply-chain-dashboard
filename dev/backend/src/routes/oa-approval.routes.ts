@@ -46,6 +46,7 @@ import {
   resolveErpReference,
   getCustomerLicense,
   retryErpOperation,
+  retryAutoNode,
 } from '../controllers/erp-reference.controller';
 import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
 import { Request, Response } from 'express';
@@ -317,6 +318,9 @@ router.get('/erp-reference/customers/:id/license-info', requirePermission(['oa:a
 
 // 重试失败的ERP操作
 router.post('/instances/:id/retry-erp', requirePermission('oa:approval:write'), retryErpOperation);
+
+// 重试卡住的auto节点
+router.post('/instances/:id/retry-auto-node', requirePermission('oa:approval:write'), retryAutoNode);
 
 // =====================================================
 // 客户授信 - 营业执照上传

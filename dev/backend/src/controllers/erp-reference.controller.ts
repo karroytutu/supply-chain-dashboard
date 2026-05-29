@@ -16,6 +16,7 @@ import {
 import { searchErpCustomersByKeyword, getErpCustomerProfile, getCustomerLicenseInfo } from '../services/erp-client/erp-customer.service';
 import { searchErpSettlementOrders, searchErpSettlementOrdersPaged } from '../services/erp-client/erp-settlement.service';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
+import { retryAutoNode as retryAutoNodeService } from '../services/oa-approval/oa-approval.mutation';
 
 /** 解析结果项 */
 interface ResolvedItem {
@@ -134,6 +135,29 @@ export async function retryErpOperation(req: Request, res: Response, next: NextF
   } catch (error) {
     const message = error instanceof Error ? error.message : 'ERP重试失败';
     res.status(500).json({ code: 500, message });
+  }
+}
+
+/**
+ * 重试卡住的 auto 节点
+ * POST /oa-approval/instances/:id/retry-auto-node
+ */
+export async function retryAutoNode(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const instanceId = Number(req.params.id);
+    if (isNaN(instanceId)) {
+      res.status(400).json({ code: 400, message: '无效的实例ID' });
+      return;
+    }
+    await retryAutoNodeService(instanceId);
+    res.json({ code: 200, message: 'auto节点重试已触发' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'auto节点重试失败';
+    // 业务逻辑错误返回 400，未知/系统错误返回 500
+    const clientErrors = ['不存在', '已处于终态', '正在处理中', '不是 auto 类型', '不满足重试条件', '未找到表单类型'];
+    const isClientError = clientErrors.some(keyword => message.includes(keyword));
+    const status = isClientError ? 400 : 500;
+    res.status(status).json({ code: status, message });
   }
 }
 
