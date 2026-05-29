@@ -25,7 +25,7 @@ import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task'
 // [统一考核迁移] 旧模块已停用，由统一考核模块替代
 // import { calculateArAssessments, notifyAssessmentCreated } from '../ar-assessment';
 import { handleRetry } from '../retry.handler';
-import { recoverStuckProcessing } from '../fixed-asset/erp-meta-utils';
+import { recoverStuckProcessing, recoverStuckAutoNodes } from '../fixed-asset/erp-meta-utils';
 import { checkLicenseDeferredReminders, markOverdueDeferredUploads } from '../credit-license';
 import { saveMonthlyArchive, getLastMonthEndDate } from '../procurement-archive';
 
@@ -232,7 +232,11 @@ export function startScheduler(): void {
       try {
         const recovered = await recoverStuckProcessing();
         if (recovered > 0) {
-          console.log(`[Scheduler] auto节点卡住恢复完成，处理 ${recovered} 个实例`);
+          console.log(`[Scheduler] auto节点processing恢复完成，处理 ${recovered} 个实例`);
+        }
+        const recoveredAuto = await recoverStuckAutoNodes();
+        if (recoveredAuto > 0) {
+          console.log(`[Scheduler] auto节点pending恢复完成，处理 ${recoveredAuto} 个实例`);
         }
       } catch (error) {
         console.error('[Scheduler] auto节点卡住恢复失败:', error);

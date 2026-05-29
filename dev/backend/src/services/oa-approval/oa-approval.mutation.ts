@@ -470,7 +470,7 @@ export async function approveApproval(
  * 3. 成功：auto 节点 → approved，实例 → approved
  * 4. 失败：安全网 markErpFailed()，auto 节点 → failed，实例 → erp_failed
  */
-async function executeAutoNodeCallback(
+export async function executeAutoNodeCallback(
   instanceId: number,
   autoNode: OaApprovalNodeRow,
   formType: FormTypeDefinition,
@@ -478,11 +478,16 @@ async function executeAutoNodeCallback(
   formData: Record<string, unknown>
 ): Promise<void> {
   try {
-    // 标记 auto 节点为 processing
-    await query(
-      `UPDATE oa_approval_nodes SET status = 'processing', acted_at = NOW() WHERE id = $1`,
+    // 幂等保护：仅当节点处于 pending/failed 时才标记为 processing，防止并发重复执行
+    const claimResult = await query(
+      `UPDATE oa_approval_nodes SET status = 'processing', acted_at = NOW()
+       WHERE id = $1 AND status IN ('pending', 'failed')`,
       [autoNode.id]
     );
+    if (claimResult.rowCount === 0) {
+      console.warn(`[OA] auto节点已被其他进程处理，跳过 [nodeId=${autoNode.id}]`);
+      return;
+    }
 
     await formType.onApproved!(instance, formData);
 
@@ -590,6 +595,93 @@ async function executeAutoNodeCallback(
       [instanceId]
     );
   }
+}
+
+/**
+ * 重试卡住的 auto 节点
+ * 用于恢复因进程重启等原因丢失的 auto 节点回调
+ * 支持手动重试（API）和定时恢复机制调用
+ */
+export async function retryAutoNode(instanceId: number): Promise<void> {
+  // 事务内锁定实例行并重置状态
+  const { instance: lockedInstance, autoNode } = await transaction(async (client) => {
+    // SELECT FOR UPDATE 防并发冲突
+    const instResult = await client.query<OaApprovalInstanceRow>(
+      `SELECT * FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
+      [instanceId]
+    );
+    const inst = instResult.rows[0];
+    if (!inst) throw new Error('审批实例不存在');
+
+    const terminalStatuses: ApprovalStatus[] = ['approved', 'rejected', 'withdrawn', 'cancelled'];
+    if (terminalStatuses.includes(inst.status as ApprovalStatus)) {
+      throw new Error(`审批已处于终态(${inst.status})，无法重试`);
+    }
+    if (inst.status === 'processing') {
+      throw new Error('审批正在处理中，请稍后重试');
+    }
+
+    // 查询当前节点，确认是 auto 类型且状态为 pending/failed
+    const nodeResult = await client.query<OaApprovalNodeRow>(
+      `SELECT * FROM oa_approval_nodes WHERE instance_id = $1 AND node_order = $2`,
+      [instanceId, inst.current_node_order]
+    );
+    const node = nodeResult.rows[0];
+    if (!node || node.node_type !== 'auto') {
+      throw new Error('当前节点不是 auto 类型，无法重试');
+    }
+    if (node.status !== 'pending' && node.status !== 'failed') {
+      throw new Error(`auto 节点状态为 ${node.status}，不满足重试条件(需为 pending 或 failed)`);
+    }
+
+    // 重置实例状态为 processing
+    const erpMeta = inst.erp_meta || {
+      status: 'pending', responseData: {}, requestLog: null, applicationNo: '', retries: 0,
+    };
+    erpMeta.status = 'processing';
+    erpMeta.requestLog = null;
+
+    await client.query(
+      `UPDATE oa_approval_instances SET status = 'processing', erp_meta = $1, updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify(erpMeta), instanceId]
+    );
+
+    // 重置 auto 节点为 pending
+    await client.query(
+      `UPDATE oa_approval_nodes SET status = 'pending', comment = NULL WHERE id = $1`,
+      [node.id]
+    );
+
+    // 记录操作日志
+    await client.query(
+      `INSERT INTO oa_approval_actions (instance_id, node_order, action_type, operator_name, details)
+       VALUES ($1, $2, 'retry_auto_node', '系统', $3)`,
+      [instanceId, node.node_order, JSON.stringify({ source: 'retry_auto_node', message: '重试卡住的auto节点' })]
+    );
+
+    return { instance: inst, autoNode: node };
+  });
+
+  // 事务外：加载表单类型并执行回调
+  const ftResult = await query<{ code: string }>(
+    `SELECT code FROM oa_form_types WHERE id = $1`,
+    [lockedInstance.form_type_id]
+  );
+  const formType = ftResult.rows[0] ? getFormTypeByCode(ftResult.rows[0].code) : undefined;
+  if (!formType?.onApproved) {
+    throw new Error('未找到表单类型定义或 onApproved 回调');
+  }
+
+  // 重新查询实例获取最新数据
+  const instResult = await query<OaApprovalInstanceRow>(
+    `SELECT * FROM oa_approval_instances WHERE id = $1`,
+    [instanceId]
+  );
+  const freshInstance = instResult.rows[0];
+  if (!freshInstance) throw new Error('审批实例不存在');
+
+  const formData = (freshInstance.form_data || {}) as Record<string, unknown>;
+  await executeAutoNodeCallback(instanceId, autoNode, formType, freshInstance, formData);
 }
 
 /**

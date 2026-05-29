@@ -259,3 +259,39 @@ export async function recoverStuckProcessing(): Promise<number> {
   }
   return recovered;
 }
+
+/**
+ * 恢复卡住的 pending + auto 节点实例
+ * 处理场景：审批通过后 auto 节点回调因进程重启丢失，实例停在 pending 状态
+ * 与 recoverStuckProcessing() 互补：后者处理 processing 状态，此函数处理 pending 状态
+ * @returns 恢复的实例数量
+ */
+export async function recoverStuckAutoNodes(): Promise<number> {
+  // 检测：实例 status='pending' + 当前节点是 auto 类型 + 节点 status='pending' + 超过 5 分钟无更新
+  const stuck = await appQuery<{ id: number }>(
+    `SELECT i.id FROM oa_approval_instances i
+     INNER JOIN oa_approval_nodes n
+       ON n.instance_id = i.id AND n.node_order = i.current_node_order
+     WHERE i.status = 'pending'
+       AND n.node_type = 'auto'
+       AND n.status = 'pending'
+       AND i.updated_at < NOW() - interval '5 minutes'`
+  );
+
+  if (stuck.rows.length === 0) return 0;
+
+  // 动态导入避免循环依赖
+  const { retryAutoNode } = await import('../oa-approval/oa-approval.mutation');
+
+  let recovered = 0;
+  for (const row of stuck.rows) {
+    try {
+      await retryAutoNode(row.id);
+      console.log(`[Recovery] auto节点pending恢复成功 [instanceId=${row.id}]`);
+      recovered++;
+    } catch (error) {
+      console.error(`[Recovery] auto节点pending恢复失败 [instanceId=${row.id}]:`, error);
+    }
+  }
+  return recovered;
+}
