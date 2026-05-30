@@ -60,4 +60,30 @@ export const CACHE_KEY = {
   // ==================== 催收仓库前缀 ====================
   /** 催收仓库前缀 */
   AR_COLLECTION_PREFIX: 'ar:collection' as const,
+
+  // ==================== ERP 数据源缓存（API 迁移后使用） ====================
+  /** 客户欠款明细全量数据 */
+  ERP_DEBTS_ALL: 'erp:debts:all' as const,
+  /** 商品档案全量数据 */
+  ERP_PRODUCTS_ALL: 'erp:products:all' as const,
+  /** 实时库存全量数据 */
+  ERP_INVENTORY_ALL: 'erp:inventory:all' as const,
+  /** 销售明细-近期（近7天） */
+  ERP_SALES_RECENT: 'erp:sales:recent' as const,
+  /** 销售明细-历史（8-30天前） */
+  ERP_SALES_HISTORY: 'erp:sales:history' as const,
+  /** 批次库存全量数据 */
+  ERP_BATCH_INVENTORY: 'erp:batch:inventory' as const,
+  /** 库存快照月度数据 */
+  ERP_SNAPSHOT: (month: string) => `erp:snapshot:${month}` as const,
+  /** 库存成本月度汇总 */
+  ERP_STOCK_COST: (month: string) => `erp:stock:cost:${month}` as const,
+  /** 销售明细-最后销售日期 */
+  ERP_SALES_LAST_SALE: 'erp:sales:last_sale' as const,
+
+  // ==================== ERP 聚合层缓存（Facade 结果缓存） ====================
+  /** 商品+库存 JOIN 结果 */
+  ERP_FACADE_PRODUCTS_WITH_STOCK: 'erp:facade:products_with_stock' as const,
+  /** 品类聚合结果 */
+  ERP_FACADE_CATEGORY_AGG: 'erp:facade:category_agg' as const,
 } as const;

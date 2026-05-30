@@ -3,8 +3,9 @@
  * 提供全局统计数据和趋势数据
  */
 
-import { query } from '../../db/pool';
+import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { formatDateOnly } from '../../utils/dateFormat';
 import { getAvailabilityData } from '../availability';
 import { getTurnoverData } from '../turnover';
 import { getExpiringData } from '../expiring';
@@ -82,8 +83,8 @@ export async function getTrendData(days: number = 7): Promise<TrendData> {
 
   // 尝试从数据库获取历史数据
   try {
-    const result = await query<{
-      date: string;
+    const result = await appQuery<{
+      date: any;  // PostgreSQL DATE 返回 Date 对象
       rate: number;
       in_stock_count: number;
       total_count: number;
@@ -100,8 +101,9 @@ export async function getTrendData(days: number = 7): Promise<TrendData> {
     );
 
     result.rows.forEach(row => {
+      const dateStr = formatDateOnly(row.date);
       data.push({
-        date: row.date,
+        date: dateStr,
         availabilityRate: parseFloat(row.rate as any) || 0,
         warningCount: currentWarningCount,
       });

@@ -4,7 +4,7 @@
  */
 
 import { appQuery as query, getAppClient as getClient } from '../../db/appPool';
-import { query as erpQuery } from '../../db/pool';
+import { checkExistingBillIds } from '../erp-client/erp-debt.service';
 import { AR_EXTENSION_MAX_DAYS, AR_ESCALATION_HANDLER_ROLES, AR_ROLLBACK_HANDLER_ROLES } from '../../utils/constants';
 import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
 import type {
@@ -446,13 +446,7 @@ export async function confirmVerify(
       if (detailResult.rows.length > 0) {
         try {
           const billIds = detailResult.rows.map(r => r.erp_bill_id);
-          const placeholders = billIds.map((_, i) => `$${i + 1}`).join(',');
-          const erpResult = await erpQuery<{ billId: string }>(
-            `SELECT "billId" FROM "客户欠款明细"
-             WHERE "leftAmount"::numeric > 0 AND "billId" IN (${placeholders})`,
-            billIds
-          );
-          const existingBillIds = new Set(erpResult.rows.map(r => r.billId));
+          const existingBillIds = await checkExistingBillIds(billIds);
           allErpBillsGone = billIds.every(id => !existingBillIds.has(id));
         } catch (erpErr) {
           console.error('[CollectionMutation] ERP数据检查失败，按常规核销处理:', erpErr);

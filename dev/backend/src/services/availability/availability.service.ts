@@ -3,10 +3,13 @@
  * 负责战略商品齐全率、品类齐全率、品类树形数据等
  */
 
-import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { LOW_STOCK_DAYS, STANDARD_CALC_DAYS } from '../../utils/constants';
+import { getAvailabilityStats, getCategoryAggregation, getOutOfStockProducts } from '../erp-client/erp-data-facade';
+import { getStockByNameMap } from '../erp-client/erp-inventory.service';
+import { getDailySalesMap } from '../erp-client/erp-sales-detail.service';
+import { getMonthlyAvailability } from '../erp-client/erp-snapshot.service';
 import type {
   AvailabilityData,
   CategoryMetric,
@@ -21,97 +24,28 @@ import type {
 } from './availability.types';
 
 /**
- * 获取战略商品齐全率数据
+ * 获取战略商品齐全率数据（通过 ERP API + 内存计算）
  */
 export async function getAvailabilityData(): Promise<AvailabilityData> {
-  // 统计启用商品总数和有库存商品数
-  const stockResult = await query<{
-    total_enabled: number;
-    in_stock: number;
-    out_of_stock: number;
-  }>(`
-    WITH enabled_goods AS (
-      SELECT "goodsId", "name"
-      FROM "商品档案"
-      WHERE "state" = 0
-    )
-    SELECT 
-      COUNT(*) as total_enabled,
-      COUNT(CASE WHEN r."availableBaseQuantity" > 0 THEN 1 END) as in_stock,
-      COUNT(CASE WHEN r."availableBaseQuantity" = 0 OR r."availableBaseQuantity" IS NULL THEN 1 END) as out_of_stock
-    FROM enabled_goods g
-    LEFT JOIN "实时库存表" r ON g."goodsId" = r."goodsId"
-  `);
+  // 通过 facade 获取齐全率统计（内部使用商品+库存+销售 API）
+  const dailySalesMap = await getDailySalesMap(STANDARD_CALC_DAYS);
+  const stats = await getAvailabilityStats(dailySalesMap);
 
-  const stockData = stockResult.rows[0];
-  const totalEnabled = parseInt(stockData.total_enabled as any);
-  const inStock = parseInt(stockData.in_stock as any);
-  const outOfStock = parseInt(stockData.out_of_stock as any);
+  const { totalEnabled, inStock, outOfStock, lowStock, availabilityRate } = stats;
 
-  // 计算低库存商品数（可售天数 <= 15天）
-  const lowStockResult = await query<{ low_stock: number }>(`
-    WITH enabled_goods AS (
-      SELECT g."goodsId", g."name"
-      FROM "商品档案" g
-      WHERE g."state" = 0
-    ),
-    daily_sales AS (
-      SELECT "goodsName", SUM("baseQuantity") / ${STANDARD_CALC_DAYS}.0 as avg_daily
-      FROM "销售结算明细表"
-      WHERE "settleTime" >= NOW() - INTERVAL '${STANDARD_CALC_DAYS} days'
-      GROUP BY "goodsName"
-    )
-    SELECT COUNT(*) as low_stock
-    FROM enabled_goods g
-    JOIN "实时库存表" r ON g."goodsId" = r."goodsId"
-    LEFT JOIN daily_sales s ON r."goodsName" = s."goodsName"
-    WHERE r."availableBaseQuantity" > 0 
-      AND r."availableBaseQuantity" / NULLIF(s.avg_daily, 0) <= ${LOW_STOCK_DAYS}
-  `);
+  // 获取品类齐全率数据（通过 facade）
+  const categoryAgg = await getCategoryAggregation();
 
-  const lowStock = parseInt(lowStockResult.rows[0]?.low_stock as any) || 0;
+  const categories: CategoryMetric[] = categoryAgg.slice(0, 10).map((cat, index) => ({
+    categoryId: `C${String(index + 1).padStart(3, '0')}`,
+    categoryName: cat.name || '未分类',
+    value: cat.availabilityRate,
+    trend: Math.round((Math.random() * 4 - 2) * 10) / 10,
+    trendDirection: (Math.random() > 0.5 ? 'up' : Math.random() > 0.3 ? 'down' : 'flat') as TrendDirection,
+    productCount: cat.totalCount,
+  }));
 
-  // 获取品类齐全率数据
-  const categoryResult = await query<{
-    category_name: string;
-    total: number;
-    in_stock_count: number;
-  }>(`
-    WITH enabled_goods AS (
-      SELECT g."goodsId", g."name", 
-        SPLIT_PART(g."categoryChainName", '/', 1) as category_name
-      FROM "商品档案" g
-      WHERE g."state" = 0 AND g."categoryChainName" IS NOT NULL
-    )
-    SELECT 
-      category_name,
-      COUNT(*) as total,
-      COUNT(CASE WHEN r."availableBaseQuantity" > 0 THEN 1 END) as in_stock_count
-    FROM enabled_goods g
-    LEFT JOIN "实时库存表" r ON g."goodsId" = r."goodsId"
-    GROUP BY category_name
-    ORDER BY COUNT(CASE WHEN r."availableBaseQuantity" > 0 THEN 1 END)::float / COUNT(*) DESC
-  `);
-
-  const categories: CategoryMetric[] = categoryResult.rows.map((row, index) => {
-    const total = parseInt(row.total as any);
-    const inStockCount = parseInt(row.in_stock_count as any);
-    const value = total > 0 ? Math.round((inStockCount / total) * 1000) / 10 : 0;
-    
-    return {
-      categoryId: `C${String(index + 1).padStart(3, '0')}`,
-      categoryName: row.category_name || '未分类',
-      value,
-      trend: Math.round((Math.random() * 4 - 2) * 10) / 10,
-      trendDirection: Math.random() > 0.5 ? 'up' : Math.random() > 0.3 ? 'down' : 'flat',
-      productCount: total,
-    };
-  });
-
-  const availabilityRate = totalEnabled > 0 ? Math.round((inStock / totalEnabled) * 1000) / 10 : 0;
-
-  // 计算战略商品齐全率（跨数据库查询）
-  // 第一步：从 xly_dashboard 获取已确认的战略商品 goods_name 列表
+  // 计算战略商品齐全率
   const strategicGoodsResult = await appQuery<{ goods_name: string }>(`
     SELECT goods_name
     FROM strategic_products
@@ -125,14 +59,11 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
     const strategicGoodsNames = strategicGoodsResult.rows.map(r => r.goods_name);
     const totalStrategic = strategicGoodsNames.length;
 
-    // 第二步：用商品名称去 xinshutong 查询库存
-    const stockResult = await query<{ in_stock_count: number }>(`
-      SELECT COUNT(DISTINCT "goodsName") as in_stock_count
-      FROM "实时库存表"
-      WHERE "goodsName" = ANY($1) AND "availableBaseQuantity" > 0
-    `, [strategicGoodsNames]);
-
-    const inStockStrategic = parseInt(stockResult.rows[0]?.in_stock_count as any) || 0;
+    // 从库存 API 查询战略商品库存
+    const stockByName = await getStockByNameMap();
+    const inStockStrategic = strategicGoodsNames.filter(
+      name => (stockByName.get(name) || 0) > 0
+    ).length;
 
     strategicAvailability = {
       value: Math.round((inStockStrategic / totalStrategic) * 1000) / 10,
@@ -140,7 +71,7 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
       inStockStrategic,
     };
 
-    // 计算月度平均齐全率
+    // 计算月度平均齐全率（Phase 5: 从快照表查询）
     strategicMonthlyAvailability = await getStrategicMonthlyAvailability(strategicGoodsNames);
   }
 
@@ -148,7 +79,7 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
     value: availabilityRate,
     unit: 'percent',
     totalSku: totalEnabled,
-    categories: categories.slice(0, 10),
+    categories,
     warningStats: {
       outOfStock,
       lowStock,
@@ -190,35 +121,16 @@ export async function getStrategicMonthlyAvailability(
     monthStartStr,
   });
 
-  // 查询每日战略商品库存状态（使用商品名称匹配）
-  // 注意："数据日期" 字段直接转为日期类型进行比较
-  // 使用 to_char 返回日期字符串，避免时区转换问题
-  const dailyStockResult = await query<{
-    stock_date_str: string;
-    in_stock_count: number;
-  }>(`
-    SELECT
-      to_char("数据日期"::date, 'YYYY-MM-DD') as stock_date_str,
-      COUNT(DISTINCT "goodsName") as in_stock_count
-    FROM "实时库存表_每天"
-    WHERE "goodsName" = ANY($1)
-      AND "availableBaseQuantity" > 0
-      AND "数据日期"::date >= $2::date
-      AND "数据日期"::date <= CURRENT_DATE
-    GROUP BY "数据日期"::date
-    ORDER BY "数据日期"::date
-  `, [strategicGoodsNames, monthStartStr]);
+  // 通过快照服务查询每日战略商品库存状态（替代原 SQL 查询 "实时库存表_每天"）
+  const dailyMap = await getMonthlyAvailability(strategicGoodsNames, monthStartStr);
 
   // 构建每日齐全率数据
-  const dailyRates: DailyAvailabilityRate[] = dailyStockResult.rows.map(row => {
-    const inStockCount = parseInt(row.in_stock_count as any) || 0;
+  const dailyRates: DailyAvailabilityRate[] = [];
+  dailyMap.forEach((inStockCount, dateStr) => {
     const rate = Math.round((inStockCount / totalStrategic) * 1000) / 10;
-    return {
-      date: row.stock_date_str,
-      rate,
-      inStockCount,
-    };
+    dailyRates.push({ date: dateStr, rate, inStockCount });
   });
+  dailyRates.sort((a, b) => a.date.localeCompare(b.date));
   
   console.log('[getStrategicMonthlyAvailability] 查询结果:', {
     monthStartStr,
@@ -261,110 +173,31 @@ export async function getCategoryTreeData(): Promise<CategoryTreeNode[]> {
   console.log('[getCategoryTreeData] 缓存未命中，查询数据库...');
 
   // 使用 SQL 层聚合，直接获取各级品类的统计数据
-  // 避免在 Node.js 中遍历所有商品记录
-  const result = await query<{
-    level: string;
-    name: string;
-    parent_path: string | null;
-    category_path: string;
-    total_count: number;
-    in_stock_count: number;
-  }>(`
-    WITH enabled_goods AS (
-      SELECT
-        g."goodsId",
-        SPLIT_PART(g."categoryChainName", '/', 1) as l1,
-        SPLIT_PART(g."categoryChainName", '/', 2) as l2,
-        SPLIT_PART(g."categoryChainName", '/', 3) as l3
-      FROM "商品档案" g
-      WHERE g."state" = 0 AND g."categoryChainName" IS NOT NULL AND g."categoryChainName" != ''
-    ),
-    stock_summary AS (
-      SELECT "goodsId", SUM("availableBaseQuantity") as total_quantity
-      FROM "实时库存表"
-      GROUP BY "goodsId"
-    ),
-    goods_with_stock AS (
-      SELECT
-        e."goodsId",
-        e.l1,
-        e.l2,
-        e.l3,
-        CASE WHEN s.total_quantity > 0 THEN true ELSE false END as has_stock
-      FROM enabled_goods e
-      LEFT JOIN stock_summary s ON e."goodsId" = s."goodsId"
-    ),
-    -- 一级品类统计
-    l1_stats AS (
-      SELECT
-        l1 as name,
-        l1 as category_path,
-        NULL as parent_path,
-        COUNT(*) as total_count,
-        COUNT(CASE WHEN has_stock THEN 1 END) as in_stock_count
-      FROM goods_with_stock
-      WHERE l1 IS NOT NULL AND l1 != ''
-      GROUP BY l1
-    ),
-    -- 二级品类统计
-    l2_stats AS (
-      SELECT
-        l2 as name,
-        l1 || '/' || l2 as category_path,
-        l1 as parent_path,
-        COUNT(*) as total_count,
-        COUNT(CASE WHEN has_stock THEN 1 END) as in_stock_count
-      FROM goods_with_stock
-      WHERE l1 IS NOT NULL AND l1 != '' AND l2 IS NOT NULL AND l2 != ''
-      GROUP BY l1, l2
-    ),
-    -- 三级品类统计
-    l3_stats AS (
-      SELECT
-        l3 as name,
-        l1 || '/' || l2 || '/' || l3 as category_path,
-        l1 || '/' || l2 as parent_path,
-        COUNT(*) as total_count,
-        COUNT(CASE WHEN has_stock THEN 1 END) as in_stock_count
-      FROM goods_with_stock
-      WHERE l1 IS NOT NULL AND l1 != ''
-        AND l2 IS NOT NULL AND l2 != ''
-        AND l3 IS NOT NULL AND l3 != ''
-      GROUP BY l1, l2, l3
-    )
-    SELECT 'l1' as level, name, parent_path, category_path, total_count, in_stock_count FROM l1_stats
-    UNION ALL
-    SELECT 'l2' as level, name, parent_path, category_path, total_count, in_stock_count FROM l2_stats
-    UNION ALL
-    SELECT 'l3' as level, name, parent_path, category_path, total_count, in_stock_count FROM l3_stats
-    ORDER BY level, category_path
-  `);
+  // 通过 facade 获取品类聚合数据（内存计算）
+  const categoryAgg = await getCategoryAggregation();
 
-  // 构建树形结构
+  // 构建树形结构（facade 已返回树形数据，直接转换类型）
   const l1Nodes: CategoryTreeNode[] = [];
   const l2NodesMap = new Map<string, CategoryTreeNode>();
   const l3NodesMap = new Map<string, CategoryTreeNode>();
 
-  for (const row of result.rows) {
-    const total = parseInt(row.total_count as any);
-    const inStock = parseInt(row.in_stock_count as any);
-    const rate = total > 0 ? Math.round((inStock / total) * 1000) / 10 : 0;
-
+  // 先创建所有节点
+  for (const item of categoryAgg) {
     const node: CategoryTreeNode = {
-      name: row.name,
-      value: total,
-      availabilityRate: rate,
-      inStockCount: inStock,
-      totalCount: total,
-      categoryPath: row.category_path,
+      name: item.name,
+      value: item.totalCount,
+      availabilityRate: item.availabilityRate,
+      inStockCount: item.inStockCount,
+      totalCount: item.totalCount,
+      categoryPath: item.categoryPath,
     };
 
-    if (row.level === 'l1') {
+    if (item.level === 'l1') {
       l1Nodes.push(node);
-    } else if (row.level === 'l2') {
-      l2NodesMap.set(row.category_path, node);
-    } else if (row.level === 'l3') {
-      l3NodesMap.set(row.category_path, node);
+    } else if (item.level === 'l2') {
+      l2NodesMap.set(item.categoryPath, node);
+    } else if (item.level === 'l3') {
+      l3NodesMap.set(item.categoryPath, node);
     }
   }
 
@@ -407,38 +240,14 @@ export async function getOutOfStockProductsByCategory(
 ): Promise<PaginatedResult<{ productName: string }>> {
   const page = pagination.page ?? 1;
   const pageSize = pagination.pageSize ?? 20;
-  // 安全检查：pageSize 上限 100，page 下限 1
   const safePageSize = Math.min(pageSize, 100);
   const safePage = Math.max(page, 1);
-  const offset = (safePage - 1) * safePageSize;
 
-  const result = await query<{ product_name: string; total_count: number }>(`
-    WITH enabled_goods AS (
-      SELECT g."goodsId", g."name", g."categoryChainName"
-      FROM "商品档案" g
-      WHERE g."state" = 0 AND g."categoryChainName" LIKE $1 || '%'
-    ),
-    stock_summary AS (
-      SELECT "goodsId", SUM("availableBaseQuantity") as total_quantity
-      FROM "实时库存表"
-      GROUP BY "goodsId"
-    )
-    SELECT 
-      g."name" as product_name,
-      COUNT(*) OVER() as total_count
-    FROM enabled_goods g
-    LEFT JOIN stock_summary s ON g."goodsId" = s."goodsId"
-    WHERE s.total_quantity IS NULL OR s.total_quantity = 0
-    ORDER BY g."name"
-    LIMIT $2 OFFSET $3
-  `, [categoryPath, safePageSize, offset]);
+  // 通过 facade 获取缺货商品（替代原 SQL CTE 查询）
+  const result = await getOutOfStockProducts(categoryPath, safePage, safePageSize);
 
-  const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count as any) || 0 : 0;
-  const totalPages = Math.ceil(total / safePageSize);
+  const totalPages = Math.ceil(result.total / safePageSize);
+  const data = result.data.map(name => ({ productName: name }));
 
-  const data = result.rows.map(row => ({
-    productName: row.product_name || '',
-  }));
-
-  return { data, total, page: safePage, pageSize: safePageSize, totalPages };
+  return { data, total: result.total, page: safePage, pageSize: safePageSize, totalPages };
 }

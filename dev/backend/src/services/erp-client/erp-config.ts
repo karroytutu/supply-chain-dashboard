@@ -41,6 +41,12 @@ export function getErpConfig(): ErpApiConfig {
       expenditureBillCancelPath: erpApi?.expenditureBillCancelPath || '/expenditure-bill/cancel-expenditure',
       incomeReApprovePath: erpApi?.incomeReApprovePath || '/income/re-approve-income',
       incomeCancelPath: erpApi?.incomeCancelPath || '/income/cancel-income',
+      // 数据源 API 路径（ERP 数据库迁移）
+      debtPathPrefix: erpApi?.debtPathPrefix || '/toliman/',
+      inventoryPathPrefix: erpApi?.inventoryPathPrefix || '/toliman/',
+      salesDetailPathPrefix: erpApi?.salesDetailPathPrefix || '/toliman/',
+      batchInventoryPathPrefix: erpApi?.batchInventoryPathPrefix || '/toliman/',
+      wmsBaseUrl: erpApi?.wmsBaseUrl || 'https://wms.zhoupudata.com',
     };
 
     // 开发环境警告

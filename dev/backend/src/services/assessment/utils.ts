@@ -4,7 +4,7 @@
  */
 
 import { appQuery } from '../../db/appPool';
-import { query } from '../../db/pool';
+import { getCostPriceByNameMap } from '../erp-client/erp-inventory.service';
 
 /** 用户基础信息 */
 interface UserBasicInfo {
@@ -60,23 +60,14 @@ export async function findUserByName(
 }
 
 /**
- * 获取商品平均进价
- * 从实时库存表获取 baseCostPrice 的加权平均值
+ * 获取商品平均进价（通过 ERP 库存 API）
  * @param goodsName 商品名称
  * @usedBy return-order-rules.ts (获取商品进价计算考核金额)
  */
 export async function getPurchasePrice(goodsName: string): Promise<number> {
   try {
-    const result = await query<{ avg_price: string }>(
-      `SELECT
-        SUM(r."baseCostPrice" * r."availableBaseQuantity") /
-        NULLIF(SUM(r."availableBaseQuantity"), 0) as avg_price
-       FROM "实时库存表" r
-       WHERE r."goodsName" = $1`,
-      [goodsName]
-    );
-
-    const avgPrice = parseFloat(result.rows[0]?.avg_price || '0');
+    const costMap = await getCostPriceByNameMap();
+    const avgPrice = costMap.get(goodsName) || 0;
     return avgPrice > 0 ? avgPrice : 0;
   } catch (error) {
     console.error('[Assessment] 获取商品进价失败:', goodsName, error);

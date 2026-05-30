@@ -3,8 +3,12 @@
  * 每天08:30从ERP同步昨天的退货数据
  */
 
-import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
+import { getProductByName } from '../erp-client/erp-product.service';
+import { getCostPriceByNameMap } from '../erp-client/erp-inventory.service';
+import { fetchReturnAcceptances } from '../erp-client/erp-return-acceptance.service';
+import { getSalesDetailByOriginStr } from '../erp-client/erp-sales-detail.service';
+import { searchErpCustomers } from '../erp-client/erp-customer.service';
 import { getExpiringThreshold } from '../../utils/constants';
 import { checkGoodsReturnRule } from '../goods-return-rules/goods-return-rules.service';
 import { createReturnOrder, autoCompleteMarketingSale } from '../return-order/return-order.mutation';
@@ -205,48 +209,34 @@ function formatDateTime(date: Date): string {
 }
 
 /**
- * 查询云仓退货验收明细
- * 查询昨天新增的记录
+ * 查询云仓退货验收明细（通过 WMS API）
  */
 async function queryReturnAcceptanceRecords(
   startTime: string,
   endTime: string
 ): Promise<ReturnAcceptanceRecord[]> {
-  const result = await query<ReturnAcceptanceRecord>(
-    `SELECT 
-      "sourceBillNo",
-      "goodsId",
-      "goodsName",
-      "unitName",
-      "unfrozenIncreasedQuantity",
-      "productionDate",
-      "createTime"
-    FROM "云仓退货验收明细"
-    WHERE "createTime" >= $1 AND "createTime" <= $2
-    ORDER BY "createTime" DESC`,
-    [startTime, endTime]
-  );
+  const dateStart = startTime.slice(0, 10);
+  const dateEnd = endTime.slice(0, 10);
+  const records = await fetchReturnAcceptances(dateStart, dateEnd);
 
-  return result.rows;
+  return records.map(r => ({
+    sourceBillNo: r.sourceBillNo,
+    goodsId: String(r.goodsId),
+    goodsName: r.goodsName,
+    unitName: r.unitName,
+    unfrozenIncreasedQuantity: r.unfrozenIncreasedQuantity,
+    productionDate: new Date(r.productionDate),
+    createTime: new Date(r.createTime),
+  }));
 }
 
 /**
- * 查询商品档案信息
- * 使用商品名称匹配
+ * 查询商品档案信息（通过 ERP API）
  */
 async function queryGoodsInfo(goodsName: string): Promise<GoodsInfo | null> {
-  const result = await query<GoodsInfo>(
-    `SELECT "shelfLife"::int as "shelfLife" FROM "商品档案" WHERE "name" = $1 LIMIT 1`,
-    [goodsName]
-  );
-
-  if (result.rows.length === 0) {
-    return null;
-  }
-
-  return {
-    shelfLife: result.rows[0].shelfLife,
-  };
+  const product = await getProductByName(goodsName);
+  if (!product) return null;
+  return { shelfLife: product.shelfLife || 0 };
 }
 
 /**
@@ -268,36 +258,25 @@ async function checkReturnOrderExists(
 }
 
 /**
- * 查询责任营销师
- * 通过销售结算明细表和客户档案表关联
+ * 查询责任营销师（通过 ERP API）
  */
 async function queryMarketingManager(sourceBillNo: string): Promise<string | null> {
   try {
-    // 1. 从销售结算明细表获取客户名称
-    const settlementResult = await query<SalesSettlementRecord>(
-      `SELECT "consumerName" FROM "销售结算明细表" WHERE "originStr" = $1 LIMIT 1`,
-      [sourceBillNo]
-    );
-
-    if (settlementResult.rows.length === 0) {
+    const salesDetail = await getSalesDetailByOriginStr(sourceBillNo);
+    if (!salesDetail) {
       console.warn(`[SyncReturnOrders] 未找到销售结算记录: ${sourceBillNo}`);
       return null;
     }
 
-    const consumerName = settlementResult.rows[0].consumerName;
-
-    // 2. 从客户档案表获取责任营销师
-    const customerResult = await query<CustomerRecord>(
-      `SELECT "consumerManagerName" FROM "客户档案表" WHERE "name" = $1 LIMIT 1`,
-      [consumerName]
-    );
-
-    if (customerResult.rows.length === 0) {
+    const consumerName = salesDetail.consumerName;
+    const customers = await searchErpCustomers(consumerName);
+    const matched = customers.find(c => c.name === consumerName);
+    if (!matched) {
       console.warn(`[SyncReturnOrders] 未找到客户档案: ${consumerName}`);
       return null;
     }
 
-    return customerResult.rows[0].consumerManagerName;
+    return (matched as any).consumerManagerName || null;
   } catch (error) {
     console.error(`[SyncReturnOrders] 查询责任营销师失败: ${sourceBillNo}`, error);
     return null;
@@ -305,20 +284,12 @@ async function queryMarketingManager(sourceBillNo: string): Promise<string | nul
 }
 
 /**
- * 查询客户名称
+ * 查询客户名称（通过 ERP API）
  */
 async function queryConsumerName(sourceBillNo: string): Promise<string | null> {
   try {
-    const result = await query<{ consumerName: string }>(
-      `SELECT "consumerName" FROM "销售结算明细表" WHERE "originStr" = $1 LIMIT 1`,
-      [sourceBillNo]
-    );
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return result.rows[0].consumerName;
+    const salesDetail = await getSalesDetailByOriginStr(sourceBillNo);
+    return salesDetail?.consumerName || null;
   } catch (error) {
     console.error(`[SyncReturnOrders] 查询客户名称失败: ${sourceBillNo}`, error);
     return null;
@@ -427,20 +398,9 @@ function getTodayRange(): { start: string; end: string } {
  */
 async function queryPurchasePrice(goodsName: string): Promise<number | null> {
   try {
-    const result = await query<{ avg_price: string }>(
-      `SELECT
-        SUM(r."baseCostPrice" * r."availableBaseQuantity") /
-        NULLIF(SUM(r."availableBaseQuantity"), 0) as avg_price
-       FROM "实时库存表" r
-       WHERE r."goodsName" = $1`,
-      [goodsName]
-    );
-
-    if (result.rows.length === 0 || !result.rows[0].avg_price) {
-      return null;
-    }
-
-    return parseFloat(result.rows[0].avg_price);
+    const costMap = await getCostPriceByNameMap();
+    const price = costMap.get(goodsName);
+    return price && price > 0 ? price : null;
   } catch (error) {
     console.error(`[SyncReturnOrders] 查询商品进价失败: ${goodsName}`, error);
     return null;

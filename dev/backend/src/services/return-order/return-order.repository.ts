@@ -4,8 +4,9 @@
  * 遵循规范：Controller → Service → Repository → DB
  */
 
-import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
+import { fetchAllProducts } from '../erp-client/erp-product.service';
+import { getDefectiveBatchInventory } from '../erp-client/erp-batch-inventory.service';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import type {
   ReturnOrderQueryParams,
@@ -421,24 +422,16 @@ export async function autoCompleteMarketingSale(): Promise<{
     return { checkedCount: 0, completedCount: 0 };
   }
 
-  // 获取商品名称列表，查询残次品库存
-  const goodsNames = pendingOrders.map(order => order.goods_name);
-  const stockResult = await query<{
-    goodsName: string;
-    total_quantity: number;
-  }>(
-    `SELECT "goodsName", SUM("quantity") as total_quantity
-     FROM "独山云仓批次库存表"
-     WHERE "goodsName" = ANY($1)
-       AND "qualityTypeStr" = '残次品'
-     GROUP BY "goodsName"`,
-    [goodsNames]
-  );
+  // 获取残次品批次库存（通过 ERP API）
+  const defectiveBatches = await getDefectiveBatchInventory();
+  const goodsNamesSet = new Set(pendingOrders.map(order => order.goods_name));
 
   const stockMap = new Map<string, number>();
-  stockResult.rows.forEach(row => {
-    stockMap.set(row.goodsName, parseFloat(row.total_quantity as any) || 0);
-  });
+  for (const batch of defectiveBatches) {
+    if (!goodsNamesSet.has(batch.goodsName)) continue;
+    const qty = parseFloat(batch.quantity) || 0;
+    stockMap.set(batch.goodsName, (stockMap.get(batch.goodsName) || 0) + qty);
+  }
 
   let completedCount = 0;
   for (const order of pendingOrders) {
@@ -474,52 +467,30 @@ async function enrichStockData(rows: ReturnOrderRow[]): Promise<void> {
   const unitInfoMap = new Map<string, { pkgUnit: string; baseUnit: string; unitFactor: number }>();
 
   try {
-    // 1. 查询商品档案获取换算信息
-    const unitInfoResult = await query<{
-      name: string;
-      pkgUnitName: string | null;
-      baseUnitName: string | null;
-      unitFactor: number | null;
-    }>(
-      `SELECT name, "pkgUnitName", "baseUnitName", "unitFactor"
-       FROM "商品档案"
-       WHERE name = ANY($1)`,
-      [goodsNames]
-    );
-
-    unitInfoResult.rows.forEach(row => {
-      if (row.name) {
-        unitInfoMap.set(row.name, {
-          pkgUnit: row.pkgUnitName || '',
-          baseUnit: row.baseUnitName || '',
-          unitFactor: row.unitFactor || 1,
+    // 1. 从 ERP API 获取商品档案换算信息
+    const allProducts = await fetchAllProducts(0);
+    const productNameSet = new Set(goodsNames);
+    allProducts.forEach(p => {
+      if (productNameSet.has(p.name)) {
+        unitInfoMap.set(p.name, {
+          pkgUnit: p.pkgUnitName || '',
+          baseUnit: p.baseUnitName || '',
+          unitFactor: p.unitFactor || 1,
         });
       }
     });
 
-    // 2. 查询库存
-    const stockResult = await query<{
-      goodsName: string;
-      unitName: string;
-      total_quantity: number;
-    }>(
-      `SELECT "goodsName", "unitName", SUM("quantity") as total_quantity
-       FROM "独山云仓批次库存表"
-       WHERE "goodsName" = ANY($1)
-         AND "qualityTypeStr" = '残次品'
-       GROUP BY "goodsName", "unitName"`,
-      [goodsNames]
-    );
-
-    stockResult.rows.forEach(row => {
-      if (!stockByGoods.has(row.goodsName)) {
-        stockByGoods.set(row.goodsName, new Map());
+    // 2. 查询残次品批次库存（通过 ERP API）
+    const defectiveBatches = await getDefectiveBatchInventory();
+    for (const batch of defectiveBatches) {
+      if (!goodsNames.includes(batch.goodsName)) continue;
+      if (!stockByGoods.has(batch.goodsName)) {
+        stockByGoods.set(batch.goodsName, new Map());
       }
-      stockByGoods.get(row.goodsName)!.set(
-        row.unitName,
-        parseFloat(row.total_quantity as any) || 0
-      );
-    });
+      const qty = parseFloat(batch.quantity) || 0;
+      const existing = stockByGoods.get(batch.goodsName)!.get(batch.unitName) || 0;
+      stockByGoods.get(batch.goodsName)!.set(batch.unitName, existing + qty);
+    }
   } catch (error) {
     console.error('[ReturnOrder] 查询库存失败:', error);
   }

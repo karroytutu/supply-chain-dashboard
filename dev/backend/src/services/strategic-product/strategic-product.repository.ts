@@ -4,7 +4,8 @@
  * 遵循规范：Controller → Service → Repository → DB
  */
 
-import { query } from '../../db/pool';
+import { fetchAllProducts, getProductById, type ErpProduct } from '../erp-client/erp-product.service';
+import { getStockSummaryMap } from '../erp-client/erp-inventory.service';
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import type {
@@ -110,13 +111,13 @@ export async function getCategoryTree() {
   const cached = cache.get<any[]>(cacheKey);
   if (cached) return cached;
 
-  // 从商品档案获取品类结构
-  const result = await query<{ category_chain: string }>(
-    `SELECT DISTINCT "categoryChainName" as category_chain
-     FROM "商品档案"
-     WHERE "state" = 0 AND "categoryChainName" IS NOT NULL
-     ORDER BY category_chain`
-  );
+  // 从商品档案 API 获取品类结构
+  const allProducts = await fetchAllProducts(0);
+  const categoryChains = [...new Set(
+    allProducts
+      .filter(p => p.categoryChainName)
+      .map(p => p.categoryChainName)
+  )].sort();
 
   // 统计各品类的战略商品数量
   const statsResult = await appQuery<{
@@ -137,11 +138,10 @@ export async function getCategoryTree() {
   // 构建品类树
   const treeMap = new Map<string, any>();
 
-  result.rows.forEach(row => {
-    const path = row.category_chain;
-    if (!path) return;
+  categoryChains.forEach(catPath => {
+    if (!catPath) return;
 
-    const parts = path.split('/');
+    const parts = catPath.split('/');
     let currentPath = '';
 
     parts.forEach((part, index) => {
@@ -187,25 +187,10 @@ export async function getCategoryTree() {
 }
 
 /**
- * 获取可选商品列表
+ * 获取可选商品列表（通过 ERP API + 内存过滤/分页）
  */
 export async function getProductsForSelection(params: GetProductsQueryParams) {
   const { categoryPath, keyword, page = 1, pageSize = 50 } = params;
-  const offset = (page - 1) * pageSize;
-  const conditions: string[] = ['g."state" = 0'];
-  const queryParams: any[] = [];
-  let paramIndex = 1;
-
-  if (categoryPath) {
-    conditions.push(`g."categoryChainName" LIKE $${paramIndex++}`);
-    queryParams.push(`${categoryPath}%`);
-  }
-  if (keyword) {
-    conditions.push(`g."name" ILIKE $${paramIndex++}`);
-    queryParams.push(`%${keyword}%`);
-  }
-
-  const whereClause = conditions.join(' AND ');
 
   // 获取已存在的战略商品 goods_id
   const strategicResult = await appQuery<{ goods_id: string }>(
@@ -213,38 +198,43 @@ export async function getProductsForSelection(params: GetProductsQueryParams) {
   );
   const strategicGoodsIds = new Set(strategicResult.rows.map(r => r.goods_id));
 
-  // 查询总数
-  const countResult = await query<{ total: number }>(
-    `SELECT COUNT(*) as total FROM "商品档案" g WHERE ${whereClause}`,
-    queryParams
-  );
-  const total = parseInt(countResult.rows[0]?.total as any) || 0;
+  // 从 API 获取所有启用商品 + 库存
+  const [allProducts, stockMap] = await Promise.all([
+    fetchAllProducts(0),
+    getStockSummaryMap(),
+  ]);
 
-  // 查询商品列表
-  const listParams = [...queryParams, pageSize, offset];
-  const result = await query(
-    `SELECT
-      g."goodsId" as goods_id,
-      g."name" as goods_name,
-      g."categoryChainName" as category_path,
-      COALESCE(s.total_stock, 0) as stock,
-      g."pkgUnitName" as pkg_unit_name,
-      g."baseUnitName" as base_unit_name,
-      g."unitFactor" as unit_factor
-    FROM "商品档案" g
-    LEFT JOIN (
-      SELECT "goodsId", SUM("availableBaseQuantity") as total_stock
-      FROM "实时库存表"
-      GROUP BY "goodsId"
-    ) s ON g."goodsId" = s."goodsId"
-    WHERE ${whereClause}
-    ORDER BY g."name"
-    LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
-    listParams
-  );
+  // 内存过滤
+  let filtered = allProducts;
+  if (categoryPath) {
+    filtered = filtered.filter(p => p.categoryChainName?.startsWith(categoryPath));
+  }
+  if (keyword) {
+    const kw = keyword.toLowerCase();
+    filtered = filtered.filter(p => p.name.toLowerCase().includes(kw));
+  }
+
+  // 按名称排序
+  filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+  // 分页
+  const total = filtered.length;
+  const offset = (page - 1) * pageSize;
+  const pageItems = filtered.slice(offset, offset + pageSize);
+
+  // 构建返回结果
+  const rows = pageItems.map(p => ({
+    goods_id: String(p.goodsId),
+    goods_name: p.name,
+    category_path: p.categoryChainName,
+    stock: stockMap.get(p.goodsId) ?? 0,
+    pkg_unit_name: p.pkgUnitName,
+    base_unit_name: p.baseUnitName,
+    unit_factor: p.unitFactor,
+  }));
 
   return {
-    rows: result.rows,
+    rows,
     strategicGoodsIds,
     total,
     page,
@@ -296,28 +286,27 @@ export async function addProducts(
     return { addedCount: 0, skippedCount: 0 };
   }
 
-  // 获取商品信息
-  const goodsResult = await query<{
-    goodsId: string;
-    goodsName: string;
-    categoryChainName: string;
-  }>(
-    `SELECT "goodsId", "name" as "goodsName", "categoryChainName"
-     FROM "商品档案"
-     WHERE "goodsId" = ANY($1) AND "state" = 0`,
-    [goodsIds]
-  );
+  // 从 API 获取商品信息
+  const allProducts = await fetchAllProducts(0);
+  const goodsIdSet = new Set(goodsIds.map(id => Number(id)));
+  const matchedProducts = allProducts
+    .filter(p => goodsIdSet.has(p.goodsId))
+    .map(p => ({
+      goodsId: String(p.goodsId),
+      goodsName: p.name,
+      categoryChainName: p.categoryChainName,
+    }));
 
-  if (goodsResult.rows.length === 0) {
+  if (matchedProducts.length === 0) {
     return { addedCount: 0, skippedCount: goodsIds.length };
   }
 
   // 批量插入（带 ON CONFLICT 处理）
-  const values = goodsResult.rows.map((g, i) =>
+  const values = matchedProducts.map((g, i) =>
     `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`
   ).join(', ');
 
-  const insertParams = goodsResult.rows.flatMap(g => [
+  const insertParams = matchedProducts.flatMap(g => [
     g.goodsId,
     g.goodsName,
     g.categoryChainName || '',
@@ -332,7 +321,7 @@ export async function addProducts(
   );
 
   const addedCount = insertResult.rowCount ?? 0;
-  const skippedCount = goodsIds.length - goodsResult.rows.length + (goodsResult.rows.length - addedCount);
+  const skippedCount = goodsIds.length - matchedProducts.length + (matchedProducts.length - addedCount);
 
   return { addedCount, skippedCount };
 }
@@ -581,19 +570,16 @@ export async function syncCategoryPath(): Promise<{ updatedCount: number; totalC
 
   const goodsIds = strategicResult.rows.map(r => r.goods_id);
 
-  const goodsResult = await query<{
-    goodsId: string;
-    categoryChainName: string;
-  }>(
-    `SELECT "goodsId", "categoryChainName"
-     FROM "商品档案"
-     WHERE "goodsId" = ANY($1) AND "state" = 0`,
-    [goodsIds]
-  );
+  // 从 API 获取商品品类信息
+  const allProducts = await fetchAllProducts(0);
+  const productMap = new Map(allProducts.map(p => [String(p.goodsId), p]));
 
   const categoryMap = new Map<string, string>();
-  goodsResult.rows.forEach(row => {
-    categoryMap.set(row.goodsId, row.categoryChainName || '');
+  goodsIds.forEach(id => {
+    const product = productMap.get(id);
+    if (product) {
+      categoryMap.set(id, product.categoryChainName || '');
+    }
   });
 
   let updatedCount = 0;

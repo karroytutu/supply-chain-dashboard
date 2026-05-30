@@ -4,7 +4,6 @@
  * 供任务生成器、预警查询、预警提醒共用
  */
 
-import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
