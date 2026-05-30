@@ -152,6 +152,8 @@ export interface CollectionAction {
   operatorName: string;
   operatorRole: string;
   createdAt: string;
+  extensionDays?: number | null;
+  extensionUntil?: string | null;
 }
 
 /**

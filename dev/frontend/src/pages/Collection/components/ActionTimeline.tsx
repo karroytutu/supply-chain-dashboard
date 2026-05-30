@@ -17,6 +17,7 @@ import {
   PaperClipOutlined,
 } from '@ant-design/icons';
 import type { CollectionAction } from '@/types/ar-collection';
+import { formatDate } from '@/utils/format';
 
 interface ActionTimelineProps {
   /** 操作记录列表 */
@@ -142,6 +143,12 @@ const ActionTimeline: React.FC<ActionTimelineProps> = ({
               </span>
             )}
           </div>
+          {action.actionType === 'extension' && action.extensionUntil && (
+            <div style={{ color: '#722ed1', fontSize: 13, marginTop: 2 }}>
+              {action.extensionDays != null ? `延期 ${action.extensionDays} 天，` : ''}
+              至 <strong>{formatDate(action.extensionUntil)}</strong>
+            </div>
+          )}
           <div style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
             {action.remark || '-'}
           </div>

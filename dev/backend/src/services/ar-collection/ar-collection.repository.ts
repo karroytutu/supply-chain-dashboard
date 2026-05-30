@@ -292,9 +292,21 @@ export async function getTaskActions(taskId: number) {
   const result = await query(
     `SELECT
       a.*,
-      u.name AS operator_display_name
+      u.name AS operator_display_name,
+      er.extension_days AS extension_days,
+      er.extension_until AS extension_until
     FROM ar_collection_actions a
     LEFT JOIN users u ON a.operator_id = u.id
+    -- 通过时间窗口关联延期记录（假设 logAction 在 extension record INSERT 后 5 秒内执行）
+    -- TODO: 更稳健的方案是在 ar_collection_actions 中增加 extension_record_id 外键，实现精确关联
+    LEFT JOIN LATERAL (
+      SELECT extension_days, extension_until
+      FROM ar_extension_records
+      WHERE task_id = a.task_id
+        AND created_at <= a.created_at + interval '5 seconds'
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) er ON a.action_type = 'extension'
     WHERE a.task_id = $1
     ORDER BY a.created_at DESC`,
     [taskId]

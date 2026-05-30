@@ -232,6 +232,11 @@ export interface CollectionAction {
   operator_name: string | null;
   operator_role: string | null;
 
+  // SQL JOIN 扩展字段（查询时通过别名注入，非表原生字段）
+  extension_days?: number | null;
+  extension_until?: string | null;
+  operator_display_name?: string | null;
+
   created_at: string;
 }
 
