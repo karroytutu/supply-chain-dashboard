@@ -258,7 +258,8 @@ export async function applyExtension(
 
     console.log('[CollectionMutation] applyExtension: committed and cache invalidated for taskId=%d', taskId);
 
-    await logAction(taskId, params.detail_ids, 'extension', 'success', params.remark || null, operator);
+    const extensionRemark = `申请延期${params.extension_days}天，至${extensionUntil}${params.remark ? '。' + params.remark : ''}`;
+    await logAction(taskId, params.detail_ids, 'extension', 'success', extensionRemark, operator);
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[CollectionMutation] applyExtension FAILED for taskId=%d:', taskId, err instanceof Error ? err.message : err);
