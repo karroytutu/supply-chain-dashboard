@@ -3,9 +3,11 @@
  * 负责战略商品齐全率和库存周转天数的月度存档
  */
 
-import { query } from '../../db/pool';
 import { appQuery } from '../../db/appPool';
 import { STANDARD_CALC_DAYS } from '../../utils/constants';
+import { formatDateOnly } from '../../utils/dateFormat';
+import { getMonthlyAvailability } from '../erp-client/erp-snapshot.service';
+import { getStockCostByMonth } from '../erp-client/erp-stock-cost.service';
 import type {
   MonthlyArchiveRecord,
   ArchiveQueryParams,
@@ -66,25 +68,11 @@ export async function calculateMonthlyAvailability(
   const monthStartStr = `${monthStart.getFullYear()}-${pad(monthStart.getMonth() + 1)}-${pad(monthStart.getDate())}`;
   const monthEndStr = `${monthEnd.getFullYear()}-${pad(monthEnd.getMonth() + 1)}-${pad(monthEnd.getDate())}`;
 
-  // 查询该月每日战略商品库存状态
-  const dailyStockResult = await query<{
-    stock_date: Date;
-    in_stock_count: number;
-  }>(`
-    SELECT
-      "数据日期"::date as stock_date,
-      COUNT(DISTINCT "goodsName") as in_stock_count
-    FROM "实时库存表_每天"
-    WHERE "goodsName" = ANY($1)
-      AND "availableBaseQuantity" > 0
-      AND "数据日期" >= $2
-      AND "数据日期" <= $3
-    GROUP BY "数据日期"::date
-    ORDER BY stock_date
-  `, [strategicGoodsNames, monthStartStr, monthEndStr]);
+  // 通过快照服务查询该月每日战略商品库存状态（替代原 SQL 查询 "实时库存表_每天"）
+  const dailyMap = await getMonthlyAvailability(strategicGoodsNames, monthStartStr);
 
   // 计算月度平均齐全率
-  const daysInMonth = dailyStockResult.rows.length;
+  const daysInMonth = dailyMap.size;
 
   if (daysInMonth === 0) {
     return {
@@ -95,11 +83,10 @@ export async function calculateMonthlyAvailability(
   }
 
   let totalRate = 0;
-  for (const row of dailyStockResult.rows) {
-    const inStockCount = parseInt(row.in_stock_count as any) || 0;
+  dailyMap.forEach((inStockCount) => {
     const rate = (inStockCount / totalStrategic) * 100;
     totalRate += rate;
-  }
+  });
 
   const avgRate = Math.round((totalRate / daysInMonth) * 10) / 10;
 
@@ -127,38 +114,16 @@ export async function calculateMonthlyTurnover(
   const prevYear = month === 1 ? year - 1 : year;
   const prevMonth = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}`;
 
-  // 查询本月周转天数
-  const currentResult = await query<{
-    turnover_days: number;
-  }>(`
-    SELECT
-      CASE
-        WHEN SUM(CAST(REPLACE("stockOutCostAmount", ',', '') AS NUMERIC)) > 0
-        THEN (SUM(CAST(REPLACE("beginCostAmount", ',', '') AS NUMERIC)) + SUM(CAST(REPLACE("endCostAmount", ',', '') AS NUMERIC))) / 2
-             / (SUM(CAST(REPLACE("stockOutCostAmount", ',', '') AS NUMERIC)) / $2)
-        ELSE NULL
-      END as turnover_days
-    FROM "近2月商品库存成本汇总"
-    WHERE "数据月份" = $1
-  `, [currentMonth, STANDARD_CALC_DAYS]);
+  // 通过库存成本服务计算本月周转天数（替代原 SQL 查询 "近2月商品库存成本汇总"）
+  const currentCost = await getStockCostByMonth(currentMonth);
+  const prevCost = await getStockCostByMonth(prevMonth);
 
-  // 查询上月周转天数
-  const prevResult = await query<{
-    turnover_days: number;
-  }>(`
-    SELECT
-      CASE
-        WHEN SUM(CAST(REPLACE("stockOutCostAmount", ',', '') AS NUMERIC)) > 0
-        THEN (SUM(CAST(REPLACE("beginCostAmount", ',', '') AS NUMERIC)) + SUM(CAST(REPLACE("endCostAmount", ',', '') AS NUMERIC))) / 2
-             / (SUM(CAST(REPLACE("stockOutCostAmount", ',', '') AS NUMERIC)) / $2)
-        ELSE NULL
-      END as turnover_days
-    FROM "近2月商品库存成本汇总"
-    WHERE "数据月份" = $1
-  `, [prevMonth, STANDARD_CALC_DAYS]);
-
-  const currentTurnover = parseFloat(currentResult.rows[0]?.turnover_days as any) || 0;
-  const prevTurnover = parseFloat(prevResult.rows[0]?.turnover_days as any) || 0;
+  const currentTurnover = currentCost.totalCostAmount > 0
+    ? Math.round((currentCost.totalCostAmount / 2) / (currentCost.totalCostAmount / STANDARD_CALC_DAYS)) || 0
+    : 0;
+  const prevTurnover = prevCost.totalCostAmount > 0
+    ? Math.round((prevCost.totalCostAmount / 2) / (prevCost.totalCostAmount / STANDARD_CALC_DAYS)) || 0
+    : 0;
 
   // 计算环比
   let trend = 0;
@@ -299,9 +264,7 @@ export async function getMonthlyArchiveList(
 
   const records: MonthlyArchiveRecord[] = dataResult.rows.map(row => ({
     id: row.id,
-    archiveMonth: row.archive_month instanceof Date
-      ? `${row.archive_month.getFullYear()}-${String(row.archive_month.getMonth() + 1).padStart(2, '0')}-${String(row.archive_month.getDate()).padStart(2, '0')}`
-      : String(row.archive_month),
+    archiveMonth: formatDateOnly(row.archive_month),
     strategicAvailabilityRate: row.strategic_availability_rate !== null
       ? parseFloat(row.strategic_availability_rate)
       : null,

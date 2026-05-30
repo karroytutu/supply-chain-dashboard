@@ -42,7 +42,9 @@ export const getWarningProductsController = async (req: Request, res: Response) 
       return;
     }
 
-    const products = await getWarningProducts(type, { page, pageSize, strategicLevel });
+    // URL 中 kebab-case 转为 handler 的 snake_case（如 out-of-stock → out_of_stock）
+    const normalizedType = type.replace(/-/g, '_');
+    const products = await getWarningProducts(normalizedType, { page, pageSize, strategicLevel });
     res.json(buildSuccessResponse(products));
   } catch (error) {
     console.error('获取预警商品列表失败:', error);

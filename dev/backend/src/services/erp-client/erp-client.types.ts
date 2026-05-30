@@ -40,6 +40,17 @@ export interface ErpApiConfig {
   incomeReApprovePath: string;
   /** 收入单取消 API 路径 */
   incomeCancelPath: string;
+  // ==================== 数据源 API 路径（ERP 数据库迁移） ====================
+  /** 客户欠款明细 API 路径前缀 */
+  debtPathPrefix: string;
+  /** 实时库存表 API 路径前缀 */
+  inventoryPathPrefix: string;
+  /** 销售结算明细 API 路径前缀 */
+  salesDetailPathPrefix: string;
+  /** 批次库存 API 路径前缀 */
+  batchInventoryPathPrefix: string;
+  /** WMS 系统 Base URL */
+  wmsBaseUrl: string;
 }
 
 /** ERP 认证令牌 */

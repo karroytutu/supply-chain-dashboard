@@ -13,10 +13,17 @@ const MAX_LOG_SIZE = 10000;
 
 /**
  * 安全 JSON 序列化，限制大小防止撑爆日志表
+ * 截断时生成合法的 jsonb 值（避免 PostgreSQL jsonb 列报错）
  */
 function safeStringify(data: unknown): string {
-  const str = JSON.stringify(data);
-  return str.length > MAX_LOG_SIZE ? str.substring(0, MAX_LOG_SIZE) + '...[truncated]' : str;
+  try {
+    const str = JSON.stringify(data);
+    if (str.length <= MAX_LOG_SIZE) return str;
+    // 截断时包装为合法 JSON 对象
+    return JSON.stringify({ _truncated: true, _preview: str.substring(0, MAX_LOG_SIZE) });
+  } catch {
+    return JSON.stringify({ _error: 'serialize_failed' });
+  }
 }
 
 /**

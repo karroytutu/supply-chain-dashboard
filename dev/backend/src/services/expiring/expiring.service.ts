@@ -3,7 +3,10 @@
  * 负责临期商品统计和查询
  */
 
-import { query } from '../../db/pool';
+import { fetchAllProducts } from '../erp-client/erp-product.service';
+import { getStockByNameMap, getCostPriceByNameMap } from '../erp-client/erp-inventory.service';
+import { fetchAllBatchInventory } from '../erp-client/erp-batch-inventory.service';
+import { getCategoryName } from '../../utils/arrayAggregation';
 import {
   EXPIRING_SERIOUS_DAYS,
   EXPIRING_WARNING_DAYS,
@@ -24,78 +27,57 @@ import type {
 } from './expiring.types';
 
 /**
- * 获取临期商品占比数据
+ * 获取临期商品占比数据（通过 ERP API + 内存计算）
  */
 export async function getExpiringData(): Promise<ExpiringData> {
-  const expiringResult = await query<{
-    total_cost: number;
-    expiring_cost: number;
-    within_7_cost: number;
-    within_15_cost: number;
-    within_30_cost: number;
-    within_7_count: number;
-    within_15_count: number;
-    within_30_count: number;
-  }>(`
-    WITH batch_with_cost AS (
-      SELECT
-        g."name",
-        g."shelfLife",
-        b."quantity",
-        b."unitName",
-        b."daysToExpire",
-        b."qualityTypeStr",
-        g."baseUnitName",
-        g."pkgUnitName",
-        g."midUnitName",
-        g."unitFactor",
-        g."midUnitFactor",
-        r."baseCostPrice",
-        CASE 
-          WHEN g."shelfLife" <= 90 THEN 30
-          WHEN g."shelfLife" BETWEEN 91 AND 150 THEN 45
-          WHEN g."shelfLife" BETWEEN 151 AND 270 THEN 60
-          WHEN g."shelfLife" >= 271 THEN 90
-          ELSE 90
-        END as expiring_threshold,
-        CASE 
-          WHEN b."unitName" = g."baseUnitName" THEN b."quantity"
-          WHEN b."unitName" = g."pkgUnitName" THEN b."quantity" * g."unitFactor"
-          WHEN b."unitName" = g."midUnitName" THEN b."quantity" * COALESCE(g."midUnitFactor", 1)
-          ELSE b."quantity"
-        END as base_quantity
-      FROM "商品档案" g
-      JOIN "独山云仓批次库存表" b ON g."name" = b."goodsName"
-      LEFT JOIN "实时库存表" r ON g."name" = r."goodsName"
-    ),
-    expiring_goods AS (
-      SELECT DISTINCT "name",
-        CASE WHEN "daysToExpire" <= ${EXPIRING_SERIOUS_DAYS} THEN 1 END as is_within_7,
-        CASE WHEN "daysToExpire" > ${EXPIRING_SERIOUS_DAYS} AND "daysToExpire" <= ${EXPIRING_WARNING_DAYS} THEN 1 END as is_within_15,
-        CASE WHEN "daysToExpire" > ${EXPIRING_WARNING_DAYS} AND "daysToExpire" <= ${EXPIRING_ATTENTION_DAYS} THEN 1 END as is_within_30
-      FROM batch_with_cost
-      WHERE "daysToExpire" <= ${EXPIRING_ATTENTION_DAYS}
-    )
-    SELECT 
-      (SELECT SUM(base_quantity * "baseCostPrice") FROM batch_with_cost) as total_cost,
-      (SELECT SUM(base_quantity * "baseCostPrice") FROM batch_with_cost WHERE "daysToExpire" <= expiring_threshold) as expiring_cost,
-      (SELECT SUM(base_quantity * "baseCostPrice") FROM batch_with_cost WHERE "daysToExpire" <= ${EXPIRING_SERIOUS_DAYS}) as within_7_cost,
-      (SELECT SUM(base_quantity * "baseCostPrice") FROM batch_with_cost WHERE "daysToExpire" > ${EXPIRING_SERIOUS_DAYS} AND "daysToExpire" <= ${EXPIRING_WARNING_DAYS}) as within_15_cost,
-      (SELECT SUM(base_quantity * "baseCostPrice") FROM batch_with_cost WHERE "daysToExpire" > ${EXPIRING_WARNING_DAYS} AND "daysToExpire" <= ${EXPIRING_ATTENTION_DAYS}) as within_30_cost,
-      (SELECT COUNT(*) FROM expiring_goods WHERE is_within_7 = 1) as within_7_count,
-      (SELECT COUNT(*) FROM expiring_goods WHERE is_within_15 = 1) as within_15_count,
-      (SELECT COUNT(*) FROM expiring_goods WHERE is_within_30 = 1) as within_30_count
-  `);
+  const [allProducts, costPriceByName, allBatches] = await Promise.all([
+    fetchAllProducts(0),
+    getCostPriceByNameMap(),
+    fetchAllBatchInventory(),
+  ]);
 
-  const expiringData = expiringResult.rows[0];
-  const totalCost = parseFloat(expiringData.total_cost as any) || 0;
-  const expiringCost = parseFloat(expiringData.expiring_cost as any) || 0;
-  const within7Cost = parseFloat(expiringData.within_7_cost as any) || 0;
-  const within15Cost = parseFloat(expiringData.within_15_cost as any) || 0;
-  const within30Cost = parseFloat(expiringData.within_30_cost as any) || 0;
-  const within7Count = parseInt(expiringData.within_7_count as any) || 0;
-  const within15Count = parseInt(expiringData.within_15_count as any) || 0;
-  const within30Count = parseInt(expiringData.within_30_count as any) || 0;
+  const productByName = new Map(allProducts.map(p => [p.name, p]));
+
+  let totalCost = 0;
+  let expiringCost = 0;
+  let within7Cost = 0;
+  let within15Cost = 0;
+  let within30Cost = 0;
+  const expiringGoods = new Map<string, { w7: boolean; w15: boolean; w30: boolean }>();
+
+  for (const batch of allBatches) {
+    const product = productByName.get(batch.goodsName);
+    if (!product || product.state !== 0) continue;
+
+    const costPrice = parseFloat(String(costPriceByName.get(batch.goodsName) || '0')) || 0;
+    const shelfLife = product.shelfLife || 90;
+    let expiringThreshold: number;
+    if (shelfLife <= 90) expiringThreshold = 30;
+    else if (shelfLife <= 150) expiringThreshold = 45;
+    else if (shelfLife <= 270) expiringThreshold = 60;
+    else expiringThreshold = 90;
+
+    const rawQty = parseFloat(batch.quantity) || 0;
+    let baseQty: number;
+    if (batch.unitName === product.baseUnitName) baseQty = rawQty;
+    else if (batch.unitName === product.pkgUnitName) baseQty = rawQty * (product.unitFactor || 1);
+    else baseQty = rawQty;
+
+    const batchCost = baseQty * costPrice;
+    totalCost += batchCost;
+    const dte = batch.daysToExpire;
+
+    if (dte <= expiringThreshold) expiringCost += batchCost;
+    const existing = expiringGoods.get(batch.goodsName) || { w7: false, w15: false, w30: false };
+    if (dte <= EXPIRING_SERIOUS_DAYS) { within7Cost += batchCost; existing.w7 = true; }
+    if (dte > EXPIRING_SERIOUS_DAYS && dte <= EXPIRING_WARNING_DAYS) { within15Cost += batchCost; existing.w15 = true; }
+    if (dte > EXPIRING_WARNING_DAYS && dte <= EXPIRING_ATTENTION_DAYS) { within30Cost += batchCost; existing.w30 = true; }
+    expiringGoods.set(batch.goodsName, existing);
+  }
+
+  const within7Count = [...expiringGoods.values()].filter(e => e.w7).length;
+  const within15Count = [...expiringGoods.values()].filter(e => e.w15).length;
+  const within30Count = [...expiringGoods.values()].filter(e => e.w30).length;
 
   const expiringRate = totalCost > 0 ? Math.round((expiringCost / totalCost) * 1000) / 10 : 0;
 
@@ -151,7 +133,7 @@ export async function getExpiringData(): Promise<ExpiringData> {
 }
 
 /**
- * 获取临期商品列表
+ * 获取临期商品列表（通过 ERP API + 内存计算）
  */
 export async function getExpiringProducts(
   minDays: number,
@@ -159,78 +141,67 @@ export async function getExpiringProducts(
   page: number,
   pageSize: number
 ): Promise<PaginatedResult<WarningProduct>> {
-  const offset = (page - 1) * pageSize;
+  const [allProducts, stockByName, allBatches] = await Promise.all([
+    fetchAllProducts(0),
+    getStockByNameMap(),
+    fetchAllBatchInventory(),
+  ]);
 
-  const result = await query<{
-    total_count: number;
-    goods_id: string;
-    goods_name: string;
-    category_id: string;
-    category_name: string;
-    stock_quantity: number;
-    days_to_expire: number;
-    expiry_date: string | null;
-  }>(`
-    WITH expiring_batches AS (
-      SELECT
-        "goodsName",
-        SUM("quantity") as expiring_quantity,
-        MIN("daysToExpire") as min_days_to_expire,
-        MIN("expireDate") as nearest_expire_date
-      FROM "独山云仓批次库存表"
-      WHERE "daysToExpire" > ${minDays}
-        AND "daysToExpire" <= ${maxDays}
-      GROUP BY "goodsName"
-    ),
-    stock_summary AS (
-      SELECT "goodsName", SUM("availableBaseQuantity") as total_quantity
-      FROM "实时库存表"
-      GROUP BY "goodsName"
-    )
-    SELECT
-      COUNT(*) OVER() as total_count,
-      g."goodsId" as goods_id,
-      g."name" as goods_name,
-      g."categoryId" as category_id,
-      SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
-      COALESCE(s.total_quantity, b.expiring_quantity) as stock_quantity,
-      b.min_days_to_expire as days_to_expire,
-      b.nearest_expire_date as expiry_date
-    FROM expiring_batches b
-    JOIN "商品档案" g ON b."goodsName" = g."name"
-    LEFT JOIN stock_summary s ON b."goodsName" = s."goodsName"
-    WHERE g."state" = 0
-    ORDER BY b.min_days_to_expire ASC
-    LIMIT ${pageSize} OFFSET ${offset}
-  `);
+  const productByName = new Map(allProducts.map(p => [p.name, p]));
 
-  const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count as any) || 0 : 0;
-  const totalPages = Math.ceil(total / pageSize);
+  // 过滤批次：daysToExpire 在范围内，按商品聚合
+  const batchByGoods = new Map<string, {
+    totalQty: number; minDaysToExpire: number; nearestExpiryDate: string;
+  }>();
 
-  const data = result.rows.map(row => ({
-    productId: row.goods_id || '',
-    productCode: row.goods_id || '',
-    productName: row.goods_name || '',
-    categoryId: row.category_id || '',
-    categoryName: row.category_name || '未分类',
-    brand: null,
-    specification: null,
-    stock: {
-      quantity: parseInt(row.stock_quantity as any) || 0,
-      warehouseLocation: null,
-    },
-    turnover: {
-      days: 0,
-      avgDailySales: 0,
-    },
-    expiring: {
-      daysToExpiry: parseInt(row.days_to_expire as any) || 0,
-      expiryDate: row.expiry_date,
-    },
-    availability: {
-      status: 'available' as const,
-    },
+  for (const batch of allBatches) {
+    if (batch.daysToExpire <= minDays || batch.daysToExpire > maxDays) continue;
+    const product = productByName.get(batch.goodsName);
+    if (!product || product.state !== 0) continue;
+
+    const rawQty = parseFloat(batch.quantity) || 0;
+    const existing = batchByGoods.get(batch.goodsName);
+    if (existing) {
+      existing.totalQty += rawQty;
+      if (batch.daysToExpire < existing.minDaysToExpire) {
+        existing.minDaysToExpire = batch.daysToExpire;
+        existing.nearestExpiryDate = batch.expireDate;
+      }
+    } else {
+      batchByGoods.set(batch.goodsName, {
+        totalQty: rawQty,
+        minDaysToExpire: batch.daysToExpire,
+        nearestExpiryDate: batch.expireDate,
+      });
+    }
+  }
+
+  let items = Array.from(batchByGoods.entries()).map(([goodsName, d]) => ({
+    goodsName, product: productByName.get(goodsName)!, ...d,
   }));
+  items.sort((a, b) => a.minDaysToExpire - b.minDaysToExpire);
+
+  const total = items.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const pageItems = items.slice((page - 1) * pageSize, page * pageSize);
+
+  const data = pageItems.map(item => {
+    const stock = stockByName.get(item.goodsName) ?? item.totalQty;
+    const categoryName = getCategoryName(item.product.categoryChainName);
+    return {
+      productId: String(item.product.goodsId),
+      productCode: String(item.product.goodsId),
+      productName: item.goodsName,
+      categoryId: String(item.product.goodsId),
+      categoryName,
+      brand: null,
+      specification: null,
+      stock: { quantity: parseInt(String(stock)) || 0, warehouseLocation: null },
+      turnover: { days: 0, avgDailySales: 0 },
+      expiring: { daysToExpiry: item.minDaysToExpire, expiryDate: item.nearestExpiryDate },
+      availability: { status: 'available' as const },
+    };
+  });
 
   return { data, total, page, pageSize, totalPages };
 }

@@ -4,6 +4,7 @@
  */
 
 import { toCamelKeys, toSnakeKeys } from '../../utils/keyConvert';
+import { formatDateTime } from '../../utils/dateFormat';
 import type {
   CollectionTask,
   CollectionDetail,
@@ -106,9 +107,7 @@ export function assessmentToActionDTO(record: AssessmentRecord): CollectionActio
     operatorId: 0,
     operatorName: '系统',
     operatorRole: '系统',
-    createdAt: record.calculatedAt instanceof Date
-      ? record.calculatedAt.toISOString()
-      : record.calculatedAt,
+    createdAt: formatDateTime(record.calculatedAt),
   };
 }
 

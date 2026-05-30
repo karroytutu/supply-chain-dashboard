@@ -5,7 +5,7 @@
  * 管线: queryRawDebts → enrichDebts → filterHoard → evaluateEntryRules → groupBy → createTasks
  */
 
-import { query } from '../../db/pool';
+import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { getAppClient } from '../../db/appPool';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import type { PoolClient } from 'pg';
@@ -115,15 +115,9 @@ async function generateCollectionTasksInner(client: PoolClient): Promise<void> {
   }
 }
 
-/** 查询ERP欠款原始数据 */
+/** 查询ERP欠款原始数据（通过 API） */
 async function queryRawDebts(): Promise<ERPDebtRecord[]> {
-  const erpSql = `SELECT "billId", "bizOrderStr", "consumerName", "managerUsers",
-    "totalAmount", "leftAmount", "settleMethod",
-    "consumerExpireDay", "billTypeName", "workTime"
-    FROM "客户欠款明细"
-    WHERE "leftAmount"::numeric > 0`;
-  const result = await query<ERPDebtRecord>(erpSql, []);
-  return result.rows;
+  return fetchAllErpDebts();
 }
 
 /** 按客户名分组 */

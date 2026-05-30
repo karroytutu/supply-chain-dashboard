@@ -6,7 +6,7 @@
  * - checkHoldExpiry: 每2小时检查期限压单到期
  */
 
-import { query } from '../../db/pool';
+import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery, getAppClient } from '../../db/appPool';
 import type { TaskStatus } from './ar-collection.types';
 import type { ERPDebtRecord } from './ar-debt.types';
@@ -44,14 +44,9 @@ export async function syncERPDebts(): Promise<void> {
   const startTime = Date.now();
 
   try {
-    // 1. 从ERP查询所有客户欠款明细
-    const erpSql = `SELECT "billId", "bizOrderStr", "consumerName", "managerUsers",
-      "totalAmount", "leftAmount", "settleMethod",
-      "consumerExpireDay", "billTypeName", "workTime"
-      FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
-    const erpResult = await query<ERPDebtRecord>(erpSql, []);
-    const erpDebts = erpResult.rows;
-    console.log(`[ARSync] ERP查询到 ${erpDebts.length} 条欠款记录`);
+    // 1. 从ERP API获取所有客户欠款明细（skipCache=true，同步任务绕过缓存）
+    const erpDebts = await fetchAllErpDebts(true);
+    console.log(`[ARSync] ERP API获取到 ${erpDebts.length} 条欠款记录`);
 
     // 2. 获取本地所有活跃明细
     const localResult = await appQuery<LocalDetail>(

@@ -157,6 +157,11 @@ export const AR_ROLLBACK_HANDLER_ROLES: Record<number, string> = {
 /** 退货时保质期不足阈值（天） @usedBy return-penalty-calculate.ts (判断退货考核规则) */
 export const RETURN_EXPIRE_INSUFFICIENT_DAYS = 15;
 
+// ==================== ERP 配置 ====================
+
+/** ERP 独山云仓仓库 ID @usedBy erp-batch-inventory.service.ts (默认拉取批次库存的仓库) */
+export const ERP_DUSHAN_WAREHOUSE_ID = 17;
+
 // ==================== 缓存时间配置 ====================
 
 /** 战略商品缓存过期时间 @usedBy warning-cache.ts (战略商品ID缓存) */

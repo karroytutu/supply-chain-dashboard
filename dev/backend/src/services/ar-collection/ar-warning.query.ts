@@ -4,7 +4,7 @@
  * - 查询预警提醒历史记录
  */
 
-import { query } from '../../db/pool';
+import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery } from '../../db/appPool';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import logger from '../../utils/logger';
@@ -97,17 +97,12 @@ export async function getUpcomingWarnings(
 ): Promise<UpcomingWarningData> {
   const { page = 1, pageSize = 20, warningLevel, managerUserId } = params;
 
-  // 1. 从ERP查询所有未收款的欠款
-  const erpSql = `SELECT "billId", "bizStr", "bizOrderStr", "consumerName", "managerUsers",
-    "totalAmount", "leftAmount", "settleMethod",
-    "consumerExpireDay", "billTypeName", "workTime"
-    FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
-
-  const erpResult = await query<ERPDebtRecord>(erpSql, []);
+  // 1. 从ERP API查询所有未收款的欠款
+  const allDebts = await fetchAllErpDebts();
   const now = new Date();
 
   // 2. 富化欠款数据（补充 hoardTag + 客户限额）并排除压单
-  const enrichedDebts = await enrichDebtRecords(erpResult.rows, now);
+  const enrichedDebts = await enrichDebtRecords(allDebts, now);
   const nonHoardDebts = filterHoardDebts(enrichedDebts);
 
   // 3. 计算每条记录的到期日期和剩余天数

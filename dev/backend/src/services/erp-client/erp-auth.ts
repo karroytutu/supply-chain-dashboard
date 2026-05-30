@@ -11,6 +11,9 @@ import type { ErpToken } from './erp-client.types';
 /** Token 缓存 */
 let _tokenCache: ErpToken | null = null;
 
+/** WMS Session 缓存（与 Token 同步刷新） */
+let _wmsSessionCache: { sessionId: string; deviceToken: string; expiresAt: number } | null = null;
+
 /** 提前刷新时间（1小时） */
 const REFRESH_AHEAD_MS = 60 * 60 * 1000;
 
@@ -96,6 +99,14 @@ export async function refreshErpToken(): Promise<ErpToken> {
   const token: ErpToken = { authorization, expiresAt };
   _tokenCache = token;
 
+  // 同时提取 WMS Session（与 Token 同步刷新）
+  const wmsSessionId = data.output[0].wms_session_id;
+  const wmsDeviceToken = data.output[0].wms_device_token;
+  if (wmsSessionId) {
+    _wmsSessionCache = { sessionId: wmsSessionId, deviceToken: wmsDeviceToken || '', expiresAt };
+    console.log('[ErpAuth] WMS Session 已提取');
+  }
+
   console.log(`[ErpAuth] Token 刷新成功, 过期时间: ${new Date(expiresAt).toISOString()}`);
   return token;
 }
@@ -105,4 +116,20 @@ export async function refreshErpToken(): Promise<ErpToken> {
  */
 export function invalidateErpToken(): void {
   _tokenCache = null;
+  _wmsSessionCache = null;
+}
+
+/**
+ * 获取 WMS Session ID（用于 Cookie 认证）
+ * 自动复用 Token 刷新流程，无需单独调用
+ */
+export async function getWmsSessionId(): Promise<string> {
+  // 确保 Token 已刷新（WMS session 与 Token 同步获取）
+  await getErpAccessToken();
+
+  if (!_wmsSessionCache) {
+    throw new Error('WMS Session 不可用，Token API 未返回 wms_session_id');
+  }
+
+  return _wmsSessionCache.sessionId;
 }

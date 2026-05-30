@@ -4,7 +4,7 @@
  * - 记录提醒日志到 ar_warning_reminders 表
  */
 
-import { query } from '../../db/pool';
+import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery } from '../../db/appPool';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import {
@@ -49,17 +49,12 @@ export async function checkUpcomingOverdueReminders(): Promise<void> {
   const startTime = Date.now();
 
   try {
-    // 1. 从ERP查询所有未收款的欠款
-    const erpSql = `SELECT "billId", "bizStr", "bizOrderStr", "consumerName", "managerUsers",
-      "totalAmount", "leftAmount", "settleMethod",
-      "consumerExpireDay", "workTime"
-      FROM "客户欠款明细" WHERE "leftAmount"::numeric > 0`;
-
-    const erpResult = await query<ERPDebtRecord>(erpSql, []);
+    // 1. 从ERP API查询所有未收款的欠款
+    const allDebts = await fetchAllErpDebts();
     const now = new Date();
 
     // 2. 富化欠款数据（补充 hoardTag + 客户限额）并排除压单
-    const enrichedDebts = await enrichDebtRecords(erpResult.rows, now);
+    const enrichedDebts = await enrichDebtRecords(allDebts, now);
     const nonHoardDebts = filterHoardDebts(enrichedDebts);
 
     // 3. 筛选即将到期的欠款（5天内）

@@ -4,7 +4,10 @@
  * 滞销定义：超过7天未销售为轻度滞销，超过15天为中度滞销，超过30天为严重滞销
  */
 
-import { query } from '../../db/pool';
+import { fetchAllProducts } from '../erp-client/erp-product.service';
+import { fetchAllInventory, getStockByNameMap } from '../erp-client/erp-inventory.service';
+import { getLastSaleMap } from '../erp-client/erp-sales-detail.service';
+import { getCategoryName } from '../../utils/arrayAggregation';
 import {
   SLOW_MOVING_MILD_DAYS,
   SLOW_MOVING_MODERATE_DAYS,
@@ -21,61 +24,55 @@ import type {
 } from './slowMoving.types';
 
 /**
- * 获取滞销商品占比数据
+ * 获取滞销商品占比数据（通过 ERP API + 内存计算）
  */
 export async function getSlowMovingData(): Promise<SlowMovingData> {
-  const slowMovingResult = await query<{
-    total_cost: number;
-    slow_moving_cost: number;
-    cost_7_15: number;
-    cost_15_30: number;
-    cost_over_30: number;
-    count_7_15: number;
-    count_15_30: number;
-    count_over_30: number;
-  }>(`
-    WITH last_sale AS (
-      SELECT
-        "goodsName",
-        MAX("settleTime") as last_sale_time
-      FROM "销售结算明细表"
-      GROUP BY "goodsName"
-    ),
-    stock_with_sale AS (
-      SELECT
-        r."goodsName",
-        r."availableCostAmount",
-        r."availableBaseQuantity",
-        s.last_sale_time,
-        CASE
-          WHEN s.last_sale_time IS NULL THEN 999
-          ELSE EXTRACT(DAY FROM NOW() - s.last_sale_time)
-        END as days_without_sale
-      FROM "实时库存表" r
-      LEFT JOIN last_sale s ON r."goodsName" = s."goodsName"
-      WHERE r."availableBaseQuantity" > 0
-    )
-    SELECT 
-      SUM("availableCostAmount") as total_cost,
-      SUM(CASE WHEN days_without_sale > ${SLOW_MOVING_MILD_DAYS} THEN "availableCostAmount" END) as slow_moving_cost,
-      SUM(CASE WHEN days_without_sale > ${SLOW_MOVING_MILD_DAYS} AND days_without_sale <= ${SLOW_MOVING_MODERATE_DAYS} THEN "availableCostAmount" END) as cost_7_15,
-      SUM(CASE WHEN days_without_sale > ${SLOW_MOVING_MODERATE_DAYS} AND days_without_sale <= ${SLOW_MOVING_SERIOUS_DAYS} THEN "availableCostAmount" END) as cost_15_30,
-      SUM(CASE WHEN days_without_sale > ${SLOW_MOVING_SERIOUS_DAYS} THEN "availableCostAmount" END) as cost_over_30,
-      COUNT(CASE WHEN days_without_sale > ${SLOW_MOVING_MILD_DAYS} AND days_without_sale <= ${SLOW_MOVING_MODERATE_DAYS} THEN 1 END) as count_7_15,
-      COUNT(CASE WHEN days_without_sale > ${SLOW_MOVING_MODERATE_DAYS} AND days_without_sale <= ${SLOW_MOVING_SERIOUS_DAYS} THEN 1 END) as count_15_30,
-      COUNT(CASE WHEN days_without_sale > ${SLOW_MOVING_SERIOUS_DAYS} THEN 1 END) as count_over_30
-    FROM stock_with_sale
-  `);
+  const [inventoryRecords, lastSaleMap] = await Promise.all([
+    fetchAllInventory(),
+    getLastSaleMap(),
+  ]);
 
-  const data = slowMovingResult.rows[0];
-  const totalCost = parseFloat(data.total_cost as any) || 0;
-  const slowMovingCost = parseFloat(data.slow_moving_cost as any) || 0;
-  const cost7_15 = parseFloat(data.cost_7_15 as any) || 0;
-  const cost15_30 = parseFloat(data.cost_15_30 as any) || 0;
-  const costOver30 = parseFloat(data.cost_over_30 as any) || 0;
-  const count7_15 = parseInt(data.count_7_15 as any) || 0;
-  const count15_30 = parseInt(data.count_15_30 as any) || 0;
-  const countOver30 = parseInt(data.count_over_30 as any) || 0;
+  const now = new Date();
+  let totalCost = 0;
+  let slowMovingCost = 0;
+  let cost7_15 = 0;
+  let cost15_30 = 0;
+  let costOver30 = 0;
+  let count7_15 = 0;
+  let count15_30 = 0;
+  let countOver30 = 0;
+
+  for (const record of inventoryRecords) {
+    if (record.availableBaseQuantity <= 0) continue;
+    const costPrice = parseFloat(record.baseCostPrice) || 0;
+    const availableCostAmount = record.availableBaseQuantity * costPrice;
+    totalCost += availableCostAmount;
+
+    const lastSaleTime = lastSaleMap.get(record.goodsName);
+    let daysWithoutSale: number;
+    if (!lastSaleTime) {
+      daysWithoutSale = 999;
+    } else {
+      const lastDate = new Date(lastSaleTime);
+      daysWithoutSale = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    if (daysWithoutSale > SLOW_MOVING_MILD_DAYS) {
+      slowMovingCost += availableCostAmount;
+    }
+    if (daysWithoutSale > SLOW_MOVING_MILD_DAYS && daysWithoutSale <= SLOW_MOVING_MODERATE_DAYS) {
+      cost7_15 += availableCostAmount;
+      count7_15++;
+    }
+    if (daysWithoutSale > SLOW_MOVING_MODERATE_DAYS && daysWithoutSale <= SLOW_MOVING_SERIOUS_DAYS) {
+      cost15_30 += availableCostAmount;
+      count15_30++;
+    }
+    if (daysWithoutSale > SLOW_MOVING_SERIOUS_DAYS) {
+      costOver30 += availableCostAmount;
+      countOver30++;
+    }
+  }
 
   const slowMovingRate = totalCost > 0 ? Math.round((slowMovingCost / totalCost) * 1000) / 10 : 0;
 
@@ -127,93 +124,64 @@ export async function getSlowMovingProducts(
   page: number,
   pageSize: number
 ): Promise<PaginatedResult<WarningProduct>> {
-  const maxCondition = maxDays ? `AND days_without_sale <= ${maxDays}` : '';
-  const offset = (page - 1) * pageSize;
+  const [allProducts, stockByName, lastSaleMap] = await Promise.all([
+    fetchAllProducts(0),
+    getStockByNameMap(),
+    getLastSaleMap(),
+  ]);
 
-  const result = await query<{
-    total_count: number;
-    goods_id: string;
-    goods_name: string;
-    category_id: string;
-    category_name: string;
-    stock_quantity: number;
-    pkg_unit_name: string;
-    base_unit_name: string;
-    unit_factor: number;
-    days_without_sale: number;
-    last_sale_date: string | null;
-  }>(`
-    WITH last_sale AS (
-      SELECT
-        "goodsName",
-        MAX("settleTime") as last_sale_time
-      FROM "销售结算明细表"
-      GROUP BY "goodsName"
-    ),
-    stock_summary AS (
-      SELECT
-        "goodsId",
-        "goodsName",
-        SUM("availableBaseQuantity") as total_quantity
-      FROM "实时库存表"
-      GROUP BY "goodsId", "goodsName"
-      HAVING SUM("availableBaseQuantity") > 0
-    ),
-    stock_with_sale AS (
-      SELECT
-        r."goodsId",
-        r."goodsName",
-        r.total_quantity,
-        s.last_sale_time,
-        CASE
-          WHEN s.last_sale_time IS NULL THEN 999
-          ELSE EXTRACT(DAY FROM NOW() - s.last_sale_time)
-        END as days_without_sale
-      FROM stock_summary r
-      LEFT JOIN last_sale s ON r."goodsName" = s."goodsName"
-    )
-    SELECT
-      COUNT(*) OVER() as total_count,
-      g."goodsId" as goods_id,
-      g."name" as goods_name,
-      g."categoryId" as category_id,
-      SPLIT_PART(g."categoryChainName", '/', 1) as category_name,
-      t.total_quantity as stock_quantity,
-      g."pkgUnitName" as pkg_unit_name,
-      g."baseUnitName" as base_unit_name,
-      COALESCE(g."unitFactor", 1) as unit_factor,
-      t.days_without_sale,
-      t.last_sale_time as last_sale_date
-    FROM stock_with_sale t
-    JOIN "商品档案" g ON t."goodsName" = g."name"
-    WHERE g."state" = 0
-      AND t.days_without_sale > ${minDays}
-      ${maxCondition}
-    ORDER BY t.days_without_sale DESC
-    LIMIT ${pageSize} OFFSET ${offset}
-  `);
+  const now = new Date();
+  const productByName = new Map(allProducts.map(p => [p.name, p]));
 
-  const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count as any) || 0 : 0;
+  // 过滤：有库存 + 无销售天数 > minDays
+  let filtered = allProducts.filter(p => {
+    const stock = stockByName.get(p.name) ?? 0;
+    if (stock <= 0) return false;
+    const lastSaleTime = lastSaleMap.get(p.name);
+    const daysWithoutSale = lastSaleTime
+      ? Math.floor((now.getTime() - new Date(lastSaleTime).getTime()) / 86400000)
+      : 999;
+    if (daysWithoutSale <= minDays) return false;
+    if (maxDays && daysWithoutSale > maxDays) return false;
+    return true;
+  });
+
+  // 按无销售天数降序
+  filtered.sort((a, b) => {
+    const aLast = lastSaleMap.get(a.name);
+    const bLast = lastSaleMap.get(b.name);
+    const aDays = aLast ? Math.floor((now.getTime() - new Date(aLast).getTime()) / 86400000) : 999;
+    const bDays = bLast ? Math.floor((now.getTime() - new Date(bLast).getTime()) / 86400000) : 999;
+    return bDays - aDays;
+  });
+
+  const total = filtered.length;
   const totalPages = Math.ceil(total / pageSize);
+  const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const data = result.rows.map(row => {
-    const unitFactor = parseUnitFactor(row.unit_factor);
-    const baseQuantity = parseQuantity(row.stock_quantity);
+  const data = pageItems.map(p => {
+    const unitFactor = parseUnitFactor(p.unitFactor);
+    const stock = stockByName.get(p.name) ?? 0;
+    const lastSaleTime = lastSaleMap.get(p.name);
+    const daysWithoutSale = lastSaleTime
+      ? Math.floor((now.getTime() - new Date(lastSaleTime).getTime()) / 86400000)
+      : 999;
+    const categoryName = getCategoryName(p.categoryChainName);
 
     const converted = convertStockUnits({
-      baseQuantity,
+      baseQuantity: parseQuantity(stock),
       baseAvgDaily: 0,
       unitFactor,
-      baseUnitName: row.base_unit_name || '个',
-      pkgUnitName: row.pkg_unit_name || '个',
+      baseUnitName: p.baseUnitName || '个',
+      pkgUnitName: p.pkgUnitName || '个',
     });
 
     return {
-      productId: row.goods_id || '',
-      productCode: row.goods_id || '',
-      productName: row.goods_name || '',
-      categoryId: row.category_id || '',
-      categoryName: row.category_name || '未分类',
+      productId: String(p.goodsId),
+      productCode: String(p.goodsId),
+      productName: p.name,
+      categoryId: String(p.goodsId),
+      categoryName,
       brand: null,
       specification: null,
       stock: {
@@ -221,23 +189,17 @@ export async function getSlowMovingProducts(
         unitName: converted.displayUnit,
         warehouseLocation: null,
       },
-      turnover: {
-        days: 0,
-        avgDailySales: 0,
-      },
-      expiring: {
-        daysToExpiry: null,
-        expiryDate: null,
-      },
-      availability: {
-        status: 'available' as const,
-      },
+      turnover: { days: 0, avgDailySales: 0 },
+      expiring: { daysToExpiry: null, expiryDate: null },
+      availability: { status: 'available' as const },
       slowMoving: {
-        daysWithoutSale: parseInt(row.days_without_sale as any) || 0,
-        lastSaleDate: row.last_sale_date ? new Date(row.last_sale_date).toISOString().split('T')[0] : null,
+        daysWithoutSale,
+        lastSaleDate: lastSaleTime ? new Date(lastSaleTime).toISOString().split('T')[0] : null,
       },
     };
   });
+
+  return { data, total, page, pageSize, totalPages };
 
   return { data, total, page, pageSize, totalPages };
 }

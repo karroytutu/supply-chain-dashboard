@@ -3,9 +3,10 @@
  * 用于缓存和预计算常用的聚合数据，减少重复查询
  */
 
-import { query } from '../db/pool';
 import { cache, CACHE_TTL } from '../utils/cache';
 import { STANDARD_CALC_DAYS } from '../utils/constants';
+import { getStockSummaryMap as getInventoryStockMap } from './erp-client/erp-inventory.service';
+import { getDailySalesMap as getErpDailySalesMap } from './erp-client/erp-sales-detail.service';
 
 // 缓存键常量
 const CACHE_KEYS = {
@@ -14,36 +15,25 @@ const CACHE_KEYS = {
 };
 
 /**
- * 获取日均销售数据（带缓存）
+ * 获取日均销售数据（通过 ERP 销售 API）
  * 返回 Map<goodsName, avgDailySales>
  */
 export async function getDailySalesMap(): Promise<Map<string, number>> {
   const cacheKey = CACHE_KEYS.DAILY_SALES_MAP;
 
-  // 检查缓存
+  // 检查本地缓存
   const cached = cache.get<Map<string, number>>(cacheKey);
   if (cached) {
     console.log('[getDailySalesMap] 使用缓存数据');
     return cached;
   }
 
-  console.log('[getDailySalesMap] 缓存未命中，查询数据库...');
+  console.log('[getDailySalesMap] 缓存未命中，从 ERP API 获取...');
 
-  const result = await query<{ goods_name: string; avg_daily: number }>(`
-    SELECT
-      "goodsName" as goods_name,
-      SUM("baseQuantity") / ${STANDARD_CALC_DAYS}.0 as avg_daily
-    FROM "销售结算明细表"
-    WHERE "settleTime" >= NOW() - INTERVAL '${STANDARD_CALC_DAYS} days'
-    GROUP BY "goodsName"
-  `);
+  // 从 ERP 销售 API 获取（API 层已有 60s 缓存）
+  const salesMap = await getErpDailySalesMap(STANDARD_CALC_DAYS);
 
-  const salesMap = new Map<string, number>();
-  for (const row of result.rows) {
-    salesMap.set(row.goods_name, parseFloat(row.avg_daily as any) || 0);
-  }
-
-  // 存入缓存
+  // 存入本地缓存（使用较长 TTL，因为 API 层已有 60s 缓存）
   cache.set(cacheKey, salesMap, CACHE_TTL.LOW_FREQUENCY);
   console.log(`[getDailySalesMap] 数据已缓存，共 ${salesMap.size} 条记录`);
 
@@ -51,35 +41,29 @@ export async function getDailySalesMap(): Promise<Map<string, number>> {
 }
 
 /**
- * 获取库存汇总数据（带缓存）
+ * 获取库存汇总数据（通过 ERP 库存 API）
  * 返回 Map<goodsId, totalQuantity>
  */
 export async function getStockSummaryMap(): Promise<Map<string, number>> {
   const cacheKey = CACHE_KEYS.STOCK_SUMMARY_MAP;
 
-  // 检查缓存
+  // 检查本地缓存
   const cached = cache.get<Map<string, number>>(cacheKey);
   if (cached) {
     console.log('[getStockSummaryMap] 使用缓存数据');
     return cached;
   }
 
-  console.log('[getStockSummaryMap] 缓存未命中，查询数据库...');
+  console.log('[getStockSummaryMap] 缓存未命中，从 ERP API 获取...');
 
-  const result = await query<{ goods_id: string; total_quantity: number }>(`
-    SELECT
-      "goodsId" as goods_id,
-      SUM("availableBaseQuantity") as total_quantity
-    FROM "实时库存表"
-    GROUP BY "goodsId"
-  `);
+  // 从 ERP 库存 API 获取（API 层已有 30s 缓存）
+  const apiMap = await getInventoryStockMap();
 
+  // 转换为 string key Map（向后兼容）
   const stockMap = new Map<string, number>();
-  for (const row of result.rows) {
-    stockMap.set(row.goods_id, parseFloat(row.total_quantity as any) || 0);
-  }
+  apiMap.forEach((val: number, key: number) => stockMap.set(String(key), val));
 
-  // 存入缓存
+  // 存入本地缓存（使用较长 TTL，因为 API 层已有 30s 缓存）
   cache.set(cacheKey, stockMap, CACHE_TTL.LOW_FREQUENCY);
   console.log(`[getStockSummaryMap] 数据已缓存，共 ${stockMap.size} 条记录`);
 
