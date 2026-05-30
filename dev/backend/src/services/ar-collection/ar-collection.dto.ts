@@ -95,6 +95,8 @@ export interface CollectionActionDTO {
   operatorName: string | null;
   operatorRole: string | null;
   createdAt: string;
+  extensionDays?: number | null;
+  extensionUntil?: string | null;
 }
 
 /** 法律进展响应 DTO */
