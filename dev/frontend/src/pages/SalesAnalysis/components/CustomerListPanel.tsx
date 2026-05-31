@@ -7,6 +7,7 @@ import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { Tag, Empty, Table, Input, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { DrilldownRiskGroup, DrilldownCustomer, DrilldownMyView } from '@/types/sales-analysis';
+import { useMobileDetect } from '@/hooks/useMobileDetect';
 import styles from './CustomerListPanel.less';
 
 interface CustomerListPanelProps {
@@ -27,15 +28,17 @@ const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
   onFilterChange, onKeywordChange, onOwnerFilterChange,
 }) => (
   <div className={styles.wrap}>
-    <FilterBar filters={riskGroup.filters} filterKey={filterKey} note={riskGroup.filterNote} onChange={onFilterChange} />
-    <SearchBar
+    <Toolbar
+      filters={riskGroup.filters}
+      filterKey={filterKey}
       keyword={keyword}
       ownerFilter={ownerFilter}
       ownerOptions={ownerOptions}
+      onFilterChange={onFilterChange}
       onKeywordChange={onKeywordChange}
       onOwnerFilterChange={onOwnerFilterChange}
     />
-    {viewMode === 'mine' && <MyViewSummary myView={riskGroup.myView} />}
+    {viewMode === 'mine' && riskGroup.myView && <MyViewSummary myView={riskGroup.myView} />}
     {customers.length === 0 ? (
       <Empty description={viewMode === 'mine' ? '当前分类下暂无我的客户' : '当前筛选条件下暂无客户'} className={styles.empty} />
     ) : (
@@ -44,40 +47,22 @@ const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
   </div>
 );
 
-/** 筛选栏 */
-const FilterBar: React.FC<{
+/** 工具栏：筛选标签 + 搜索 + 负责人，合并为一行 */
+const Toolbar: React.FC<{
   filters: DrilldownRiskGroup['filters'];
   filterKey: string;
   note: string;
-  onChange: (key: string) => void;
-}> = ({ filters, filterKey, note, onChange }) => (
-  <div className={styles.toolbar}>
-    <div className={styles.filterGroup}>
-      {filters.map((f) => (
-        <button
-          key={f.key}
-          type="button"
-          className={`${styles.filterChip} ${f.key === filterKey ? styles.active : ''}`}
-          onClick={() => onChange(f.key)}
-        >
-          {f.label}
-        </button>
-      ))}
-    </div>
-    <span className={styles.toolbarNote}>{note}</span>
-  </div>
-);
-
-/** 搜索栏：关键词搜索 + 负责人筛选 */
-const SearchBar: React.FC<{
   keyword: string;
   ownerFilter: string;
   ownerOptions: string[];
+  onFilterChange: (key: string) => void;
   onKeywordChange: (keyword: string) => void;
   onOwnerFilterChange: (owner: string) => void;
-}> = ({ keyword, ownerFilter, ownerOptions, onKeywordChange, onOwnerFilterChange }) => {
+}> = ({ filters, filterKey, keyword, ownerFilter, ownerOptions, onFilterChange, onKeywordChange, onOwnerFilterChange }) => {
   const [inputValue, setInputValue] = useState(keyword);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const isMobile = useMobileDetect();
+  const compactSize = isMobile ? 'small' as const : undefined;
 
   useEffect(() => {
     timerRef.current = setTimeout(() => onKeywordChange(inputValue), 300);
@@ -85,29 +70,98 @@ const SearchBar: React.FC<{
   }, [inputValue, onKeywordChange]);
 
   return (
-    <div className={styles.searchBar}>
-      <Input.Search
-        placeholder="搜索客户名称"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        allowClear
-        style={{ flex: 1 }}
-      />
-      <Select
-        placeholder="负责人"
-        value={ownerFilter || undefined}
-        onChange={(val) => onOwnerFilterChange(val || '')}
-        allowClear
-        style={{ width: 140 }}
-        options={ownerOptions.map((o) => ({ value: o, label: o }))}
-      />
+    <div className={styles.toolbar}>
+      <div className={styles.toolbarRow}>
+        {filters.length > 1 && (
+          <div className={styles.filterSelect}>
+            <Select
+              placeholder="状态"
+              value={filterKey}
+              onChange={(val) => onFilterChange(val)}
+              size={compactSize}
+              style={{ width: '100%' }}
+              options={filters.map((f) => ({ value: f.key, label: f.label }))}
+            />
+          </div>
+        )}
+        <div className={styles.filterSearch}>
+          <Input.Search
+            placeholder="搜索客户名称"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            allowClear
+            size={compactSize}
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div className={styles.ownerSelect}>
+          <Select
+            placeholder="负责人"
+            value={ownerFilter || undefined}
+            onChange={(val) => onOwnerFilterChange(val || '')}
+            allowClear
+            size={compactSize}
+            style={{ width: '100%' }}
+            options={ownerOptions.map((o) => ({ value: o, label: o }))}
+          />
+        </div>
+      </div>
+
     </div>
   );
 };
 
-/** 客户表格 */
+/** 拜访预警渲染（卡片和表格共用） */
+function renderVisitWarning(record: DrilldownCustomer) {
+  if (!record.followUp || !record.visitInterval) return <span>-</span>;
+  const days = parseInt(record.followUp);
+  const limit = parseInt(record.visitInterval);
+  if (isNaN(days) || isNaN(limit)) return <span>-</span>;
+  if (days > limit) {
+    return <Tag color="red">已超期 {days - limit} 天</Tag>;
+  }
+  const remaining = limit - days;
+  if (remaining <= 3) {
+    return <Tag color="orange">{remaining} 天后超期</Tag>;
+  }
+  return <span style={{ color: '#52c41a' }}>正常</span>;
+}
+
+/** 移动端客户卡片 */
+const MobileCustomerCard: React.FC<{ record: DrilldownCustomer }> = ({ record }) => (
+  <div className={styles.mobileCard}>
+    <div className={styles.mobileCardHeader}>
+      <span className={styles.mobileCardName}>{record.name}</span>
+      {record.grade && <Tag>{record.grade}</Tag>}
+    </div>
+    <div className={styles.mobileCardSubHeader}>
+      {record.filters.includes('approaching')
+        ? <Tag color="orange">即将超期</Tag>
+        : <Tag color="red">已超期</Tag>}
+      <span className={styles.mobileCardOwner}>负责人：{record.owner || '-'}</span>
+    </div>
+    <div className={styles.mobileCardGrid}>
+      <span>最近下单：{record.order || '-'}</span>
+      <span>最近拜访：{record.followUp || '-'}</span>
+      <span>目标间隔：{record.visitInterval || '-'}</span>
+      <span>拜访预警：{renderVisitWarning(record)}</span>
+    </div>
+  </div>
+);
+
+/** 客户表格 / 移动端卡片列表 */
 const CustomerTable: React.FC<{ customers: DrilldownCustomer[] }> = ({ customers }) => {
   const columns = useTableColumns(customers);
+  const isMobile = useMobileDetect();
+
+  if (isMobile) {
+    return (
+      <div className={styles.mobileCardList}>
+        {customers.map(c => <MobileCustomerCard key={c.id} record={c} />)}
+      </div>
+    );
+  }
+
   return (
     <div className={styles.tableWrapper}>
       <Table
@@ -116,7 +170,7 @@ const CustomerTable: React.FC<{ customers: DrilldownCustomer[] }> = ({ customers
         rowKey="id"
         size="small"
         pagination={false}
-        scroll={{ x: 720 }}
+        scroll={{ x: 790 }}
       />
     </div>
   );
@@ -134,20 +188,41 @@ function useTableColumns(customers: DrilldownCustomer[]): ColumnsType<DrilldownC
         title: '客户名称',
         dataIndex: 'name',
         width: 160,
-        render: (name: string, record) => (
-          <div>
-            <div style={{ fontWeight: 500 }}>{name}</div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
-              {record.tags.map((tag) => (
-                <Tag key={tag.text} color={tag.color} style={{ marginRight: 0 }}>{tag.text}</Tag>
-              ))}
-            </div>
-          </div>
-        ),
+        render: (name: string) => <div style={{ fontWeight: 500 }}>{name}</div>,
+      },
+      { title: '等级', dataIndex: 'grade', width: 60, render: (v: string) => v || '-' },
+      {
+        title: '状态',
+        width: 90,
+        render: (_: unknown, record: DrilldownCustomer) => {
+          if (record.filters.includes('approaching')) {
+            return <Tag color="orange">即将超期</Tag>;
+          }
+          return <Tag color="red">已超期</Tag>;
+        },
       },
       { title: '负责人', dataIndex: 'owner', width: 80, render: (v: string) => v || '-' },
-      { title: '最近下单', dataIndex: 'order', width: 120 },
-      { title: '最近跟进', dataIndex: 'followUp', width: 120 },
+      { title: '最近下单', dataIndex: 'order', width: 90 },
+      { title: '最近拜访', dataIndex: 'followUp', width: 90 },
+      { title: '目标拜访间隔', dataIndex: 'visitInterval', width: 100, render: (v: string) => v || '-' },
+      {
+        title: '拜访预警',
+        width: 120,
+        render: (_: unknown, record: DrilldownCustomer) => {
+          if (!record.followUp || !record.visitInterval) return '-';
+          const days = parseInt(record.followUp);
+          const limit = parseInt(record.visitInterval);
+          if (isNaN(days) || isNaN(limit)) return '-';
+          if (days > limit) {
+            return <Tag color="red">已超期 {days - limit} 天</Tag>;
+          }
+          const remaining = limit - days;
+          if (remaining <= 3) {
+            return <Tag color="orange">{remaining} 天后超期</Tag>;
+          }
+          return <span style={{ color: '#52c41a' }}>正常</span>;
+        },
+      },
     ];
 
     const metricColumns: ColumnsType<DrilldownCustomer> = metricLabels.map((label) => ({

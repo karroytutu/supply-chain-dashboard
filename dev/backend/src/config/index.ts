@@ -31,23 +31,6 @@ const DEFAULT_BACKEND_PORT = 8100;
 export const config = {
   port: parseInt(process.env.PORT || String(DEFAULT_BACKEND_PORT), 10),
   
-  // @deprecated 鑫蔬通 ERP 数据库连接已弃用，所有数据已迁移到舟谱云管家 API。
-  // 保留此配置仅为兼容历史数据迁移脚本，后续版本将彻底移除。
-  database: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
-    database: process.env.DB_NAME || 'xinshutong',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-    maxUses: 7500,
-    allowExitOnIdle: true,
-    // 设置时区为北京时间
-    options: '-c timezone=Asia/Shanghai',
-  },
-  
   // 应用数据库（读写，用户认证等）
   appDatabase: {
     host: process.env.APP_DB_HOST || 'localhost',

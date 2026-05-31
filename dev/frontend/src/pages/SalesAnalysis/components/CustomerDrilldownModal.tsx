@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Modal, Tag, Button } from 'antd';
+import { Modal, Button } from 'antd';
 import CustomerListPanel from './CustomerListPanel';
 import type { DrilldownRiskGroup, DrilldownCustomer } from '@/types/sales-analysis';
 import styles from './CustomerDrilldownModal.less';
@@ -77,8 +77,6 @@ const DrilldownHeader: React.FC<{
 }> = ({ riskGroup, viewMode, onViewModeChange }) => (
   <div className={styles.drilldownHeader}>
     <div className={styles.drilldownHeaderLeft}>
-      <p className={styles.drilldownDesc}>{riskGroup.desc}</p>
-      <Tag color={riskGroup.tagColor}>{riskGroup.tagText}</Tag>
       <span className={styles.drilldownCount}>{riskGroup.countText}</span>
     </div>
     <div className={styles.viewSwitch}>

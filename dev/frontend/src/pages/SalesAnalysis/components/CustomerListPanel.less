@@ -37,16 +37,30 @@
   }
 }
 
-.toolbarNote {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.25);
-}
-
 /* 搜索栏 */
 .searchBar {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.toolbarRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 工具栏控件尺寸（桌面端） */
+.filterSelect {
+  width: 120px;
+}
+
+.filterSearch {
+  flex: 1;
+}
+
+.ownerSelect {
+  width: 140px;
 }
 
 /* 我的视图概要 */
@@ -137,6 +151,151 @@
 
 .empty {
   padding: 32px 0;
+}
+
+/* 移动端卡片列表 */
+.mobileCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobileCard {
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.mobileCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mobileCardName {
+  font-weight: 600;
+  font-size: 14px;
+  color: #262626;
+}
+
+.mobileCardSubHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mobileCardOwner {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.mobileCardGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.65);
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  :global(.ant-tag) {
+    margin-inline-end: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbarRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .filterSelect {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+
+    :global(.ant-select) {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+
+    :global(.ant-select-selector) {
+      height: 28px !important;
+      min-height: 28px !important;
+    }
+
+    :global(.ant-select-selection-item),
+    :global(.ant-select-selection-placeholder) {
+      line-height: 26px !important;
+      font-size: 12px;
+    }
+  }
+
+  .ownerSelect {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+
+    :global(.ant-select) {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+
+    :global(.ant-select-selector) {
+      height: 28px !important;
+      min-height: 28px !important;
+    }
+
+    :global(.ant-select-selection-item),
+    :global(.ant-select-selection-placeholder) {
+      line-height: 26px !important;
+      font-size: 12px;
+    }
+  }
+
+  .filterSearch {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+
+    :global(.ant-input-search) {
+      width: 100%;
+    }
+
+    :global(.ant-input-group-wrapper) {
+      font-size: 12px;
+    }
+
+    :global(.ant-input-affix-wrapper) {
+      height: 28px;
+      padding: 0 8px;
+    }
+
+    :global(.ant-input) {
+      height: 26px;
+      font-size: 12px;
+    }
+
+    :global(.ant-input-group-addon) {
+      height: 28px;
+    }
+
+    :global(.ant-input-search-button) {
+      height: 28px;
+      width: 28px;
+    }
+  }
 }
 
 @media (max-width: 576px) {
