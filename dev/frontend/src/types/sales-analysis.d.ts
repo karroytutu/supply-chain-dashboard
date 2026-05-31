@@ -164,7 +164,7 @@ export interface DrilldownRiskGroup {
   tagColor: string;
   countText: string;
   filterNote: string;
-  myView: DrilldownMyView;
+  myView?: DrilldownMyView;
   filters: Array<{ key: string; label: string }>;
   customers: DrilldownCustomer[];
 }
@@ -193,6 +193,8 @@ export interface DrilldownCustomer {
   action: string;
   filters: string[];
   isMine: boolean;
+  grade?: string;
+  visitInterval?: string;
   detail: DrilldownCustomerDetail;
 }
 
