@@ -19,6 +19,8 @@ interface RequestOptions {
   skipErrorHandler?: boolean;
   /** 外部 AbortSignal，用于取消请求 */
   signal?: AbortSignal;
+  /** 自定义超时时间（毫秒），覆盖默认的 30 秒 */
+  timeout?: number;
   /** 是否跳过 GET 参数的 camelCase → snake_case 自动转换
    * 适用于参数名由后端 API 定义（如 ERP 参考数据的 consumerId）而非数据库字段的场景 */
   skipParamsSnakeCase?: boolean;
@@ -100,7 +102,7 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+  const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT);
 
   // 外部 signal 关联：当外部 abort 时也取消当前请求
   if (options.signal) {

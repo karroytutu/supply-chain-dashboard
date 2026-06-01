@@ -3,7 +3,15 @@
  */
 
 import request from './request';
-import type { OverviewStats, TrendData } from '@/types/overview';
+import type { OverviewFull, OverviewStats, TrendData } from '@/types/overview';
+
+/**
+ * 获取完整概览数据（stats + trend，推荐使用）
+ * 后端先计算 stats 填充缓存，再计算 trend，避免重复调用
+ */
+export function getOverviewFull(): Promise<OverviewFull> {
+  return request.get<OverviewFull>('/overview/full', { timeout: 60000 });
+}
 
 /**
  * 获取全局统计数据

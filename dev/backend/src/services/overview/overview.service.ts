@@ -5,24 +5,45 @@
 
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { CACHE_KEY } from '../../utils/cache-keys';
+import { STANDARD_CALC_DAYS } from '../../utils/constants';
 import { formatDateOnly } from '../../utils/dateFormat';
 import { getAvailabilityData } from '../availability';
-import { getTurnoverData } from '../turnover';
+import { fetchAllBatchInventory } from '../erp-client/erp-batch-inventory.service';
+import { fetchAllInventory } from '../erp-client/erp-inventory.service';
+import { fetchAllProducts } from '../erp-client/erp-product.service';
+import { getDailySalesMap, getLastSaleMap } from '../erp-client/erp-sales-detail.service';
 import { getExpiringData } from '../expiring';
 import { getSlowMovingData } from '../slowMoving';
 import { getStrategicProductStats } from '../strategic-product';
-import type { OverviewStats, TrendData, TrendPoint } from './overview.types';
+import { getTurnoverData } from '../turnover';
+import type { OverviewFull, OverviewStats, TrendData, TrendPoint } from './overview.types';
 
 /**
- * 获取全局统计数据
+ * 顺序预热共享 ERP 数据集
+ * 在 5 个子服务并行执行前，依次填充各共享数据集的缓存，
+ * 避免 Promise.all() 并发时多个服务同时 miss 同一缓存 key 导致冗余 ERP 请求。
  */
-export async function getOverviewStats(): Promise<OverviewStats> {
-  // 检查缓存
-  const cacheKey = 'overview:stats';
-  const cached = cache.get<OverviewStats>(cacheKey);
-  if (cached) {
-    return cached;
-  }
+async function warmSharedDatasets(): Promise<void> {
+  // 1. 商品列表 → 填充 erp:products:all 缓存（60s TTL）
+  await fetchAllProducts();
+  // 2. 库存列表 → 填充 erp:inventory:all 缓存（30s TTL）
+  await fetchAllInventory();
+  // 3. 近 30 天销售明细 → 填充 erp:sales:recent 缓存（60s TTL）
+  await getDailySalesMap(STANDARD_CALC_DAYS);
+  // 4. 批次库存 → 填充 erp:batch:inventory 缓存（30s TTL）
+  await fetchAllBatchInventory();
+  // 5. 近 45 天最后销售日期 → 填充 erp:sales:last_sale 缓存（60s TTL）
+  //    供 getSlowMovingData() 使用，避免并行阶段触发冗余 ERP 请求
+  await getLastSaleMap();
+}
+
+/**
+ * 计算全局统计数据（从 ERP 和数据库获取原始数据并聚合）
+ */
+async function computeStats(): Promise<OverviewStats> {
+  // 顺序预热共享数据集，确保后续并行服务全部命中缓存
+  await warmSharedDatasets();
 
   // 并行获取各模块数据
   const [availability, turnover, expiring, slowMoving, strategicStats] = await Promise.all([
@@ -45,7 +66,7 @@ export async function getOverviewStats(): Promise<OverviewStats> {
   const now = new Date();
   const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  const result: OverviewStats = {
+  return {
     totalSku: availability.totalSku,
     strategicProductCount: strategicStats.total,
     warningProductCount: warningCount,
@@ -59,11 +80,57 @@ export async function getOverviewStats(): Promise<OverviewStats> {
       type: 'month',
     },
   };
+}
 
-  // 写入缓存（1分钟有效期）
+/** 防止并发后台刷新 */
+let _statsRefreshing = false;
+
+/**
+ * 获取全局统计数据
+ * 支持 stale-while-revalidate：新鲜缓存直接返回；过期缓存立即返回旧数据 + 后台刷新；
+ * 从未缓存则完整计算。
+ *
+ * 注意：使用 getStale() + isFresh() 而非 get() + getStale()，
+ * 因为 get() 会破坏性地删除过期条目，导致 getStale() 无法读取。
+ */
+export async function getOverviewStats(): Promise<OverviewStats> {
+  const cacheKey = CACHE_KEY.OVERVIEW_STATS;
+
+  // 1. 从缓存读取（非破坏性 — 保留过期条目供 stale-while-revalidate 使用）
+  const stale = cache.getStale<OverviewStats>(cacheKey);
+
+  if (stale) {
+    // 2. 检查是否仍然新鲜（未过期）
+    if (cache.isFresh(cacheKey)) {
+      return stale;
+    }
+
+    // 3. 过期缓存 → 返回旧数据 + 后台刷新（fire-and-forget）
+    if (!_statsRefreshing) {
+      _statsRefreshing = true;
+      computeStats()
+        .then(data => cache.set(cacheKey, data, CACHE_TTL.DASHBOARD))
+        .catch(err => console.warn('[Overview] 后台刷新统计数据失败:', err))
+        .finally(() => { _statsRefreshing = false; });
+    }
+    return stale;
+  }
+
+  // 4. 从未缓存 → 完整计算并写入缓存
+  const result = await computeStats();
   cache.set(cacheKey, result, CACHE_TTL.DASHBOARD);
-
   return result;
+}
+
+/**
+ * 获取完整概览数据（stats + trend）
+ * 先调用 getOverviewStats() 填充所有缓存，再调用 getTrendData() 命中缓存，
+ * 避免前端 Promise.all 导致 trend 重复计算 availability/turnover。
+ */
+export async function getOverviewFull(): Promise<OverviewFull> {
+  const stats = await getOverviewStats();
+  const trend = await getTrendData(7);
+  return { stats, trend };
 }
 
 /**

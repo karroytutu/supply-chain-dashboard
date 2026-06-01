@@ -49,6 +49,9 @@ const DEFAULT_PAGE_SIZE = 2000;
  * @param skipCache - 为 true 时绕过缓存
  * @returns 库存记录数组（含零库存）
  */
+/** in-flight 去重：多个并发调用共享同一 Promise，避免冷缓存时重复请求 ERP */
+let _inventoryInFlight: Promise<ErpInventoryRecord[]> | null = null;
+
 export async function fetchAllInventory(skipCache = false): Promise<ErpInventoryRecord[]> {
   const cacheKey = CACHE_KEY.ERP_INVENTORY_ALL;
 
@@ -57,56 +60,65 @@ export async function fetchAllInventory(skipCache = false): Promise<ErpInventory
     if (cached) return cached;
   }
 
-  const { cid, uid } = getErpDefaults();
-  const allRecords: ErpInventoryRecord[] = [];
-  let current = 1;
+  // in-flight 去重
+  if (!skipCache && _inventoryInFlight) return _inventoryInFlight;
 
-  while (true) {
-    const result = await erpPost<ApiInventoryResponse>(
-      '/stock/report/query-realtime-stock-search',
-      {
-        current,
-        size: DEFAULT_PAGE_SIZE,
-        warehouseIds: [],
-        cwmSourceCidList: [],
-        brandIds: [],
-        mainSupplierIdList: [],
-        goodsState: 'ENABLE',
-        stockType: 'PHYSICAL',
-        unitDisplayType: 'BASE_UNIT',
-        costPriceType: 'MOVE_COST_PRICE',
-        showZeroStock: true,
-        dimList: [''],
-        warehouseType: 0,
-        states: [],
-        cid,
-        uid,
-      },
-      {
-        pathPrefix: '/toliman/',
-        businessType: 'inventory_fetch',
+  const doFetch = async (): Promise<ErpInventoryRecord[]> => {
+    const { cid, uid } = getErpDefaults();
+    const allRecords: ErpInventoryRecord[] = [];
+    let current = 1;
+
+    while (true) {
+      const result = await erpPost<ApiInventoryResponse>(
+        '/stock/report/query-realtime-stock-search',
+        {
+          current,
+          size: DEFAULT_PAGE_SIZE,
+          warehouseIds: [],
+          cwmSourceCidList: [],
+          brandIds: [],
+          mainSupplierIdList: [],
+          goodsState: 'ENABLE',
+          stockType: 'PHYSICAL',
+          unitDisplayType: 'BASE_UNIT',
+          costPriceType: 'MOVE_COST_PRICE',
+          showZeroStock: true,
+          dimList: [''],
+          warehouseType: 0,
+          states: [],
+          cid,
+          uid,
+        },
+        {
+          pathPrefix: '/toliman/',
+          businessType: 'inventory_fetch',
+        }
+      );
+
+      const records = result?.data?.records || [];
+      allRecords.push(...records);
+
+      const total = result?.data?.total || 0;
+      if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
+        break;
       }
-    );
-
-    const records = result?.data?.records || [];
-    allRecords.push(...records);
-
-    const total = result?.data?.total || 0;
-    if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
-      break;
+      current++;
     }
-    current++;
-  }
 
-  // 写入缓存（TTL 30s）
-  cache.set(cacheKey, allRecords, CACHE_TTL.HIGH_FREQUENCY);
+    // 写入缓存（TTL 30s）
+    cache.set(cacheKey, allRecords, CACHE_TTL.HIGH_FREQUENCY);
 
-  // 清除预聚合缓存
-  _stockSummaryMap = null;
-  _stockByNameMap = null;
-  _costPriceByNameMap = null;
+    // 清除预聚合缓存
+    _stockSummaryMap = null;
+    _stockByNameMap = null;
+    _costPriceByNameMap = null;
 
-  return allRecords;
+    return allRecords;
+  };
+
+  _inventoryInFlight = doFetch();
+  try { return await _inventoryInFlight; }
+  finally { _inventoryInFlight = null; }
 }
 
 /**

@@ -8,6 +8,7 @@ import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
+import { LAST_SALE_LOOKBACK_DAYS } from '../../utils/constants';
 import { aggregateSum, lastBy } from '../../utils/arrayAggregation';
 
 /** API 返回的销售明细记录 */
@@ -45,6 +46,9 @@ interface ApiSalesResponse {
 /** 默认 pageSize（实测 1000 最优） */
 const DEFAULT_PAGE_SIZE = 1000;
 
+/** in-flight 去重 Map：key 为 `${dateFrom}:${dateTo}`，多个并发调用共享同一 Promise */
+const _salesInFlight = new Map<string, Promise<ErpSalesDetail[]>>();
+
 /**
  * 从 ERP API 拉取指定日期范围的销售明细
  */
@@ -53,74 +57,89 @@ export async function fetchSalesDetails(
   dateTo: string,
   skipCache = false
 ): Promise<ErpSalesDetail[]> {
-  const { cid, uid } = getErpDefaults();
-  const allRecords: ErpSalesDetail[] = [];
-  let current = 1;
-
-  while (true) {
-    const result = await erpPost<ApiSalesResponse>(
-      '/funds-sale/list-sale-detail',
-      {
-        dimList: [],
-        submitTimeFrom: dateFrom,
-        submitTimeTo: dateTo,
-        goodsIds: [],
-        consumerIds: [],
-        salesmanIds: [],
-        subTypes: [],
-        billTypes: [],
-        businessAttrIds: [],
-        tagIds: [],
-        orderStateIds: ['APPROVED'],
-        settlementStateIds: [],
-        brandIds: [],
-        categoryIds: [],
-        costPriceType: 'MOVE_COST_PRICE',
-        areaIds: [],
-        groupIds: [],
-        gradeIds: [],
-        deliverIds: [],
-        orderNote: '',
-        originStr: '',
-        warehouseIds: [],
-        submitTimeType: 'settle_time',
-        unitDisplayType: 'BASE_UNIT',
-        mixPriceUnit: 'PKG_UNIT',
-        exportType: 'mergeexport',
-        orderBy: '',
-        orderType: '',
-        signStateIds: [],
-        deptIds: [],
-        settleConsumerIds: [],
-        supplierIds: [],
-        defaultSelectedIndex: 0,
-        qualityType: '',
-        current,
-        size: DEFAULT_PAGE_SIZE,
-        fundsSaleTotalAmountFrom: '',
-        fundsSaleTotalAmountTo: '',
-        bizCollectorIds: [],
-        fuzzySearchGoodsStr: '',
-        cid,
-        uid,
-      },
-      {
-        pathPrefix: '/toliman/',
-        businessType: 'sales_detail_fetch',
-      }
-    );
-
-    const records = result?.data?.records || [];
-    allRecords.push(...records);
-
-    const total = result?.data?.total || 0;
-    if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
-      break;
-    }
-    current++;
+  // in-flight 去重
+  const inflightKey = `${dateFrom}:${dateTo}`;
+  if (!skipCache && _salesInFlight.has(inflightKey)) {
+    return _salesInFlight.get(inflightKey)!;
   }
 
-  return allRecords;
+  const doFetch = async (): Promise<ErpSalesDetail[]> => {
+    const { cid, uid } = getErpDefaults();
+    const allRecords: ErpSalesDetail[] = [];
+    let current = 1;
+
+    while (true) {
+      const result = await erpPost<ApiSalesResponse>(
+        '/funds-sale/list-sale-detail',
+        {
+          dimList: [],
+          submitTimeFrom: dateFrom,
+          submitTimeTo: dateTo,
+          goodsIds: [],
+          consumerIds: [],
+          salesmanIds: [],
+          subTypes: [],
+          billTypes: [],
+          businessAttrIds: [],
+          tagIds: [],
+          orderStateIds: ['APPROVED'],
+          settlementStateIds: [],
+          brandIds: [],
+          categoryIds: [],
+          costPriceType: 'MOVE_COST_PRICE',
+          areaIds: [],
+          groupIds: [],
+          gradeIds: [],
+          deliverIds: [],
+          orderNote: '',
+          originStr: '',
+          warehouseIds: [],
+          submitTimeType: 'settle_time',
+          unitDisplayType: 'BASE_UNIT',
+          mixPriceUnit: 'PKG_UNIT',
+          exportType: 'mergeexport',
+          orderBy: '',
+          orderType: '',
+          signStateIds: [],
+          deptIds: [],
+          settleConsumerIds: [],
+          supplierIds: [],
+          defaultSelectedIndex: 0,
+          qualityType: '',
+          current,
+          size: DEFAULT_PAGE_SIZE,
+          fundsSaleTotalAmountFrom: '',
+          fundsSaleTotalAmountTo: '',
+          bizCollectorIds: [],
+          fuzzySearchGoodsStr: '',
+          cid,
+          uid,
+        },
+        {
+          pathPrefix: '/toliman/',
+          businessType: 'sales_detail_fetch',
+        }
+      );
+
+      const records = result?.data?.records || [];
+      allRecords.push(...records);
+
+      const total = result?.data?.total || 0;
+      if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
+        break;
+      }
+      current++;
+    }
+
+    return allRecords;
+  };
+
+  const promise = doFetch();
+  if (!skipCache) {
+    _salesInFlight.set(inflightKey, promise);
+    promise.finally(() => _salesInFlight.delete(inflightKey));
+  }
+  return promise;
 }
 
 /**
@@ -168,14 +187,15 @@ export async function getDailySalesMap(days = 30): Promise<Map<string, number>> 
  * 替代 SQL: SELECT goodsName, MAX(settleTime) GROUP BY goodsName
  */
 export async function getLastSaleMap(): Promise<Map<string, string>> {
-  const cacheKey = 'erp:sales:last_sale';
+  const cacheKey = CACHE_KEY.ERP_SALES_LAST_SALE;
 
   const cached = cache.get<Map<string, string>>(cacheKey);
   if (cached) return cached;
 
   const now = new Date();
   const fromDate = new Date(now);
-  fromDate.setDate(fromDate.getDate() - 365); // 查最近 1 年
+  // 查最近 45 天（滞销最大阈值30天 + 50%缓冲），超出此范围的商品视为严重滞销
+  fromDate.setDate(fromDate.getDate() - LAST_SALE_LOOKBACK_DAYS);
 
   const details = await fetchSalesDetails(
     fromDate.toISOString().slice(0, 10),
