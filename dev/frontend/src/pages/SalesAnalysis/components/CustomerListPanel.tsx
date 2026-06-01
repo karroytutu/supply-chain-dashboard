@@ -3,14 +3,63 @@
  * 弹窗内：筛选器 + 搜索栏 + 客户表格
  */
 
-import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { Tag, Empty, Table, Input, Select } from 'antd';
+import React, { useMemo } from 'react';
+import { Tag, Empty, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import type { DrilldownRiskGroup, DrilldownCustomer, DrilldownMyView } from '@/types/sales-analysis';
+import type { DrilldownRiskGroup, DrilldownCustomer } from '@/types/sales-analysis';
 import { useMobileDetect } from '@/hooks/useMobileDetect';
+import { Toolbar, MyViewSummary } from './CustomerListPanelParts';
 import styles from './CustomerListPanel.less';
 
+/** 按钻取类型控制表格列显示 */
+interface ColumnConfig {
+  showGrade: boolean;
+  showVisitColumns: boolean;
+}
+
+const DRILLDOWN_COLUMN_CONFIG: Record<string, ColumnConfig> = {
+  visit_insufficient: { showGrade: true, showVisitColumns: true },
+};
+
+const DEFAULT_COLUMN_CONFIG: ColumnConfig = { showGrade: false, showVisitColumns: false };
+
+function getColumnConfig(drilldownKey: string): ColumnConfig {
+  return DRILLDOWN_COLUMN_CONFIG[drilldownKey] ?? DEFAULT_COLUMN_CONFIG;
+}
+
+/** 通用状态标签：根据 riskGroup.filters 匹配第一个命中的子筛选 */
+function renderStatusTag(
+  record: DrilldownCustomer,
+  filters: DrilldownRiskGroup['filters'],
+  tagColor: string,
+): React.ReactNode {
+  for (const f of filters) {
+    if (f.key === 'all') continue;
+    if (record.filters.includes(f.key)) {
+      return <Tag color={tagColor}>{f.label}</Tag>;
+    }
+  }
+  return '-';
+}
+
+/** 拜访预警渲染（仅 visit_insufficient 类型使用） */
+function renderVisitWarning(record: DrilldownCustomer): React.ReactNode {
+  if (!record.followUp || !record.visitInterval) return '-';
+  const days = parseInt(record.followUp);
+  const limit = parseInt(record.visitInterval);
+  if (isNaN(days) || isNaN(limit)) return '-';
+  if (days > limit) {
+    return <Tag color="red">已超期 {days - limit} 天</Tag>;
+  }
+  const remaining = limit - days;
+  if (remaining <= 3) {
+    return <Tag color="orange">{remaining} 天后超期</Tag>;
+  }
+  return <span style={{ color: '#52c41a' }}>正常</span>;
+}
+
 interface CustomerListPanelProps {
+  drilldownKey: string;
   riskGroup: DrilldownRiskGroup;
   customers: DrilldownCustomer[];
   viewMode: 'all' | 'mine';
@@ -24,7 +73,7 @@ interface CustomerListPanelProps {
 }
 
 const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
-  riskGroup, customers, viewMode, filterKey, keyword, ownerFilter, ownerOptions,
+  drilldownKey, riskGroup, customers, viewMode, filterKey, keyword, ownerFilter, ownerOptions,
   onFilterChange, onKeywordChange, onOwnerFilterChange,
 }) => (
   <div className={styles.wrap}>
@@ -42,122 +91,57 @@ const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
     {customers.length === 0 ? (
       <Empty description={viewMode === 'mine' ? '当前分类下暂无我的客户' : '当前筛选条件下暂无客户'} className={styles.empty} />
     ) : (
-      <CustomerTable customers={customers} />
+      <CustomerTable drilldownKey={drilldownKey} riskGroup={riskGroup} customers={customers} />
     )}
   </div>
 );
 
-/** 工具栏：筛选标签 + 搜索 + 负责人，合并为一行 */
-const Toolbar: React.FC<{
-  filters: DrilldownRiskGroup['filters'];
-  filterKey: string;
-  note: string;
-  keyword: string;
-  ownerFilter: string;
-  ownerOptions: string[];
-  onFilterChange: (key: string) => void;
-  onKeywordChange: (keyword: string) => void;
-  onOwnerFilterChange: (owner: string) => void;
-}> = ({ filters, filterKey, keyword, ownerFilter, ownerOptions, onFilterChange, onKeywordChange, onOwnerFilterChange }) => {
-  const [inputValue, setInputValue] = useState(keyword);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
-  const isMobile = useMobileDetect();
-  const compactSize = isMobile ? 'small' as const : undefined;
-
-  useEffect(() => {
-    timerRef.current = setTimeout(() => onKeywordChange(inputValue), 300);
-    return () => clearTimeout(timerRef.current);
-  }, [inputValue, onKeywordChange]);
-
+/** 移动端客户卡片 */
+const MobileCustomerCard: React.FC<{
+  drilldownKey: string;
+  riskGroup: DrilldownRiskGroup;
+  record: DrilldownCustomer;
+}> = ({ drilldownKey, riskGroup, record }) => {
+  const config = getColumnConfig(drilldownKey);
   return (
-    <div className={styles.toolbar}>
-      <div className={styles.toolbarRow}>
-        {filters.length > 1 && (
-          <div className={styles.filterSelect}>
-            <Select
-              placeholder="状态"
-              value={filterKey}
-              onChange={(val) => onFilterChange(val)}
-              size={compactSize}
-              style={{ width: '100%' }}
-              options={filters.map((f) => ({ value: f.key, label: f.label }))}
-            />
-          </div>
-        )}
-        <div className={styles.filterSearch}>
-          <Input.Search
-            placeholder="搜索客户名称"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            allowClear
-            size={compactSize}
-            style={{ width: '100%' }}
-          />
-        </div>
-        <div className={styles.ownerSelect}>
-          <Select
-            placeholder="负责人"
-            value={ownerFilter || undefined}
-            onChange={(val) => onOwnerFilterChange(val || '')}
-            allowClear
-            size={compactSize}
-            style={{ width: '100%' }}
-            options={ownerOptions.map((o) => ({ value: o, label: o }))}
-          />
-        </div>
+    <div className={styles.mobileCard}>
+      <div className={styles.mobileCardHeader}>
+        <span className={styles.mobileCardName}>{record.name}</span>
+        {config.showGrade && record.grade && <Tag>{record.grade}</Tag>}
       </div>
-
+      <div className={styles.mobileCardSubHeader}>
+        {renderStatusTag(record, riskGroup.filters, riskGroup.tagColor)}
+        <span className={styles.mobileCardOwner}>负责人：{record.owner || '-'}</span>
+      </div>
+      <div className={styles.mobileCardGrid}>
+        <span>最近下单：{record.order || '-'}</span>
+        <span>最近拜访：{record.followUp || '-'}</span>
+        {config.showVisitColumns && (
+          <>
+            <span>目标间隔：{record.visitInterval || '-'}</span>
+            <span>拜访预警：{renderVisitWarning(record)}</span>
+          </>
+        )}
+      </div>
     </div>
   );
 };
 
-/** 拜访预警渲染（卡片和表格共用） */
-function renderVisitWarning(record: DrilldownCustomer) {
-  if (!record.followUp || !record.visitInterval) return <span>-</span>;
-  const days = parseInt(record.followUp);
-  const limit = parseInt(record.visitInterval);
-  if (isNaN(days) || isNaN(limit)) return <span>-</span>;
-  if (days > limit) {
-    return <Tag color="red">已超期 {days - limit} 天</Tag>;
-  }
-  const remaining = limit - days;
-  if (remaining <= 3) {
-    return <Tag color="orange">{remaining} 天后超期</Tag>;
-  }
-  return <span style={{ color: '#52c41a' }}>正常</span>;
-}
-
-/** 移动端客户卡片 */
-const MobileCustomerCard: React.FC<{ record: DrilldownCustomer }> = ({ record }) => (
-  <div className={styles.mobileCard}>
-    <div className={styles.mobileCardHeader}>
-      <span className={styles.mobileCardName}>{record.name}</span>
-      {record.grade && <Tag>{record.grade}</Tag>}
-    </div>
-    <div className={styles.mobileCardSubHeader}>
-      {record.filters.includes('approaching')
-        ? <Tag color="orange">即将超期</Tag>
-        : <Tag color="red">已超期</Tag>}
-      <span className={styles.mobileCardOwner}>负责人：{record.owner || '-'}</span>
-    </div>
-    <div className={styles.mobileCardGrid}>
-      <span>最近下单：{record.order || '-'}</span>
-      <span>最近拜访：{record.followUp || '-'}</span>
-      <span>目标间隔：{record.visitInterval || '-'}</span>
-      <span>拜访预警：{renderVisitWarning(record)}</span>
-    </div>
-  </div>
-);
-
 /** 客户表格 / 移动端卡片列表 */
-const CustomerTable: React.FC<{ customers: DrilldownCustomer[] }> = ({ customers }) => {
-  const columns = useTableColumns(customers);
+const CustomerTable: React.FC<{
+  drilldownKey: string;
+  riskGroup: DrilldownRiskGroup;
+  customers: DrilldownCustomer[];
+}> = ({ drilldownKey, riskGroup, customers }) => {
+  const columns = useTableColumns(customers, drilldownKey, riskGroup);
   const isMobile = useMobileDetect();
 
   if (isMobile) {
     return (
       <div className={styles.mobileCardList}>
-        {customers.map(c => <MobileCustomerCard key={c.id} record={c} />)}
+        {customers.map(c => (
+          <MobileCustomerCard key={c.id} drilldownKey={drilldownKey} riskGroup={riskGroup} record={c} />
+        ))}
       </div>
     );
   }
@@ -176,9 +160,14 @@ const CustomerTable: React.FC<{ customers: DrilldownCustomer[] }> = ({ customers
   );
 };
 
-/** 动态生成表格列 */
-function useTableColumns(customers: DrilldownCustomer[]): ColumnsType<DrilldownCustomer> {
+/** 动态生成表格列（按钻取类型条件化） */
+function useTableColumns(
+  customers: DrilldownCustomer[],
+  drilldownKey: string,
+  riskGroup: DrilldownRiskGroup,
+): ColumnsType<DrilldownCustomer> {
   return useMemo(() => {
+    const config = getColumnConfig(drilldownKey);
     const labelSet = new Set<string>();
     customers.forEach(c => c.detail.metrics.forEach(m => labelSet.add(m.label)));
     const metricLabels = Array.from(labelSet);
@@ -190,40 +179,35 @@ function useTableColumns(customers: DrilldownCustomer[]): ColumnsType<DrilldownC
         width: 160,
         render: (name: string) => <div style={{ fontWeight: 500 }}>{name}</div>,
       },
-      { title: '等级', dataIndex: 'grade', width: 60, render: (v: string) => v || '-' },
-      {
-        title: '状态',
-        width: 90,
-        render: (_: unknown, record: DrilldownCustomer) => {
-          if (record.filters.includes('approaching')) {
-            return <Tag color="orange">即将超期</Tag>;
-          }
-          return <Tag color="red">已超期</Tag>;
-        },
-      },
+    ];
+
+    if (config.showGrade) {
+      fixedColumns.push({ title: '等级', dataIndex: 'grade', width: 60, render: (v: string) => v || '-' });
+    }
+
+    fixedColumns.push({
+      title: '状态',
+      width: 100,
+      render: (_: unknown, record: DrilldownCustomer) =>
+        renderStatusTag(record, riskGroup.filters, riskGroup.tagColor),
+    });
+
+    fixedColumns.push(
       { title: '负责人', dataIndex: 'owner', width: 80, render: (v: string) => v || '-' },
       { title: '最近下单', dataIndex: 'order', width: 90 },
       { title: '最近拜访', dataIndex: 'followUp', width: 90 },
-      { title: '目标拜访间隔', dataIndex: 'visitInterval', width: 100, render: (v: string) => v || '-' },
-      {
-        title: '拜访预警',
-        width: 120,
-        render: (_: unknown, record: DrilldownCustomer) => {
-          if (!record.followUp || !record.visitInterval) return '-';
-          const days = parseInt(record.followUp);
-          const limit = parseInt(record.visitInterval);
-          if (isNaN(days) || isNaN(limit)) return '-';
-          if (days > limit) {
-            return <Tag color="red">已超期 {days - limit} 天</Tag>;
-          }
-          const remaining = limit - days;
-          if (remaining <= 3) {
-            return <Tag color="orange">{remaining} 天后超期</Tag>;
-          }
-          return <span style={{ color: '#52c41a' }}>正常</span>;
+    );
+
+    if (config.showVisitColumns) {
+      fixedColumns.push(
+        { title: '目标拜访间隔', dataIndex: 'visitInterval', width: 100, render: (v: string) => v || '-' },
+        {
+          title: '拜访预警',
+          width: 120,
+          render: (_: unknown, record: DrilldownCustomer) => renderVisitWarning(record),
         },
-      },
-    ];
+      );
+    }
 
     const metricColumns: ColumnsType<DrilldownCustomer> = metricLabels.map((label) => ({
       title: label,
@@ -235,26 +219,7 @@ function useTableColumns(customers: DrilldownCustomer[]): ColumnsType<DrilldownC
     }));
 
     return [...fixedColumns, ...metricColumns];
-  }, [customers]);
+  }, [customers, drilldownKey, riskGroup]);
 }
-
-/** 我的视图概要 */
-const MyViewSummary: React.FC<{ myView: DrilldownMyView }> = ({ myView }) => (
-  <div className={styles.myViewSummary}>
-    <div>
-      <div className={styles.myViewKicker}>业务员视角</div>
-      <h4 className={styles.myViewTitle}>{myView.title}</h4>
-      <p className={styles.myViewNote}>{myView.note}</p>
-    </div>
-    <div className={styles.myViewFocus}>
-      <div className={styles.myViewFocusTop}>
-        <span className={styles.myViewFocusLabel}>{myView.focusLabel}</span>
-        <span className={styles.myViewFocusStatus}>{myView.focusStatus}</span>
-      </div>
-      <div className={styles.myViewFocusName}>{myView.focusName}</div>
-      <p className={styles.myViewFocusNote}>{myView.focusNote}</p>
-    </div>
-  </div>
-);
 
 export default CustomerListPanel;

@@ -53,6 +53,7 @@ const CustomerDrilldownModal: React.FC<CustomerDrilldownModalProps> = ({ drilldo
       />
       <div className={styles.drilldownBody}>
         <CustomerListPanel
+          drilldownKey={drilldown.state.drilldownKey}
           riskGroup={drilldown.riskGroup}
           customers={drilldown.filteredCustomers}
           viewMode={drilldown.state.viewMode}
