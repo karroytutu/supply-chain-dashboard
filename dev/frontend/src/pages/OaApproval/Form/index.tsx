@@ -7,7 +7,6 @@ import { Button, Spin, Form, message, Alert } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
 import type { FormTypeDefinition } from '@/types/oa-approval';
-import { useRecentForms } from '../hooks/useRecentForms';
 import { useFormData } from './hooks/useFormData';
 import FormFieldConfig from './components/FormFieldConfig';
 import ConditionalFieldWrapper, { checkCondition } from './components/ConditionalFieldWrapper';
@@ -19,7 +18,6 @@ const FormPage: React.FC = () => {
   const { typeCode } = useParams<{ typeCode: string }>();
   const access = useAccess();
   const [form] = Form.useForm();
-  const { recordUsage } = useRecentForms();
 
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
@@ -167,7 +165,6 @@ const FormPage: React.FC = () => {
         title,
       });
 
-      recordUsage(formType);
       message.success('提交成功');
       // 有详情页权限则跳转详情，否则跳转审批中心
       if (access['oa:approval:read']) {

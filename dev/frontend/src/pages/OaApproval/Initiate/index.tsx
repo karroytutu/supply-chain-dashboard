@@ -4,10 +4,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { history } from 'umi';
 import { Spin, Empty, Button } from 'antd';
-import { ClockCircleOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
+import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
 import { FormTypeDefinition, FormCategory, CATEGORY_LABELS } from '@/types/oa-approval';
-import { useRecentForms, QuickAccessItem } from '../hooks/useRecentForms';
 import { CATEGORY_COLORS } from './constants';
 import CategoryTabs, { ActiveCategory } from './components/CategoryTabs';
 import FormCard from './components/FormCard';
@@ -19,7 +18,6 @@ const Initiate: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState<ActiveCategory>('all');
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const { quickAccessItems, recordUsage } = useRecentForms();
 
   const toggleSection = (key: string) => {
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -79,13 +77,7 @@ const Initiate: React.FC = () => {
 
   /** 点击表单卡片 */
   const handleFormClick = (formType: FormTypeDefinition) => {
-    recordUsage(formType);
     history.push(`/oa/form/${formType.code}`);
-  };
-
-  /** 点击最近使用项 */
-  const handleRecentClick = (item: QuickAccessItem) => {
-    history.push(`/oa/form/${item.code}`);
   };
 
   /** 渲染分类区域 */
@@ -122,35 +114,6 @@ const Initiate: React.FC = () => {
     );
   };
 
-  /** 渲染最近使用区域（与分类区域同样的样式） */
-  const renderRecentSection = () => {
-    if (quickAccessItems.length === 0) return null;
-    const isCollapsed = collapsedSections['recent'];
-
-    return (
-      <div className={styles.categorySection}>
-        <div className={styles.sectionHeader} onClick={() => toggleSection('recent')}>
-          <ClockCircleOutlined className={styles.sectionIcon} />
-          <span className={styles.sectionName}>最近使用</span>
-          <span className={styles.sectionCount}>{quickAccessItems.length}</span>
-          <span className={styles.collapseArrow}>{isCollapsed ? <RightOutlined /> : <DownOutlined />}</span>
-        </div>
-        {!isCollapsed && (
-          <div className={styles.cardGrid}>
-            {quickAccessItems.map((item) => (
-              <FormCard
-                key={item.code}
-                name={item.name}
-                category={item.category}
-                onClick={() => handleRecentClick(item)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -160,7 +123,6 @@ const Initiate: React.FC = () => {
   }
 
   const hasResults = filteredFormTypes && Object.values(filteredFormTypes).some((arr) => arr.length > 0);
-  const hasRecent = quickAccessItems.length > 0;
 
   return (
     <div className={styles.container}>
@@ -177,7 +139,7 @@ const Initiate: React.FC = () => {
       />
 
       <div className={styles.content}>
-        {!hasResults && !hasRecent ? (
+        {!hasResults ? (
           <div className={styles.emptyState}>
             <Empty description="未找到相关表单类型" image={Empty.PRESENTED_IMAGE_SIMPLE}>
               {searchText && (
@@ -187,7 +149,6 @@ const Initiate: React.FC = () => {
           </div>
         ) : (
           <>
-            {renderRecentSection()}
             {Object.entries(filteredFormTypes!).map(([category, formTypes]) =>
               renderCategorySection(
                 category as FormCategory,
