@@ -32,6 +32,12 @@ interface RequestOptions {
  * 注意：401 时立即跳转登录页，不使用延迟，避免页面渲染为空权限状态
  */
 function handleAuthError(status: number, errorData?: any): void {
+  // 防御：已在登录页时不再触发重定向，避免循环刷新
+  const pathname = window.location.pathname;
+  if (pathname === '/login' || pathname.startsWith('/login/')) {
+    return;
+  }
+
   if (status === 401) {
     // Token 无效或过期，清除登录状态
     localStorage.removeItem(TOKEN_KEY);
@@ -245,7 +251,10 @@ export async function requestFormData<T = any>(
 
   if (response.status === 401) {
     localStorage.removeItem(TOKEN_KEY);
-    window.location.href = '/login';
+    const pathname = window.location.pathname;
+    if (pathname !== '/login' && !pathname.startsWith('/login/')) {
+      window.location.href = '/login';
+    }
     throw new Error('未授权');
   }
 

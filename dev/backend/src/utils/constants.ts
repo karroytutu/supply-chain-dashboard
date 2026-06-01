@@ -221,6 +221,29 @@ export const CREDIT_LICENSE_REMINDER_DAY_OFFSET_2 = 6;
  */
 export const CREDIT_LICENSE_PENALTY_PER_DAY = 10;
 
+// ==================== 客户档案修改 ====================
+
+/** 允许提交客户档案修改申请的角色
+ * @usedBy customer-modify-callback.ts (beforeSubmit 角色校验)
+ */
+export const CUSTOMER_MODIFY_ALLOWED_ROLES = ['admin', 'marketer', 'marketing_manager'];
+
+/** 客户状态：启用
+ * @usedBy customer-modify-callback.ts (状态判断)
+ */
+export const CUSTOMER_STATE_ENABLED = 1;
+
+/** 客户状态：停用
+ * @usedBy customer-modify-callback.ts (停用校验)
+ */
+export const CUSTOMER_STATE_DISABLED = 0;
+
+/** 客户状态：待确认
+ * @usedBy customer-modify.ts (表单选项)
+ * @usedBy customer-modify-callback.ts (状态处理)
+ */
+export const CUSTOMER_STATE_PENDING = 2;
+
 // ==================== OA审批钉钉通知配置 ====================
 
 /** OA审批操作Token过期时间（分钟） @usedBy oa-action-token.ts (Token过期时间) */

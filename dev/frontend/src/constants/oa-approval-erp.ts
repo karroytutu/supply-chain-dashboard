@@ -15,6 +15,9 @@ export const ERP_SEARCH_API_MAP: Record<string, ErpReferenceType> = {
   erp_asset_categories: 'asset-categories',
   erp_customers: 'customers',
   erp_settlement_orders: 'settlement-orders',
+  erp_grades: 'grades',
+  erp_groups: 'groups',
+  erp_areas: 'areas',
 };
 
 /** ERP 类型到标签字段名的映射 */
@@ -26,6 +29,9 @@ export const ERP_LABEL_FIELDS: Record<string, string> = {
   'asset-categories': 'name',
   customers: 'name',
   'settlement-orders': 'bizStr',
+  grades: 'name',
+  groups: 'name',
+  areas: 'name',
 };
 
 /** ERP 类型到值字段名的映射 */
@@ -37,4 +43,7 @@ export const ERP_VALUE_FIELDS: Record<string, string> = {
   'asset-categories': 'id',
   customers: 'id',
   'settlement-orders': 'bizId',
+  grades: 'id',
+  groups: 'id',
+  areas: 'id',
 };

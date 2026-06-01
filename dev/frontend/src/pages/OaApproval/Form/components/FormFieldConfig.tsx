@@ -29,16 +29,18 @@ interface FormFieldConfigProps {
   licenseLoading?: boolean;
   /** 客户选中时回调 */
   onCustomerSelect?: (licenseInfo: CustomerLicenseInfo | null) => void;
+  /** 客户搜索是否包含所有状态（客户档案修改场景传 true） */
+  includeAllStates?: boolean;
 }
 
 /** 判断是否为 ERP 字段类型 */
 function isErpFieldType(type: FormField['type']): boolean {
-  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order'].includes(type);
+  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order', 'erp_grade', 'erp_group', 'erp_area'].includes(type);
 }
 
 /** 表单字段渲染组件 */
 const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
-  field, formData, form, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect,
+  field, formData, form, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect, includeAllStates,
 }) => {
   const { type, placeholder, required, options, maxLength, maxCount, upper } = field;
 
@@ -52,6 +54,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
         value={value}
         onChange={onChange}
         cascadeValue={cascadeValue}
+        includeAllStates={includeAllStates}
         form={form}
         onCustomerSelect={field.type === 'erp_customer' ? onCustomerSelect : undefined}
       />
@@ -186,8 +189,10 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           value={value}
           onChange={onChange}
           maxCount={maxCount}
-          customerLicenseInfo={customerLicenseInfo}
-          licenseLoading={licenseLoading}
+          photoPurpose={field.photoPurpose}
+          existingPhotoUrl={field.photoPurpose === 'storefront' ? (formData._storefrontPhotoUrl as string) : undefined}
+          customerLicenseInfo={field.photoPurpose !== 'storefront' ? customerLicenseInfo : undefined}
+          licenseLoading={field.photoPurpose !== 'storefront' ? licenseLoading : false}
         />
       );
 

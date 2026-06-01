@@ -13,6 +13,7 @@ import { ERP_SEARCH_API_MAP } from '@/constants/oa-approval-erp';
 const ERP_FIELD_TYPES = new Set([
   'erp_customer', 'erp_department', 'erp_staff',
   'erp_payment_account', 'erp_asset_category', 'asset_search', 'erp_settlement_order',
+  'erp_grade', 'erp_group', 'erp_area',
 ]);
 
 export interface ErpResolvedMap {

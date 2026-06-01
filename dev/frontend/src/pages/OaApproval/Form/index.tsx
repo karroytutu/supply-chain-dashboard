@@ -1,9 +1,9 @@
 /**
  * 表单填写页面
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { history, useParams, useAccess } from 'umi';
-import { Button, Spin, Form, message } from 'antd';
+import { Button, Spin, Form, message, Alert } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
 import type { FormTypeDefinition } from '@/types/oa-approval';
@@ -24,8 +24,18 @@ const FormPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
 
-  const { loading, formType, customerLicenseInfo, licenseLoading, loadFormType, handleCustomerSelect } =
+  const { loading, formType, customerLicenseInfo, licenseLoading, loadFormType, handleCustomerSelect: handleCustomerSelectBase } =
     useFormData(form, formData, setFormData);
+
+  // 包装客户选中回调：autoFill 通过 form.setFieldsValue 设置隐藏字段（_storefrontPhotoUrl 等），
+  // 但隐藏字段没有 Form.Item 注册，不会触发 onValuesChange，需手动同步到 formData
+  const handleCustomerSelect = useCallback((licenseInfo: any) => {
+    handleCustomerSelectBase(licenseInfo);
+    setFormData(prev => ({
+      ...prev,
+      _storefrontPhotoUrl: form.getFieldValue('_storefrontPhotoUrl'),
+    }));
+  }, [handleCustomerSelectBase, form]);
 
   // 钉钉 WebView 视口高度修正
   useEffect(() => {
@@ -48,11 +58,57 @@ const FormPage: React.FC = () => {
   }, [formType]);
 
   // 监听表单值变化
-  // allValues 不包含没有 Form.Item 注册的隐藏字段（如 _hasExistingLicense），
-  // 所以必须与现有 formData 合并，避免隐藏字段丢失导致条件校验失效
+  // allValues 不包含没有 Form.Item 注册的隐藏字段（如 _customerName、_storefrontPhotoUrl），
+  // 因此必须保留 formData 中已有的 _ 前缀隐藏字段，避免用户编辑可见字段时将其覆盖丢失
   const handleValuesChange = (changedValues: any, allValues: any) => {
-    setFormData(prev => ({ ...prev, ...allValues }));
+    setFormData(prev => {
+      // 保留 autoFill 产生的隐藏字段（_ 前缀，onValuesChange 不返回）
+      const hiddenFields: Record<string, unknown> = {};
+      for (const key of Object.keys(prev)) {
+        if (key.startsWith('_')) hiddenFields[key] = prev[key];
+      }
+      return { ...hiddenFields, ...allValues };
+    });
   };
+
+  // ===== 客户档案修改：欠款即时加载与停用校验 =====
+  const [debtAmount, setDebtAmount] = useState<number | null>(null);
+  const [debtLoading, setDebtLoading] = useState(false);
+
+  const loadCustomerDebt = useCallback(async (customerId: number) => {
+    setDebtLoading(true);
+    try {
+      const result = await oaApprovalApi.getCustomerDebt(customerId);
+      const amount = result?.debtAmount ?? null;
+      setDebtAmount(amount);
+    } catch {
+      setDebtAmount(null);
+    } finally {
+      setDebtLoading(false);
+    }
+  }, []);
+
+  // 监听 customer 字段变化，加载欠款
+  useEffect(() => {
+    if (typeCode === 'customer_modify' && formData.customer) {
+      loadCustomerDebt(Number(formData.customer));
+    }
+  }, [typeCode, formData.customer, loadCustomerDebt]);
+
+  // 客户档案修改：状态字段的动态选项（有欠款时禁用停用）
+  const customerStateOptions = useMemo(() => {
+    if (typeCode !== 'customer_modify') return undefined;
+    const hasDebt = debtAmount !== null && debtAmount > 0;
+    return [
+      { value: 1, label: '启用' },
+      { value: 2, label: '待确认' },
+      {
+        value: 0,
+        label: hasDebt ? `停用（有欠款 ¥${debtAmount.toFixed(2)}，不可停用）` : '停用',
+        disabled: hasDebt,
+      },
+    ];
+  }, [typeCode, debtAmount]);
 
   /** 判断字段是否在当前条件下必填 */
   const isFieldRequired = (field: FormTypeDefinition['formSchema']['fields'][0]): boolean => {
@@ -160,21 +216,28 @@ const FormPage: React.FC = () => {
           <Form form={form} layout="vertical" onValuesChange={handleValuesChange} className={styles.form}>
             {formType.formSchema.fields
               .filter((field) => !field.key.startsWith('_'))
-              .map((field) => (
+              .map((field) => {
+              // 客户档案修改：为状态字段注入动态选项（有欠款时禁用停用）
+              const fieldWithOptions = (field.key === 'customerState' && customerStateOptions)
+                ? { ...field, options: customerStateOptions }
+                : field;
+              return (
               <ConditionalFieldWrapper key={field.key} field={field} formData={formData}>
                 <Form.Item
                   name={field.key}
                   label={field.label}
                   rules={[{ required: isFieldRequired(field), message: `请输入${field.label}` }]}
                 >
-                  <FormFieldConfig field={field} formData={formData} form={form}
+                  <FormFieldConfig field={fieldWithOptions} formData={formData} form={form}
                     customerLicenseInfo={customerLicenseInfo}
                     licenseLoading={licenseLoading}
                     onCustomerSelect={handleCustomerSelect}
+                    includeAllStates={typeCode === 'customer_modify'}
                   />
                 </Form.Item>
               </ConditionalFieldWrapper>
-            ))}
+              );
+            })}
           </Form>
         </div>
 

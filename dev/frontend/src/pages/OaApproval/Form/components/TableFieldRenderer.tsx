@@ -14,6 +14,7 @@ import styles from '../index.less';
 const ERP_FIELD_TYPES = new Set([
   'asset_search', 'erp_department', 'erp_staff',
   'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order',
+  'erp_grade', 'erp_group', 'erp_area',
 ]);
 
 interface TableFieldRendererProps {

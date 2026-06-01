@@ -28,10 +28,13 @@ export function useErpLicenseResolve(
       return;
     }
 
-    // 第二优先级：判断是否为客户授信申请表单（含 erp_customer + photo 类型 businessLicensePhotos）
+    // 第二优先级：判断是否有营业执照类型的 photo 字段（photoPurpose 为 license 或未定义）
+    // 若所有 photo 字段都标记为 storefront，则不需要获取营业执照
     const hasCustomerField = formSchema.fields.some(f => f.type === 'erp_customer');
-    const hasPhotoField = formSchema.fields.some(f => f.type === 'photo');
-    if (!hasCustomerField || !hasPhotoField) {
+    const hasLicensePhotoField = formSchema.fields.some(
+      f => f.type === 'photo' && (!f.photoPurpose || f.photoPurpose === 'license'),
+    );
+    if (!hasCustomerField || !hasLicensePhotoField) {
       setErpLicenseUrls([]);
       setLoading(false);
       return;

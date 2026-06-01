@@ -27,6 +27,8 @@ interface ErpFieldRendererProps {
   value?: unknown;
   onChange?: (value: unknown) => void;
   cascadeValue?: unknown;
+  /** 客户搜索是否包含所有状态（客户档案修改场景传 true） */
+  includeAllStates?: boolean;
   form?: {
     setFieldsValue: (values: Record<string, unknown>) => void;
     getFieldValue: (name: string) => unknown;
@@ -35,7 +37,7 @@ interface ErpFieldRendererProps {
 }
 
 const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
-  field, value, onChange, cascadeValue, form, onCustomerSelect,
+  field, value, onChange, cascadeValue, includeAllStates, form, onCustomerSelect,
 }) => {
   const [options, setOptions] = useState<Array<{ label: string; value: unknown; raw: unknown }>>([]);
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,9 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     if (field.cascadeFrom && cascadeValue === undefined) { setOptions([]); return; }
 
     const cascadeKeyPart = (erpType === 'settlement-orders' && cascadeValue) ? `:cid=${cascadeValue}` : '';
-    const cacheKey = `${erpType}:${searchKeyword || ''}${cascadeKeyPart}`;
+    // 缓存键需区分 includeAllStates 模式，避免同关键词返回错误模式的缓存
+    const stateKeyPart = (erpType === 'customers' && includeAllStates) ? ':all' : '';
+    const cacheKey = `${erpType}:${searchKeyword || ''}${cascadeKeyPart}${stateKeyPart}`;
     const cached = getCachedOptions(cacheKey);
     if (cached) { setOptions(cached); return; }
 
@@ -76,6 +80,10 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
       if (erpType === 'settlement-orders' && cascadeValue) {
         extraParams.consumerId = String(cascadeValue);
       }
+      // 客户档案修改场景：搜索包含所有状态的客户（含停用/待确认）
+      if (erpType === 'customers' && includeAllStates) {
+        extraParams.includeAllStates = 'true';
+      }
       const data = await oaApprovalApi.getErpReference(erpType, searchKeyword, extraParams, controller.signal);
       const items = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
       const newOptions = items.map((item) => ({ label: getLabel(item, erpType), value: getValue(item, erpType), raw: item }));
@@ -87,7 +95,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [erpType, getLabel, getValue, field.cascadeFrom, cascadeValue]);
+  }, [erpType, getLabel, getValue, field.cascadeFrom, cascadeValue, includeAllStates]);
 
   useEffect(() => { fetchOptions(); }, [fetchOptions]);
 
