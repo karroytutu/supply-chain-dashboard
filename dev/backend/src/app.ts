@@ -27,13 +27,19 @@ import logger from './utils/logger';
 import { runMigrations } from './db/migrate';
 import { appQuery } from './db/appPool';
 
-// 全局异常处理 - 防止未捕获的异常导致进程崩溃
+// 全局异常处理 - 确保崩溃原因在 Docker 日志中可见
 process.on('uncaughtException', (error) => {
+  // console.error 作为安全网，确保即使 logger 故障，错误也能写入 Docker 日志
+  console.error('[FATAL] Uncaught Exception:', error?.message || error);
+  console.error('[FATAL] Stack:', error?.stack || 'No stack trace');
   logger.error('[FATAL] Uncaught Exception:', error);
-  process.exit(1);
+  // 延迟退出，给日志 1 秒 flush 时间
+  setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+  const reasonMsg = reason instanceof Error ? reason.message : String(reason);
+  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reasonMsg);
   logger.error('[FATAL] Unhandled Rejection at:', { promise, reason });
 });
 
@@ -104,12 +110,26 @@ app.listen(config.port, async () => {
   logger.info(`服务器已启动: http://localhost:${config.port}`);
   logger.info(`API 文档: http://localhost:${config.port}/api/health`);
 
-  // 自动执行数据库迁移
-  try {
-    await runMigrations(appQuery);
-  } catch (error) {
-    logger.error('数据库迁移失败，服务将终止:', error);
-    process.exit(1);
+  // 自动执行数据库迁移（带重试，防止短暂网络问题导致启动失败）
+  const maxMigrationRetries = 3;
+  for (let attempt = 1; attempt <= maxMigrationRetries; attempt++) {
+    try {
+      await runMigrations(appQuery);
+      console.log('[Migration] 数据库迁移完成');
+      break;
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[Migration] 第 ${attempt}/${maxMigrationRetries} 次迁移失败: ${errMsg}`);
+      if (attempt < maxMigrationRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        console.log(`[Migration] ${delay / 1000} 秒后重试...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        console.error('[Migration] 所有重试已耗尽，服务终止');
+        logger.error('数据库迁移失败，服务将终止:', error);
+        process.exit(1);
+      }
+    }
   }
 
   // 启动定时任务调度器

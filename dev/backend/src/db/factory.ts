@@ -20,6 +20,8 @@ export function createDatabasePool({ name, config }: DatabasePoolOptions) {
   const pool = new Pool(config);
 
   pool.on('error', (err) => {
+    // console.error 确保在 Docker 日志中可见（生产环境 logger 文件输出不可见）
+    console.error(`[${name}] 数据库连接池错误:`, err?.message || err);
     logger.error(`[${name}] 数据库连接池错误:`, err);
   });
 

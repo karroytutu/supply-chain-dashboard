@@ -12,7 +12,19 @@ const logger = winston.createLogger({
   ],
 });
 
-if (process.env.NODE_ENV !== 'production') {
+// Console transport 在所有环境都启用，确保 Docker 容器能捕获日志
+// 生产环境使用简洁格式，开发环境使用彩色格式
+if (process.env.NODE_ENV === 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.printf(({ timestamp, level, message, ...rest }) => {
+        const extra = Object.keys(rest).length ? ' ' + JSON.stringify(rest) : '';
+        return `[${timestamp}] ${level}: ${message}${extra}`;
+      })
+    ),
+  }));
+} else {
   logger.add(new winston.transports.Console({
     format: winston.format.combine(
       winston.format.colorize(),
