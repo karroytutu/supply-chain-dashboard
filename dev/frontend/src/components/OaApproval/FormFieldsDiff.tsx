@@ -78,7 +78,18 @@ const FormFieldsDiff: React.FC<FormFieldsDiffProps> = ({
       }
 
       const originalKey = `_original_${field.key}`;
-      const hasOriginal = originalKey in formData;
+      let hasOriginal = originalKey in formData;
+      let effectiveOriginalKey = originalKey;
+
+      // photo 字段的原始值可能存储在 _original_<fieldKey>Url（如 _original_storefrontPhotoUrl）
+      // 因为隐藏字段 _storefrontPhotoUrl 与可见字段 storefrontPhoto 键名不同
+      if (!hasOriginal && field.type === 'photo') {
+        const altKey = `_original_${field.key}Url`;
+        if (altKey in formData) {
+          effectiveOriginalKey = altKey;
+          hasOriginal = true;
+        }
+      }
 
       if (!hasOriginal) {
         // 无原始数据（如 customer、remark 等字段），正常渲染
@@ -86,7 +97,7 @@ const FormFieldsDiff: React.FC<FormFieldsDiffProps> = ({
         continue;
       }
 
-      const oldValue = formData[originalKey];
+      const oldValue = formData[effectiveOriginalKey];
       const newValue = formData[field.key];
 
       // photo 类型特殊处理：比较有无

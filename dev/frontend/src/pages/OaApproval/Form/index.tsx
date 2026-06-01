@@ -130,9 +130,12 @@ const FormPage: React.FC = () => {
       const values = await form.validateFields();
       if (!formType) return;
 
-      // 注入隐藏字段到提交数据（用于后端 requiredWhen 校验）
-      if (formData._hasExistingLicense) {
-        values._hasExistingLicense = formData._hasExistingLicense;
+      // 注入所有 _ 前缀隐藏字段到提交数据（autoFill 产生的值，无 Form.Item 注册）
+      // 包括 _customerName、_storefrontPhotoUrl、_consumerManagerName 等
+      for (const key of Object.keys(formData)) {
+        if (key.startsWith('_') && formData[key] !== undefined && formData[key] !== null) {
+          values[key] = formData[key];
+        }
       }
 
       // 上传照片文件：将 UploadFile[] 中的原始 File 对象上传到服务器，

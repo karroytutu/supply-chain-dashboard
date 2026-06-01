@@ -15,20 +15,44 @@ interface PhotoFieldDisplayProps {
 
 /** 照片字段展示组件（审批详情只读模式，区分门头照/营业执照） */
 const PhotoFieldDisplay: React.FC<PhotoFieldDisplayProps> = ({ field, value, formData, erpLicenseUrls }) => {
-  const photos = Array.isArray(value)
-    ? value as Array<{ uid?: string; name?: string; url?: string; thumbUrl?: string; status?: string }>
-    : [];
+  // 兼容字符串 URL（diff 旧值场景）和数组格式（正常上传场景）
+  const photos = useMemo(() => {
+    if (typeof value === 'string' && value.trim()) {
+      return [{ url: value, thumbUrl: value }] as Array<{ uid?: string; name?: string; url?: string; thumbUrl?: string; status?: string }>;
+    }
+    return Array.isArray(value)
+      ? value as Array<{ uid?: string; name?: string; url?: string; thumbUrl?: string; status?: string }>
+      : [];
+  }, [value]);
   const [brokenLicenseUrls, setBrokenLicenseUrls] = useState<string[]>([]);
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState<string[]>([]);
+
+  // ===== 所有 hooks 必须在 early return 之前调用（React Hooks 规则） =====
+  const licenseUrls = useMemo(() => {
+    const erpUrls = formData?._erpLicenseUrls;
+    return (Array.isArray(erpUrls) && erpUrls.length > 0)
+      ? (erpUrls as string[])
+      : (erpLicenseUrls || []);
+  }, [formData?._erpLicenseUrls, erpLicenseUrls]);
+
+  const availableLicenseUrls = useMemo(
+    () => licenseUrls.filter((url) => !brokenLicenseUrls.includes(url)),
+    [licenseUrls, brokenLicenseUrls],
+  );
+
+  const availablePhotos = useMemo(
+    () => photos.filter((photo) => {
+      const src = photo.thumbUrl || photo.url;
+      return !!src && !brokenPhotoUrls.includes(src);
+    }),
+    [brokenPhotoUrls, photos],
+  );
+
   const isStorefront = field.photoPurpose === 'storefront';
 
   // ===== 门头照模式 =====
   if (isStorefront) {
     const existingUrl = formData?._storefrontPhotoUrl as string | undefined;
-    const availablePhotos = photos.filter((photo) => {
-      const src = photo.thumbUrl || photo.url;
-      return !!src && !brokenPhotoUrls.includes(src);
-    });
     const hasExisting = !!existingUrl;
     const hasUploaded = availablePhotos.length > 0;
     if (!hasExisting && !hasUploaded) return <Text type="secondary">-</Text>;
@@ -76,20 +100,6 @@ const PhotoFieldDisplay: React.FC<PhotoFieldDisplayProps> = ({ field, value, for
   }
 
   // ===== 营业执照模式（默认） =====
-  const licenseUrls = (formData?._erpLicenseUrls && Array.isArray(formData._erpLicenseUrls) && (formData._erpLicenseUrls as string[]).length > 0)
-    ? (formData._erpLicenseUrls as string[])
-    : (erpLicenseUrls || []);
-  const availableLicenseUrls = useMemo(
-    () => licenseUrls.filter((url) => !brokenLicenseUrls.includes(url)),
-    [brokenLicenseUrls, licenseUrls],
-  );
-  const availablePhotos = useMemo(
-    () => photos.filter((photo) => {
-      const src = photo.thumbUrl || photo.url;
-      return !!src && !brokenPhotoUrls.includes(src);
-    }),
-    [brokenPhotoUrls, photos],
-  );
   const hasUploaded = photos.length > 0;
   const hasErpLicense = availableLicenseUrls.length > 0;
   const hasAvailablePhotos = availablePhotos.length > 0;
