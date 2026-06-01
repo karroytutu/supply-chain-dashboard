@@ -267,6 +267,18 @@ print_build_summary "$PROJECT_ROOT/prod/backend/dist" "后端"
 
 # 部署 Docker 容器
 log_info "部署 Docker 容器..."
+
+# 前置检查：xinshutong_default 外部网络是否存在
+# docker-compose.yml 中 backend 服务依赖此网络连接 PostgreSQL 容器
+if ! docker network inspect xinshutong_default &>/dev/null; then
+    log_error "xinshutong_default 网络不存在"
+    log_error "本项目 backend 服务通过此网络连接 PostgreSQL 容器（由 xinshutong 项目创建）"
+    log_error "请先部署 xinshutong 项目的 PostgreSQL 容器，或手动创建网络："
+    log_error "  docker network create xinshutong_default"
+    exit 1
+fi
+log_info "xinshutong_default 网络检查通过"
+
 cd "$DEPLOY_DIR"
 
 # 创建上传目录（确保目录存在并设置正确权限）

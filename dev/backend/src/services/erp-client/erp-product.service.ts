@@ -48,6 +48,9 @@ const DEFAULT_PAGE_SIZE = 2000;
  * @param skipCache - 为 true 时绕过缓存
  * @returns 商品记录数组
  */
+/** in-flight 去重：多个并发调用共享同一 Promise，避免冷缓存时重复请求 ERP */
+let _productsInFlight: Promise<ErpProduct[]> | null = null;
+
 export async function fetchAllProducts(
   state: number | '' = 0,
   skipCache = false
@@ -59,41 +62,53 @@ export async function fetchAllProducts(
     if (cached) return cached;
   }
 
-  const { cid, uid } = getErpDefaults();
-  const allRecords: ErpProduct[] = [];
-  let current = 1;
+  // in-flight 去重（仅对默认参数 state=0 生效）
+  if (!skipCache && state === 0 && _productsInFlight) return _productsInFlight;
 
-  while (true) {
-    const result = await erpPost<ApiProductResponse>(
-      '/spu-query/search',
-      {
-        state: state === '' ? '' : state,
-        current,
-        size: DEFAULT_PAGE_SIZE,
-        total: 0,
-        cid,
-        uid,
-      },
-      {
-        pathPrefix: '/redcoast/',
-        businessType: 'product_fetch',
+  const doFetch = async (): Promise<ErpProduct[]> => {
+    const { cid, uid } = getErpDefaults();
+    const allRecords: ErpProduct[] = [];
+    let current = 1;
+
+    while (true) {
+      const result = await erpPost<ApiProductResponse>(
+        '/spu-query/search',
+        {
+          state: state === '' ? '' : state,
+          current,
+          size: DEFAULT_PAGE_SIZE,
+          total: 0,
+          cid,
+          uid,
+        },
+        {
+          pathPrefix: '/redcoast/',
+          businessType: 'product_fetch',
+        }
+      );
+
+      const records = result?.data?.records || [];
+      allRecords.push(...records);
+
+      const total = result?.data?.total || 0;
+      if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
+        break;
       }
-    );
-
-    const records = result?.data?.records || [];
-    allRecords.push(...records);
-
-    const total = result?.data?.total || 0;
-    if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
-      break;
+      current++;
     }
-    current++;
+
+    // 写入缓存（TTL 60s）
+    cache.set(cacheKey, allRecords, CACHE_TTL.DASHBOARD);
+
+    return allRecords;
+  };
+
+  if (state === 0) {
+    _productsInFlight = doFetch();
+    try { return await _productsInFlight; }
+    finally { _productsInFlight = null; }
   }
-
-  // 写入缓存（TTL 60s）
-  cache.set(cacheKey, allRecords, CACHE_TTL.DASHBOARD);
-
-  return allRecords;
+  return doFetch();
 }
 
 /**

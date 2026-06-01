@@ -47,3 +47,9 @@ export interface TrendData {
   /** 时间周期 */
   period: string;
 }
+
+/** 完整概览数据（stats + trend 合并响应） */
+export interface OverviewFull {
+  stats: OverviewStats;
+  trend: TrendData;
+}

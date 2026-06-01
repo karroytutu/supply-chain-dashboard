@@ -52,6 +52,19 @@ class MemoryCache {
   }
 
   /**
+   * 检查缓存条目是否存在且未过期（非破坏性，不删除条目）
+   * 配合 getStale() 实现 stale-while-revalidate：
+   *   getStale() 获取值，isFresh() 判断新鲜度
+   * @param key 缓存键
+   * @returns true = 条目存在且未过期；false = 条目不存在或已过期
+   */
+  isFresh(key: string): boolean {
+    const item = this.cache.get(key);
+    if (!item) return false;
+    return Date.now() - item.timestamp <= item.ttl;
+  }
+
+  /**
    * 设置缓存数据
    * @param key 缓存键
    * @param data 缓存数据

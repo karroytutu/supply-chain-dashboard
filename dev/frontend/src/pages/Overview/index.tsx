@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Spin, message, Typography } from 'antd';
-import { getOverviewStats, getTrendData } from '@/services/api/overview';
+import { getOverviewFull } from '@/services/api/overview';
 import type { OverviewStats, TrendData } from '@/types/overview';
 import StatsCards from './components/StatsCards';
 import TrendChartCard from './components/TrendChartCard';
@@ -26,10 +26,7 @@ const Overview: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [statsResult, trendResult] = await Promise.all([
-        getOverviewStats(),
-        getTrendData(7),
-      ]);
+      const { stats: statsResult, trend: trendResult } = await getOverviewFull();
       setStats(statsResult);
       setTrendData(trendResult);
     } catch (error) {

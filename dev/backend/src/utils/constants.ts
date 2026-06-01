@@ -67,6 +67,13 @@ export const SLOW_MOVING_MODERATE_DAYS = 15;
 /** 滞销 - 严重阈值（未销售天数 > 30天） */
 export const SLOW_MOVING_SERIOUS_DAYS = 30;
 
+/**
+ * 滞销分析-最后销售回溯天数（最大滞销阈值30天 + 50%缓冲）
+ * getLastSaleMap() 查询范围：超出此范围的商品视为严重滞销
+ * @usedBy erp-sales-detail.service.ts (getLastSaleMap)
+ */
+export const LAST_SALE_LOOKBACK_DAYS = 45;
+
 // ==================== 预警级别阈值 ====================
 
 /** 临期率 - 严重预警阈值（%） @usedBy overview.service.ts, frontend/warning.ts */
