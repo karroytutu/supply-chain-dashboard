@@ -8,6 +8,7 @@ import { getFieldLinkUrl } from '@/utils/oa-approval';
 import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
 import PhotoFieldRenderer from './PhotoFieldRenderer';
+import { createBeforeUpload, validateDocumentFile } from '@/utils/uploadValidation';
 import styles from '../index.less';
 
 const { TextArea } = Input;
@@ -177,7 +178,10 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
 
     case 'upload':
       return (
-        <Upload multiple maxCount={maxCount} beforeUpload={() => false}>
+        <Upload multiple maxCount={maxCount}
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+          beforeUpload={createBeforeUpload(validateDocumentFile)}
+        >
           <Button icon={<UploadOutlined />} disabled={field.disabled}>上传附件</Button>
           {maxCount && <span className={styles.uploadTip}>（最多 {maxCount} 个文件）</span>}
         </Upload>

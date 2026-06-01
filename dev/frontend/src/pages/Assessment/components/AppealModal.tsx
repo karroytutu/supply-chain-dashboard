@@ -4,6 +4,7 @@
 import React from 'react';
 import { Modal, Form, Input, Upload, Card, Descriptions } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
+import { createBeforeUpload, validateDocumentFile } from '@/utils/uploadValidation';
 
 interface AppealModalProps {
   visible: boolean;
@@ -86,7 +87,7 @@ const AppealModal: React.FC<AppealModalProps> = ({
             listType="text"
             maxCount={5}
             accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
-            beforeUpload={() => false}
+            beforeUpload={createBeforeUpload(validateDocumentFile)}
           >
             <span style={{ color: '#1890ff', cursor: 'pointer' }}>
               <UploadOutlined /> 上传文件（最多5个）

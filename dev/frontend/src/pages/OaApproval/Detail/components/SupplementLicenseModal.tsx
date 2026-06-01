@@ -7,6 +7,7 @@ import { Modal, Upload, Button, message, Alert } from 'antd';
 import { UploadOutlined, InboxOutlined } from '@ant-design/icons';
 import type { UploadFile, RcFile } from 'antd/es/upload/interface';
 import { supplementLicense } from '@/services/api/oa-approval';
+import { createBeforeUpload, validateImageFile } from '@/utils/uploadValidation';
 
 const { Dragger } = Upload;
 
@@ -95,14 +96,7 @@ const SupplementLicenseModal: React.FC<SupplementLicenseModalProps> = ({
         multiple
         maxCount={3}
         fileList={fileList}
-        beforeUpload={(file) => {
-          // 文件大小校验
-          if (file.size / 1024 / 1024 >= 5) {
-            message.error('图片大小不能超过 5MB');
-            return Upload.LIST_IGNORE;
-          }
-          return false; // 不自动上传，手动提交
-        }}
+        beforeUpload={createBeforeUpload(validateImageFile)}
         onChange={({ fileList: newList }) => setFileList(newList)}
         onRemove={(file) => {
           const index = fileList.indexOf(file);

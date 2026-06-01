@@ -8,6 +8,7 @@ import { UploadOutlined } from '@ant-design/icons';
 import { fileLawsuit, uploadEvidence } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import type { UploadFile } from 'antd/es/upload/interface';
+import { createBeforeUpload, validateDocumentFile } from '@/utils/uploadValidation';
 import styles from './collection-modal-shared.less';
 
 interface LawsuitModalProps {
@@ -100,7 +101,8 @@ const LawsuitModal: React.FC<LawsuitModalProps> = ({
           <Upload
             fileList={fileList}
             onChange={({ fileList: newList }) => setFileList(newList.slice(0, 1))}
-            beforeUpload={() => false}
+            accept="image/*,.pdf,.doc,.docx"
+            beforeUpload={createBeforeUpload(validateDocumentFile)}
             maxCount={1}
           >
             {fileList.length === 0 && (

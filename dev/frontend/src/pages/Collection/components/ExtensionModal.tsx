@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import { applyExtension, uploadEvidence } from '@/services/api/ar-collection';
 import type { CollectionTask, CollectionDetail } from '@/types/ar-collection';
 import type { UploadFile } from 'antd/es/upload/interface';
+import { createBeforeUpload, validateImageFile } from '@/utils/uploadValidation';
 import styles from './collection-modal-shared.less';
 
 interface ExtensionModalProps {
@@ -73,21 +74,6 @@ const ExtensionModal: React.FC<ExtensionModalProps> = ({
     onClose();
   };
 
-  /** 文件上传前校验 */
-  const beforeUpload = (file: File) => {
-    const isImage = file.type === 'image/jpeg' || file.type === 'image/png';
-    if (!isImage) {
-      message.error('仅支持 jpg/png 格式图片');
-      return false;
-    }
-    const isLt5M = file.size / 1024 / 1024 < 5;
-    if (!isLt5M) {
-      message.error('图片大小不能超过 5MB');
-      return false;
-    }
-    return false; // 手动上传
-  };
-
   return (
     <Modal
       title="申请延期"
@@ -150,7 +136,7 @@ const ExtensionModal: React.FC<ExtensionModalProps> = ({
             listType="picture-card"
             fileList={fileList}
             onChange={({ fileList: newList }) => setFileList(newList.slice(0, 3))}
-            beforeUpload={beforeUpload}
+            beforeUpload={createBeforeUpload(validateImageFile)}
             accept=".jpg,.jpeg,.png"
             maxCount={3}
           >
