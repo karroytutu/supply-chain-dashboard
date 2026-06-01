@@ -14,6 +14,7 @@ import {
 } from '@/types/oa-approval';
 import ApprovalFlow from '@/components/OaApproval/ApprovalFlow';
 import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
+import FormFieldsDiff, { hasOriginalFields } from '@/components/OaApproval/FormFieldsDiff';
 import { useErpFieldResolve } from '@/components/OaApproval/hooks/useErpFieldResolve';
 import { useErpLicenseResolve } from '@/components/OaApproval/hooks/useErpLicenseResolve';
 import { usePermission } from '@/hooks/usePermission';
@@ -39,26 +40,36 @@ const renderStatusTag = (status: string) => (
   </Tag>
 );
 
-/** 表单字段渲染 */
+/** 表单字段渲染（支持变更对比） */
 const FormFieldsList: React.FC<{ detail: ApprovalDetail; resolvedMap: Record<string, string>; erpLicenseUrls: string[] }> = ({
   detail, resolvedMap, erpLicenseUrls,
 }) => (
   <div className={styles.formDataSection}>
     <h3>表单数据</h3>
     <div className={styles.formDataList}>
-      {detail.formSchema?.fields?.map((field) => {
-        const value = detail.formData[field.key];
-        if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return null;
-        if (field.key.startsWith('_')) return null;
-        return (
-          <div key={field.key} className={styles.formDataRow}>
-            <span className={styles.formLabel}>{field.label}</span>
-            <span className={styles.formValue}>
-              <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
-            </span>
-          </div>
-        );
-      })}
+      {hasOriginalFields(detail.formData) ? (
+        <FormFieldsDiff
+          formSchema={detail.formSchema}
+          formData={detail.formData}
+          resolvedMap={resolvedMap}
+          erpLicenseUrls={erpLicenseUrls}
+          layout="list"
+        />
+      ) : (
+        detail.formSchema?.fields?.map((field) => {
+          const value = detail.formData[field.key];
+          if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return null;
+          if (field.key.startsWith('_')) return null;
+          return (
+            <div key={field.key} className={styles.formDataRow}>
+              <span className={styles.formLabel}>{field.label}</span>
+              <span className={styles.formValue}>
+                <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
+              </span>
+            </div>
+          );
+        })
+      )}
     </div>
   </div>
 );
