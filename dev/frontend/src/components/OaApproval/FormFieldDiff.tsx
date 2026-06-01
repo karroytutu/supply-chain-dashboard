@@ -34,18 +34,43 @@ const FormFieldDiff: React.FC<FormFieldDiffProps> = ({
 }) => {
   /**
    * 构造旧值渲染所需的 formData：
-   * 对于有 nameField 的字段（如 consumerManagerId → _consumerManagerName），
-   * 将 _original_<nameField> 映射到 nameField 位置，让 FormFieldRenderer 能查到原始名称
+   * 1. 对于有 nameField 的字段（如 consumerManagerId → _consumerManagerName），
+   *    将 _original_<nameField> 映射到 nameField 位置，让 FormFieldRenderer 能查到原始名称
+   * 2. 对于 photo(storefront) 字段，将旧 URL 注入 _storefrontPhotoUrl 供 PhotoFieldDisplay 读取
    */
   const oldFormData = useMemo(() => {
-    if (!field.nameField) return formData;
-    // nameField 可能带 _ 前缀（如 _consumerManagerName），后端存储时去掉了前缀
-    const cleanNameField = field.nameField.replace(/^_/, '');
-    const originalNameKey = `_original_${cleanNameField}`;
-    const originalName = formData[originalNameKey];
-    if (!originalName) return formData;
-    return { ...formData, [field.nameField]: originalName };
-  }, [field.nameField, formData]);
+    let result = formData;
+
+    // nameField 处理
+    if (field.nameField) {
+      // nameField 可能带 _ 前缀（如 _consumerManagerName），后端存储时去掉了前缀
+      const cleanNameField = field.nameField.replace(/^_/, '');
+      const originalNameKey = `_original_${cleanNameField}`;
+      const originalName = formData[originalNameKey];
+      if (originalName) {
+        result = { ...result, [field.nameField]: originalName };
+      }
+    }
+
+    // photo(storefront) 字段：将旧 URL 注入 _storefrontPhotoUrl
+    if (field.type === 'photo' && field.photoPurpose === 'storefront'
+        && typeof oldValue === 'string' && oldValue) {
+      result = { ...result, _storefrontPhotoUrl: oldValue };
+    }
+
+    return result;
+  }, [field.nameField, field.type, field.photoPurpose, formData, oldValue]);
+
+  /**
+   * 构造新值渲染所需的 formData：
+   * 对于 photo(storefront) 字段，清除 _storefrontPhotoUrl 避免新值区域重复显示旧照片
+   */
+  const newFormData = useMemo(() => {
+    if (field.type === 'photo' && field.photoPurpose === 'storefront') {
+      return { ...formData, _storefrontPhotoUrl: undefined };
+    }
+    return formData;
+  }, [field.type, field.photoPurpose, formData]);
 
   /**
    * 对于无 nameField 的 ERP 字段（gradeId/groupId/areaId），
@@ -97,7 +122,7 @@ const FormFieldDiff: React.FC<FormFieldDiffProps> = ({
           <FormFieldRenderer
             field={field}
             value={newValue}
-            formData={formData}
+            formData={newFormData}
             resolvedMap={resolvedMap}
             erpLicenseUrls={erpLicenseUrls}
           />
