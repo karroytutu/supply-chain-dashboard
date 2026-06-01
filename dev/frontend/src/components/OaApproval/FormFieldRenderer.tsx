@@ -25,7 +25,7 @@ const FieldRenderer: React.FC<{
   erpLicenseUrls?: string[];
 }> = ({ field, value, formData, resolvedMap, erpLicenseUrls }) => {
   if (field.type === 'photo') {
-    return <PhotoFieldDisplay value={value} formData={formData} erpLicenseUrls={erpLicenseUrls} />;
+    return <PhotoFieldDisplay field={field} value={value} formData={formData} erpLicenseUrls={erpLicenseUrls} />;
   }
 
   if (value === null || value === undefined || value === '') {

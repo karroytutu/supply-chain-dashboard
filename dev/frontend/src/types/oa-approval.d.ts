@@ -53,7 +53,11 @@ export type FormFieldType =
   | 'erp_asset_category'
   // ERP 参考数据字段类型（客户授信审批使用）
   | 'erp_customer'
-  | 'erp_settlement_order';
+  | 'erp_settlement_order'
+  // ERP 参考数据字段类型（客户档案修改使用）
+  | 'erp_grade'
+  | 'erp_group'
+  | 'erp_area';
 
 export interface FormField {
   key: string;
@@ -65,7 +69,7 @@ export interface FormField {
   disabled?: boolean;
   bizAlias?: string;
   print?: boolean;
-  options?: Array<{ value: string; label: string; key?: string }>;
+  options?: Array<{ value: string | number; label: string; key?: string }>;
   unit?: string;
   min?: number;
   max?: number;
@@ -88,13 +92,15 @@ export interface FormField {
   /** 条件必填（满足条件时字段变为必填） */
   requiredWhen?: ConditionDef | ConditionDef[];
   /** ERP参考数据API标识 */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
   cascadeFrom?: string;
   /** asset_search 显示哪些子字段 */
   displayFields?: string[];
+  /** photo 类型用途：storefront=门头照，license=营业执照（默认 license） */
+  photoPurpose?: 'license' | 'storefront';
 }
 
 export interface FormSchema {
@@ -119,13 +125,14 @@ export interface NodeInputField {
   label: string;
   type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table'
     | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category'
-    | 'erp_customer' | 'erp_settlement_order';
+    | 'erp_customer' | 'erp_settlement_order'
+    | 'erp_grade' | 'erp_group' | 'erp_area';
   required?: boolean;
   options?: Array<{ label: string; value: unknown }>;
   defaultValue?: unknown;
   readonly?: boolean;
   columns?: NodeInputField[];
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas';
   autoFill?: Record<string, string>;
   cascadeFrom?: string;
   visibleWhen?: ConditionDef | ConditionDef[];

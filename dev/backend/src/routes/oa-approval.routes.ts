@@ -45,6 +45,7 @@ import {
   getErpReference,
   resolveErpReference,
   getCustomerLicense,
+  getCustomerDebt,
   retryErpOperation,
   retryAutoNode,
 } from '../controllers/erp-reference.controller';
@@ -315,6 +316,9 @@ router.get('/erp-reference/:type/resolve', requirePermission(['oa:approval:read'
 
 // 获取客户营业执照信息（供表单展示已有执照）
 router.get('/erp-reference/customers/:id/license-info', requirePermission(['oa:approval:read', 'oa:approval:write']), getCustomerLicense);
+
+// 获取客户欠款总额（供表单展示欠款，用于停用校验）
+router.get('/erp-reference/customers/:id/debt', requirePermission(['oa:approval:read', 'oa:approval:write']), getCustomerDebt);
 
 // 重试失败的ERP操作
 router.post('/instances/:id/retry-erp', requirePermission('oa:approval:write'), retryErpOperation);

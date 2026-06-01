@@ -9,7 +9,7 @@ import { getErpDefaults } from './erp-config';
 import { getErpCustomerProfile } from './erp-customer.service';
 import type { ErpCustomerProfile } from './erp-customer.service';
 import { cache } from '../../utils/cache';
-import { createLogEntry, writeErpLog } from './erp-logger';
+import { erpUploadImageToErp } from './erp-image-upload';
 
 // =====================================================
 // 更新方法
@@ -78,7 +78,7 @@ export async function erpUploadBusinessLicense(
   // 步骤2：逐个上传图片，收集 imgId
   const newImgIds: string[] = [];
   for (const photoUrl of photoUrls) {
-    const imgId = await erpUploadImage(photoUrl);
+    const imgId = await erpUploadImageToErp(photoUrl, 'store', 'credit_upload_license');
     if (imgId) {
       newImgIds.push(imgId);
     } else {
@@ -146,110 +146,4 @@ export async function erpUpdateCustomerProfile(
 
   // 写入后失效客户资料缓存
   cache.invalidate('erp:customer:profile:');
-}
-
-// =====================================================
-// 内部方法
-// =====================================================
-
-/**
- * 上传图片到 ERP，返回 imgId
- * POST /saas/pro/file/uploadWithoutWaterMark (multipart/form-data)
- * 返回: { code: 0, data: [{ imgId: "xxx", downloadUrl: "https://..." }] }
- *
- * 注意：此接口使用 multipart/form-data，无法走 erpRequest 统一客户端（仅支持 JSON），
- * 但需自行实现日志记录和错误码检查
- */
-async function erpUploadImage(localFilePath: string): Promise<string | null> {
-  const { getErpConfig } = await import('./erp-config');
-  const { getErpAccessToken } = await import('./erp-auth');
-  const config = getErpConfig();
-  const token = await getErpAccessToken();
-
-  // 动态导入避免循环依赖
-  const FormData = (await import('form-data')).default;
-  const fs = await import('fs');
-
-  const form = new FormData();
-  form.append('files', fs.createReadStream(localFilePath));
-  form.append('categoryName', 'store');
-  form.append('serviceName', 'saas');
-
-  const fullPath = `/saas/pro/file/uploadWithoutWaterMark`.replace(/\/+/g, '/');
-  const url = `${config.baseUrl}${fullPath}`;
-  const requestId = createLogEntry();
-  const startTime = Date.now();
-
-  try {
-    const axios = (await import('axios')).default;
-    const response = await axios.post(url, form, {
-      headers: {
-        'authorization': `Bearer ${token}`,
-        'cid': config.cid,
-        'uid': config.uid,
-        'SaasCid': config.cid,
-        ...form.getHeaders(),
-      },
-      timeout: config.timeout,
-    });
-
-    const responseData = response.data;
-    const durationMs = Date.now() - startTime;
-
-    // 检查舟谱 API 错误码
-    if (responseData && typeof responseData === 'object' && responseData.code !== undefined && responseData.code !== 0) {
-      const errMsg = responseData.message || `舟谱API错误(code=${responseData.code})`;
-      // 记录失败日志
-      writeErpLog({
-        requestId,
-        method: 'POST',
-        path: fullPath,
-        requestHeaders: { 'Content-Type': 'multipart/form-data' },
-        responseStatus: response.status,
-        responseBody: responseData,
-        errorMessage: errMsg,
-        durationMs,
-        retryCount: 0,
-        businessType: 'credit_upload_license',
-      }).catch(() => {});
-      throw new Error(errMsg);
-    }
-
-    const data = responseData?.data;
-    const imgId = Array.isArray(data) && data.length > 0 ? data[0].imgId : null;
-
-    // 记录成功日志
-    writeErpLog({
-      requestId,
-      method: 'POST',
-      path: fullPath,
-      requestHeaders: { 'Content-Type': 'multipart/form-data' },
-      responseStatus: response.status,
-      responseBody: responseData,
-      durationMs,
-      retryCount: 0,
-      businessType: 'credit_upload_license',
-    }).catch(() => {});
-
-    return imgId;
-  } catch (error) {
-    const durationMs = Date.now() - startTime;
-    const errMsg = error instanceof Error ? error.message : String(error);
-
-    // 非舟谱业务错误（网络错误等）也记录日志
-    if (!(error instanceof Error && error.message.includes('舟谱API错误'))) {
-      writeErpLog({
-        requestId,
-        method: 'POST',
-        path: fullPath,
-        requestHeaders: { 'Content-Type': 'multipart/form-data' },
-        errorMessage: errMsg,
-        durationMs,
-        retryCount: 0,
-        businessType: 'credit_upload_license',
-      }).catch(() => {});
-    }
-
-    throw error;
-  }
 }

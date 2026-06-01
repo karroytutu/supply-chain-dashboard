@@ -13,7 +13,8 @@ import {
   getErpPaymentAccounts,
   getErpAssetCategories,
 } from '../services/fixed-asset/fixed-asset.query';
-import { searchErpCustomersByKeyword, getErpCustomerProfile, getCustomerLicenseInfo } from '../services/erp-client/erp-customer.service';
+import { searchErpCustomersByKeyword, getErpCustomerProfile, getCustomerLicenseInfo, getCustomerDebtTotal } from '../services/erp-client/erp-customer.service';
+import { getErpGrades, getErpGroups, getErpAreas } from '../services/erp-client/erp-customer-reference.service';
 import { searchErpSettlementOrders, searchErpSettlementOrdersPaged } from '../services/erp-client/erp-settlement.service';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
 import { retryAutoNode as retryAutoNodeService } from '../services/oa-approval/oa-approval.mutation';
@@ -45,16 +46,23 @@ const LABEL_FIELDS: Record<string, string> = {
   'asset-categories': 'name',
   customers: 'name',
   'settlement-orders': 'bizStr',
+  grades: 'name',
+  groups: 'name',
+  areas: 'name',
 };
 
 /**
  * 获取ERP参考数据
  * GET /oa-approval/erp-reference/:type
+ * 查询参数:
+ *   - keyword: 搜索关键词
+ *   - includeAllStates: 客户搜索时是否包含所有状态（默认仅启用）
  */
 export async function getErpReference(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { type } = req.params;
     const keyword = req.query.keyword as string | undefined;
+    const includeAllStates = req.query.includeAllStates === 'true';
 
     let data: unknown;
 
@@ -80,7 +88,19 @@ export async function getErpReference(req: Request, res: Response, next: NextFun
         break;
 
       case 'customers':
-        data = await searchErpCustomersByKeyword(keyword || '');
+        data = await searchErpCustomersByKeyword(keyword || '', { includeAllStates });
+        break;
+
+      case 'grades':
+        data = await getErpGrades();
+        break;
+
+      case 'groups':
+        data = await getErpGroups();
+        break;
+
+      case 'areas':
+        data = await getErpAreas();
         break;
 
       case 'settlement-orders': {
@@ -255,6 +275,27 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
         break;
       }
 
+      case 'grades': {
+        const all = await getErpGrades();
+        const map = new Map(all.map((g) => [g.id, g.name]));
+        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
+        break;
+      }
+
+      case 'groups': {
+        const all = await getErpGroups();
+        const map = new Map(all.map((g) => [g.id, g.name]));
+        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
+        break;
+      }
+
+      case 'areas': {
+        const all = await getErpAreas();
+        const map = new Map(all.map((a) => [a.id, a.name]));
+        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
+        break;
+      }
+
       default:
         res.status(400).json({ code: 400, message: `不支持的参考数据类型: ${type}` });
         return;
@@ -287,6 +328,33 @@ export async function getCustomerLicense(req: Request, res: Response, next: Next
       // ERP 不可用时降级返回，保证表单仍可用
       console.warn('[ERP] 获取客户执照信息失败，降级返回:', erpError instanceof Error ? erpError.message : erpError);
       res.json({ code: 200, data: { hasLicense: false, imageCount: 0, attachedPicUrls: [] } });
+    }
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 获取客户欠款总额
+ * GET /oa-approval/erp-reference/customers/:id/debt
+ *
+ * 通过 settlement API 求和 leftAmount 获取真实欠款（ERP debtAmount 字段不可靠）
+ */
+export async function getCustomerDebt(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const customerId = Number(req.params.id);
+    if (isNaN(customerId) || customerId <= 0) {
+      res.status(400).json({ code: 400, message: '无效的客户ID' });
+      return;
+    }
+
+    try {
+      const debtAmount = await getCustomerDebtTotal(customerId);
+      res.json({ code: 200, data: { debtAmount } });
+    } catch (erpError) {
+      // ERP 不可用时降级返回 null，前端可据此决定是否显示
+      console.warn('[ERP] 获取客户欠款失败，降级返回:', erpError instanceof Error ? erpError.message : erpError);
+      res.json({ code: 200, data: { debtAmount: null } });
     }
   } catch (error) {
     next(error);

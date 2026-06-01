@@ -92,14 +92,17 @@ export interface CustomerLicenseInfo {
  *   gradeId / gradeName - 客户等级（如 D）
  *   groupId / groupName - 客户分组（如 餐饮）
  *   areaId / areaName   - 区域（如 独山城区东部）
- *   state               - 状态（1=启用）
+ *   state               - 状态（0=停用, 1=启用, 2=待确认）
  *   address             - 地址
  *   debtAmount          - 当前欠款金额
  *   picture             - 门头照片URL
  *   cooperationTypeName - 合作类型名称（如 流失客户）
  *   ext.attachedPicIds  - 营业执照图片ID数组
  */
-export async function searchErpCustomers(keyword?: string): Promise<ErpCustomer[]> {
+export async function searchErpCustomers(
+  keyword?: string,
+  options?: { includeAllStates?: boolean }
+): Promise<ErpCustomer[]> {
   const { cid, uid } = getErpDefaults();
   const allCustomers: ErpCustomer[] = [];
   let current = 1;
@@ -107,8 +110,12 @@ export async function searchErpCustomers(keyword?: string): Promise<ErpCustomer[
 
   while (true) {
     const body: Record<string, unknown> = {
-      current, size, docState: 1, cid, uid,
+      current, size, cid, uid,
     };
+    // 默认仅查启用客户（docState=1），客户档案修改场景需传 includeAllStates=true
+    if (!options?.includeAllStates) {
+      body.docState = 1;
+    }
     if (keyword) {
       body.queryText = keyword;
     }
@@ -128,17 +135,27 @@ export async function searchErpCustomers(keyword?: string): Promise<ErpCustomer[
  * 按关键字搜索 ERP 客户（仅查第一页，用于下拉搜索）
  * POST /redcoast/store-query/search
  *
- * 响应字段同 searchErpCustomers
+ * @param keyword 搜索关键词
+ * @param options.includeAllStates 是否包含所有状态客户（默认仅启用）
+ *   客户档案修改场景需传 true，其他场景保持默认
  */
-export async function searchErpCustomersByKeyword(keyword: string): Promise<ErpCustomer[]> {
-  /** 缓存键前缀，便于通过 cache.invalidate('erp:customer:search') 批量清除 */
-  const cacheKey = CACHE_KEY.ERP_CUSTOMER_SEARCH(keyword);
+export async function searchErpCustomersByKeyword(
+  keyword: string,
+  options?: { includeAllStates?: boolean }
+): Promise<ErpCustomer[]> {
+  // 缓存键需区分两种模式，避免同关键词返回错误模式的缓存结果
+  const stateSuffix = options?.includeAllStates ? ':all' : '';
+  const cacheKey = CACHE_KEY.ERP_CUSTOMER_SEARCH(`${keyword}${stateSuffix}`);
 
   const cached = cache.get<ErpCustomer[]>(cacheKey);
   if (cached) return cached;
 
   const { cid, uid } = getErpDefaults();
-  const body = { current: 1, size: 50, docState: 1, cid, uid, queryText: keyword };
+  const body: Record<string, unknown> = { current: 1, size: 50, cid, uid, queryText: keyword };
+  // 默认仅查启用客户（docState=1），客户档案修改场景需传 includeAllStates=true
+  if (!options?.includeAllStates) {
+    body.docState = 1;
+  }
   const result = await erpPost(
     '/store-query/search', body,
     { pathPrefix: '/redcoast/', businessType: 'customer_search' }
@@ -217,4 +234,34 @@ export async function getCustomerLicenseInfo(customerId: number): Promise<Custom
     imageCount: picIds.length,
     attachedPicUrls: picUrls,
   };
+}
+
+// =====================================================
+// 欠款查询
+// =====================================================
+
+/**
+ * 查询单个客户的欠款总额
+ * 通过 settlement API 的 list-debt-list 求和 leftAmount 获取
+ *
+ * 注意：ERP 搜索/Profile API 的 debtAmount 字段不可靠（已验证返回 0 即使有欠款），
+ * 必须通过此函数获取真实欠款金额
+ *
+ * @usedBy customer-modify-callback.ts (停用校验 - onApproved)
+ * @usedBy erp-reference.controller.ts (前端展示)
+ */
+export async function getCustomerDebtTotal(customerId: number): Promise<number> {
+  const cacheKey = `erp:customer:debt-total:${customerId}`;
+  const cached = cache.get<number>(cacheKey);
+  if (cached !== null) return cached;
+
+  // 动态导入避免循环依赖
+  const { searchErpSettlementOrders } = await import('./erp-settlement.service');
+  const orders = await searchErpSettlementOrders({ traderId: customerId, maxRecords: 1000 });
+  const rawTotal = orders.reduce((sum, o) => sum + (parseFloat(o.leftAmount) || 0), 0);
+  // 修正浮点精度：如 107898.05000000003 → 107898.05
+  const total = Math.round(rawTotal * 100) / 100;
+
+  cache.set(cacheKey, total, CACHE_TTL.HIGH_FREQUENCY);
+  return total;
 }

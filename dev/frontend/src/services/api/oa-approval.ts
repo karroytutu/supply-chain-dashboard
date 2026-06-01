@@ -415,7 +415,7 @@ export async function markAllMessagesRead(): Promise<void> {
 // ERP 参考数据接口
 // =====================================================
 
-export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders';
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas';
 
 /** ERP ID 解析结果项 */
 export interface ErpResolvedItem {
@@ -552,6 +552,17 @@ export async function getCustomerLicenseInfo(customerId: number): Promise<Custom
   return res;
 }
 
+/**
+ * 获取客户欠款总额
+ * 通过 settlement API 求和 leftAmount（ERP debtAmount 字段不可靠）
+ */
+export async function getCustomerDebt(customerId: number): Promise<{ debtAmount: number | null }> {
+  const res = await request<{ debtAmount: number | null }>(
+    `/oa-approval/erp-reference/customers/${customerId}/debt`,
+  );
+  return res;
+}
+
 // =====================================================
 // 导出 API 对象（供页面使用）
 // =====================================================
@@ -657,6 +668,7 @@ export const oaApprovalApi = {
   retryErpOperation,
   uploadLicenseFiles,
   getCustomerLicenseInfo,
+  getCustomerDebt,
   getTransferCandidates,
   getSettlementOrdersPaged,
   supplementLicense,

@@ -43,9 +43,10 @@ export interface EnvCheckResult {
 
 /**
  * 检测钉钉环境
+ * 使用 skipErrorHandler 避免全局401处理器在登录页触发重定向循环
  */
 export async function checkDingtalkEnv(): Promise<EnvCheckResult> {
-  return request.get('/auth/check-env');
+  return request.get('/auth/check-env', { skipErrorHandler: true });
 }
 
 /**
