@@ -1,8 +1,9 @@
 import React from 'react';
-import { Upload, Image, Spin, message } from 'antd';
+import { Upload, Image, Spin } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { PaperClipOutlined } from '@ant-design/icons';
 import type { CustomerLicenseInfo } from './ErpFieldRenderer';
+import { createBeforeUpload, validateImageFile } from '@/utils/uploadValidation';
 import styles from '../index.less';
 
 interface PhotoFieldRendererProps {
@@ -76,13 +77,7 @@ const PhotoFieldRenderer: React.FC<PhotoFieldRendererProps> = ({
 
       <Upload listType="picture-card" accept="image/*" multiple maxCount={maxCount}
         fileList={(value as UploadFile[]) || []}
-        beforeUpload={(file) => {
-          if (file.size / 1024 / 1024 >= 5) {
-            message.error('图片大小不能超过 5MB');
-            return Upload.LIST_IGNORE;
-          }
-          return false;
-        }}
+        beforeUpload={createBeforeUpload(validateImageFile)}
         onChange={({ fileList: newList }) => onChange?.(newList)}
       >
         <div>上传图片</div>
