@@ -113,6 +113,45 @@ export function useErpFieldResolve(
             pendingByType[erpType].ids.push(id);
           }
         }
+
+        // === 变更对比：同时收集 _original_ 前缀的原始 ERP ID ===
+        const originalKey = `_original_${field.key}`;
+        const originalValue = formData[originalKey];
+        if (originalValue != null && originalValue !== '') {
+          // 对于有 nameField 的字段，检查是否存储了原始名称
+          // nameField 可能带 _ 前缀（如 _consumerManagerName），后端存储时去掉了前缀
+          if (field.nameField) {
+            const cleanNameField = field.nameField.replace(/^_/, '');
+            const originalNameKey = `_original_${cleanNameField}`;
+            const originalName = formData[originalNameKey];
+            if (originalName && String(originalName).trim()) {
+              newMap[`${erpType}:${originalValue}`] = String(originalName);
+              continue;
+            }
+          }
+          // 对于无 nameField 的 ERP 字段（grade/group/area），检查是否存储了原始名称
+          // 命名约定：_original_gradeId → _original_gradeName
+          const nameKeyVariants = ['gradeName', 'groupName', 'areaName'];
+          const baseKey = field.key; // e.g. gradeId, groupId, areaId
+          let nameResolved = false;
+          for (const nameVariant of nameKeyVariants) {
+            if (baseKey.toLowerCase().startsWith(nameVariant.replace('Name', '').toLowerCase())) {
+              const storedName = formData[`_original_${nameVariant}`];
+              if (storedName && String(storedName).trim()) {
+                newMap[`${erpType}:${originalValue}`] = String(storedName);
+                nameResolved = true;
+                break;
+              }
+            }
+          }
+          if (!nameResolved) {
+            const origId = Number(originalValue);
+            if (!isNaN(origId)) {
+              if (!pendingByType[erpType]) pendingByType[erpType] = { ids: [] };
+              pendingByType[erpType].ids.push(origId);
+            }
+          }
+        }
       }
     };
 

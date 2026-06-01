@@ -93,7 +93,10 @@ const FieldRenderer: React.FC<{
     case 'erp_staff':
     case 'erp_payment_account':
     case 'erp_asset_category':
-    case 'asset_search': {
+    case 'asset_search':
+    case 'erp_grade':
+    case 'erp_group':
+    case 'erp_area': {
       // 第一优先级：formData 中已存储的名称（nameField）
       if (field.nameField && formData?.[field.nameField]) {
         const storedName = String(formData[field.nameField]).trim();

@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, Descriptions } from 'antd';
 import type { ApprovalDetail } from '@/types/oa-approval';
 import { FormFieldRenderer as FieldRenderer } from '@/components/OaApproval';
+import FormFieldsDiff, { hasOriginalFields } from '@/components/OaApproval/FormFieldsDiff';
 export { default as ApprovalStatusTag } from '@/components/OaApproval/ApprovalStatusTag';
 import { useErpLicenseResolve } from '@/components/OaApproval/hooks/useErpLicenseResolve';
 import { checkCondition } from '../../Form/components/ConditionalFieldWrapper';
@@ -29,18 +30,30 @@ export const DetailLeftColumn: React.FC<{
       />
     )}
     <Card title="表单内容" className={styles.card}>
-      <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
-        {detail.formSchema?.fields?.map((field) => {
-          const value = detail.formData[field.key];
-          if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return null;
-          if (field.key.startsWith('_')) return null;
-          return (
-            <Descriptions.Item key={field.key} label={field.label}>
-              <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
-            </Descriptions.Item>
-          );
-        })}
-      </Descriptions>
+      {hasOriginalFields(detail.formData) ? (
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
+          <FormFieldsDiff
+            formSchema={detail.formSchema}
+            formData={detail.formData}
+            resolvedMap={resolvedMap}
+            erpLicenseUrls={erpLicenseUrls}
+            layout="descriptions"
+          />
+        </Descriptions>
+      ) : (
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
+          {detail.formSchema?.fields?.map((field) => {
+            const value = detail.formData[field.key];
+            if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return null;
+            if (field.key.startsWith('_')) return null;
+            return (
+              <Descriptions.Item key={field.key} label={field.label}>
+                <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
+              </Descriptions.Item>
+            );
+          })}
+        </Descriptions>
+      )}
     </Card>
   </>
   );

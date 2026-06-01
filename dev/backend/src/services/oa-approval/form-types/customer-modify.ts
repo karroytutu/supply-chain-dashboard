@@ -19,7 +19,7 @@ export const customerModifyFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 120,
   description: '修改ERP客户档案信息，包括名称、门头照、联系人、等级、渠道、片区、状态等',
-  version: 1,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -164,6 +164,21 @@ export const customerModifyFormType: FormTypeDefinition = {
         type: 'text',
         required: false,
       },
+
+      // ===== 变更对比原始值（_original_ 前缀，由 beforeSubmit 自动填充） =====
+      { key: '_original_customerName', label: '原客户名称', type: 'text', required: false },
+      { key: '_original_contactName', label: '原联系人', type: 'text', required: false },
+      { key: '_original_contactTel', label: '原联系电话', type: 'text', required: false },
+      { key: '_original_gradeId', label: '原等级ID', type: 'text', required: false },
+      { key: '_original_gradeName', label: '原等级名称', type: 'text', required: false },
+      { key: '_original_groupId', label: '原渠道ID', type: 'text', required: false },
+      { key: '_original_groupName', label: '原渠道名称', type: 'text', required: false },
+      { key: '_original_areaId', label: '原片区ID', type: 'text', required: false },
+      { key: '_original_areaName', label: '原片区名称', type: 'text', required: false },
+      { key: '_original_consumerManagerId', label: '原所属营销ID', type: 'text', required: false },
+      { key: '_original_consumerManagerName', label: '原所属营销名称', type: 'text', required: false },
+      { key: '_original_customerState', label: '原状态', type: 'text', required: false },
+      { key: '_original_storefrontPhotoUrl', label: '原门头照URL', type: 'text', required: false },
     ],
   },
 
