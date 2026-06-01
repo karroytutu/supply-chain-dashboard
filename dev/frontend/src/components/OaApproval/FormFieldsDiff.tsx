@@ -27,12 +27,15 @@ function valuesEqual(a: unknown, b: unknown): boolean {
   return normalize(a) === normalize(b);
 }
 
-/** photo 类型：比较是否有变化（只看有无） */
-function photoHasValue(v: unknown): boolean {
-  if (!v) return false;
-  if (typeof v === 'string') return v.trim().length > 0;
-  if (Array.isArray(v)) return v.length > 0 && v.some(p => (p as { url?: string })?.url);
-  return true;
+/** photo 类型：提取照片 URL 用于比较 */
+function extractPhotoUrl(v: unknown): string {
+  if (!v) return '';
+  if (typeof v === 'string') return v.trim();
+  if (Array.isArray(v)) {
+    const first = v.find(p => (p as { url?: string })?.url);
+    return first ? ((first as { url?: string }).url ?? '') : '';
+  }
+  return '';
 }
 
 interface FormFieldsDiffProps {
@@ -100,9 +103,9 @@ const FormFieldsDiff: React.FC<FormFieldsDiffProps> = ({
       const oldValue = formData[effectiveOriginalKey];
       const newValue = formData[field.key];
 
-      // photo 类型特殊处理：比较有无
+      // photo 类型特殊处理：比较实际 URL
       const isChanged = field.type === 'photo'
-        ? photoHasValue(oldValue) !== photoHasValue(newValue)
+        ? extractPhotoUrl(oldValue) !== extractPhotoUrl(newValue)
         : !valuesEqual(oldValue, newValue);
 
       if (isChanged) changedCount++;
