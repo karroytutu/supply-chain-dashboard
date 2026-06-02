@@ -173,13 +173,24 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
       <SettlementOrderPicker
         value={(value as number[]) || []}
         consumerId={cascadeValue as string | number | undefined}
-        onChange={(ids, labels) => {
+        onChange={(ids, labels, records) => {
           onChange?.(ids);
           if (field.nameField && form) {
             const nameLabels = labels && labels.length > 0
               ? labels
               : options.filter(opt => ids.includes(opt.value as number)).map(opt => opt.label);
             form.setFieldsValue({ [field.nameField]: nameLabels.join(', ') });
+          }
+          // 存储结构化明细（供详情页表格渲染）
+          if (field.detailsField && form) {
+            const details = ids.map((bizId, idx) => {
+              const rec = records?.[idx];
+              return {
+                bizStr: rec?.bizStr || labels?.[idx] || String(bizId),
+                leftAmount: rec?.leftAmount || '0',
+              };
+            });
+            form.setFieldsValue({ [field.detailsField]: JSON.stringify(details) });
           }
         }}
         disabled={isDisabled}

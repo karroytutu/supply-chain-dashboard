@@ -10,6 +10,7 @@ import { getErpAccessToken } from './erp-auth';
 import { createLogEntry, writeErpLog } from './erp-logger';
 import { ErpApiError } from './erp-client.types';
 import type { ErpRequestOptions, ErpApiResponse } from './erp-client.types';
+import logger from '../../utils/logger';
 
 /** 请求限流队列 */
 let _lastRequestTime = 0;
@@ -111,7 +112,7 @@ export async function erpRequest<T = any>(
           retryCount,
           businessType: options?.businessType,
           businessId: options?.businessId,
-        }).catch(() => {}); // 日志写入失败不影响业务
+        }).catch(err => logger.warn('[ErpClient] 日志写入失败:', err?.message)); // 日志写入失败不影响业务
       }
 
       // 舟谱 API 错误码检查
@@ -142,7 +143,7 @@ export async function erpRequest<T = any>(
             retryCount,
             businessType: options?.businessType,
             businessId: options?.businessId,
-          }).catch(() => {}); // 日志写入失败不影响业务
+          }).catch(err => logger.warn('[ErpClient] 日志写入失败:', err?.message)); // 日志写入失败不影响业务
         }
         throw error;
       }
@@ -170,7 +171,7 @@ export async function erpRequest<T = any>(
       retryCount,
       businessType: options?.businessType,
       businessId: options?.businessId,
-    }).catch(() => {}); // 日志写入失败不影响业务
+    }).catch(err => logger.warn('[ErpClient] 日志写入失败:', err?.message)); // 日志写入失败不影响业务
   }
 
   throw new ErpApiError(

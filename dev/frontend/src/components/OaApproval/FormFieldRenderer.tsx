@@ -121,7 +121,41 @@ const FieldRenderer: React.FC<{
       if (!Array.isArray(orderIds) || orderIds.length === 0) {
         return <Text type="secondary">-</Text>;
       }
-      // 第一优先级：已存储的名称（逗号分隔字符串）
+      // 第一优先级：结构化明细 JSON → 渲染小表格
+      if (field.detailsField && formData?.[field.detailsField]) {
+        try {
+          const parsed = JSON.parse(String(formData[field.detailsField]));
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const details = parsed as Array<{ bizStr: string; leftAmount: string }>;
+            const total = details.reduce((sum, d) => sum + (parseFloat(d.leftAmount) || 0), 0);
+            return (
+              <table style={{ fontSize: 13, borderCollapse: 'collapse', width: '100%' }}>
+                <tbody>
+                  {details.map((d, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: '2px 8px 2px 0' }}>{d.bizStr}</td>
+                      <td style={{ padding: '2px 0', textAlign: 'right' }}>
+                        {formatCurrency(d.leftAmount)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td style={{ padding: '4px 8px 0 0', fontWeight: 500, borderTop: '1px solid #f0f0f0' }}>
+                      合计 ({details.length} 单)
+                    </td>
+                    <td style={{ padding: '4px 0 0', fontWeight: 500, textAlign: 'right', borderTop: '1px solid #f0f0f0' }}>
+                      {formatCurrency(total)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            );
+          }
+        } catch {
+          /* JSON 解析失败，降级到下方逻辑 */
+        }
+      }
+      // 第二优先级：nameField（旧数据，纯文本名称）
       if (field.nameField && formData?.[field.nameField]) {
         const storedNames = String(formData[field.nameField]).trim();
         if (storedNames) {
@@ -134,7 +168,7 @@ const FieldRenderer: React.FC<{
           );
         }
       }
-      // 第二优先级 + 第三优先级
+      // 第三优先级：resolvedMap / ErpNameDisplay（兜底）
       const settlementParams = formData?.customer
         ? { consumerId: String(formData.customer) }
         : undefined;

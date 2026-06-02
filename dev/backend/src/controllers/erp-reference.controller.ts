@@ -265,9 +265,15 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
           return;
         }
         const all = await searchErpSettlementOrders({ traderId: consumerId });
-        // 双模式查找：新数据存 bizId，旧数据存 id，两者均需支持
-        const bizIdMap = new Map(all.map((o) => [o.bizId, o.bizStr]));
-        const idMap = new Map(all.map((o) => [o.id, o.bizStr]));
+        // 构建含金额的 label（如 "THJS241214000001 (¥12,345.00)"）
+        const buildLabel = (order: { bizStr: string; leftAmount: string }) => {
+          const amount = parseFloat(order.leftAmount);
+          if (isNaN(amount)) return order.bizStr;
+          return `${order.bizStr} (¥${Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+        };
+        // 双模式查找：新数据用 bizId，旧数据用 id
+        const bizIdMap = new Map(all.map((o) => [o.bizId, buildLabel(o)]));
+        const idMap = new Map(all.map((o) => [o.id, buildLabel(o)]));
         resolved = ids.map((id) => ({
           id,
           label: String(bizIdMap.get(id) ?? idMap.get(id) ?? id),

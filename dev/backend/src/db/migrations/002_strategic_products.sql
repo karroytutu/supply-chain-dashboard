@@ -1,5 +1,6 @@
 -- 战略商品管理功能数据库迁移
 -- 数据库: xly_dashboard
+-- 注意: 此文件与 002_performance_indexes.sql 共享编号 002（历史原因，两者均已执行，不修改编号避免重复执行）
 
 -- 战略商品表
 CREATE TABLE IF NOT EXISTS strategic_products (

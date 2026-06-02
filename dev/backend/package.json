@@ -9,7 +9,10 @@
     "start": "cross-env NODE_ENV=production node dist/app.js",
     "migrate": "ts-node src/db/migrate.ts",
     "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint:fix": "eslint src --fix",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@alicloud/ding-util": "^1.0.0",

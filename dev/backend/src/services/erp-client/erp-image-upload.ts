@@ -5,6 +5,7 @@
  */
 
 import { createLogEntry, writeErpLog } from './erp-logger';
+import logger from '../../utils/logger';
 
 /**
  * 上传图片到 ERP，返回 imgId
@@ -71,7 +72,7 @@ export async function erpUploadImageToErp(
         durationMs,
         retryCount: 0,
         businessType,
-      }).catch(() => {});
+      }).catch(err => logger.warn('[ErpImageUpload] 日志写入失败:', err?.message));
       throw new Error(errMsg);
     }
 
@@ -88,7 +89,7 @@ export async function erpUploadImageToErp(
       durationMs,
       retryCount: 0,
       businessType,
-    }).catch(() => {});
+    }).catch(err => logger.warn('[ErpImageUpload] 日志写入失败:', err?.message));
 
     return imgId;
   } catch (error) {
@@ -105,7 +106,7 @@ export async function erpUploadImageToErp(
         durationMs,
         retryCount: 0,
         businessType,
-      }).catch(() => {});
+      }).catch(err => logger.warn('[ErpImageUpload] 日志写入失败:', err?.message));
     }
 
     throw error;

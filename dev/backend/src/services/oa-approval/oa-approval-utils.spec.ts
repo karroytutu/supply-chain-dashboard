@@ -196,7 +196,7 @@ describe('validateFormData', () => {
       const errors = validateFormData(schema, {
         lines: [{ assetName: '', quantity: 0 }],
       });
-      expect(errors).toContain('采购明细(第1行): 资产名称不能为空');
+      expect(errors).toContain('采购明细[1].资产名称不能为空');
     });
 
     it('table 空数组在 required 时报错', () => {
