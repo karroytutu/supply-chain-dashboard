@@ -90,4 +90,8 @@ export const CACHE_KEY = {
   ERP_FACADE_PRODUCTS_WITH_STOCK: 'erp:facade:products_with_stock' as const,
   /** 品类聚合结果 */
   ERP_FACADE_CATEGORY_AGG: 'erp:facade:category_agg' as const,
+
+  // ==================== 工作台相关 ====================
+  /** 工作台聚合数据（按用户） */
+  WORKSPACE_DATA: (userId: number) => `workspace:data:${userId}` as const,
 } as const;

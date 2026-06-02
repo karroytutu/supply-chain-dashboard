@@ -93,6 +93,7 @@ export async function getStats(category?: string): Promise<AssessmentStatsRow> {
       COALESCE(SUM(penalty_amount) FILTER (WHERE status = 'pending'), 0) AS pending_amount,
       COUNT(*) FILTER (WHERE status = 'confirmed') AS confirmed_count,
       COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE) AS today_new,
+      COUNT(*) FILTER (WHERE status = 'confirmed' AND updated_at >= CURRENT_DATE) AS today_confirmed,
       COUNT(DISTINCT assessment_user_id) FILTER (WHERE status = 'pending') AS involved_users
     FROM assessment_records
     ${categoryClause}

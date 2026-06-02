@@ -29,6 +29,13 @@ export default defineConfig({
     },
     {
       path: '/',
+      component: '@/pages/Home',
+      name: '工作台',
+      icon: 'home',
+      wrappers: ['@/wrappers/auth'],
+    },
+    {
+      path: '/overview',
       component: '@/pages/Overview',
       name: '数据总览',
       icon: 'dashboard',
