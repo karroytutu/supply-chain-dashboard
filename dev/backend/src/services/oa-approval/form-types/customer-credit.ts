@@ -19,7 +19,7 @@ export const customerCreditFormType: FormTypeDefinition = {
   category: 'finance',
   sortOrder: 110,
   description: '申请客户授信，包括账期、滚单、压单',
-  version: 5,
+  version: 6,
 
   formSchema: {
     fields: [
@@ -106,7 +106,8 @@ export const customerCreditFormType: FormTypeDefinition = {
         searchApi: 'erp_settlement_orders',
         multiple: true,
         cascadeFrom: 'customer',
-        nameField: 'holdSettlementOrderNames',
+        nameField: '_holdSettlementOrderNames',
+        detailsField: '_holdSettlementOrderDetails',
         visibleWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
         requiredWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
       },
@@ -162,6 +163,12 @@ export const customerCreditFormType: FormTypeDefinition = {
       {
         key: '_holdSettlementOrderNames',
         label: '压单结算单名称',
+        type: 'text',
+        required: false,
+      },
+      {
+        key: '_holdSettlementOrderDetails',
+        label: '压单结算单明细',
         type: 'text',
         required: false,
       },

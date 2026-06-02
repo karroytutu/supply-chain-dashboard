@@ -5,7 +5,7 @@
  */
 
 import { erpGet, erpPost, getErpConfig, getErpDefaults } from '../erp-client';
-import { CACHE_TTL as CACHE_TTL_CONFIG } from '../../utils/cache';
+import { cache, CACHE_TTL as CACHE_TTL_CONFIG } from '../../utils/cache';
 import type {
   ErpAsset,
   ErpAssetCategory,
@@ -15,11 +15,11 @@ import type {
 } from './fixed-asset.types';
 
 // =====================================================
-// 舟谱 ERP 资产缓存
+// 舟谱 ERP 资产缓存（统一 MemoryCache）
 // =====================================================
 
-/** 资产列表缓存（5 分钟过期） */
-let assetCache: { data: ErpAsset[]; expireAt: number } | null = null;
+/** 资产列表缓存 Key */
+const ASSET_CACHE_KEY = 'fixed-asset:erp-assets';
 /** 资产列表缓存过期时间 */
 const ASSET_CACHE_TTL = CACHE_TTL_CONFIG.LOW_FREQUENCY;
 
@@ -87,12 +87,11 @@ export async function searchErpAssets(keyword: string, usageStatus?: string): Pr
  * 获取全部舟谱资产列表（带缓存）
  */
 async function getAllErpAssets(): Promise<ErpAsset[]> {
-  const now = Date.now();
-  if (assetCache && assetCache.expireAt > now) {
-    return assetCache.data;
-  }
+  const cached = cache.get<ErpAsset[]>(ASSET_CACHE_KEY);
+  if (cached) return cached;
+
   const assets = await searchErpAssets('', '');
-  assetCache = { data: assets, expireAt: now + ASSET_CACHE_TTL };
+  cache.set(ASSET_CACHE_KEY, assets, ASSET_CACHE_TTL);
   return assets;
 }
 

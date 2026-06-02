@@ -26,7 +26,7 @@ export interface SettlementRecord {
 
 interface SettlementOrderPickerProps {
   value?: number[];
-  onChange?: (value: number[], labels?: string[]) => void;
+  onChange?: (value: number[], labels?: string[], records?: SettlementRecord[]) => void;
   consumerId?: string | number;
   disabled: boolean;
   cachedOptions?: Array<{ label: string; value: unknown; raw: unknown }>;
@@ -105,19 +105,21 @@ const SettlementOrderPicker: React.FC<SettlementOrderPickerProps> = ({
   );
 
   const handleConfirm = (draftKeys: number[]) => {
-    const labels = draftKeys
-      .map(bizId => selectedMap.get(bizId)?.bizStr)
-      .filter(Boolean) as string[];
-    onChange?.(draftKeys, labels);
+    const records = draftKeys
+      .map(bizId => selectedMap.get(bizId))
+      .filter(Boolean) as SettlementRecord[];
+    const labels = records.map(r => r.bizStr);
+    onChange?.(draftKeys, labels, records);
     setModalOpen(false);
   };
 
   const handleRemoveTag = (bizId: number) => {
     const newValue = value.filter((v) => v !== bizId);
-    const labels = newValue
-      .map(vid => selectedMap.get(vid)?.bizStr)
-      .filter(Boolean) as string[];
-    onChange?.(newValue, labels);
+    const records = newValue
+      .map(vid => selectedMap.get(vid))
+      .filter(Boolean) as SettlementRecord[];
+    const labels = records.map(r => r.bizStr);
+    onChange?.(newValue, labels, records);
   };
 
   return (
@@ -131,7 +133,7 @@ const SettlementOrderPicker: React.FC<SettlementOrderPickerProps> = ({
         ) : (
           <div className={styles.selectedTags}>
             {selectedRecords.map((r) => (
-              <Tag key={r.bizId} closable={!disabled} onClose={() => handleRemoveTag(r.bizId)}>{r.bizStr}</Tag>
+              <Tag key={r.bizId} closable={!disabled} onClose={() => handleRemoveTag(r.bizId)}>{r.bizStr} ({formatCurrency(r.leftAmount)})</Tag>
             ))}
           </div>
         )}

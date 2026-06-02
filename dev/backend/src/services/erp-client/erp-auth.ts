@@ -8,10 +8,21 @@ import axios from 'axios';
 import { getErpConfig } from './erp-config';
 import type { ErpToken } from './erp-client.types';
 
-/** Token 缓存 */
+/**
+ * Token 缓存
+ *
+ * 不使用统一 MemoryCache 的原因：
+ * 1. 需要提前 1 小时刷新（REFRESH_AHEAD_MS），而 MemoryCache 仅支持固定 TTL 过期
+ * 2. Token 获取后还需联动获取 WMS Session（_wmsSessionCache），两者需原子性同步刷新
+ * 3. 使用 _refreshPromise 锁防止并发刷新，该模式与 MemoryCache 的 get/set 不兼容
+ */
 let _tokenCache: ErpToken | null = null;
 
-/** WMS Session 缓存（与 Token 同步刷新） */
+/**
+ * WMS Session 缓存（与 Token 同步刷新）
+ *
+ * 不使用统一 MemoryCache 的原因：同 _tokenCache，与 Token 联动刷新，共享过期逻辑
+ */
 let _wmsSessionCache: { sessionId: string; deviceToken: string; expiresAt: number } | null = null;
 
 /** 提前刷新时间（1小时） */

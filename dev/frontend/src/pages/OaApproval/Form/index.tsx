@@ -8,6 +8,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApprovalApi } from '@/services/api/oa-approval';
 import type { FormTypeDefinition } from '@/types/oa-approval';
 import { useFormData } from './hooks/useFormData';
+import { useCustomerDebt } from './hooks/useCustomerDebt';
 import FormFieldConfig from './components/FormFieldConfig';
 import ConditionalFieldWrapper, { checkCondition } from './components/ConditionalFieldWrapper';
 import { ApprovalFlow } from '@/components/OaApproval';
@@ -69,44 +70,8 @@ const FormPage: React.FC = () => {
     });
   };
 
-  // ===== 客户档案修改：欠款即时加载与停用校验 =====
-  const [debtAmount, setDebtAmount] = useState<number | null>(null);
-  const [debtLoading, setDebtLoading] = useState(false);
-
-  const loadCustomerDebt = useCallback(async (customerId: number) => {
-    setDebtLoading(true);
-    try {
-      const result = await oaApprovalApi.getCustomerDebt(customerId);
-      const amount = result?.debtAmount ?? null;
-      setDebtAmount(amount);
-    } catch {
-      setDebtAmount(null);
-    } finally {
-      setDebtLoading(false);
-    }
-  }, []);
-
-  // 监听 customer 字段变化，加载欠款
-  useEffect(() => {
-    if (typeCode === 'customer_modify' && formData.customer) {
-      loadCustomerDebt(Number(formData.customer));
-    }
-  }, [typeCode, formData.customer, loadCustomerDebt]);
-
-  // 客户档案修改：状态字段的动态选项（有欠款时禁用停用）
-  const customerStateOptions = useMemo(() => {
-    if (typeCode !== 'customer_modify') return undefined;
-    const hasDebt = debtAmount !== null && debtAmount > 0;
-    return [
-      { value: 1, label: '启用' },
-      { value: 2, label: '待确认' },
-      {
-        value: 0,
-        label: hasDebt ? `停用（有欠款 ¥${debtAmount.toFixed(2)}，不可停用）` : '停用',
-        disabled: hasDebt,
-      },
-    ];
-  }, [typeCode, debtAmount]);
+  // ===== 客户档案修改：欠款与状态选项 =====
+  const { customerStateOptions, debtLoading } = useCustomerDebt(typeCode, formData);
 
   /** 判断字段是否在当前条件下必填 */
   const isFieldRequired = (field: FormTypeDefinition['formSchema']['fields'][0]): boolean => {
@@ -219,7 +184,7 @@ const FormPage: React.FC = () => {
               .map((field) => {
               // 客户档案修改：为状态字段注入动态选项（有欠款时禁用停用）
               const fieldWithOptions = (field.key === 'customerState' && customerStateOptions)
-                ? { ...field, options: customerStateOptions }
+                ? { ...field, options: customerStateOptions, disabled: debtLoading }
                 : field;
               return (
               <ConditionalFieldWrapper key={field.key} field={field} formData={formData}>
