@@ -14,6 +14,7 @@ import {
   getCurrentApproverNode,
 } from '../oa-utils';
 import { notifyCountersign, notifyWithdrawn } from '../oa-notify';
+import { completeAllPendingTodos } from '../oa-process-centre';
 import { transaction, getInstanceNotifyData } from './shared-utils';
 
 /**
@@ -173,6 +174,10 @@ export async function withdrawApproval(
   });
 
   setImmediate(() => {
+    // 新增：取消所有被取消节点审批人的钉钉待办 + 完成壳实例
+    completeAllPendingTodos(instanceId, 'refuse').catch(err => {
+      console.error('[ProcessCentre] 批量取消钉钉待办失败:', err);
+    });
     sendWithdrawNotification(instanceId, userId, userName).catch(err => {
       console.error('[OA] 撤回通知发送失败:', err);
     });

@@ -21,6 +21,7 @@ import {
   sendApprovalNotifications,
   triggerCcIfApplicable,
 } from './auto-node-operations';
+import { completeApprovalTodo, finalizeProcessInstance } from '../oa-process-centre';
 
 // Re-export for backward compatibility
 export { executeAutoNodeCallback, retryAutoNode } from './auto-node-operations';
@@ -182,12 +183,22 @@ export async function approveApproval(
   // 异步发送通知和检查抄送
   if (callbackInstance && formType) {
     setImmediate(() => {
+      // 新增：完成当前审批人的钉钉待办
+      completeApprovalTodo(instanceId, userId, 'AGREE').catch(err => {
+        console.error('[ProcessCentre] 完成钉钉待办失败:', err);
+      });
       sendApprovalNotifications(instanceId, userId, userName, callbackInstance!, formType!, isLastNode).catch(err => {
         console.error('[OA] 审批通知发送失败:', err);
       });
       triggerCcIfApplicable(instanceId, callbackNodeOrder, formType!, callbackInstance!).catch(err => {
         console.error('[OA] CC 触发失败:', err);
       });
+      // 最后一个节点通过时，完成壳实例
+      if (isLastNode) {
+        finalizeProcessInstance(instanceId, 'agree').catch(err => {
+          console.error('[ProcessCentre] 完成壳实例失败:', err);
+        });
+      }
     });
   }
 

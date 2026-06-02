@@ -14,6 +14,7 @@ import {
 } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
 import { notifyRejected, notifyTransferred } from '../oa-notify';
+import { completeApprovalTodo, completeAllPendingTodos } from '../oa-process-centre';
 import { transaction, getInstanceNotifyData } from './shared-utils';
 
 /**
@@ -82,6 +83,10 @@ export async function rejectApproval(
   });
 
   setImmediate(() => {
+    // 拒绝审批后取消所有待处理人的钉钉待办 + 完成壳实例
+    completeAllPendingTodos(instanceId, 'refuse').catch(err => {
+      console.error('[ProcessCentre] 批量取消钉钉待办失败:', err);
+    });
     sendRejectNotification(instanceId, userId, userName, comment).catch(err => {
       console.error('[OA] 拒绝通知发送失败:', err);
     });
@@ -141,6 +146,10 @@ export async function transferApproval(
   });
 
   setImmediate(() => {
+    // 新增：完成转交人的钉钉待办
+    completeApprovalTodo(instanceId, userId, 'AGREE').catch(err => {
+      console.error('[ProcessCentre] 完成转交人钉钉待办失败:', err);
+    });
     sendTransferNotification(instanceId, userId, userName, transferToUserId).catch(err => {
       console.error('[OA] 转交通知发送失败:', err);
     });

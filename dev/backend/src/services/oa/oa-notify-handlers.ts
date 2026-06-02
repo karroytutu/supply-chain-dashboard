@@ -22,6 +22,7 @@ import {
   sendResultNotification,
   sendCcNotification,
 } from './oa-dingtalk';
+import { createApprovalTodo } from './oa-process-centre';
 import { OA_DINGTALK_STATUS } from '../../utils/constants';
 
 /** 发送待处理通知（ActionCard + 双按钮） */
@@ -42,20 +43,45 @@ export async function notifyPendingApproval(
   );
 
   const dingtalkUserIds = await getDingtalkUserIds(approverIds);
-  if (dingtalkUserIds.length === 0) return;
+  if (dingtalkUserIds.length === 0) {
+    // 工作通知跳过，但待办仍可尝试创建
+    for (const approverId of approverIds) {
+      try {
+        await createApprovalTodo(
+          instanceId, instanceNo, title, formTypeName, applicantName,
+          approverId, params.formSchema, params.formData, params.nodeOrder,
+        );
+      } catch (error) {
+        console.error('[ProcessCentre] 创建钉钉待办失败:', error);
+      }
+    }
+    return;
+  }
 
   const userIdToDingtalkId = await buildUserIdToDingtalkIdMap(approverIds);
 
   for (const approverId of approverIds) {
     const dingtalkId = userIdToDingtalkId.get(approverId);
-    if (!dingtalkId) continue;
 
+    // 现有工作通知（保持不变）
+    if (dingtalkId) {
+      try {
+        const actionCard = await buildPendingActionCard(toDingtalkParams(params), approverId);
+        const taskId = await sendPendingNotification([dingtalkId], actionCard, instanceId, instanceNo);
+        await saveTaskMapping(instanceId, taskId, [approverId], 'pending');
+      } catch (error) {
+        console.error('Failed to send pending ActionCard notification:', error);
+      }
+    }
+
+    // 创建钉钉待办（独立 try-catch，不影响工作通知）
     try {
-      const actionCard = await buildPendingActionCard(toDingtalkParams(params), approverId);
-      const taskId = await sendPendingNotification([dingtalkId], actionCard, instanceId, instanceNo);
-      await saveTaskMapping(instanceId, taskId, [approverId], 'pending');
+      await createApprovalTodo(
+        instanceId, instanceNo, title, formTypeName, applicantName,
+        approverId, params.formSchema, params.formData, params.nodeOrder,
+      );
     } catch (error) {
-      console.error('Failed to send pending ActionCard notification:', error);
+      console.error('[ProcessCentre] 创建钉钉待办失败:', error);
     }
   }
 }
@@ -148,6 +174,16 @@ export async function notifyTransferred(
       console.error('Failed to send transfer ActionCard notification:', error);
     }
   }
+
+  // 为被转交人创建钉钉待办
+  try {
+    await createApprovalTodo(
+      instanceId, instanceNo, title, formTypeName, applicantName,
+      newApproverId, params.formSchema, params.formData, params.nodeOrder,
+    );
+  } catch (error) {
+    console.error('[ProcessCentre] 转交创建钉钉待办失败:', error);
+  }
 }
 
 /** 发送加签通知 */
@@ -171,14 +207,26 @@ export async function notifyCountersign(
 
   for (const countersignerId of countersignerIds) {
     const dingtalkId = userIdToDingtalkId.get(countersignerId);
-    if (!dingtalkId) continue;
 
+    // 现有工作通知
+    if (dingtalkId) {
+      try {
+        const actionCard = await buildPendingActionCard(toDingtalkParams(params), countersignerId);
+        const taskId = await sendPendingNotification([dingtalkId], actionCard, instanceId, instanceNo);
+        await saveTaskMapping(instanceId, taskId, [countersignerId], 'pending');
+      } catch (error) {
+        console.error('Failed to send countersign ActionCard notification:', error);
+      }
+    }
+
+    // 为加签人创建钉钉待办
     try {
-      const actionCard = await buildPendingActionCard(toDingtalkParams(params), countersignerId);
-      const taskId = await sendPendingNotification([dingtalkId], actionCard, instanceId, instanceNo);
-      await saveTaskMapping(instanceId, taskId, [countersignerId], 'pending');
+      await createApprovalTodo(
+        instanceId, instanceNo, title, formTypeName, applicantName,
+        countersignerId, params.formSchema, params.formData, params.nodeOrder,
+      );
     } catch (error) {
-      console.error('Failed to send countersign ActionCard notification:', error);
+      console.error('[ProcessCentre] 加签创建钉钉待办失败:', error);
     }
   }
 }

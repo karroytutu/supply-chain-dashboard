@@ -19,6 +19,7 @@ import {
 import { getFormTypeByCode } from '../form-types';
 import { initErpMeta } from '../../fixed-asset/erp-meta-utils';
 import { notifyPendingApproval } from '../oa-notify';
+import { createProcessInstance } from '../oa-process-centre';
 import { transaction, getInstanceNotifyData } from './shared-utils';
 import { executeAutoNodeCallback } from './approve-approval';
 
@@ -160,21 +161,31 @@ export async function submitApproval(
     );
   }
 
-  // 如果第一个节点是 auto 类型，事务提交后异步执行 auto 节点回调
-  if (firstNodeIsAuto && autoNodeToExecute && formType.onApproved) {
-    const instance = result;
-    const formData = req.formData as Record<string, unknown>;
-    setImmediate(() => {
-      executeAutoNodeCallback(instance.id, autoNodeToExecute!, formType!, instance, formData)
-        .catch(err => console.error(`[OA] submitApproval auto节点异步执行错误:`, err));
+  // 异步操作（不阻塞提交响应）
+  // 必须先创建壳实例，再执行通知和 auto 节点回调（两者均依赖壳实例存在）
+  setImmediate(async () => {
+    await createProcessInstance(
+      result.id,
+      req.formTypeCode,
+      formType.name,
+      userId,
+      req.title,
+      formType.formSchema,
+      req.formData as Record<string, unknown>,
+    ).catch(err => {
+      console.error('[ProcessCentre] 创建壳实例失败:', err);
     });
-  }
 
-  // 异步发送通知（不阻塞提交响应）
-  setImmediate(() => {
-    sendSubmitNotifications(result, formType, userId).catch(err => {
-      console.error('[OA] 提交通知发送失败:', err);
-    });
+    if (firstNodeIsAuto && autoNodeToExecute && formType.onApproved) {
+      // auto 节点回调内部会自行通知下一个审批人，无需再发提交通知
+      const formData = req.formData as Record<string, unknown>;
+      executeAutoNodeCallback(result.id, autoNodeToExecute!, formType!, result, formData)
+        .catch(err => console.error(`[OA] submitApproval auto节点异步执行错误:`, err));
+    } else {
+      sendSubmitNotifications(result, formType, userId).catch(err => {
+        console.error('[OA] 提交通知发送失败:', err);
+      });
+    }
   });
 
   return {
