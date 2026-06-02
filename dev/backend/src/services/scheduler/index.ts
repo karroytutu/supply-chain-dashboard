@@ -225,7 +225,7 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
-  // OA审批 auto 节点卡住恢复 - 每5分钟
+  // OA auto 节点卡住恢复 - 每5分钟
   cron.schedule(
     '*/5 * * * *',
     async () => {

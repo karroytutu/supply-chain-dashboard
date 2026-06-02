@@ -4,7 +4,7 @@
  * @module services/fixed-asset/disposal-callback
  */
 
-import type { OaApprovalInstanceRow } from '../oa-approval/oa-approval.types';
+import type { OaInstanceRow } from '../oa/oa.types';
 import { searchErpAssets, getErpStaff } from './fixed-asset.query';
 import { getErpMeta, updateErpMetaStatus, mergeErpResponseData, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults } from '../erp-client';
@@ -119,7 +119,7 @@ async function createIncomeRecord(
  * 清理流程 — 审批通过回调
  */
 export async function handleAssetDisposalApproved(
-  instance: OaApprovalInstanceRow,
+  instance: OaInstanceRow,
   formData: Record<string, unknown>
 ): Promise<void> {
   try {

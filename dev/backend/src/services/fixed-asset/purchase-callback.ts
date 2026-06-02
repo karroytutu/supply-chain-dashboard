@@ -5,7 +5,7 @@
  * @module services/fixed-asset/purchase-callback
  */
 
-import type { OaApprovalInstanceRow } from '../oa-approval/oa-approval.types';
+import type { OaInstanceRow } from '../oa/oa.types';
 import { getErpStaff, searchErpAssets } from './fixed-asset.query';
 import { getErpMeta, updateErpMetaStatus, mergeErpResponseData, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults } from '../erp-client';
@@ -19,7 +19,7 @@ import { buildAssetCreatePayload, normalizeDateTime, generateNextAssetCode } fro
  * 采购流程 — data_input 节点回调
  */
 export async function handleAssetPurchaseNodeCallback(
-  instance: OaApprovalInstanceRow,
+  instance: OaInstanceRow,
   nodeOrder: number,
   nodeData: Record<string, unknown>,
   formData: Record<string, unknown>
@@ -36,7 +36,7 @@ export async function handleAssetPurchaseNodeCallback(
  * subjectId=217 购置固定资产
  */
 async function handlePurchasePayment(
-  instance: OaApprovalInstanceRow,
+  instance: OaInstanceRow,
   formData: Record<string, unknown>
 ): Promise<void> {
   try {
@@ -123,7 +123,7 @@ async function handlePurchasePayment(
  * 采购节点7 — 资产入库后批量创建舟谱资产卡片
  */
 async function handlePurchaseAssetCreate(
-  instance: OaApprovalInstanceRow,
+  instance: OaInstanceRow,
   formData: Record<string, unknown>
 ): Promise<void> {
   try {

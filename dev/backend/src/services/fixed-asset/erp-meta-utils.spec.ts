@@ -5,7 +5,7 @@
 
 import { getErpMeta, initErpMeta, updateErpMetaStatus, mergeErpResponseData, markErpFailed, retryErpOperation } from './erp-meta-utils';
 import { appQuery } from '../../db/appPool';
-import type { ErpMeta, OaApprovalInstanceRow } from '../oa-approval/oa-approval.types';
+import type { ErpMeta, OaInstanceRow } from '../oa/oa.types';
 
 // Mock 数据库查询
 jest.mock('../../db/appPool', () => ({
@@ -13,7 +13,7 @@ jest.mock('../../db/appPool', () => ({
 }));
 
 // Mock form-types 的动态导入
-jest.mock('../oa-approval/form-types', () => ({
+jest.mock('../oa/form-types', () => ({
   getFormTypeByCode: jest.fn(),
 }), { virtual: true });
 
@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 /** 创建模拟的审批实例行 */
-function createMockInstance(erpMeta: ErpMeta | null = null): OaApprovalInstanceRow {
+function createMockInstance(erpMeta: ErpMeta | null = null): OaInstanceRow {
   return {
     id: 1,
     instance_no: 'OA20260420001',

@@ -180,14 +180,14 @@ export const CACHE_TTL_PERMISSION = 30 * 1000;
 // ==================== 客户授信审批阈值 ====================
 
 /**
- * OA审批 auto 节点卡住判定阈值（毫秒）
+ * OA auto 节点卡住判定阈值（毫秒）
  * 超过此时间的 processing 状态视为卡住，由定时任务或启动恢复处理
  * @usedBy erp-meta-utils.ts (卡住任务恢复)
  */
 export const OA_AUTO_NODE_STUCK_TIMEOUT_MS = 10 * 60 * 1000;
 
 /**
- * OA审批 auto 节点前端轮询间隔（毫秒）
+ * OA auto 节点前端轮询间隔（毫秒）
  * @usedBy useAutoNodePolling.ts (轮询间隔)
  */
 export const OA_AUTO_NODE_POLL_INTERVAL_MS = 2000;
@@ -244,18 +244,16 @@ export const CUSTOMER_STATE_DISABLED = 0;
  */
 export const CUSTOMER_STATE_PENDING = 2;
 
-// ==================== OA审批钉钉通知配置 ====================
+// ==================== OA钉钉通知配置 ====================
 
-/** OA审批操作Token过期时间（分钟） @usedBy oa-action-token.ts (Token过期时间) */
+/** OA操作Token过期时间（分钟） @usedBy oa-action-token.ts (Token过期时间) */
 export const OA_ACTION_TOKEN_EXPIRY_MINUTES = 30;
 
-/** OA审批通知中表单摘要最大字段数 @usedBy oa-approval-dingtalk.ts (表单摘要提取) */
+/** OA通知中表单摘要最大字段数 @usedBy oa-dingtalk.ts (表单摘要提取) */
 export const OA_NOTIFICATION_FORM_SUMMARY_MAX_FIELDS = 5;
 
-/** OA审批钉钉通知状态栏映射 @usedBy oa-approval-notify.ts (状态栏更新) */
+/** OA钉钉通知状态栏映射 @usedBy oa-notify.ts (状态栏更新) */
 export const OA_DINGTALK_STATUS = {
-  PENDING:    { value: '待审批', bg: '#FA8C16' },
-  PROCESSING: { value: '处理中', bg: '#1890FF' },
   APPROVED:   { value: '已通过', bg: '#52C41A' },
   REJECTED:   { value: '已拒绝', bg: '#F5222D' },
   WITHDRAWN:  { value: '已撤回', bg: '#999999' },

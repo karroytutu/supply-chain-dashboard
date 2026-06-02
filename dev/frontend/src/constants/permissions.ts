@@ -105,12 +105,10 @@ export const PERMISSIONS = {
     WRITE: 'assessment:write',
   },
 
-  // OA审批模块
+  // OA系统模块
   OA: {
-    APPROVAL: {
-      READ: 'oa:approval:read',
-      WRITE: 'oa:approval:write',
-    },
+    READ: 'oa:read',
+    WRITE: 'oa:write',
     DATA: {
       READ: 'oa:data:read',
       EXPORT: 'oa:data:export',

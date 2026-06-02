@@ -22,8 +22,8 @@ interface QuickAction {
 const ACTIONS: QuickAction[] = [
   {
     icon: <FormOutlined />,
-    label: '发起审批',
-    desc: '创建新的审批申请',
+    label: '发起流程',
+    desc: '创建新的流程申请',
     path: '/oa/initiate',
   },
   {

@@ -7,16 +7,16 @@ import { Request, Response } from 'express';
 import {
   getMessages,
   getUnreadMessageCount,
-} from '../services/oa-approval/oa-approval.query';
+} from '../services/oa/oa.query';
 import {
   markMessageRead,
   markAllMessagesRead,
-} from '../services/oa-approval/oa-approval.mutation';
+} from '../services/oa/oa.mutation';
 import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '../utils/response';
 
 /**
  * 获取站内消息列表
- * GET /api/oa-approval/messages
+ * GET /api/oa/messages
  */
 export async function listMessages(req: Request, res: Response): Promise<void> {
   try {
@@ -39,7 +39,7 @@ export async function listMessages(req: Request, res: Response): Promise<void> {
 
 /**
  * 获取未读消息数量
- * GET /api/oa-approval/messages/unread-count
+ * GET /api/oa/messages/unread-count
  */
 export async function getUnreadCount(req: Request, res: Response): Promise<void> {
   try {
@@ -59,7 +59,7 @@ export async function getUnreadCount(req: Request, res: Response): Promise<void>
 
 /**
  * 标记消息已读
- * POST /api/oa-approval/messages/:id/read
+ * POST /api/oa/messages/:id/read
  */
 export async function readMessage(req: Request, res: Response): Promise<void> {
   try {
@@ -81,7 +81,7 @@ export async function readMessage(req: Request, res: Response): Promise<void> {
 
 /**
  * 标记所有消息已读
- * POST /api/oa-approval/messages/read-all
+ * POST /api/oa/messages/read-all
  */
 export async function readAllMessages(req: Request, res: Response): Promise<void> {
   try {

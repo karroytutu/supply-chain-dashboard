@@ -1,6 +1,6 @@
 /**
  * ERP参考数据控制器
- * 为OA审批表单提供ERP数据查询接口
+ * 为OA表单提供ERP数据查询接口
  * @module controllers/erp-reference.controller
  */
 
@@ -17,7 +17,7 @@ import { searchErpCustomersByKeyword, getErpCustomerProfile, getCustomerLicenseI
 import { getErpGrades, getErpGroups, getErpAreas } from '../services/erp-client/erp-customer-reference.service';
 import { searchErpSettlementOrders, searchErpSettlementOrdersPaged } from '../services/erp-client/erp-settlement.service';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
-import { retryAutoNode as retryAutoNodeService } from '../services/oa-approval/oa-approval.mutation';
+import { retryAutoNode as retryAutoNodeService } from '../services/oa/oa.mutation';
 
 /** 解析结果项 */
 interface ResolvedItem {
@@ -53,7 +53,7 @@ const LABEL_FIELDS: Record<string, string> = {
 
 /**
  * 获取ERP参考数据
- * GET /oa-approval/erp-reference/:type
+ * GET /oa/erp-reference/:type
  * 查询参数:
  *   - keyword: 搜索关键词
  *   - includeAllStates: 客户搜索时是否包含所有状态（默认仅启用）
@@ -141,7 +141,7 @@ export async function getErpReference(req: Request, res: Response, next: NextFun
 
 /**
  * 重试失败的ERP操作
- * POST /oa-approval/instances/:id/retry-erp
+ * POST /oa/instances/:id/retry-erp
  */
 export async function retryErpOperation(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -160,7 +160,7 @@ export async function retryErpOperation(req: Request, res: Response, next: NextF
 
 /**
  * 重试卡住的 auto 节点
- * POST /oa-approval/instances/:id/retry-auto-node
+ * POST /oa/instances/:id/retry-auto-node
  */
 export async function retryAutoNode(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -183,7 +183,7 @@ export async function retryAutoNode(req: Request, res: Response, next: NextFunct
 
 /**
  * 解析 ERP ID → 名称
- * GET /oa-approval/erp-reference/:type/resolve?ids=1,2,3
+ * GET /oa/erp-reference/:type/resolve?ids=1,2,3
  */
 export async function resolveErpReference(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -315,7 +315,7 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
 
 /**
  * 获取客户营业执照信息
- * GET /oa-approval/erp-reference/customers/:id/license-info
+ * GET /oa/erp-reference/customers/:id/license-info
  *
  * 从 ERP 客户详情接口提取执照图片 URL，供前端表单展示已有执照
  */
@@ -342,7 +342,7 @@ export async function getCustomerLicense(req: Request, res: Response, next: Next
 
 /**
  * 获取客户欠款总额
- * GET /oa-approval/erp-reference/customers/:id/debt
+ * GET /oa/erp-reference/customers/:id/debt
  *
  * 通过 settlement API 求和 leftAmount 获取真实欠款（ERP debtAmount 字段不可靠）
  */

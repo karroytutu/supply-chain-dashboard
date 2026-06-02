@@ -5,7 +5,7 @@
  */
 
 import { appQuery } from '../../db/appPool';
-import type { ErpMeta, OaApprovalInstanceRow } from '../oa-approval/oa-approval.types';
+import type { ErpMeta, OaInstanceRow } from '../oa/oa.types';
 import { OA_AUTO_NODE_STUCK_TIMEOUT_MS } from '../../utils/constants';
 
 /** ERP处理状态类型 */
@@ -14,7 +14,7 @@ export type ErpMetaStatus = ErpMeta['status'];
 /**
  * 从审批实例中解析 erp_meta
  */
-export function getErpMeta(instance: OaApprovalInstanceRow): ErpMeta | null {
+export function getErpMeta(instance: OaInstanceRow): ErpMeta | null {
   return instance.erp_meta;
 }
 
@@ -170,11 +170,11 @@ export async function retryErpOperation(instanceId: number): Promise<void> {
   );
 
   if (formTypeResult.rows[0]) {
-    const { getFormTypeByCode } = await import('../oa-approval/form-types');
+    const { getFormTypeByCode } = await import('../oa/form-types');
     const formType = getFormTypeByCode(formTypeResult.rows[0].code);
 
     if (formType?.onApproved) {
-      const instanceResult = await appQuery<OaApprovalInstanceRow>(
+      const instanceResult = await appQuery<OaInstanceRow>(
         `SELECT * FROM oa_approval_instances WHERE id = $1`,
         [instanceId]
       );
@@ -281,7 +281,7 @@ export async function recoverStuckAutoNodes(): Promise<number> {
   if (stuck.rows.length === 0) return 0;
 
   // 动态导入避免循环依赖
-  const { retryAutoNode } = await import('../oa-approval/oa-approval.mutation');
+  const { retryAutoNode } = await import('../oa/oa.mutation');
 
   let recovered = 0;
   for (const row of stuck.rows) {

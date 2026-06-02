@@ -5,7 +5,7 @@
  */
 
 import * as repository from './credit-license.repository';
-import { createInAppMessage } from '../oa-approval/oa-approval-notify';
+import { createInAppMessage } from '../oa/oa-notify';
 import { getDingtalkUserIdMap } from '../assessment/utils';
 import { sendWorkNotification } from '../dingtalk.service';
 import {
