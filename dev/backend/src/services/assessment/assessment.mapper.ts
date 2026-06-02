@@ -62,6 +62,7 @@ export function toStatsDTO(stats: AssessmentStatsRow): AssessmentStatsDTO {
     pendingAmount: parseFloat(String(stats.pending_amount)) || 0,
     confirmedCount: Number(stats.confirmed_count) || 0,
     todayNew: Number(stats.today_new) || 0,
+    todayConfirmed: Number(stats.today_confirmed) || 0,
     involvedUsers: Number(stats.involved_users) || 0,
   };
 }

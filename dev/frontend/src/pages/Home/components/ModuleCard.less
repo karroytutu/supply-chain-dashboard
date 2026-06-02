@@ -1,0 +1,89 @@
+.card {
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 20px 24px;
+  transition: border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  border-color: #1890ff;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.iconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.name {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fafafa;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.itemRow:hover {
+  background: #f0f5ff;
+}
+
+.itemLabel {
+  color: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.itemCount {
+  font-variant-numeric: tabular-nums;
+}
+
+.goBtn {
+  margin-top: 12px;
+  padding: 0;
+  font-size: 13px;
+  align-self: flex-end;
+}

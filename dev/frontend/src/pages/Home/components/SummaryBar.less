@@ -1,0 +1,87 @@
+.bar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.item {
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: border-color 0.2s;
+  cursor: default;
+}
+
+.item:hover {
+  border-color: #1890ff;
+}
+
+.icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.danger {
+  background: #fff1f0;
+  color: #f5222d;
+}
+
+.warning {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
+.info {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.success {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.infoText {
+  flex: 1;
+  min-width: 0;
+}
+
+.label {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-bottom: 2px;
+}
+
+.value {
+  font-size: 26px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  line-height: 1.2;
+}
+
+.unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.45);
+  margin-left: 2px;
+}
+
+@media (max-width: 768px) {
+  .bar {
+    flex-wrap: wrap;
+  }
+  .item {
+    min-width: calc(50% - 8px);
+  }
+}

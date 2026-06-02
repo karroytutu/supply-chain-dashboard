@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { healthCheck, getDashboard, getWarningProductsController, getCategoryTreeController, getCategoryOutOfStockController } from '../controllers/dashboard.controller';
 import { getOverviewStatsController, getOverviewFullController, getTrendDataController } from '../controllers/overview.controller';
+import { getWorkspaceDataController } from '../controllers/workspace.controller';
 import { getThresholds } from '../controllers/config.controller';
 import { authMiddleware } from '../middleware/auth';
 
@@ -11,6 +12,9 @@ router.get('/health', healthCheck);
 
 // 业务阈值配置（供前端同步后端常量，公开）
 router.get('/config/thresholds', getThresholds);
+
+// 工作台首页聚合数据
+router.get('/workspace', authMiddleware, getWorkspaceDataController);
 
 // 以下业务路由需要认证（逐路由应用 authMiddleware，避免 router.use() 拦截非本路由的请求）
 router.get('/overview/full', authMiddleware, getOverviewFullController);

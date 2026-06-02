@@ -125,6 +125,7 @@ export interface AssessmentStatsRow {
   pending_amount: number;
   confirmed_count: number;
   today_new: number;
+  today_confirmed: number;
   involved_users: number;
 }
 
@@ -135,6 +136,7 @@ export interface AssessmentStatsDTO {
   pendingAmount: number;
   confirmedCount: number;
   todayNew: number;
+  todayConfirmed: number;
   involvedUsers: number;
 }
 
