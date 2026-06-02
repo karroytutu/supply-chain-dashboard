@@ -12,6 +12,7 @@ import {
 } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { notifyPendingApproval, notifyApproved, notifyCc } from '../oa-notify';
+import { finalizeProcessInstance } from '../oa-process-centre';
 import { findUserIdsByRoleCodes } from '../oa-utils';
 import { transaction, getInstanceNotifyData } from './shared-utils';
 
@@ -104,6 +105,10 @@ export async function executeAutoNodeCallback(
         `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [instanceId]
       );
+      // 完成钉钉流程中心壳实例（auto 节点为最后一个节点时）
+      finalizeProcessInstance(instanceId, 'agree').catch(err => {
+        console.error('[ProcessCentre] auto节点末位完成壳实例失败:', err);
+      });
       setImmediate(() => {
         notifyApproved(
           {

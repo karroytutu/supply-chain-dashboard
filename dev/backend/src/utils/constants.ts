@@ -260,6 +260,15 @@ export const OA_DINGTALK_STATUS = {
   CC:         { value: '抄送',   bg: '#1890FF' },
 } as const;
 
+// ==================== OA流程中心ProcessCentre相关常量 ====================
+
+/**
+ * 流程中心 activityId 分隔符
+ * activityId 格式：{instanceId}:node{nodeOrder}，同一节点含加签人共享同一 activityId
+ * @usedBy oa-process-centre.ts
+ */
+export const OA_PC_ACTIVITY_ID_SEPARATOR = ':';
+
 // ==================== 工具函数 ====================
 
 /**
