@@ -4,7 +4,7 @@
  * @module services/fixed-asset/maintenance-callback
  */
 
-import type { OaApprovalInstanceRow } from '../oa-approval/oa-approval.types';
+import type { OaInstanceRow } from '../oa/oa.types';
 import { getErpStaff } from './fixed-asset.query';
 import { getErpMeta, updateErpMetaStatus, mergeErpResponseData, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults } from '../erp-client';
@@ -18,7 +18,7 @@ import { normalizeDateTime } from './fixed-asset-utils';
  * 节点4(财务支付): 创建费用单
  */
 export async function handleAssetMaintenanceNodeCallback(
-  instance: OaApprovalInstanceRow,
+  instance: OaInstanceRow,
   nodeOrder: number,
   nodeData: Record<string, unknown>,
   formData: Record<string, unknown>

@@ -24,7 +24,7 @@ router.use(authMiddleware);
 /** 补交营业执照（营销员操作） */
 router.post(
   '/:instanceId/supplement-license',
-  requirePermission('oa:approval:write'),
+  requirePermission('oa:write'),
   uploadCreditLicense.array('files', 3),
   supplementLicenseController
 );
@@ -34,14 +34,14 @@ router.post(
 /** 根据审批实例ID查询延期补交记录 */
 router.get(
   '/instance/:instanceId',
-  requirePermission('oa:approval:read'),
+  requirePermission('oa:read'),
   getDeferredByInstanceController
 );
 
 /** 营销员查看自己的待补交列表 */
 router.get(
   '/my',
-  requirePermission('oa:approval:read'),
+  requirePermission('oa:read'),
   listMyDeferredUploadsController
 );
 

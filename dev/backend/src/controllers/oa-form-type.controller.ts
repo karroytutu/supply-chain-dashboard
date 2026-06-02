@@ -8,12 +8,12 @@ import {
   getActiveFormTypes,
   getFormTypeByCodeQuery,
   getFormTypesGroupedByCategory,
-} from '../services/oa-approval/oa-form-type.query';
+} from '../services/oa/oa-form-type.query';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 /**
  * 获取所有表单类型
- * GET /api/oa-approval/form-types
+ * GET /api/oa/form-types
  */
 export async function listFormTypes(req: Request, res: Response): Promise<void> {
   try {
@@ -27,7 +27,7 @@ export async function listFormTypes(req: Request, res: Response): Promise<void> 
 
 /**
  * 获取按分类分组的表单类型
- * GET /api/oa-approval/form-types/grouped
+ * GET /api/oa/form-types/grouped
  */
 export async function listFormTypesGrouped(req: Request, res: Response): Promise<void> {
   try {
@@ -41,7 +41,7 @@ export async function listFormTypesGrouped(req: Request, res: Response): Promise
 
 /**
  * 获取单个表单类型
- * GET /api/oa-approval/form-types/:code
+ * GET /api/oa/form-types/:code
  */
 export async function getFormType(req: Request, res: Response): Promise<void> {
   try {

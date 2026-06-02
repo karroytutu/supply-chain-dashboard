@@ -8,7 +8,7 @@ import { toDTO, toDTOList, toStatsDTO } from './assessment.mapper';
 import { isTransitionAllowed, getRulesByCategory, getAllRules } from './assessment.rules';
 import { runCalculation } from './assessment-calculate';
 import { sendAssessmentNotifications } from './assessment-notify';
-import { submitApproval, getFormTypeByCode } from '../oa-approval';
+import { submitApproval, getFormTypeByCode } from '../oa';
 import { appQuery } from '../../db/appPool';
 import type {
   AssessmentCategory,

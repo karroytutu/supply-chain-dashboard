@@ -19,7 +19,7 @@ import arCollectionRoutes from './routes/ar-collection.routes';
 import arAssessmentRoutes from './routes/ar-assessment.routes';
 import assessmentRoutes from './routes/assessment.routes';
 import creditLicenseRoutes from './routes/credit-license.routes';
-import oaApprovalRoutes from './routes/oa-approval.routes';
+import oaRoutes from './routes/oa.routes';
 import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
@@ -99,7 +99,7 @@ app.use('/api/ar-collection', arCollectionRoutes);
 // app.use('/api/ar-assessment', arAssessmentRoutes);
 app.use('/api/assessment', assessmentRoutes);
 app.use('/api/credit-license', creditLicenseRoutes);
-app.use('/api/oa-approval', oaApprovalRoutes);
+app.use('/api/oa', oaRoutes);
 app.use('/api/dingtalk-sync', dingtalkSyncRoutes);
 
 // 错误处理

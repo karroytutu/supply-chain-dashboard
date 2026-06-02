@@ -29,7 +29,7 @@ export interface DingtalkUserDetail {
 export type MessageType = 'markdown' | 'actionCard' | 'oa';
 
 /** 业务类型 */
-export type BusinessType = 'collection' | 'return_order' | 'return_penalty' | 'ar_assessment' | 'oa_approval';
+export type BusinessType = 'collection' | 'return_order' | 'return_penalty' | 'ar_assessment' | 'oa';
 
 /** 推送记录状态 */
 export type NotificationStatus = 'pending' | 'sent' | 'failed' | 'recalled';

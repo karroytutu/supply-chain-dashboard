@@ -3,7 +3,7 @@
  * 聚合各业务模块待办数据，供首页工作台展示
  */
 
-import { getApprovalStats } from '../oa-approval/oa-approval.query';
+import { getApprovalStats } from '../oa/oa.query';
 import { getCollectionStats } from '../ar-collection/ar-collection.stats';
 import { getStats as getReturnOrderStats } from '../return-order/return-order.repository';
 import { getStats as getStrategicProductStats } from '../strategic-product/strategic-product.repository';
@@ -64,7 +64,7 @@ export async function getWorkspaceData(
   // 并行获取各模块数据，各模块独立容错
   const [oaData, collectionData, returnData, strategicData, assessmentData] =
     await Promise.allSettled([
-      hasPermission(permissions, roles, 'oa:approval:read')
+      hasPermission(permissions, roles, 'oa:read')
         ? fetchOaModule(userId)
         : Promise.resolve(null),
       hasPermission(permissions, roles, 'ar:collection:read')
@@ -122,13 +122,13 @@ async function fetchOaModule(userId: number): Promise<WorkspaceModule> {
   const cc = Number(stats.cc) || 0;
 
   return {
-    code: 'oa-approval',
-    name: 'OA审批',
+    code: 'oa',
+    name: 'OA系统',
     icon: 'AuditOutlined',
     totalPending: pending,
     items: [
-      { label: '待我审批', count: pending, level: pending > 0 ? 'urgent' : 'normal' },
-      { label: '我发起的（审批中）', count: my, level: 'normal' },
+      { label: '待我处理', count: pending, level: pending > 0 ? 'urgent' : 'normal' },
+      { label: '我发起的（处理中）', count: my, level: 'normal' },
       { label: '抄送给我', count: cc, level: 'normal' },
     ],
   };

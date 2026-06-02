@@ -1,16 +1,16 @@
 /**
- * OA审批数据管理控制器
+ * OA数据管理控制器
  * @module controllers/oa-data.controller
  */
 
 import { Request, Response } from 'express';
-import { getDataListAll } from '../services/oa-approval/oa-approval.query';
-import { ApprovalListParams } from '../services/oa-approval/oa-approval.types';
+import { getDataListAll } from '../services/oa/oa.query';
+import { ApprovalListParams } from '../services/oa/oa.types';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 /**
  * 获取数据列表
- * GET /api/oa-approval/data
+ * GET /api/oa/data
  */
 export async function getDataList(req: Request, res: Response): Promise<void> {
   try {
@@ -48,7 +48,7 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
 
 /**
  * 导出数据
- * GET /api/oa-approval/data/export
+ * GET /api/oa/data/export
  */
 export async function exportData(req: Request, res: Response): Promise<void> {
   try {

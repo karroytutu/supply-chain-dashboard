@@ -20,7 +20,7 @@ const moduleNames: Record<string, string> = {
   finance: '财务',
   sales: '销售分析',
   assessment: '统一考核',
-  oa: 'OA审批',
+  oa: 'OA系统',
 };
 
 // 模块颜色映射

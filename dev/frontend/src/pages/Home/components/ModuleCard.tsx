@@ -23,7 +23,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 };
 
 const COLOR_MAP: Record<string, { bg: string; fg: string }> = {
-  'oa-approval': { bg: '#f6ffed', fg: '#52c41a' },
+  'oa': { bg: '#f6ffed', fg: '#52c41a' },
   collection: { bg: '#fff7e6', fg: '#fa8c16' },
   'return-order': { bg: '#f9f0ff', fg: '#722ed1' },
   'strategic-product': { bg: '#f0f5ff', fg: '#2f54eb' },
@@ -31,7 +31,7 @@ const COLOR_MAP: Record<string, { bg: string; fg: string }> = {
 };
 
 const ROUTE_MAP: Record<string, string> = {
-  'oa-approval': '/oa/center',
+  'oa': '/oa/center',
   collection: '/collection/overview',
   'return-order': '/procurement/return/orders',
   'strategic-product': '/procurement/strategic-products',

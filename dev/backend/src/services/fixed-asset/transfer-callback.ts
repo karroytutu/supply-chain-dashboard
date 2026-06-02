@@ -4,7 +4,7 @@
  * @module services/fixed-asset/transfer-callback
  */
 
-import type { OaApprovalInstanceRow } from '../oa-approval/oa-approval.types';
+import type { OaInstanceRow } from '../oa/oa.types';
 import { searchErpAssets } from './fixed-asset.query';
 import { updateErpMetaStatus, mergeErpResponseData, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig } from '../erp-client';
@@ -14,7 +14,7 @@ import { erpPost, getErpConfig } from '../erp-client';
  * 逐条更新舟谱资产使用信息
  */
 export async function handleAssetTransferApproved(
-  instance: OaApprovalInstanceRow,
+  instance: OaInstanceRow,
   formData: Record<string, unknown>
 ): Promise<void> {
   try {
