@@ -79,6 +79,8 @@ function buildListWhereClause(
 
   switch (params.viewMode) {
     case 'pending':
+      // 同时约束节点状态和实例状态，避免已完成的实例因残留 pending 节点而误显示
+      conditions.push(`i.status = 'pending'`);
       conditions.push(`
         EXISTS (
           SELECT 1 FROM oa_approval_nodes n
