@@ -4,6 +4,7 @@
  */
 
 import { appQuery } from '../../db/appPool';
+import { escapeLikePattern } from '../../utils/sqlHelpers';
 import type {
   PenaltyRecord,
   PenaltyQueryParams,
@@ -70,7 +71,7 @@ export async function getPenalties(
 
   if (keyword) {
     conditions.push(`(r.return_no ILIKE $${paramIndex} OR r.goods_name ILIKE $${paramIndex} OR p.penalty_user_name ILIKE $${paramIndex})`);
-    queryParams.push(`%${keyword}%`);
+    queryParams.push(`%${escapeLikePattern(keyword)}%`);
     paramIndex++;
   }
 

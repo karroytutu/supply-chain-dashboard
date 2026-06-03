@@ -3,6 +3,7 @@
  */
 
 import { appQuery } from '../../db/appPool';
+import { escapeLikePattern } from '../../utils/sqlHelpers';
 import type {
   GoodsReturnRule,
   GoodsReturnRuleQueryParams,
@@ -33,7 +34,7 @@ export async function getGoodsReturnRules(
   }
   if (keyword) {
     conditions.push(`(grr.goods_name ILIKE $${paramIndex++} OR grr.goods_id ILIKE $${paramIndex++})`);
-    queryParams.push(`%${keyword}%`, `%${keyword}%`);
+    queryParams.push(`%${escapeLikePattern(keyword)}%`, `%${escapeLikePattern(keyword)}%`);
   }
 
   const whereClause = conditions.join(' AND ');

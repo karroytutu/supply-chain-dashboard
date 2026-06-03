@@ -6,6 +6,7 @@
 
 import { appQuery as query } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { escapeLikePattern } from '../../utils/sqlHelpers';
 import type { TaskQueryParams } from './ar-collection.types';
 import { PENDING_ROLE_SQL, ASSESSMENT_TIERS_SQL } from './ar-collection.query.sql';
 
@@ -137,7 +138,7 @@ export async function getTasks(params: TaskQueryParams & { userId: number; role:
 
   if (keyword) {
     conditions.push(`(t.consumer_name ILIKE $${paramIndex} OR t.task_no ILIKE $${paramIndex})`);
-    queryParams.push(`%${keyword}%`);
+    queryParams.push(`%${escapeLikePattern(keyword)}%`);
     paramIndex++;
   }
 

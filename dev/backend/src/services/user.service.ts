@@ -1,4 +1,5 @@
 import { appQuery, getAppClient } from '../db/appPool';
+import { escapeLikePattern } from '../utils/sqlHelpers';
 import { invalidateUserPermissionCache } from './permission-cache.service';
 
 export interface User {
@@ -48,7 +49,7 @@ export async function getUserList(params: UserListParams): Promise<UserListResul
   
   if (keyword) {
     whereClause += ` AND (name ILIKE $${paramIndex} OR mobile ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
-    queryParams.push(`%${keyword}%`);
+    queryParams.push(`%${escapeLikePattern(keyword)}%`);
     paramIndex++;
   }
   

@@ -1,4 +1,5 @@
 import { appQuery, getAppClient } from '../db/appPool';
+import { escapeLikePattern } from '../utils/sqlHelpers';
 import { invalidateRolePermissionCache, invalidateUserPermissionCache } from './permission-cache.service';
 
 export interface Role {
@@ -41,7 +42,7 @@ export async function getRoleList(params: RoleListParams): Promise<RoleListResul
   
   if (keyword) {
     whereClause += ` AND (name ILIKE $${paramIndex} OR code ILIKE $${paramIndex})`;
-    queryParams.push(`%${keyword}%`);
+    queryParams.push(`%${escapeLikePattern(keyword)}%`);
     paramIndex++;
   }
   

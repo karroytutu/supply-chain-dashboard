@@ -5,6 +5,7 @@
  */
 
 import { appQuery as query } from '../../db/appPool';
+import { escapeLikePattern } from '../../utils/sqlHelpers';
 import {
   ApprovalListParams,
   ApprovalStats,
@@ -145,6 +146,21 @@ function buildListWhereClause(
   if (params.endDate) {
     conditions.push(`i.submitted_at <= $${paramIndex}::date + interval '1 day'`);
     queryParams.push(params.endDate);
+    paramIndex++;
+  }
+
+  // keyword 模糊搜索审批编号和标题（OR 关系，括号包裹与外部 AND 衔接）
+  if (params.keyword && params.keyword.trim()) {
+    const keywordPattern = `%${escapeLikePattern(params.keyword.trim())}%`;
+    conditions.push(`(i.instance_no ILIKE $${paramIndex} OR i.title ILIKE $${paramIndex})`);
+    queryParams.push(keywordPattern);
+    paramIndex++;
+  }
+
+  // applicant_name 模糊搜索申请人姓名
+  if (params.applicantName && params.applicantName.trim()) {
+    conditions.push(`i.applicant_name ILIKE $${paramIndex}`);
+    queryParams.push(`%${escapeLikePattern(params.applicantName.trim())}%`);
     paramIndex++;
   }
 

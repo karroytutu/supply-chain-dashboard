@@ -5,6 +5,7 @@
 
 import { appQuery as query, getAppClient } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { escapeLikePattern } from '../../utils/sqlHelpers';
 import type { AssessmentRecordRow, AssessmentQueryParams, AssessmentStatsRow } from './assessment.types';
 import { normalizeAssessmentRole } from './assessment.types';
 
@@ -447,7 +448,7 @@ function buildWhereClause(
       source_name ILIKE $${paramIndex} OR
       assessment_user_name ILIKE $${paramIndex}
     )`);
-    values.push(`%${params.keyword}%`);
+    values.push(`%${escapeLikePattern(params.keyword)}%`);
     paramIndex++;
   }
 
