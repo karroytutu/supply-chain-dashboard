@@ -5,6 +5,7 @@ import { formatCurrency } from '@/utils/format';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
 import ErpNameDisplay from './ErpNameDisplay';
 import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
+import { resolveStoredName } from './utils/resolveStoredName';
 
 const { Text } = Typography;
 
@@ -32,11 +33,9 @@ export function renderCellValue(
     case 'erp_payment_account':
     case 'erp_asset_category':
     case 'asset_search': {
-      // 第一优先级：行数据中已存储的名称（nameField）
-      if (childField.nameField && rowData?.[childField.nameField]) {
-        const storedName = String(rowData[childField.nameField]).trim();
-        if (storedName) return storedName;
-      }
+      // 第一优先级：行数据中已存储的名称（nameField，含 _ 前缀变体兜底）
+      const storedName = resolveStoredName(childField.nameField, rowData);
+      if (storedName) return storedName;
       // 第二优先级：批量预解析结果
       if (childField.searchApi) {
         const erpType = ERP_SEARCH_API_MAP[childField.searchApi];
