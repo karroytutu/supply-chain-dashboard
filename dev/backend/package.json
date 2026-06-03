@@ -24,6 +24,7 @@
     "@types/multer": "^2.1.0",
     "axios": "^1.7.0",
     "cors": "^2.8.5",
+    "dingtalk-stream-sdk-nodejs": "^2.0.4",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-async-errors": "^3.1.1",

@@ -24,6 +24,8 @@ import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
 import tokenAdminRoutes from './routes/token-admin.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
+import { startDingtalkStream, stopDingtalkStream } from './services/dingtalk-stream.service';
+import { registerSyncEventHandlers } from './services/dingtalk-sync/dingtalk-sync-events';
 import logger from './utils/logger';
 import { runMigrations } from './db/migrate';
 import { appQuery } from './db/appPool';
@@ -164,6 +166,30 @@ app.listen(config.port, async () => {
 
   // 启动定时任务调度器
   startScheduler();
+
+  // 启动钉钉 Stream 事件总线（WebSocket 长连接）
+  startDingtalkStream();
+  registerSyncEventHandlers();
 });
+
+// Graceful shutdown: 捕获终止信号，优雅关闭资源
+const gracefulShutdown = (signal: string) => {
+  console.log(`[App] 收到 ${signal} 信号，开始优雅关闭...`);
+  try {
+    stopDingtalkStream();
+    console.log('[App] 钉钉 Stream 连接已关闭');
+  } catch (err: any) {
+    console.error('[App] 关闭钉钉 Stream 失败:', err.message);
+  }
+  // 给进行中的请求 5 秒完成时间
+  console.log('[App] 等待 5 秒让进行中的请求完成...');
+  setTimeout(() => {
+    console.log('[App] 进程退出');
+    process.exit(0);
+  }, 5000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 export default app;

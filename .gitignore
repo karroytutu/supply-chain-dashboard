@@ -17,6 +17,7 @@ dev/backend/dingtalk-oapi/
 # 生产环境（不提交）
 prod/
 prod.backup/
+backup_*/
 
 # 环境配置（敏感信息）
 dev/backend/.env.development

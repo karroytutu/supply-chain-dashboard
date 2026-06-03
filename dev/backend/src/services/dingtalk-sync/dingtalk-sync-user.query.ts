@@ -157,7 +157,7 @@ export async function fetchDingtalkUsersByDept(deptId: number): Promise<Dingtalk
     );
 
     if (result.errcode !== 0) {
-      console.error(`[DingtalkSync] 获取部门 ${deptId} 用户失败: ${result.errmsg}`);
+      console.error(`[DingtalkSync] 获取部门 ${deptId} 用户失败: errcode=${result.errcode}, errmsg=${result.errmsg}`);
       break;
     }
 
