@@ -8,6 +8,7 @@ import { fetchAllProducts, getProductById, type ErpProduct } from '../erp-client
 import { getStockSummaryMap } from '../erp-client/erp-inventory.service';
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { escapeLikePattern } from '../../utils/sqlHelpers';
 import type {
   StrategicProductQueryParams,
   StrategicProductStatus,
@@ -38,7 +39,7 @@ export async function getProducts(params: StrategicProductQueryParams) {
   }
   if (keyword) {
     conditions.push(`sp.goods_name ILIKE $${paramIndex++}`);
-    queryParams.push(`%${keyword}%`);
+    queryParams.push(`%${escapeLikePattern(keyword)}%`);
   }
 
   const whereClause = conditions.join(' AND ');
@@ -429,7 +430,7 @@ export async function batchConfirmProducts(
     }
     if (keyword) {
       whereClause += ` AND (goods_name ILIKE $${paramIndex++} OR goods_id ILIKE $${paramIndex++})`;
-      queryParams.push(`%${keyword}%`, `%${keyword}%`);
+      queryParams.push(`%${escapeLikePattern(keyword)}%`, `%${escapeLikePattern(keyword)}%`);
     }
   } else {
     if (!ids || ids.length === 0) {
@@ -498,7 +499,7 @@ export async function batchConfirmProducts(
       }
       if (keyword) {
         confirmWhere += ` AND (goods_name ILIKE $${confirmParamIndex++} OR goods_id ILIKE $${confirmParamIndex++})`;
-        confirmParams.push(`%${keyword}%`, `%${keyword}%`);
+        confirmParams.push(`%${escapeLikePattern(keyword)}%`, `%${escapeLikePattern(keyword)}%`);
       }
     } else if (ids && ids.length > 0) {
       confirmWhere += ` AND id = ANY($${confirmParamIndex++})`;
@@ -537,7 +538,7 @@ export async function batchDeleteProducts(params: any): Promise<{ deletedCount: 
     }
     if (keyword) {
       whereClause += ` AND (goods_name ILIKE $${paramIndex++} OR goods_id ILIKE $${paramIndex++})`;
-      queryParams.push(`%${keyword}%`, `%${keyword}%`);
+      queryParams.push(`%${escapeLikePattern(keyword)}%`, `%${escapeLikePattern(keyword)}%`);
     }
   } else {
     if (!ids || ids.length === 0) {

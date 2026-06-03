@@ -526,6 +526,10 @@ export interface ApprovalListParams {
   status?: ApprovalStatus;
   startDate?: string;
   endDate?: string;
+  /** 模糊搜索审批编号(instance_no)和标题(title) */
+  keyword?: string;
+  /** 模糊搜索申请人姓名(applicant_name) */
+  applicantName?: string;
   page?: number;
   pageSize?: number;
 }

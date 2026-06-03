@@ -4,6 +4,7 @@
  */
 
 import { appQuery } from '../../db/appPool';
+import { escapeLikePattern } from '../../utils/sqlHelpers';
 import {
   TIER_NAMES,
   type AssessmentRecord,
@@ -128,7 +129,7 @@ export async function getAssessments(
     conditions.push(
       `(a.source_no ILIKE $${paramIndex} OR a.source_name ILIKE $${paramIndex} OR a.assessment_user_name ILIKE $${paramIndex})`
     );
-    queryParams.push(`%${keyword}%`);
+    queryParams.push(`%${escapeLikePattern(keyword)}%`);
     paramIndex++;
   }
 

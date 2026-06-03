@@ -29,6 +29,8 @@ export async function listApprovals(req: Request, res: Response): Promise<void> 
       status: req.query.status as ApprovalListParams['status'],
       startDate: req.query.start_date as string,
       endDate: req.query.end_date as string,
+      keyword: req.query.keyword as string,
+      applicantName: req.query.applicant_name as string,
       page: parseInt(req.query.page as string) || 1,
       pageSize: parseInt(req.query.page_size as string) || 20,
     };

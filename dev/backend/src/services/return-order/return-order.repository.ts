@@ -8,6 +8,7 @@ import { appQuery } from '../../db/appPool';
 import { fetchAllProducts } from '../erp-client/erp-product.service';
 import { getDefectiveBatchInventory } from '../erp-client/erp-batch-inventory.service';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { escapeLikePattern } from '../../utils/sqlHelpers';
 import type {
   ReturnOrderQueryParams,
   ReturnOrderStatus,
@@ -34,7 +35,7 @@ export async function getOrders(params: ReturnOrderQueryParams) {
   }
   if (keyword) {
     conditions.push(`(ro.goods_name ILIKE $${paramIndex} OR ro.return_no ILIKE $${paramIndex} OR ro.source_bill_no ILIKE $${paramIndex} OR ro.consumer_name ILIKE $${paramIndex})`);
-    queryParams.push(`%${keyword}%`);
+    queryParams.push(`%${escapeLikePattern(keyword)}%`);
     paramIndex++;
   }
   if (startDate) {
