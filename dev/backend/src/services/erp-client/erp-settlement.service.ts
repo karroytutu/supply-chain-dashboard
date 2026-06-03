@@ -26,7 +26,8 @@ export interface ErpSettlementOrder {
   workTime: string;
   billTypeName: string;
   collectState: string;
-  isHoard?: string;
+  /** 压单标记（结算单 API 返回字段名为 hoardTag，值为 'NORMAL' / 'HOARD'） */
+  hoardTag?: string;
   [key: string]: unknown;
 }
 
@@ -51,7 +52,7 @@ export interface ErpSettlementOrder {
  *   billTypeEnum    - 单据类型枚举（如 FUNDS_SALES_BACK）
  *   billWorkTime    - 单据创建时间
  *   debtState       - 欠款状态（如 FINE）
- *   hoardTag        - 压单标记（NORMAL / HOARD）
+ *   hoardTag        - 压单标记（NORMAL / HOARD，注意：欠款明细API同字段名为isHoard，值为中文'是'/'否'）
  *   traderId        - 客户ID
  *   traderName      - 客户名称
  *   salesmanId      - 业务员ID

@@ -16,10 +16,10 @@ export {
   checkExtensionExpiry,
 } from './ar-collection-sync.task';
 
-// 压单对账服务
+// 压单检测服务
 export {
-  reconcileHoardDetailsByCustomer,
-} from './ar-hoard-reconcile';
+  detectHoardChangesByCustomer,
+} from './ar-hoard-detect';
 
 // 统计服务
 export {

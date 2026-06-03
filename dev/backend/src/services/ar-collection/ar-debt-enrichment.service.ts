@@ -111,7 +111,7 @@ export function filterHoardDebts(debts: EnrichedDebtRecord[]): EnrichedDebtRecor
 /**
  * 获取客户名称 → traderId 映射和客户限额数据
  * 使用缓存避免重复 API 调用
- * @usedBy ar-hoard-reconcile.ts (压单对账获取客户映射)
+ * @usedBy ar-hoard-detect.ts (压单检测获取客户映射)
  */
 export async function fetchCustomerData(consumerNames: string[]): Promise<{
   nameToTraderId: Map<string, number>;
@@ -167,7 +167,7 @@ export async function fetchCustomerData(consumerNames: string[]): Promise<{
  * 获取 billId → hoardTag 映射
  * 策略：先检查原始记录是否已含 hoardTag（PG 视图可能已包含）
  * 若不含，则按客户从 ERP API 获取结算单的 hoardTag
- * @usedBy ar-hoard-reconcile.ts (压单对账获取最新 hoardTag)
+ * @usedBy ar-hoard-detect.ts (压单检测获取最新 hoardTag)
  */
 export async function fetchHoardTags(
   debts: ERPDebtRecord[],
@@ -231,15 +231,26 @@ export async function fetchHoardTags(
 
         // 构建 billId → hoardTag 映射
         const orderHoardMap = new Map<string, string>();
+        let missingHoardFieldCount = 0;
         for (const order of orders) {
-          const tag = (order as Record<string, unknown>).hoardTag as string | undefined;
-          if (tag) {
-            orderHoardMap.set(String(order.id), tag);
+          // 结算单 API 返回的字段名为 hoardTag（英文值 'NORMAL'/'HOARD'）
+          // 欠款明细 API 返回的字段名为 isHoard（中文值 '是'/'否'），两者不同
+          const orderRaw = order as Record<string, unknown>;
+          const rawTag = (orderRaw.hoardTag ?? orderRaw.isHoard) as string | undefined;
+          if (!rawTag) {
+            missingHoardFieldCount++;
+            continue;
           }
+          // 兼容两种值格式：中文('是'/'否') 和英文('HOARD'/'NORMAL')
+          const tag = rawTag === '是' ? 'HOARD' : rawTag === '否' ? 'NORMAL' : rawTag;
+          orderHoardMap.set(String(order.id), tag);
           // 也用 bizStr（结算单号）匹配
-          if (tag && order.bizStr) {
+          if (order.bizStr) {
             orderHoardMap.set(order.bizStr, tag);
           }
+        }
+        if (missingHoardFieldCount > 0) {
+          console.warn(`[DebtEnrichment] 客户(traderId=${traderId}) ${missingHoardFieldCount}/${orders.length} 条结算单缺少 hoardTag/isHoard 字段`);
         }
 
         // 缓存该客户的结算单 hoardTag 映射
