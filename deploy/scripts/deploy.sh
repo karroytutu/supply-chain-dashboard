@@ -5,6 +5,7 @@
 # 选项:
 #   --skip-build    跳过构建步骤，仅重启容器
 #   --backup        部署前创建备份
+#   --rebuild       强制重新构建 Docker 镜像（不使用缓存）
 
 set -e
 
@@ -30,6 +31,7 @@ log_error() {
 # 解析参数
 SKIP_BUILD=false
 CREATE_BACKUP=false
+NO_CACHE=""
 
 for arg in "$@"; do
     case $arg in
@@ -39,6 +41,10 @@ for arg in "$@"; do
             ;;
         --backup)
             CREATE_BACKUP=true
+            shift
+            ;;
+        --rebuild)
+            NO_CACHE="--no-cache"
             shift
             ;;
     esac
@@ -81,7 +87,7 @@ fi
 log_info "保存当前版本..."
 if [ -d "prod" ]; then
     rm -rf prod.backup 2>/dev/null || true
-    cp -r prod prod.backup
+    cp -al prod prod.backup
     log_info "当前版本已保存到 prod.backup"
 fi
 
@@ -173,7 +179,7 @@ if [ "$SKIP_BUILD" = false ]; then
     check_source_freshness "$PROJECT_ROOT/dev/backend/src" "$PROJECT_ROOT/prod/backend/dist/app.js" "后端"
 
     # 备份当前产物（用于构建失败时回滚）
-    cp -r "$PROJECT_ROOT/prod" "$PROJECT_ROOT/prod.backup.before-build"
+    cp -al "$PROJECT_ROOT/prod" "$PROJECT_ROOT/prod.backup.before-build"
 
     # 前后端并行构建
     build_frontend_async > /tmp/build-frontend.log 2>&1 &
@@ -296,8 +302,8 @@ log_info "上传目录已创建: /data/uploads"
 docker-compose down 2>/dev/null || true
 log_info "已停止现有容器"
 
-# 构建新镜像
-docker-compose build --no-cache
+# 构建新镜像（默认使用 Docker 层缓存加速，--rebuild 参数可强制全量重建）
+docker-compose build $NO_CACHE
 if [ $? -ne 0 ]; then
     log_error "Docker 镜像构建失败"
     exit 1
@@ -312,9 +318,20 @@ if [ $? -ne 0 ]; then
 fi
 log_info "容器已启动"
 
-# 等待服务启动
+# 等待服务启动（轮询检测，最多等待 20 秒）
 log_info "等待服务启动..."
-sleep 10
+READY=false
+for i in $(seq 1 10); do
+    if curl -sf --connect-timeout 2 "http://localhost:8000/api/health" > /dev/null 2>&1; then
+        READY=true
+        log_info "服务已就绪（${i}x2 秒）"
+        break
+    fi
+    sleep 2
+done
+if [ "$READY" = false ]; then
+    log_warn "服务启动较慢，将交由健康检查进一步验证"
+fi
 
 # 执行健康检查
 log_info "执行健康检查..."

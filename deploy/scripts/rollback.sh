@@ -179,7 +179,7 @@ fi
 
 log_step "步骤 4: 重新打包并重启服务..."
 cd "$DEPLOY_DIR"
-docker-compose build --no-cache
+docker-compose build
 if [ $? -ne 0 ]; then
     log_error "Docker 镜像打包失败"
     exit 1
@@ -193,7 +193,18 @@ fi
 log_info "服务已启动"
 
 log_step "步骤 5: 等待服务就绪..."
-sleep 10
+READY=false
+for i in $(seq 1 10); do
+    if curl -sf --connect-timeout 2 "http://localhost:8000/api/health" > /dev/null 2>&1; then
+        READY=true
+        log_info "服务已就绪（${i}x2 秒）"
+        break
+    fi
+    sleep 2
+done
+if [ "$READY" = false ]; then
+    log_warn "服务启动较慢，将交由健康检查进一步验证"
+fi
 
 log_step "步骤 6: 健康检查..."
 "$SCRIPT_DIR/health-check.sh"
