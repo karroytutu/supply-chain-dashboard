@@ -298,9 +298,10 @@ chmod 755 /data/uploads/ar-evidence
 chmod 755 /data/uploads/credit-license
 log_info "上传目录已创建: /data/uploads"
 
-# 停止现有容器
-docker-compose down 2>/dev/null || true
-log_info "已停止现有容器"
+# 停止并移除现有容器（保留网络避免冲突，up -d 会自动复用）
+docker-compose stop 2>/dev/null || true
+docker-compose rm -f 2>/dev/null || true
+log_info "已停止旧容器，网络保留复用"
 
 # 构建新镜像（默认使用 Docker 层缓存加速，--rebuild 参数可强制全量重建）
 docker-compose build $NO_CACHE
