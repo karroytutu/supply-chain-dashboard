@@ -15,8 +15,6 @@ import {
 // Re-export from extracted modules
 export { getApprovalDetail } from './queries/approval-detail';
 export type { ApprovalDetail, ApprovalNodeDetail, ApprovalActionDetail, CcUserDetail } from './queries/approval-detail';
-export { getMessages, getUnreadMessageCount } from './queries/message-query';
-export type { MessageItem } from './queries/message-query';
 export { getDataListAll, resolvePreviewApproversForNodes, previewApprovers } from './queries/data-query';
 export type { PreviewApprover } from './queries/data-query';
 

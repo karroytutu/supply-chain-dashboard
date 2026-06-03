@@ -4,7 +4,7 @@
  */
 
 import { config } from '../config';
-import { getAccessToken, oapiRequest, sendDingtalkRequest } from './dingtalk-client';
+import { getAccessToken, sendDingtalkRequest } from './dingtalk-client';
 import { createNotificationLog, updateNotificationLogStatus } from './notification-log.service';
 import type {
   MessageType,
@@ -152,37 +152,5 @@ export async function sendWorkNotification(
   } catch (error: any) {
     console.error('[Dingtalk] 工作通知发送异常:', error.message);
     return { success: false, message: error.message || '发送异常' };
-  }
-}
-
-/**
- * 更新工作通知状态栏
- */
-export async function updateNotificationStatusBar(
-  taskId: number,
-  statusValue: string,
-  statusBg: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const accessToken = await getAccessToken();
-
-    const result = await oapiRequest(accessToken, '/topapi/message/corpconversation/status_bar/update', {
-      agent_id: config.dingtalk.agentId,
-      task_id: taskId,
-      status_value: statusValue,
-      status_bg: statusBg,
-    });
-
-    if (result.errcode === 0) {
-      console.log('[Dingtalk] 通知状态栏更新成功:', { taskId, statusValue, statusBg });
-      return { success: true, message: '状态栏更新成功' };
-    } else {
-      const errMsg = result.errmsg || '状态栏更新失败';
-      console.error('[Dingtalk] 通知状态栏更新失败:', errMsg);
-      return { success: false, message: errMsg };
-    }
-  } catch (error: any) {
-    console.error('[Dingtalk] 通知状态栏更新异常:', error.message);
-    return { success: false, message: error.message || '状态栏更新异常' };
   }
 }

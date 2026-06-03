@@ -39,5 +39,4 @@ export {
 // 消息发送
 export {
   sendWorkNotification,
-  updateNotificationStatusBar,
 } from './dingtalk-message.service';

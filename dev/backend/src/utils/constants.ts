@@ -246,9 +246,6 @@ export const CUSTOMER_STATE_PENDING = 2;
 
 // ==================== OA钉钉通知配置 ====================
 
-/** OA操作Token过期时间（分钟） @usedBy oa-action-token.ts (Token过期时间) */
-export const OA_ACTION_TOKEN_EXPIRY_MINUTES = 30;
-
 /** OA通知中表单摘要最大字段数 @usedBy oa-dingtalk.ts (表单摘要提取) */
 export const OA_NOTIFICATION_FORM_SUMMARY_MAX_FIELDS = 5;
 
@@ -261,6 +258,13 @@ export const OA_DINGTALK_STATUS = {
 } as const;
 
 // ==================== OA流程中心ProcessCentre相关常量 ====================
+
+/**
+ * 钉钉流程中心壳模板名称前缀
+ * 模板命名格式：{前缀}-{表单类型名}，如 "鑫链云-其他付款申请"
+ * @usedBy oa-process-centre.ts (创建/更新壳模板)
+ */
+export const DINGTALK_PROCESS_TEMPLATE_PREFIX = '鑫链云';
 
 /**
  * 流程中心 activityId 分隔符

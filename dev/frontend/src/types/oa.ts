@@ -320,22 +320,6 @@ export interface ApprovalActionRequest {
 }
 
 // =====================================================
-// 站内消息相关类型
-// =====================================================
-
-export interface InAppMessage {
-  id: number;
-  userId: number;
-  type: 'approval_pending' | 'cc' | 'result';
-  title: string;
-  content: string | null;
-  instanceId: number | null;
-  isRead: boolean;
-  readAt: string | null;
-  createdAt: string;
-}
-
-// =====================================================
 // 工具类型
 // =====================================================
 

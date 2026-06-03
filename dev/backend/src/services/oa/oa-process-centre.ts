@@ -23,7 +23,7 @@ import {
 } from '../dingtalk-process-centre.service';
 import { extractFormSummary } from './oa-form-summary';
 import type { FormSchema } from './oa.types';
-import { OA_PC_ACTIVITY_ID_SEPARATOR } from '../../utils/constants';
+import { OA_PC_ACTIVITY_ID_SEPARATOR, DINGTALK_PROCESS_TEMPLATE_PREFIX } from '../../utils/constants';
 
 // =====================================================
 // 模板管理（Lazy Init + 内存缓存）
@@ -101,8 +101,10 @@ async function createAndSaveTemplate(
   // detailUrl 用于 processFeatureConfig 的 TASK_EXECUTE 跳转
   const detailUrl = `${config.app.baseUrl}/oa/detail`;
 
+  const templateName = `${DINGTALK_PROCESS_TEMPLATE_PREFIX}-${formTypeName}`;
+
   const processCode = await saveProcessTemplate(
-    `供应链OA-${formTypeName}`,
+    templateName,
     formComponents,
     detailUrl
   );
@@ -114,7 +116,7 @@ async function createAndSaveTemplate(
      ON CONFLICT (form_type_code) DO UPDATE SET
        dingtalk_process_code = EXCLUDED.dingtalk_process_code,
        updated_at = NOW()`,
-    [formTypeCode, processCode, `供应链OA-${formTypeName}`]
+    [formTypeCode, processCode, templateName]
   );
 
   processCodeCache.set(formTypeCode, processCode);

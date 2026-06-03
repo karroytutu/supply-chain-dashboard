@@ -119,7 +119,7 @@ describe('createProcessInstance', () => {
     );
 
     expect(mockSaveTemplate).toHaveBeenCalledWith(
-      '供应链OA-其他付款申请',
+      '鑫链云-其他付款申请',
       expect.arrayContaining([expect.objectContaining({ componentType: 'TextField' })]),
       'https://test.example.com/oa/detail'
     );

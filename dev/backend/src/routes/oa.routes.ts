@@ -34,13 +34,6 @@ import {
   exportData,
 } from '../controllers/oa-data.controller';
 import {
-  // 站内消息
-  listMessages,
-  getUnreadCount,
-  readMessage,
-  readAllMessages,
-} from '../controllers/oa-message.controller';
-import {
   // ERP参考数据
   getErpReference,
   resolveErpReference,
@@ -53,118 +46,6 @@ import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-u
 import { Request, Response } from 'express';
 
 const router = Router();
-
-// =====================================================
-// Token快速操作接口（无需JWT认证，使用Token自身认证）
-// 必须放在 router.use(authMiddleware) 之前
-// =====================================================
-
-// 验证Token有效性
-router.post('/validate-token', async (req: Request, res: Response) => {
-  try {
-    const { token } = req.body;
-    if (!token) {
-      res.status(400).json({ code: 400, message: '缺少token参数' });
-      return;
-    }
-
-    const { validateActionToken } = await import('../services/oa/oa-action-token');
-    const tokenData = await validateActionToken(token);
-    if (!tokenData) {
-      res.json({ code: 200, data: { valid: false } });
-      return;
-    }
-
-    // 获取审批实例信息
-    const { appQuery } = await import('../db/appPool');
-    const instResult = await appQuery<{ title: string; status: string; instance_no: string; form_type_name: string }>(
-      `SELECT i.title, i.status, i.instance_no, ft.name as form_type_name
-       FROM oa_approval_instances i
-       JOIN oa_form_types ft ON ft.id = i.form_type_id
-       WHERE i.id = $1`,
-      [tokenData.instanceId]
-    );
-
-    if (instResult.rows.length === 0) {
-      res.json({ code: 200, data: { valid: false } });
-      return;
-    }
-
-    const inst = instResult.rows[0];
-    res.json({
-      code: 200,
-      data: {
-        valid: true,
-        action: tokenData.action,
-        instanceId: tokenData.instanceId,
-        instanceNo: inst.instance_no,
-        title: inst.title,
-        formTypeName: inst.form_type_name,
-        instanceStatus: inst.status,
-      },
-    });
-  } catch (error) {
-    console.error('[OA] Token验证失败:', error);
-    res.status(500).json({ code: 500, message: '验证失败' });
-  }
-});
-
-// 通过Token执行审批操作
-router.post('/action-by-token', async (req: Request, res: Response) => {
-  try {
-    const { token, action, comment } = req.body;
-    if (!token || !action) {
-      res.status(400).json({ code: 400, message: '缺少token或action参数' });
-      return;
-    }
-
-    if (!['approve', 'reject'].includes(action)) {
-      res.status(400).json({ code: 400, message: '无效的action类型' });
-      return;
-    }
-
-    const { validateAndConsumeActionToken } = await import('../services/oa/oa-action-token');
-    const tokenData = await validateAndConsumeActionToken(token);
-    if (!tokenData) {
-      res.status(400).json({ code: 400, message: 'Token无效或已过期' });
-      return;
-    }
-
-    // 校验Token绑定的操作类型与请求操作一致
-    // approve token: 允许 approve 和 reject（详情页TokenActionBar共享同一token，需同时支持两种操作）
-    // view token: 允许 approve 和 reject（查看详情后可做任意审批操作）
-    if (tokenData.action !== 'approve' && tokenData.action !== 'view') {
-      res.status(400).json({ code: 400, message: 'Token不允许执行该操作' });
-      return;
-    }
-
-    const { approveApproval, rejectApproval } = await import('../services/oa/oa.mutation');
-
-    // 获取用户信息
-    const { appQuery } = await import('../db/appPool');
-    const userResult = await appQuery<{ id: number; name: string }>(
-      `SELECT id, name FROM users WHERE id = $1`,
-      [tokenData.userId]
-    );
-    if (userResult.rows.length === 0) {
-      res.status(400).json({ code: 400, message: '用户不存在' });
-      return;
-    }
-    const user = userResult.rows[0];
-
-    if (action === 'approve') {
-      const result = await approveApproval(tokenData.instanceId, user.id, user.name, comment);
-      res.json({ code: 200, data: { status: result.status }, message: '已通过' });
-    } else {
-      await rejectApproval(tokenData.instanceId, user.id, user.name, comment || '通过钉钉快速操作拒绝');
-      res.json({ code: 200, data: null, message: '已拒绝' });
-    }
-  } catch (error) {
-    console.error('[OA] Token操作失败:', error);
-    const message = error instanceof Error ? error.message : '操作失败';
-    res.status(400).json({ code: 400, message });
-  }
-});
 
 // =====================================================
 // 所有路由都需要认证
@@ -359,21 +240,5 @@ router.get('/data', requirePermission('oa:data:read'), getDataList);
 
 // 导出数据
 router.get('/data/export', requirePermission('oa:data:export'), exportData);
-
-// =====================================================
-// 站内消息接口
-// =====================================================
-
-// 获取未读消息数量
-router.get('/messages/unread-count', requirePermission('oa:read'), getUnreadCount);
-
-// 获取消息列表
-router.get('/messages', requirePermission('oa:read'), listMessages);
-
-// 标记消息已读
-router.post('/messages/:id/read', requirePermission('oa:write'), readMessage);
-
-// 标记所有消息已读
-router.post('/messages/read-all', requirePermission('oa:write'), readAllMessages);
 
 export default router;

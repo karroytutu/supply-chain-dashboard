@@ -1,19 +1,18 @@
 /**
  * OA钉钉通知构建器
- * 负责构建ActionCard和OA消息内容，发送通知
+ * 负责构建审批结果和抄送的OA消息内容，发送通知
+ * 待处理场景已迁移到钉钉流程中心待办，不再使用ActionCard
  * @module services/oa/oa-dingtalk
  */
 
 import { config } from '../../config';
 import {
-  ActionCardContent,
-  ActionCardButton,
   OaMessageContent,
   sendWorkNotification,
 } from '../dingtalk.service';
 import { FormSchema } from './oa.types';
 import { OA_DINGTALK_STATUS } from '../../utils/constants';
-import { extractFormSummary, buildFormSummaryMarkdown } from './oa-form-summary';
+import { extractFormSummary } from './oa-form-summary';
 
 // =====================================================
 // 类型定义
@@ -33,50 +32,6 @@ export interface DingtalkNotifyParams {
   formSchema?: FormSchema;
   formData?: Record<string, unknown>;
   rejectUserName?: string;
-}
-
-// =====================================================
-// ActionCard 消息构建
-// =====================================================
-
-/**
- * 构建待处理ActionCard消息
- * 仅包含"查看详情"按钮
- */
-export async function buildPendingActionCard(
-  params: DingtalkNotifyParams,
-  _userId: number
-): Promise<ActionCardContent> {
-  const baseUrl = config.app.baseUrl;
-  const { instanceId, title, formTypeName, applicantName, nodeName, formSchema, formData } = params;
-
-  // 构建Markdown摘要
-  const extraRows: Array<{ key: string; value: string }> = [
-    { key: '申请人', value: applicantName },
-  ];
-  if (nodeName) {
-    extraRows.push({ key: '当前节点', value: nodeName });
-  }
-
-  const markdown = `## 待处理 - ${formTypeName}
-
-${buildFormSummaryMarkdown(formSchema, formData, extraRows)}
-
-请尽快处理审批。`;
-
-  const btnJsonList: ActionCardButton[] = [
-    {
-      title: '查看详情',
-      actionUrl: `${baseUrl}/oa/detail/${instanceId}`,
-    },
-  ];
-
-  return {
-    title: `待处理 - ${formTypeName}`,
-    markdown,
-    btnJsonList,
-    btnOrientation: '1',
-  };
 }
 
 // =====================================================
@@ -154,71 +109,9 @@ export function buildCcOaMessage(params: DingtalkNotifyParams): OaMessageContent
   };
 }
 
-/**
- * 构建转交/加签的待处理ActionCard消息
- * 仅包含"查看详情"按钮
- */
-export async function buildTransferActionCard(
-  params: DingtalkNotifyParams,
-  _userId: number
-): Promise<ActionCardContent> {
-  const baseUrl = config.app.baseUrl;
-  const { instanceId, title, formTypeName, applicantName, fromUserName, nodeName, formSchema, formData } = params;
-
-  const extraRows: Array<{ key: string; value: string }> = [
-    { key: '申请人', value: applicantName },
-  ];
-  if (fromUserName) {
-    extraRows.push({ key: '转交人', value: fromUserName });
-  }
-  if (nodeName) {
-    extraRows.push({ key: '当前节点', value: nodeName });
-  }
-
-  const markdown = `## 转交待处理 - ${formTypeName}
-
-${buildFormSummaryMarkdown(formSchema, formData, extraRows)}
-
-此审批已转交给您处理。`;
-
-  const btnJsonList: ActionCardButton[] = [
-    {
-      title: '查看详情',
-      actionUrl: `${baseUrl}/oa/detail/${instanceId}`,
-    },
-  ];
-
-  return {
-    title: `转交待处理 - ${formTypeName}`,
-    markdown,
-    btnJsonList,
-    btnOrientation: '1',
-  };
-}
-
 // =====================================================
 // 通知发送
 // =====================================================
-
-/**
- * 发送待处理ActionCard通知
- * @returns taskId（用于后续状态栏更新）
- */
-export async function sendPendingNotification(
-  dingtalkUserIds: string[],
-  actionCard: ActionCardContent,
-  instanceId: number,
-  businessNo?: string
-): Promise<number | undefined> {
-  const result = await sendWorkNotification(dingtalkUserIds, actionCard.title, actionCard.markdown, {
-    msgType: 'actionCard',
-    actionCard,
-    businessType: 'oa',
-    businessId: instanceId,
-    businessNo,
-  });
-  return result.taskId;
-}
 
 /**
  * 发送审批结果OA通知

@@ -1,11 +1,10 @@
 /**
  * 客户授信营业执照 - 补交提醒定时任务
- * 第3天和第6天各发一次钉钉+站内提醒
+ * 第3天和第6天各发一次钉钉提醒
  * @module services/credit-license/credit-license-reminder.task
  */
 
 import * as repository from './credit-license.repository';
-import { createInAppMessage } from '../oa/oa-notify';
 import { getDingtalkUserIdMap } from '../assessment/utils';
 import { sendWorkNotification } from '../dingtalk.service';
 import {
@@ -85,7 +84,7 @@ export async function checkLicenseDeferredReminders(): Promise<void> {
 }
 
 /**
- * 发送单条提醒通知（钉钉 + 站内）
+ * 发送单条提醒通知（钉钉）
  */
 async function sendReminderNotification(
   record: { id: number; oa_instance_id: number; customer_name: string | null; applicant_id: number; deadline: string },
@@ -115,12 +114,4 @@ async function sendReminderNotification(
     console.warn('[CreditLicenseReminder] 钉钉通知发送失败:', error);
   }
 
-  // 2. 发送站内消息
-  await createInAppMessage({
-    userId: record.applicant_id,
-    type: 'license_reminder',
-    title,
-    content: markdown,
-    instanceId: record.oa_instance_id,
-  });
 }

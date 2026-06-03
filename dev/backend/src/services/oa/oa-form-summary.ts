@@ -73,19 +73,3 @@ export function extractFormSummary(
 
   return rows;
 }
-
-/**
- * 构建Markdown格式的表单摘要（用于ActionCard）
- */
-export function buildFormSummaryMarkdown(
-  formSchema?: FormSchema,
-  formData?: Record<string, unknown>,
-  extraRows?: Array<{ key: string; value: string }>
-): string {
-  const formRows = extractFormSummary(formSchema, formData);
-  const allRows = [...formRows, ...(extraRows || [])];
-
-  if (allRows.length === 0) return '';
-
-  return allRows.map(r => `**${r.key}**: ${r.value}`).join('\n\n');
-}

@@ -66,32 +66,41 @@ async function buildHeaders(): Promise<Record<string, string>> {
  * @param name - 模板名称（如 "其他付款申请"）
  * @param formComponents - 表单组件定义
  * @param detailUrl - 审批详情页URL（用于 TASK_EXECUTE 跳转）
+ * @param existingProcessCode - 已有模板的 processCode，传入时执行更新而非创建
  * @returns processCode - 模板编码
  */
 export async function saveProcessTemplate(
   name: string,
   formComponents: ProcessFormComponent[],
-  detailUrl: string
+  detailUrl: string,
+  existingProcessCode?: string,
 ): Promise<string> {
   const headers = await buildHeaders();
+
+  const body: Record<string, unknown> = {
+    name,
+    formComponents,
+    processFeatureConfig: {
+      features: [
+        {
+          name: 'TASK_EXECUTE',
+          runType: 'REDIRECT',
+          pcUrl: detailUrl,
+          mobileUrl: detailUrl,
+        },
+      ],
+    },
+  };
+
+  // 传入已有 processCode 时执行更新操作
+  if (existingProcessCode) {
+    body.processCode = existingProcessCode;
+  }
 
   const result = await apiRequest(
     'POST',
     '/v1.0/workflow/processCentres/schemas',
-    {
-      name,
-      formComponents,
-      processFeatureConfig: {
-        features: [
-          {
-            name: 'TASK_EXECUTE',
-            runType: 'REDIRECT',
-            pcUrl: detailUrl,
-            mobileUrl: detailUrl,
-          },
-        ],
-      },
-    },
+    body,
     headers
   );
 
@@ -100,7 +109,8 @@ export async function saveProcessTemplate(
     throw new Error(`[ProcessCentre] 模板创建失败: 未返回 processCode, response=${JSON.stringify(result)}`);
   }
 
-  console.log('[ProcessCentre] 模板创建成功:', { name, processCode });
+  const action = existingProcessCode ? '更新' : '创建';
+  console.log(`[ProcessCentre] 模板${action}成功:`, { name, processCode });
   return processCode;
 }
 

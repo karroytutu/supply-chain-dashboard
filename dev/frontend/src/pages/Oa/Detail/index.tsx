@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useSearchParams, history } from 'umi';
-import { Button, Spin, Typography, Result, Alert, Space } from 'antd';
-import { ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import React from 'react';
+import { useParams, history } from 'umi';
+import { Button, Spin, Typography, Result } from 'antd';
+import { ArrowLeftOutlined } from '@ant-design/icons';
 import { type DetailErrorType, useApprovalDetail } from './hooks/useApprovalDetail';
 import { useErpFieldResolve } from '@/components/Oa/hooks/useErpFieldResolve';
 import { DetailLeftColumn, ApprovalStatusTag } from './components/DetailSubComponents';
 import { DetailRightColumn } from './components/DetailRightColumn';
-import { validateActionToken, executeActionByToken } from '@/services/api/oa';
 import { formatDateTime } from '@/utils/format';
 import styles from './index.less';
 
@@ -26,125 +25,8 @@ const renderErrorState = (errorType: DetailErrorType, loadDetail: () => void) =>
     extra={<Button type="primary" onClick={() => loadDetail()}>重新加载</Button>} />;
 };
 
-/** Token 快捷操作栏（从钉钉"查看详情"跳转时显示） */
-const TokenActionBar: React.FC<{
-  token: string;
-  onActionComplete: () => void;
-}> = ({ token, onActionComplete }) => {
-  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
-  const [executing, setExecuting] = useState(false);
-  const [result, setResult] = useState<'success' | 'error' | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  useEffect(() => {
-    validateActionToken(token)
-      .then((data) => {
-        setTokenValid(data.valid ? true : false);
-      })
-      .catch(() => setTokenValid(false));
-  }, [token]);
-
-  const handleTokenAction = async (action: 'approve' | 'reject') => {
-    setExecuting(true);
-    try {
-      await executeActionByToken(token, action);
-      setResult('success');
-      onActionComplete();
-    } catch (err: any) {
-      setResult('error');
-      setErrorMsg(err.message || '操作失败');
-    } finally {
-      setExecuting(false);
-    }
-  };
-
-  if (tokenValid === null) {
-    return (
-      <Alert
-        message="正在验证快捷操作链接..."
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-      />
-    );
-  }
-
-  if (!tokenValid) {
-    return (
-      <Alert
-        message="快捷操作链接已失效"
-        description="此链接已过期或已被使用，请使用页面中的审批按钮操作"
-        type="warning"
-        showIcon
-        closable
-        style={{ marginBottom: 16 }}
-      />
-    );
-  }
-
-  if (result === 'success') {
-    return (
-      <Alert
-        message="审批操作已完成"
-        type="success"
-        showIcon
-        closable
-        icon={<CheckCircleOutlined />}
-        style={{ marginBottom: 16 }}
-      />
-    );
-  }
-
-  if (result === 'error') {
-    return (
-      <Alert
-        message="操作失败"
-        description={errorMsg}
-        type="error"
-        showIcon
-        closable
-        style={{ marginBottom: 16 }}
-      />
-    );
-  }
-
-  return (
-    <Alert
-      message="来自钉钉的快捷审批"
-      description={
-        <Space style={{ marginTop: 8 }}>
-          <Button
-            type="primary"
-            size="small"
-            icon={<CheckCircleOutlined />}
-            loading={executing}
-            onClick={() => handleTokenAction('approve')}
-          >
-            同意
-          </Button>
-          <Button
-            danger
-            size="small"
-            icon={<CloseCircleOutlined />}
-            loading={executing}
-            onClick={() => handleTokenAction('reject')}
-          >
-            拒绝
-          </Button>
-        </Space>
-      }
-      type="info"
-      showIcon
-      closable
-      style={{ marginBottom: 16 }}
-    />
-  );
-};
-
 const ApprovalDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
-  const tokenParam = searchParams.get('token');
   const {
     loading, detail, nodes, actions, errorType, actionLoading,
     actionModalVisible, actionType, actionComment, transferUsers,
@@ -159,9 +41,6 @@ const ApprovalDetailPage: React.FC = () => {
 
   return (
     <div className={styles.detailPage}>
-      {tokenParam && (
-        <TokenActionBar token={tokenParam} onActionComplete={loadDetail} />
-      )}
       <div className={styles.pageHeader}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => history.back()}>返回</Button>
         <div className={styles.headerInfo}>
