@@ -25,9 +25,9 @@ RUN npm config set registry https://registry.npmmirror.com && \
 # Playwright 浏览器层（独立缓存，代码变动不触发重装）
 # 仅安装 Chromium（比 Firefox 轻量，约 300MB vs 500MB）
 # 使用 /app/.cache 而非 /root/.cache，确保 gosu 降权后 nodejs 用户可访问
+# 注意：playwright install-deps 使用阿里云 apt 源（在基础系统层已配置）
+# playwright install chromium 走默认 CDN，npmmirror 镜像版本不全故不配
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.cache/ms-playwright
-# Playwright 国内镜像源（阿里云 CDN）
-ENV PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright
 RUN npx playwright install-deps chromium && \
     npx playwright install chromium && \
     chown -R nodejs:nodejs /app/.cache
