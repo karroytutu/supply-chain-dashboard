@@ -21,26 +21,55 @@ import assessmentRoutes from './routes/assessment.routes';
 import creditLicenseRoutes from './routes/credit-license.routes';
 import oaRoutes from './routes/oa.routes';
 import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
+import tokenAdminRoutes from './routes/token-admin.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 import logger from './utils/logger';
 import { runMigrations } from './db/migrate';
 import { appQuery } from './db/appPool';
 
+// 防止 EPIPE (Broken Pipe) 错误导致进程崩溃
+// 当父进程关闭输出管道时（如后台启动的 shell 退出），stdout/stderr 写入会触发 EPIPE
+// 直接忽略这些错误，避免进入 uncaughtException 处理器
+process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') return;
+  throw err;
+});
+process.stderr.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') return;
+  throw err;
+});
+
 // 全局异常处理 - 确保崩溃原因在 Docker 日志中可见
-process.on('uncaughtException', (error) => {
-  // console.error 作为安全网，确保即使 logger 故障，错误也能写入 Docker 日志
-  console.error('[FATAL] Uncaught Exception:', error?.message || error);
-  console.error('[FATAL] Stack:', error?.stack || 'No stack trace');
-  logger.error('[FATAL] Uncaught Exception:', error);
+process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
+  // EPIPE (Broken Pipe) 通常发生在父进程关闭输出管道时（如后台启动的 shell 退出）
+  // 此时 console 写入会失败，不应尝试记录，直接静默退出
+  if (error?.code === 'EPIPE' || error?.errno === -32) {
+    // 尝试用 logger 写入文件（不依赖 stdout），失败则忽略
+    try { logger.error('[EPIPE] Broken pipe, process exiting'); } catch { /* ignore */ }
+    setTimeout(() => process.exit(0), 100);
+    return;
+  }
+  // 其他异常：尝试记录，但用 try-catch 防止 console 故障导致递归崩溃
+  try {
+    console.error('[FATAL] Uncaught Exception:', error?.message || error);
+    console.error('[FATAL] Stack:', error?.stack || 'No stack trace');
+  } catch { /* console 写入失败，忽略 */ }
+  try { logger.error('[FATAL] Uncaught Exception:', error); } catch { /* ignore */ }
   // 延迟退出，给日志 1 秒 flush 时间
   setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   const reasonMsg = reason instanceof Error ? reason.message : String(reason);
-  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reasonMsg);
-  logger.error('[FATAL] Unhandled Rejection at:', { promise, reason });
+  // EPIPE 相关 rejection 静默处理
+  if (reasonMsg.includes('EPIPE') || (reason as NodeJS.ErrnoException)?.code === 'EPIPE') {
+    return;
+  }
+  try {
+    console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reasonMsg);
+  } catch { /* console 写入失败，忽略 */ }
+  try { logger.error('[FATAL] Unhandled Rejection at:', { promise, reason }); } catch { /* ignore */ }
 });
 
 const app = express();
@@ -101,6 +130,7 @@ app.use('/api/assessment', assessmentRoutes);
 app.use('/api/credit-license', creditLicenseRoutes);
 app.use('/api/oa', oaRoutes);
 app.use('/api/dingtalk-sync', dingtalkSyncRoutes);
+app.use('/api/token-admin', tokenAdminRoutes);
 
 // 错误处理
 app.use(errorHandler);

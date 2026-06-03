@@ -1,11 +1,10 @@
 /**
  * ERP 认证管理
  * Token 获取、缓存、自动刷新
+ * Token 来源：内置 Token 管理模块（由 Playwright/HTTP 登录 + 定时任务维护）
  * @module services/erp-client/erp-auth
  */
 
-import axios from 'axios';
-import { getErpConfig } from './erp-config';
 import type { ErpToken } from './erp-client.types';
 
 /**
@@ -13,17 +12,9 @@ import type { ErpToken } from './erp-client.types';
  *
  * 不使用统一 MemoryCache 的原因：
  * 1. 需要提前 1 小时刷新（REFRESH_AHEAD_MS），而 MemoryCache 仅支持固定 TTL 过期
- * 2. Token 获取后还需联动获取 WMS Session（_wmsSessionCache），两者需原子性同步刷新
- * 3. 使用 _refreshPromise 锁防止并发刷新，该模式与 MemoryCache 的 get/set 不兼容
+ * 2. 使用 _refreshPromise 锁防止并发刷新，该模式与 MemoryCache 的 get/set 不兼容
  */
 let _tokenCache: ErpToken | null = null;
-
-/**
- * WMS Session 缓存（与 Token 同步刷新）
- *
- * 不使用统一 MemoryCache 的原因：同 _tokenCache，与 Token 联动刷新，共享过期逻辑
- */
-let _wmsSessionCache: { sessionId: string; deviceToken: string; expiresAt: number } | null = null;
 
 /** 提前刷新时间（1小时） */
 const REFRESH_AHEAD_MS = 60 * 60 * 1000;
@@ -35,8 +26,6 @@ let _refreshPromise: Promise<ErpToken> | null = null;
  * 获取有效的 ERP 访问令牌（自动刷新）
  */
 export async function getErpAccessToken(): Promise<string> {
-  const erpConfig = getErpConfig();
-
   // 检查缓存的 token 是否有效
   if (_tokenCache && _tokenCache.expiresAt > Date.now() + REFRESH_AHEAD_MS) {
     return _tokenCache.authorization;
@@ -65,60 +54,16 @@ export async function getErpAccessToken(): Promise<string> {
 
 /**
  * 刷新 ERP Token
- * 调用企业内部代理端点获取 JWT Bearer Token
+ * 从内置 Token 管理模块获取（由定时任务维护的 PostgreSQL 存储）
  */
 export async function refreshErpToken(): Promise<ErpToken> {
-  const erpConfig = getErpConfig();
+  const { getNativeToken } = await import('../token-manager');
+  const result = await getNativeToken();
 
-  if (!erpConfig.tokenUrl) {
-    throw new Error('ERP_API_TOKEN_URL 未配置');
-  }
-
-  console.log('[ErpAuth] 开始刷新舟谱 Token...');
-
-  const response = await axios.get(erpConfig.tokenUrl, {
-    timeout: 15000,
-  });
-
-  const data = response.data;
-
-  // 解析响应: { output: [{ authorization: "eyJ..." }], code: 0 }
-  if (!data || data.code !== 0 || !data.output || !Array.isArray(data.output) || data.output.length === 0) {
-    throw new Error(`舟谱 Token 获取失败: ${JSON.stringify(data)}`);
-  }
-
-  const authorization = data.output[0].authorization;
-  if (!authorization) {
-    throw new Error('舟谱 Token 响应中缺少 authorization 字段');
-  }
-
-  // 解析 JWT 获取过期时间
-  // 注意：此处仅解码 JWT payload 获取 exp 字段，不验证签名
-  // 因为 token 由外部 ERP 系统签发，签名验证在 ERP 服务端完成
-  let expiresAt: number;
-  try {
-    const payloadBase64 = authorization.split('.')[1];
-    const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
-    // JWT exp 字段可能是毫秒或秒
-    const exp = payload.u?.exp || payload.exp;
-    expiresAt = exp > 1e12 ? exp : exp * 1000; // 判断是毫秒还是秒
-  } catch {
-    // 解析失败时默认13天过期
-    expiresAt = Date.now() + 13 * 24 * 60 * 60 * 1000;
-  }
-
-  const token: ErpToken = { authorization, expiresAt };
+  const token: ErpToken = { authorization: result.authorization, expiresAt: result.expiresAt };
   _tokenCache = token;
 
-  // 同时提取 WMS Session（与 Token 同步刷新）
-  const wmsSessionId = data.output[0].wms_session_id;
-  const wmsDeviceToken = data.output[0].wms_device_token;
-  if (wmsSessionId) {
-    _wmsSessionCache = { sessionId: wmsSessionId, deviceToken: wmsDeviceToken || '', expiresAt };
-    console.log('[ErpAuth] WMS Session 已提取');
-  }
-
-  console.log(`[ErpAuth] Token 刷新成功, 过期时间: ${new Date(expiresAt).toISOString()}`);
+  console.log(`[ErpAuth] Token 刷新成功, 过期时间: ${new Date(result.expiresAt).toISOString()}`);
   return token;
 }
 
@@ -127,20 +72,17 @@ export async function refreshErpToken(): Promise<ErpToken> {
  */
 export function invalidateErpToken(): void {
   _tokenCache = null;
-  _wmsSessionCache = null;
 }
 
 /**
  * 获取 WMS Session ID（用于 Cookie 认证）
- * 自动复用 Token 刷新流程，无需单独调用
+ * 从 Token 管理模块独立读取（WMS 登录由 token-manager 模块管理）
  */
 export async function getWmsSessionId(): Promise<string> {
-  // 确保 Token 已刷新（WMS session 与 Token 同步获取）
-  await getErpAccessToken();
-
-  if (!_wmsSessionCache) {
-    throw new Error('WMS Session 不可用，Token API 未返回 wms_session_id');
+  const { getNativeWmsSessionId } = await import('../token-manager');
+  const sessionId = await getNativeWmsSessionId();
+  if (!sessionId) {
+    throw new Error('WMS Session 不可用，请通过管理后台执行 WMS 登录');
   }
-
-  return _wmsSessionCache.sessionId;
+  return sessionId;
 }

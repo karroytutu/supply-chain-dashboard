@@ -39,6 +39,11 @@ export const PERMISSIONS = {
       READ: 'system:sync:read',
       WRITE: 'system:sync:write',
     },
+    // Token 管理
+    TOKEN: {
+      READ: 'system:token:read',
+      WRITE: 'system:token:write',
+    },
   },
 
   // 战略商品模块

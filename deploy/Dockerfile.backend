@@ -1,22 +1,32 @@
-# 后端生产镜像 - 安装生产依赖 + 打包预编译产物
+# 后端生产镜像 - 安装生产依赖 + Playwright 浏览器 + 打包预编译产物
 # 前置条件: 需要先在宿主机执行 npm run build（产物在 prod/backend/dist/）
 
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
 # 基础系统层（极少变动，永久缓存命中）
-# 1. 将 apk 源换为阿里云镜像，避免 dl-cdn.alpinelinux.org 国内访问慢
+# 1. 换阿里云镜像源
 # 2. 安装 gosu（entrypoint 以 root 修权后降权到 nodejs 使用）
 # 3. 创建非 root 用户 nodejs
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
-    apk add --no-cache gosu && \
-    addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends gosu ca-certificates && \
+    addgroup --gid 1001 --system nodejs && \
+    adduser --uid 1001 --system --ingroup nodejs nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # 依赖层（仅在 package.json 变动时失效）
 COPY dev/backend/package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
+
+# Playwright 浏览器层（独立缓存，代码变动不触发重装）
+# 仅安装 Chromium（比 Firefox 轻量，约 300MB vs 500MB）
+# 使用 /app/.cache 而非 /root/.cache，确保 gosu 降权后 nodejs 用户可访问
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.cache/ms-playwright
+RUN npx playwright install-deps chromium && \
+    npx playwright install chromium && \
+    chown -R nodejs:nodejs /app/.cache
 
 # 代码层（频繁变动，放最后，避免影响上游缓存）
 COPY --chown=nodejs:nodejs prod/backend/dist ./dist

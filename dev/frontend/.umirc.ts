@@ -196,6 +196,12 @@ export default defineConfig({
           component: '@/pages/System/Permission',
           access: PERMISSIONS.SYSTEM.PERMISSION.READ,
         },
+        {
+          path: 'token-manager',
+          name: 'Token管理',
+          component: '@/pages/System/TokenManager',
+          access: PERMISSIONS.SYSTEM.TOKEN.READ,
+        },
       ],
     },
   ],

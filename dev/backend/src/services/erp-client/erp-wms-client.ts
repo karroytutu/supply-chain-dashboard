@@ -1,6 +1,6 @@
 /**
  * WMS 仓储管理系统 HTTP 客户端
- * 使用 Cookie 认证（WMSJSESSIONID），从 Token API 获取
+ * 使用 Cookie 认证（WMSJSESSIONID），从 Token 管理模块获取
  * @module services/erp-client/erp-wms-client
  */
 

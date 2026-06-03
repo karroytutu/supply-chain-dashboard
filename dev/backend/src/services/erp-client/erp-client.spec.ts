@@ -21,7 +21,6 @@ describe('erp-client', () => {
     jest.mock('./erp-config', () => ({
       getErpConfig: jest.fn().mockReturnValue({
         baseUrl: 'https://portal.zhoupudata.com',
-        tokenUrl: 'http://test.com/token',
         cid: '10008421',
         uid: '1',
         timeout: 10000,

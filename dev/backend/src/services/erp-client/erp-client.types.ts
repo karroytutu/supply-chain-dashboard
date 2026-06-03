@@ -6,7 +6,6 @@
 /** ERP API 配置 */
 export interface ErpApiConfig {
   baseUrl: string;
-  tokenUrl: string;
   cid: string;
   uid: string;
   timeout: number;
