@@ -1,11 +1,11 @@
 /**
- * 压单对账服务
+ * 压单检测服务
  * 在催收任务生成后，ERP 中的单据可能因客户授信审批而变为压单，
  * 已生成的催收任务需要同步调整。
  *
  * 双重触发机制：
- * - 即时：压单审批通过后调用 reconcileHoardDetailsByCustomer
- * - 兜底：syncERPDebts 每日定时调用 reconcileAllHoardDetails
+ * - 即时：压单审批通过后调用 detectHoardChangesByCustomer
+ * - 兜底：syncERPDebts 每日定时调用 detectAllHoardChanges
  */
 
 import { appQuery, getAppClient } from '../../db/appPool';
@@ -17,8 +17,8 @@ import type { ERPDebtRecord } from './ar-debt.types';
 // 内部类型
 // ============================================
 
-/** 待对账的活跃明细（带任务上下文） */
-interface ReconcilableDetail {
+/** 待检测的活跃明细（带任务上下文） */
+interface DetectableDetail {
   id: number;
   task_id: number;
   erp_bill_id: string;
@@ -42,26 +42,26 @@ export interface HoldOptions {
 // ============================================
 
 /**
- * 对所有活跃任务执行压单对账（定时兜底）
+ * 对所有活跃任务执行压单检测（定时兜底）
  * 在 syncERPDebts 末尾调用
  */
-export async function reconcileAllHoardDetails(): Promise<void> {
-  console.log('[HoardReconcile] 开始全量压单对账...');
+export async function detectAllHoardChanges(): Promise<void> {
+  console.log('[HoardDetect] 开始全量压单检测...');
   const startTime = Date.now();
 
   try {
     // 1. 查询所有活跃任务中可能变为压单的明细
-    const details = await fetchReconcilableDetails();
+    const details = await fetchDetectableDetails();
     if (details.length === 0) {
-      console.log('[HoardReconcile] 无需对账的明细');
+      console.log('[HoardDetect] 无需检测的明细');
       return;
     }
-    console.log(`[HoardReconcile] 扫描 ${details.length} 条活跃明细`);
+    console.log(`[HoardDetect] 扫描 ${details.length} 条活跃明细`);
 
     // 2. 获取最新 hoardTag 并处理变更
     const changedDetails = await detectHoardChanges(details);
     if (changedDetails.length === 0) {
-      console.log('[HoardReconcile] 无压单变更');
+      console.log('[HoardDetect] 无压单变更');
       return;
     }
 
@@ -70,41 +70,41 @@ export async function reconcileAllHoardDetails(): Promise<void> {
 
     const duration = Date.now() - startTime;
     console.log(
-      `[HoardReconcile] 全量对账完成: 变更=${changedDetails.length}, ` +
+      `[HoardDetect] 全量检测完成: 变更=${changedDetails.length}, ` +
       `排除=${result.excludedCount}, 重算任务=${result.recalculatedTasks}, ` +
       `关闭任务=${result.closedTasks}, 耗时=${duration}ms`
     );
   } catch (error) {
-    console.error('[HoardReconcile] 全量压单对账失败:', error);
+    console.error('[HoardDetect] 全量压单检测失败:', error);
     // 不抛出异常，避免影响 syncERPDebts 的其他步骤
   }
 }
 
 /**
- * 对指定客户的活跃任务执行压单对账（即时触发）
+ * 对指定客户的活跃任务执行压单检测（即时触发）
  * 在压单审批通过后调用
  * @param consumerName 客户名称
  * @param holdOptions 压单选项（类型+天数），来自审批表单
  */
-export async function reconcileHoardDetailsByCustomer(
+export async function detectHoardChangesByCustomer(
   consumerName: string,
   holdOptions?: HoldOptions,
 ): Promise<void> {
-  console.log(`[HoardReconcile] 开始客户压单对账: ${consumerName}`);
+  console.log(`[HoardDetect] 开始客户压单检测: ${consumerName}`);
   const startTime = Date.now();
 
   try {
     // 1. 查询该客户的活跃任务明细
-    const details = await fetchReconcilableDetails(consumerName);
+    const details = await fetchDetectableDetails(consumerName);
     if (details.length === 0) {
-      console.log(`[HoardReconcile] 客户 ${consumerName} 无需对账的明细`);
+      console.log(`[HoardDetect] 客户 ${consumerName} 无需检测的明细`);
       return;
     }
 
     // 2. 获取最新 hoardTag 并处理变更
     const changedDetails = await detectHoardChanges(details);
     if (changedDetails.length === 0) {
-      console.log(`[HoardReconcile] 客户 ${consumerName} 无压单变更`);
+      console.log(`[HoardDetect] 客户 ${consumerName} 无压单变更`);
       return;
     }
 
@@ -113,12 +113,12 @@ export async function reconcileHoardDetailsByCustomer(
 
     const duration = Date.now() - startTime;
     console.log(
-      `[HoardReconcile] 客户对账完成: ${consumerName}, 变更=${changedDetails.length}, ` +
+      `[HoardDetect] 客户检测完成: ${consumerName}, 变更=${changedDetails.length}, ` +
       `排除=${result.excludedCount}, 重算任务=${result.recalculatedTasks}, ` +
       `关闭任务=${result.closedTasks}, 耗时=${duration}ms`
     );
   } catch (error) {
-    console.error(`[HoardReconcile] 客户 ${consumerName} 压单对账失败:`, error);
+    console.error(`[HoardDetect] 客户 ${consumerName} 压单检测失败:`, error);
     throw error;
   }
 }
@@ -128,10 +128,10 @@ export async function reconcileHoardDetailsByCustomer(
 // ============================================
 
 /**
- * 查询待对账的活跃明细
- * @param consumerName 可选，指定客户名称（即时对账时使用）
+ * 查询待检测的活跃明细
+ * @param consumerName 可选，指定客户名称（即时检测时使用）
  */
-async function fetchReconcilableDetails(consumerName?: string): Promise<ReconcilableDetail[]> {
+async function fetchDetectableDetails(consumerName?: string): Promise<DetectableDetail[]> {
   const params: string[] = [];
   let consumerFilter = '';
 
@@ -140,7 +140,7 @@ async function fetchReconcilableDetails(consumerName?: string): Promise<Reconcil
     consumerFilter = `AND t.consumer_name = $${params.length}`;
   }
 
-  const result = await appQuery<ReconcilableDetail>(
+  const result = await appQuery<DetectableDetail>(
     `SELECT d.id, d.task_id, d.erp_bill_id, d.left_amount, d.status,
             d.hoard_tag, t.consumer_name, t.status as task_status
      FROM ar_collection_details d
@@ -158,14 +158,16 @@ async function fetchReconcilableDetails(consumerName?: string): Promise<Reconcil
 /**
  * 获取最新 hoardTag 并识别变为 HOARD 的明细
  */
-async function detectHoardChanges(details: ReconcilableDetail[]): Promise<ReconcilableDetail[]> {
+async function detectHoardChanges(details: DetectableDetail[]): Promise<DetectableDetail[]> {
   if (details.length === 0) return [];
 
   // 1. 按 consumer_name 分组获取客户数据
   const consumerNames = [...new Set(details.map(d => d.consumer_name))];
   const { nameToTraderId } = await fetchCustomerData(consumerNames);
 
-  // 2. 构造最小 ERPDebtRecord stub（hoardTag 设 undefined 强制走 API 查询）
+  // 2. 构造最小 ERPDebtRecord stub
+  // 注意：故意省略 hoardTag，使 fetchHoardTags 强制从结算单 API 获取最新压单状态，
+  // 而非使用 fetchAllErpDebts 中的缓存值，确保压单检测的实时性
   const debtStubs: ERPDebtRecord[] = details.map(d => ({
     billId: d.erp_bill_id,
     bizOrderStr: '',
@@ -192,10 +194,10 @@ async function detectHoardChanges(details: ReconcilableDetail[]): Promise<Reconc
 /**
  * 处理压单变更
  * 按 task_id 分组：更新明细状态/标记 → 重算任务指标 → 级联关闭 → 记录日志
- * @param holdOptions 压单选项（类型+天数），即时对账时由审批回调传入，定时兜底时为空（默认长期压单）
+ * @param holdOptions 压单选项（类型+天数），即时检测时由审批回调传入，定时兜底时为空（默认长期压单）
  */
 async function processHoardChanges(
-  changedDetails: ReconcilableDetail[],
+  changedDetails: DetectableDetail[],
   holdOptions?: HoldOptions,
 ): Promise<{ excludedCount: number; recalculatedTasks: number; closedTasks: number }> {
   let excludedCount = 0;
@@ -207,7 +209,7 @@ async function processHoardChanges(
   const holdDays = holdOptions?.holdDays ?? null;
 
   // 按 task_id 分组
-  const byTask = new Map<number, ReconcilableDetail[]>();
+  const byTask = new Map<number, DetectableDetail[]>();
   for (const detail of changedDetails) {
     const existing = byTask.get(detail.task_id) || [];
     existing.push(detail);
@@ -231,8 +233,8 @@ async function processHoardChanges(
       if (pendingIds.length > 0) {
         await client.query(
           `UPDATE ar_collection_details
-           SET status = $1, hoard_tag = $2, hold_type = $3, hold_days = $4,
-               hold_until = CASE WHEN $3 = $5 AND $4 IS NOT NULL
+           SET status = $1, hoard_tag = $2, hold_type = $3::varchar, hold_days = $4::integer,
+               hold_until = CASE WHEN $3::varchar = $5::varchar AND $4::integer IS NOT NULL
                                  THEN CURRENT_DATE + $4::integer
                                  ELSE NULL END
            WHERE id = ANY($6)`,
@@ -245,8 +247,8 @@ async function processHoardChanges(
       if (nonPendingIds.length > 0) {
         await client.query(
           `UPDATE ar_collection_details
-           SET hoard_tag = $1, hold_type = $2, hold_days = $3,
-               hold_until = CASE WHEN $2 = $4 AND $3 IS NOT NULL
+           SET hoard_tag = $1, hold_type = $2::varchar, hold_days = $3::integer,
+               hold_until = CASE WHEN $2::varchar = $4::varchar AND $3::integer IS NOT NULL
                                  THEN CURRENT_DATE + $3::integer
                                  ELSE NULL END
            WHERE id = ANY($5)`,

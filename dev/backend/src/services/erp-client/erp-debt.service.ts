@@ -60,6 +60,10 @@ function toERPDebtRecord(api: ApiDebtRecord): ERPDebtRecord {
     consumerExpireDay: api.consumerExpireDay,
     billTypeName: api.billTypeName,
     workTime: api.workTime,
+    // 欠款明细 API 返回 isHoard（中文 '是'/'否'），结算单 API 返回 hoardTag（英文 'HOARD'/'NORMAL'）
+    // 两者是同一业务概念的不同 API 字段名，映射为系统内部的 hoardTag: 'HOARD'/'NORMAL'
+    // 未知值统一为 null，避免脏数据泄漏到 ar_collection_details.hoard_tag
+    hoardTag: api.isHoard === '是' ? 'HOARD' : api.isHoard === '否' ? 'NORMAL' : null,
   };
 }
 

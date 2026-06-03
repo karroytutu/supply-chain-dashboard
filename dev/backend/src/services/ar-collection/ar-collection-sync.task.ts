@@ -10,7 +10,7 @@ import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery, getAppClient } from '../../db/appPool';
 import type { TaskStatus } from './ar-collection.types';
 import type { ERPDebtRecord } from './ar-debt.types';
-import { reconcileAllHoardDetails } from './ar-hoard-reconcile';
+import { detectAllHoardChanges } from './ar-hoard-detect';
 import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
 import { AR_HOLD_TYPE_TIME_LIMITED, AR_HOARD_TAG_HOARD, AR_DETAIL_STATUS_HOARD_EXCLUDED } from '../../utils/constants';
 
@@ -91,8 +91,8 @@ export async function syncERPDebts(): Promise<void> {
     const duration = Date.now() - startTime;
     console.log(`[ARSync] 同步完成: 新增=${insertCount}, 更新=${updateCount}, 消失=${removedCount}, 耗时=${duration}ms`);
 
-    // 6. 压单对账（兜底机制）
-    await reconcileAllHoardDetails();
+    // 6. 压单检测（兜底机制）
+    await detectAllHoardChanges();
   } catch (error) {
     console.error('[ARSync] ERP欠款数据同步失败:', error);
     throw error;
