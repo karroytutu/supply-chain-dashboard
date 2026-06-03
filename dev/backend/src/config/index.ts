@@ -68,11 +68,20 @@ export const config = {
   // 舟谱云管家 ERP API 配置
   erpApi: {
     baseUrl: process.env.ERP_API_BASE_URL || 'https://portal.zhoupudata.com',
-    tokenUrl: process.env.ERP_API_TOKEN_URL || '',
     cid: process.env.ERP_API_CID || '10008421',
     uid: process.env.ERP_API_UID || '1',
     timeout: parseInt(process.env.ERP_API_TIMEOUT || '10000', 10),
     retryMax: parseInt(process.env.ERP_API_RETRY_MAX || '3', 10),
     rateLimitMs: parseInt(process.env.ERP_API_RATE_LIMIT_MS || '200', 10),
+  },
+
+  // Token 管理模块（内置 Token 获取，替代外部 API）
+  tokenManager: {
+    erpUsername: process.env.ERP_LOGIN_USERNAME || '',
+    erpPassword: process.env.ERP_LOGIN_PASSWORD || '',
+    wmsUsername: process.env.WMS_LOGIN_USERNAME || '',
+    wmsPassword: process.env.WMS_LOGIN_PASSWORD || '',
+    wmsSsoBaseUrl: process.env.WMS_SSO_BASE_URL || 'https://sso.zhoupudata.com',
+    b2bBaseUrl: process.env.B2B_BASE_URL || 'https://bluespace-plus.zhoupudata.com',
   },
 };

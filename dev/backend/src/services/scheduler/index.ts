@@ -28,6 +28,12 @@ import { handleRetry } from '../retry.handler';
 import { recoverStuckProcessing, recoverStuckAutoNodes } from '../fixed-asset/erp-meta-utils';
 import { checkLicenseDeferredReminders, markOverdueDeferredUploads } from '../credit-license';
 import { saveMonthlyArchive, getLastMonthEndDate } from '../procurement-archive';
+import { checkAndRefreshAllTokens } from '../token-manager';
+import {
+  syncDingtalkDepartments,
+  fullSyncDingtalkUsers,
+  incrementalSyncDingtalkUsers,
+} from '../dingtalk-sync';
 
 /**
  * 启动所有定时任务
@@ -305,6 +311,67 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // ==================== Token 管理 ====================
+  // Token 检查与刷新 - 每5分钟
+  cron.schedule(
+    '*/5 * * * *',
+    async () => {
+      try {
+        await checkAndRefreshAllTokens();
+      } catch (error) {
+        console.error('[Scheduler] Token 管理检查失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // ==================== 钉钉组织架构同步 ====================
+
+  // 钉钉部门同步 - 每天 06:00
+  cron.schedule(
+    '0 6 * * *',
+    async () => {
+      console.log('[Scheduler] 执行钉钉部门同步...');
+      try {
+        const result = await syncDingtalkDepartments();
+        console.log('[Scheduler] 钉钉部门同步完成:', result);
+      } catch (error) {
+        console.error('[Scheduler] 钉钉部门同步失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // 钉钉全量用户同步 - 每天 07:00（在部门同步之后）
+  cron.schedule(
+    '0 7 * * *',
+    async () => {
+      console.log('[Scheduler] 执行钉钉全量用户同步...');
+      try {
+        const result = await fullSyncDingtalkUsers();
+        console.log('[Scheduler] 钉钉全量用户同步完成:', result);
+      } catch (error) {
+        console.error('[Scheduler] 钉钉全量用户同步失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // 钉钉增量用户同步 - 每4小时
+  cron.schedule(
+    '0 */4 * * *',
+    async () => {
+      console.log('[Scheduler] 执行钉钉增量用户同步...');
+      try {
+        const result = await incrementalSyncDingtalkUsers();
+        console.log('[Scheduler] 钉钉增量用户同步完成:', result);
+      } catch (error) {
+        console.error('[Scheduler] 钉钉增量用户同步失败:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   console.log('[Scheduler] 定时任务已注册:');
   console.log('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
   console.log('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
@@ -320,6 +387,10 @@ export function startScheduler(): void {
   console.log('  - 营业执照补交提醒: 每天 09:00 (Asia/Shanghai)');
   console.log('  - 营业执照补交逾期+考核: 每天 09:15 (Asia/Shanghai)');
   console.log('  - 采购绩效月度存档: 每月1号 01:00 (Asia/Shanghai)');
+  console.log('  - Token 管理检查: 每5分钟 (Asia/Shanghai)');
+  console.log('  - 钉钉部门同步: 每天 06:00 (Asia/Shanghai)');
+  console.log('  - 钉钉全量用户同步: 每天 07:00 (Asia/Shanghai)');
+  console.log('  - 钉钉增量用户同步: 每4小时 (Asia/Shanghai)');
   console.log('[Scheduler] 定时任务调度器启动完成');
 }
 

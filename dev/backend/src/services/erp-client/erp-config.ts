@@ -18,7 +18,6 @@ export function getErpConfig(): ErpApiConfig {
     const erpApi = (config as any).erpApi;
     _erpConfig = {
       baseUrl: erpApi?.baseUrl || 'https://portal.zhoupudata.com',
-      tokenUrl: erpApi?.tokenUrl || '',
       cid: erpApi?.cid || '10008421',
       uid: erpApi?.uid || '1',
       timeout: erpApi?.timeout || 10000,
@@ -48,11 +47,6 @@ export function getErpConfig(): ErpApiConfig {
       batchInventoryPathPrefix: erpApi?.batchInventoryPathPrefix || '/toliman/',
       wmsBaseUrl: erpApi?.wmsBaseUrl || 'https://wms.zhoupudata.com',
     };
-
-    // 开发环境警告
-    if (!_erpConfig.tokenUrl && process.env.NODE_ENV === 'development') {
-      console.warn('[ERP] tokenUrl 未配置，ERP 集成功能可能不可用');
-    }
   }
   return _erpConfig;
 }
