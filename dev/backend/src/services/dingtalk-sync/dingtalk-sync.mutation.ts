@@ -82,7 +82,7 @@ export async function syncDepartments(): Promise<DeptSyncResult> {
  */
 export async function syncUsers(): Promise<SyncStats> {
   console.log('[DingtalkSync] 开始全量用户同步...');
-  const stats: SyncStats = { created: 0, updated: 0, disabled: 0, unchanged: 0, errors: 0 };
+  const stats: SyncStats = { created: 0, updated: 0, disabled: 0, unchanged: 0, errors: 0 }; // disabled 始终为 0，离职由 Stream 事件处理
 
   // 1. 先同步部门，确保部门数据是最新的
   await syncDepartments();
@@ -142,9 +142,7 @@ export async function syncUsers(): Promise<SyncStats> {
     }
   }
 
-  // 6. 处理离职用户（在钉钉中不存在的活跃用户）
-  const disabledCount = await disableDepartedUsers(allDingtalkUserIds);
-  stats.disabled = disabledCount;
+  // 离职检测已由钉钉 Stream 事件驱动实时处理，定期同步不再执行
 
   console.log(`[DingtalkSync] 用户同步完成:`, stats);
   return stats;
@@ -156,7 +154,7 @@ export async function syncUsers(): Promise<SyncStats> {
  */
 export async function syncUsersByDept(deptId: string): Promise<SyncStats> {
   console.log(`[DingtalkSync] 开始按部门同步用户, deptId=${deptId}`);
-  const stats: SyncStats = { created: 0, updated: 0, disabled: 0, unchanged: 0, errors: 0 };
+  const stats: SyncStats = { created: 0, updated: 0, disabled: 0, unchanged: 0, errors: 0 }; // disabled 始终为 0，离职由 Stream 事件处理
 
   const localDepts = await getAllLocalDepts();
   const localUsers = await getAllLocalDingtalkUsers();
@@ -202,7 +200,7 @@ export async function syncUsersByDept(deptId: string): Promise<SyncStats> {
  */
 export async function incrementalSyncUsers(): Promise<SyncStats> {
   console.log('[DingtalkSync] 开始增量用户同步...');
-  const stats: SyncStats = { created: 0, updated: 0, disabled: 0, unchanged: 0, errors: 0 };
+  const stats: SyncStats = { created: 0, updated: 0, disabled: 0, unchanged: 0, errors: 0 }; // disabled 始终为 0，离职由 Stream 事件处理
 
   // 先同步部门
   await syncDepartments();
@@ -210,7 +208,7 @@ export async function incrementalSyncUsers(): Promise<SyncStats> {
   const localDepts = await getAllLocalDepts();
   const localUsers = await getAllLocalDingtalkUsers();
 
-  // 获取所有钉钉用户ID集合（用于离职检测）
+  // 获取所有钉钉用户ID集合（用于增量同步遍历）
   const allDingtalkUserIds = new Set<string>();
   const deptIds = Array.from(localDepts.keys());
 
@@ -224,6 +222,10 @@ export async function incrementalSyncUsers(): Promise<SyncStats> {
       console.error(`[DingtalkSync] 获取部门 ${deptIdStr} 用户列表失败:`, error.message);
     }
   }
+
+  // 诊断日志：部门遍历结果汇总
+  const activeLocalCount = Array.from(localUsers.values()).filter(u => u.status === 1).length;
+  console.log(`[DingtalkSync] 部门遍历完成: 部门数=${deptIds.length}, 钉钉用户ID总数=${allDingtalkUserIds.size}, 本地活跃用户数=${activeLocalCount}`);
 
   // 增量模式：仅对需要更新的用户获取详情
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -266,9 +268,7 @@ export async function incrementalSyncUsers(): Promise<SyncStats> {
     }
   }
 
-  // 离职检测
-  const disabledCount = await disableDepartedUsers(allDingtalkUserIds);
-  stats.disabled = disabledCount;
+  // 离职检测已由钉钉 Stream 事件驱动实时处理，定期同步不再执行
 
   console.log(`[DingtalkSync] 增量同步完成:`, stats);
   return stats;
@@ -413,22 +413,25 @@ async function syncUserDepartments(
  * 更新同步时间戳（用户无变更时调用）
  */
 async function updateSyncTimestamp(userId: number): Promise<void> {
-  await getAppClient().then(async (client) => {
-    try {
-      await client.query(
-        'UPDATE users SET dingtalk_last_synced_at = NOW() WHERE id = $1',
-        [userId]
-      );
-    } finally {
-      client.release();
-    }
-  });
+  const client = await getAppClient();
+  try {
+    await client.query(
+      'UPDATE users SET dingtalk_last_synced_at = NOW() WHERE id = $1',
+      [userId]
+    );
+  } finally {
+    client.release();
+  }
 }
 
 /**
  * 禁用离职用户
  * 本地活跃用户中，dingtalk_user_id 不在钉钉返回集合中的设为禁用
  * 返回禁用数量
+ *
+ * @deprecated 离职检测已由钉钉 Stream 事件驱动（user_leave_org）实时处理，
+ * 定期同步不再调用此函数，避免 API 异常时误禁用户。
+ * 保留代码以备特殊场景需要手动调用。
  */
 async function disableDepartedUsers(dingtalkUserIds: Set<string>): Promise<number> {
   if (dingtalkUserIds.size === 0) return 0;
@@ -450,6 +453,9 @@ async function disableDepartedUsers(dingtalkUserIds: Set<string>): Promise<numbe
           toDisable.push(row.id);
         }
       }
+
+      // 诊断日志：离职检测结果
+      console.log(`[DingtalkSync] 离职检测: 本地活跃=${activeUsers.rows.length}, 钉钉返回=${dingtalkUserIds.size}, 待禁用=${toDisable.length} 人, IDs=[${toDisable.join(',')}]`);
 
       if (toDisable.length === 0) return 0;
 

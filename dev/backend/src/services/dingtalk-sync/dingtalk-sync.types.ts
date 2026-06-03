@@ -26,7 +26,11 @@ export interface DingtalkUserListItem {
   name: string;
 }
 
-/** 同步统计 */
+/**
+ * 同步统计
+ * 注意：disabled 字段保留用于接口兼容，定期同步不再执行离职检测，
+ * 该值始终为 0。离职禁用已由 Stream 事件 (user_leave_org) 实时处理。
+ */
 export interface SyncStats {
   created: number;
   updated: number;
