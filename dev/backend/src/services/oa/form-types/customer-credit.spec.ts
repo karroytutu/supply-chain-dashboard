@@ -25,4 +25,10 @@ describe('customerCreditFormType', () => {
     expect(creditTypeField).toBeDefined();
     expect(creditTypeField!.required).toBe(true);
   });
+
+  it('customer 字段 nameField 使用 _ 前缀，确保 form.validateFields() 可返回', () => {
+    const field = fields.find(f => f.key === 'customer');
+    expect(field).toBeDefined();
+    expect(field!.nameField).toBe('_customerName');
+  });
 });

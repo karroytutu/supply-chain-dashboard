@@ -9,6 +9,7 @@ import ErpNameDisplay from './ErpNameDisplay';
 import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
 import { renderCellValue } from './cellValueRenderer';
 import PhotoFieldDisplay from './PhotoFieldDisplay';
+import { resolveStoredName } from './utils/resolveStoredName';
 import styles from './FormFieldRenderer.less';
 
 const { Text } = Typography;
@@ -97,11 +98,9 @@ const FieldRenderer: React.FC<{
     case 'erp_grade':
     case 'erp_group':
     case 'erp_area': {
-      // 第一优先级：formData 中已存储的名称（nameField）
-      if (field.nameField && formData?.[field.nameField]) {
-        const storedName = String(formData[field.nameField]).trim();
-        if (storedName) return <Text>{storedName}</Text>;
-      }
+      // 第一优先级：formData 中已存储的名称（nameField，含 _ 前缀变体兜底）
+      const storedName = resolveStoredName(field.nameField, formData);
+      if (storedName) return <Text>{storedName}</Text>;
       // 第二优先级：批量预解析结果
       if (field.searchApi) {
         const erpType = ERP_SEARCH_API_MAP[field.searchApi];
@@ -155,18 +154,16 @@ const FieldRenderer: React.FC<{
           /* JSON 解析失败，降级到下方逻辑 */
         }
       }
-      // 第二优先级：nameField（旧数据，纯文本名称）
-      if (field.nameField && formData?.[field.nameField]) {
-        const storedNames = String(formData[field.nameField]).trim();
-        if (storedNames) {
-          return (
-            <div>
-              {storedNames.split(', ').map((name, i) => (
-                <Tag key={i}>{name}</Tag>
-              ))}
-            </div>
-          );
-        }
+      // 第二优先级：nameField（旧数据，纯文本名称，含 _ 前缀变体兜底）
+      const storedSettlementNames = resolveStoredName(field.nameField, formData);
+      if (storedSettlementNames) {
+        return (
+          <div>
+            {storedSettlementNames.split(', ').map((name, i) => (
+              <Tag key={i}>{name}</Tag>
+            ))}
+          </div>
+        );
       }
       // 第三优先级：resolvedMap / ErpNameDisplay（兜底）
       const settlementParams = formData?.customer

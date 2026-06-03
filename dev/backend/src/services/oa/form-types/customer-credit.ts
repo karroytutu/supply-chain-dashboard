@@ -19,7 +19,7 @@ export const customerCreditFormType: FormTypeDefinition = {
   category: 'finance',
   sortOrder: 110,
   description: '申请客户授信，包括账期、滚单、压单',
-  version: 6,
+  version: 7,
 
   formSchema: {
     fields: [
@@ -30,11 +30,11 @@ export const customerCreditFormType: FormTypeDefinition = {
         type: 'erp_customer',
         required: true,
         searchApi: 'erp_customers',
-        nameField: 'customerName',
+        nameField: '_customerName',
         autoFill: {
           contactName: 'contactName',
           contactTel: 'contactTel',
-          customerName: 'name',
+          // 客户名称由 nameField 机制自动写入 _customerName，无需 autoFill
         },
       },
       // 联系人（自动填充，只读）

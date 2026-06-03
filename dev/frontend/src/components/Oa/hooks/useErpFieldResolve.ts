@@ -8,6 +8,7 @@ import type { FormSchema, FormField } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import type { ErpReferenceType } from '@/services/api/oa';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
+import { resolveStoredName } from '../utils/resolveStoredName';
 
 /** ERP 类型字段类型列表 */
 const ERP_FIELD_TYPES = new Set([
@@ -58,16 +59,14 @@ export function useErpFieldResolve(
         // table children 场景：从每行数据中提取
         if (parentRows) {
           for (const row of parentRows) {
-            // 第一优先级：nameField 对应行中已有名称
-            if (field.nameField) {
-              const storedName = row[field.nameField];
-              if (storedName && String(storedName).trim()) {
-                const id = row[field.key];
-                if (id != null) {
-                  newMap[`${erpType}:${id}`] = String(storedName);
-                }
-                continue;
+            // 第一优先级：nameField 对应行中已有名称（含 _ 前缀变体兜底）
+            const storedName = resolveStoredName(field.nameField, row);
+            if (storedName) {
+              const id = row[field.key];
+              if (id != null) {
+                newMap[`${erpType}:${id}`] = storedName;
               }
+              continue;
             }
 
             const rawValue = row[field.key];
@@ -82,15 +81,28 @@ export function useErpFieldResolve(
         }
 
         // 顶层字段场景
-        // 第一优先级：nameField 对应的 formData 中已有名称
-        if (field.nameField) {
-          const storedName = formData[field.nameField];
-          if (storedName && String(storedName).trim()) {
-            const id = formData[field.key];
-            if (id != null) {
-              newMap[`${erpType}:${id}`] = String(storedName);
+        // 第一优先级：nameField 对应的 formData 中已有名称（含 _ 前缀变体兜底）
+        const storedName = resolveStoredName(field.nameField, formData);
+        if (storedName) {
+          const id = formData[field.key];
+          if (id != null) {
+            newMap[`${erpType}:${id}`] = storedName;
+          }
+          continue;
+        }
+
+        // 第二优先级：detailsField 存在且数据可解析时，渲染器可自行渲染，跳过 resolve
+        if (field.detailsField) {
+          const detailsValue = formData[field.detailsField];
+          if (detailsValue) {
+            try {
+              const parsed = JSON.parse(String(detailsValue));
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                continue; // detailsField 数据完整，无需 resolve
+              }
+            } catch {
+              /* JSON 解析失败，降级到下方的 ID 解析逻辑 */
             }
-            continue;
           }
         }
 
