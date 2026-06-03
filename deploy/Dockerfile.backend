@@ -17,13 +17,17 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
 WORKDIR /app
 
 # 依赖层（仅在 package.json 变动时失效）
+# 使用 npmmirror 国内镜像加速
 COPY dev/backend/package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm ci --omit=dev && npm cache clean --force
 
 # Playwright 浏览器层（独立缓存，代码变动不触发重装）
 # 仅安装 Chromium（比 Firefox 轻量，约 300MB vs 500MB）
 # 使用 /app/.cache 而非 /root/.cache，确保 gosu 降权后 nodejs 用户可访问
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.cache/ms-playwright
+# Playwright 国内镜像源（阿里云 CDN）
+ENV PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright
 RUN npx playwright install-deps chromium && \
     npx playwright install chromium && \
     chown -R nodejs:nodejs /app/.cache
