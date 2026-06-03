@@ -457,21 +457,6 @@ export interface OaActionRow {
   action_at: Date;
 }
 
-/**
- * oa_in_app_messages 表行
- */
-export interface OaInAppMessageRow {
-  id: number;
-  user_id: number;
-  type: 'approval_pending' | 'cc' | 'result';
-  title: string;
-  content: string | null;
-  instance_id: number | null;
-  is_read: boolean;
-  read_at: Date | null;
-  created_at: Date;
-}
-
 // =====================================================
 // API 请求/响应类型
 // =====================================================
@@ -542,20 +527,4 @@ export interface ApprovalStats {
   processed: number;
   my: number;
   cc: number;
-}
-
-/**
- * 站内消息类型
- */
-export type InAppMessageType = 'approval_pending' | 'cc' | 'result' | 'license_reminder';
-
-/**
- * 创建站内消息参数
- */
-export interface CreateMessageParams {
-  userId: number;
-  type: InAppMessageType;
-  title: string;
-  content?: string;
-  instanceId?: number;
 }

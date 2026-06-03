@@ -119,12 +119,6 @@ export default defineConfig({
       access: PERMISSIONS.ASSESSMENT.READ,
     },
     {
-      path: '/oa/quick-action',
-      component: '@/pages/Oa/QuickAction',
-      name: '快速处理',
-      hideInMenu: true,
-    },
-    {
       path: '/oa',
       name: 'OA系统',
       icon: 'AuditOutlined',

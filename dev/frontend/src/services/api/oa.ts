@@ -14,7 +14,6 @@ import {
   ApprovalListParams,
   SubmitApprovalRequest,
   ApprovalActionRequest,
-  InAppMessage,
   ViewMode,
   ApprovalNode,
   ApprovalAction,
@@ -265,54 +264,6 @@ export async function markCcRead(instanceId: number): Promise<void> {
 }
 
 // =====================================================
-// Token快速操作接口（钉钉ActionCard按钮跳转使用，无需JWT）
-// =====================================================
-
-/** Token验证结果 */
-export interface TokenValidationResult {
-  valid: boolean;
-  action?: string;
-  instanceId?: number;
-  instanceNo?: string;
-  title?: string;
-  formTypeName?: string;
-  instanceStatus?: string;
-}
-
-/**
- * 验证Token有效性
- */
-export async function validateActionToken(token: string): Promise<TokenValidationResult> {
-  const res = await fetch('/api/oa/validate-token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token }),
-  });
-  const result = await res.json();
-  return result.data;
-}
-
-/**
- * 通过Token执行审批操作
- */
-export async function executeActionByToken(
-  token: string,
-  action: 'approve' | 'reject',
-  comment?: string
-): Promise<{ status?: string }> {
-  const res = await fetch('/api/oa/action-by-token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, action, comment }),
-  });
-  const result = await res.json();
-  if (result.code !== 200) {
-    throw new Error(result.message || '操作失败');
-  }
-  return result.data;
-}
-
-// =====================================================
 // 数据管理接口
 // =====================================================
 
@@ -351,64 +302,6 @@ export async function exportData(
     { params }
   );
   return { data: res };
-}
-
-// =====================================================
-// 站内消息接口
-// =====================================================
-
-interface MessageListResponse {
-  data: InAppMessage[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
-/**
- * 获取站内消息列表
- */
-export async function getMessages(
-  page: number = 1,
-  pageSize: number = 20
-): Promise<{ data: InAppMessage[]; total: number }> {
-  const res = await request<MessageListResponse>('/oa/messages', {
-    params: { page, pageSize },
-  });
-  return { data: res.data, total: res.total };
-}
-
-/**
- * 获取未读消息数量
- */
-export async function getUnreadMessageCount(): Promise<{ count: number }> {
-  const res = await request<{ count: number }>(
-    '/oa/messages/unread-count'
-  );
-  return { count: res.count };
-}
-
-/**
- * 标记消息已读
- */
-export async function markMessageRead(messageId: number): Promise<void> {
-  await request<{ success: boolean; message: string }>(
-    `/oa/messages/${messageId}/read`,
-    {
-      method: 'POST',
-    }
-  );
-}
-
-/**
- * 标记所有消息已读
- */
-export async function markAllMessagesRead(): Promise<void> {
-  await request<{ success: boolean; message: string }>(
-    '/oa/messages/read-all',
-    {
-      method: 'POST',
-    }
-  );
 }
 
 // =====================================================
@@ -659,10 +552,6 @@ export const oaApi = {
   withdraw,
   getDataList,
   exportData,
-  getMessages,
-  getUnreadMessageCount,
-  markMessageRead,
-  markAllMessagesRead,
   getErpReference,
   resolveErpNames,
   retryErpOperation,

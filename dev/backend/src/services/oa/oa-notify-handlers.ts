@@ -1,80 +1,34 @@
 /**
  * OA - 通知处理函数
  * @module services/oa/oa-notify-handlers
+ *
+ * 通知通道说明：
+ * - 待处理/转交/加签场景：仅创建钉钉流程中心待办（不再发送 ActionCard 工作通知）
+ * - 通过/拒绝/撤回/抄送场景：发送 OA 消息工作通知（主动弹窗告知结果）
  */
 
 import {
   NotifyParams,
-  createInAppMessage,
-  createInAppMessages,
   getDingtalkUserIds,
-  buildUserIdToDingtalkIdMap,
   toDingtalkParams,
   saveTaskMapping,
-  updateInstanceNotificationStatus,
 } from './oa-notify';
 import {
-  buildPendingActionCard,
   buildResultOaMessage,
   buildCcOaMessage,
-  buildTransferActionCard,
-  sendPendingNotification,
   sendResultNotification,
   sendCcNotification,
 } from './oa-dingtalk';
 import { createApprovalTodo } from './oa-process-centre';
-import { OA_DINGTALK_STATUS } from '../../utils/constants';
 
-/** 发送待处理通知（ActionCard + 双按钮） */
+/** 发送待处理通知（仅流程中心待办） */
 export async function notifyPendingApproval(
   params: NotifyParams,
   approverIds: number[]
 ): Promise<void> {
   const { instanceId, instanceNo, title, formTypeName, applicantName } = params;
 
-  await createInAppMessages(
-    approverIds.map((userId) => ({
-      userId,
-      type: 'approval_pending' as const,
-      title: `待处理：${title}`,
-      content: `${applicantName} 提交的 ${formTypeName} 需要您处理`,
-      instanceId,
-    }))
-  );
-
-  const dingtalkUserIds = await getDingtalkUserIds(approverIds);
-  if (dingtalkUserIds.length === 0) {
-    // 工作通知跳过，但待办仍可尝试创建
-    for (const approverId of approverIds) {
-      try {
-        await createApprovalTodo(
-          instanceId, instanceNo, title, formTypeName, applicantName,
-          approverId, params.formSchema, params.formData, params.nodeOrder,
-        );
-      } catch (error) {
-        console.error('[ProcessCentre] 创建钉钉待办失败:', error);
-      }
-    }
-    return;
-  }
-
-  const userIdToDingtalkId = await buildUserIdToDingtalkIdMap(approverIds);
-
   for (const approverId of approverIds) {
-    const dingtalkId = userIdToDingtalkId.get(approverId);
-
-    // 现有工作通知（保持不变）
-    if (dingtalkId) {
-      try {
-        const actionCard = await buildPendingActionCard(toDingtalkParams(params), approverId);
-        const taskId = await sendPendingNotification([dingtalkId], actionCard, instanceId, instanceNo);
-        await saveTaskMapping(instanceId, taskId, [approverId], 'pending');
-      } catch (error) {
-        console.error('Failed to send pending ActionCard notification:', error);
-      }
-    }
-
-    // 创建钉钉待办（独立 try-catch，不影响工作通知）
     try {
       await createApprovalTodo(
         instanceId, instanceNo, title, formTypeName, applicantName,
@@ -91,15 +45,7 @@ export async function notifyApproved(
   params: NotifyParams,
   applicantId: number
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName, applicantName } = params;
-
-  await createInAppMessage({
-    userId: applicantId,
-    type: 'result',
-    title: `已通过：${title}`,
-    content: `您提交的 ${formTypeName} 已通过`,
-    instanceId,
-  });
+  const { instanceId, instanceNo, title, formTypeName } = params;
 
   const dingtalkUserIds = await getDingtalkUserIds([applicantId]);
   if (dingtalkUserIds.length > 0) {
@@ -111,9 +57,6 @@ export async function notifyApproved(
       console.error('Failed to send approved OA notification:', error);
     }
   }
-
-  const statusConfig = OA_DINGTALK_STATUS.APPROVED;
-  await updateInstanceNotificationStatus(instanceId, statusConfig.value, statusConfig.bg);
 }
 
 /** 发送审批拒绝通知 */
@@ -123,15 +66,7 @@ export async function notifyRejected(
   reason: string,
   rejectUserName: string
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName } = params;
-
-  await createInAppMessage({
-    userId: applicantId,
-    type: 'result',
-    title: `审批被拒绝：${title}`,
-    content: `${rejectUserName} 拒绝了您提交的 ${formTypeName}。原因：${reason}`,
-    instanceId,
-  });
+  const { instanceId, instanceNo } = params;
 
   const dingtalkUserIds = await getDingtalkUserIds([applicantId]);
   if (dingtalkUserIds.length > 0) {
@@ -144,36 +79,14 @@ export async function notifyRejected(
       console.error('Failed to send rejected OA notification:', error);
     }
   }
-
-  const statusConfig = OA_DINGTALK_STATUS.REJECTED;
-  await updateInstanceNotificationStatus(instanceId, statusConfig.value, statusConfig.bg);
 }
 
-/** 发送转交通知 */
+/** 发送转交通知（仅流程中心待办） */
 export async function notifyTransferred(
   params: NotifyParams,
   newApproverId: number
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName, applicantName, fromUserName } = params;
-
-  await createInAppMessage({
-    userId: newApproverId,
-    type: 'approval_pending',
-    title: `转交待处理：${title}`,
-    content: `${fromUserName} 将 ${applicantName} 提交的 ${formTypeName} 转交给您处理`,
-    instanceId,
-  });
-
-  const dingtalkUserIds = await getDingtalkUserIds([newApproverId]);
-  if (dingtalkUserIds.length > 0) {
-    try {
-      const actionCard = await buildTransferActionCard(toDingtalkParams(params), newApproverId);
-      const taskId = await sendPendingNotification(dingtalkUserIds, actionCard, instanceId, instanceNo);
-      await saveTaskMapping(instanceId, taskId, [newApproverId], 'pending');
-    } catch (error) {
-      console.error('Failed to send transfer ActionCard notification:', error);
-    }
-  }
+  const { instanceId, instanceNo, title, formTypeName, applicantName } = params;
 
   // 为被转交人创建钉钉待办
   try {
@@ -186,40 +99,14 @@ export async function notifyTransferred(
   }
 }
 
-/** 发送加签通知 */
+/** 发送加签通知（仅流程中心待办） */
 export async function notifyCountersign(
   params: NotifyParams,
   countersignerIds: number[]
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName, applicantName, fromUserName } = params;
-
-  await createInAppMessages(
-    countersignerIds.map((userId) => ({
-      userId,
-      type: 'approval_pending' as const,
-      title: `加签待处理：${title}`,
-      content: `${fromUserName} 邀请您加签 ${applicantName} 提交的 ${formTypeName}`,
-      instanceId,
-    }))
-  );
-
-  const userIdToDingtalkId = await buildUserIdToDingtalkIdMap(countersignerIds);
+  const { instanceId, instanceNo, title, formTypeName, applicantName } = params;
 
   for (const countersignerId of countersignerIds) {
-    const dingtalkId = userIdToDingtalkId.get(countersignerId);
-
-    // 现有工作通知
-    if (dingtalkId) {
-      try {
-        const actionCard = await buildPendingActionCard(toDingtalkParams(params), countersignerId);
-        const taskId = await sendPendingNotification([dingtalkId], actionCard, instanceId, instanceNo);
-        await saveTaskMapping(instanceId, taskId, [countersignerId], 'pending');
-      } catch (error) {
-        console.error('Failed to send countersign ActionCard notification:', error);
-      }
-    }
-
-    // 为加签人创建钉钉待办
     try {
       await createApprovalTodo(
         instanceId, instanceNo, title, formTypeName, applicantName,
@@ -236,17 +123,7 @@ export async function notifyWithdrawn(
   params: NotifyParams,
   approverIds: number[]
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName, applicantName } = params;
-
-  await createInAppMessages(
-    approverIds.map((userId) => ({
-      userId,
-      type: 'result' as const,
-      title: `审批已撤回：${title}`,
-      content: `${applicantName} 撤回了提交的 ${formTypeName}`,
-      instanceId,
-    }))
-  );
+  const { instanceId, instanceNo } = params;
 
   const dingtalkUserIds = await getDingtalkUserIds(approverIds);
   if (dingtalkUserIds.length > 0) {
@@ -258,9 +135,6 @@ export async function notifyWithdrawn(
       console.error('Failed to send withdrawn OA notification:', error);
     }
   }
-
-  const statusConfig = OA_DINGTALK_STATUS.WITHDRAWN;
-  await updateInstanceNotificationStatus(instanceId, statusConfig.value, statusConfig.bg);
 }
 
 /** 发送抄送通知 */
@@ -268,17 +142,7 @@ export async function notifyCc(
   params: NotifyParams,
   ccUserIds: number[]
 ): Promise<void> {
-  const { instanceId, instanceNo, title, formTypeName, applicantName } = params;
-
-  await createInAppMessages(
-    ccUserIds.map((userId) => ({
-      userId,
-      type: 'cc' as const,
-      title: `抄送：${title}`,
-      content: `${applicantName} 提交的 ${formTypeName} 已抄送给您`,
-      instanceId,
-    }))
-  );
+  const { instanceId, instanceNo } = params;
 
   const dingtalkUserIds = await getDingtalkUserIds(ccUserIds);
   if (dingtalkUserIds.length > 0) {

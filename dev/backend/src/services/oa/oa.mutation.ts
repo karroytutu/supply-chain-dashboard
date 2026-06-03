@@ -4,6 +4,8 @@
  * @module services/oa/oa.mutation
  */
 
+import { appQuery as query } from '../../db/appPool';
+
 // 提交审批
 export { submitApproval } from './mutations/submit-approval';
 
@@ -16,5 +18,12 @@ export { rejectApproval, transferApproval } from './mutations/reject-transfer';
 // 加签 + 撤回
 export { countersignApproval, withdrawApproval } from './mutations/countersign-withdraw';
 
-// 站内消息操作
-export { markMessageRead, markAllMessagesRead, markCcRead } from './mutations/message-operations';
+/**
+ * 标记抄送已读
+ */
+export async function markCcRead(instanceId: number, userId: number): Promise<void> {
+  await query(
+    `UPDATE oa_approval_cc SET read_at = NOW() WHERE instance_id = $1 AND user_id = $2`,
+    [instanceId, userId]
+  );
+}
