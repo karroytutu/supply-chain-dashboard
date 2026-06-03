@@ -6,11 +6,10 @@ FROM node:20-bookworm-slim
 # 基础系统层（极少变动，永久缓存命中）
 # 1. 换阿里云镜像源
 # 2. 安装 gosu（entrypoint 以 root 修权后降权到 nodejs 使用）
-# 3. 安装 curl、unzip（用于从 Google Storage 下载 Chromium）
-# 4. 创建非 root 用户 nodejs
+# 3. 创建非 root 用户 nodejs
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
     apt-get update && \
-    apt-get install -y --no-install-recommends gosu ca-certificates curl unzip && \
+    apt-get install -y --no-install-recommends gosu ca-certificates && \
     addgroup --gid 1001 --system nodejs && \
     adduser --uid 1001 --system --ingroup nodejs nodejs && \
     rm -rf /var/lib/apt/lists/*
@@ -23,19 +22,14 @@ COPY dev/backend/package*.json ./
 RUN npm config set registry https://registry.npmmirror.com && \
     npm ci --omit=dev && npm cache clean --force
 
-# Playwright 浏览器层（独立缓存，代码变动不触发重装）
-# 仅安装 Chromium（比 Firefox 轻量，约 300MB vs 500MB）
-# 使用 /app/.cache 而非 /root/.cache，确保 gosu 降权后 nodejs 用户可访问
-# 策略：
-#   - install-deps：从阿里云 apt 安装系统依赖
-#   - 跳过 CDN 下载（国内访问慢），改为从 Google Storage 直接下载 Chromium
-ENV PLAYWRIGHT_BROWSERS_PATH=/app/.cache/ms-playwright
+# Playwright 浏览器层（使用系统 Chromium，不下载内置浏览器）
+# 通过 apt 安装 chromium（阿里云源，几秒钟）
+# 代码中通过 channel: 'chromium' 使用系统 Chromium，无需 Playwright 内置下载
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npx playwright install-deps chromium && \
-    curl -fsSL "https://storage.googleapis.com/chrome-for-testing-public/148.0.7778.96/linux64/chrome-linux64.zip" -o /tmp/chrome.zip && \
-    mkdir -p $PLAYWRIGHT_BROWSERS_PATH/chromium-1223 && \
-    unzip -q /tmp/chrome.zip -d $PLAYWRIGHT_BROWSERS_PATH/chromium-1223/ && \
-    rm -f /tmp/chrome.zip && \
-    chown -R nodejs:nodejs /app/.cache
+    apt-get update && \
+    apt-get install -y --no-install-recommends chromium && \
+    rm -rf /var/lib/apt/lists/*
 
 # 代码层（频繁变动，放最后，避免影响上游缓存）
 COPY --chown=nodejs:nodejs prod/backend/dist ./dist

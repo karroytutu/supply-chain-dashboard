@@ -18,6 +18,9 @@ dev/backend/dingtalk-oapi/
 prod/
 prod.backup/
 
+# 部署脚本备份目录（deploy.sh --backup 自动生成）
+backup_*/
+
 # 环境配置（敏感信息）
 dev/backend/.env.development
 dev/backend/.env.production

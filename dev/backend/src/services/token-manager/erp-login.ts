@@ -64,6 +64,8 @@ async function startBrowser(): Promise<boolean> {
 
     _browser = await chromium.launch({
       headless: true,
+      // 使用系统安装的 Chromium（apt 安装，比 Playwright 内置下载更快更稳定）
+      channel: 'chromium',
       args: [
         '--disable-blink-features=AutomationControlled',
         '--disable-dev-shm-usage',
