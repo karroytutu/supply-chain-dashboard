@@ -5,7 +5,9 @@
 # 选项:
 #   --skip-build    跳过构建步骤，仅重启容器
 #   --backup        部署前创建备份
-#   --rebuild       强制重新构建 Docker 镜像（不使用缓存）
+#
+# 缓存策略：脚本自动检测 Dockerfile / docker-compose.yml / package.json
+# 是否变更，自动决定是否启用 --no-cache，无需手动干预。
 
 set -e
 
@@ -43,10 +45,6 @@ for arg in "$@"; do
             CREATE_BACKUP=true
             shift
             ;;
-        --rebuild)
-            NO_CACHE="--no-cache"
-            shift
-            ;;
     esac
 done
 
@@ -57,6 +55,55 @@ DEPLOY_DIR="$PROJECT_ROOT/deploy"
 
 log_info "项目路径: $PROJECT_ROOT"
 log_info "部署配置目录: $DEPLOY_DIR"
+
+# ========== 构建缓存自动检测 ==========
+
+BUILD_CACHE_KEY_FILE="$DEPLOY_DIR/.build-cache-key"
+
+# 计算构建缓存 key（对 Dockerfile、compose、package.json 计算联合 md5）
+compute_build_cache_key() {
+    local files=(
+        "$PROJECT_ROOT/deploy/Dockerfile.backend"
+        "$PROJECT_ROOT/deploy/Dockerfile.frontend"
+        "$PROJECT_ROOT/deploy/docker-compose.yml"
+        "$PROJECT_ROOT/dev/backend/package.json"
+        "$PROJECT_ROOT/dev/frontend/package.json"
+    )
+    cat "${files[@]}" 2>/dev/null | md5sum | awk '{print $1}'
+}
+
+# 自动检测关键文件是否变更，决定是否需要 --no-cache
+auto_detect_rebuild() {
+    local current_key
+    current_key=$(compute_build_cache_key)
+
+    if [ ! -f "$BUILD_CACHE_KEY_FILE" ]; then
+        log_info "首次部署，自动启用 --no-cache 构建基础镜像层"
+        NO_CACHE="--no-cache"
+        return
+    fi
+
+    local saved_key
+    saved_key=$(cat "$BUILD_CACHE_KEY_FILE" 2>/dev/null || echo "")
+
+    if [ "$current_key" != "$saved_key" ]; then
+        log_info "检测到 Dockerfile/package.json 变更，自动启用 --no-cache"
+        NO_CACHE="--no-cache"
+    else
+        log_info "Dockerfile/package.json 未变更，复用 Docker 构建缓存"
+    fi
+}
+
+# 保存构建缓存 key
+save_build_cache_key() {
+    local current_key
+    current_key=$(compute_build_cache_key)
+    echo "$current_key" > "$BUILD_CACHE_KEY_FILE"
+    log_info "构建缓存 key 已保存"
+}
+
+# 执行自动检测
+auto_detect_rebuild
 
 # 切换到项目根目录
 cd "$PROJECT_ROOT"
@@ -340,6 +387,7 @@ log_info "执行健康检查..."
 
 if [ $? -eq 0 ]; then
     log_info "部署成功!"
+    save_build_cache_key
     # 清理备份
     rm -rf prod.backup 2>/dev/null || true
 else

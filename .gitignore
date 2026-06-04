@@ -47,6 +47,9 @@ __MACOSX/
 *.tmp
 *.temp
 
+# Docker 构建缓存 key（自动生成）
+deploy/.build-cache-key
+
 # 测试覆盖率
 coverage/
 
