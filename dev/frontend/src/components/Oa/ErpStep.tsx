@@ -5,6 +5,7 @@ import type { ErpMeta } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import { ERP_STATUS_CONFIG } from './flow-types';
 import styles from './ApprovalFlow.less';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 /** 获取 ERP 节点图标 */
 function getErpStepIcon(status: string) {
@@ -28,8 +29,8 @@ const ErpStep: React.FC<{ erpMeta: ErpMeta; instanceId?: number }> = ({ erpMeta,
     try {
       await oaApi.retryErpOperation(instanceId);
       message.success('ERP重试已触发，请稍后刷新查看');
-    } catch (err: any) {
-      message.error(err.message || '重试失败');
+    } catch (err) {
+      message.error(getErrorMessage(err) || '重试失败');
     } finally {
       setRetrying(false);
     }

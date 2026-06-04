@@ -4,10 +4,7 @@
  */
 
 import { appQuery as query } from '../../db/appPool';
-import type {
-  WorkflowNodeDef,
-  FormTypeDefinition,
-} from './oa.types';
+import type { WorkflowNodeDef } from './oa.types';
 import { checkCondition } from './oa-form-utils';
 
 // =====================================================
@@ -84,5 +81,5 @@ export async function findUserIdsByRoleCodes(roleCodes: string[]): Promise<numbe
     [roleCodes]
   );
 
-  return result.rows.map((row) => row.user_id);
+  return result.rows.map(row => row.user_id);
 }

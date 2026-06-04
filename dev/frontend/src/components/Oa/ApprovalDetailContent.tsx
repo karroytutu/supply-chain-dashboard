@@ -83,7 +83,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
           await onReject(actionComment);
           break;
         case 'transfer':
-          await onTransfer(transferUserId!, actionComment);
+          if (transferUserId) await onTransfer(transferUserId, actionComment);
           break;
       }
       setActionModalVisible(false);

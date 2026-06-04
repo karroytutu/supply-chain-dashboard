@@ -66,7 +66,15 @@ export async function sendCollectionNotice(
     [taskId, params.description || null, params.attachment_url, operator.id]
   );
 
-  await logAction(taskId, null, 'send_notice', 'success', params.description || '发送催收函', operator, params.attachment_url);
+  await logAction(
+    taskId,
+    null,
+    'send_notice',
+    'success',
+    params.description || '发送催收函',
+    operator,
+    params.attachment_url
+  );
   invalidateTaskCache(taskId);
   invalidateStatsCache();
 }
@@ -85,7 +93,15 @@ export async function fileLawsuit(
     [taskId, params.description, params.attachment_url || null, operator.id]
   );
 
-  await logAction(taskId, null, 'file_lawsuit', 'success', params.description, operator, params.attachment_url);
+  await logAction(
+    taskId,
+    null,
+    'file_lawsuit',
+    'success',
+    params.description,
+    operator,
+    params.attachment_url
+  );
   invalidateTaskCache(taskId);
   invalidateStatsCache();
 }
@@ -104,7 +120,15 @@ export async function updateLegalProgress(
     [taskId, params.description, params.attachment_url || null, operator.id]
   );
 
-  await logAction(taskId, null, 'update_progress', 'success', params.description, operator, params.attachment_url);
+  await logAction(
+    taskId,
+    null,
+    'update_progress',
+    'success',
+    params.description,
+    operator,
+    params.attachment_url
+  );
   invalidateTaskCache(taskId);
   invalidateStatsCache();
 }

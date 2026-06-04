@@ -7,8 +7,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Input, DatePicker, Select, Button, message } from 'antd';
 import { CloseOutlined, SearchOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import type { Handler } from './types';
 import type { StatusTab } from '../../hooks/useOverview';
 import SearchRow from './SearchRow';

@@ -54,7 +54,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
   const { isMobile } = useMedia();
   const selectedCount = selectedDetailIds.length;
 
-  const actionMenuItems = (record: CollectionDetail) => [
+  const actionMenuItems = (_record: CollectionDetail) => [
     { key: 'verify', label: '核销回款' },
     { key: 'extension', label: '申请延期' },
     { key: 'difference', label: '标记差异' },

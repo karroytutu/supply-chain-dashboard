@@ -2,12 +2,15 @@
  * 钉钉用户查询模块
  * 负责从钉钉API获取用户数据、本地用户查询及限流控制
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('DingtalkSync');
 
 import * as https from 'https';
 import * as crypto from 'crypto';
 import { getAccessToken, RETRYABLE_ERROR_CODES } from '../dingtalk.service';
 import { appQuery } from '../../db/appPool';
 import type { DingtalkSyncUserInfo, DingtalkUserListItem } from './dingtalk-sync.types';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 /** 请求间隔控制 */
 let lastRequestTime = 0;
@@ -32,9 +35,11 @@ async function oapiGet(path: string): Promise<any> {
       },
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', chunk => {
+        data += chunk;
+      });
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
@@ -43,13 +48,13 @@ async function oapiGet(path: string): Promise<any> {
             return;
           }
           resolve(result);
-        } catch (e) {
+        } catch (_e) {
           reject(new Error('解析钉钉响应失败: ' + data));
         }
       });
     });
 
-    req.on('error', (e) => reject(e));
+    req.on('error', e => reject(e));
     req.setTimeout(10000, () => {
       req.destroy(new Error('钉钉API请求超时'));
     });
@@ -75,9 +80,11 @@ async function oapiPost(path: string, body: object): Promise<any> {
       },
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', chunk => {
+        data += chunk;
+      });
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
@@ -86,13 +93,13 @@ async function oapiPost(path: string, body: object): Promise<any> {
             return;
           }
           resolve(result);
-        } catch (e) {
+        } catch (_e) {
           reject(new Error('解析钉钉响应失败: ' + data));
         }
       });
     });
 
-    req.on('error', (e) => reject(e));
+    req.on('error', e => reject(e));
     req.setTimeout(10000, () => {
       req.destroy(new Error('钉钉API请求超时'));
     });
@@ -105,10 +112,7 @@ async function oapiPost(path: string, body: object): Promise<any> {
  * 限流请求：确保请求间隔至少200ms
  * 遇到限流错误码时自动重试（指数退避）
  */
-async function rateLimitedRequest(
-  requestFn: () => Promise<any>,
-  maxRetries: number = 3
-): Promise<any> {
+async function rateLimitedRequest(requestFn: () => Promise<any>, maxRetries = 3): Promise<any> {
   const now = Date.now();
   const elapsed = now - lastRequestTime;
   if (elapsed < 200) {
@@ -126,11 +130,14 @@ async function rateLimitedRequest(
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error) {
       lastError = error;
       if (attempt < maxRetries) {
         const backoff = Math.min(1000 * Math.pow(2, attempt), 30000);
-        console.warn(`[DingtalkSync] 请求失败，${backoff}ms 后重试 (${attempt + 1}/${maxRetries}):`, error.message);
+        log.warn(
+          `请求失败，${backoff}ms 后重试 (${attempt + 1}/${maxRetries}):`,
+          getErrorMessage(error)
+        );
         await delay(backoff);
       }
     }
@@ -157,7 +164,7 @@ export async function fetchDingtalkUsersByDept(deptId: number): Promise<Dingtalk
     );
 
     if (result.errcode !== 0) {
-      console.error(`[DingtalkSync] 获取部门 ${deptId} 用户失败: errcode=${result.errcode}, errmsg=${result.errmsg}`);
+      log.error(`获取部门 ${deptId} 用户失败: errcode=${result.errcode}, errmsg=${result.errmsg}`);
       break;
     }
 
@@ -178,14 +185,16 @@ export async function fetchDingtalkUsersByDept(deptId: number): Promise<Dingtalk
  * 获取钉钉用户详细信息
  * 返回完整用户数据：姓名、头像、手机号、邮箱、部门列表、职位
  */
-export async function fetchDingtalkUserDetail(userId: string): Promise<DingtalkSyncUserInfo | null> {
+export async function fetchDingtalkUserDetail(
+  userId: string
+): Promise<DingtalkSyncUserInfo | null> {
   try {
     const result = await rateLimitedRequest(() =>
       oapiGet(`/topapi/v2/user/get?userid=${encodeURIComponent(userId)}`)
     );
 
     if (result.errcode !== 0 || !result.result) {
-      console.warn(`[DingtalkSync] 获取用户 ${userId} 详情失败: ${result.errmsg}`);
+      log.warn(`获取用户 ${userId} 详情失败: ${result.errmsg}`);
       return null;
     }
 
@@ -200,8 +209,8 @@ export async function fetchDingtalkUserDetail(userId: string): Promise<DingtalkS
       dept_id_list: r.dept_id_list || [],
       title: r.title || '',
     };
-  } catch (error: any) {
-    console.error(`[DingtalkSync] 获取用户 ${userId} 详情异常:`, error.message);
+  } catch (error) {
+    log.error(`获取用户 ${userId} 详情异常:`, getErrorMessage(error));
     return null;
   }
 }
@@ -210,22 +219,27 @@ export async function fetchDingtalkUserDetail(userId: string): Promise<DingtalkS
  * 获取本地所有绑定了 dingtalk_user_id 的活跃用户
  * 返回 Map<dingtalk_user_id, 用户数据>
  */
-export async function getAllLocalDingtalkUsers(): Promise<Map<string, {
-  id: number;
-  dingtalk_user_id: string;
-  dingtalk_union_id: string;
-  name: string;
-  avatar: string;
-  mobile: string;
-  email: string;
-  department_id: string;
-  department_name: string;
-  position: string;
-  status: number;
-  dingtalk_last_synced_at: string | null;
-  dingtalk_sync_hash: string | null;
-  department_ids: string | null;
-}>> {
+export async function getAllLocalDingtalkUsers(): Promise<
+  Map<
+    string,
+    {
+      id: number;
+      dingtalk_user_id: string;
+      dingtalk_union_id: string;
+      name: string;
+      avatar: string;
+      mobile: string;
+      email: string;
+      department_id: string;
+      department_name: string;
+      position: string;
+      status: number;
+      dingtalk_last_synced_at: string | null;
+      dingtalk_sync_hash: string | null;
+      department_ids: string | null;
+    }
+  >
+> {
   const result = await appQuery(
     `SELECT id, dingtalk_user_id, dingtalk_union_id, name, avatar, mobile, email,
        department_id, department_name, position, status,

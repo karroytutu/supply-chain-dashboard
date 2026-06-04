@@ -17,6 +17,8 @@ import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
 import CategoryAvailabilityCard from './components/CategoryAvailabilityCard';
 import styles from './index.less';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ProcurementDashboard');
 
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ const Dashboard: React.FC = () => {
       );
       setData(result);
     } catch (error) {
-      console.error('[Dashboard] 数据加载失败:', error);
+      log.error('数据加载失败:', error);
     } finally {
       setLoading(false);
     }

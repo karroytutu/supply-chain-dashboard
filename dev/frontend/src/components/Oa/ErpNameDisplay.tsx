@@ -4,8 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Typography, Spin } from 'antd';
-import { oaApi } from '@/services/api/oa';
-import type { ErpReferenceType } from '@/services/api/oa';
+import { oaApi, type ErpReferenceType } from '@/services/api/oa';
 
 const { Text } = Typography;
 

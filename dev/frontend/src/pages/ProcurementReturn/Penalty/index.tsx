@@ -9,6 +9,8 @@ import type { PenaltyRecord, PenaltyStats, PenaltyType, PenaltyStatus } from '@/
 import PenaltyTable from './components/PenaltyTable';
 import PenaltyFilter from './components/PenaltyFilter';
 import styles from './index.less';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('ProcurementReturnPenalty');
 
 const PenaltyPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -39,7 +41,7 @@ const PenaltyPage: React.FC = () => {
       setTotal(listResult.total);
       setStats(statsResult);
     } catch (error) {
-      console.error('加载考核数据失败:', error);
+      log.error('加载考核数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -47,6 +49,7 @@ const PenaltyPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [page, pageSize, penaltyType, status, keyword, dateRange]);
 
   // 确认考核

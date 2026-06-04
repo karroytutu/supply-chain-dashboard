@@ -4,8 +4,7 @@
 import React from 'react';
 import { Input } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import type { FormCategory } from '@/types/oa';
-import { CATEGORY_LABELS } from '@/types/oa';
+import { type FormCategory, CATEGORY_LABELS } from '@/types/oa';
 import styles from './CategoryTabs.less';
 
 export type ActiveCategory = FormCategory | 'all';

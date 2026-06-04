@@ -10,8 +10,18 @@
  * 5. warehouse_execute_timeout - 仓储执行超时：10元/天/SKU
  */
 
-import { registerAssessmentRule, DEFAULT_ALLOWED_TRANSITIONS, DEFAULT_STATUS_LABELS } from '../assessment.rules';
-import type { CalculationContext, CalculationResult, AssessmentRecordRow, NotificationContent, AssessmentRole } from '../assessment.types';
+import {
+  registerAssessmentRule,
+  DEFAULT_ALLOWED_TRANSITIONS,
+  DEFAULT_STATUS_LABELS,
+} from '../assessment.rules';
+import type {
+  CalculationContext,
+  CalculationResult,
+  AssessmentRecordRow,
+  NotificationContent,
+  AssessmentRole,
+} from '../assessment.types';
 import { getUsersByRole, findUserByName } from '../utils';
 import { RETURN_EXPIRE_INSUFFICIENT_DAYS } from '../../../utils/constants';
 import { appQuery } from '../../../db/appPool';
@@ -27,12 +37,17 @@ const WAREHOUSE_EXECUTE_DEADLINE_DAYS = 7;
 /**
  * 构建退货考核通知内容
  */
-function buildReturnNotification(records: AssessmentRecordRow[], role: string): NotificationContent {
+function buildReturnNotification(
+  records: AssessmentRecordRow[],
+  role: string
+): NotificationContent {
   const totalAmount = records.reduce((sum, r) => sum + parseFloat(r.penalty_amount || '0'), 0);
 
-  const tableRows = records.map(r => {
-    return `| ${r.source_no || '-'} | ${r.source_name || '-'} | ${r.overdue_days || '-'} | ¥${parseFloat(r.penalty_amount).toFixed(2)} |`;
-  }).join('\n');
+  const tableRows = records
+    .map(r => {
+      return `| ${r.source_no || '-'} | ${r.source_name || '-'} | ${r.overdue_days || '-'} | ¥${parseFloat(r.penalty_amount).toFixed(2)} |`;
+    })
+    .join('\n');
 
   const markdown = `### 退货考核通知
 
@@ -69,7 +84,7 @@ registerAssessmentRule({
   sourceType: 'expiring_return_order',
   sourceLabel: '退货单',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     const result = await appQuery<{
       id: number;
       return_no: string;
@@ -145,7 +160,7 @@ registerAssessmentRule({
   sourceType: 'expiring_return_order',
   sourceLabel: '退货单',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     const result = await appQuery<{
       id: number;
       return_no: string;
@@ -214,7 +229,7 @@ registerAssessmentRule({
   sourceType: 'expiring_return_order',
   sourceLabel: '退货单',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     // 定时补偿：检查已有但未创建考核的记录
     const result = await appQuery<{
       id: number;
@@ -292,7 +307,7 @@ registerAssessmentRule({
   sourceType: 'expiring_return_order',
   sourceLabel: '退货单',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     const result = await appQuery<{
       id: number;
       return_no: string;
@@ -371,7 +386,7 @@ registerAssessmentRule({
   sourceType: 'expiring_return_order',
   sourceLabel: '退货单',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     const result = await appQuery<{
       id: number;
       return_no: string;
@@ -432,7 +447,7 @@ registerAssessmentRule({
             source_name: order.goods_name,
             assessment_user_id: user.id,
             assessment_user_name: user.name,
-            assessment_role: ROLE_CODE_TO_ASSESSMENT_ROLE[roleCode] || roleCode as AssessmentRole,
+            assessment_role: ROLE_CODE_TO_ASSESSMENT_ROLE[roleCode] || (roleCode as AssessmentRole),
             base_amount: purchasePrice,
             penalty_rate: RETURN_PENALTY_PER_DAY,
             overdue_days: overdueDays,

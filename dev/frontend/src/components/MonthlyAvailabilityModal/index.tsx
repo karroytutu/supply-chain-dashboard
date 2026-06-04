@@ -15,15 +15,15 @@ const MonthlyAvailabilityModal: React.FC<MonthlyAvailabilityModalProps> = ({
   onClose,
   data,
 }) => {
-  if (!data) {
-    return null;
-  }
-
   // 表格数据反转（倒序显示，从最近日期开始）
   const reversedData = useMemo(
     () => data?.dailyRates?.slice().reverse() || [],
     [data?.dailyRates]
   );
+
+  if (!data) {
+    return null;
+  }
 
   // 图表配置
   const chartConfig = {

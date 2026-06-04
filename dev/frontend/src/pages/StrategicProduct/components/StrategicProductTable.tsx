@@ -2,7 +2,7 @@
  * 战略商品表格组件
  */
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Badge } from 'antd';
+import { Table, Button } from 'antd';
 import type { StrategicProduct, StrategicProductStatus } from '@/types/strategic-product';
 import { getColumns } from '../utils/columns';
 import StrategicProductToolbar from './StrategicProductToolbar';

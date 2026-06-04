@@ -14,6 +14,8 @@ import type {
 } from '@/types/strategic-product';
 import type { PaginatedResult } from '@/types/warning';
 import type { StrategicFilters } from './useStrategicFilters';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('StrategicProducthooks');
 
 export function useStrategicData(filters: StrategicFilters) {
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ export function useStrategicData(filters: StrategicFilters) {
       const result = await getStrategicProductStats();
       setStats(result);
     } catch (error) {
-      console.error('加载统计信息失败:', error);
+      log.error('加载统计信息失败:', error);
     }
   }, []);
 

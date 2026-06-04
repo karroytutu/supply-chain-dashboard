@@ -3,12 +3,15 @@
  * HTTP + RSA 加密密码登录，支持短信验证码两阶段
  * @module services/token-manager/wms-login
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('TokenManager');
 
 import crypto from 'crypto';
 import axios, { AxiosInstance } from 'axios';
 import { config } from '../../config';
 import * as tokenRepo from './token-repository';
 import type { WmsLoginResult } from './token-types';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 const tmConfig = (config as any).tokenManager;
 
@@ -36,7 +39,9 @@ function mergeCookies(headers: any): void {
 
 /** 将 Cookie 坛子转为字符串 */
 function cookieString(): string {
-  return Object.entries(_cookieJar).map(([k, v]) => `${k}=${v}`).join('; ');
+  return Object.entries(_cookieJar)
+    .map(([k, v]) => `${k}=${v}`)
+    .join('; ');
 }
 
 function getSession(): AxiosInstance {
@@ -44,16 +49,17 @@ function getSession(): AxiosInstance {
     _session = axios.create({
       timeout: 30000,
       headers: {
-        'Accept': '*/*',
+        Accept: '*/*',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        'Connection': 'keep-alive',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0',
+        Connection: 'keep-alive',
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0',
         'X-Requested-With': 'XMLHttpRequest',
       },
     });
 
     // 请求拦截器：自动注入 Cookie
-    _session.interceptors.request.use((config) => {
+    _session.interceptors.request.use(config => {
       const cookies = cookieString();
       if (cookies) {
         config.headers['Cookie'] = cookies;
@@ -62,7 +68,7 @@ function getSession(): AxiosInstance {
     });
 
     // 响应拦截器：自动提取 Set-Cookie
-    _session.interceptors.response.use((response) => {
+    _session.interceptors.response.use(response => {
       mergeCookies(response.headers);
       return response;
     });
@@ -89,7 +95,7 @@ async function getPublicKey(): Promise<string> {
 
   const response = await session.get(`${ssoBaseUrl}/getPublicKey`, {
     headers: {
-      'Referer': `${ssoBaseUrl}/login?redirect_url=http://wms.zhoupudata.com/wms`,
+      Referer: `${ssoBaseUrl}/login?redirect_url=http://wms.zhoupudata.com/wms`,
       'Sec-Fetch-Dest': 'empty',
       'Sec-Fetch-Mode': 'cors',
       'Sec-Fetch-Site': 'same-origin',
@@ -97,7 +103,7 @@ async function getPublicKey(): Promise<string> {
   });
 
   const data = response.data;
-  console.log('[WMS] getPublicKey 响应:', JSON.stringify(data).substring(0, 200));
+  log.info('getPublicKey 响应:', JSON.stringify(data).substring(0, 200));
 
   if (!data?.success) {
     throw new Error(`获取公钥失败: ${data?.info || data?.msg || '未知错误'}`);
@@ -153,17 +159,17 @@ async function sendSmsCode(username: string, deviceToken: string): Promise<boole
       `username=${encodeURIComponent(username)}&devicetoken=${encodeURIComponent(deviceToken)}`,
       {
         headers: {
-          'Accept': 'application/json, text/javascript, */*; q=0.01',
+          Accept: 'application/json, text/javascript, */*; q=0.01',
           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'Origin': ssoBaseUrl,
-          'Referer': `${ssoBaseUrl}/login?redirect_url=http://wms.zhoupudata.com/wms`,
+          Origin: ssoBaseUrl,
+          Referer: `${ssoBaseUrl}/login?redirect_url=http://wms.zhoupudata.com/wms`,
         },
       }
     );
 
     return response.data?.success || false;
   } catch (error) {
-    console.error('[WMS] 发送短信验证码失败:', error);
+    log.error('发送短信验证码失败:', error);
     return false;
   }
 }
@@ -223,23 +229,20 @@ export async function performWmsLogin(smsCode?: string): Promise<WmsLoginResult>
       'remember-me': 'on',
     });
 
-    const response = await session.post(
-      `${ssoBaseUrl}/dologin`,
-      loginData.toString(),
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'Origin': ssoBaseUrl,
-          'Referer': `${ssoBaseUrl}/login?redirect_url=http://wms.zhoupudata.com/wms`,
-        },
-      }
-    );
+    const response = await session.post(`${ssoBaseUrl}/dologin`, loginData.toString(), {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        Origin: ssoBaseUrl,
+        Referer: `${ssoBaseUrl}/login?redirect_url=http://wms.zhoupudata.com/wms`,
+      },
+    });
 
     const result = response.data;
 
     if (result?.success) {
       // 登录成功，从 Cookie 坛子提取 WMSJSESSIONID（拦截器已自动合并）
-      let wmsSessionId = _cookieJar['WMSJSESSIONID'] || extractCookie(response.headers, 'WMSJSESSIONID');
+      let wmsSessionId =
+        _cookieJar['WMSJSESSIONID'] || extractCookie(response.headers, 'WMSJSESSIONID');
 
       if (!wmsSessionId) {
         // 尝试访问重定向 URL 获取 Cookie
@@ -280,7 +283,7 @@ export async function performWmsLogin(smsCode?: string): Promise<WmsLoginResult>
     const errorMsg = result?.info || infos?.msg || '登录失败';
     return { success: false, needsSms: false, error: errorMsg };
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorMsg = error instanceof Error ? getErrorMessage(error) : String(error);
     return { success: false, needsSms: false, error: `登录异常: ${errorMsg}` };
   } finally {
     _wmsLoginInProgress = false;
@@ -290,7 +293,10 @@ export async function performWmsLogin(smsCode?: string): Promise<WmsLoginResult>
 /**
  * 执行 WMS 登录并保存到数据库
  */
-export async function performWmsLoginAndSave(smsCode?: string, operatorId?: number): Promise<boolean> {
+export async function performWmsLoginAndSave(
+  smsCode?: string,
+  operatorId?: number
+): Promise<boolean> {
   const startTime = Date.now();
 
   try {
@@ -307,11 +313,14 @@ export async function performWmsLoginAndSave(smsCode?: string, operatorId?: numb
       });
 
       const durationMs = Date.now() - startTime;
-      console.log(`[WMS] 登录成功 (耗时 ${durationMs}ms)`);
+      log.info(`登录成功 (耗时 ${durationMs}ms)`);
 
       await tokenRepo.logOperation({
-        system: 'wms', operation: 'login', status: 'success',
-        operatorId, durationMs,
+        system: 'wms',
+        operation: 'login',
+        status: 'success',
+        operatorId,
+        durationMs,
       });
 
       return true;
@@ -322,33 +331,42 @@ export async function performWmsLoginAndSave(smsCode?: string, operatorId?: numb
       await tokenRepo.updateLoginStatus('wms', 'pending_sms', true);
 
       await tokenRepo.logOperation({
-        system: 'wms', operation: 'login', status: 'pending',
-        operatorId, durationMs: Date.now() - startTime,
+        system: 'wms',
+        operation: 'login',
+        status: 'pending',
+        operatorId,
+        durationMs: Date.now() - startTime,
         detail: { message: result.error },
       });
 
-      console.log('[WMS] 需要短信验证码，已发送验证码');
+      log.info('需要短信验证码，已发送验证码');
       return false;
     }
 
     // 登录失败
     await tokenRepo.updateLoginStatus('wms', 'failed');
     await tokenRepo.logOperation({
-      system: 'wms', operation: 'login', status: 'failed',
-      operatorId, durationMs: Date.now() - startTime,
+      system: 'wms',
+      operation: 'login',
+      status: 'failed',
+      operatorId,
+      durationMs: Date.now() - startTime,
       detail: { error: result.error },
     });
 
-    console.error(`[WMS] 登录失败: ${result.error}`);
+    log.error(`登录失败: ${result.error}`);
     return false;
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(`[WMS] 登录过程出错: ${errorMsg}`);
+    const errorMsg = error instanceof Error ? getErrorMessage(error) : String(error);
+    log.error(`登录过程出错: ${errorMsg}`);
 
     await tokenRepo.updateLoginStatus('wms', 'failed');
     await tokenRepo.logOperation({
-      system: 'wms', operation: 'login', status: 'failed',
-      operatorId, durationMs: Date.now() - startTime,
+      system: 'wms',
+      operation: 'login',
+      status: 'failed',
+      operatorId,
+      durationMs: Date.now() - startTime,
       detail: { error: errorMsg },
     });
 
@@ -366,28 +384,25 @@ export async function verifyWmsToken(sessionId: string): Promise<boolean> {
   try {
     const wmsUrl = getWmsBaseUrl();
 
-    const response = await axios.get(
-      `${wmsUrl}/wms/stockin/backbill/commonQueryListData`,
-      {
-        params: { page: '1', rows: '5' },
-        headers: {
-          'Accept': 'application/json, text/javascript, */*; q=0.01',
-          'Cookie': `WMSJSESSIONID=${sessionId}`,
-          'Referer': `${wmsUrl}/wms/stockin/backbill/commonQueryList`,
-          'X-Requested-With': 'XMLHttpRequest',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        },
-        timeout: 10000,
-        maxRedirects: 0,
-        validateStatus: (s) => s < 400 || s === 302, // 接受 200 和 302
-      }
-    );
+    const response = await axios.get(`${wmsUrl}/wms/stockin/backbill/commonQueryListData`, {
+      params: { page: '1', rows: '5' },
+      headers: {
+        Accept: 'application/json, text/javascript, */*; q=0.01',
+        Cookie: `WMSJSESSIONID=${sessionId}`,
+        Referer: `${wmsUrl}/wms/stockin/backbill/commonQueryList`,
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      },
+      timeout: 10000,
+      maxRedirects: 0,
+      validateStatus: s => s < 400 || s === 302, // 接受 200 和 302
+    });
 
     // 302 重定向通常意味着 Session 已失效（跳转到登录页）
     if (response.status === 302) {
       const location = response.headers?.['location'] || '';
       if (location.toLowerCase().includes('login') || location.toLowerCase().includes('sso')) {
-        console.log('[WMS] Token 验证: 302 重定向到登录页，Session 已失效');
+        log.info('Token 验证: 302 重定向到登录页，Session 已失效');
         return false;
       }
     }
@@ -398,8 +413,11 @@ export async function verifyWmsToken(sessionId: string): Promise<boolean> {
       // 检查是否返回了登录页 HTML（而非 API JSON 数据）
       if (typeof data === 'string') {
         const lower = data.toLowerCase();
-        if (lower.includes('<html') && (lower.includes('login') || lower.includes('sso.zhoupudata'))) {
-          console.log('[WMS] Token 验证: 返回登录页 HTML，Session 已失效');
+        if (
+          lower.includes('<html') &&
+          (lower.includes('login') || lower.includes('sso.zhoupudata'))
+        ) {
+          log.info('Token 验证: 返回登录页 HTML，Session 已失效');
           return false;
         }
         // 非 HTML 响应（可能是有效数据）
@@ -429,7 +447,7 @@ export async function verifyWmsToken(sessionId: string): Promise<boolean> {
     return true;
   } catch (error: any) {
     // 网络错误或超时，不能确定 Session 是否有效
-    console.error('[WMS] Token 验证请求失败:', error?.message || error);
+    log.error('Token 验证请求失败:', error?.message || error);
     return false;
   }
 }

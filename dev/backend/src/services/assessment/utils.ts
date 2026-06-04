@@ -2,6 +2,8 @@
  * 统一考核管理 - 共用工具函数
  * 提供角色用户查询、用户查找、商品进价获取等通用能力
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Assessment');
 
 import { appQuery } from '../../db/appPool';
 import { getCostPriceByNameMap } from '../erp-client/erp-inventory.service';
@@ -46,9 +48,7 @@ export async function getUsersByRole(
  * @param name 用户姓名
  * @usedBy return-order-rules.ts (通过营销师姓名查找用户)
  */
-export async function findUserByName(
-  name: string
-): Promise<UserBasicInfo | null> {
+export async function findUserByName(name: string): Promise<UserBasicInfo | null> {
   if (!name) return null;
 
   const result = await appQuery<UserBasicInfo>(
@@ -70,7 +70,7 @@ export async function getPurchasePrice(goodsName: string): Promise<number> {
     const avgPrice = costMap.get(goodsName) || 0;
     return avgPrice > 0 ? avgPrice : 0;
   } catch (error) {
-    console.error('[Assessment] 获取商品进价失败:', goodsName, error);
+    log.error('获取商品进价失败:', goodsName, error);
     return 0;
   }
 }
@@ -79,9 +79,7 @@ export async function getPurchasePrice(goodsName: string): Promise<number> {
  * 批量获取用户钉钉ID映射
  * @param userIds 用户ID数组
  */
-export async function getDingtalkUserIdMap(
-  userIds: number[]
-): Promise<Map<number, string>> {
+export async function getDingtalkUserIdMap(userIds: number[]): Promise<Map<number, string>> {
   if (userIds.length === 0) return new Map();
 
   const result = await appQuery<{ id: number; dingtalk_user_id: string }>(

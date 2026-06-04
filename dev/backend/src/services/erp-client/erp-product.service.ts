@@ -105,8 +105,11 @@ export async function fetchAllProducts(
 
   if (state === 0) {
     _productsInFlight = doFetch();
-    try { return await _productsInFlight; }
-    finally { _productsInFlight = null; }
+    try {
+      return await _productsInFlight;
+    } finally {
+      _productsInFlight = null;
+    }
   }
   return doFetch();
 }

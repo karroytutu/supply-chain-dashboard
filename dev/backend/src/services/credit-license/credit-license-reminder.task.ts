@@ -3,6 +3,8 @@
  * 第3天和第6天各发一次钉钉提醒
  * @module services/credit-license/credit-license-reminder.task
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('CreditLicense');
 
 import * as repository from './credit-license.repository';
 import { getDingtalkUserIdMap } from '../assessment/utils';
@@ -23,15 +25,17 @@ import {
  * - 第6天提醒: deadline 距今还有 (7-6)=1 天 → deadline = CURRENT_DATE + 1天
  */
 export async function checkLicenseDeferredReminders(): Promise<void> {
-  console.log('[CreditLicenseReminder] 开始检查营业执照补交提醒...');
+  log.info('开始检查营业执照补交提醒...');
 
   try {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
     // 计算两组提醒的目标 deadline 范围
-    const offset1Days = CREDIT_LICENSE_DEFERRED_DEADLINE_DAYS - CREDIT_LICENSE_REMINDER_DAY_OFFSET_1;
-    const offset2Days = CREDIT_LICENSE_DEFERRED_DEADLINE_DAYS - CREDIT_LICENSE_REMINDER_DAY_OFFSET_2;
+    const offset1Days =
+      CREDIT_LICENSE_DEFERRED_DEADLINE_DAYS - CREDIT_LICENSE_REMINDER_DAY_OFFSET_1;
+    const offset2Days =
+      CREDIT_LICENSE_DEFERRED_DEADLINE_DAYS - CREDIT_LICENSE_REMINDER_DAY_OFFSET_2;
 
     const day1Start = new Date(now);
     day1Start.setDate(day1Start.getDate() + offset1Days);
@@ -60,7 +64,7 @@ export async function checkLicenseDeferredReminders(): Promise<void> {
         });
         sentCount++;
       } catch (error) {
-        console.error(`[CreditLicenseReminder] 第3天提醒发送失败(id=${record.id}):`, error);
+        log.error(`第3天提醒发送失败(id=${record.id}):`, error);
       }
     }
 
@@ -73,13 +77,13 @@ export async function checkLicenseDeferredReminders(): Promise<void> {
         });
         sentCount++;
       } catch (error) {
-        console.error(`[CreditLicenseReminder] 第6天提醒发送失败(id=${record.id}):`, error);
+        log.error(`第6天提醒发送失败(id=${record.id}):`, error);
       }
     }
 
-    console.log(`[CreditLicenseReminder] 检查完成，发送 ${sentCount} 条提醒`);
+    log.info(`检查完成，发送 ${sentCount} 条提醒`);
   } catch (error) {
-    console.error('[CreditLicenseReminder] 检查失败:', error);
+    log.error('检查失败:', error);
   }
 }
 
@@ -87,7 +91,13 @@ export async function checkLicenseDeferredReminders(): Promise<void> {
  * 发送单条提醒通知（钉钉）
  */
 async function sendReminderNotification(
-  record: { id: number; oa_instance_id: number; customer_name: string | null; applicant_id: number; deadline: string },
+  record: {
+    id: number;
+    oa_instance_id: number;
+    customer_name: string | null;
+    applicant_id: number;
+    deadline: string;
+  },
   remindDay: number,
   remainingDays: number
 ): Promise<void> {
@@ -111,7 +121,6 @@ async function sendReminderNotification(
       await sendWorkNotification([dingtalkUserId], title, markdown);
     }
   } catch (error) {
-    console.warn('[CreditLicenseReminder] 钉钉通知发送失败:', error);
+    log.warn('钉钉通知发送失败:', error);
   }
-
 }

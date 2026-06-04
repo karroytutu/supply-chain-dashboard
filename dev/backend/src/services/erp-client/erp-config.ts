@@ -30,14 +30,17 @@ export function getErpConfig(): ErpApiConfig {
       // API 路径配置
       assetPathPrefix: erpApi?.assetPathPrefix || '/messiah/',
       customerPathPrefix: erpApi?.customerPathPrefix || '/redcoast/',
-      expenditureBillPath: erpApi?.expenditureBillPath || '/expenditure-bill/save-approve-cash-expenditure',
+      expenditureBillPath:
+        erpApi?.expenditureBillPath || '/expenditure-bill/save-approve-cash-expenditure',
       assetCreatePath: erpApi?.assetCreatePath || '/asset/create',
       assetUpdatePath: erpApi?.assetUpdatePath || '/asset/update',
       assetClearPath: erpApi?.assetClearPath || '/asset-clear/do-clear',
       incomeBillPath: erpApi?.incomeBillPath || '/income/save-approve-cash-income',
       // 清理 API 路径配置
-      expenditureBillReApprovePath: erpApi?.expenditureBillReApprovePath || '/expenditure-bill/re-approve-expenditure',
-      expenditureBillCancelPath: erpApi?.expenditureBillCancelPath || '/expenditure-bill/cancel-expenditure',
+      expenditureBillReApprovePath:
+        erpApi?.expenditureBillReApprovePath || '/expenditure-bill/re-approve-expenditure',
+      expenditureBillCancelPath:
+        erpApi?.expenditureBillCancelPath || '/expenditure-bill/cancel-expenditure',
       incomeReApprovePath: erpApi?.incomeReApprovePath || '/income/re-approve-income',
       incomeCancelPath: erpApi?.incomeCancelPath || '/income/cancel-income',
       // 数据源 API 路径（ERP 数据库迁移）

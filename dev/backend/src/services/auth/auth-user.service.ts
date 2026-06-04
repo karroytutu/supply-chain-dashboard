@@ -35,21 +35,19 @@ export interface RoleInfo {
 /**
  * 创建或更新用户
  */
-export async function createOrUpdateUser(
-  dingtalkUser: DingtalkUserInfo
-): Promise<any> {
+export async function createOrUpdateUser(dingtalkUser: DingtalkUserInfo): Promise<any> {
   const client = await getAppClient();
-  
+
   try {
     await client.query('BEGIN');
-    
+
     const existingUser = await client.query(
       'SELECT * FROM users WHERE dingtalk_user_id = $1 OR dingtalk_union_id = $2',
       [dingtalkUser.userid, dingtalkUser.unionid]
     );
-    
+
     let user;
-    
+
     if (existingUser.rows.length > 0) {
       const updateResult = await client.query(
         `UPDATE users SET
@@ -95,16 +93,16 @@ export async function createOrUpdateUser(
         ]
       );
       user = insertResult.rows[0];
-      
+
       const viewerRole = await client.query('SELECT id FROM roles WHERE code = $1', ['viewer']);
       if (viewerRole.rows.length > 0) {
-        await client.query(
-          'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)',
-          [user.id, viewerRole.rows[0].id]
-        );
+        await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [
+          user.id,
+          viewerRole.rows[0].id,
+        ]);
       }
     }
-    
+
     await client.query('COMMIT');
     return user;
   } catch (error) {
@@ -118,7 +116,9 @@ export async function createOrUpdateUser(
 /**
  * 获取用户角色和权限
  */
-export async function getUserRolesAndPermissions(userId: number): Promise<{ roles: RoleInfo[]; permissions: string[] }> {
+export async function getUserRolesAndPermissions(
+  userId: number
+): Promise<{ roles: RoleInfo[]; permissions: string[] }> {
   const rolesResult = await appQuery<RoleInfo>(
     `SELECT r.id, r.code, r.name
     FROM roles r
@@ -126,9 +126,9 @@ export async function getUserRolesAndPermissions(userId: number): Promise<{ role
     WHERE ur.user_id = $1 AND r.status = 1`,
     [userId]
   );
-  
+
   const roles = rolesResult.rows;
-  
+
   const permissionsResult = await appQuery<{ code: string }>(
     `SELECT DISTINCT p.code
     FROM permissions p
@@ -137,9 +137,9 @@ export async function getUserRolesAndPermissions(userId: number): Promise<{ role
     WHERE ur.user_id = $1`,
     [userId]
   );
-  
+
   const permissions = permissionsResult.rows.map(r => r.code);
-  
+
   return { roles, permissions };
 }
 
@@ -147,10 +147,7 @@ export async function getUserRolesAndPermissions(userId: number): Promise<{ role
  * 获取当前用户信息
  */
 export async function getCurrentUser(userId: number): Promise<UserInfo | null> {
-  const result = await appQuery<any>(
-    'SELECT * FROM users WHERE id = $1 AND status = 1',
-    [userId]
-  );
+  const result = await appQuery<any>('SELECT * FROM users WHERE id = $1 AND status = 1', [userId]);
 
   if (result.rows.length === 0) {
     return null;
@@ -181,7 +178,7 @@ export async function recordLoginLog(
   loginType: string,
   ipAddress?: string,
   userAgent?: string,
-  success: boolean = true,
+  success = true,
   failureReason?: string
 ): Promise<void> {
   await appQuery(

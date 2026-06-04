@@ -61,7 +61,7 @@ export function useApprovalDetailData(id: string | undefined): ApprovalDetailDat
     const timer = setInterval(async () => {
       if (fetchId !== pollFetchIdRef.current) return;
       try {
-        const detailRes = await oaApi.getDetail(parseInt(id!));
+        const detailRes = await oaApi.getDetail(parseInt(id as string));
         if (fetchId !== pollFetchIdRef.current) return;
         const detailData = detailRes.data;
         setDetail(detailData);
@@ -82,8 +82,10 @@ export function useApprovalDetailData(id: string | undefined): ApprovalDetailDat
 
     return () => {
       clearInterval(timer);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
       pollFetchIdRef.current++;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [id, detail?.status]);
 
   return { loading, detail, nodes, actions, errorType, loadDetail };

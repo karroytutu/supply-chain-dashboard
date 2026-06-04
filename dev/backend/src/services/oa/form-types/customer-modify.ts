@@ -41,7 +41,7 @@ export const customerModifyFormType: FormTypeDefinition = {
           consumerManagerId: 'consumerManagerId',
           _consumerManagerName: 'consumerManagerName',
           _storefrontPhotoUrl: 'picture',
-          customerState: 'state',  // 选中客户后自动填充其当前状态
+          customerState: 'state', // 选中客户后自动填充其当前状态
         },
       },
 
@@ -176,7 +176,12 @@ export const customerModifyFormType: FormTypeDefinition = {
       { key: '_original_areaId', label: '原片区ID', type: 'text', required: false },
       { key: '_original_areaName', label: '原片区名称', type: 'text', required: false },
       { key: '_original_consumerManagerId', label: '原所属营销ID', type: 'text', required: false },
-      { key: '_original_consumerManagerName', label: '原所属营销名称', type: 'text', required: false },
+      {
+        key: '_original_consumerManagerName',
+        label: '原所属营销名称',
+        type: 'text',
+        required: false,
+      },
       { key: '_original_customerState', label: '原状态', type: 'text', required: false },
       { key: '_original_storefrontPhotoUrl', label: '原门头照URL', type: 'text', required: false },
     ],

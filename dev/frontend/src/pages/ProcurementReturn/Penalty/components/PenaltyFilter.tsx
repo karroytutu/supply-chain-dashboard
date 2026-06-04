@@ -1,9 +1,12 @@
 import React from 'react';
 import { Card, Input, DatePicker, Select, Button, Space } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
-import type { PenaltyType, PenaltyStatus } from '@/types/return-penalty.d';
-import { PENALTY_TYPE_NAMES, PENALTY_STATUS_NAMES } from '@/types/return-penalty.d';
-import styles from '../index.less';
+import {
+  type PenaltyType,
+  type PenaltyStatus,
+  PENALTY_TYPE_NAMES,
+  PENALTY_STATUS_NAMES,
+} from '@/types/return-penalty.d';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;

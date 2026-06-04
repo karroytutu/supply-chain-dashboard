@@ -8,6 +8,8 @@
  *
  * @module services/oa/oa-process-centre
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('OA');
 
 import { appQuery as query } from '../../db/appPool';
 import { config } from '../../config';
@@ -23,7 +25,10 @@ import {
 } from '../dingtalk-process-centre.service';
 import { extractFormSummary } from './oa-form-summary';
 import type { FormSchema } from './oa.types';
-import { OA_PC_ACTIVITY_ID_SEPARATOR, DINGTALK_PROCESS_TEMPLATE_PREFIX } from '../../utils/constants';
+import {
+  OA_PC_ACTIVITY_ID_SEPARATOR,
+  DINGTALK_PROCESS_TEMPLATE_PREFIX,
+} from '../../utils/constants';
 
 // =====================================================
 // 模板管理（Lazy Init + 内存缓存）
@@ -44,10 +49,7 @@ const templateCreating = new Map<string, Promise<string>>();
  * 获取或创建钉钉流程中心模板 processCode
  * 优先从内存缓存 → 数据库 → 钉钉API 依次获取
  */
-async function getOrCreateProcessCode(
-  formTypeCode: string,
-  formTypeName: string
-): Promise<string> {
+async function getOrCreateProcessCode(formTypeCode: string, formTypeName: string): Promise<string> {
   // L1: 内存缓存
   const cached = processCodeCache.get(formTypeCode);
   if (cached) return cached;
@@ -82,15 +84,17 @@ async function getOrCreateProcessCode(
 /**
  * 调用钉钉API创建模板并保存到数据库
  */
-async function createAndSaveTemplate(
-  formTypeCode: string,
-  formTypeName: string
-): Promise<string> {
+async function createAndSaveTemplate(formTypeCode: string, formTypeName: string): Promise<string> {
   // 构建简单的模板组件（仅用于钉钉展示摘要，不需要还原完整表单）
   const formComponents: ProcessFormComponent[] = [
     {
       componentType: 'TextField',
-      props: { componentId: 'TextField-title', label: '标题', required: true, placeholder: '请输入' },
+      props: {
+        componentId: 'TextField-title',
+        label: '标题',
+        required: true,
+        placeholder: '请输入',
+      },
     },
     {
       componentType: 'TextareaField',
@@ -103,11 +107,7 @@ async function createAndSaveTemplate(
 
   const templateName = `${DINGTALK_PROCESS_TEMPLATE_PREFIX}-${formTypeName}`;
 
-  const processCode = await saveProcessTemplate(
-    templateName,
-    formComponents,
-    detailUrl
-  );
+  const processCode = await saveProcessTemplate(templateName, formComponents, detailUrl);
 
   // 保存到数据库（ON CONFLICT 处理并发场景）
   await query(
@@ -162,11 +162,15 @@ function buildFormComponentValues(
   formData?: Record<string, unknown>
 ): FormComponentValue[] {
   const rows = extractFormSummary(formSchema, formData);
-  const values: FormComponentValue[] = [
-    { name: '标题', value: title },
-  ];
+  const values: FormComponentValue[] = [{ name: '标题', value: title }];
   if (rows.length > 0) {
-    values.push({ name: '摘要', value: rows.slice(0, 3).map(r => `${r.key}: ${r.value}`).join('，') });
+    values.push({
+      name: '摘要',
+      value: rows
+        .slice(0, 3)
+        .map(r => `${r.key}: ${r.value}`)
+        .join('，'),
+    });
   }
   return values;
 }
@@ -209,7 +213,7 @@ export async function createProcessInstance(
     const originatorUserId = await getDingtalkUserId(applicantUserId);
 
     if (!originatorUserId) {
-      console.log('[ProcessCentre] 跳过壳实例创建: 申请人无 dingtalk_user_id', { instanceId });
+      log.info('跳过壳实例创建: 申请人无 dingtalk_user_id', { instanceId });
       await query(
         `INSERT INTO oa_process_instance_mapping (instance_id, dingtalk_process_code, status)
          VALUES ($1, $2, 'failed')
@@ -223,7 +227,10 @@ export async function createProcessInstance(
     const url = buildDetailUrl(instanceId);
 
     const processInstanceId = await createWorkrecordInstance(
-      processCode, originatorUserId, formComponentValues, url
+      processCode,
+      originatorUserId,
+      formComponentValues,
+      url
     );
 
     await query(
@@ -236,7 +243,7 @@ export async function createProcessInstance(
       [instanceId, processInstanceId, processCode, originatorUserId]
     );
   } catch (error: any) {
-    console.error('[ProcessCentre] 创建壳实例失败:', { instanceId, error: error?.message });
+    log.error('创建壳实例失败:', { instanceId, error: error?.message });
     // 尝试记录 failed 状态（processCode 可能未知，用空字符串占位）
     await query(
       `INSERT INTO oa_process_instance_mapping (instance_id, dingtalk_process_code, status)
@@ -244,7 +251,7 @@ export async function createProcessInstance(
        ON CONFLICT (instance_id) DO UPDATE SET status = 'failed', updated_at = NOW()`,
       [instanceId]
     ).catch((innerErr: unknown) => {
-      console.error('[ProcessCentre] 记录 failed 状态也失败:', {
+      log.error('记录 failed 状态也失败:', {
         instanceId,
         originalError: error?.message,
         innerError: (innerErr as Error)?.message,
@@ -273,14 +280,14 @@ export async function finalizeProcessInstance(
       [localStatus, instanceId]
     );
     if (updateResult.rowCount === 0) {
-      console.log('[ProcessCentre] 壳实例已被其他路径终结，跳过', { instanceId });
+      log.info('壳实例已被其他路径终结，跳过', { instanceId });
       return;
     }
 
     const pcStatus: 'COMPLETED' | 'TERMINATED' = result === 'agree' ? 'COMPLETED' : 'TERMINATED';
     await updateWorkrecordStatus(mapping.dingtalk_process_instance_id, pcStatus, result);
   } catch (error: any) {
-    console.error('[ProcessCentre] 更新壳实例状态失败:', { instanceId, result, error: error?.message });
+    log.error('更新壳实例状态失败:', { instanceId, result, error: error?.message });
   }
 }
 
@@ -309,24 +316,22 @@ export async function createApprovalTodo(
     // 检查壳实例是否存在
     const mapping = await getActiveInstanceMapping(instanceId);
     if (!mapping) {
-      console.log('[ProcessCentre] 跳过待办创建: 无活跃壳实例', { instanceId });
+      log.info('跳过待办创建: 无活跃壳实例', { instanceId });
       return;
     }
 
     const dtUserId = await getDingtalkUserId(approverUserId);
     if (!dtUserId) {
-      console.log('[ProcessCentre] 跳过待办创建: 审批人无 dingtalk_user_id', { instanceId, approverUserId });
+      log.info('跳过待办创建: 审批人无 dingtalk_user_id', { instanceId, approverUserId });
       return;
     }
 
     const activityId = buildActivityId(instanceId, nodeOrder ?? 1);
     const url = buildDetailUrl(instanceId);
 
-    const taskIds = await createPcTasks(
-      mapping.dingtalk_process_instance_id,
-      activityId,
-      [{ userId: dtUserId, url }]
-    );
+    const taskIds = await createPcTasks(mapping.dingtalk_process_instance_id, activityId, [
+      { userId: dtUserId, url },
+    ]);
 
     // 保存映射记录
     for (const taskId of taskIds) {
@@ -337,7 +342,7 @@ export async function createApprovalTodo(
       );
     }
   } catch (error: any) {
-    console.error('[ProcessCentre] 创建待办失败:', { instanceId, approverUserId, error: error?.message });
+    log.error('创建待办失败:', { instanceId, approverUserId, error: error?.message });
     await query(
       `INSERT INTO oa_process_task_mapping (instance_id, pc_task_id, activity_id, executor_user_id, executor_dingtalk_user_id, status)
        VALUES ($1, 0, '', $2, '', 'failed')`,
@@ -381,7 +386,7 @@ export async function completeApprovalTodo(
       [result || null, instanceId, userId]
     );
   } catch (error: any) {
-    console.error('[ProcessCentre] 完成待办失败:', { instanceId, userId, error: error?.message });
+    log.error('完成待办失败:', { instanceId, userId, error: error?.message });
   }
 }
 
@@ -433,13 +438,18 @@ export async function completeAllPendingTodos(
         [localStatus, instanceId]
       );
       if (updateResult.rowCount === 0) {
-        console.log('[ProcessCentre] 壳实例已被其他路径终结，跳过', { instanceId });
+        log.info('壳实例已被其他路径终结，跳过', { instanceId });
       } else {
-        const pcStatus: 'COMPLETED' | 'TERMINATED' = instanceResult === 'agree' ? 'COMPLETED' : 'TERMINATED';
-        await updateWorkrecordStatus(mapping.dingtalk_process_instance_id, pcStatus, instanceResult);
+        const pcStatus: 'COMPLETED' | 'TERMINATED' =
+          instanceResult === 'agree' ? 'COMPLETED' : 'TERMINATED';
+        await updateWorkrecordStatus(
+          mapping.dingtalk_process_instance_id,
+          pcStatus,
+          instanceResult
+        );
       }
     }
   } catch (error: any) {
-    console.error('[ProcessCentre] 批量取消待办失败:', { instanceId, error: error?.message });
+    log.error('批量取消待办失败:', { instanceId, error: error?.message });
   }
 }

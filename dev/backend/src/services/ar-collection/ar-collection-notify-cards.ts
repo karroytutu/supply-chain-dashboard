@@ -87,7 +87,7 @@ export function buildRollbackActionCard(
   fromLevel: EscalationLevel,
   toLevel: EscalationLevel,
   rollbackByName?: string,
-  restoredStatus?: string,
+  restoredStatus?: string
 ): ActionCardContent {
   const fromName = ESCALATION_LEVEL_NAMES[fromLevel];
   const toName = ESCALATION_LEVEL_NAMES[toLevel];
@@ -156,9 +156,10 @@ export function buildUpcomingWarningMessage(params: {
 
   const title = `${urgency}【逾期预警】${consumerName} 有 ${billCount} 笔应收 ${daysToExpire} 天后到期`;
 
-  const detailRows = details.slice(0, 5).map(d =>
-    `| ${d.erpBillId} | ${formatAmount(d.leftAmount)} | ${d.expireDate} |`
-  ).join('\n');
+  const detailRows = details
+    .slice(0, 5)
+    .map(d => `| ${d.erpBillId} | ${formatAmount(d.leftAmount)} | ${d.expireDate} |`)
+    .join('\n');
 
   const moreText = details.length > 5 ? `\n*...还有 ${details.length - 5} 笔*` : '';
 
@@ -276,7 +277,7 @@ export function buildMergedWarningMessage(params: {
 
     sections.push(
       `${levelConfig.icon} **${levelConfig.title}**（${levelDebts.length}张单据，合计 ${formatAmount(levelAmount)}）\n\n` +
-      consumerLines.join('\n')
+        consumerLines.join('\n')
     );
   }
 

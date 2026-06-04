@@ -2,11 +2,14 @@
  * 钉钉部门查询模块
  * 负责从钉钉API获取部门数据及本地部门查询
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('DingtalkSync');
 
 import * as https from 'https';
 import { getAccessToken, RETRYABLE_ERROR_CODES } from '../dingtalk.service';
 import { appQuery } from '../../db/appPool';
 import type { DingtalkDeptInfo } from './dingtalk-sync.types';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 /**
  * 钉钉 oapi 请求封装（同步模块专用）
@@ -27,9 +30,11 @@ async function oapiRequest(path: string, body: object): Promise<any> {
       },
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', chunk => {
+        data += chunk;
+      });
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
@@ -38,13 +43,13 @@ async function oapiRequest(path: string, body: object): Promise<any> {
             return;
           }
           resolve(result);
-        } catch (e) {
+        } catch (_e) {
           reject(new Error('解析钉钉响应失败: ' + data));
         }
       });
     });
 
-    req.on('error', (e) => reject(e));
+    req.on('error', e => reject(e));
     req.setTimeout(10000, () => {
       req.destroy(new Error('钉钉API请求超时'));
     });
@@ -63,10 +68,7 @@ async function delay(ms: number): Promise<void> {
  * 限流请求：确保请求间隔至少200ms
  * 遇到限流错误码时自动重试（指数退避）
  */
-async function rateLimitedRequest(
-  requestFn: () => Promise<any>,
-  maxRetries: number = 3
-): Promise<any> {
+async function rateLimitedRequest(requestFn: () => Promise<any>, maxRetries = 3): Promise<any> {
   const now = Date.now();
   const elapsed = now - lastRequestTime;
   if (elapsed < 200) {
@@ -84,11 +86,14 @@ async function rateLimitedRequest(
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error) {
       lastError = error;
       if (attempt < maxRetries) {
         const backoff = Math.min(1000 * Math.pow(2, attempt), 30000);
-        console.warn(`[DingtalkSync] 请求失败，${backoff}ms 后重试 (${attempt + 1}/${maxRetries}):`, error.message);
+        log.warn(
+          `请求失败，${backoff}ms 后重试 (${attempt + 1}/${maxRetries}):`,
+          getErrorMessage(error)
+        );
         await delay(backoff);
       }
     }
@@ -100,7 +105,7 @@ async function rateLimitedRequest(
  * 递归获取钉钉部门树
  * 从指定父部门开始，获取所有子部门
  */
-export async function fetchDingtalkDeptTree(parentDeptId: number = 1): Promise<DingtalkDeptInfo[]> {
+export async function fetchDingtalkDeptTree(parentDeptId = 1): Promise<DingtalkDeptInfo[]> {
   const departments: DingtalkDeptInfo[] = [];
 
   try {
@@ -124,8 +129,8 @@ export async function fetchDingtalkDeptTree(parentDeptId: number = 1): Promise<D
         departments.push(...childDepts);
       }
     }
-  } catch (error: any) {
-    console.error(`[DingtalkSync] 获取部门 ${parentDeptId} 子部门失败:`, error.message);
+  } catch (error) {
+    log.error(`获取部门 ${parentDeptId} 子部门失败:`, getErrorMessage(error));
   }
 
   return departments;
@@ -151,8 +156,8 @@ export async function fetchDingtalkDeptDetail(deptId: number): Promise<DingtalkD
       };
     }
     return null;
-  } catch (error: any) {
-    console.error(`[DingtalkSync] 获取部门 ${deptId} 详情失败:`, error.message);
+  } catch (error) {
+    log.error(`获取部门 ${deptId} 详情失败:`, getErrorMessage(error));
     return null;
   }
 }
@@ -160,7 +165,9 @@ export async function fetchDingtalkDeptDetail(deptId: number): Promise<DingtalkD
 /**
  * 获取本地所有部门记录
  */
-export async function getAllLocalDepts(): Promise<Map<string, { id: number; name: string; parent_id: string | null }>> {
+export async function getAllLocalDepts(): Promise<
+  Map<string, { id: number; name: string; parent_id: string | null }>
+> {
   const result = await appQuery(
     'SELECT id, dingtalk_dept_id, name, parent_id FROM dingtalk_departments'
   );
@@ -179,7 +186,9 @@ export async function getAllLocalDepts(): Promise<Map<string, { id: number; name
 /**
  * 根据钉钉部门ID获取本地部门记录
  */
-export async function getDeptByDingtalkId(dingtalkDeptId: string): Promise<{ id: number; name: string } | null> {
+export async function getDeptByDingtalkId(
+  dingtalkDeptId: string
+): Promise<{ id: number; name: string } | null> {
   const result = await appQuery(
     'SELECT id, name FROM dingtalk_departments WHERE dingtalk_dept_id = $1',
     [dingtalkDeptId]

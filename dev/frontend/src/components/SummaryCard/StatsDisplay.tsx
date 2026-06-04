@@ -3,7 +3,7 @@
  * 用于 SummaryCard 中的辅助数据和统计信息显示
  */
 import React from 'react';
-import type { StrategicMonthlyAvailabilityData } from '@/types/dashboard';
+import type { } from '@/types/dashboard';
 import styles from './index.less';
 
 interface AuxiliaryData {

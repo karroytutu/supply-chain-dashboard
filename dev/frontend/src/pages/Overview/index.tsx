@@ -11,6 +11,8 @@ import StatsCards from './components/StatsCards';
 import TrendChartCard from './components/TrendChartCard';
 import QuickLinksCard from './components/QuickLinksCard';
 import styles from './index.less';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Overview');
 
 const { Title, Text } = Typography;
 
@@ -30,7 +32,7 @@ const Overview: React.FC = () => {
       setStats(statsResult);
       setTrendData(trendResult);
     } catch (error) {
-      console.error('获取数据总览失败:', error);
+      log.error('获取数据总览失败:', error);
       message.error('获取数据失败，请稍后重试');
     } finally {
       setLoading(false);

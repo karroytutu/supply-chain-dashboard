@@ -2,6 +2,8 @@
  * 催收变更 - 核销与延期操作
  * @module services/ar-collection/mutations/verify-extension
  */
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('ArCollection');
 
 import { appQuery as query, getAppClient as getClient } from '../../../db/appPool';
 import { checkExistingBillIds } from '../../erp-client/erp-debt.service';
@@ -16,10 +18,7 @@ import type {
   OperatorInfo,
   CollectionTask,
 } from '../ar-collection.types';
-import {
-  sendCollectionNotification,
-  buildVerifyResultActionCard,
-} from '../ar-collection-notify';
+import { sendCollectionNotification, buildVerifyResultActionCard } from '../ar-collection-notify';
 import { logAction } from './shared-utils';
 
 /** 核销回款申请 */
@@ -95,19 +94,29 @@ export async function applyExtension(
     if (taskResult.rows.length === 0) throw new Error(`催收任务不存在: ${taskId}`);
     const task = taskResult.rows[0];
 
-    console.log('[CollectionMutation] applyExtension: taskId=%d, currentStatus=%s, canExtend=%s, requestedDays=%d', taskId, task.status, task.can_extend, params.extension_days);
+    log.info(
+      'applyExtension: taskId=%d, currentStatus=%s, canExtend=%s, requestedDays=%d',
+      taskId,
+      task.status,
+      task.can_extend,
+      params.extension_days
+    );
 
     if (!task.can_extend) {
       throw new Error('该任务已使用过延期机会，不可再次延期');
     }
-    if (!Number.isInteger(params.extension_days) || params.extension_days <= 0 || params.extension_days > AR_EXTENSION_MAX_DAYS) {
+    if (
+      !Number.isInteger(params.extension_days) ||
+      params.extension_days <= 0 ||
+      params.extension_days > AR_EXTENSION_MAX_DAYS
+    ) {
       throw new Error(`延期天数必须是1-${AR_EXTENSION_MAX_DAYS}之间的整数`);
     }
 
     const extensionFrom = new Date().toISOString().split('T')[0];
-    const extensionUntil = new Date(
-      Date.now() + params.extension_days * 24 * 60 * 60 * 1000
-    ).toISOString().split('T')[0];
+    const extensionUntil = new Date(Date.now() + params.extension_days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0];
 
     const extResult = await client.query(
       `INSERT INTO ar_extension_records
@@ -145,18 +154,22 @@ export async function applyExtension(
       );
     }
 
-    console.log('[CollectionMutation] applyExtension: committing status=extension for taskId=%d', taskId);
+    log.info('applyExtension: committing status=extension for taskId=%d', taskId);
     await client.query('COMMIT');
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
-    console.log('[CollectionMutation] applyExtension: committed and cache invalidated for taskId=%d', taskId);
+    log.info('applyExtension: committed and cache invalidated for taskId=%d', taskId);
 
     const extensionRemark = `申请延期${params.extension_days}天，至${extensionUntil}${params.remark ? '。' + params.remark : ''}`;
     await logAction(taskId, params.detail_ids, 'extension', 'success', extensionRemark, operator);
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[CollectionMutation] applyExtension FAILED for taskId=%d:', taskId, err instanceof Error ? err.message : err);
+    log.error(
+      'applyExtension FAILED for taskId=%d:',
+      taskId,
+      err instanceof Error ? err.message : err
+    );
     throw err;
   } finally {
     client.release();
@@ -186,7 +199,7 @@ export async function markDifference(
       );
     }
 
-    console.log('[CollectionMutation] markDifference: taskId=%d, currentStatus=%s', taskId, task.status);
+    log.info('markDifference: taskId=%d, currentStatus=%s', taskId, task.status);
 
     await client.query(
       `UPDATE ar_collection_tasks SET status = 'difference_processing', updated_at = NOW() WHERE id = $1`,
@@ -201,17 +214,21 @@ export async function markDifference(
       );
     }
 
-    console.log('[CollectionMutation] markDifference: committing status=difference_processing for taskId=%d', taskId);
+    log.info('markDifference: committing status=difference_processing for taskId=%d', taskId);
     await client.query('COMMIT');
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
-    console.log('[CollectionMutation] markDifference: committed and cache invalidated for taskId=%d', taskId);
+    log.info('markDifference: committed and cache invalidated for taskId=%d', taskId);
 
     await logAction(taskId, params.detail_ids, 'difference', 'success', params.remark, operator);
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[CollectionMutation] markDifference FAILED for taskId=%d:', taskId, err instanceof Error ? err.message : err);
+    log.error(
+      'markDifference FAILED for taskId=%d:',
+      taskId,
+      err instanceof Error ? err.message : err
+    );
     throw err;
   } finally {
     client.release();
@@ -239,7 +256,7 @@ export async function confirmVerify(
           const existingBillIds = await checkExistingBillIds(billIds);
           allErpBillsGone = billIds.every(id => !existingBillIds.has(id));
         } catch (erpErr) {
-          console.error('[CollectionMutation] ERP数据检查失败，按常规核销处理:', erpErr);
+          log.error('ERP数据检查失败，按常规核销处理:', erpErr);
         }
       }
     }
@@ -286,7 +303,7 @@ export async function confirmVerify(
     const result = params.confirmed ? 'success' : 'failed';
     const actionRemark = allErpBillsGone
       ? '核销确认通过，ERP欠款已结清，系统自动关闭任务'
-      : (params.remark || null);
+      : params.remark || null;
     await logAction(taskId, params.detail_ids, 'confirm_verify', result, actionRemark, operator);
 
     try {
@@ -298,10 +315,13 @@ export async function confirmVerify(
       const submitterIds = submitterResult.rows.map(r => r.processed_by);
 
       if (submitterIds.length > 0) {
-        const notifyRemark = allErpBillsGone
-          ? 'ERP欠款已结清，任务已自动关闭'
-          : params.remark;
-        const actionCard = buildVerifyResultActionCard(task, params.confirmed, operator.name, notifyRemark);
+        const notifyRemark = allErpBillsGone ? 'ERP欠款已结清，任务已自动关闭' : params.remark;
+        const actionCard = buildVerifyResultActionCard(
+          task,
+          params.confirmed,
+          operator.name,
+          notifyRemark
+        );
         await sendCollectionNotification({
           userIds: submitterIds,
           title: actionCard.title,
@@ -316,7 +336,7 @@ export async function confirmVerify(
         });
       }
     } catch (notifyErr) {
-      console.error('[CollectionMutation] 发送核销结果通知失败:', notifyErr);
+      log.error('发送核销结果通知失败:', notifyErr);
     }
   } catch (err) {
     await client.query('ROLLBACK');

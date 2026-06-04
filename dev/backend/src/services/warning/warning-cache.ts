@@ -2,6 +2,8 @@
  * 预警服务缓存管理
  * 使用统一 MemoryCache 管理战略商品 ID 缓存
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Warning');
 
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
@@ -26,7 +28,7 @@ export async function getStrategicGoodsIds(): Promise<Set<string>> {
     cache.set(STRATEGIC_PRODUCT_CACHE_KEY, ids, CACHE_TTL.LOW_FREQUENCY);
     return ids;
   } catch (error) {
-    console.error('获取战略商品列表失败:', error);
+    log.error('获取战略商品列表失败:', error);
     return new Set();
   }
 }

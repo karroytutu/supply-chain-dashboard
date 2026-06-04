@@ -4,9 +4,21 @@
  * @module services/assessment/rules/credit-license-rules
  */
 
-import { registerAssessmentRule, DEFAULT_ALLOWED_TRANSITIONS, DEFAULT_STATUS_LABELS } from '../assessment.rules';
-import type { CalculationContext, CalculationResult, AssessmentRecordRow, NotificationContent } from '../assessment.types';
-import { CREDIT_LICENSE_PENALTY_PER_DAY, CREDIT_LICENSE_DEFERRED_DEADLINE_DAYS } from '../../../utils/constants';
+import {
+  registerAssessmentRule,
+  DEFAULT_ALLOWED_TRANSITIONS,
+  DEFAULT_STATUS_LABELS,
+} from '../assessment.rules';
+import type {
+  CalculationContext,
+  CalculationResult,
+  AssessmentRecordRow,
+  NotificationContent,
+} from '../assessment.types';
+import {
+  CREDIT_LICENSE_PENALTY_PER_DAY,
+  CREDIT_LICENSE_DEFERRED_DEADLINE_DAYS,
+} from '../../../utils/constants';
 import { appQuery } from '../../../db/appPool';
 import * as deferredRepository from '../../credit-license/credit-license.repository';
 
@@ -15,12 +27,17 @@ import * as deferredRepository from '../../credit-license/credit-license.reposit
 /**
  * 构建执照考核通知内容
  */
-function buildCreditLicenseNotification(records: AssessmentRecordRow[], _role: string): NotificationContent {
+function buildCreditLicenseNotification(
+  records: AssessmentRecordRow[],
+  _role: string
+): NotificationContent {
   const totalAmount = records.reduce((sum, r) => sum + parseFloat(r.penalty_amount || '0'), 0);
 
-  const tableRows = records.map(r => {
-    return `| ${r.source_name || '-'} | ${r.overdue_days || '-'}天 | ¥${parseFloat(r.penalty_amount).toFixed(2)} |`;
-  }).join('\n');
+  const tableRows = records
+    .map(r => {
+      return `| ${r.source_name || '-'} | ${r.overdue_days || '-'}天 | ¥${parseFloat(r.penalty_amount).toFixed(2)} |`;
+    })
+    .join('\n');
 
   const markdown = `### 营业执照补交超时考核
 
@@ -57,7 +74,7 @@ registerAssessmentRule({
   sourceType: 'credit_license_deferred',
   sourceLabel: '营业执照补交',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     // 1. 查询所有 overdue 状态的延期补交记录
     const overdueRecords = await deferredRepository.getOverdueAssessmentTargets();
     if (overdueRecords.length === 0) return [];

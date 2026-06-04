@@ -20,6 +20,7 @@ module.exports = tseslint.config(
       'max-params': ['warn', 4],
 
       // 代码质量
+      'no-console': 'warn',
       'no-duplicate-imports': 'error',
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
@@ -35,5 +36,15 @@ module.exports = tseslint.config(
   },
   {
     ignores: ['node_modules/', 'dist/', '*.js', '*.d.ts'],
+  },
+  // 测试文件放宽限制
+  {
+    files: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'max-lines-per-function': 'off',
+      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
+      'complexity': ['warn', 20],
+    },
   }
 );

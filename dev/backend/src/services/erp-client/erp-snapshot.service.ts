@@ -4,6 +4,9 @@
  * 替代原 xinshutong 数据库的 "实时库存表_每天" 表
  * @module services/erp-client/erp-snapshot.service
  */
+import { SqlParam } from '../../db/types';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ERP');
 
 import { appQuery } from '../../db/appPool';
 import { fetchAllInventory } from './erp-inventory.service';
@@ -31,25 +34,22 @@ export async function takeDailyInventorySnapshot(): Promise<{
   const today = new Date();
   const snapshotDate = today.toISOString().slice(0, 10);
 
-  console.log(`[Snapshot] 开始执行每日库存快照: ${snapshotDate}`);
+  log.info(`开始执行每日库存快照: ${snapshotDate}`);
 
   // 从 ERP API 获取全量库存
   const allInventory = await fetchAllInventory(true); // skipCache=true，确保最新数据
 
   if (allInventory.length === 0) {
-    console.warn('[Snapshot] ERP API 返回空库存数据，跳过快照');
+    log.warn('ERP API 返回空库存数据，跳过快照');
     return { snapshotDate, recordCount: 0 };
   }
 
   // 先删除今天的旧快照（幂等性）
-  await appQuery(
-    `DELETE FROM erp_inventory_snapshots WHERE snapshot_date = $1`,
-    [snapshotDate]
-  );
+  await appQuery(`DELETE FROM erp_inventory_snapshots WHERE snapshot_date = $1`, [snapshotDate]);
 
   // 批量插入新快照
   const values: string[] = [];
-  const params: any[] = [];
+  const params: SqlParam[] = [];
   let paramIndex = 1;
 
   for (const record of allInventory) {
@@ -77,7 +77,7 @@ export async function takeDailyInventorySnapshot(): Promise<{
   // 清除快照缓存
   cache.invalidate('erp:snapshot:');
 
-  console.log(`[Snapshot] 快照完成: ${snapshotDate}, 共 ${allInventory.length} 条记录`);
+  log.info(`快照完成: ${snapshotDate}, 共 ${allInventory.length} 条记录`);
 
   return { snapshotDate, recordCount: allInventory.length };
 }
@@ -100,9 +100,10 @@ export async function getMonthlyAvailability(
 
   // 从快照表查询月度数据
   const result = await appQuery<{
-    stock_date: any;  // PostgreSQL DATE 返回 Date 对象
+    stock_date: any; // PostgreSQL DATE 返回 Date 对象
     in_stock_count: number;
-  }>(`
+  }>(
+    `
     SELECT
       snapshot_date as stock_date,
       COUNT(DISTINCT goods_name) as in_stock_count
@@ -113,7 +114,9 @@ export async function getMonthlyAvailability(
       AND snapshot_date <= CURRENT_DATE
     GROUP BY snapshot_date
     ORDER BY snapshot_date
-  `, [goodsNames, monthStart]);
+  `,
+    [goodsNames, monthStart]
+  );
 
   const dailyMap = new Map<string, number>();
   for (const row of result.rows) {

@@ -3,14 +3,24 @@
  * 审批通过后: 1. 生成舟谱资产清理单  2. 如有收入，额外创建收入单
  * @module services/fixed-asset/disposal-callback
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('FixedAsset');
 
 import type { OaInstanceRow } from '../oa/oa.types';
 import { searchErpAssets, getErpStaff } from './fixed-asset.query';
-import { getErpMeta, updateErpMetaStatus, mergeErpResponseData, markErpFailed } from './erp-meta-utils';
-import { erpPost, getErpConfig, getErpDefaults } from '../erp-client';
-import type { ErpBillResponse } from '../erp-client';
-import { FEE_SUBJECT, DISPOSAL_INCRDECR_MAP } from './fixed-asset.types';
-import type { DisposalType, ErpAsset } from './fixed-asset.types';
+import {
+  getErpMeta,
+  updateErpMetaStatus,
+  mergeErpResponseData,
+  markErpFailed,
+} from './erp-meta-utils';
+import { erpPost, getErpConfig, getErpDefaults, type ErpBillResponse } from '../erp-client';
+import {
+  FEE_SUBJECT,
+  DISPOSAL_INCRDECR_MAP,
+  type DisposalType,
+  type ErpAsset,
+} from './fixed-asset.types';
 import { normalizeDateTime } from './fixed-asset-utils';
 
 /**
@@ -46,15 +56,11 @@ async function createDisposalRecord(
     uid,
   };
 
-  const clearResult = await erpPost<ErpBillResponse>(
-    config.assetClearPath,
-    clearPayload,
-    {
-      pathPrefix: config.assetPathPrefix,
-      businessType: 'fixed_asset_disposal_clear',
-      businessId: instanceId,
-    }
-  );
+  const clearResult = await erpPost<ErpBillResponse>(config.assetClearPath, clearPayload, {
+    pathPrefix: config.assetPathPrefix,
+    businessType: 'fixed_asset_disposal_clear',
+    businessId: instanceId,
+  });
 
   return clearResult || null;
 }
@@ -73,26 +79,30 @@ async function createIncomeRecord(
   const config = getErpConfig();
 
   const staff = await getErpStaff();
-  const applicant = staff.find((s) => s.name === applicantName);
+  const applicant = staff.find(s => s.name === applicantName);
   const salesmanId = applicant?.id || defaultSalesmanId;
   const deptId = applicant?.deptId || defaultDeptId;
 
   const incomePayload = {
     operatorId: '1',
-    paymentDetails: [{
-      paymentAmount: disposalValue,
-      subjectId: 16,
-    }],
+    paymentDetails: [
+      {
+        paymentAmount: disposalValue,
+        subjectId: 16,
+      },
+    ],
     totalAmount: disposalValue,
-    details: [{
-      id: 1,
-      subjectId: FEE_SUBJECT.DISPOSAL_INCOME.subjectId,
-      subjectName: FEE_SUBJECT.DISPOSAL_INCOME.subjectName,
-      taxRadio: '0',
-      taxAmount: '',
-      noTaxAmount: parseFloat(disposalValue).toFixed(2),
-      paymentAmount: disposalValue,
-    }],
+    details: [
+      {
+        id: 1,
+        subjectId: FEE_SUBJECT.DISPOSAL_INCOME.subjectId,
+        subjectName: FEE_SUBJECT.DISPOSAL_INCOME.subjectName,
+        taxRadio: '0',
+        taxAmount: '',
+        noTaxAmount: parseFloat(disposalValue).toFixed(2),
+        paymentAmount: disposalValue,
+      },
+    ],
     imgIds: [],
     salesmanId,
     workTime: normalizeDateTime(disposalDate),
@@ -102,15 +112,11 @@ async function createIncomeRecord(
     uid,
   };
 
-  const incomeResult = await erpPost<ErpBillResponse>(
-    config.incomeBillPath,
-    incomePayload,
-    {
-      pathPrefix: '/saas/pro/',
-      businessType: 'fixed_asset_disposal_income',
-      businessId: instanceId,
-    }
-  );
+  const incomeResult = await erpPost<ErpBillResponse>(config.incomeBillPath, incomePayload, {
+    pathPrefix: '/saas/pro/',
+    businessType: 'fixed_asset_disposal_income',
+    businessId: instanceId,
+  });
 
   return incomeResult || null;
 }
@@ -136,7 +142,11 @@ export async function handleAssetDisposalApproved(
 
     // 1. 生成清理单
     const clearData = await createDisposalRecord(
-      erpAssetId, disposalType, disposalDate, disposalReason, instance.id
+      erpAssetId,
+      disposalType,
+      disposalDate,
+      disposalReason,
+      instance.id
     );
 
     const responseData: Record<string, unknown> = {
@@ -146,20 +156,23 @@ export async function handleAssetDisposalApproved(
     // 2. 如有收入，创建收入单
     if (hasIncome && parseFloat(disposalValue) > 0) {
       const incomeData = await createIncomeRecord(
-        disposalValue, disposalDate, applicationNo,
-        instance.applicant_name || '', instance.id
+        disposalValue,
+        disposalDate,
+        applicationNo,
+        instance.applicant_name || '',
+        instance.id
       );
       responseData.incomeResult = incomeData;
-      console.log(`[AssetCallback] 清理收入单创建成功`);
+      log.info(`清理收入单创建成功`);
     }
 
     await updateErpMetaStatus(instance.id, 'completed');
     await mergeErpResponseData(instance.id, responseData);
 
-    console.log(`[AssetCallback] 清理完成: erpAssetId=${erpAssetId}`);
+    log.info(`清理完成: erpAssetId=${erpAssetId}`);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`[AssetCallback] 清理操作失败:`, message);
+    log.error(`清理操作失败:`, message);
     await markErpFailed(instance.id, { error: message, node: 'disposal' });
   }
 }

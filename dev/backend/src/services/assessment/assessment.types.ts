@@ -14,7 +14,12 @@ export type AssessmentCategory = 'ar_collection' | 'return_order' | 'credit_lice
  * - return_order: 'procurement_confirm_timeout' | 'marketing_sales_timeout' | 'return_expire_insufficient' | 'erp_entry_timeout' | 'warehouse_execute_timeout'
  */
 export type ArCollectionRuleType = 'tier1' | 'tier2' | 'tier3';
-export type ReturnOrderRuleType = 'procurement_confirm_timeout' | 'marketing_sales_timeout' | 'return_expire_insufficient' | 'erp_entry_timeout' | 'warehouse_execute_timeout';
+export type ReturnOrderRuleType =
+  | 'procurement_confirm_timeout'
+  | 'marketing_sales_timeout'
+  | 'return_expire_insufficient'
+  | 'erp_entry_timeout'
+  | 'warehouse_execute_timeout';
 export type CreditLicenseRuleType = 'license_timeout';
 export type AssessmentRuleType = ArCollectionRuleType | ReturnOrderRuleType | CreditLicenseRuleType;
 
@@ -26,7 +31,14 @@ export type AssessmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'appealed
  * @deprecated marketing_supervisor 已废弃，请使用 marketing_manager。
  *   写入前请调用 normalizeAssessmentRole() 进行规范化。
  */
-export type AssessmentRole = 'marketer' | 'marketing_manager' | 'marketing_supervisor' | 'procurement_manager' | 'warehouse_manager' | 'warehouse_keeper' | 'logistics_manager';
+export type AssessmentRole =
+  | 'marketer'
+  | 'marketing_manager'
+  | 'marketing_supervisor'
+  | 'procurement_manager'
+  | 'warehouse_manager'
+  | 'warehouse_keeper'
+  | 'logistics_manager';
 
 /**
  * 规范化被考核角色值
@@ -46,14 +58,14 @@ export interface AssessmentRecordRow {
   id: number;
   category: AssessmentCategory;
   rule_type: string;
-  source_type: string;  // 'ar_collection_task' | 'expiring_return_order'
+  source_type: string; // 'ar_collection_task' | 'expiring_return_order'
   source_id: number;
   source_no: string | null;
   source_name: string | null;
   assessment_user_id: number;
   assessment_user_name: string | null;
   assessment_role: AssessmentRole;
-  base_amount: string | null;       // DECIMAL 返回 string
+  base_amount: string | null; // DECIMAL 返回 string
   penalty_rate: string | null;
   overdue_days: number;
   penalty_amount: string;

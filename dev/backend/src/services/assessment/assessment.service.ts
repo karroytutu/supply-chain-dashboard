@@ -2,21 +2,23 @@
  * 统一考核管理 - 业务服务层
  * 提供考核记录查询、状态操作、申诉提交、手动触发计算、分类配置等业务逻辑
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Assessment');
 
 import * as repository from './assessment.repository';
 import { toDTO, toDTOList, toStatsDTO } from './assessment.mapper';
-import { isTransitionAllowed, getRulesByCategory, getAllRules } from './assessment.rules';
+import { isTransitionAllowed, getRulesByCategory } from './assessment.rules';
 import { runCalculation } from './assessment-calculate';
 import { sendAssessmentNotifications } from './assessment-notify';
 import { submitApproval, getFormTypeByCode } from '../oa';
 import { appQuery } from '../../db/appPool';
-import type {
-  AssessmentCategory,
-  AssessmentQueryParams,
-  AssessmentRecordDTO,
-  AssessmentStatsDTO,
+import {
+  type AssessmentCategory,
+  type AssessmentQueryParams,
+  type AssessmentRecordDTO,
+  type AssessmentStatsDTO,
+  ASSESSMENT_CATEGORY_LABELS,
 } from './assessment.types';
-import { ASSESSMENT_CATEGORY_LABELS } from './assessment.types';
 
 // ==================== 查询服务 ====================
 
@@ -40,7 +42,9 @@ export async function getAssessmentRecords(
  * 获取考核统计数据
  * @param category 可选分类筛选
  */
-export async function getAssessmentStats(category?: AssessmentCategory): Promise<AssessmentStatsDTO> {
+export async function getAssessmentStats(
+  category?: AssessmentCategory
+): Promise<AssessmentStatsDTO> {
   const stats = await repository.getStats(category);
   return toStatsDTO(stats);
 }
@@ -173,9 +177,10 @@ export async function submitAppeal(
         appealReason: reason,
         supportingDocuments: documents || [],
         // 来源编号跳转URL：催收任务有详情页，退货单暂无
-        _sourceNoUrl: record.source_type === 'ar_collection_task'
-          ? `/collection/task/${record.source_id}`
-          : null,
+        _sourceNoUrl:
+          record.source_type === 'ar_collection_task'
+            ? `/collection/task/${record.source_id}`
+            : null,
       },
       title: `考核申诉 - ${record.assessment_user_name || ''}`,
     },
@@ -223,7 +228,7 @@ export async function updateAssessmentStatusByAppeal(
     handle_remark: data.handleRemark,
   });
 
-  console.log(`[Assessment] 申诉回调更新: id=${id}, status=${data.status}`);
+  log.info(`申诉回调更新: id=${id}, status=${data.status}`);
 }
 
 // ==================== 计算触发 ====================
@@ -232,9 +237,10 @@ export async function updateAssessmentStatusByAppeal(
  * 手动触发考核计算
  * @param options 可选的分类和规则类型过滤
  */
-export async function triggerCalculation(
-  options?: { category?: string; ruleType?: string }
-): Promise<{ totalRecords: number; newRecords: number }> {
+export async function triggerCalculation(options?: {
+  category?: string;
+  ruleType?: string;
+}): Promise<{ totalRecords: number; newRecords: number }> {
   const result = await runCalculation({
     triggered_by: 'manual',
     category: options?.category as AssessmentCategory,
@@ -252,7 +258,7 @@ export async function triggerCalculation(
       });
       await sendAssessmentNotifications(pendingRecords.rows);
     } catch (error) {
-      console.error('[Assessment] 发送通知失败:', error);
+      log.error('发送通知失败:', error);
     }
   }
 

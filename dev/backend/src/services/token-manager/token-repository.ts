@@ -3,6 +3,9 @@
  * 封装 erp_tokens 表和 token_operation_logs 表的 CRUD 操作
  * @module services/token-manager/token-repository
  */
+import { SqlParam } from '../../db/types';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('TokenManager');
 
 import { appQuery } from '../../db/appPool';
 import type { TokenSystem, TokenRecord, TokenLoginStatus, LogOperationParams } from './token-types';
@@ -13,10 +16,7 @@ import type { TokenSystem, TokenRecord, TokenLoginStatus, LogOperationParams } f
  * 获取指定系统的 Token 记录
  */
 export async function getTokenRecord(system: TokenSystem): Promise<TokenRecord | null> {
-  const result = await appQuery(
-    'SELECT * FROM erp_tokens WHERE system = $1',
-    [system]
-  );
+  const result = await appQuery('SELECT * FROM erp_tokens WHERE system = $1', [system]);
   return result.rows[0] || null;
 }
 
@@ -72,12 +72,13 @@ export async function saveToken(params: {
 export async function updateLoginStatus(
   system: TokenSystem,
   status: TokenLoginStatus,
-  needsSms: boolean = false
+  needsSms = false
 ): Promise<void> {
-  await appQuery(
-    'UPDATE erp_tokens SET login_status = $1, needs_sms = $2 WHERE system = $3',
-    [status, needsSms, system]
-  );
+  await appQuery('UPDATE erp_tokens SET login_status = $1, needs_sms = $2 WHERE system = $3', [
+    status,
+    needsSms,
+    system,
+  ]);
 }
 
 /**
@@ -117,7 +118,7 @@ export async function logOperation(params: LogOperationParams): Promise<void> {
     );
   } catch (error) {
     // 日志写入失败不应影响主流程
-    console.error('[TokenRepository] 操作日志写入失败:', error);
+    log.error('操作日志写入失败:', error);
   }
 }
 
@@ -133,7 +134,7 @@ export async function getOperationLogs(params: {
   const offset = (page - 1) * pageSize;
 
   let whereClause = '';
-  const queryParams: any[] = [];
+  const queryParams: SqlParam[] = [];
 
   if (system) {
     whereClause = 'WHERE system = $1';

@@ -2,22 +2,25 @@
  * 钉钉同步定时任务模块
  * 负责部门同步、全量用户同步、增量用户同步的定时任务入口
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('DingtalkSync');
 
 import { syncDepartments, syncUsers, incrementalSyncUsers } from './dingtalk-sync.mutation';
 import { createSyncLog, updateSyncLog, hasRunningSync } from './dingtalk-sync-log.query';
 import type { TaskResult } from './dingtalk-sync.types';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 /**
  * 部门同步定时任务
  * 每天 06:00 执行
  */
 export async function syncDingtalkDepartments(): Promise<TaskResult> {
-  console.log('[DingtalkSync] 开始执行部门同步定时任务...');
+  log.info('开始执行部门同步定时任务...');
 
   // 防并发检查
   const { running } = await hasRunningSync();
   if (running) {
-    console.log('[DingtalkSync] 已有同步任务在运行，跳过本次执行');
+    log.info('已有同步任务在运行，跳过本次执行');
     return { processed: 0, succeeded: 0, failed: 0, pending: 0 };
   }
 
@@ -47,16 +50,16 @@ export async function syncDingtalkDepartments(): Promise<TaskResult> {
       failed: 0,
       pending: deptResult.total - deptResult.created - deptResult.updated,
     };
-  } catch (error: any) {
+  } catch (error) {
     const durationMs = Date.now() - startTime;
     await updateSyncLog(logId, {
       status: 'failed',
-      error_message: error.message,
+      error_message: getErrorMessage(error),
       completed_at: new Date().toISOString(),
       duration_ms: durationMs,
     });
 
-    console.error('[DingtalkSync] 部门同步任务失败:', error.message);
+    log.error('部门同步任务失败:', getErrorMessage(error));
     return { processed: 0, succeeded: 0, failed: 1, pending: 0 };
   }
 }
@@ -66,11 +69,11 @@ export async function syncDingtalkDepartments(): Promise<TaskResult> {
  * 每天 07:00 执行
  */
 export async function fullSyncDingtalkUsers(): Promise<TaskResult> {
-  console.log('[DingtalkSync] 开始执行全量用户同步定时任务...');
+  log.info('开始执行全量用户同步定时任务...');
 
   const { running } = await hasRunningSync();
   if (running) {
-    console.log('[DingtalkSync] 已有同步任务在运行，跳过本次执行');
+    log.info('已有同步任务在运行，跳过本次执行');
     return { processed: 0, succeeded: 0, failed: 0, pending: 0 };
   }
 
@@ -101,16 +104,16 @@ export async function fullSyncDingtalkUsers(): Promise<TaskResult> {
       failed: stats.errors,
       pending: stats.unchanged,
     };
-  } catch (error: any) {
+  } catch (error) {
     const durationMs = Date.now() - startTime;
     await updateSyncLog(logId, {
       status: 'failed',
-      error_message: error.message,
+      error_message: getErrorMessage(error),
       completed_at: new Date().toISOString(),
       duration_ms: durationMs,
     });
 
-    console.error('[DingtalkSync] 全量用户同步任务失败:', error.message);
+    log.error('全量用户同步任务失败:', getErrorMessage(error));
     return { processed: 0, succeeded: 0, failed: 1, pending: 0 };
   }
 }
@@ -120,11 +123,11 @@ export async function fullSyncDingtalkUsers(): Promise<TaskResult> {
  * 每2小时执行一次
  */
 export async function incrementalSyncDingtalkUsers(): Promise<TaskResult> {
-  console.log('[DingtalkSync] 开始执行增量用户同步定时任务...');
+  log.info('开始执行增量用户同步定时任务...');
 
   const { running } = await hasRunningSync();
   if (running) {
-    console.log('[DingtalkSync] 已有同步任务在运行，跳过本次执行');
+    log.info('已有同步任务在运行，跳过本次执行');
     return { processed: 0, succeeded: 0, failed: 0, pending: 0 };
   }
 
@@ -155,16 +158,16 @@ export async function incrementalSyncDingtalkUsers(): Promise<TaskResult> {
       failed: stats.errors,
       pending: stats.unchanged,
     };
-  } catch (error: any) {
+  } catch (error) {
     const durationMs = Date.now() - startTime;
     await updateSyncLog(logId, {
       status: 'failed',
-      error_message: error.message,
+      error_message: getErrorMessage(error),
       completed_at: new Date().toISOString(),
       duration_ms: durationMs,
     });
 
-    console.error('[DingtalkSync] 增量用户同步任务失败:', error.message);
+    log.error('增量用户同步任务失败:', getErrorMessage(error));
     return { processed: 0, succeeded: 0, failed: 1, pending: 0 };
   }
 }

@@ -7,7 +7,6 @@
 import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { getErpCustomerProfile } from './erp-customer.service';
-import type { ErpCustomerProfile } from './erp-customer.service';
 import { cache } from '../../utils/cache';
 import { erpUploadImageToErp } from './erp-image-upload';
 
@@ -38,7 +37,10 @@ export async function erpUpdateMaxDebtDays(customerId: number, maxDebtDays: numb
  * 请求参数：ids=[customerId], maxDebtOrderNum=String(单数)
  * 对应 ERP 客户字段：maxDebtOrderNum
  */
-export async function erpUpdateMaxDebtOrderNum(customerId: number, maxDebtOrderNum: number): Promise<void> {
+export async function erpUpdateMaxDebtOrderNum(
+  customerId: number,
+  maxDebtOrderNum: number
+): Promise<void> {
   const { cid, uid } = getErpDefaults();
   await erpPost(
     '/web/consumer/batch-edit-max-debt-order-num',
@@ -103,11 +105,10 @@ export async function erpUploadBusinessLicense(
     customer.settleMethod = creditFields.settleMethod;
   }
 
-  await erpPost(
-    '/web/consumer/update-consumer',
-    customer,
-    { pathPrefix: '/saas/pro/', businessType: 'credit_update_customer_profile' }
-  );
+  await erpPost('/web/consumer/update-consumer', customer, {
+    pathPrefix: '/saas/pro/',
+    businessType: 'credit_update_customer_profile',
+  });
 
   // 写入后失效客户资料缓存，确保后续读取最新数据
   cache.invalidate('erp:customer:profile:');
@@ -138,11 +139,10 @@ export async function erpUpdateCustomerProfile(
     customer.settleMethod = updateFields.settleMethod;
   }
 
-  await erpPost(
-    '/web/consumer/update-consumer',
-    customer,
-    { pathPrefix: '/saas/pro/', businessType: 'credit_update_customer_profile' }
-  );
+  await erpPost('/web/consumer/update-consumer', customer, {
+    pathPrefix: '/saas/pro/',
+    businessType: 'credit_update_customer_profile',
+  });
 
   // 写入后失效客户资料缓存
   cache.invalidate('erp:customer:profile:');

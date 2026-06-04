@@ -3,11 +3,14 @@
  * 从 zhouputoken/erp_login.py 移植
  * @module services/token-manager/erp-login
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('TokenManager');
 
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { config } from '../../config';
 import * as tokenRepo from './token-repository';
 import type { ErpLoginResult } from './token-types';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 const tmConfig = (config as any).tokenManager;
 
@@ -28,15 +31,8 @@ const LOGIN_CONFIG = {
     passwordInput: 'input[name="password"]',
     loginButton: 'input[type="button"][id="login"]',
     sliderContainer: '.nc_wrapper, #aliyunCaptcha-sliding-slider',
-    sliderButtons: [
-      '.nc_iconfont.btn_slide',
-      '.slider-move',
-      '#aliyunCaptcha-sliding-slider',
-    ],
-    successIndicators: [
-      '.nc_iconfont.nc_iconfont_success',
-      '.nc_wrapper.nc_ok',
-    ],
+    sliderButtons: ['.nc_iconfont.btn_slide', '.slider-move', '#aliyunCaptcha-sliding-slider'],
+    successIndicators: ['.nc_iconfont.nc_iconfont_success', '.nc_wrapper.nc_ok'],
   },
   maxSliderAttempts: 5,
   defaultSlideDistance: 330,
@@ -60,7 +56,7 @@ async function startBrowser(): Promise<boolean> {
     // 确保之前的浏览器已关闭
     await closeBrowser();
 
-    console.log('[ERP-Login] 启动 Chromium 浏览器...');
+    log.info('启动 Chromium 浏览器...');
 
     _browser = await chromium.launch({
       headless: true,
@@ -75,7 +71,8 @@ async function startBrowser(): Promise<boolean> {
 
     _context = await _browser.newContext({
       viewport: { width: 1280, height: 720 },
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
     });
@@ -83,10 +80,10 @@ async function startBrowser(): Promise<boolean> {
     _page = await _context.newPage();
     await _page.addInitScript(ANTI_DETECTION_SCRIPT);
 
-    console.log('[ERP-Login] 浏览器启动成功');
+    log.info('浏览器启动成功');
     return true;
   } catch (error) {
-    console.error('[ERP-Login] 浏览器启动失败:', error);
+    log.error('浏览器启动失败:', error);
     await closeBrowser();
     return false;
   }
@@ -120,10 +117,10 @@ async function navigateToLoginPage(): Promise<boolean> {
   } catch (error: any) {
     // net::ERR_ABORTED 通常是因为页面重定向，不一定代表失败
     if (!error?.message?.includes('ERR_ABORTED')) {
-      console.error('[ERP-Login] 导航到登录页失败:', error);
+      log.error('导航到登录页失败:', error);
       return false;
     }
-    console.log('[ERP-Login] 导航遇到 ERR_ABORTED（页面重定向），继续等待元素...');
+    log.info('导航遇到 ERR_ABORTED（页面重定向），继续等待元素...');
   }
 
   try {
@@ -132,7 +129,7 @@ async function navigateToLoginPage(): Promise<boolean> {
     await randomDelay(500, 1000);
     return true;
   } catch (error) {
-    console.error('[ERP-Login] 等待登录页元素失败:', error);
+    log.error('等待登录页元素失败:', error);
     return false;
   }
 }
@@ -143,7 +140,9 @@ async function navigateToLoginPage(): Promise<boolean> {
 async function handleAgreementPopup(): Promise<boolean> {
   if (!_page) return false;
   try {
-    const btn = await _page.waitForSelector(LOGIN_CONFIG.selectors.agreementButton, { timeout: 10000 });
+    const btn = await _page.waitForSelector(LOGIN_CONFIG.selectors.agreementButton, {
+      timeout: 10000,
+    });
     if (btn) {
       await randomDelay(500, 1500);
       await btn.click();
@@ -166,24 +165,28 @@ async function fillCredentials(): Promise<boolean> {
   const password = tmConfig?.erpPassword || '';
 
   if (!username || !password) {
-    console.error('[ERP-Login] ERP 登录凭据未配置');
+    log.error('ERP 登录凭据未配置');
     return false;
   }
 
   try {
-    const usernameInput = await _page.waitForSelector(LOGIN_CONFIG.selectors.usernameInput, { timeout: 10000 });
+    const usernameInput = await _page.waitForSelector(LOGIN_CONFIG.selectors.usernameInput, {
+      timeout: 10000,
+    });
     await usernameInput.fill('');
     await randomDelay(300, 800);
     await typeLikeHuman(usernameInput, username);
 
-    const passwordInput = await _page.waitForSelector(LOGIN_CONFIG.selectors.passwordInput, { timeout: 10000 });
+    const passwordInput = await _page.waitForSelector(LOGIN_CONFIG.selectors.passwordInput, {
+      timeout: 10000,
+    });
     await passwordInput.fill('');
     await randomDelay(300, 800);
     await typeLikeHuman(passwordInput, password);
 
     return true;
   } catch (error) {
-    console.error('[ERP-Login] 填写凭据失败:', error);
+    log.error('填写凭据失败:', error);
     return false;
   }
 }
@@ -194,13 +197,15 @@ async function fillCredentials(): Promise<boolean> {
 async function clickLoginButton(): Promise<boolean> {
   if (!_page) return false;
   try {
-    const loginBtn = await _page.waitForSelector(LOGIN_CONFIG.selectors.loginButton, { timeout: 10000 });
+    const loginBtn = await _page.waitForSelector(LOGIN_CONFIG.selectors.loginButton, {
+      timeout: 10000,
+    });
     await randomDelay(500, 1500);
     await loginBtn.click();
     await randomDelay(1000, 2000);
     return true;
   } catch (error) {
-    console.error('[ERP-Login] 点击登录按钮失败:', error);
+    log.error('点击登录按钮失败:', error);
     return false;
   }
 }
@@ -215,16 +220,16 @@ async function handleSliderVerification(): Promise<boolean> {
 
   try {
     // 检测是否出现滑块
-    let sliderContainer = await _page.$(LOGIN_CONFIG.selectors.sliderContainer);
+    const sliderContainer = await _page.$(LOGIN_CONFIG.selectors.sliderContainer);
     if (!sliderContainer) {
-      console.log('[ERP-Login] 未检测到滑块验证');
+      log.info('未检测到滑块验证');
       return true;
     }
 
-    console.log('[ERP-Login] 检测到滑块验证');
+    log.info('检测到滑块验证');
 
     for (let attempt = 0; attempt < LOGIN_CONFIG.maxSliderAttempts; attempt++) {
-      console.log(`[ERP-Login] 滑块验证尝试 ${attempt + 1}/${LOGIN_CONFIG.maxSliderAttempts}`);
+      log.info(`滑块验证尝试 ${attempt + 1}/${LOGIN_CONFIG.maxSliderAttempts}`);
 
       // 尝试多个滑块按钮选择器
       let sliderButton = null;
@@ -239,7 +244,7 @@ async function handleSliderVerification(): Promise<boolean> {
       }
 
       if (!sliderButton) {
-        console.log('[ERP-Login] 未找到滑块按钮');
+        log.info('未找到滑块按钮');
         await sleep(2000);
         continue;
       }
@@ -254,7 +259,9 @@ async function handleSliderVerification(): Promise<boolean> {
         if (containerBox && containerBox.width > buttonBox.width + 50) {
           slideDistance = containerBox.width - buttonBox.width - 5;
         }
-      } catch { /* use default */ }
+      } catch {
+        /* use default */
+      }
 
       const startX = buttonBox.x + buttonBox.width / 2;
       const startY = buttonBox.y + buttonBox.height / 2;
@@ -276,7 +283,7 @@ async function handleSliderVerification(): Promise<boolean> {
       // 检查是否成功
       const success = await checkVerificationSuccess();
       if (success) {
-        console.log('[ERP-Login] 滑块验证成功');
+        log.info('滑块验证成功');
         return true;
       }
 
@@ -284,15 +291,17 @@ async function handleSliderVerification(): Promise<boolean> {
       try {
         const refreshBtn = await _page.$('.nc_refresh, .errloading');
         if (refreshBtn) await refreshBtn.click();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       await sleep(2000);
     }
 
-    console.error('[ERP-Login] 滑块验证多次尝试后失败');
+    log.error('滑块验证多次尝试后失败');
     return false;
   } catch (error) {
-    console.error('[ERP-Login] 滑块验证处理出错:', error);
+    log.error('滑块验证处理出错:', error);
     return false;
   }
 }
@@ -317,7 +326,9 @@ async function checkVerificationSuccess(): Promise<boolean> {
     try {
       const el = await _page.$(selector);
       if (el) return true;
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
   }
 
   return false;
@@ -327,8 +338,10 @@ async function checkVerificationSuccess(): Promise<boolean> {
  * 模拟人工拖动轨迹（贝塞尔曲线）
  */
 async function simulateHumanDrag(
-  startX: number, startY: number,
-  endX: number, endY: number
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number
 ): Promise<void> {
   if (!_page) return;
 
@@ -414,7 +427,7 @@ async function extractCredentials(): Promise<ErpLoginResult | null> {
     }
     return null;
   } catch (error) {
-    console.error('[ERP-Login] 提取凭据失败:', error);
+    log.error('提取凭据失败:', error);
     return null;
   }
 }
@@ -427,23 +440,22 @@ async function extractCredentials(): Promise<ErpLoginResult | null> {
 export async function performErpLoginAndSave(operatorId?: number): Promise<boolean> {
   // 互斥检查
   if (_erpLoginInProgress) {
-    console.log('[ERP-Login] 已有登录任务进行中，跳过');
+    log.info('已有登录任务进行中，跳过');
     return false;
   }
   _erpLoginInProgress = true;
   const startTime = Date.now();
-  let loginResult: ErpLoginResult | null = null;
 
   try {
-    console.log('[ERP-Login] 开始 ERP 登录流程...');
+    log.info('开始 ERP 登录流程...');
 
     // 1. 启动浏览器
-    if (!await startBrowser()) {
+    if (!(await startBrowser())) {
       throw new Error('浏览器启动失败');
     }
 
     // 2. 导航到登录页
-    if (!await navigateToLoginPage()) {
+    if (!(await navigateToLoginPage())) {
       throw new Error('导航到登录页失败');
     }
 
@@ -451,12 +463,12 @@ export async function performErpLoginAndSave(operatorId?: number): Promise<boole
     await handleAgreementPopup();
 
     // 4. 填写凭据
-    if (!await fillCredentials()) {
+    if (!(await fillCredentials())) {
       throw new Error('填写凭据失败');
     }
 
     // 5. 点击登录
-    if (!await clickLoginButton()) {
+    if (!(await clickLoginButton())) {
       throw new Error('点击登录按钮失败');
     }
 
@@ -464,7 +476,7 @@ export async function performErpLoginAndSave(operatorId?: number): Promise<boole
     await handleSliderVerification();
 
     // 7. 等待并提取凭据
-    loginResult = await waitForAndExtractCredentials();
+    const loginResult = await waitForAndExtractCredentials();
 
     if (!loginResult?.authorization) {
       throw new Error('未能获取到有效的 authorization token');
@@ -479,23 +491,30 @@ export async function performErpLoginAndSave(operatorId?: number): Promise<boole
     });
 
     const durationMs = Date.now() - startTime;
-    console.log(`[ERP-Login] 登录成功 (耗时 ${durationMs}ms)`);
+    log.info(`登录成功 (耗时 ${durationMs}ms)`);
 
     await tokenRepo.logOperation({
-      system: 'erp', operation: 'login', status: 'success',
-      operatorId, durationMs,
+      system: 'erp',
+      operation: 'login',
+      status: 'success',
+      operatorId,
+      durationMs,
     });
 
     return true;
   } catch (error) {
     const durationMs = Date.now() - startTime;
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(`[ERP-Login] 登录失败: ${errorMsg}`);
+    const errorMsg = error instanceof Error ? getErrorMessage(error) : String(error);
+    log.error(`登录失败: ${errorMsg}`);
 
     await tokenRepo.updateLoginStatus('erp', 'failed');
     await tokenRepo.logOperation({
-      system: 'erp', operation: 'login', status: 'failed',
-      operatorId, durationMs, detail: { error: errorMsg },
+      system: 'erp',
+      operation: 'login',
+      status: 'failed',
+      operatorId,
+      durationMs,
+      detail: { error: errorMsg },
     });
 
     return false;
@@ -512,14 +531,16 @@ export async function performErpLoginAndSave(operatorId?: number): Promise<boole
 export async function verifyErpToken(authorization: string): Promise<boolean> {
   try {
     const axios = (await import('axios')).default;
-    const authHeader = authorization.startsWith('Bearer ') ? authorization : `Bearer ${authorization}`;
+    const authHeader = authorization.startsWith('Bearer ')
+      ? authorization
+      : `Bearer ${authorization}`;
 
     const response = await axios.post(
       'https://portal.zhoupudata.com/redcoast/store-query/search',
       { current: 1, size: 1, docState: 1, cid: '10008421', uid: '97' },
       {
         headers: {
-          'Authorization': authHeader,
+          Authorization: authHeader,
           'Content-Type': 'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
@@ -537,7 +558,7 @@ export async function verifyErpToken(authorization: string): Promise<boolean> {
     if (response.status === 401) return false;
     return false;
   } catch (error) {
-    console.error('[ERP-Login] Token 验证请求失败:', error);
+    log.error('Token 验证请求失败:', error);
     return false;
   }
 }

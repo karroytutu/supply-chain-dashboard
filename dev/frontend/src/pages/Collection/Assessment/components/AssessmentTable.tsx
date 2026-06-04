@@ -6,8 +6,15 @@ import { Table, Button, Tag } from 'antd';
 import { FormOutlined } from '@ant-design/icons';
 import { history } from 'umi';
 import type { ColumnsType } from 'antd/es/table';
-import type { AssessmentRecord, AssessmentTier, AssessmentRole, AssessmentStatus } from '@/types/ar-assessment.d';
-import { TIER_NAMES, ROLE_NAMES, STATUS_NAMES } from '@/types/ar-assessment.d';
+import {
+  type AssessmentRecord,
+  type AssessmentTier,
+  type AssessmentRole,
+  type AssessmentStatus,
+  TIER_NAMES,
+  ROLE_NAMES,
+  STATUS_NAMES,
+} from '@/types/ar-assessment.d';
 import { Authorized } from '@/components/Authorized';
 
 interface AssessmentTableProps {

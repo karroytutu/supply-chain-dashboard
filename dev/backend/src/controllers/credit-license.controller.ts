@@ -2,6 +2,8 @@
  * 客户授信营业执照后补上传 - 控制器
  * @module controllers/credit-license.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('CreditLicense');
 
 import { Request, Response } from 'express';
 import {
@@ -11,7 +13,12 @@ import {
   getDeferredByInstanceId,
 } from '../services/credit-license';
 import { resolveLicenseFilePath } from '../middleware/credit-upload';
-import { buildSuccessResponse, buildErrorResponse, buildPagedResponse, handleMutationError } from '../utils/response';
+import {
+  buildSuccessResponse,
+  buildErrorResponse,
+  buildPagedResponse,
+  handleMutationError,
+} from '../utils/response';
 
 /** 补交营业执照 */
 export const supplementLicenseController = async (req: Request, res: Response) => {
@@ -58,7 +65,8 @@ export const listMyDeferredUploadsController = async (req: Request, res: Respons
     }
 
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
+    const pageSize =
+      parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
     const status = req.query.status as string | undefined;
 
     const result = await getMyDeferredUploads(userId, {
@@ -69,7 +77,7 @@ export const listMyDeferredUploadsController = async (req: Request, res: Respons
 
     res.json(buildPagedResponse(result.list, result.total, result.page, result.pageSize));
   } catch (error) {
-    console.error('[CreditLicenseController] 查询我的待补交列表失败:', error);
+    log.error('查询我的待补交列表失败:', error);
     res.status(500).json(buildErrorResponse(500, '查询失败'));
   }
 };
@@ -78,9 +86,12 @@ export const listMyDeferredUploadsController = async (req: Request, res: Respons
 export const listDeferredUploadsController = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
+    const pageSize =
+      parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
     const status = req.query.status as string | undefined;
-    const applicantId = req.query.applicantId ? parseInt(req.query.applicantId as string) : undefined;
+    const applicantId = req.query.applicantId
+      ? parseInt(req.query.applicantId as string)
+      : undefined;
 
     const result = await getDeferredUploads({
       page,
@@ -91,7 +102,7 @@ export const listDeferredUploadsController = async (req: Request, res: Response)
 
     res.json(buildPagedResponse(result.list, result.total, result.page, result.pageSize));
   } catch (error) {
-    console.error('[CreditLicenseController] 查询延期补交列表失败:', error);
+    log.error('查询延期补交列表失败:', error);
     res.status(500).json(buildErrorResponse(500, '查询失败'));
   }
 };
@@ -111,7 +122,7 @@ export const getDeferredByInstanceController = async (req: Request, res: Respons
 
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('[CreditLicenseController] 查询延期补交记录失败:', error);
+    log.error('查询延期补交记录失败:', error);
     res.status(500).json(buildErrorResponse(500, '查询失败'));
   }
 };

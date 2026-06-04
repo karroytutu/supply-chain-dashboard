@@ -66,12 +66,12 @@ const PhotoFieldDisplay: React.FC<PhotoFieldDisplayProps> = ({ field, value, for
               </div>
               <div className={styles.erpLicenseImages}>
                 <Image
-                  src={existingUrl!}
+                  src={existingUrl ?? ''}
                   width={60}
                   height={60}
                   style={{ objectFit: 'cover', borderRadius: 4, marginRight: 8 }}
                   alt="门头照"
-                  onError={() => setBrokenPhotoUrls((prev) => (prev.includes(existingUrl!) ? prev : [...prev, existingUrl!]))}
+                  onError={() => setBrokenPhotoUrls((prev) => (existingUrl && prev.includes(existingUrl) ? prev : [...prev, existingUrl ?? '']))}
                 />
               </div>
             </div>

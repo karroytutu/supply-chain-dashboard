@@ -5,7 +5,7 @@
 /** 月度存档记录 */
 export interface MonthlyArchiveRecord {
   id: number;
-  archiveMonth: string;           // YYYY-MM-DD (月份第一天)
+  archiveMonth: string; // YYYY-MM-DD (月份第一天)
   strategicAvailabilityRate: number | null;
   strategicTotalSku: number | null;
   strategicDaysInMonth: number | null;

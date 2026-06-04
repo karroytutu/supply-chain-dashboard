@@ -50,6 +50,8 @@ services:
     volumes:
       # 挂载上传目录到宿主机，保证数据持久化
       - /data/uploads:/app/uploads:rw
+      # 挂载日志目录到宿主机，winston 文件日志持久化
+      - /data/logs:/app/logs:rw
     env_file:
       - ../prod/backend/.env
     healthcheck:

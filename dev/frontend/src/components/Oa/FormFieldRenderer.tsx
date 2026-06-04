@@ -53,15 +53,17 @@ const FieldRenderer: React.FC<{
       return <Text>{formatDate(value as string)}</Text>;
     case 'datetime':
       return <Text>{formatDateTime(value as string)}</Text>;
-    case 'date-range':
+    case 'date-range': {
       const dates = value as [string, string];
       if (!Array.isArray(dates) || dates.length < 2) return <Text>{String(value)}</Text>;
       return <Text>{formatDate(dates[0])} ~ {formatDate(dates[1])}</Text>;
+    }
     case 'select':
-    case 'radio':
+    case 'radio': {
       const option = field.options?.find((o) => o.value === value);
       return <Text>{option?.label || (value as string)}</Text>;
-    case 'multi-select':
+    }
+    case 'multi-select': {
       const multiValues = value as string[];
       if (!Array.isArray(multiValues) || multiValues.length === 0) {
         return <Text type="secondary">-</Text>;
@@ -74,7 +76,8 @@ const FieldRenderer: React.FC<{
           })}
         </div>
       );
-    case 'upload':
+    }
+    case 'upload': {
       const files = value as Array<{ name: string; url: string }>;
       if (!files || files.length === 0) return <Text type="secondary">-</Text>;
       return (
@@ -86,6 +89,7 @@ const FieldRenderer: React.FC<{
           ))}
         </div>
       );
+    }
     case 'user':
     case 'dept':
       return <Text>{(value as { name?: string })?.name || String(value)}</Text>;
@@ -188,7 +192,7 @@ const FieldRenderer: React.FC<{
     }
     case 'textarea':
       return <Text style={{ whiteSpace: 'pre-wrap' }}>{value as string}</Text>;
-    case 'table':
+    case 'table': {
       const rows = value as Record<string, unknown>[];
       const children = field.children || [];
       if (!rows || rows.length === 0) return <Text type="secondary">-</Text>;
@@ -209,6 +213,7 @@ const FieldRenderer: React.FC<{
           bordered
         />
       );
+    }
     default:
       return <Text>{String(value)}</Text>;
   }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * ERP 认证管理单元测试
  * 测试 Token 获取、缓存、刷新、并发等逻辑
@@ -45,7 +46,10 @@ describe('erp-auth', () => {
 
   it('Token 正常获取', async () => {
     const token = makeJwt({ exp: Math.floor(Date.now() / 1000) + 86400 * 14 });
-    mockGetNativeToken.mockResolvedValue({ authorization: token, expiresAt: Date.now() + 86400 * 14 * 1000 });
+    mockGetNativeToken.mockResolvedValue({
+      authorization: token,
+      expiresAt: Date.now() + 86400 * 14 * 1000,
+    });
 
     const result = await getErpAccessToken();
     expect(result).toBe(token);
@@ -69,7 +73,10 @@ describe('erp-auth', () => {
     // 第一次：返回即将过期的 token（expiresAt 接近当前时间）
     const expiredExp = Date.now() + 60 * 1000; // 仅60秒后过期，小于 REFRESH_AHEAD_MS(1h)
     const expiredToken = makeJwt({ exp: Math.floor(Date.now() / 1000) + 60 });
-    mockGetNativeToken.mockResolvedValueOnce({ authorization: expiredToken, expiresAt: expiredExp });
+    mockGetNativeToken.mockResolvedValueOnce({
+      authorization: expiredToken,
+      expiresAt: expiredExp,
+    });
 
     await getErpAccessToken();
 
@@ -89,10 +96,7 @@ describe('erp-auth', () => {
     mockGetNativeToken.mockResolvedValue({ authorization: token, expiresAt });
 
     // 同时发起两次调用
-    const [result1, result2] = await Promise.all([
-      getErpAccessToken(),
-      getErpAccessToken(),
-    ]);
+    const [result1, result2] = await Promise.all([getErpAccessToken(), getErpAccessToken()]);
 
     expect(result1).toBe(token);
     expect(result2).toBe(token);

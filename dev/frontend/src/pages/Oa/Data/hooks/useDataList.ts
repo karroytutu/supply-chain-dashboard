@@ -3,6 +3,8 @@ import { message } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import type { ApprovalInstance, FormTypeDefinition } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
+import { createLogger } from '../../../../utils/logger';
+const log = createLogger('OaData');
 
 interface DataStats {
   total: number;
@@ -72,7 +74,7 @@ export function useDataList(): UseDataListReturn {
       const res = await oaApi.getFormTypes();
       setFormTypes(res.data);
     } catch (error) {
-      console.error('加载表单类型失败', error);
+      log.error('加载表单类型失败', error);
     }
   };
 
@@ -102,6 +104,7 @@ export function useDataList(): UseDataListReturn {
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [pagination.current, pagination.pageSize, formTypeCode, status, applicantName, searchText, dateRange]);
 
   // 加载统计
@@ -110,7 +113,7 @@ export function useDataList(): UseDataListReturn {
       const res = await oaApi.getStats();
       setStats(res.data);
     } catch (error) {
-      console.error('加载统计失败', error);
+      log.error('加载统计失败', error);
     }
   };
 

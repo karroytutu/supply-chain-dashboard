@@ -4,10 +4,15 @@
  * onApproved: 审批通过后调用 ERP API 更新授信信息
  * @module services/oa/customer-credit-callback
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('OA');
 
 import { getUserRolesAndPermissions } from '../auth.service';
-import { erpUploadBusinessLicense, erpUpdateCustomerProfile } from '../erp-client/erp-credit-update.service';
-import type { CreditUpdateFields } from '../erp-client/erp-credit-update.service';
+import {
+  erpUploadBusinessLicense,
+  erpUpdateCustomerProfile,
+  type CreditUpdateFields,
+} from '../erp-client/erp-credit-update.service';
 import { erpMarkHoldOrders } from '../erp-client/erp-settlement.service';
 import { getCustomerLicenseInfo, getErpCustomerProfile } from '../erp-client/erp-customer.service';
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
@@ -64,18 +69,20 @@ export async function beforeSubmitCustomerCredit(
   if (customerId) {
     try {
       const licenseInfo = await getCustomerLicenseInfo(customerId);
-      const hasNewUpload = formData.businessLicensePhotos
-        && Array.isArray(formData.businessLicensePhotos)
-        && formData.businessLicensePhotos.length > 0;
+      const hasNewUpload =
+        formData.businessLicensePhotos &&
+        Array.isArray(formData.businessLicensePhotos) &&
+        formData.businessLicensePhotos.length > 0;
       // ERP 无执照且本次也未上传 → 标记为延期补交
       extraData._licenseDeferred = !licenseInfo.hasLicense && !hasNewUpload;
       // 将 ERP 执照图片 URL 注入 formData，供审批详情展示
-      extraData._erpLicenseUrls = licenseInfo.hasLicense && licenseInfo.attachedPicUrls.length > 0
-        ? licenseInfo.attachedPicUrls
-        : [];
+      extraData._erpLicenseUrls =
+        licenseInfo.hasLicense && licenseInfo.attachedPicUrls.length > 0
+          ? licenseInfo.attachedPicUrls
+          : [];
     } catch (error) {
       // ERP 查询失败 — 标记为延期补交（允许提交，审批通过后补交）
-      console.warn('[CustomerCredit] ERP执照查询失败，标记为延期补交:', error instanceof Error ? error.message : error);
+      log.warn('ERP执照查询失败，标记为延期补交:', error instanceof Error ? error.message : error);
       extraData._licenseDeferred = true;
       extraData._erpLicenseUrls = [];
     }
@@ -130,16 +137,17 @@ export async function onApprovedCustomerCredit(
         creditFields = { settleMethod: CREDIT_SETTLE_METHOD_ON_ACCOUNT };
         break;
       default:
-        console.warn(`[CustomerCredit] 未知的授信类型: ${creditType}`);
+        log.warn(`未知的授信类型: ${creditType}`);
     }
 
     // 上传营业执照 + 更新授信字段
     // 如果有营业执照需要上传，将授信字段一并传入 erpUploadBusinessLicense，
     // 通过同一次 update-consumer 调用同时更新 attachedPicIds 和授信字段，
     // 避免 update-consumer 用旧快照覆盖之前的 batch-edit 结果
-    const hasLicenseUpload = formData.businessLicensePhotos
-      && Array.isArray(formData.businessLicensePhotos)
-      && (formData.businessLicensePhotos as Array<{ url?: string }>).some(p => p.url);
+    const hasLicenseUpload =
+      formData.businessLicensePhotos &&
+      Array.isArray(formData.businessLicensePhotos) &&
+      (formData.businessLicensePhotos as Array<{ url?: string }>).some(p => p.url);
 
     if (hasLicenseUpload) {
       const photos = formData.businessLicensePhotos as Array<{ url?: string }>;
@@ -150,7 +158,7 @@ export async function onApprovedCustomerCredit(
         // 预检：过滤不存在的文件，避免上传时抛异常（TOCTOU 可接受，实际概率极低）
         .filter(fp => {
           if (!fs.existsSync(fp)) {
-            console.warn(`[CustomerCredit] 营业执照文件不存在，跳过上传: ${fp}`);
+            log.warn(`营业执照文件不存在，跳过上传: ${fp}`);
             return false;
           }
           return true;
@@ -179,14 +187,20 @@ export async function onApprovedCustomerCredit(
 
       // 提取压单类型和天数，传递给检测函数
       const rawHoardType = formData.hoardType as string;
-      const hoardType = rawHoardType === AR_HOLD_TYPE_TIME_LIMITED ? AR_HOLD_TYPE_TIME_LIMITED : AR_HOLD_TYPE_LONG_TERM;
-      const holdDays = hoardType === AR_HOLD_TYPE_TIME_LIMITED ? (Number(formData.holdDays) || null) : null;
+      const hoardType =
+        rawHoardType === AR_HOLD_TYPE_TIME_LIMITED
+          ? AR_HOLD_TYPE_TIME_LIMITED
+          : AR_HOLD_TYPE_LONG_TERM;
+      const holdDays =
+        hoardType === AR_HOLD_TYPE_TIME_LIMITED ? Number(formData.holdDays) || null : null;
 
       const consumerName = (formData._customerName || formData.customerName) as string;
       if (consumerName) {
-        await detectHoardChangesByCustomer(consumerName, { holdType: hoardType, holdDays }).catch(err => {
-          console.error('[CustomerCredit] 压单即时检测失败（兜底会在06:00执行）:', err);
-        });
+        await detectHoardChangesByCustomer(consumerName, { holdType: hoardType, holdDays }).catch(
+          err => {
+            log.error('压单即时检测失败（兜底会在06:00执行）:', err);
+          }
+        );
       }
     }
 
@@ -202,16 +216,16 @@ export async function onApprovedCustomerCredit(
           customerId,
           (formData._customerName || formData.customerName) as string,
           instance.applicant_id,
-          instance.applicant_name,
+          instance.applicant_name
         );
-        console.log(`[CustomerCredit] 已创建营业执照延期补交记录(instance=${instanceId})`);
+        log.info(`已创建营业执照延期补交记录(instance=${instanceId})`);
       } catch (err) {
         // 延期记录创建失败不影响主流程
-        console.error('[CustomerCredit] 营业执照延期记录创建失败:', err);
+        log.error('营业执照延期记录创建失败:', err);
       }
     }
   } catch (error) {
-    console.error('[CustomerCredit] ERP更新失败:', error);
+    log.error('ERP更新失败:', error);
     // 记录错误到 erp_meta，便于前端展示和重试
     await markErpFailed(instanceId, {
       error: error instanceof Error ? error.message : String(error),

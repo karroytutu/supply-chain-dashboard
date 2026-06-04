@@ -1,8 +1,10 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
 import { getProductsForSelection, addStrategicProducts } from '@/services/api/strategic-product';
-import type { SelectableProduct } from '@/types/strategic-product';
+import type { } from '@/types/strategic-product';
 import type { ProductSelectionData } from './useProductSelectionData';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('StrategicProducthooks');
 
 export interface ProductSelectionActions {
   modalVisible: boolean;
@@ -32,6 +34,7 @@ export function useProductSelectionActions(
     setProductsKeyword('');
     setSelectedProductIds([]);
     await data.loadCategoryTree();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [data.loadCategoryTree]);
 
   const closeModal = useCallback(() => {
@@ -39,10 +42,12 @@ export function useProductSelectionActions(
     setSelectedProductIds([]);
     setProductsKeyword('');
     data.resetData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [data.resetData]);
 
   const handleProductsSearch = useCallback(() => {
     data.loadProductsForSelection(data.selectedAddCategoryPath || '', 1, data.productsPageSize, productsKeyword);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [data.loadProductsForSelection, data.selectedAddCategoryPath, data.productsPageSize, productsKeyword]);
 
   const handleProductSelect = useCallback((goodsId: string, checked: boolean) => {
@@ -66,7 +71,7 @@ export function useProductSelectionActions(
       setSelectedProductIds(allIds);
       message.success(`已选择全部 ${allIds.length} 个商品`);
     } catch (error) {
-      console.error('获取全部商品失败:', error);
+      log.error('获取全部商品失败:', error);
       message.error('获取全部商品失败');
     }
   }, [data.selectedAddCategoryPath]);
@@ -95,6 +100,7 @@ export function useProductSelectionActions(
 
   const handlePaginationChange = useCallback((page: number, pageSize: number) => {
     data.loadProductsForSelection(data.selectedAddCategoryPath || '', page, pageSize, productsKeyword);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [data.loadProductsForSelection, data.selectedAddCategoryPath, productsKeyword]);
 
   return {

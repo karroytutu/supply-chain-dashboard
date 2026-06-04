@@ -2,6 +2,8 @@
  * OA数据管理控制器
  * @module controllers/oa-data.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('OaData');
 
 import { Request, Response } from 'express';
 import { getDataListAll } from '../services/oa/oa.query';
@@ -14,7 +16,7 @@ import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
  */
 export async function getDataList(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -43,7 +45,7 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
 
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('获取数据列表失败:', error);
+    log.error('获取数据列表失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取数据列表失败'));
   }
 }
@@ -54,7 +56,7 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
  */
 export async function exportData(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -63,7 +65,7 @@ export async function exportData(req: Request, res: Response): Promise<void> {
     // 导出功能暂返回提示
     res.json(buildSuccessResponse({ message: '导出功能开发中' }));
   } catch (error) {
-    console.error('导出数据失败:', error);
+    log.error('导出数据失败:', error);
     res.status(500).json(buildErrorResponse(500, '导出数据失败'));
   }
 }

@@ -3,12 +3,20 @@
  * 统一为 ERP 欠款数据补充 hoardTag、客户限额等上下文信息
  * 供任务生成器、预警查询、预警提醒共用
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ArCollection');
 
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
-import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE, AR_HOARD_TAG_HOARD, AR_HOARD_TAG_NORMAL, AR_HOLD_TYPE_TIME_LIMITED } from '../../utils/constants';
-import type { ArHoldType } from '../../utils/constants';
+import {
+  AR_DEFAULT_EXPIRE_DAYS,
+  AR_SETTLE_METHOD_CONSUMER_EXPIRE,
+  AR_HOARD_TAG_HOARD,
+  AR_HOARD_TAG_NORMAL,
+  AR_HOLD_TYPE_TIME_LIMITED,
+  type ArHoldType,
+} from '../../utils/constants';
 import { searchErpCustomers } from '../erp-client/erp-customer.service';
 import { searchErpSettlementOrders } from '../erp-client/erp-settlement.service';
 import type { ERPDebtRecord, EnrichedDebtRecord, CustomerLimits } from './ar-debt.types';
@@ -32,7 +40,7 @@ const CACHE_KEY_SETTLEMENT_HOARD = 'erp:settlement:hoard';
  */
 export async function enrichDebtRecords(
   debts: ERPDebtRecord[],
-  now: Date = new Date(),
+  now: Date = new Date()
 ): Promise<EnrichedDebtRecord[]> {
   if (debts.length === 0) return [];
 
@@ -60,18 +68,21 @@ export async function enrichDebtRecords(
     // 期限压单已到期 → 覆盖 hoardTag 为 NORMAL（不再排除催收）
     // 使用字符串比较避免时区偏移：holdUntil 格式为 'YYYY-MM-DD'，与当天日期字符串直接比较
     let hoardTag = rawHoardTag;
-    if (rawHoardTag === AR_HOARD_TAG_HOARD
-      && holdType === AR_HOLD_TYPE_TIME_LIMITED
-      && holdUntil
-      && holdUntil < now.toISOString().slice(0, 10)) {
+    if (
+      rawHoardTag === AR_HOARD_TAG_HOARD &&
+      holdType === AR_HOLD_TYPE_TIME_LIMITED &&
+      holdUntil &&
+      holdUntil < now.toISOString().slice(0, 10)
+    ) {
       hoardTag = AR_HOARD_TAG_NORMAL;
     }
 
     // 计算逾期相关字段
     const workDate = new Date(debt.workTime);
-    const maxAllowedDays = Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE
-      ? (Number(debt.consumerExpireDay) || 0)
-      : AR_DEFAULT_EXPIRE_DAYS;
+    const maxAllowedDays =
+      Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE
+        ? Number(debt.consumerExpireDay) || 0
+        : AR_DEFAULT_EXPIRE_DAYS;
     const ageDays = Math.floor((now.getTime() - workDate.getTime()) / 86400000);
     const overdueDays = Math.max(0, ageDays - maxAllowedDays);
     const overdueDate = new Date(workDate.getTime() + maxAllowedDays * 86400000);
@@ -113,7 +124,7 @@ export function filterHoardDebts(debts: EnrichedDebtRecord[]): EnrichedDebtRecor
  * 使用缓存避免重复 API 调用
  * @usedBy ar-hoard-detect.ts (压单检测获取客户映射)
  */
-export async function fetchCustomerData(consumerNames: string[]): Promise<{
+export async function fetchCustomerData(_consumerNames: string[]): Promise<{
   nameToTraderId: Map<string, number>;
   customerLimitsMap: Map<string, CustomerLimits>;
 }> {
@@ -152,7 +163,7 @@ export async function fetchCustomerData(consumerNames: string[]): Promise<{
     cache.set(CACHE_KEY_CUSTOMER_NAME_MAP, nameToTraderId, CACHE_TTL.LOW_FREQUENCY);
     cache.set(CACHE_KEY_CUSTOMER_LIMITS, customerLimitsMap, CACHE_TTL.LOW_FREQUENCY);
   } catch (error) {
-    console.error('[DebtEnrichment] 获取ERP客户数据失败:', error);
+    log.error('获取ERP客户数据失败:', error);
     // 容错：返回空的映射，不影响后续处理（客户限额将全部为 null）
   }
 
@@ -171,7 +182,7 @@ export async function fetchCustomerData(consumerNames: string[]): Promise<{
  */
 export async function fetchHoardTags(
   debts: ERPDebtRecord[],
-  nameToTraderId: Map<string, number>,
+  nameToTraderId: Map<string, number>
 ): Promise<Map<string, string>> {
   const hoardTagMap = new Map<string, string>();
 
@@ -209,63 +220,69 @@ export async function fetchHoardTags(
     // 并行获取各客户的结算单（限制并发数）
     const CONCURRENCY_LIMIT = 5;
     const entries = Array.from(debtsByConsumer.entries());
-    const results = await parallelMap(entries, CONCURRENCY_LIMIT, async ([consumerName, consumerDebts]) => {
-      const traderId = nameToTraderId.get(consumerName);
-      if (!traderId) return;
+    const _results = await parallelMap(
+      entries,
+      CONCURRENCY_LIMIT,
+      async ([consumerName, consumerDebts]) => {
+        const traderId = nameToTraderId.get(consumerName);
+        if (!traderId) return;
 
-      // 检查缓存
-      const cacheKey = `${CACHE_KEY_SETTLEMENT_HOARD}:${traderId}`;
-      const cached = cache.get<Map<string, string>>(cacheKey);
+        // 检查缓存
+        const cacheKey = `${CACHE_KEY_SETTLEMENT_HOARD}:${traderId}`;
+        const cached = cache.get<Map<string, string>>(cacheKey);
 
-      if (cached) {
-        // 从缓存中匹配 billId
-        for (const debt of consumerDebts) {
-          const tag = cached.get(debt.billId);
-          if (tag) hoardTagMap.set(debt.billId, tag);
-        }
-        return;
-      }
-
-      try {
-        const orders = await searchErpSettlementOrders({ traderId });
-
-        // 构建 billId → hoardTag 映射
-        const orderHoardMap = new Map<string, string>();
-        let missingHoardFieldCount = 0;
-        for (const order of orders) {
-          // 结算单 API 返回的字段名为 hoardTag（英文值 'NORMAL'/'HOARD'）
-          // 欠款明细 API 返回的字段名为 isHoard（中文值 '是'/'否'），两者不同
-          const orderRaw = order as Record<string, unknown>;
-          const rawTag = (orderRaw.hoardTag ?? orderRaw.isHoard) as string | undefined;
-          if (!rawTag) {
-            missingHoardFieldCount++;
-            continue;
+        if (cached) {
+          // 从缓存中匹配 billId
+          for (const debt of consumerDebts) {
+            const tag = cached.get(debt.billId);
+            if (tag) hoardTagMap.set(debt.billId, tag);
           }
-          // 兼容两种值格式：中文('是'/'否') 和英文('HOARD'/'NORMAL')
-          const tag = rawTag === '是' ? 'HOARD' : rawTag === '否' ? 'NORMAL' : rawTag;
-          orderHoardMap.set(String(order.id), tag);
-          // 也用 bizStr（结算单号）匹配
-          if (order.bizStr) {
-            orderHoardMap.set(order.bizStr, tag);
+          return;
+        }
+
+        try {
+          const orders = await searchErpSettlementOrders({ traderId });
+
+          // 构建 billId → hoardTag 映射
+          const orderHoardMap = new Map<string, string>();
+          let missingHoardFieldCount = 0;
+          for (const order of orders) {
+            // 结算单 API 返回的字段名为 hoardTag（英文值 'NORMAL'/'HOARD'）
+            // 欠款明细 API 返回的字段名为 isHoard（中文值 '是'/'否'），两者不同
+            const orderRaw = order as Record<string, unknown>;
+            const rawTag = (orderRaw.hoardTag ?? orderRaw.isHoard) as string | undefined;
+            if (!rawTag) {
+              missingHoardFieldCount++;
+              continue;
+            }
+            // 兼容两种值格式：中文('是'/'否') 和英文('HOARD'/'NORMAL')
+            const tag = rawTag === '是' ? 'HOARD' : rawTag === '否' ? 'NORMAL' : rawTag;
+            orderHoardMap.set(String(order.id), tag);
+            // 也用 bizStr（结算单号）匹配
+            if (order.bizStr) {
+              orderHoardMap.set(order.bizStr, tag);
+            }
           }
-        }
-        if (missingHoardFieldCount > 0) {
-          console.warn(`[DebtEnrichment] 客户(traderId=${traderId}) ${missingHoardFieldCount}/${orders.length} 条结算单缺少 hoardTag/isHoard 字段`);
-        }
+          if (missingHoardFieldCount > 0) {
+            log.warn(
+              `客户(traderId=${traderId}) ${missingHoardFieldCount}/${orders.length} 条结算单缺少 hoardTag/isHoard 字段`
+            );
+          }
 
-        // 缓存该客户的结算单 hoardTag 映射
-        cache.set(cacheKey, orderHoardMap, CACHE_TTL.LOW_FREQUENCY);
+          // 缓存该客户的结算单 hoardTag 映射
+          cache.set(cacheKey, orderHoardMap, CACHE_TTL.LOW_FREQUENCY);
 
-        // 匹配 billId
-        for (const debt of consumerDebts) {
-          const tag = orderHoardMap.get(debt.billId);
-          if (tag) hoardTagMap.set(debt.billId, tag);
+          // 匹配 billId
+          for (const debt of consumerDebts) {
+            const tag = orderHoardMap.get(debt.billId);
+            if (tag) hoardTagMap.set(debt.billId, tag);
+          }
+        } catch (error) {
+          log.error(`获取客户 ${consumerName}(traderId=${traderId}) 结算单失败:`, error);
+          // 容错：该客户的 hoardTag 保持未知，不影响其他客户
         }
-      } catch (error) {
-        console.error(`[DebtEnrichment] 获取客户 ${consumerName}(traderId=${traderId}) 结算单失败:`, error);
-        // 容错：该客户的 hoardTag 保持未知，不影响其他客户
       }
-    });
+    );
   }
 
   return hoardTagMap;
@@ -275,7 +292,10 @@ export async function fetchHoardTags(
  * 解析单条欠款的 hoardTag
  * 优先使用映射中的值，其次使用原始记录中的值，最后为 null
  */
-function resolveHoardTag(debt: ERPDebtRecord, hoardTagMap: Map<string, string>): typeof AR_HOARD_TAG_NORMAL | typeof AR_HOARD_TAG_HOARD | null {
+function resolveHoardTag(
+  debt: ERPDebtRecord,
+  hoardTagMap: Map<string, string>
+): typeof AR_HOARD_TAG_NORMAL | typeof AR_HOARD_TAG_HOARD | null {
   const tag = hoardTagMap.get(debt.billId) || debt.hoardTag;
   if (tag === AR_HOARD_TAG_HOARD || tag === AR_HOARD_TAG_NORMAL) return tag;
   return null;
@@ -302,7 +322,11 @@ async function fetchHoldExpiryState(debts: ERPDebtRecord[]): Promise<Map<string,
 
   try {
     const billIds = debts.map(d => d.billId);
-    const result = await appQuery<{ erp_bill_id: string; hold_type: string; hold_until: string | null }>(
+    const result = await appQuery<{
+      erp_bill_id: string;
+      hold_type: string;
+      hold_until: string | null;
+    }>(
       `SELECT erp_bill_id, hold_type, hold_until::text
        FROM ar_collection_details
        WHERE erp_bill_id = ANY($1)
@@ -317,7 +341,7 @@ async function fetchHoldExpiryState(debts: ERPDebtRecord[]): Promise<Map<string,
       });
     }
   } catch (error) {
-    console.error('[DebtEnrichment] 获取hold元数据失败:', error);
+    log.error('获取hold元数据失败:', error);
     // 容错：holdExpiryMap 保持空，不影响主流程
   }
 
@@ -339,7 +363,7 @@ function parseNumberOrNull(value: string | undefined | null): number | null {
 async function parallelMap<T, R>(
   items: T[],
   concurrency: number,
-  fn: (item: T) => Promise<R>,
+  fn: (item: T) => Promise<R>
 ): Promise<R[]> {
   const results: R[] = [];
   let index = 0;

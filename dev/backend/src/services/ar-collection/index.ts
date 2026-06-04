@@ -17,15 +17,10 @@ export {
 } from './ar-collection-sync.task';
 
 // 压单检测服务
-export {
-  detectHoardChangesByCustomer,
-} from './ar-hoard-detect';
+export { detectHoardChangesByCustomer } from './ar-hoard-detect';
 
 // 统计服务
-export {
-  getCollectionStats,
-  getMyTasks,
-} from './ar-collection.stats';
+export { getCollectionStats, getMyTasks } from './ar-collection.stats';
 
 // 查询服务
 export {
@@ -49,11 +44,7 @@ export {
 } from './ar-collection.mutation';
 
 // 法律催收服务
-export {
-  sendCollectionNotice,
-  fileLawsuit,
-  updateLegalProgress,
-} from './ar-collection.legal';
+export { sendCollectionNotice, fileLawsuit, updateLegalProgress } from './ar-collection.legal';
 
 // 通知服务
 export {
@@ -75,9 +66,7 @@ export {
 } from './ar-collection-notify-task';
 
 // 定时提醒任务
-export {
-  checkExtensionExpiryReminders,
-} from './ar-collection-reminder.task';
+export { checkExtensionExpiryReminders } from './ar-collection-reminder.task';
 
 // 预警查询服务
 export {
@@ -88,11 +77,7 @@ export {
 } from './ar-warning.query';
 
 // 预警提醒任务
-export {
-  checkUpcomingOverdueReminders,
-} from './ar-warning.task';
+export { checkUpcomingOverdueReminders } from './ar-warning.task';
 
 // 预警消息模板
-export {
-  buildUpcomingWarningMessage,
-} from './ar-collection-notify';
+export { buildUpcomingWarningMessage } from './ar-collection-notify';

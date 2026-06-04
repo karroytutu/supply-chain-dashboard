@@ -3,7 +3,7 @@
  * 负责数据库实体(snake_case) ↔ API DTO(camelCase) 的双向转换
  */
 
-import { toCamelKeys, toSnakeKeys } from '../../utils/keyConvert';
+import { toCamelKeys } from '../../utils/keyConvert';
 import { formatDateTime } from '../../utils/dateFormat';
 import type {
   CollectionTask,
@@ -28,8 +28,11 @@ import type {
   ResolveDifferenceDTO,
   RollbackDTO,
 } from './ar-collection.dto';
-import type { AssessmentRecord } from '../ar-assessment/ar-assessment.types';
-import { STATUS_NAMES, ROLE_NAMES } from '../ar-assessment/ar-assessment.types';
+import {
+  type AssessmentRecordRow,
+  ASSESSMENT_STATUS_LABELS,
+  ASSESSMENT_ROLE_LABELS,
+} from '../assessment/assessment.types';
 
 // ==================== 实体 → DTO（用于响应） ====================
 
@@ -93,21 +96,21 @@ export function toLegalProgressDTO(progress: LegalProgress | null): LegalProgres
 
 /**
  * 考核记录 → 操作日志 DTO
- * 将考核记录转换为统一的操作日志格式，用于合并显示
+ * 将统一考核记录转换为催收操作日志格式，用于合并显示
  */
-export function assessmentToActionDTO(record: AssessmentRecord): CollectionActionDTO {
+export function assessmentToActionDTO(record: AssessmentRecordRow): CollectionActionDTO {
   return {
     id: 1000000 + record.id,
-    taskId: record.taskId,
+    taskId: record.source_id,
     detailIds: null,
-    actionType: `assessment_${record.assessmentTier}` as CollectionActionDTO['actionType'],
-    actionResult: STATUS_NAMES[record.status] as unknown as CollectionActionDTO['actionResult'],
-    remark: `${record.assessmentUserName}(${ROLE_NAMES[record.assessmentRole]})`,
+    actionType: `assessment_${record.rule_type}` as CollectionActionDTO['actionType'],
+    actionResult: (ASSESSMENT_STATUS_LABELS[record.status] ?? record.status) as unknown as CollectionActionDTO['actionResult'],
+    remark: `${record.assessment_user_name ?? ''}(${ASSESSMENT_ROLE_LABELS[record.assessment_role] ?? record.assessment_role})`,
     attachmentUrl: null,
     operatorId: 0,
     operatorName: '系统',
     operatorRole: '系统',
-    createdAt: formatDateTime(record.calculatedAt),
+    createdAt: formatDateTime(record.calculated_at),
   };
 }
 
@@ -120,7 +123,7 @@ export function fromExtensionDTO(
   dto: CreateExtensionDTO,
   taskId: number,
   operatorId: number,
-  operatorName: string,
+  operatorName: string
 ): ExtensionParams {
   return {
     task_id: taskId,
@@ -141,7 +144,7 @@ export function fromDifferenceDTO(
   dto: MarkDifferenceDTO,
   taskId: number,
   operatorId: number,
-  operatorName: string,
+  operatorName: string
 ): DifferenceParams {
   return {
     task_id: taskId,
@@ -159,7 +162,7 @@ export function fromEscalateDTO(
   dto: EscalateDTO,
   taskId: number,
   operatorId: number,
-  operatorName: string,
+  operatorName: string
 ): EscalateParams {
   return {
     task_id: taskId,
@@ -178,7 +181,7 @@ export function fromResolveDifferenceDTO(
   dto: ResolveDifferenceDTO,
   taskId: number,
   operatorId: number,
-  operatorName: string,
+  operatorName: string
 ): ResolveDifferenceParams {
   return {
     task_id: taskId,
@@ -196,7 +199,7 @@ export function fromRollbackDTO(
   dto: RollbackDTO,
   taskId: number,
   operatorId: number,
-  operatorName: string,
+  operatorName: string
 ): RollbackParams {
   return {
     task_id: taskId,

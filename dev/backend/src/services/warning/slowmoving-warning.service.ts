@@ -107,7 +107,9 @@ export async function getSlowMovingProducts(
         daysWithoutSale,
         lastSaleDate: lastSaleTime ? new Date(lastSaleTime).toISOString().split('T')[0] : null,
       },
-      strategicLevel: strategicIds.has(String(p.goodsId)) ? 'strategic' as const : 'normal' as const,
+      strategicLevel: strategicIds.has(String(p.goodsId))
+        ? ('strategic' as const)
+        : ('normal' as const),
     };
   });
 

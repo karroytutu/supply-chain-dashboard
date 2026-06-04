@@ -4,6 +4,7 @@
  * 遵循规范：Controller → Service → Repository → DB
  */
 
+import { SqlParam } from '../../db/types';
 import { appQuery as query } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
@@ -11,14 +12,18 @@ import type { TaskQueryParams } from './ar-collection.types';
 import { PENDING_ROLE_SQL, ASSESSMENT_TIERS_SQL } from './ar-collection.query.sql';
 
 const CACHE_PREFIX = 'ar:collection';
-const TASK_MAX_OVERDUE_DAYS_SQL = 'COALESCE(detail_stats.dynamic_max_overdue_days, t.max_overdue_days, 0)';
-const DETAIL_OVERDUE_DAYS_SQL = 'COALESCE(GREATEST(0, CURRENT_DATE - d.expire_time::date), d.overdue_days, 0)';
+const TASK_MAX_OVERDUE_DAYS_SQL =
+  'COALESCE(detail_stats.dynamic_max_overdue_days, t.max_overdue_days, 0)';
+const DETAIL_OVERDUE_DAYS_SQL =
+  'COALESCE(GREATEST(0, CURRENT_DATE - d.expire_time::date), d.overdue_days, 0)';
 
-function hasCollectionFullAccess(role: string): boolean {
-  return role === 'admin'
-    || role === 'manager'
-    || role === 'marketing_manager'
-    || role === 'marketing_supervisor';
+export function hasCollectionFullAccess(role: string): boolean {
+  return (
+    role === 'admin' ||
+    role === 'manager' ||
+    role === 'marketing_manager' ||
+    role === 'marketing_supervisor'
+  );
 }
 
 // ==================== 辅助函数 ====================
@@ -26,7 +31,11 @@ function hasCollectionFullAccess(role: string): boolean {
 /**
  * 构建角色数据权限 WHERE 条件
  */
-function buildRoleFilter(role: string, userId: number, paramIndex: number): { sql: string; params: any[]; nextIndex: number } {
+export function buildRoleFilter(
+  role: string,
+  userId: number,
+  paramIndex: number
+): { sql: string; params: SqlParam[]; nextIndex: number } {
   switch (role) {
     case 'marketer':
       return {
@@ -58,7 +67,7 @@ function buildRoleFilter(role: string, userId: number, paramIndex: number): { sq
 /**
  * 校验用户是否有权访问指定任务
  */
-function checkTaskAccess(task: any, userId: number, role: string): boolean {
+export function checkTaskAccess(task: any, userId: number, role: string): boolean {
   if (hasCollectionFullAccess(role)) {
     return true;
   }
@@ -68,7 +77,10 @@ function checkTaskAccess(task: any, userId: number, role: string): boolean {
       return task.manager_user_id === userId;
     case 'current_accountant':
     case 'finance_staff':
-      return task.status === 'difference_processing' || (task.status === 'escalated' && task.escalation_level === 2);
+      return (
+        task.status === 'difference_processing' ||
+        (task.status === 'escalated' && task.escalation_level === 2)
+      );
     case 'cashier':
       return task.status === 'pending_verify';
     default:
@@ -81,7 +93,9 @@ function checkTaskAccess(task: any, userId: number, role: string): boolean {
 /**
  * 获取催收任务列表（分页）
  */
-export async function getTasks(params: TaskQueryParams & { userId: number; role: string; viewAll?: boolean }) {
+export async function getTasks(
+  params: TaskQueryParams & { userId: number; role: string; viewAll?: boolean }
+) {
   const {
     page = 1,
     page_size = 20,
@@ -115,7 +129,7 @@ export async function getTasks(params: TaskQueryParams & { userId: number; role:
 
   const offset = (page - 1) * page_size;
   const conditions: string[] = [];
-  const queryParams: any[] = [];
+  const queryParams: SqlParam[] = [];
   let paramIndex = 1;
 
   // 角色数据权限过滤
@@ -198,7 +212,7 @@ export async function getTasks(params: TaskQueryParams & { userId: number; role:
     LEFT JOIN users u ON t.current_handler_id = u.id
     WHERE ${whereClause}
     ORDER BY ${sortField} ${sortDir}
-    LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
+    LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
     listParams
   );
 

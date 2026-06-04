@@ -4,8 +4,7 @@
  * 供任务生成器、预警查询、预警提醒、同步任务共用
  */
 
-import type { ArHoldType } from '../../utils/constants';
-import { AR_HOARD_TAG_NORMAL, AR_HOARD_TAG_HOARD } from '../../utils/constants';
+import { type ArHoldType, AR_HOARD_TAG_NORMAL, AR_HOARD_TAG_HOARD } from '../../utils/constants';
 
 // ============================================
 // ERP 原始欠款记录
@@ -14,8 +13,8 @@ import { AR_HOARD_TAG_NORMAL, AR_HOARD_TAG_HOARD } from '../../utils/constants';
 /** ERP 欠款原始记录（来自 "客户欠款明细" 视图） */
 export interface ERPDebtRecord {
   billId: string;
-  bizStr?: string;              // 结算单号（warning.query 有此字段）
-  bizOrderStr: string;          // 订单号（单据编号）
+  bizStr?: string; // 结算单号（warning.query 有此字段）
+  bizOrderStr: string; // 订单号（单据编号）
   consumerName: string;
   managerUsers: string;
   totalAmount: number;
@@ -24,7 +23,7 @@ export interface ERPDebtRecord {
   consumerExpireDay: number;
   billTypeName: string;
   workTime: string;
-  hoardTag?: string | null;      // 压单标记（视图可能包含）
+  hoardTag?: string | null; // 压单标记（视图可能包含）
 }
 
 // ============================================

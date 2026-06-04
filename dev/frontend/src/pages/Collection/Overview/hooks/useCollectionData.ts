@@ -90,11 +90,13 @@ export function useCollectionData(filters: CollectionFilters, dateRangeKey: stri
     fetchStats();
     fetchHandlers();
     fetchWarningSummary();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, []);
 
   /** 参数变化时重新加载列表 */
   useEffect(() => {
     fetchTasks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [filters.page, filters.pageSize, filters.statusTab, filters.searchKeyword, filters.handlerId, dateRangeKey]);
 
   /** 处理人筛选变化时重新加载预警汇总 */

@@ -2,6 +2,8 @@
  * 权限缓存管理服务
  * 提供统一的权限缓存失效机制，确保权限修改后能及时生效
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Service');
 
 import { cache, CACHE_TTL } from '../utils/cache';
 import { CACHE_KEY } from '../utils/cache-keys';
@@ -19,7 +21,7 @@ const CACHE_KEY_PREFIX = {
  */
 export function invalidateUserPermissionCache(userId: number): void {
   cache.invalidate(`${CACHE_KEY_PREFIX.USER_PERMISSIONS}${userId}`);
-  console.log(`[PermissionCache] 已清除用户 ${userId} 的权限缓存`);
+  log.info(`已清除用户 ${userId} 的权限缓存`);
 }
 
 /**
@@ -41,9 +43,9 @@ export async function invalidateRolePermissionCache(roleId: number): Promise<voi
       cache.invalidate(`${CACHE_KEY_PREFIX.USER_PERMISSIONS}${userId}`);
     }
 
-    console.log(`[PermissionCache] 已清除角色 ${roleId} 下 ${userIds.length} 个用户的权限缓存`);
+    log.info(`已清除角色 ${roleId} 下 ${userIds.length} 个用户的权限缓存`);
   } catch (error) {
-    console.error('[PermissionCache] 清除角色权限缓存失败:', error);
+    log.error('清除角色权限缓存失败:', error);
   }
 }
 
@@ -52,7 +54,7 @@ export async function invalidateRolePermissionCache(roleId: number): Promise<voi
  */
 export function invalidateAllPermissionCache(): void {
   cache.invalidate(CACHE_KEY_PREFIX.USER_PERMISSIONS.replace(':', ''));
-  console.log('[PermissionCache] 已清除所有用户的权限缓存');
+  log.info('已清除所有用户的权限缓存');
 }
 
 /**
@@ -60,7 +62,7 @@ export function invalidateAllPermissionCache(): void {
  */
 export function invalidatePermissionTreeCache(): void {
   cache.invalidate(CACHE_KEY_PREFIX.PERMISSION_TREE);
-  console.log('[PermissionCache] 已清除权限树缓存');
+  log.info('已清除权限树缓存');
 }
 
 /**
@@ -68,7 +70,9 @@ export function invalidatePermissionTreeCache(): void {
  * @param userId 用户ID
  * @returns 缓存的权限数据，不存在返回 null
  */
-export function getUserPermissionCache(userId: number): { roles: string[]; permissions: string[] } | null {
+export function getUserPermissionCache(
+  userId: number
+): { roles: string[]; permissions: string[] } | null {
   return cache.get<{ roles: string[]; permissions: string[] }>(
     `${CACHE_KEY_PREFIX.USER_PERMISSIONS}${userId}`
   );
@@ -83,7 +87,7 @@ export function getUserPermissionCache(userId: number): { roles: string[]; permi
 export function setUserPermissionCache(
   userId: number,
   data: { roles: string[]; permissions: string[] },
-  ttl: number = 30000
+  ttl = 30000
 ): void {
   cache.set(`${CACHE_KEY_PREFIX.USER_PERMISSIONS}${userId}`, data, ttl);
 }

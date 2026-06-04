@@ -47,6 +47,11 @@ __MACOSX/
 # 测试覆盖率
 coverage/
 
+# E2E 测试
+playwright-report/
+e2e/.auth/
+test-results/
+
 # 上传文件目录
 uploads/
 

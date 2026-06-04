@@ -3,7 +3,7 @@
  */
 
 import { fetchAllProducts } from '../erp-client/erp-product.service';
-import { getStockSummaryMap, getCostPriceByNameMap } from '../erp-client/erp-inventory.service';
+import { getStockSummaryMap } from '../erp-client/erp-inventory.service';
 import { getDailySalesMap } from '../erp-client/erp-sales-detail.service';
 import { convertStockUnits, parseUnitFactor, parseQuantity } from '../../utils/unitConverter';
 import { getCategoryName } from '../../utils/arrayAggregation';
@@ -74,7 +74,9 @@ export async function getOutOfStockProducts(
       turnover: { days: 0, avgDailySales: Math.round((baseAvgDaily / unitFactor) * 100) / 100 },
       expiring: { daysToExpiry: null, expiryDate: null },
       availability: { status: 'out_of_stock' as const },
-      strategicLevel: strategicIds.has(String(p.goodsId)) ? 'strategic' as const : 'normal' as const,
+      strategicLevel: strategicIds.has(String(p.goodsId))
+        ? ('strategic' as const)
+        : ('normal' as const),
     };
   });
 
@@ -168,7 +170,9 @@ export async function getLowStockProducts(
       },
       expiring: { daysToExpiry: null, expiryDate: null },
       availability: { status: 'low_stock' as const },
-      strategicLevel: strategicIds.has(String(p.goodsId)) ? 'strategic' as const : 'normal' as const,
+      strategicLevel: strategicIds.has(String(p.goodsId))
+        ? ('strategic' as const)
+        : ('normal' as const),
     };
   });
 

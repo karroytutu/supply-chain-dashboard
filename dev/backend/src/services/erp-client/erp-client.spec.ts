@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * ERP HTTP 客户端单元测试
  * 测试请求封装、业务错误、网络重试、限流等逻辑
@@ -31,6 +32,13 @@ describe('erp-client', () => {
     }));
     jest.mock('../../utils/logger', () => ({
       default: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+      createLogger: () => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        http: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      }),
     }));
   });
 
@@ -113,12 +121,10 @@ describe('erp-client', () => {
     const { erpRequest } = require('./erp-client');
 
     const networkError = new Error('ECONNRESET');
-    axios
-      .mockRejectedValueOnce(networkError)
-      .mockResolvedValueOnce({
-        data: { code: 0, data: { success: true } },
-        status: 200,
-      });
+    axios.mockRejectedValueOnce(networkError).mockResolvedValueOnce({
+      data: { code: 0, data: { success: true } },
+      status: 200,
+    });
 
     const promise = erpRequest('GET', 'retry/path', undefined, { skipLog: true });
 

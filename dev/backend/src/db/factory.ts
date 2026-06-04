@@ -2,9 +2,10 @@
  * 数据库连接池工厂
  * 统一 pool.ts 和 appPool.ts 的公共逻辑，消除重复代码
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Database');
 
 import { Pool, PoolClient, PoolConfig, QueryResult, QueryResultRow } from 'pg';
-import logger from '../utils/logger';
 
 interface DatabasePoolOptions {
   name: string;
@@ -19,14 +20,12 @@ interface DatabasePoolOptions {
 export function createDatabasePool({ name, config }: DatabasePoolOptions) {
   const pool = new Pool(config);
 
-  pool.on('error', (err) => {
-    // console.error 确保在 Docker 日志中可见（生产环境 logger 文件输出不可见）
-    console.error(`[${name}] 数据库连接池错误:`, err?.message || err);
-    logger.error(`[${name}] 数据库连接池错误:`, err);
+  pool.on('error', err => {
+    log.error(`[${name}] 数据库连接池错误`, { error: err?.message || String(err) });
   });
 
   pool.on('connect', () => {
-    logger.info(`[${name}] 数据库连接成功`);
+    log.info(`[${name}] 数据库连接成功`);
   });
 
   /**
@@ -43,7 +42,7 @@ export function createDatabasePool({ name, config }: DatabasePoolOptions) {
     const duration = Date.now() - start;
 
     if (process.env.NODE_ENV === 'development') {
-      logger.debug(`[${name}] SQL查询:`, {
+      log.debug(`[${name}] SQL查询:`, {
         text: text.substring(0, 100) + '...',
         duration: `${duration}ms`,
         rows: result.rowCount,
@@ -51,7 +50,7 @@ export function createDatabasePool({ name, config }: DatabasePoolOptions) {
     }
 
     if (duration > 1000) {
-      logger.warn(`[${name}] 慢查询 (${duration}ms):`, text.substring(0, 100));
+      log.warn(`[${name}] 慢查询 (${duration}ms):`, text.substring(0, 100));
     }
 
     return result;
@@ -69,7 +68,7 @@ export function createDatabasePool({ name, config }: DatabasePoolOptions) {
    */
   async function closePool(): Promise<void> {
     await pool.end();
-    logger.info(`[${name}] 连接池已关闭`);
+    log.info(`[${name}] 连接池已关闭`);
   }
 
   return { pool, query, getClient, closePool };

@@ -69,11 +69,10 @@ export async function erpUpdateCustomerFields(
     }
   }
 
-  await erpPost(
-    '/web/consumer/update-consumer',
-    customer,
-    { pathPrefix: '/saas/pro/', businessType: 'customer_modify_profile' }
-  );
+  await erpPost('/web/consumer/update-consumer', customer, {
+    pathPrefix: '/saas/pro/',
+    businessType: 'customer_modify_profile',
+  });
 
   // 写入后失效客户资料 + 搜索缓存，确保后续读取最新数据
   cache.invalidate(CACHE_KEY.ERP_CUSTOMER_PROFILE_PREFIX);

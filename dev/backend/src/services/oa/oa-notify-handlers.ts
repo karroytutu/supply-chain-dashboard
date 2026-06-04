@@ -6,13 +6,10 @@
  * - 待处理/转交/加签场景：仅创建钉钉流程中心待办（不再发送 ActionCard 工作通知）
  * - 通过/拒绝/撤回/抄送场景：发送 OA 消息工作通知（主动弹窗告知结果）
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('OA');
 
-import {
-  NotifyParams,
-  getDingtalkUserIds,
-  toDingtalkParams,
-  saveTaskMapping,
-} from './oa-notify';
+import { NotifyParams, getDingtalkUserIds, toDingtalkParams, saveTaskMapping } from './oa-notify';
 import {
   buildResultOaMessage,
   buildCcOaMessage,
@@ -31,30 +28,39 @@ export async function notifyPendingApproval(
   for (const approverId of approverIds) {
     try {
       await createApprovalTodo(
-        instanceId, instanceNo, title, formTypeName, applicantName,
-        approverId, params.formSchema, params.formData, params.nodeOrder,
+        instanceId,
+        instanceNo,
+        title,
+        formTypeName,
+        applicantName,
+        approverId,
+        params.formSchema,
+        params.formData,
+        params.nodeOrder
       );
     } catch (error) {
-      console.error('[ProcessCentre] 创建钉钉待办失败:', error);
+      log.error('创建钉钉待办失败:', error);
     }
   }
 }
 
 /** 发送流程通过通知 */
-export async function notifyApproved(
-  params: NotifyParams,
-  applicantId: number
-): Promise<void> {
+export async function notifyApproved(params: NotifyParams, applicantId: number): Promise<void> {
   const { instanceId, instanceNo, title, formTypeName } = params;
 
   const dingtalkUserIds = await getDingtalkUserIds([applicantId]);
   if (dingtalkUserIds.length > 0) {
     try {
       const oaMessage = buildResultOaMessage(toDingtalkParams(params), 'approved');
-      const taskId = await sendResultNotification(dingtalkUserIds, oaMessage, instanceId, instanceNo);
+      const taskId = await sendResultNotification(
+        dingtalkUserIds,
+        oaMessage,
+        instanceId,
+        instanceNo
+      );
       await saveTaskMapping(instanceId, taskId, [applicantId], 'approved');
     } catch (error) {
-      console.error('Failed to send approved OA notification:', error);
+      log.error('Failed to send approved OA notification:', error);
     }
   }
 }
@@ -73,10 +79,15 @@ export async function notifyRejected(
     try {
       const rejectParams = { ...toDingtalkParams(params), reason, rejectUserName };
       const oaMessage = buildResultOaMessage(rejectParams, 'rejected');
-      const taskId = await sendResultNotification(dingtalkUserIds, oaMessage, instanceId, instanceNo);
+      const taskId = await sendResultNotification(
+        dingtalkUserIds,
+        oaMessage,
+        instanceId,
+        instanceNo
+      );
       await saveTaskMapping(instanceId, taskId, [applicantId], 'rejected');
     } catch (error) {
-      console.error('Failed to send rejected OA notification:', error);
+      log.error('Failed to send rejected OA notification:', error);
     }
   }
 }
@@ -91,11 +102,18 @@ export async function notifyTransferred(
   // 为被转交人创建钉钉待办
   try {
     await createApprovalTodo(
-      instanceId, instanceNo, title, formTypeName, applicantName,
-      newApproverId, params.formSchema, params.formData, params.nodeOrder,
+      instanceId,
+      instanceNo,
+      title,
+      formTypeName,
+      applicantName,
+      newApproverId,
+      params.formSchema,
+      params.formData,
+      params.nodeOrder
     );
   } catch (error) {
-    console.error('[ProcessCentre] 转交创建钉钉待办失败:', error);
+    log.error('转交创建钉钉待办失败:', error);
   }
 }
 
@@ -109,39 +127,45 @@ export async function notifyCountersign(
   for (const countersignerId of countersignerIds) {
     try {
       await createApprovalTodo(
-        instanceId, instanceNo, title, formTypeName, applicantName,
-        countersignerId, params.formSchema, params.formData, params.nodeOrder,
+        instanceId,
+        instanceNo,
+        title,
+        formTypeName,
+        applicantName,
+        countersignerId,
+        params.formSchema,
+        params.formData,
+        params.nodeOrder
       );
     } catch (error) {
-      console.error('[ProcessCentre] 加签创建钉钉待办失败:', error);
+      log.error('加签创建钉钉待办失败:', error);
     }
   }
 }
 
 /** 发送撤回通知 */
-export async function notifyWithdrawn(
-  params: NotifyParams,
-  approverIds: number[]
-): Promise<void> {
+export async function notifyWithdrawn(params: NotifyParams, approverIds: number[]): Promise<void> {
   const { instanceId, instanceNo } = params;
 
   const dingtalkUserIds = await getDingtalkUserIds(approverIds);
   if (dingtalkUserIds.length > 0) {
     try {
       const oaMessage = buildResultOaMessage(toDingtalkParams(params), 'withdrawn');
-      const taskId = await sendResultNotification(dingtalkUserIds, oaMessage, instanceId, instanceNo);
+      const taskId = await sendResultNotification(
+        dingtalkUserIds,
+        oaMessage,
+        instanceId,
+        instanceNo
+      );
       await saveTaskMapping(instanceId, taskId, approverIds, 'withdrawn');
     } catch (error) {
-      console.error('Failed to send withdrawn OA notification:', error);
+      log.error('Failed to send withdrawn OA notification:', error);
     }
   }
 }
 
 /** 发送抄送通知 */
-export async function notifyCc(
-  params: NotifyParams,
-  ccUserIds: number[]
-): Promise<void> {
+export async function notifyCc(params: NotifyParams, ccUserIds: number[]): Promise<void> {
   const { instanceId, instanceNo } = params;
 
   const dingtalkUserIds = await getDingtalkUserIds(ccUserIds);
@@ -151,7 +175,7 @@ export async function notifyCc(
       const taskId = await sendCcNotification(dingtalkUserIds, oaMessage, instanceId, instanceNo);
       await saveTaskMapping(instanceId, taskId, ccUserIds, 'cc');
     } catch (error) {
-      console.error('Failed to send CC OA notification:', error);
+      log.error('Failed to send CC OA notification:', error);
     }
   }
 }

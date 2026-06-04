@@ -8,11 +8,14 @@
  * - user_modify_org: 用户变更 → 记录日志（依赖定期同步更新）
  * - org_dept_create/modify/remove: 部门变更 → 触发部门同步（带防抖）
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('DingtalkSync');
 
 import { dingtalkEvents } from '../dingtalk-stream.service';
 import { appQuery } from '../../db/appPool';
 import { invalidateUserPermissionCache } from '../permission-cache.service';
 import { syncDepartments } from './dingtalk-sync.mutation';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 // ==================== 幂等保护 ====================
 
@@ -28,7 +31,7 @@ function wrapAsyncHandler(
 ): (data: any) => void {
   return (data: any) => {
     handler(data).catch((err: any) => {
-      console.error(`[SyncEvents] ${name} 异步处理失败:`, err.message);
+      log.error(`${name} 异步处理失败:`, getErrorMessage(err));
     });
   };
 }
@@ -40,7 +43,7 @@ function wrapAsyncHandler(
  */
 export function registerSyncEventHandlers(): void {
   if (registered) {
-    console.warn('[SyncEvents] 事件处理器已注册，跳过重复调用');
+    log.warn('事件处理器已注册，跳过重复调用');
     return;
   }
   registered = true;
@@ -52,7 +55,7 @@ export function registerSyncEventHandlers(): void {
   dingtalkEvents.on('org_dept_modify', wrapAsyncHandler('org_dept_modify', handleDeptChange));
   dingtalkEvents.on('org_dept_remove', wrapAsyncHandler('org_dept_remove', handleDeptChange));
 
-  console.log('[SyncEvents] 已注册 6 个事件处理器: user_leave/add/modify_org, org_dept_create/modify/remove');
+  log.info('已注册 6 个事件处理器: user_leave/add/modify_org, org_dept_create/modify/remove');
 }
 
 // ==================== 部门同步防抖 ====================
@@ -70,18 +73,18 @@ let deptSyncInProgress = false;
  */
 async function handleUserLeave(data: any): Promise<void> {
   if (!data || !data.userid) {
-    console.warn('[SyncEvents] user_leave_org 事件无 userid');
+    log.warn('user_leave_org 事件无 userid');
     return;
   }
 
   const userIds: string[] = Array.isArray(data.userid) ? data.userid : [data.userid];
 
   if (userIds.length === 0) {
-    console.warn('[SyncEvents] user_leave_org 事件 userid 为空数组');
+    log.warn('user_leave_org 事件 userid 为空数组');
     return;
   }
 
-  console.log(`[SyncEvents] 用户离职: ${userIds.length} 人, IDs=[${userIds.join(',')}]`);
+  log.info(`用户离职: ${userIds.length} 人, IDs=[${userIds.join(',')}]`);
 
   try {
     // 批量禁用：使用 ANY($1) 替代循环逐条 UPDATE，避免 N+1 问题
@@ -94,16 +97,16 @@ async function handleUserLeave(data: any): Promise<void> {
 
     for (const row of result.rows) {
       invalidateUserPermissionCache(row.id);
-      console.log(`[SyncEvents] ✅ 已禁用离职用户: ${row.name}(id=${row.id}, dingtalk_id=${row.dingtalk_user_id})`);
+      log.info(`✅ 已禁用离职用户: ${row.name}(id=${row.id}, dingtalk_id=${row.dingtalk_user_id})`);
     }
 
     const disabledCount = result.rows.length;
     const skippedCount = userIds.length - disabledCount;
     if (skippedCount > 0) {
-      console.log(`[SyncEvents] 离职处理: 禁用${disabledCount}人, 跳过${skippedCount}人(不存在或已禁用)`);
+      log.info(`离职处理: 禁用${disabledCount}人, 跳过${skippedCount}人(不存在或已禁用)`);
     }
-  } catch (error: any) {
-    console.error(`[SyncEvents] 批量禁用离职用户失败:`, error.message);
+  } catch (error) {
+    log.error(`批量禁用离职用户失败:`, getErrorMessage(error));
   }
 }
 
@@ -112,8 +115,12 @@ async function handleUserLeave(data: any): Promise<void> {
  * 记录日志，实际创建由定期同步完成
  */
 async function handleUserAdd(data: any): Promise<void> {
-  const userIds: string[] = Array.isArray(data?.userid) ? data.userid : (data?.userid ? [data.userid] : []);
-  console.log(`[SyncEvents] 新用户加入: ${userIds.length} 人, IDs=[${userIds.join(',')}]（将由下次定期同步创建）`);
+  const userIds: string[] = Array.isArray(data?.userid)
+    ? data.userid
+    : data?.userid
+      ? [data.userid]
+      : [];
+  log.info(`新用户加入: ${userIds.length} 人, IDs=[${userIds.join(',')}]（将由下次定期同步创建）`);
 }
 
 /**
@@ -121,8 +128,12 @@ async function handleUserAdd(data: any): Promise<void> {
  * 记录日志，实际更新由定期同步完成
  */
 async function handleUserModify(data: any): Promise<void> {
-  const userIds: string[] = Array.isArray(data?.userid) ? data.userid : (data?.userid ? [data.userid] : []);
-  console.log(`[SyncEvents] 用户信息变更: ${userIds.length} 人（将由下次定期同步更新）`);
+  const userIds: string[] = Array.isArray(data?.userid)
+    ? data.userid
+    : data?.userid
+      ? [data.userid]
+      : [];
+  log.info(`用户信息变更: ${userIds.length} 人（将由下次定期同步更新）`);
 }
 
 /**
@@ -130,7 +141,7 @@ async function handleUserModify(data: any): Promise<void> {
  * 带 2 秒防抖窗口 + 互斥锁，避免短时间内多个部门事件并发触发全量同步
  */
 async function handleDeptChange(data: any): Promise<void> {
-  console.log(`[SyncEvents] 部门变更: dept_id=${data?.deptId || 'unknown'}，2s 后触发同步`);
+  log.info(`部门变更: dept_id=${data?.deptId || 'unknown'}，2s 后触发同步`);
 
   // debounce: 取消前一个定时器
   if (deptSyncTimer) clearTimeout(deptSyncTimer);
@@ -138,15 +149,15 @@ async function handleDeptChange(data: any): Promise<void> {
   deptSyncTimer = setTimeout(async () => {
     // 互斥锁：如果上一次同步还在进行，跳过
     if (deptSyncInProgress) {
-      console.warn('[SyncEvents] 部门同步正在进行中，跳过本次触发');
+      log.warn('部门同步正在进行中，跳过本次触发');
       return;
     }
     deptSyncInProgress = true;
     try {
       await syncDepartments();
-      console.log('[SyncEvents] ✅ 部门同步完成');
-    } catch (error: any) {
-      console.error('[SyncEvents] 部门同步失败:', error.message);
+      log.info('✅ 部门同步完成');
+    } catch (error) {
+      log.error('部门同步失败:', getErrorMessage(error));
     } finally {
       deptSyncInProgress = false;
       deptSyncTimer = null;

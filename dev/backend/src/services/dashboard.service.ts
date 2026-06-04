@@ -6,7 +6,11 @@
 import { cache, CACHE_TTL } from '../utils/cache';
 
 // 导入各业务模块
-import { getAvailabilityData, getCategoryTreeData, getOutOfStockProductsByCategory } from './availability';
+import {
+  getAvailabilityData,
+  getCategoryTreeData,
+  getOutOfStockProductsByCategory,
+} from './availability';
 import { getTurnoverData } from './turnover';
 import { getExpiringData } from './expiring';
 import { getSlowMovingData } from './slowMoving';
@@ -25,26 +29,13 @@ export type {
   PaginatedResult,
 } from './availability';
 
-export type {
-  TurnoverWarningStats,
-  TurnoverData,
-} from './turnover';
+export type { TurnoverWarningStats, TurnoverData } from './turnover';
 
-export type {
-  ExpiringBreakdown,
-  ExpiringData,
-} from './expiring';
+export type { ExpiringBreakdown, ExpiringData } from './expiring';
 
-export type {
-  SlowMovingDistribution,
-  SlowMovingWarningStats,
-  SlowMovingData,
-} from './slowMoving';
+export type { SlowMovingDistribution, SlowMovingWarningStats, SlowMovingData } from './slowMoving';
 
-export type {
-  WarningProduct,
-  StrategicLevel,
-} from './warning';
+export type { WarningProduct, StrategicLevel } from './warning';
 
 // 重导出业务模块函数（保持向后兼容）
 export { getCategoryTreeData, getOutOfStockProductsByCategory, getWarningProducts };

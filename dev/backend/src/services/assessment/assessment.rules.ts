@@ -64,7 +64,10 @@ export function registerAssessmentRule(rule: AssessmentRuleDefinition): void {
  * @param category 考核分类
  * @param ruleType 规则类型
  */
-export function getAssessmentRule(category: AssessmentCategory, ruleType: string): AssessmentRuleDefinition | undefined {
+export function getAssessmentRule(
+  category: AssessmentCategory,
+  ruleType: string
+): AssessmentRuleDefinition | undefined {
   return ASSESSMENT_RULE_REGISTRY.get(`${category}:${ruleType}`);
 }
 

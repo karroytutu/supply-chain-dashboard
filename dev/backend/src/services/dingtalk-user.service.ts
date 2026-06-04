@@ -2,10 +2,13 @@
  * 钉钉服务 - 用户操作
  * @module services/dingtalk-user.service
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Service');
 
 import { config } from '../config';
 import { oapiRequest, apiRequest, getAccessToken } from './dingtalk-client';
 import type { DingtalkUserInfo, DingtalkUserDetail } from './dingtalk-types';
+import { getErrorMessage } from '../utils/errorUtils';
 
 /**
  * 通过免登授权码获取用户信息（H5微应用免登）
@@ -13,12 +16,14 @@ import type { DingtalkUserInfo, DingtalkUserDetail } from './dingtalk-types';
  */
 export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkUserInfo> {
   try {
-    console.log('[Dingtalk] 开始H5微应用免登, authCode:', authCode.substring(0, 10) + '...');
-    
+    log.info('开始H5微应用免登, authCode:', authCode.substring(0, 10) + '...');
+
     const accessToken = await getAccessToken();
-    console.log('[Dingtalk] 获取到AccessToken');
-    
-    const userinfoResult = await oapiRequest(accessToken, '/topapi/v2/user/getuserinfo', { code: authCode });
+    log.info('获取到AccessToken');
+
+    const userinfoResult = await oapiRequest(accessToken, '/topapi/v2/user/getuserinfo', {
+      code: authCode,
+    });
 
     if (userinfoResult.errcode !== 0) {
       throw new Error(userinfoResult.errmsg || '获取用户信息失败');
@@ -33,7 +38,7 @@ export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkU
     try {
       userDetails = await getUserDetailByUserId(userData.userid!, accessToken);
     } catch (e) {
-      console.warn('[Dingtalk] 获取用户详细信息失败，使用基本信息:', e);
+      log.warn('获取用户详细信息失败，使用基本信息:', e);
     }
 
     return {
@@ -47,7 +52,7 @@ export async function getUserInfoByAuthCode(authCode: string): Promise<DingtalkU
       title: userDetails?.title || '',
     };
   } catch (error: any) {
-    console.error('[Dingtalk] 通过authCode获取用户信息失败:', error.message || error);
+    log.error('通过authCode获取用户信息失败:', error);
     error.message = '获取用户信息失败: ' + (error.message || '未知错误');
     throw error;
   }
@@ -85,7 +90,7 @@ export async function getUserInfoByCode(code: string): Promise<DingtalkUserInfo>
     const userInfo = await getUserInfoByAccessToken(tokenResult.accessToken);
     return userInfo;
   } catch (error: any) {
-    console.error('[Dingtalk] 通过code获取用户信息失败:', error.message || error);
+    log.error('通过code获取用户信息失败:', error);
     error.message = '获取用户信息失败: ' + (error.message || '未知错误');
     throw error;
   }
@@ -96,12 +101,9 @@ export async function getUserInfoByCode(code: string): Promise<DingtalkUserInfo>
  */
 async function getUserInfoByAccessToken(accessToken: string): Promise<DingtalkUserInfo> {
   try {
-    const userResult = await apiRequest(
-      'GET',
-      '/v1.0/contact/users/me',
-      null,
-      { 'x-acs-dingtalk-access-token': accessToken }
-    );
+    const userResult = await apiRequest('GET', '/v1.0/contact/users/me', null, {
+      'x-acs-dingtalk-access-token': accessToken,
+    });
 
     if (!userResult) {
       throw new Error('获取用户信息为空');
@@ -117,8 +119,8 @@ async function getUserInfoByAccessToken(accessToken: string): Promise<DingtalkUs
       department_id: userResult.deptId ? [userResult.deptId.toString()] : [],
       title: userResult.title || '',
     };
-  } catch (error: any) {
-    console.error('[Dingtalk] 通过accessToken获取用户信息失败:', error.message || error);
+  } catch (error) {
+    log.error('通过accessToken获取用户信息失败:', getErrorMessage(error) || error);
     throw error;
   }
 }
@@ -129,10 +131,14 @@ async function getUserInfoByAccessToken(accessToken: string): Promise<DingtalkUs
  */
 export async function getUserDetail(userId: string): Promise<DingtalkUserDetail | null> {
   try {
-    console.log('getUserDetail called with userId:', userId, '- SDK模式下建议使用getUserInfoByAccessToken');
+    log.info(
+      'getUserDetail called with userId:',
+      userId,
+      '- SDK模式下建议使用getUserInfoByAccessToken'
+    );
     return null;
-  } catch (error: any) {
-    console.error('获取用户详细信息失败:', error.message);
+  } catch (error) {
+    log.error('获取用户详细信息失败:', getErrorMessage(error));
     return null;
   }
 }
@@ -141,6 +147,6 @@ export async function getUserDetail(userId: string): Promise<DingtalkUserDetail 
  * 获取部门信息
  */
 export async function getDepartmentInfo(deptId: number): Promise<{ name: string } | null> {
-  console.log('getDepartmentInfo called with deptId:', deptId, '- SDK模式下暂不支持');
+  log.info('getDepartmentInfo called with deptId:', deptId, '- SDK模式下暂不支持');
   return null;
 }

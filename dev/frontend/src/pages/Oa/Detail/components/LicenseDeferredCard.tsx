@@ -10,8 +10,11 @@ import {
   CheckCircleOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import type { LicenseDeferredRecord, LicenseDeferredStatus } from '@/services/api/oa';
-import { getLicenseDeferredByInstance } from '@/services/api/oa';
+import {
+  type LicenseDeferredRecord,
+  type LicenseDeferredStatus,
+  getLicenseDeferredByInstance,
+} from '@/services/api/oa';
 import { usePermission } from '@/hooks/usePermission';
 import { formatDateTime } from '@/utils/format';
 import SupplementLicenseModal from './SupplementLicenseModal';
@@ -166,13 +169,13 @@ const LicenseDeferredCard: React.FC<LicenseDeferredCardProps> = ({
         </Descriptions>
       </Card>
 
-      {canSupplement && (
+      {canSupplement && customerId && (
         <SupplementLicenseModal
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSuccess={handleSupplementSuccess}
           instanceId={instanceId}
-          customerId={customerId!}
+          customerId={customerId}
         />
       )}
     </>

@@ -13,15 +13,16 @@ const jwtSecret = process.env.JWT_SECRET || defaultJwtSecret;
 
 // 生产环境强制检查 JWT_SECRET
 if (env === 'production') {
-  const isDefaultSecret = !process.env.JWT_SECRET || 
+  const isDefaultSecret =
+    !process.env.JWT_SECRET ||
     jwtSecret === defaultJwtSecret ||
     jwtSecret === 'your-secret-key-change-in-production' ||
     jwtSecret.length < 32;
-  
+
   if (isDefaultSecret) {
     throw new Error(
       '[SECURITY ERROR] 生产环境必须设置强 JWT_SECRET 环境变量（至少32位随机字符）。' +
-      '请使用以下命令生成：openssl rand -base64 32'
+        '请使用以下命令生成：openssl rand -base64 32'
     );
   }
 }
@@ -30,7 +31,7 @@ const DEFAULT_BACKEND_PORT = 8100;
 
 export const config = {
   port: parseInt(process.env.PORT || String(DEFAULT_BACKEND_PORT), 10),
-  
+
   // 应用数据库（读写，用户认证等）
   appDatabase: {
     host: process.env.APP_DB_HOST || 'localhost',
@@ -45,7 +46,7 @@ export const config = {
     // 设置时区为北京时间
     options: '-c timezone=Asia/Shanghai',
   },
-  
+
   // 钉钉配置
   dingtalk: {
     appKey: process.env.DINGTALK_APP_KEY || '',
@@ -53,13 +54,13 @@ export const config = {
     corpId: process.env.DINGTALK_CORP_ID || '',
     agentId: process.env.DINGTALK_AGENT_ID || '',
   },
-  
+
   // JWT配置
   jwt: {
     secret: jwtSecret,
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   },
-  
+
   // 应用基础URL配置
   app: {
     baseUrl: process.env.APP_BASE_URL || 'http://localhost:3100',

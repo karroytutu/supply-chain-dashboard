@@ -10,7 +10,7 @@ interface PaginationState {
   total: number;
 }
 
-export function useTablePagination(defaultPageSize: number = 20) {
+export function useTablePagination(defaultPageSize = 20) {
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: defaultPageSize,

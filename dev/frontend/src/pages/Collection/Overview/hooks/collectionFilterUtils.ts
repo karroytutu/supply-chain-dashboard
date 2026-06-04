@@ -2,7 +2,7 @@
  * 催收筛选 - 工具函数与类型定义
  * 纯函数，无 React 依赖
  */
-import type { CollectionTaskStatus, CollectionTaskQueryParams, EscalationLevel } from '@/types/ar-collection';
+import type { CollectionTaskStatus, EscalationLevel } from '@/types/ar-collection';
 import { ROLES } from '@/constants/permissions';
 
 /** 角色类型 */

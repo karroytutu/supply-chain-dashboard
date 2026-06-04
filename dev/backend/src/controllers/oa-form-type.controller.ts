@@ -2,6 +2,8 @@
  * OA表单类型控制器
  * @module controllers/oa-form-type.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('OaFormType');
 
 import { Request, Response } from 'express';
 import {
@@ -20,7 +22,7 @@ export async function listFormTypes(req: Request, res: Response): Promise<void> 
     const formTypes = await getActiveFormTypes();
     res.json(buildSuccessResponse(formTypes));
   } catch (error) {
-    console.error('获取表单类型失败:', error);
+    log.error('获取表单类型失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取表单类型失败'));
   }
 }
@@ -34,7 +36,7 @@ export async function listFormTypesGrouped(req: Request, res: Response): Promise
     const grouped = await getFormTypesGroupedByCategory();
     res.json(buildSuccessResponse(grouped));
   } catch (error) {
-    console.error('获取表单类型分组失败:', error);
+    log.error('获取表单类型分组失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取表单类型分组失败'));
   }
 }
@@ -55,7 +57,7 @@ export async function getFormType(req: Request, res: Response): Promise<void> {
 
     res.json(buildSuccessResponse(formType));
   } catch (error) {
-    console.error('获取表单类型失败:', error);
+    log.error('获取表单类型失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取表单类型失败'));
   }
 }

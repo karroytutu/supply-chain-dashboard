@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { Modal, Upload, Button, message, Alert } from 'antd';
-import { UploadOutlined, InboxOutlined } from '@ant-design/icons';
+import {  InboxOutlined } from '@ant-design/icons';
 import type { UploadFile, RcFile } from 'antd/es/upload/interface';
 import { supplementLicense } from '@/services/api/oa';
 import { createBeforeUpload, validateImageFile } from '@/utils/uploadValidation';

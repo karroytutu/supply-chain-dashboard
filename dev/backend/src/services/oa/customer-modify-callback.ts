@@ -4,20 +4,25 @@
  * onApproved: 审批通过后更新 ERP 客户档案（含欠款再校验）
  * @module services/oa/customer-modify-callback
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('OA');
 
 import { getUserRolesAndPermissions } from '../auth.service';
-import { getErpCustomerProfile } from '../erp-client/erp-customer.service';
-import { getCustomerDebtTotal } from '../erp-client/erp-customer.service';
-import { erpUpdateCustomerFields, type CustomerFieldUpdates } from '../erp-client/erp-customer-update.service';
+import { getErpCustomerProfile, getCustomerDebtTotal } from '../erp-client/erp-customer.service';
+import {
+  erpUpdateCustomerFields,
+  type CustomerFieldUpdates,
+} from '../erp-client/erp-customer-update.service';
 import { erpUploadImageToErp } from '../erp-client/erp-image-upload';
-import { getErpGrades, getErpGroups, getErpAreas } from '../erp-client/erp-customer-reference.service';
+import {
+  getErpGrades,
+  getErpGroups,
+  getErpAreas,
+} from '../erp-client/erp-customer-reference.service';
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import { getErpStaff } from '../fixed-asset/fixed-asset.query';
 import { resolveLicenseFilePath } from '../../middleware/credit-upload';
-import {
-  CUSTOMER_MODIFY_ALLOWED_ROLES,
-  CUSTOMER_STATE_DISABLED,
-} from '../../utils/constants';
+import { CUSTOMER_MODIFY_ALLOWED_ROLES, CUSTOMER_STATE_DISABLED } from '../../utils/constants';
 import fs from 'fs';
 import type { OaInstanceRow } from './oa.types';
 
@@ -33,7 +38,7 @@ async function captureOriginalValues(
   const originals: Record<string, unknown> = {};
 
   // 获取客户当前档案（复用已有查询结果，避免重复请求）
-  const profile = existingProfile ?? await getErpCustomerProfile(customerId);
+  const profile = existingProfile ?? (await getErpCustomerProfile(customerId));
   if (!profile) return originals;
 
   // 文本字段直接从 profile 取（ErpCustomerProfile 已声明 contactName/contactTel）
@@ -130,7 +135,7 @@ export async function beforeSubmitCustomerModify(
       const originals = await captureOriginalValues(customerId, formData, profile);
       Object.assign(extraData, originals);
     } catch (err) {
-      console.warn('[CustomerModify] 捕获原始值失败，变更对比将不可用:', err);
+      log.warn('捕获原始值失败，变更对比将不可用:', err);
     }
   }
 
@@ -166,9 +171,10 @@ export async function onApprovedCustomerModify(
 
     // ===== 处理门头照上传（如有） =====
     let newPictureImgId: string | undefined;
-    const hasPhotoUpload = formData.storefrontPhoto
-      && Array.isArray(formData.storefrontPhoto)
-      && (formData.storefrontPhoto as Array<{ url?: string }>).some(p => p.url);
+    const hasPhotoUpload =
+      formData.storefrontPhoto &&
+      Array.isArray(formData.storefrontPhoto) &&
+      (formData.storefrontPhoto as Array<{ url?: string }>).some(p => p.url);
 
     if (hasPhotoUpload) {
       const photos = formData.storefrontPhoto as Array<{ url?: string }>;
@@ -180,10 +186,10 @@ export async function onApprovedCustomerModify(
           if (imgId) {
             newPictureImgId = imgId;
           } else {
-            console.warn('[CustomerModify] 门头照上传未返回 imgId');
+            log.warn('门头照上传未返回 imgId');
           }
         } else {
-          console.warn(`[CustomerModify] 门头照文件不存在，跳过上传: ${filePath}`);
+          log.warn(`门头照文件不存在，跳过上传: ${filePath}`);
         }
       }
     }
@@ -214,7 +220,7 @@ export async function onApprovedCustomerModify(
         }
       }
     }
-    
+
     // 服务员工：同所属营销，需同时更新 ID 和名称
     if (formData.serviceStaffId !== undefined && formData.serviceStaffId !== null) {
       updates.serviceStaffId = Number(formData.serviceStaffId);

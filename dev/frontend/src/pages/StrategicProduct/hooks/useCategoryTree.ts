@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback } from 'react';
 import type { TreeProps } from 'antd';
 import { getCategoryTree } from '@/services/api/strategic-product';
 import type { CategoryNode } from '@/types/strategic-product';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('StrategicProducthooks');
 
 export function useCategoryTree() {
   const [categoryTree, setCategoryTree] = useState<CategoryNode[]>([]);
@@ -20,7 +22,7 @@ export function useCategoryTree() {
       const firstLevelKeys = result.map(node => node.key);
       setExpandedKeys(firstLevelKeys);
     } catch (error) {
-      console.error('加载品类树失败:', error);
+      log.error('加载品类树失败:', error);
     }
   }, []);
 

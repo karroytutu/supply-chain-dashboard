@@ -3,6 +3,8 @@
  * 使用 ERP Token 兑换店管家 (B2B) 访问 Token
  * @module services/token-manager/b2b-exchange
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('TokenManager');
 
 import axios from 'axios';
 import { config } from '../../config';
@@ -22,10 +24,10 @@ export async function exchangeB2bToken(erpToken: string): Promise<B2bExchangeRes
   const response = await axios.get(url, {
     params: { token: erpToken },
     headers: {
-      'Accept': 'application/json, text/plain, */*',
+      Accept: 'application/json, text/plain, */*',
       'Content-Type': 'application/json;charset=utf-8',
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      'Referer': `${baseUrl}/saas/bluespace/?domain=zhoupudata.com`,
+      Referer: `${baseUrl}/saas/bluespace/?domain=zhoupudata.com`,
     },
     timeout: 15000,
   });
@@ -68,10 +70,13 @@ export async function performB2bExchangeAndSave(operatorId?: number): Promise<bo
     // 1. 获取 ERP Token
     const erpToken = await tokenRepo.getTokenValue('erp');
     if (!erpToken) {
-      console.error('[B2B] ERP Token 不可用，无法兑换 B2B Token');
+      log.error('ERP Token 不可用，无法兑换 B2B Token');
       await tokenRepo.logOperation({
-        system: 'b2b', operation: 'exchange', status: 'failed',
-        operatorId, detail: { error: 'ERP Token 不可用' },
+        system: 'b2b',
+        operation: 'exchange',
+        status: 'failed',
+        operatorId,
+        detail: { error: 'ERP Token 不可用' },
         durationMs: Date.now() - startTime,
       });
       return false;
@@ -90,11 +95,14 @@ export async function performB2bExchangeAndSave(operatorId?: number): Promise<bo
     });
 
     const durationMs = Date.now() - startTime;
-    console.log(`[B2B] Token 兑换成功 (耗时 ${durationMs}ms)`);
+    log.info(`Token 兑换成功 (耗时 ${durationMs}ms)`);
 
     await tokenRepo.logOperation({
-      system: 'b2b', operation: 'exchange', status: 'success',
-      operatorId, durationMs,
+      system: 'b2b',
+      operation: 'exchange',
+      status: 'success',
+      operatorId,
+      durationMs,
       detail: { name: result.tokenInfo.name, mid: result.tokenInfo.mid },
     });
 
@@ -102,12 +110,16 @@ export async function performB2bExchangeAndSave(operatorId?: number): Promise<bo
   } catch (error) {
     const durationMs = Date.now() - startTime;
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(`[B2B] Token 兑换失败: ${errorMsg}`);
+    log.error(`Token 兑换失败: ${errorMsg}`);
 
     await tokenRepo.updateLoginStatus('b2b', 'failed');
     await tokenRepo.logOperation({
-      system: 'b2b', operation: 'exchange', status: 'failed',
-      operatorId, durationMs, detail: { error: errorMsg },
+      system: 'b2b',
+      operation: 'exchange',
+      status: 'failed',
+      operatorId,
+      durationMs,
+      detail: { error: errorMsg },
     });
 
     return false;
@@ -123,22 +135,30 @@ export async function verifyB2bToken(accessToken: string): Promise<boolean> {
     const baseUrl = tmConfig?.b2bBaseUrl || 'https://bluespace-plus.zhoupudata.com';
     const url = `${baseUrl}/admin/sale-report/sale-analysis`;
 
-    const response = await axios.post(url, {
-      current: 1, size: 1, total: 0,
-      startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0],
-      dim: 'DAY',
-    }, {
-      headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'Content-Type': 'application/json;charset=UTF-8',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        'authorization': accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`,
-        'Origin': baseUrl,
-        'Referer': `${baseUrl}/saas/bluespace/?domain=zhoupudata.com`,
+    const response = await axios.post(
+      url,
+      {
+        current: 1,
+        size: 1,
+        total: 0,
+        startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          .toISOString()
+          .split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+        dim: 'DAY',
       },
-      timeout: 10000,
-    });
+      {
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          'Content-Type': 'application/json;charset=UTF-8',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          authorization: accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`,
+          Origin: baseUrl,
+          Referer: `${baseUrl}/saas/bluespace/?domain=zhoupudata.com`,
+        },
+        timeout: 10000,
+      }
+    );
 
     if (response.status === 200) {
       const data = response.data;
@@ -150,10 +170,13 @@ export async function verifyB2bToken(accessToken: string): Promise<boolean> {
 
     return false;
   } catch (error) {
-    if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+    if (
+      axios.isAxiosError(error) &&
+      (error.response?.status === 401 || error.response?.status === 403)
+    ) {
       return false;
     }
-    console.error('[B2B] Token 验证请求失败:', error);
+    log.error('Token 验证请求失败:', error);
     return false;
   }
 }

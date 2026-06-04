@@ -3,6 +3,8 @@
  */
 import * as XLSX from 'xlsx';
 import type { StrategicProduct, StrategicProductStatus } from '@/types/strategic-product';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('StrategicProductutils');
 
 /**
  * 状态格式化映射
@@ -81,7 +83,7 @@ export function exportStrategicProducts(
   filename?: string
 ): void {
   if (!data || data.length === 0) {
-    console.warn('没有数据可导出');
+    log.warn('没有数据可导出');
     return;
   }
 

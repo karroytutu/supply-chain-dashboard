@@ -19,7 +19,10 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
   formSchema: {
     fields: [
       {
-        key: 'assetSearch', label: '选择资产', type: 'asset_search', required: true,
+        key: 'assetSearch',
+        label: '选择资产',
+        type: 'asset_search',
+        required: true,
         searchApi: 'erp_assets',
         autoFill: {
           erpAssetId: 'id',
@@ -36,7 +39,10 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
       { key: 'description', label: '故障描述', type: 'textarea', required: true, maxLength: 500 },
       { key: 'estimatedCost', label: '预估维修费用', type: 'money', required: true, min: 100 },
       {
-        key: 'urgency', label: '紧急程度', type: 'select', required: true,
+        key: 'urgency',
+        label: '紧急程度',
+        type: 'select',
+        required: true,
         options: [
           { value: 'normal', label: '普通' },
           { value: 'urgent', label: '紧急' },
@@ -51,26 +57,44 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
     nodes: [
       { order: 1, name: '需求提报', type: 'role', roleCode: 'admin' },
       {
-        order: 2, name: '行政询价', type: 'data_input', roleCode: 'admin_staff',
+        order: 2,
+        name: '行政询价',
+        type: 'data_input',
+        roleCode: 'admin_staff',
         condition: { field: 'estimatedCost', operator: '>=', value: 500 },
         inputSchema: {
           fields: [
-            { name: 'quotations', label: '询价结果', type: 'table', required: true, columns: [
-              { name: 'supplierName', label: '供应商', type: 'text', required: true },
-              { name: 'quotationPrice', label: '报价', type: 'amount', required: true },
-              { name: 'quotationNote', label: '备注', type: 'text', required: false },
-            ]},
+            {
+              name: 'quotations',
+              label: '询价结果',
+              type: 'table',
+              required: true,
+              columns: [
+                { name: 'supplierName', label: '供应商', type: 'text', required: true },
+                { name: 'quotationPrice', label: '报价', type: 'amount', required: true },
+                { name: 'quotationNote', label: '备注', type: 'text', required: false },
+              ],
+            },
           ],
         },
       },
       { order: 3, name: '总经理审批', type: 'role', roleCode: 'admin' },
       {
-        order: 4, name: '财务支付', type: 'data_input', roleCode: 'cashier',
+        order: 4,
+        name: '财务支付',
+        type: 'data_input',
+        roleCode: 'cashier',
         inputSchema: {
           fields: [
             { name: 'paymentAmount', label: '支付金额', type: 'amount', required: true },
             { name: 'paymentDate', label: '支付日期', type: 'date', required: true },
-            { name: 'paymentSubjectId', label: '付款账户', type: 'erp_payment_account', required: true, searchApi: 'erp_payment_accounts' },
+            {
+              name: 'paymentSubjectId',
+              label: '付款账户',
+              type: 'erp_payment_account',
+              required: true,
+              searchApi: 'erp_payment_accounts',
+            },
             { name: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
             { name: 'paymentNote', label: '支付备注', type: 'text', required: false },
           ],
@@ -81,7 +105,7 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
   },
 
   /** 提交前校验：确保选择了资产且费用合法 */
-  beforeSubmit: async (formData) => {
+  beforeSubmit: async formData => {
     if (!formData.erpAssetId) {
       throw new Error('请通过资产搜索选择要维修的资产');
     }

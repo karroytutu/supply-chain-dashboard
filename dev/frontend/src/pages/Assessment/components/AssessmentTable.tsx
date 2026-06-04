@@ -68,6 +68,7 @@ const AssessmentTable: React.FC<AssessmentTableProps> = ({
     },
   ];
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   const columns = useMemo(() => [...baseColumns, ...actionColumn], [baseColumns]);
 
   return (

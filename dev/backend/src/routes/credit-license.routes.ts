@@ -32,24 +32,12 @@ router.post(
 // ==================== 查询 ====================
 
 /** 根据审批实例ID查询延期补交记录 */
-router.get(
-  '/instance/:instanceId',
-  requirePermission('oa:read'),
-  getDeferredByInstanceController
-);
+router.get('/instance/:instanceId', requirePermission('oa:read'), getDeferredByInstanceController);
 
 /** 营销员查看自己的待补交列表 */
-router.get(
-  '/my',
-  requirePermission('oa:read'),
-  listMyDeferredUploadsController
-);
+router.get('/my', requirePermission('oa:read'), listMyDeferredUploadsController);
 
 /** 管理视图：查询所有延期补交记录 */
-router.get(
-  '/',
-  requirePermission('finance:ar:penalty:read'),
-  listDeferredUploadsController
-);
+router.get('/', requirePermission('finance:ar:penalty:read'), listDeferredUploadsController);
 
 export default router;

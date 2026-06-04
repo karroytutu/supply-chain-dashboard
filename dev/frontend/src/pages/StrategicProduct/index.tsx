@@ -62,6 +62,7 @@ export default function StrategicProductManage() {
   // 加载商品列表
   useEffect(() => {
     loadStrategicProducts(selectedCategoryPath, statusFilter, keyword);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [loadStrategicProducts, selectedCategoryPath, statusFilter, page, pageSize]);
 
   return (

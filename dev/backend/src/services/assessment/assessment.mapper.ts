@@ -4,7 +4,12 @@
  * 以及 DECIMAL string → number 的类型转换
  */
 
-import type { AssessmentRecordRow, AssessmentRecordDTO, AssessmentStatsRow, AssessmentStatsDTO } from './assessment.types';
+import type {
+  AssessmentRecordRow,
+  AssessmentRecordDTO,
+  AssessmentStatsRow,
+  AssessmentStatsDTO,
+} from './assessment.types';
 
 /**
  * 数据库行 → DTO（用于 API 响应）

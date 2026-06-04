@@ -59,11 +59,15 @@ import {
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 const mockSaveTemplate = saveProcessTemplate as jest.MockedFunction<typeof saveProcessTemplate>;
-const mockCreateInstance = createWorkrecordInstance as jest.MockedFunction<typeof createWorkrecordInstance>;
+const mockCreateInstance = createWorkrecordInstance as jest.MockedFunction<
+  typeof createWorkrecordInstance
+>;
 const mockCreatePcTasks = createPcTasks as jest.MockedFunction<typeof createPcTasks>;
 const mockUpdatePcTaskStatus = updatePcTaskStatus as jest.MockedFunction<typeof updatePcTaskStatus>;
 const mockCancelPcTasks = cancelPcTasks as jest.MockedFunction<typeof cancelPcTasks>;
-const mockUpdateWorkrecordStatus = updateWorkrecordStatus as jest.MockedFunction<typeof updateWorkrecordStatus>;
+const mockUpdateWorkrecordStatus = updateWorkrecordStatus as jest.MockedFunction<
+  typeof updateWorkrecordStatus
+>;
 
 // =====================================================
 // 辅助
@@ -115,7 +119,7 @@ describe('createProcessInstance', () => {
       baseParams.formTypeCode,
       baseParams.formTypeName,
       baseParams.applicantUserId,
-      baseParams.title,
+      baseParams.title
     );
 
     expect(mockSaveTemplate).toHaveBeenCalledWith(
@@ -141,13 +145,7 @@ describe('createProcessInstance', () => {
     // INSERT oa_process_instance_mapping
     mockQueryOnce([]);
 
-    await createProcessInstance(
-      200,
-      'other_payment',
-      '其他付款申请',
-      1,
-      '缓存测试',
-    );
+    await createProcessInstance(200, 'other_payment', '其他付款申请', 1, '缓存测试');
 
     expect(mockSaveTemplate).not.toHaveBeenCalled();
   });
@@ -196,15 +194,20 @@ describe('createApprovalTodo', () => {
     mockQueryOnce([]);
 
     await createApprovalTodo(
-      100, 'OA-001', '测试付款', '其他付款申请', '张三',
-      2, undefined, undefined, 1
+      100,
+      'OA-001',
+      '测试付款',
+      '其他付款申请',
+      '张三',
+      2,
+      undefined,
+      undefined,
+      1
     );
 
-    expect(mockCreatePcTasks).toHaveBeenCalledWith(
-      'pi_001',
-      '100:node1',
-      [{ userId: 'dt_approver_001', url: 'https://test.example.com/oa/detail/100' }]
-    );
+    expect(mockCreatePcTasks).toHaveBeenCalledWith('pi_001', '100:node1', [
+      { userId: 'dt_approver_001', url: 'https://test.example.com/oa/detail/100' },
+    ]);
   });
 
   it('无壳实例：跳过待办创建', async () => {

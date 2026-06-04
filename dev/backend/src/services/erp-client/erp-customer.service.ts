@@ -8,7 +8,7 @@ import { erpPost, erpGet } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
-import type { ErpPageResponse } from './erp-client.types';
+import type {} from './erp-client.types';
 
 // =====================================================
 // 类型定义
@@ -110,7 +110,10 @@ export async function searchErpCustomers(
 
   while (true) {
     const body: Record<string, unknown> = {
-      current, size, cid, uid,
+      current,
+      size,
+      cid,
+      uid,
     };
     // 默认仅查启用客户（docState=1），客户档案修改场景需传 includeAllStates=true
     if (!options?.includeAllStates) {
@@ -119,10 +122,10 @@ export async function searchErpCustomers(
     if (keyword) {
       body.queryText = keyword;
     }
-    const result = await erpPost(
-      '/store-query/search', body,
-      { pathPrefix: '/redcoast/', businessType: 'customer_search' }
-    ) as any;
+    const result = (await erpPost('/store-query/search', body, {
+      pathPrefix: '/redcoast/',
+      businessType: 'customer_search',
+    })) as any;
     const records: ErpCustomer[] = result?.data?.records || result?.records || [];
     allCustomers.push(...records);
     if (records.length < size) break;
@@ -156,10 +159,10 @@ export async function searchErpCustomersByKeyword(
   if (!options?.includeAllStates) {
     body.docState = 1;
   }
-  const result = await erpPost(
-    '/store-query/search', body,
-    { pathPrefix: '/redcoast/', businessType: 'customer_search' }
-  ) as any;
+  const result = (await erpPost('/store-query/search', body, {
+    pathPrefix: '/redcoast/',
+    businessType: 'customer_search',
+  })) as any;
   const records: ErpCustomer[] = result?.data?.records || result?.records || [];
   cache.set(cacheKey, records, CACHE_TTL.LOW_FREQUENCY);
   return records;
@@ -194,11 +197,11 @@ export async function getErpCustomerProfile(customerId: number): Promise<ErpCust
   if (cached) return cached;
 
   const { cid, uid } = getErpDefaults();
-  const result = await erpGet(
+  const result = (await erpGet(
     '/store-query/query-store-web',
     { id: customerId, cid, uid },
     { pathPrefix: '/redcoast/', businessType: 'customer_profile' }
-  ) as any;
+  )) as any;
   const profile = (result?.data ?? result) as ErpCustomerProfile;
   cache.set(cacheKey, profile, CACHE_TTL.LOW_FREQUENCY);
   return profile;
@@ -220,9 +223,9 @@ export async function getCustomerLicenseInfo(customerId: number): Promise<Custom
   if (picIds.length > 0 && picUrls.length === 0) {
     try {
       const customers = await searchErpCustomersByKeyword(String(profile?.name || ''));
-      const matched = customers.find((c) => c.id === customerId);
+      const matched = customers.find(c => c.id === customerId);
       if (matched) {
-        picUrls = (matched as Record<string, unknown>).attachedPicUrls as string[] || [];
+        picUrls = ((matched as Record<string, unknown>).attachedPicUrls as string[]) || [];
       }
     } catch {
       // 搜索 API 失败不影响 hasLicense 判断

@@ -2,6 +2,8 @@
  * 采购绩效月度存档服务
  * 负责战略商品齐全率和库存周转天数的月度存档
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ProcurementArchive');
 
 import { appQuery } from '../../db/appPool';
 import { STANDARD_CALC_DAYS } from '../../utils/constants';
@@ -66,7 +68,7 @@ export async function calculateMonthlyAvailability(
   const monthEnd = new Date(year, month, 0); // 当月第0天 = 上月最后一天
   const pad = (n: number) => String(n).padStart(2, '0');
   const monthStartStr = `${monthStart.getFullYear()}-${pad(monthStart.getMonth() + 1)}-${pad(monthStart.getDate())}`;
-  const monthEndStr = `${monthEnd.getFullYear()}-${pad(monthEnd.getMonth() + 1)}-${pad(monthEnd.getDate())}`;
+  const _monthEndStr = `${monthEnd.getFullYear()}-${pad(monthEnd.getMonth() + 1)}-${pad(monthEnd.getDate())}`;
 
   // 通过快照服务查询该月每日战略商品库存状态（替代原 SQL 查询 "实时库存表_每天"）
   const dailyMap = await getMonthlyAvailability(strategicGoodsNames, monthStartStr);
@@ -83,7 +85,7 @@ export async function calculateMonthlyAvailability(
   }
 
   let totalRate = 0;
-  dailyMap.forEach((inStockCount) => {
+  dailyMap.forEach(inStockCount => {
     const rate = (inStockCount / totalStrategic) * 100;
     totalRate += rate;
   });
@@ -118,12 +120,18 @@ export async function calculateMonthlyTurnover(
   const currentCost = await getStockCostByMonth(currentMonth);
   const prevCost = await getStockCostByMonth(prevMonth);
 
-  const currentTurnover = currentCost.totalCostAmount > 0
-    ? Math.round((currentCost.totalCostAmount / 2) / (currentCost.totalCostAmount / STANDARD_CALC_DAYS)) || 0
-    : 0;
-  const prevTurnover = prevCost.totalCostAmount > 0
-    ? Math.round((prevCost.totalCostAmount / 2) / (prevCost.totalCostAmount / STANDARD_CALC_DAYS)) || 0
-    : 0;
+  const currentTurnover =
+    currentCost.totalCostAmount > 0
+      ? Math.round(
+          currentCost.totalCostAmount / 2 / (currentCost.totalCostAmount / STANDARD_CALC_DAYS)
+        ) || 0
+      : 0;
+  const prevTurnover =
+    prevCost.totalCostAmount > 0
+      ? Math.round(
+          prevCost.totalCostAmount / 2 / (prevCost.totalCostAmount / STANDARD_CALC_DAYS)
+        ) || 0
+      : 0;
 
   // 计算环比
   let trend = 0;
@@ -146,14 +154,14 @@ export async function calculateMonthlyTurnover(
  */
 export async function saveMonthlyArchive(
   archiveMonth: Date,
-  archivedBy: string = 'scheduler'
+  archivedBy = 'scheduler'
 ): Promise<void> {
   const year = archiveMonth.getFullYear();
   const month = archiveMonth.getMonth() + 1;
   const monthFirstDay = getMonthFirstDay(archiveMonth);
   const monthFirstDayStr = `${monthFirstDay.getFullYear()}-${String(monthFirstDay.getMonth() + 1).padStart(2, '0')}-${String(monthFirstDay.getDate()).padStart(2, '0')}`;
 
-  console.log(`[ProcurementArchive] 开始存档 ${year}-${month} 数据...`);
+  log.info(`开始存档 ${year}-${month} 数据...`);
 
   // 计算齐全率数据
   const availabilityData = await calculateMonthlyAvailability(year, month);
@@ -195,7 +203,7 @@ export async function saveMonthlyArchive(
     archivedBy,
   ]);
 
-  console.log(`[ProcurementArchive] ${year}-${month} 存档完成:`, {
+  log.info(`${year}-${month} 存档完成:`, {
     availabilityRate: availabilityData?.rate,
     turnoverDays: turnoverData?.days,
   });
@@ -227,9 +235,7 @@ export async function getMonthlyArchiveList(
     paramIndex++;
   }
 
-  const whereClause = conditions.length > 0
-    ? `WHERE ${conditions.join(' AND ')}`
-    : '';
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // 查询总数
   const countSql = `
@@ -265,24 +271,16 @@ export async function getMonthlyArchiveList(
   const records: MonthlyArchiveRecord[] = dataResult.rows.map(row => ({
     id: row.id,
     archiveMonth: formatDateOnly(row.archive_month),
-    strategicAvailabilityRate: row.strategic_availability_rate !== null
-      ? parseFloat(row.strategic_availability_rate)
-      : null,
-    strategicTotalSku: row.strategic_total_sku !== null
-      ? parseInt(row.strategic_total_sku, 10)
-      : null,
-    strategicDaysInMonth: row.strategic_days_in_month !== null
-      ? parseInt(row.strategic_days_in_month, 10)
-      : null,
-    turnoverDays: row.turnover_days !== null
-      ? parseInt(row.turnover_days, 10)
-      : null,
-    turnoverPreviousDays: row.turnover_previous_days !== null
-      ? parseInt(row.turnover_previous_days, 10)
-      : null,
-    turnoverTrend: row.turnover_trend !== null
-      ? parseFloat(row.turnover_trend)
-      : null,
+    strategicAvailabilityRate:
+      row.strategic_availability_rate !== null ? parseFloat(row.strategic_availability_rate) : null,
+    strategicTotalSku:
+      row.strategic_total_sku !== null ? parseInt(row.strategic_total_sku, 10) : null,
+    strategicDaysInMonth:
+      row.strategic_days_in_month !== null ? parseInt(row.strategic_days_in_month, 10) : null,
+    turnoverDays: row.turnover_days !== null ? parseInt(row.turnover_days, 10) : null,
+    turnoverPreviousDays:
+      row.turnover_previous_days !== null ? parseInt(row.turnover_previous_days, 10) : null,
+    turnoverTrend: row.turnover_trend !== null ? parseFloat(row.turnover_trend) : null,
     archivedAt: row.archived_at,
     archivedBy: row.archived_by || 'scheduler',
   }));

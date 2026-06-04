@@ -14,6 +14,8 @@ import type {
   GoodsReturnRuleStats,
 } from '@/types/goods-return-rules';
 import type { PaginatedResult } from '@/types/warning';
+import { createLogger } from '../../../../utils/logger';
+const log = createLogger('ProcurementReturnGoodsRules');
 
 export function useGoodsRules() {
   // 列表相关状态
@@ -42,7 +44,7 @@ export function useGoodsRules() {
       const result = await getGoodsReturnRuleStats();
       setStats(result);
     } catch (error) {
-      console.error('加载统计信息失败:', error);
+      log.error('加载统计信息失败:', error);
     }
   }, []);
 

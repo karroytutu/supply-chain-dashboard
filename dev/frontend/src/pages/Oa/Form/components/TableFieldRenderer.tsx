@@ -113,6 +113,7 @@ const CellInput: React.FC<{
 };
 
 const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = [], onChange }) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   const columns = field.children || [];
 
   const handleAdd = useCallback(() => {

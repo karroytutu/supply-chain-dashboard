@@ -2,6 +2,9 @@
  * 钉钉工作通知推送记录服务
  * 管理推送记录的创建、更新、查询
  */
+import { SqlParam } from '../db/types';
+import { createLogger } from '../utils/logger';
+const log = createLogger('Service');
 
 import { appQuery } from '../db/appPool';
 import { config } from '../config';
@@ -74,12 +77,12 @@ export async function updateNotificationLogStatus(
   }
 
   if (!id) {
-    console.warn('[NotificationLog] 更新失败：缺少记录ID');
+    log.warn('更新失败：缺少记录ID');
     return;
   }
 
   const updates: string[] = ['updated_at = CURRENT_TIMESTAMP'];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
   let paramIndex = 1;
 
   if (status) {

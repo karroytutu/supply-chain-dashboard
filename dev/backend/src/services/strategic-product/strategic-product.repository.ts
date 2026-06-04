@@ -4,7 +4,12 @@
  * 遵循规范：Controller → Service → Repository → DB
  */
 
-import { fetchAllProducts, getProductById, type ErpProduct } from '../erp-client/erp-product.service';
+import { SqlParam } from '../../db/types';
+import {
+  fetchAllProducts,
+  getProductById,
+  type ErpProduct,
+} from '../erp-client/erp-product.service';
 import { getStockSummaryMap } from '../erp-client/erp-inventory.service';
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
@@ -26,7 +31,7 @@ export async function getProducts(params: StrategicProductQueryParams) {
   const { page = 1, pageSize = 20, status, categoryPath, keyword } = params;
   const offset = (page - 1) * pageSize;
   const conditions: string[] = ['1=1'];
-  const queryParams: any[] = [];
+  const queryParams: SqlParam[] = [];
   let paramIndex = 1;
 
   if (status) {
@@ -67,7 +72,7 @@ export async function getProducts(params: StrategicProductQueryParams) {
     LEFT JOIN users mu ON sp.marketing_confirmed_by = mu.id
     WHERE ${whereClause}
     ORDER BY sp.created_at DESC
-    LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
+    LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
     listParams
   );
 
@@ -114,11 +119,9 @@ export async function getCategoryTree() {
 
   // 从商品档案 API 获取品类结构
   const allProducts = await fetchAllProducts(0);
-  const categoryChains = [...new Set(
-    allProducts
-      .filter(p => p.categoryChainName)
-      .map(p => p.categoryChainName)
-  )].sort();
+  const categoryChains = [
+    ...new Set(allProducts.filter(p => p.categoryChainName).map(p => p.categoryChainName)),
+  ].sort();
 
   // 统计各品类的战略商品数量
   const statsResult = await appQuery<{
@@ -176,7 +179,7 @@ export async function getCategoryTree() {
     });
   });
 
-  const rootNodes: any[] = [];
+  const rootNodes: SqlParam[] = [];
   treeMap.forEach((node: any) => {
     if (node.level === 1) {
       rootNodes.push(node);
@@ -200,10 +203,7 @@ export async function getProductsForSelection(params: GetProductsQueryParams) {
   const strategicGoodsIds = new Set(strategicResult.rows.map(r => r.goods_id));
 
   // 从 API 获取所有启用商品 + 库存
-  const [allProducts, stockMap] = await Promise.all([
-    fetchAllProducts(0),
-    getStockSummaryMap(),
-  ]);
+  const [allProducts, stockMap] = await Promise.all([fetchAllProducts(0), getStockSummaryMap()]);
 
   // 内存过滤
   let filtered = allProducts;
@@ -259,7 +259,9 @@ export async function isStrategicProduct(goodsId: string): Promise<boolean> {
 /**
  * 批量获取商品的战略等级
  */
-export async function getStrategicLevels(goodsIds: string[]): Promise<Map<string, 'strategic' | 'normal'>> {
+export async function getStrategicLevels(
+  goodsIds: string[]
+): Promise<Map<string, 'strategic' | 'normal'>> {
   const result = await appQuery<{ goods_id: string }>(
     `SELECT goods_id FROM strategic_products
      WHERE goods_id = ANY($1) AND status = 'confirmed' AND confirmed_at IS NOT NULL`,
@@ -303,15 +305,15 @@ export async function addProducts(
   }
 
   // 批量插入（带 ON CONFLICT 处理）
-  const values = matchedProducts.map((g, i) =>
-    `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`
-  ).join(', ');
+  const values = matchedProducts
+    .map((g, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`)
+    .join(', ');
 
   const insertParams = matchedProducts.flatMap(g => [
     g.goodsId,
     g.goodsName,
     g.categoryChainName || '',
-    userId
+    userId,
   ]);
 
   const insertResult = await appQuery(
@@ -322,7 +324,8 @@ export async function addProducts(
   );
 
   const addedCount = insertResult.rowCount ?? 0;
-  const skippedCount = goodsIds.length - matchedProducts.length + (matchedProducts.length - addedCount);
+  const skippedCount =
+    goodsIds.length - matchedProducts.length + (matchedProducts.length - addedCount);
 
   return { addedCount, skippedCount };
 }
@@ -331,10 +334,7 @@ export async function addProducts(
  * 删除战略商品
  */
 export async function deleteProduct(id: number): Promise<boolean> {
-  const result = await appQuery(
-    'DELETE FROM strategic_products WHERE id = $1',
-    [id]
-  );
+  const result = await appQuery('DELETE FROM strategic_products WHERE id = $1', [id]);
   return (result.rowCount ?? 0) > 0;
 }
 
@@ -349,10 +349,7 @@ export async function confirmProduct(
   userName: string
 ): Promise<any | null> {
   // 查询当前记录
-  const currentResult = await appQuery(
-    'SELECT * FROM strategic_products WHERE id = $1',
-    [id]
-  );
+  const currentResult = await appQuery('SELECT * FROM strategic_products WHERE id = $1', [id]);
 
   if (currentResult.rows.length === 0) return null;
 
@@ -362,7 +359,7 @@ export async function confirmProduct(
   const isMarketingManager = userRoles.includes('marketing_manager');
 
   const updateFields: string[] = [];
-  const updateParams: any[] = [];
+  const updateParams: SqlParam[] = [];
   let paramIndex = 1;
 
   if (isProcurementManager || isAdmin) {
@@ -413,10 +410,11 @@ export async function confirmProduct(
 export async function batchConfirmProducts(
   params: any
 ): Promise<{ successCount: number; failedCount: number }> {
-  const { ids, action, userId, userRoles, userName, selectAll, status, categoryPath, keyword } = params;
+  const { ids, action, userId, userRoles, _userName, selectAll, status, categoryPath, keyword } =
+    params;
 
   let whereClause = "status = 'pending'";
-  const queryParams: any[] = [];
+  const queryParams: SqlParam[] = [];
   let paramIndex = 1;
 
   if (selectAll) {
@@ -429,14 +427,14 @@ export async function batchConfirmProducts(
       queryParams.push(`${categoryPath}%`);
     }
     if (keyword) {
-      whereClause += ` AND (goods_name ILIKE $${paramIndex++} OR goods_id ILIKE $${paramIndex++})`;
+      whereClause += ` AND (goods_name ILIKE $${paramIndex++} OR goods_id ILIKE $${paramIndex})`;
       queryParams.push(`%${escapeLikePattern(keyword)}%`, `%${escapeLikePattern(keyword)}%`);
     }
   } else {
     if (!ids || ids.length === 0) {
       return { successCount: 0, failedCount: 0 };
     }
-    whereClause += ` AND id = ANY($${paramIndex++})`;
+    whereClause += ` AND id = ANY($${paramIndex})`;
     queryParams.push(ids);
   }
 
@@ -451,7 +449,9 @@ export async function batchConfirmProducts(
   if (isProcurementManager || isAdmin) {
     updateFields.push(`procurement_confirmed = ${isConfirm}`);
     updateFields.push(`procurement_confirmed_by = ${userId}`);
-    updateFields.push(`procurement_confirmed_at = ${isConfirm ? `'${now.toISOString()}'` : 'NULL'}`);
+    updateFields.push(
+      `procurement_confirmed_at = ${isConfirm ? `'${now.toISOString()}'` : 'NULL'}`
+    );
   }
 
   if (isMarketingManager || isAdmin) {
@@ -484,8 +484,9 @@ export async function batchConfirmProducts(
 
   // 确认操作时，更新最终确认状态
   if (action === 'confirm') {
-    let confirmWhere = "procurement_confirmed = TRUE AND marketing_confirmed = TRUE AND status = 'pending'";
-    const confirmParams: any[] = [];
+    let confirmWhere =
+      "procurement_confirmed = TRUE AND marketing_confirmed = TRUE AND status = 'pending'";
+    const confirmParams: SqlParam[] = [];
     let confirmParamIndex = 1;
 
     if (selectAll) {
@@ -498,11 +499,11 @@ export async function batchConfirmProducts(
         confirmParams.push(`${categoryPath}%`);
       }
       if (keyword) {
-        confirmWhere += ` AND (goods_name ILIKE $${confirmParamIndex++} OR goods_id ILIKE $${confirmParamIndex++})`;
+        confirmWhere += ` AND (goods_name ILIKE $${confirmParamIndex++} OR goods_id ILIKE $${confirmParamIndex})`;
         confirmParams.push(`%${escapeLikePattern(keyword)}%`, `%${escapeLikePattern(keyword)}%`);
       }
     } else if (ids && ids.length > 0) {
-      confirmWhere += ` AND id = ANY($${confirmParamIndex++})`;
+      confirmWhere += ` AND id = ANY($${confirmParamIndex})`;
       confirmParams.push(ids);
     }
 
@@ -524,7 +525,7 @@ export async function batchDeleteProducts(params: any): Promise<{ deletedCount: 
   const { ids, selectAll, status, categoryPath, keyword } = params;
 
   let whereClause = '1=1';
-  const queryParams: any[] = [];
+  const queryParams: SqlParam[] = [];
   let paramIndex = 1;
 
   if (selectAll) {
@@ -537,21 +538,18 @@ export async function batchDeleteProducts(params: any): Promise<{ deletedCount: 
       queryParams.push(`${categoryPath}%`);
     }
     if (keyword) {
-      whereClause += ` AND (goods_name ILIKE $${paramIndex++} OR goods_id ILIKE $${paramIndex++})`;
+      whereClause += ` AND (goods_name ILIKE $${paramIndex++} OR goods_id ILIKE $${paramIndex})`;
       queryParams.push(`%${escapeLikePattern(keyword)}%`, `%${escapeLikePattern(keyword)}%`);
     }
   } else {
     if (!ids || ids.length === 0) {
       return { deletedCount: 0 };
     }
-    whereClause += ` AND id = ANY($${paramIndex++})`;
+    whereClause += ` AND id = ANY($${paramIndex})`;
     queryParams.push(ids);
   }
 
-  const result = await appQuery(
-    `DELETE FROM strategic_products WHERE ${whereClause}`,
-    queryParams
-  );
+  const result = await appQuery(`DELETE FROM strategic_products WHERE ${whereClause}`, queryParams);
 
   return { deletedCount: result.rowCount ?? 0 };
 }

@@ -2,10 +2,11 @@
  * 催收任务创建通知服务
  * 负责在催收任务创建后发送 ActionCard 格式的通知
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ArCollection');
 
 import { appQuery } from '../../db/appPool';
-import { sendWorkNotification } from '../dingtalk.service';
-import type { ActionCardContent } from '../dingtalk.service';
+import { sendWorkNotification, type ActionCardContent } from '../dingtalk.service';
 import type { CollectionTask } from './ar-collection.types';
 
 /** 推送跳转地址 */
@@ -51,7 +52,7 @@ export async function sendTaskCreatedNotifications(
   tasks: Array<[string, { taskId: number; managerUserId: number | null }]>
 ): Promise<void> {
   if (!tasks || tasks.length === 0) {
-    console.log('[TaskCreatedNotify] 无任务需要发送通知');
+    log.info('无任务需要发送通知');
     return;
   }
 
@@ -66,7 +67,7 @@ export async function sendTaskCreatedNotifications(
   }
 
   if (tasksByManager.size === 0) {
-    console.log('[TaskCreatedNotify] 无有效责任人，跳过通知');
+    log.info('无有效责任人，跳过通知');
     return;
   }
 
@@ -80,7 +81,7 @@ export async function sendTaskCreatedNotifications(
   );
 
   if (taskResult.rows.length === 0) {
-    console.log('[TaskCreatedNotify] 未找到任务详情');
+    log.info('未找到任务详情');
     return;
   }
 
@@ -110,7 +111,7 @@ export async function sendTaskCreatedNotifications(
   for (const [managerId, managerTaskIds] of tasksByManager) {
     const dingtalkId = userDingtalkMap.get(managerId);
     if (!dingtalkId) {
-      console.log(`[TaskCreatedNotify] 用户 ${managerId} 无钉钉ID，跳过`);
+      log.info(`用户 ${managerId} 无钉钉ID，跳过`);
       continue;
     }
 
@@ -135,9 +136,9 @@ export async function sendTaskCreatedNotifications(
       });
       sentCount++;
     } catch (err) {
-      console.error(`[TaskCreatedNotify] 发送通知失败: managerId=${managerId}`, err);
+      log.error(`发送通知失败: managerId=${managerId}`, err);
     }
   }
 
-  console.log(`[TaskCreatedNotify] 发送完成: ${sentCount}/${tasksByManager.size}`);
+  log.info(`发送完成: ${sentCount}/${tasksByManager.size}`);
 }

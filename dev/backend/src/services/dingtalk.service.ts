@@ -37,6 +37,4 @@ export {
 } from './dingtalk-user.service';
 
 // 消息发送
-export {
-  sendWorkNotification,
-} from './dingtalk-message.service';
+export { sendWorkNotification } from './dingtalk-message.service';

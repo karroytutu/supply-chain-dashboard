@@ -45,9 +45,10 @@ if (process.env.NODE_ENV === 'development') {
 // 用户切换：始终注册，环境感知权限
 // 开发环境：仅需登录（authMiddleware）
 // 生产环境：需登录 + system:user:switch 权限
-const switchAuth = process.env.NODE_ENV === 'development'
-  ? [authMiddleware]
-  : [authMiddleware, requirePermission('system:user:switch')];
+const switchAuth =
+  process.env.NODE_ENV === 'development'
+    ? [authMiddleware]
+    : [authMiddleware, requirePermission('system:user:switch')];
 
 router.post('/dev-switch', authLimiter, ...switchAuth, developmentSwitchUser);
 router.get('/dev-users', authLimiter, ...switchAuth, developmentGetUsers);

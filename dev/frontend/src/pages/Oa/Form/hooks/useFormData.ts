@@ -3,12 +3,13 @@
  * 包含表单类型加载、客户执照信息处理
  */
 import { useState, useRef } from 'react';
-import { message } from 'antd';
+import { message, type FormInstance } from 'antd';
 import { history } from 'umi';
 import { oaApi } from '@/services/api/oa';
 import type { FormTypeDefinition } from '@/types/oa';
 import type { CustomerLicenseInfo } from '../components/ErpFieldRenderer';
-import type { FormInstance } from 'antd';
+import { createLogger } from '../../../../utils/logger';
+const log = createLogger('OaForm');
 
 interface UseFormDataReturn {
   loading: boolean;
@@ -75,7 +76,7 @@ export function useFormData(
           }
         })
         .catch((err) => {
-          console.warn('[FormPage] 获取客户执照信息失败:', err);
+          log.warn('获取客户执照信息失败:', err);
         })
         .finally(() => {
           if (fetchIdRef.current === currentFetchId) {

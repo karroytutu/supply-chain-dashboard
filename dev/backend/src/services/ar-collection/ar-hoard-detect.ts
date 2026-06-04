@@ -7,9 +7,16 @@
  * - 即时：压单审批通过后调用 detectHoardChangesByCustomer
  * - 兜底：syncERPDebts 每日定时调用 detectAllHoardChanges
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ArCollection');
 
 import { appQuery, getAppClient } from '../../db/appPool';
-import { AR_HOARD_TAG_HOARD, AR_DETAIL_STATUS_HOARD_EXCLUDED, AR_HOLD_TYPE_LONG_TERM, AR_HOLD_TYPE_TIME_LIMITED } from '../../utils/constants';
+import {
+  AR_HOARD_TAG_HOARD,
+  AR_DETAIL_STATUS_HOARD_EXCLUDED,
+  AR_HOLD_TYPE_LONG_TERM,
+  AR_HOLD_TYPE_TIME_LIMITED,
+} from '../../utils/constants';
 import { fetchCustomerData, fetchHoardTags } from './ar-debt-enrichment.service';
 import type { ERPDebtRecord } from './ar-debt.types';
 
@@ -46,22 +53,22 @@ export interface HoldOptions {
  * 在 syncERPDebts 末尾调用
  */
 export async function detectAllHoardChanges(): Promise<void> {
-  console.log('[HoardDetect] 开始全量压单检测...');
+  log.info('开始全量压单检测...');
   const startTime = Date.now();
 
   try {
     // 1. 查询所有活跃任务中可能变为压单的明细
     const details = await fetchDetectableDetails();
     if (details.length === 0) {
-      console.log('[HoardDetect] 无需检测的明细');
+      log.info('无需检测的明细');
       return;
     }
-    console.log(`[HoardDetect] 扫描 ${details.length} 条活跃明细`);
+    log.info(`扫描 ${details.length} 条活跃明细`);
 
     // 2. 获取最新 hoardTag 并处理变更
     const changedDetails = await detectHoardChanges(details);
     if (changedDetails.length === 0) {
-      console.log('[HoardDetect] 无压单变更');
+      log.info('无压单变更');
       return;
     }
 
@@ -69,13 +76,13 @@ export async function detectAllHoardChanges(): Promise<void> {
     const result = await processHoardChanges(changedDetails);
 
     const duration = Date.now() - startTime;
-    console.log(
+    log.info(
       `[HoardDetect] 全量检测完成: 变更=${changedDetails.length}, ` +
-      `排除=${result.excludedCount}, 重算任务=${result.recalculatedTasks}, ` +
-      `关闭任务=${result.closedTasks}, 耗时=${duration}ms`
+        `排除=${result.excludedCount}, 重算任务=${result.recalculatedTasks}, ` +
+        `关闭任务=${result.closedTasks}, 耗时=${duration}ms`
     );
   } catch (error) {
-    console.error('[HoardDetect] 全量压单检测失败:', error);
+    log.error('全量压单检测失败:', error);
     // 不抛出异常，避免影响 syncERPDebts 的其他步骤
   }
 }
@@ -88,23 +95,23 @@ export async function detectAllHoardChanges(): Promise<void> {
  */
 export async function detectHoardChangesByCustomer(
   consumerName: string,
-  holdOptions?: HoldOptions,
+  holdOptions?: HoldOptions
 ): Promise<void> {
-  console.log(`[HoardDetect] 开始客户压单检测: ${consumerName}`);
+  log.info(`开始客户压单检测: ${consumerName}`);
   const startTime = Date.now();
 
   try {
     // 1. 查询该客户的活跃任务明细
     const details = await fetchDetectableDetails(consumerName);
     if (details.length === 0) {
-      console.log(`[HoardDetect] 客户 ${consumerName} 无需检测的明细`);
+      log.info(`客户 ${consumerName} 无需检测的明细`);
       return;
     }
 
     // 2. 获取最新 hoardTag 并处理变更
     const changedDetails = await detectHoardChanges(details);
     if (changedDetails.length === 0) {
-      console.log(`[HoardDetect] 客户 ${consumerName} 无压单变更`);
+      log.info(`客户 ${consumerName} 无压单变更`);
       return;
     }
 
@@ -112,13 +119,13 @@ export async function detectHoardChangesByCustomer(
     const result = await processHoardChanges(changedDetails, holdOptions);
 
     const duration = Date.now() - startTime;
-    console.log(
+    log.info(
       `[HoardDetect] 客户检测完成: ${consumerName}, 变更=${changedDetails.length}, ` +
-      `排除=${result.excludedCount}, 重算任务=${result.recalculatedTasks}, ` +
-      `关闭任务=${result.closedTasks}, 耗时=${duration}ms`
+        `排除=${result.excludedCount}, 重算任务=${result.recalculatedTasks}, ` +
+        `关闭任务=${result.closedTasks}, 耗时=${duration}ms`
     );
   } catch (error) {
-    console.error(`[HoardDetect] 客户 ${consumerName} 压单检测失败:`, error);
+    log.error(`客户 ${consumerName} 压单检测失败:`, error);
     throw error;
   }
 }
@@ -198,7 +205,7 @@ async function detectHoardChanges(details: DetectableDetail[]): Promise<Detectab
  */
 async function processHoardChanges(
   changedDetails: DetectableDetail[],
-  holdOptions?: HoldOptions,
+  holdOptions?: HoldOptions
 ): Promise<{ excludedCount: number; recalculatedTasks: number; closedTasks: number }> {
   let excludedCount = 0;
   let recalculatedTasks = 0;
@@ -222,12 +229,8 @@ async function processHoardChanges(
 
     for (const [taskId, taskDetails] of byTask) {
       // 区分 pending vs 非 pending
-      const pendingIds = taskDetails
-        .filter(d => d.status === 'pending')
-        .map(d => d.id);
-      const nonPendingIds = taskDetails
-        .filter(d => d.status !== 'pending')
-        .map(d => d.id);
+      const pendingIds = taskDetails.filter(d => d.status === 'pending').map(d => d.id);
+      const nonPendingIds = taskDetails.filter(d => d.status !== 'pending').map(d => d.id);
 
       // 更新 pending 明细：标记为 hoard_excluded + 更新 hoard_tag + hold 元数据
       if (pendingIds.length > 0) {
@@ -238,7 +241,14 @@ async function processHoardChanges(
                                  THEN CURRENT_DATE + $4::integer
                                  ELSE NULL END
            WHERE id = ANY($6)`,
-          [AR_DETAIL_STATUS_HOARD_EXCLUDED, AR_HOARD_TAG_HOARD, holdType, holdDays, AR_HOLD_TYPE_TIME_LIMITED, pendingIds]
+          [
+            AR_DETAIL_STATUS_HOARD_EXCLUDED,
+            AR_HOARD_TAG_HOARD,
+            holdType,
+            holdDays,
+            AR_HOLD_TYPE_TIME_LIMITED,
+            pendingIds,
+          ]
         );
         excludedCount += pendingIds.length;
       }
@@ -275,10 +285,9 @@ async function processHoardChanges(
 
       // 级联关闭：所有可催收明细都被排除
       if (newCount === 0) {
-        await client.query(
-          `UPDATE ar_collection_tasks SET status = 'closed' WHERE id = $1`,
-          [taskId]
-        );
+        await client.query(`UPDATE ar_collection_tasks SET status = 'closed' WHERE id = $1`, [
+          taskId,
+        ]);
         closedTasks++;
       }
 
@@ -286,7 +295,8 @@ async function processHoardChanges(
       const pendingCount = pendingIds.length;
       const nonPendingCount = nonPendingIds.length;
       const remarkParts: string[] = [];
-      const holdTypeLabel = holdType === AR_HOLD_TYPE_TIME_LIMITED ? `期限压单(${holdDays}天)` : '长期压单';
+      const holdTypeLabel =
+        holdType === AR_HOLD_TYPE_TIME_LIMITED ? `期限压单(${holdDays}天)` : '长期压单';
       if (pendingCount > 0) {
         remarkParts.push(`${pendingCount}笔待处理明细标记为压单排除[${holdTypeLabel}]`);
       }

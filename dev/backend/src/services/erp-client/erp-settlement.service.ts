@@ -3,6 +3,8 @@
  * 代理舟谱欠款明细列表 API
  * @module services/erp-client/erp-settlement.service
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ERP');
 
 import { erpGet, erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
@@ -74,16 +76,19 @@ export async function searchErpSettlementOrders(params: {
   const pageSize = 100;
 
   while (allOrders.length < maxRecords) {
-    const result = await erpGet(
+    const result = (await erpGet(
       '/invoice/list-debt-list',
       {
-        size: pageSize, total: 0, current,
+        size: pageSize,
+        total: 0,
+        current,
         traderId: params.traderId,
         traderType: 'STORE',
-        cid, uid,
+        cid,
+        uid,
       },
       { pathPrefix: '/saas/pro/', businessType: 'settlement_order_search' }
-    ) as any;
+    )) as any;
     const records: ErpSettlementOrder[] = result?.data?.records || result?.records || [];
     allOrders.push(...records);
     if (records.length < pageSize) break;
@@ -124,7 +129,7 @@ export async function searchErpSettlementOrdersPaged(params: {
     const allOrders = await searchErpSettlementOrders({ traderId: params.traderId });
     const kw = params.keyword.toLowerCase();
     const filtered = allOrders.filter(
-      (r) => r.bizStr?.toLowerCase().includes(kw) || r.bizOrderStr?.toLowerCase().includes(kw)
+      r => r.bizStr?.toLowerCase().includes(kw) || r.bizOrderStr?.toLowerCase().includes(kw)
     );
     const total = filtered.length;
     const start = (page - 1) * pageSize;
@@ -133,7 +138,7 @@ export async function searchErpSettlementOrdersPaged(params: {
   }
 
   // 无关键词：直接利用 ERP API 分页
-  const result = await erpGet(
+  const result = (await erpGet(
     '/invoice/list-debt-list',
     {
       size: pageSize,
@@ -145,7 +150,7 @@ export async function searchErpSettlementOrdersPaged(params: {
       uid,
     },
     { pathPrefix: '/saas/pro/', businessType: 'settlement_order_search' }
-  ) as any;
+  )) as any;
 
   const records: ErpSettlementOrder[] = result?.data?.records || result?.records || [];
   const total: number = result?.data?.total || result?.total || 0;
@@ -191,10 +196,10 @@ export async function resolveSettlementBizIds(
     } else if (idToBizId.has(inputId)) {
       // 输入是旧 id，转换为 bizId
       const bizId = idToBizId.get(inputId)!;
-      console.info(`[ERP] 结算单 id→bizId 转换: ${inputId} → ${bizId}`);
+      log.info(`结算单 id→bizId 转换: ${inputId} → ${bizId}`);
       resolved.push(bizId);
     } else {
-      console.warn(`[ERP] 结算单 ID ${inputId} 未在客户 ${traderId} 的结算单列表中找到，跳过`);
+      log.warn(`结算单 ID ${inputId} 未在客户 ${traderId} 的结算单列表中找到，跳过`);
     }
   }
 
@@ -218,7 +223,7 @@ export async function erpMarkHoldOrders(orderIds: number[], traderId?: number): 
   }
 
   if (bizIds.length === 0) {
-    console.warn('[ERP] erpMarkHoldOrders: 无有效 bizId，跳过 update-hoard 调用');
+    log.warn('erpMarkHoldOrders: 无有效 bizId，跳过 update-hoard 调用');
     return;
   }
 

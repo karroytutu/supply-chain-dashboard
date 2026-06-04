@@ -22,11 +22,7 @@ export type {
   CreatedAssetRecord,
 } from './fixed-asset.types';
 
-export {
-  DISPOSAL_INCRDECR_MAP,
-  FEE_SUBJECT,
-  DEPRECIATION_METHODS,
-} from './fixed-asset.types';
+export { DISPOSAL_INCRDECR_MAP, FEE_SUBJECT, DEPRECIATION_METHODS } from './fixed-asset.types';
 
 export {
   validateMaintenanceCost,
@@ -48,21 +44,13 @@ export {
   getErpPaymentAccounts,
 } from './fixed-asset.query';
 
-export {
-  handleAssetPurchaseNodeCallback,
-} from './purchase-callback';
+export { handleAssetPurchaseNodeCallback } from './purchase-callback';
 
-export {
-  handleAssetTransferApproved,
-} from './transfer-callback';
+export { handleAssetTransferApproved } from './transfer-callback';
 
-export {
-  handleAssetMaintenanceNodeCallback,
-} from './maintenance-callback';
+export { handleAssetMaintenanceNodeCallback } from './maintenance-callback';
 
-export {
-  handleAssetDisposalApproved,
-} from './disposal-callback';
+export { handleAssetDisposalApproved } from './disposal-callback';
 
 export {
   getErpMeta,

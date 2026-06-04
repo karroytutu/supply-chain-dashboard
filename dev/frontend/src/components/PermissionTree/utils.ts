@@ -103,7 +103,7 @@ export const groupByModule = (items: PermissionItem[] = []): Map<string, Permiss
       if (!groups.has(moduleCode)) {
         groups.set(moduleCode, []);
       }
-      groups.get(moduleCode)!.push(item);
+      (groups.get(moduleCode) as PermissionItem[]).push(item);
 
       // 递归处理子节点
       if (item.children && item.children.length > 0) {

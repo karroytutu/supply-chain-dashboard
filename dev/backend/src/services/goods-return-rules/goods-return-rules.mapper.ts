@@ -3,10 +3,7 @@
  * 负责数据库实体(snake_case) ↔ API DTO(camelCase) 的双向转换
  */
 
-import type {
-  GoodsReturnRule,
-  GoodsReturnRuleStats,
-} from './goods-return-rules.types';
+import type { GoodsReturnRule, GoodsReturnRuleStats } from './goods-return-rules.types';
 
 // ==================== 数据库行类型 ====================
 

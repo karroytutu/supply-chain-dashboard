@@ -20,7 +20,9 @@ function invalidateCache(): void {
 /**
  * 根据审批实例ID查延期补交记录
  */
-export async function getByInstanceId(oaInstanceId: number): Promise<CreditLicenseDeferredRow | null> {
+export async function getByInstanceId(
+  oaInstanceId: number
+): Promise<CreditLicenseDeferredRow | null> {
   const cacheKey = `${CACHE_PREFIX}instance:${oaInstanceId}`;
   const cached = cache.get<CreditLicenseDeferredRow>(cacheKey);
   if (cached) return cached;
@@ -40,7 +42,10 @@ export async function getByInstanceId(oaInstanceId: number): Promise<CreditLicen
 /**
  * 查询需要提醒的记录（指定截止日期范围的 pending/reminded 记录）
  */
-export async function getPendingReminders(deadlineStart: Date, deadlineEnd: Date): Promise<CreditLicenseDeferredRow[]> {
+export async function getPendingReminders(
+  deadlineStart: Date,
+  deadlineEnd: Date
+): Promise<CreditLicenseDeferredRow[]> {
   const result = await appQuery<CreditLicenseDeferredRow>(
     `SELECT * FROM credit_license_deferred_uploads
      WHERE status IN ('pending', 'reminded')
@@ -82,7 +87,14 @@ export async function create(data: CreateDeferredUploadParams): Promise<CreditLi
        (oa_instance_id, customer_id, customer_name, applicant_id, applicant_name, deadline)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [data.oaInstanceId, data.customerId, data.customerName, data.applicantId, data.applicantName, data.deadline]
+    [
+      data.oaInstanceId,
+      data.customerId,
+      data.customerName,
+      data.applicantId,
+      data.applicantName,
+      data.deadline,
+    ]
   );
 
   invalidateCache();
@@ -139,7 +151,10 @@ export async function markOverdueBatch(): Promise<number> {
 /**
  * 查询营销员的待补交列表（分页）
  */
-export async function getByApplicant(applicantId: number, params: CreditLicenseQueryParams): Promise<{ rows: CreditLicenseDeferredRow[]; total: number }> {
+export async function getByApplicant(
+  applicantId: number,
+  params: CreditLicenseQueryParams
+): Promise<{ rows: CreditLicenseDeferredRow[]; total: number }> {
   const conditions: string[] = ['applicant_id = $1'];
   const queryParams: unknown[] = [applicantId];
   let paramIdx = 2;
@@ -171,7 +186,9 @@ export async function getByApplicant(applicantId: number, params: CreditLicenseQ
 /**
  * 查询所有延期补交列表（管理视图，分页）
  */
-export async function getAll(params: CreditLicenseQueryParams): Promise<{ rows: CreditLicenseDeferredRow[]; total: number }> {
+export async function getAll(
+  params: CreditLicenseQueryParams
+): Promise<{ rows: CreditLicenseDeferredRow[]; total: number }> {
   const conditions: string[] = [];
   const queryParams: unknown[] = [];
   let paramIdx = 1;

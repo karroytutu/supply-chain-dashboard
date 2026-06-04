@@ -58,25 +58,25 @@ describe('asset_transfer beforeSubmit', () => {
 
   it('行缺少 erpAssetId 时抛出错误', async () => {
     const formData = {
-      lines: [
-        { erpAssetId: 101, assetName: '电脑A' },
-        { assetName: '未选择资产' },
-      ],
+      lines: [{ erpAssetId: 101, assetName: '电脑A' }, { assetName: '未选择资产' }],
     };
-    await expect(assetTransferFormType.beforeSubmit!(formData, 1))
-      .rejects.toThrow('第2行未选择资产，请通过资产搜索选择');
+    await expect(assetTransferFormType.beforeSubmit!(formData, 1)).rejects.toThrow(
+      '第2行未选择资产，请通过资产搜索选择'
+    );
   });
 
   it('空行数组时抛出错误', async () => {
     const formData = { lines: [] };
-    await expect(assetTransferFormType.beforeSubmit!(formData, 1))
-      .rejects.toThrow('请至少添加一条资产明细');
+    await expect(assetTransferFormType.beforeSubmit!(formData, 1)).rejects.toThrow(
+      '请至少添加一条资产明细'
+    );
   });
 
   it('lines 为 undefined 时抛出错误', async () => {
     const formData = {};
-    await expect(assetTransferFormType.beforeSubmit!(formData, 1))
-      .rejects.toThrow('请至少添加一条资产明细');
+    await expect(assetTransferFormType.beforeSubmit!(formData, 1)).rejects.toThrow(
+      '请至少添加一条资产明细'
+    );
   });
 });
 
@@ -93,14 +93,16 @@ describe('asset_disposal beforeSubmit', () => {
 
   it('缺少 erpAssetId 时抛出错误', async () => {
     const formData = { disposalType: 'sale', disposalReason: '测试' };
-    await expect(assetDisposalFormType.beforeSubmit!(formData, 1))
-      .rejects.toThrow('请通过资产搜索选择要清理的资产');
+    await expect(assetDisposalFormType.beforeSubmit!(formData, 1)).rejects.toThrow(
+      '请通过资产搜索选择要清理的资产'
+    );
   });
 
   it('hasIncome=true 但无 disposalValue 时抛出错误', async () => {
     const formData = { erpAssetId: 101, hasIncome: 'true' };
-    await expect(assetDisposalFormType.beforeSubmit!(formData, 1))
-      .rejects.toThrow('产生收入时必须填写处置收入金额');
+    await expect(assetDisposalFormType.beforeSubmit!(formData, 1)).rejects.toThrow(
+      '产生收入时必须填写处置收入金额'
+    );
   });
 
   it('hasIncome=true 且有 disposalValue 时通过', async () => {
@@ -129,20 +131,23 @@ describe('asset_maintenance beforeSubmit', () => {
 
   it('缺少 erpAssetId 时抛出错误', async () => {
     const formData = { estimatedCost: 500, description: '故障描述' };
-    await expect(assetMaintenanceFormType.beforeSubmit!(formData, 1))
-      .rejects.toThrow('请通过资产搜索选择要维修的资产');
+    await expect(assetMaintenanceFormType.beforeSubmit!(formData, 1)).rejects.toThrow(
+      '请通过资产搜索选择要维修的资产'
+    );
   });
 
   it('estimatedCost < 100 时抛出错误', async () => {
     const formData = { erpAssetId: 101, estimatedCost: 50 };
-    await expect(assetMaintenanceFormType.beforeSubmit!(formData, 1))
-      .rejects.toThrow('预估维修费用不能小于100元');
+    await expect(assetMaintenanceFormType.beforeSubmit!(formData, 1)).rejects.toThrow(
+      '预估维修费用不能小于100元'
+    );
   });
 
   it('estimatedCost 为 NaN 时抛出错误', async () => {
     const formData = { erpAssetId: 101, estimatedCost: 'abc' };
-    await expect(assetMaintenanceFormType.beforeSubmit!(formData, 1))
-      .rejects.toThrow('预估维修费用不能小于100元');
+    await expect(assetMaintenanceFormType.beforeSubmit!(formData, 1)).rejects.toThrow(
+      '预估维修费用不能小于100元'
+    );
   });
 
   it('estimatedCost 恰好为 100 时通过', async () => {

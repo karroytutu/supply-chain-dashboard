@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Table, Tag, Row, Col, Statistic, Card } from 'antd';
+import {  Tag, Row, Col, Statistic, Card } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 import type { UpcomingWarning } from '@/types/ar-collection';
 

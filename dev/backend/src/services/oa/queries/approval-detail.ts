@@ -4,11 +4,7 @@
  */
 
 import { appQuery as query } from '../../../db/appPool';
-import {
-  OaActionRow,
-  ApprovalStatus,
-  FormSchema,
-} from '../oa.types';
+import { OaActionRow, FormSchema } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { InstanceListItem } from '../oa.query';
 
@@ -62,7 +58,8 @@ export interface CcUserDetail {
  * 获取审批详情
  */
 export async function getApprovalDetail(instanceId: number): Promise<ApprovalDetail | null> {
-  const instanceResult = await query<any>(`
+  const instanceResult = await query<any>(
+    `
     SELECT
       i.*,
       ft.code as form_type_code,
@@ -74,7 +71,9 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     LEFT JOIN oa_form_types ft ON i.form_type_id = ft.id
     LEFT JOIN users u ON i.applicant_id = u.id
     WHERE i.id = $1
-  `, [instanceId]);
+  `,
+    [instanceId]
+  );
 
   if (instanceResult.rows.length === 0) {
     return null;
@@ -121,7 +120,8 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     applicantDept: instance.applicant_dept,
     applicantAvatar: instance.applicant_avatar || null,
     currentNodeOrder: instance.current_node_order,
-    currentNodeName: nodesResult.rows.find(n => n.node_order === instance.current_node_order)?.node_name || null,
+    currentNodeName:
+      nodesResult.rows.find(n => n.node_order === instance.current_node_order)?.node_name || null,
     submittedAt: instance.submitted_at,
     completedAt: instance.completed_at,
     formData: instance.form_data,

@@ -10,6 +10,8 @@ import AssessmentTable from './components/AssessmentTable';
 import AssessmentFilter from './components/AssessmentFilter';
 import HandleAssessmentModal from './components/HandleAssessmentModal';
 import styles from './index.less';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('CollectionAssessment');
 
 const AssessmentPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ const AssessmentPage: React.FC = () => {
       setTotal(listResult.total);
       setStats(statsResult);
     } catch (error) {
-      console.error('加载考核数据失败:', error);
+      log.error('加载考核数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -53,6 +55,7 @@ const AssessmentPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [page, pageSize, assessmentTier, assessmentRole, status, keyword, dateRange]);
 
   // 打开标记弹窗

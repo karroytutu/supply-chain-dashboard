@@ -8,10 +8,7 @@
  * 按指定 key 分组
  * 替代 SQL GROUP BY
  */
-export function groupBy<T>(
-  array: T[],
-  keyFn: (item: T) => string
-): Map<string, T[]> {
+export function groupBy<T>(array: T[], keyFn: (item: T) => string): Map<string, T[]> {
   const map = new Map<string, T[]>();
   for (const item of array) {
     const key = keyFn(item);
@@ -29,10 +26,7 @@ export function groupBy<T>(
  * 按指定字段求和
  * 替代 SQL SUM()
  */
-export function sumBy<T>(
-  array: T[],
-  valueFn: (item: T) => number
-): number {
+export function sumBy<T>(array: T[], valueFn: (item: T) => number): number {
   let total = 0;
   for (const item of array) {
     total += valueFn(item);
@@ -44,10 +38,7 @@ export function sumBy<T>(
  * 按条件计数
  * 替代 SQL COUNT(CASE WHEN ...)
  */
-export function countBy<T>(
-  array: T[],
-  predicate: (item: T) => boolean
-): number {
+export function countBy<T>(array: T[], predicate: (item: T) => boolean): number {
   let count = 0;
   for (const item of array) {
     if (predicate(item)) count++;
@@ -59,10 +50,7 @@ export function countBy<T>(
  * 按指定字段求最大值
  * 替代 SQL MAX()
  */
-export function maxBy<T>(
-  array: T[],
-  valueFn: (item: T) => number
-): T | undefined {
+export function maxBy<T>(array: T[], valueFn: (item: T) => number): T | undefined {
   let maxItem: T | undefined;
   let maxVal = -Infinity;
   for (const item of array) {
@@ -189,10 +177,7 @@ const UNCATEGORIZED = '未分类';
  * @param level - 目标层级（0=L1, 1=L2, 2=L3），默认 0
  * @returns 截断到目标层级的路径，层级不足时返回实际可用部分；chainName 为空时返回 '未分类'
  */
-export function getCategoryLevel(
-  chainName: string | undefined | null,
-  level: number = 0
-): string {
+export function getCategoryLevel(chainName: string | undefined | null, level = 0): string {
   if (!chainName) return UNCATEGORIZED;
   const parts = chainName.split('/');
   if (parts.length === 0 || (parts.length === 1 && parts[0] === '')) {

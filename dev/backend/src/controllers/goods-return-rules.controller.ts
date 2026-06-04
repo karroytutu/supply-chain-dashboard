@@ -2,6 +2,8 @@
  * 商品退货规则控制器
  * @module controllers/goods-return-rules.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('GoodsReturnRules');
 
 import { Request, Response } from 'express';
 import {
@@ -21,9 +23,15 @@ import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 export const getGoodsReturnRulesController = async (req: Request, res: Response) => {
   try {
     const keyword = req.query.keyword as string;
-    const canReturnToSupplier = req.query.canReturnToSupplier === 'true' ? true : req.query.canReturnToSupplier === 'false' ? false : undefined;
+    const canReturnToSupplier =
+      req.query.canReturnToSupplier === 'true'
+        ? true
+        : req.query.canReturnToSupplier === 'false'
+          ? false
+          : undefined;
     const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20;
+    const pageSize =
+      parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20;
 
     const result = await getGoodsReturnRules({
       keyword,
@@ -33,8 +41,12 @@ export const getGoodsReturnRulesController = async (req: Request, res: Response)
     });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('获取商品退货规则列表失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '获取商品退货规则列表失败'));
+    log.error('获取商品退货规则列表失败:', error);
+    res
+      .status(500)
+      .json(
+        buildErrorResponse(500, error instanceof Error ? error.message : '获取商品退货规则列表失败')
+      );
   }
 };
 
@@ -47,8 +59,12 @@ export const getGoodsReturnRuleStatsController = async (req: Request, res: Respo
     const result = await getGoodsReturnRuleStats();
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('获取商品退货规则统计失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '获取商品退货规则统计失败'));
+    log.error('获取商品退货规则统计失败:', error);
+    res
+      .status(500)
+      .json(
+        buildErrorResponse(500, error instanceof Error ? error.message : '获取商品退货规则统计失败')
+      );
   }
 };
 
@@ -71,8 +87,12 @@ export const createGoodsReturnRuleController = async (req: Request, res: Respons
     });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('创建商品退货规则失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '创建商品退货规则失败'));
+    log.error('创建商品退货规则失败:', error);
+    res
+      .status(500)
+      .json(
+        buildErrorResponse(500, error instanceof Error ? error.message : '创建商品退货规则失败')
+      );
   }
 };
 
@@ -96,8 +116,12 @@ export const updateGoodsReturnRuleController = async (req: Request, res: Respons
     });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('更新商品退货规则失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '更新商品退货规则失败'));
+    log.error('更新商品退货规则失败:', error);
+    res
+      .status(500)
+      .json(
+        buildErrorResponse(500, error instanceof Error ? error.message : '更新商品退货规则失败')
+      );
   }
 };
 
@@ -123,8 +147,12 @@ export const batchSetGoodsReturnRulesController = async (req: Request, res: Resp
     });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('批量设置商品退货规则失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '批量设置商品退货规则失败'));
+    log.error('批量设置商品退货规则失败:', error);
+    res
+      .status(500)
+      .json(
+        buildErrorResponse(500, error instanceof Error ? error.message : '批量设置商品退货规则失败')
+      );
   }
 };
 
@@ -138,7 +166,11 @@ export const checkGoodsReturnRuleController = async (req: Request, res: Response
     const result = await checkGoodsReturnRule(goodsId);
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('检查商品退货规则失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '检查商品退货规则失败'));
+    log.error('检查商品退货规则失败:', error);
+    res
+      .status(500)
+      .json(
+        buildErrorResponse(500, error instanceof Error ? error.message : '检查商品退货规则失败')
+      );
   }
 };

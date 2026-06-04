@@ -16,13 +16,14 @@ import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '..
  */
 export async function listUsers(req: Request, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
+  const pageSize =
+    parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
   const keyword = req.query.keyword as string;
   const status = req.query.status !== undefined ? parseInt(req.query.status as string) : undefined;
   const roleId = req.query.roleId !== undefined ? parseInt(req.query.roleId as string) : undefined;
-  
+
   const result = await getUserList({ page, pageSize, keyword, status, roleId });
-  
+
   res.json(buildPagedResponse(result.list, result.total, page, pageSize));
 }
 
@@ -31,19 +32,19 @@ export async function listUsers(req: Request, res: Response) {
  */
 export async function getUser(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的用户ID'));
     return;
   }
-  
+
   const user = await getUserById(id);
-  
+
   if (!user) {
     res.status(404).json(buildErrorResponse(404, '用户不存在'));
     return;
   }
-  
+
   res.json(buildSuccessResponse(user));
 }
 
@@ -52,19 +53,19 @@ export async function getUser(req: Request, res: Response) {
  */
 export async function updateUserInfo(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的用户ID'));
     return;
   }
-  
+
   const user = await updateUser(id, req.body);
-  
+
   if (!user) {
     res.status(404).json(buildErrorResponse(404, '用户不存在'));
     return;
   }
-  
+
   res.json(buildSuccessResponse(user));
 }
 
@@ -74,24 +75,24 @@ export async function updateUserInfo(req: Request, res: Response) {
 export async function updateUserStatusHandler(req: Request, res: Response) {
   const id = parseInt(req.params.id);
   const { status } = req.body;
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的用户ID'));
     return;
   }
-  
+
   if (status === undefined || ![0, 1].includes(status)) {
     res.status(400).json(buildErrorResponse(400, '无效的状态值'));
     return;
   }
-  
+
   const success = await updateUserStatus(id, status);
-  
+
   if (!success) {
     res.status(404).json(buildErrorResponse(404, '用户不存在'));
     return;
   }
-  
+
   res.json(buildSuccessResponse(null, status === 1 ? '用户已启用' : '用户已禁用'));
 }
 
@@ -101,19 +102,19 @@ export async function updateUserStatusHandler(req: Request, res: Response) {
 export async function assignRoles(req: Request, res: Response) {
   const id = parseInt(req.params.id);
   const { roleIds } = req.body;
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的用户ID'));
     return;
   }
-  
+
   if (!Array.isArray(roleIds)) {
     res.status(400).json(buildErrorResponse(400, '角色ID列表格式错误'));
     return;
   }
-  
+
   await assignUserRoles(id, roleIds);
-  
+
   res.json(buildSuccessResponse(null, '角色分配成功'));
 }
 
@@ -122,17 +123,18 @@ export async function assignRoles(req: Request, res: Response) {
  */
 export async function getLoginLogs(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的用户ID'));
     return;
   }
-  
+
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
-  
+  const pageSize =
+    parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
+
   const result = await getUserLoginLogs(id, page, pageSize);
-  
+
   res.json(buildPagedResponse(result.list, result.total, page, pageSize));
 }
 
@@ -141,23 +143,25 @@ export async function getLoginLogs(req: Request, res: Response) {
  */
 export async function batchUpdateUserStatus(req: Request, res: Response) {
   const { userIds, status } = req.body;
-  
+
   if (!Array.isArray(userIds) || userIds.length === 0) {
     res.status(400).json(buildErrorResponse(400, '用户ID列表不能为空'));
     return;
   }
-  
+
   if (status === undefined || ![0, 1].includes(status)) {
     res.status(400).json(buildErrorResponse(400, '无效的状态值'));
     return;
   }
-  
+
   const count = await batchUpdateStatus(userIds, status);
-  
-  res.json(buildSuccessResponse(
-    { affectedCount: count },
-    status === 1 ? `成功启用 ${count} 个用户` : `成功禁用 ${count} 个用户`
-  ));
+
+  res.json(
+    buildSuccessResponse(
+      { affectedCount: count },
+      status === 1 ? `成功启用 ${count} 个用户` : `成功禁用 ${count} 个用户`
+    )
+  );
 }
 
 /**
@@ -165,18 +169,18 @@ export async function batchUpdateUserStatus(req: Request, res: Response) {
  */
 export async function batchAssignUserRoles(req: Request, res: Response) {
   const { userIds, roleIds } = req.body;
-  
+
   if (!Array.isArray(userIds) || userIds.length === 0) {
     res.status(400).json(buildErrorResponse(400, '用户ID列表不能为空'));
     return;
   }
-  
+
   if (!Array.isArray(roleIds)) {
     res.status(400).json(buildErrorResponse(400, '角色ID列表格式错误'));
     return;
   }
-  
+
   await batchAssignRoles(userIds, roleIds);
-  
+
   res.json(buildSuccessResponse(null, `成功为 ${userIds.length} 个用户分配角色`));
 }

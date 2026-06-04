@@ -54,18 +54,18 @@ export type FormFieldType =
   | 'location'
   | 'radio'
   // ERP 参考数据字段类型（固定资产审批使用）
-  | 'asset_search'          // 搜索选择ERP资产
-  | 'erp_department'        // 选择ERP部门
-  | 'erp_staff'             // 选择ERP员工
-  | 'erp_payment_account'   // 选择ERP付款账户
-  | 'erp_asset_category'    // 选择ERP资产分类
+  | 'asset_search' // 搜索选择ERP资产
+  | 'erp_department' // 选择ERP部门
+  | 'erp_staff' // 选择ERP员工
+  | 'erp_payment_account' // 选择ERP付款账户
+  | 'erp_asset_category' // 选择ERP资产分类
   // ERP 参考数据字段类型（客户授信审批使用）
-  | 'erp_customer'           // 搜索选择ERP客户
-  | 'erp_settlement_order'  // 搜索选择ERP结算单（多选）
+  | 'erp_customer' // 搜索选择ERP客户
+  | 'erp_settlement_order' // 搜索选择ERP结算单（多选）
   // ERP 参考数据字段类型（客户档案修改使用）
-  | 'erp_grade'             // 选择ERP客户等级
-  | 'erp_group'             // 选择ERP客户渠道（分组）
-  | 'erp_area';             // 选择ERP客户片区（区域）
+  | 'erp_grade' // 选择ERP客户等级
+  | 'erp_group' // 选择ERP客户渠道（分组）
+  | 'erp_area'; // 选择ERP客户片区（区域）
 
 /**
  * 表单字段定义
@@ -132,7 +132,17 @@ export interface FormField {
   /** 条件必填（满足条件时字段变为必填） */
   requiredWhen?: ConditionDef | ConditionDef[];
   /** ERP参考数据API标识（erp_* 类型使用） */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas';
+  searchApi?:
+    | 'erp_assets'
+    | 'erp_departments'
+    | 'erp_staff'
+    | 'erp_payment_accounts'
+    | 'erp_asset_categories'
+    | 'erp_customers'
+    | 'erp_settlement_orders'
+    | 'erp_grades'
+    | 'erp_groups'
+    | 'erp_areas';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
@@ -161,7 +171,13 @@ export interface FormSchema {
 /**
  * 审批节点类型
  */
-export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign' | 'data_input' | 'auto';
+export type NodeType =
+  | 'role'
+  | 'dynamic_supervisor'
+  | 'specific_user'
+  | 'countersign'
+  | 'data_input'
+  | 'auto';
 
 /**
  * 数据录入节点 - 录入字段定义
@@ -172,9 +188,21 @@ export interface NodeInputField {
   /** 显示名 */
   label: string;
   /** 字段类型 */
-  type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table'
-    | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category'
-    | 'erp_customer' | 'erp_settlement_order';
+  type:
+    | 'text'
+    | 'number'
+    | 'date'
+    | 'select'
+    | 'upload'
+    | 'amount'
+    | 'table'
+    | 'asset_search'
+    | 'erp_department'
+    | 'erp_staff'
+    | 'erp_payment_account'
+    | 'erp_asset_category'
+    | 'erp_customer'
+    | 'erp_settlement_order';
   /** 是否必填 */
   required?: boolean;
   /** select 类型的选项 */
@@ -186,7 +214,17 @@ export interface NodeInputField {
   /** table 类型的列定义 */
   columns?: NodeInputField[];
   /** ERP参考数据API标识 */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas';
+  searchApi?:
+    | 'erp_assets'
+    | 'erp_departments'
+    | 'erp_staff'
+    | 'erp_payment_accounts'
+    | 'erp_asset_categories'
+    | 'erp_customers'
+    | 'erp_settlement_orders'
+    | 'erp_grades'
+    | 'erp_groups'
+    | 'erp_areas';
   /** 选择后自动填充其他字段 */
   autoFill?: Record<string, string>;
   /** 级联字段key */
@@ -291,13 +329,21 @@ export interface FormTypeDefinition {
   /** 审批流程定义 */
   workflowDef: WorkflowDef;
   /** 提交前回调：业务校验和数据增强，返回值合并到 formData */
-  beforeSubmit?: (formData: Record<string, unknown>, userId: number) => Promise<Record<string, unknown>>;
+  beforeSubmit?: (
+    formData: Record<string, unknown>,
+    userId: number
+  ) => Promise<Record<string, unknown>>;
   /** 审批通过回调（整个流程完成时触发，可选） */
   onApproved?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void>;
   /** 审批驳回回调（可选） */
   onRejected?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void>;
   /** data_input 节点完成回调（可选，按节点序号分发） */
-  onNodeCompleted?: (instance: OaInstanceRow, nodeOrder: number, nodeData: Record<string, unknown>, formData: Record<string, unknown>) => Promise<void>;
+  onNodeCompleted?: (
+    instance: OaInstanceRow,
+    nodeOrder: number,
+    nodeData: Record<string, unknown>,
+    formData: Record<string, unknown>
+  ) => Promise<void>;
   /** 动态抄送角色解析（可选）
    * 在 beforeSubmit 之后调用，接收已增强的 formData，
    * 返回角色编码数组。优先级高于 workflowDef.ccRoles。
@@ -349,14 +395,29 @@ export interface OaFormTypeRow {
  * - cancelled: 已取消（终态）
  * - withdrawn: 已撤回（终态）
  */
-export type ApprovalStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'erp_failed' | 'cancelled' | 'withdrawn';
+export type ApprovalStatus =
+  | 'pending'
+  | 'processing'
+  | 'approved'
+  | 'rejected'
+  | 'erp_failed'
+  | 'cancelled'
+  | 'withdrawn';
 
 /**
  * 审批节点状态
  * - processing: auto 节点异步执行中
  * - failed: auto 节点执行失败（可重试，区别于人工 rejected）
  */
-export type ApprovalNodeStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'transferred' | 'failed' | 'skipped' | 'cancelled';
+export type ApprovalNodeStatus =
+  | 'pending'
+  | 'processing'
+  | 'approved'
+  | 'rejected'
+  | 'transferred'
+  | 'failed'
+  | 'skipped'
+  | 'cancelled';
 
 /**
  * 外部系统交互追踪元数据
@@ -365,7 +426,15 @@ export type ApprovalNodeStatus = 'pending' | 'processing' | 'approved' | 'reject
  */
 export interface ErpMeta {
   /** 外部系统处理状态 */
-  status: 'pending' | 'processing' | 'paying' | 'purchasing' | 'storing' | 'completed' | 'erp_completed' | 'erp_failed';
+  status:
+    | 'pending'
+    | 'processing'
+    | 'paying'
+    | 'purchasing'
+    | 'storing'
+    | 'completed'
+    | 'erp_completed'
+    | 'erp_failed';
   /** ERP返回数据（账单ID、资产ID等） */
   responseData: Record<string, unknown>;
   /** ERP错误信息 */
@@ -440,7 +509,15 @@ export interface OaCcRow {
 /**
  * 操作类型
  */
-export type ApprovalActionType = 'submit' | 'approve' | 'reject' | 'transfer' | 'countersign' | 'withdraw' | 'cancel' | 'resubmit';
+export type ApprovalActionType =
+  | 'submit'
+  | 'approve'
+  | 'reject'
+  | 'transfer'
+  | 'countersign'
+  | 'withdraw'
+  | 'cancel'
+  | 'resubmit';
 
 /**
  * oa_approval_actions 表行

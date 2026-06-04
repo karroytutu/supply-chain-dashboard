@@ -64,7 +64,10 @@ export async function getSlowMovingData(): Promise<SlowMovingData> {
       cost7_15 += availableCostAmount;
       count7_15++;
     }
-    if (daysWithoutSale > SLOW_MOVING_MODERATE_DAYS && daysWithoutSale <= SLOW_MOVING_SERIOUS_DAYS) {
+    if (
+      daysWithoutSale > SLOW_MOVING_MODERATE_DAYS &&
+      daysWithoutSale <= SLOW_MOVING_SERIOUS_DAYS
+    ) {
       cost15_30 += availableCostAmount;
       count15_30++;
     }
@@ -131,10 +134,10 @@ export async function getSlowMovingProducts(
   ]);
 
   const now = new Date();
-  const productByName = new Map(allProducts.map(p => [p.name, p]));
+  const _productByName = new Map(allProducts.map(p => [p.name, p]));
 
   // 过滤：有库存 + 无销售天数 > minDays
-  let filtered = allProducts.filter(p => {
+  const filtered = allProducts.filter(p => {
     const stock = stockByName.get(p.name) ?? 0;
     if (stock <= 0) return false;
     const lastSaleTime = lastSaleMap.get(p.name);

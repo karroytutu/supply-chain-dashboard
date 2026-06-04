@@ -6,10 +6,7 @@
  */
 
 import { config } from '../../config';
-import {
-  OaMessageContent,
-  sendWorkNotification,
-} from '../dingtalk.service';
+import { OaMessageContent, sendWorkNotification } from '../dingtalk.service';
 import { FormSchema } from './oa.types';
 import { OA_DINGTALK_STATUS } from '../../utils/constants';
 import { extractFormSummary } from './oa-form-summary';
@@ -46,9 +43,21 @@ export function buildResultOaMessage(
   status: 'approved' | 'rejected' | 'withdrawn'
 ): OaMessageContent {
   const baseUrl = config.app.baseUrl;
-  const { instanceId, title, formTypeName, applicantName, formSchema, formData, rejectUserName, reason } = params;
+  const {
+    instanceId,
+    title,
+    formTypeName,
+    applicantName,
+    formSchema,
+    formData,
+    rejectUserName,
+    reason,
+  } = params;
 
-  const statusConfig = OA_DINGTALK_STATUS[status === 'approved' ? 'APPROVED' : status === 'rejected' ? 'REJECTED' : 'WITHDRAWN'];
+  const statusConfig =
+    OA_DINGTALK_STATUS[
+      status === 'approved' ? 'APPROVED' : status === 'rejected' ? 'REJECTED' : 'WITHDRAWN'
+    ];
   const statusLabel = statusConfig.value;
 
   // 构建表单摘要
@@ -70,11 +79,12 @@ export function buildResultOaMessage(
     body: {
       title: title,
       form: formRows.length > 0 ? formRows : undefined,
-      content: status === 'approved'
-        ? `${applicantName} 提交的 ${formTypeName} 已审批通过`
-        : status === 'rejected'
-          ? `${applicantName} 提交的 ${formTypeName} 已被拒绝`
-          : `${applicantName} 提交的 ${formTypeName} 已撤回`,
+      content:
+        status === 'approved'
+          ? `${applicantName} 提交的 ${formTypeName} 已审批通过`
+          : status === 'rejected'
+            ? `${applicantName} 提交的 ${formTypeName} 已被拒绝`
+            : `${applicantName} 提交的 ${formTypeName} 已撤回`,
     },
     messageUrl: `${baseUrl}/oa/detail/${instanceId}`,
     pcMessageUrl: `${baseUrl}/oa/detail/${instanceId}`,

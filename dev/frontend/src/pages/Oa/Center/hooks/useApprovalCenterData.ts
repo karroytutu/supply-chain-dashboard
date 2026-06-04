@@ -5,6 +5,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { oaApi } from '@/services/api/oa';
 import type { ApprovalInstance, ApprovalDetail, ApprovalStats, ViewMode } from '@/types/oa';
+import { createLogger } from '../../../../utils/logger';
+const log = createLogger('OaCenter');
 
 interface FiltersState {
   viewMode: ViewMode;
@@ -28,7 +30,7 @@ export function useApprovalCenterData(filters: FiltersState) {
       const res = await oaApi.getStats();
       setStats(res.data);
     } catch (error) {
-      console.error('加载统计失败:', error);
+      log.error('加载统计失败:', error);
     }
   }, []);
 
@@ -46,10 +48,11 @@ export function useApprovalCenterData(filters: FiltersState) {
         // 不在 data hook 中设置 selectedId，由外部处理
       }
     } catch (error) {
-      console.error('加载列表失败:', error);
+      log.error('加载列表失败:', error);
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [filters.viewMode, filters.page]);
 
   const loadDetail = useCallback(async (id: number) => {
@@ -58,13 +61,15 @@ export function useApprovalCenterData(filters: FiltersState) {
       const res = await oaApi.getDetail(id);
       setDetail(res.data);
     } catch (error) {
-      console.error('加载详情失败:', error);
+      log.error('加载详情失败:', error);
     } finally {
       setDetailLoading(false);
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   useEffect(() => { loadStats(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   useEffect(() => { loadList(); }, [filters.viewMode, filters.page]);
   useEffect(() => {
     if (filters.selectedId) {
@@ -72,6 +77,7 @@ export function useApprovalCenterData(filters: FiltersState) {
     } else {
       setDetail(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [filters.selectedId]);
 
   return { loading, detailLoading, stats, list, total, detail, loadList, loadStats, loadDetail };

@@ -2,12 +2,15 @@
  * 钉钉服务 - HTTP 客户端与 Token 管理
  * @module services/dingtalk-client
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Service');
 
 import * as $OpenApi from '@alicloud/openapi-client';
 import { oauth2_1_0 } from '@alicloud/dingtalk';
 import * as https from 'https';
 import { config } from '../config';
 import { cache } from '../utils/cache';
+import { getErrorMessage } from '../utils/errorUtils';
 
 // AccessToken 缓存 Key（统一 MemoryCache）
 const DINGTALK_TOKEN_CACHE_KEY = 'dingtalk:access-token';
@@ -50,11 +53,11 @@ export async function getAccessToken(): Promise<string> {
     const cacheTtl = Math.max(expireInMs - DINGTALK_TOKEN_REFRESH_AHEAD_MS, 60 * 1000);
     cache.set(DINGTALK_TOKEN_CACHE_KEY, result.body.accessToken, cacheTtl);
 
-    console.log('[Dingtalk] 获取AccessToken成功, 过期时间:', result.body.expireIn, '秒');
+    log.info('获取AccessToken成功, 过期时间:', result.body.expireIn, '秒');
     return result.body.accessToken;
-  } catch (error: any) {
-    console.error('[Dingtalk] 获取AccessToken失败:', error.message || error);
-    throw new Error('获取AccessToken失败');
+  } catch (error) {
+    log.error('获取AccessToken失败:', getErrorMessage(error) || error);
+    throw new Error('获取AccessToken失败', { cause: error });
   }
 }
 
@@ -75,9 +78,11 @@ export async function oapiRequest(accessToken: string, path: string, body: objec
       },
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', chunk => {
+        data += chunk;
+      });
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
@@ -86,13 +91,13 @@ export async function oapiRequest(accessToken: string, path: string, body: objec
             return;
           }
           resolve(result);
-        } catch (e) {
+        } catch (_e) {
           reject(new Error('解析钉钉响应失败: ' + data));
         }
       });
     });
 
-    req.on('error', (e) => reject(e));
+    req.on('error', e => reject(e));
     req.setTimeout(10000, () => {
       req.destroy(new Error('钉钉API请求超时'));
     });
@@ -122,9 +127,11 @@ export async function apiRequest(
       },
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', chunk => {
+        data += chunk;
+      });
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
@@ -134,13 +141,13 @@ export async function apiRequest(
             return;
           }
           resolve(result);
-        } catch (e) {
+        } catch (_e) {
           reject(new Error('解析钉钉响应失败: ' + data));
         }
       });
     });
 
-    req.on('error', (e) => reject(e));
+    req.on('error', e => reject(e));
     req.setTimeout(10000, () => {
       req.destroy(new Error('钉钉API请求超时'));
     });
@@ -172,9 +179,11 @@ export async function sendDingtalkRequest(
       },
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', chunk => {
+        data += chunk;
+      });
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
@@ -187,13 +196,13 @@ export async function sendDingtalkRequest(
             errmsg: result.errmsg || '',
             taskId: result.task_id,
           });
-        } catch (e) {
+        } catch (_e) {
           reject(new Error('解析钉钉响应失败: ' + data));
         }
       });
     });
 
-    req.on('error', (e) => reject(e));
+    req.on('error', e => reject(e));
     req.setTimeout(10000, () => {
       req.destroy(new Error('钉钉API请求超时'));
     });

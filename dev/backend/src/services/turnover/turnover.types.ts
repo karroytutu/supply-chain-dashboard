@@ -20,9 +20,9 @@ export interface CategoryMetric {
 
 /** 周转预警统计 */
 export interface TurnoverWarningStats {
-  mildOverstock: number;     // 轻度积压 >60天
+  mildOverstock: number; // 轻度积压 >60天
   moderateOverstock: number; // 中度积压 >90天
-  seriousOverstock: number;  // 严重积压 >120天
+  seriousOverstock: number; // 严重积压 >120天
 }
 
 /** 周转数据 */

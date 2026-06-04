@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Spin, Result } from 'antd';
 import styles from './index.less';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('LoginCallback');
 
 export default function LoginCallback() {
   const [status, setStatus] = useState<'loading' | 'error'>('loading');
@@ -35,7 +37,7 @@ export default function LoginCallback() {
           // 发送消息给父窗口
           window.parent.postMessage(message, parentOrigin);
         } catch (error) {
-          console.error('发送消息失败:', error);
+          log.error('发送消息失败:', error);
           setStatus('error');
           setErrorMessage('登录回调失败，请重试');
         }

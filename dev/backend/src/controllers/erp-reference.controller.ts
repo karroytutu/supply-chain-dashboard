@@ -3,6 +3,8 @@
  * 为OA表单提供ERP数据查询接口
  * @module controllers/erp-reference.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('ErpReference');
 
 import { Request, Response, NextFunction } from 'express';
 import {
@@ -13,9 +15,21 @@ import {
   getErpPaymentAccounts,
   getErpAssetCategories,
 } from '../services/fixed-asset/fixed-asset.query';
-import { searchErpCustomersByKeyword, getErpCustomerProfile, getCustomerLicenseInfo, getCustomerDebtTotal } from '../services/erp-client/erp-customer.service';
-import { getErpGrades, getErpGroups, getErpAreas } from '../services/erp-client/erp-customer-reference.service';
-import { searchErpSettlementOrders, searchErpSettlementOrdersPaged } from '../services/erp-client/erp-settlement.service';
+import {
+  searchErpCustomersByKeyword,
+  getErpCustomerProfile,
+  getCustomerLicenseInfo,
+  getCustomerDebtTotal,
+} from '../services/erp-client/erp-customer.service';
+import {
+  getErpGrades,
+  getErpGroups,
+  getErpAreas,
+} from '../services/erp-client/erp-customer-reference.service';
+import {
+  searchErpSettlementOrders,
+  searchErpSettlementOrdersPaged,
+} from '../services/erp-client/erp-settlement.service';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
 import { retryAutoNode as retryAutoNodeService } from '../services/oa/oa.mutation';
 
@@ -58,7 +72,11 @@ const LABEL_FIELDS: Record<string, string> = {
  *   - keyword: 搜索关键词
  *   - includeAllStates: 客户搜索时是否包含所有状态（默认仅启用）
  */
-export async function getErpReference(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getErpReference(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const { type } = req.params;
     const keyword = req.query.keyword as string | undefined;
@@ -113,7 +131,8 @@ export async function getErpReference(req: Request, res: Response, next: NextFun
         const pageParam = req.query.page as string | undefined;
         if (pageParam) {
           const page = parseInt(pageParam, 10) || 1;
-          const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string), 10) || 20;
+          const pageSize =
+            parseInt((req.query.page_size as string) || (req.query.pageSize as string), 10) || 20;
           const keyword = req.query.keyword as string | undefined;
           data = await searchErpSettlementOrdersPaged({
             traderId: consumerId,
@@ -143,7 +162,11 @@ export async function getErpReference(req: Request, res: Response, next: NextFun
  * 重试失败的ERP操作
  * POST /oa/instances/:id/retry-erp
  */
-export async function retryErpOperation(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function retryErpOperation(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const instanceId = Number(req.params.id);
     if (isNaN(instanceId)) {
@@ -162,7 +185,11 @@ export async function retryErpOperation(req: Request, res: Response, next: NextF
  * 重试卡住的 auto 节点
  * POST /oa/instances/:id/retry-auto-node
  */
-export async function retryAutoNode(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function retryAutoNode(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const instanceId = Number(req.params.id);
     if (isNaN(instanceId)) {
@@ -174,7 +201,14 @@ export async function retryAutoNode(req: Request, res: Response, next: NextFunct
   } catch (error) {
     const message = error instanceof Error ? error.message : 'auto节点重试失败';
     // 业务逻辑错误返回 400，未知/系统错误返回 500
-    const clientErrors = ['不存在', '已处于终态', '正在处理中', '不是 auto 类型', '不满足重试条件', '未找到表单类型'];
+    const clientErrors = [
+      '不存在',
+      '已处于终态',
+      '正在处理中',
+      '不是 auto 类型',
+      '不满足重试条件',
+      '未找到表单类型',
+    ];
     const isClientError = clientErrors.some(keyword => message.includes(keyword));
     const status = isClientError ? 400 : 500;
     res.status(status).json({ code: status, message });
@@ -185,7 +219,11 @@ export async function retryAutoNode(req: Request, res: Response, next: NextFunct
  * 解析 ERP ID → 名称
  * GET /oa/erp-reference/:type/resolve?ids=1,2,3
  */
-export async function resolveErpReference(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function resolveErpReference(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const { type } = req.params;
     const idsParam = req.query.ids as string | undefined;
@@ -194,7 +232,10 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
       res.status(400).json({ code: 400, message: 'ids 参数必填' });
       return;
     }
-    const ids = idsParam.split(',').map(Number).filter((n) => !isNaN(n));
+    const ids = idsParam
+      .split(',')
+      .map(Number)
+      .filter(n => !isNaN(n));
     if (ids.length === 0) {
       res.status(400).json({ code: 400, message: 'ids 参数格式无效' });
       return;
@@ -206,7 +247,7 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
     switch (type) {
       case 'customers': {
         const results = await Promise.allSettled(
-          ids.map(async (id) => {
+          ids.map(async id => {
             const profile = await getErpCustomerProfile(id);
             return { id, label: String((profile as Record<string, unknown>)[labelField] ?? id) };
           })
@@ -219,7 +260,7 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
 
       case 'assets': {
         const results = await Promise.allSettled(
-          ids.map(async (id) => {
+          ids.map(async id => {
             const asset = await getErpAssetDetail(id);
             return { id, label: String(asset?.[labelField as keyof typeof asset] ?? id) };
           })
@@ -232,29 +273,29 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
 
       case 'departments': {
         const all = await getErpDepartments();
-        const map = new Map(all.map((d) => [d.deptId, d.deptName]));
-        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? id) }));
+        const map = new Map(all.map(d => [d.deptId, d.deptName]));
+        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
         break;
       }
 
       case 'staff': {
         const all = await getErpStaff();
-        const map = new Map(all.map((s) => [s.id, s.name]));
-        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? id) }));
+        const map = new Map(all.map(s => [s.id, s.name]));
+        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
         break;
       }
 
       case 'payment-accounts': {
         const all = flattenTree(await getErpPaymentAccounts());
-        const map = new Map(all.map((a) => [a.id, a.name]));
-        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? id) }));
+        const map = new Map(all.map(a => [a.id, a.name]));
+        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
         break;
       }
 
       case 'asset-categories': {
         const all = flattenTree(await getErpAssetCategories());
-        const map = new Map(all.map((c) => [c.id, c.name]));
-        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? id) }));
+        const map = new Map(all.map(c => [c.id, c.name]));
+        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
         break;
       }
 
@@ -272,9 +313,9 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
           return `${order.bizStr} (¥${Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
         };
         // 双模式查找：新数据用 bizId，旧数据用 id
-        const bizIdMap = new Map(all.map((o) => [o.bizId, buildLabel(o)]));
-        const idMap = new Map(all.map((o) => [o.id, buildLabel(o)]));
-        resolved = ids.map((id) => ({
+        const bizIdMap = new Map(all.map(o => [o.bizId, buildLabel(o)]));
+        const idMap = new Map(all.map(o => [o.id, buildLabel(o)]));
+        resolved = ids.map(id => ({
           id,
           label: String(bizIdMap.get(id) ?? idMap.get(id) ?? id),
         }));
@@ -283,22 +324,22 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
 
       case 'grades': {
         const all = await getErpGrades();
-        const map = new Map(all.map((g) => [g.id, g.name]));
-        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
+        const map = new Map(all.map(g => [g.id, g.name]));
+        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
         break;
       }
 
       case 'groups': {
         const all = await getErpGroups();
-        const map = new Map(all.map((g) => [g.id, g.name]));
-        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
+        const map = new Map(all.map(g => [g.id, g.name]));
+        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
         break;
       }
 
       case 'areas': {
         const all = await getErpAreas();
-        const map = new Map(all.map((a) => [a.id, a.name]));
-        resolved = ids.map((id) => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
+        const map = new Map(all.map(a => [a.id, a.name]));
+        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
         break;
       }
 
@@ -319,7 +360,11 @@ export async function resolveErpReference(req: Request, res: Response, next: Nex
  *
  * 从 ERP 客户详情接口提取执照图片 URL，供前端表单展示已有执照
  */
-export async function getCustomerLicense(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getCustomerLicense(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const customerId = Number(req.params.id);
     if (isNaN(customerId) || customerId <= 0) {
@@ -332,7 +377,10 @@ export async function getCustomerLicense(req: Request, res: Response, next: Next
       res.json({ code: 200, data: licenseInfo });
     } catch (erpError) {
       // ERP 不可用时降级返回，保证表单仍可用
-      console.warn('[ERP] 获取客户执照信息失败，降级返回:', erpError instanceof Error ? erpError.message : erpError);
+      log.warn(
+        '获取客户执照信息失败，降级返回:',
+        erpError instanceof Error ? erpError.message : erpError
+      );
       res.json({ code: 200, data: { hasLicense: false, imageCount: 0, attachedPicUrls: [] } });
     }
   } catch (error) {
@@ -346,7 +394,11 @@ export async function getCustomerLicense(req: Request, res: Response, next: Next
  *
  * 通过 settlement API 求和 leftAmount 获取真实欠款（ERP debtAmount 字段不可靠）
  */
-export async function getCustomerDebt(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getCustomerDebt(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const customerId = Number(req.params.id);
     if (isNaN(customerId) || customerId <= 0) {
@@ -359,7 +411,10 @@ export async function getCustomerDebt(req: Request, res: Response, next: NextFun
       res.json({ code: 200, data: { debtAmount } });
     } catch (erpError) {
       // ERP 不可用时降级返回 null，前端可据此决定是否显示
-      console.warn('[ERP] 获取客户欠款失败，降级返回:', erpError instanceof Error ? erpError.message : erpError);
+      log.warn(
+        '获取客户欠款失败，降级返回:',
+        erpError instanceof Error ? erpError.message : erpError
+      );
       res.json({ code: 200, data: { debtAmount: null } });
     }
   } catch (error) {

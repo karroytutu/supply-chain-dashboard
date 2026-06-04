@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   formatDate,
   formatDateTime,
@@ -6,6 +6,7 @@ import {
   formatNumber,
   formatPercent,
   formatFileSize,
+  formatRelativeTime,
 } from './format';
 
 describe('formatDate', () => {
@@ -77,6 +78,10 @@ describe('formatNumber', () => {
     expect(formatNumber(null)).toBe('-');
     expect(formatNumber('abc')).toBe('-');
   });
+
+  it('formats negative numbers', () => {
+    expect(formatNumber(-1234)).toBe('-1,234');
+  });
 });
 
 describe('formatPercent', () => {
@@ -113,5 +118,48 @@ describe('formatFileSize', () => {
 
   it('returns dash for null', () => {
     expect(formatFileSize(null)).toBe('-');
+  });
+
+  it('formats zero bytes', () => {
+    expect(formatFileSize(0)).toBe('0.00 B');
+  });
+});
+
+// ==================== formatRelativeTime ====================
+
+describe('formatRelativeTime', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-04T12:00:00'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('null → -', () => {
+    expect(formatRelativeTime(null)).toBe('-');
+    expect(formatRelativeTime(undefined)).toBe('-');
+    expect(formatRelativeTime('')).toBe('-');
+  });
+
+  it('刚刚 (< 1分钟)', () => {
+    expect(formatRelativeTime('2026-06-04T11:59:30')).toBe('刚刚');
+  });
+
+  it('N分钟前', () => {
+    expect(formatRelativeTime('2026-06-04T11:30:00')).toBe('30分钟前');
+  });
+
+  it('N小时前', () => {
+    expect(formatRelativeTime('2026-06-04T06:00:00')).toBe('6小时前');
+  });
+
+  it('N天前', () => {
+    expect(formatRelativeTime('2026-06-02T12:00:00')).toBe('2天前');
+  });
+
+  it('≥7天回退到日期格式', () => {
+    expect(formatRelativeTime('2026-05-01T12:00:00')).toBe('2026-05-01');
   });
 });

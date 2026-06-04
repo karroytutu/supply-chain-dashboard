@@ -4,8 +4,9 @@
  * 新增规则只需：① 添加 EntryRuleType ② 添加 ENTRY_RULES 配置 ③ 实现评估器
  * 任务生成管线本身无需修改
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ArCollection');
 
-import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import type { EnrichedDebtRecord } from './ar-debt.types';
 import type { EntryRuleSnapshot } from './ar-collection.types';
 
@@ -20,10 +21,10 @@ export type EntryRuleType = 'overdue_days' | 'max_overdue_orders';
 /** 入催规则配置 */
 export interface EntryRuleConfig {
   type: EntryRuleType;
-  name: string;           // 中文显示名
-  description: string;    // 规则说明（用于审计）
-  enabled: boolean;       // 开关
-  priority: number;       // 评估顺序（越小越先评估）
+  name: string; // 中文显示名
+  description: string; // 规则说明（用于审计）
+  enabled: boolean; // 开关
+  priority: number; // 评估顺序（越小越先评估）
 }
 
 /** 评估上下文 */
@@ -35,22 +36,22 @@ export interface EvaluationContext {
 /** 单条规则评估结果 */
 export interface EntryRuleResult {
   triggeredRule: EntryRuleType;
-  reason: string;                         // 人可读原因
-  ruleSnapshot: Record<string, unknown>;    // 规则快照（审计用）
+  reason: string; // 人可读原因
+  ruleSnapshot: Record<string, unknown>; // 规则快照（审计用）
 }
 
 /** 每条欠款的入催裁决 */
 export interface CollectionEntryVerdict {
   debt: EnrichedDebtRecord;
-  triggeredRules: EntryRuleResult[];      // 触发的所有规则
-  shouldEnter: boolean;                   // 任一规则触发即为 true（OR 逻辑）
+  triggeredRules: EntryRuleResult[]; // 触发的所有规则
+  shouldEnter: boolean; // 任一规则触发即为 true（OR 逻辑）
 }
 
 /** 评估器函数签名 — 接收一客户组的欠款，返回触发结果 */
 export type EntryRuleEvaluator = (
   debts: EnrichedDebtRecord[],
-  context: EvaluationContext,
-) => Map<number, EntryRuleResult>;  // key = debt 在数组中的 index
+  context: EvaluationContext
+) => Map<number, EntryRuleResult>; // key = debt 在数组中的 index
 
 // ============================================
 // 规则配置常量
@@ -101,7 +102,7 @@ function registerEvaluator(type: EntryRuleType, evaluator: EntryRuleEvaluator): 
  */
 const overdueDaysEvaluator: EntryRuleEvaluator = (
   debts: EnrichedDebtRecord[],
-  context: EvaluationContext,
+  context: EvaluationContext
 ): Map<number, EntryRuleResult> => {
   const results = new Map<number, EntryRuleResult>();
   const ruleConfig = context.ruleConfigs.overdue_days;
@@ -139,7 +140,7 @@ registerEvaluator('overdue_days', overdueDaysEvaluator);
  */
 const maxOverdueOrdersEvaluator: EntryRuleEvaluator = (
   debts: EnrichedDebtRecord[],
-  context: EvaluationContext,
+  context: EvaluationContext
 ): Map<number, EntryRuleResult> => {
   const results = new Map<number, EntryRuleResult>();
   const ruleConfig = context.ruleConfigs.max_overdue_orders;
@@ -159,7 +160,9 @@ const maxOverdueOrdersEvaluator: EntryRuleEvaluator = (
 
   // 按 workTime 降序排列（最新优先保留）
   const sortedWithIndex = debts.map((debt, index) => ({ debt, index }));
-  sortedWithIndex.sort((a, b) => new Date(b.debt.workTime).getTime() - new Date(a.debt.workTime).getTime());
+  sortedWithIndex.sort(
+    (a, b) => new Date(b.debt.workTime).getTime() - new Date(a.debt.workTime).getTime()
+  );
 
   // 前 maxDebtOrderNum 单（最新）保留，之后的（最旧）为超限单
   const excessStartIndex = maxDebtOrderNum;
@@ -199,7 +202,7 @@ registerEvaluator('max_overdue_orders', maxOverdueOrdersEvaluator);
  */
 export function evaluateEntryRules(
   debtsByConsumer: Map<string, EnrichedDebtRecord[]>,
-  context: EvaluationContext,
+  context: EvaluationContext
 ): CollectionEntryVerdict[] {
   // 获取所有启用的规则，按 priority 排序
   const enabledRules = Object.values(context.ruleConfigs)
@@ -219,7 +222,7 @@ export function evaluateEntryRules(
     for (const rule of enabledRules) {
       const evaluator = evaluatorRegistry.get(rule.type);
       if (!evaluator) {
-        console.warn(`[EntryRules] 评估器未注册: ${rule.type}`);
+        log.warn(`评估器未注册: ${rule.type}`);
         continue;
       }
 

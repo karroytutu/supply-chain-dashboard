@@ -3,7 +3,11 @@
  */
 
 import type { Priority } from './ar-collection.types';
-import { AR_EXTENSION_MAX_DAYS, EXPIRING_WARNING_DAYS, EXPIRING_SERIOUS_DAYS } from '../../utils/constants';
+import {
+  AR_EXTENSION_MAX_DAYS,
+  EXPIRING_WARNING_DAYS,
+  EXPIRING_SERIOUS_DAYS,
+} from '../../utils/constants';
 
 /**
  * 根据逾期天数计算优先级

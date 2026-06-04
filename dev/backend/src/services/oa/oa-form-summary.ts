@@ -13,9 +13,7 @@ import { OA_NOTIFICATION_FORM_SUMMARY_MAX_FIELDS } from '../../utils/constants';
 // =====================================================
 
 /** 可展示在通知摘要中的字段类型 */
-const SUMMARIZABLE_TYPES = new Set([
-  'text', 'number', 'money', 'select', 'date', 'radio',
-]);
+const SUMMARIZABLE_TYPES = new Set(['text', 'number', 'money', 'select', 'date', 'radio']);
 
 // =====================================================
 // 表单摘要提取
