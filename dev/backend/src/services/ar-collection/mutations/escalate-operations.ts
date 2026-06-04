@@ -2,12 +2,11 @@
  * 催收变更 - 升级与退回操作
  * @module services/ar-collection/mutations/escalate-operations
  */
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('ArCollection');
 
 import { getAppClient as getClient } from '../../../db/appPool';
-import {
-  AR_ESCALATION_HANDLER_ROLES,
-  AR_ROLLBACK_HANDLER_ROLES,
-} from '../../../utils/constants';
+import { AR_ESCALATION_HANDLER_ROLES, AR_ROLLBACK_HANDLER_ROLES } from '../../../utils/constants';
 import { invalidateTaskCache, invalidateStatsCache } from '../ar-collection.repository';
 import type {
   TaskStatus,
@@ -87,9 +86,7 @@ export async function escalateTask(
     await logAction(taskId, params.detail_ids, 'escalate', 'success', params.reason, operator);
 
     try {
-      const actionCard = buildEscalationActionCard(
-        task, currentLevel, targetLevel, operator.name
-      );
+      const actionCard = buildEscalationActionCard(task, currentLevel, targetLevel, operator.name);
       await sendCollectionNotificationByRole(targetRole, actionCard.title, '', {
         msgType: 'actionCard',
         actionCard,
@@ -98,7 +95,7 @@ export async function escalateTask(
         businessNo: task.task_no,
       });
     } catch (notifyErr) {
-      console.error('[CollectionMutation] 发送升级通知失败:', notifyErr);
+      log.error('发送升级通知失败:', notifyErr);
     }
   } catch (err) {
     await client.query('ROLLBACK');
@@ -145,7 +142,14 @@ export async function resolveDifference(
     invalidateTaskCache(taskId);
     invalidateStatsCache();
 
-    await logAction(taskId, params.detail_ids, 'resolve_difference', 'success', params.remark, operator);
+    await logAction(
+      taskId,
+      params.detail_ids,
+      'resolve_difference',
+      'success',
+      params.remark,
+      operator
+    );
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -202,14 +206,21 @@ export async function rollbackEscalation(
     invalidateStatsCache();
 
     await logAction(
-      taskId, null, 'rollback', 'success',
+      taskId,
+      null,
+      'rollback',
+      'success',
       `退回至${ESCALATION_LEVEL_NAMES[targetLevel as EscalationLevel]}，恢复状态: ${targetStatus}。原因: ${params.reason}`,
       operator
     );
 
     try {
       const actionCard = buildRollbackActionCard(
-        task, task.escalation_level, targetLevel as EscalationLevel, operator.name, targetStatus
+        task,
+        task.escalation_level,
+        targetLevel as EscalationLevel,
+        operator.name,
+        targetStatus
       );
       const notifyOptions = {
         msgType: 'actionCard' as const,
@@ -232,7 +243,7 @@ export async function rollbackEscalation(
         await sendCollectionNotificationByRole(targetRole, actionCard.title, '', notifyOptions);
       }
     } catch (notifyErr) {
-      console.error('[CollectionMutation] 发送退回通知失败:', notifyErr);
+      log.error('发送退回通知失败:', notifyErr);
     }
   } catch (err) {
     await client.query('ROLLBACK');

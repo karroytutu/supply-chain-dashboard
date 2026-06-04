@@ -11,6 +11,8 @@ import { CATEGORY_COLORS } from './constants';
 import CategoryTabs, { ActiveCategory } from './components/CategoryTabs';
 import FormCard from './components/FormCard';
 import styles from './index.less';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('OaInitiate');
 
 const Initiate: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -33,7 +35,7 @@ const Initiate: React.FC = () => {
       const res = await oaApi.getFormTypesGrouped();
       setFormTypesGrouped(res.data);
     } catch (error) {
-      console.error('加载表单类型失败:', error);
+      log.error('加载表单类型失败:', error);
     } finally {
       setLoading(false);
     }
@@ -149,7 +151,7 @@ const Initiate: React.FC = () => {
           </div>
         ) : (
           <>
-            {Object.entries(filteredFormTypes!).map(([category, formTypes]) =>
+            {Object.entries(filteredFormTypes ?? {}).map(([category, formTypes]) =>
               renderCategorySection(
                 category as FormCategory,
                 formTypes,

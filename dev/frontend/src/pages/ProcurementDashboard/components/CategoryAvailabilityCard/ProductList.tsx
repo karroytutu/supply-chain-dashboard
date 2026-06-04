@@ -4,6 +4,8 @@ import { LeftOutlined, SearchOutlined } from '@ant-design/icons';
 import { getCategoryOutOfStockProducts } from '@/services/api/dashboard';
 import type { OutOfStockProductSimple } from '@/types/warning';
 import styles from './index.less';
+import { createLogger } from '../../../../utils/logger';
+const log = createLogger('ProcurementDashboardcomponents');
 
 interface ProductListProps {
   categoryPath: string;
@@ -27,6 +29,7 @@ const ProductList: React.FC<ProductListProps> = ({
 
   useEffect(() => {
     loadData(1, pageSize);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [categoryPath]);
 
   const loadData = async (p: number, ps: number) => {
@@ -43,7 +46,7 @@ const ProductList: React.FC<ProductListProps> = ({
       setPage(p);
       setPageSize(ps);
     } catch (error) {
-      console.error('获取缺货商品列表失败:', error);
+      log.error('获取缺货商品列表失败:', error);
       setData([]);
     } finally {
       setLoading(false);
@@ -79,13 +82,13 @@ const ProductList: React.FC<ProductListProps> = ({
           )}
           {isDrawerMode ? (
             <>
-              <span className={styles.categoryTag}>"{categoryName}"</span>
+              <span className={styles.categoryTag}>&ldquo;{categoryName}&rdquo;</span>
               <span className={styles.totalCount}>共 {total} 件缺货商品</span>
             </>
           ) : (
             <>
               缺货商品明细
-              <span className={styles.categoryTag}>"{categoryName}"</span>
+              <span className={styles.categoryTag}>&ldquo;{categoryName}&rdquo;</span>
               <span className={styles.totalCount}>共 {total} 件</span>
             </>
           )}

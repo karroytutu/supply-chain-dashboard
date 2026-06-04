@@ -63,7 +63,7 @@ export function useApprovalActions(
           message.success('已驳回');
           break;
         case 'transfer':
-          await oaApi.transfer(parseInt(id), { transferToUserId: transferUserId!, comment: actionComment });
+          if (transferUserId) await oaApi.transfer(parseInt(id), { transferToUserId: transferUserId, comment: actionComment });
           message.success('已转交');
           break;
         case 'countersign':

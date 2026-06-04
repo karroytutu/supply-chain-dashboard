@@ -1,7 +1,8 @@
 /**
  * 数据总览控制器
  */
-
+import { createLogger } from '../utils/logger';
+const log = createLogger('Overview');
 import { Request, Response } from 'express';
 import { getOverviewStats, getOverviewFull, getTrendData } from '../services/overview';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
@@ -15,8 +16,10 @@ export const getOverviewStatsController = async (req: Request, res: Response) =>
     const data = await getOverviewStats();
     res.json(buildSuccessResponse(data));
   } catch (error) {
-    console.error('获取全局统计数据失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '获取数据失败'));
+    log.error('获取全局统计数据失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '获取数据失败'));
   }
 };
 
@@ -29,8 +32,10 @@ export const getOverviewFullController = async (req: Request, res: Response) => 
     const data = await getOverviewFull();
     res.json(buildSuccessResponse(data));
   } catch (error) {
-    console.error('获取完整概览数据失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '获取概览数据失败'));
+    log.error('获取完整概览数据失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '获取概览数据失败'));
   }
 };
 
@@ -44,7 +49,9 @@ export const getTrendDataController = async (req: Request, res: Response) => {
     const data = await getTrendData(days);
     res.json(buildSuccessResponse(data));
   } catch (error) {
-    console.error('获取趋势数据失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '获取趋势数据失败'));
+    log.error('获取趋势数据失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '获取趋势数据失败'));
   }
 };

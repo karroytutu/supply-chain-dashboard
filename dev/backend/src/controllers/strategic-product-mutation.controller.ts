@@ -2,6 +2,8 @@
  * 战略商品管理 - 操作控制器
  * @module controllers/strategic-product-mutation.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('StrategicProductMutation');
 
 import { Request, Response } from 'express';
 import {
@@ -31,7 +33,7 @@ export async function addStrategicProductsController(req: Request, res: Response
     const result = await addStrategicProducts({ goodsIds, userId });
     res.json(buildSuccessResponse(result, `成功添加 ${result.addedCount} 个战略商品`));
   } catch (error) {
-    console.error('添加战略商品失败:', error);
+    log.error('添加战略商品失败:', error);
     res.status(500).json(buildErrorResponse(500, '添加战略商品失败'));
   }
 }
@@ -48,7 +50,7 @@ export async function deleteStrategicProductController(req: Request, res: Respon
       res.status(404).json(buildErrorResponse(404, '战略商品不存在'));
     }
   } catch (error) {
-    console.error('删除战略商品失败:', error);
+    log.error('删除战略商品失败:', error);
     res.status(500).json(buildErrorResponse(500, '删除战略商品失败'));
   }
 }
@@ -71,7 +73,12 @@ export async function confirmStrategicProductController(req: Request, res: Respo
     }
 
     const result = await confirmStrategicProduct({
-      id: parseInt(id), action, comment, userId, userRoles, userName,
+      id: parseInt(id),
+      action,
+      comment,
+      userId,
+      userRoles,
+      userName,
     });
 
     if (result) {
@@ -80,7 +87,7 @@ export async function confirmStrategicProductController(req: Request, res: Respo
       res.status(404).json(buildErrorResponse(404, '战略商品不存在或无权限操作'));
     }
   } catch (error) {
-    console.error('确认战略商品失败:', error);
+    log.error('确认战略商品失败:', error);
     res.status(500).json(buildErrorResponse(500, '确认战略商品失败'));
   }
 }
@@ -106,15 +113,25 @@ export async function batchConfirmStrategicProductsController(req: Request, res:
     }
 
     const result = await batchConfirmStrategicProducts({
-      ids, action, userId, userRoles, userName, selectAll, status, categoryPath, keyword,
+      ids,
+      action,
+      userId,
+      userRoles,
+      userName,
+      selectAll,
+      status,
+      categoryPath,
+      keyword,
     });
 
-    res.json(buildSuccessResponse(
-      result,
-      `成功${action === 'confirm' ? '确认' : '驳回'} ${result.successCount} 个战略商品`
-    ));
+    res.json(
+      buildSuccessResponse(
+        result,
+        `成功${action === 'confirm' ? '确认' : '驳回'} ${result.successCount} 个战略商品`
+      )
+    );
   } catch (error) {
-    console.error('批量确认战略商品失败:', error);
+    log.error('批量确认战略商品失败:', error);
     res.status(500).json(buildErrorResponse(500, '批量确认战略商品失败'));
   }
 }
@@ -128,11 +145,17 @@ export async function batchDeleteStrategicProductsController(req: Request, res: 
       return res.status(400).json(buildErrorResponse(400, '请提供商品ID列表或选择全选全部'));
     }
 
-    const result = await batchDeleteStrategicProducts({ ids, selectAll, status, categoryPath, keyword });
+    const result = await batchDeleteStrategicProducts({
+      ids,
+      selectAll,
+      status,
+      categoryPath,
+      keyword,
+    });
 
     res.json(buildSuccessResponse(result, `成功删除 ${result.deletedCount} 个战略商品`));
   } catch (error) {
-    console.error('批量删除战略商品失败:', error);
+    log.error('批量删除战略商品失败:', error);
     res.status(500).json(buildErrorResponse(500, '批量删除战略商品失败'));
   }
 }
@@ -141,9 +164,14 @@ export async function batchDeleteStrategicProductsController(req: Request, res: 
 export async function syncCategoryPathController(req: Request, res: Response) {
   try {
     const result = await syncCategoryPath();
-    res.json(buildSuccessResponse(result, `成功同步 ${result.updatedCount}/${result.totalCount} 个战略商品的品类`));
+    res.json(
+      buildSuccessResponse(
+        result,
+        `成功同步 ${result.updatedCount}/${result.totalCount} 个战略商品的品类`
+      )
+    );
   } catch (error) {
-    console.error('同步品类路径失败:', error);
+    log.error('同步品类路径失败:', error);
     res.status(500).json(buildErrorResponse(500, '同步品类路径失败'));
   }
 }

@@ -2,16 +2,12 @@
  * OA - 拒绝 + 转交操作
  * @module services/oa/mutations/reject-transfer
  */
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
-import {
-  OaInstanceRow,
-  OaNodeRow,
-} from '../oa.types';
-import {
-  isCurrentApprover,
-  getCurrentApproverNode,
-} from '../oa-utils';
+import { OaInstanceRow } from '../oa.types';
+import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
 import { notifyRejected, notifyTransferred } from '../oa-notify';
 import { completeApprovalTodo, completeAllPendingTodos } from '../oa-process-centre';
@@ -31,7 +27,7 @@ export async function rejectApproval(
     throw new Error('您不是当前审批人，无法执行此操作');
   }
 
-  await transaction(async (client) => {
+  await transaction(async client => {
     const currentNode = await getCurrentApproverNode(client, instanceId, userId);
     if (!currentNode) {
       throw new Error('未找到待审批节点');
@@ -74,10 +70,9 @@ export async function rejectApproval(
       const rejectedInstance = instResult.rows[0];
       const rejectedFormData = rejectedInstance.form_data as Record<string, unknown>;
       queueMicrotask(() => {
-        ft!.onRejected!(rejectedInstance, rejectedFormData)
-          .catch(err => {
-            console.error(`[OA] 审批驳回回调执行失败 [${ft!.code}]:`, err);
-          });
+        ft!.onRejected!(rejectedInstance, rejectedFormData).catch(err => {
+          log.error(`审批驳回回调执行失败 [${ft!.code}]:`, err);
+        });
       });
     }
   });
@@ -85,10 +80,10 @@ export async function rejectApproval(
   setImmediate(() => {
     // 拒绝审批后取消所有待处理人的钉钉待办 + 完成壳实例
     completeAllPendingTodos(instanceId, 'refuse').catch(err => {
-      console.error('[ProcessCentre] 批量取消钉钉待办失败:', err);
+      log.error('批量取消钉钉待办失败:', err);
     });
     sendRejectNotification(instanceId, userId, userName, comment).catch(err => {
-      console.error('[OA] 拒绝通知发送失败:', err);
+      log.error('拒绝通知发送失败:', err);
     });
   });
 }
@@ -108,10 +103,9 @@ export async function transferApproval(
     throw new Error('您不是当前审批人，无法执行此操作');
   }
 
-  const targetUserResult = await query<{ name: string }>(
-    `SELECT name FROM users WHERE id = $1`,
-    [transferToUserId]
-  );
+  const targetUserResult = await query<{ name: string }>(`SELECT name FROM users WHERE id = $1`, [
+    transferToUserId,
+  ]);
 
   if (targetUserResult.rows.length === 0) {
     throw new Error('转交目标用户不存在');
@@ -119,7 +113,7 @@ export async function transferApproval(
 
   const targetUserName = targetUserResult.rows[0].name;
 
-  await transaction(async (client) => {
+  await transaction(async client => {
     const currentNode = await getCurrentApproverNode(client, instanceId, userId);
     if (!currentNode) {
       throw new Error('未找到待审批节点');
@@ -138,7 +132,10 @@ export async function transferApproval(
         (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
        VALUES ($1, 'transfer', $2, $3, $4, $5, $6)`,
       [
-        instanceId, userId, userName, currentNode.node_order,
+        instanceId,
+        userId,
+        userName,
+        currentNode.node_order,
         comment || null,
         JSON.stringify({ transferToUserId, transferToUserName: targetUserName }),
       ]
@@ -148,10 +145,10 @@ export async function transferApproval(
   setImmediate(() => {
     // 新增：完成转交人的钉钉待办
     completeApprovalTodo(instanceId, userId, 'AGREE').catch(err => {
-      console.error('[ProcessCentre] 完成转交人钉钉待办失败:', err);
+      log.error('完成转交人钉钉待办失败:', err);
     });
     sendTransferNotification(instanceId, userId, userName, transferToUserId).catch(err => {
-      console.error('[OA] 转交通知发送失败:', err);
+      log.error('转交通知发送失败:', err);
     });
   });
 }

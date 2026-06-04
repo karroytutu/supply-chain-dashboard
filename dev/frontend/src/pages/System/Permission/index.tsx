@@ -2,13 +2,14 @@
  * 权限管理页面
  */
 import { useState, useEffect } from 'react';
-import { Card, Button, Space, Modal, message, Form, Input as AntInput, Select } from 'antd';
+import { Card, Button, Modal, message, Form, Input as AntInput, Select } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { getPermissionTree, createPermission } from '@/services/api/auth';
 import Authorized from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
 import PermissionTable from './components/PermissionTable';
 import styles from './index.less';
+import { getErrorMessage } from '../../../utils/errorUtils';
 
 interface PermissionItem {
   id: number;
@@ -58,8 +59,8 @@ export default function PermissionManage() {
       message.success('创建成功');
       setCreateModalVisible(false);
       loadPermissions();
-    } catch (error: any) {
-      message.error(error.message || '创建失败');
+    } catch (error) {
+      message.error(getErrorMessage(error) || '创建失败');
     }
   };
 

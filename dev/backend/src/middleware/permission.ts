@@ -13,13 +13,13 @@ export function requirePermission(permission: string | string[]) {
       });
       return;
     }
-    
+
     const permissions = req.user.permissions || [];
     const requiredPermissions = Array.isArray(permission) ? permission : [permission];
-    
+
     // 检查是否拥有任一所需权限
     const hasPermission = requiredPermissions.some(p => permissions.includes(p));
-    
+
     if (!hasPermission) {
       res.status(403).json({
         success: false,
@@ -27,7 +27,7 @@ export function requirePermission(permission: string | string[]) {
       });
       return;
     }
-    
+
     next();
   };
 }
@@ -45,13 +45,13 @@ export function requireRole(role: string | string[]) {
       });
       return;
     }
-    
+
     const roles = req.user.roles || [];
     const requiredRoles = Array.isArray(role) ? role : [role];
-    
+
     // 检查是否拥有任一所需角色
     const hasRole = requiredRoles.some(r => roles.includes(r));
-    
+
     if (!hasRole) {
       res.status(403).json({
         success: false,
@@ -59,7 +59,7 @@ export function requireRole(role: string | string[]) {
       });
       return;
     }
-    
+
     next();
   };
 }

@@ -3,9 +3,10 @@
  * 提取自 erp-credit-update.service.ts 的私有 erpUploadImage()
  * @module services/erp-client/erp-image-upload
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ERP');
 
 import { createLogEntry, writeErpLog } from './erp-logger';
-import logger from '../../utils/logger';
 
 /**
  * 上传图片到 ERP，返回 imgId
@@ -46,10 +47,10 @@ export async function erpUploadImageToErp(
     const axios = (await import('axios')).default;
     const response = await axios.post(url, form, {
       headers: {
-        'authorization': `Bearer ${token}`,
-        'cid': config.cid,
-        'uid': config.uid,
-        'SaasCid': config.cid,
+        authorization: `Bearer ${token}`,
+        cid: config.cid,
+        uid: config.uid,
+        SaasCid: config.cid,
         ...form.getHeaders(),
       },
       timeout: config.timeout,
@@ -59,7 +60,12 @@ export async function erpUploadImageToErp(
     const durationMs = Date.now() - startTime;
 
     // 检查舟谱 API 错误码
-    if (responseData && typeof responseData === 'object' && responseData.code !== undefined && responseData.code !== 0) {
+    if (
+      responseData &&
+      typeof responseData === 'object' &&
+      responseData.code !== undefined &&
+      responseData.code !== 0
+    ) {
       const errMsg = responseData.message || `舟谱API错误(code=${responseData.code})`;
       writeErpLog({
         requestId,
@@ -72,7 +78,7 @@ export async function erpUploadImageToErp(
         durationMs,
         retryCount: 0,
         businessType,
-      }).catch(err => logger.warn('[ErpImageUpload] 日志写入失败:', err?.message));
+      }).catch(err => log.warn('日志写入失败:', err?.message));
       throw new Error(errMsg);
     }
 
@@ -89,7 +95,7 @@ export async function erpUploadImageToErp(
       durationMs,
       retryCount: 0,
       businessType,
-    }).catch(err => logger.warn('[ErpImageUpload] 日志写入失败:', err?.message));
+    }).catch(err => log.warn('日志写入失败:', err?.message));
 
     return imgId;
   } catch (error) {
@@ -106,7 +112,7 @@ export async function erpUploadImageToErp(
         durationMs,
         retryCount: 0,
         businessType,
-      }).catch(err => logger.warn('[ErpImageUpload] 日志写入失败:', err?.message));
+      }).catch(err => log.warn('日志写入失败:', err?.message));
     }
 
     throw error;

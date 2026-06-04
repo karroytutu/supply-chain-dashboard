@@ -2,13 +2,11 @@
  * 统一考核管理 - 操作控制器
  * 提供考核记录的状态操作（确认/取消）、申诉、手动触发计算等接口
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('AssessmentMutation');
 
 import { Request, Response } from 'express';
-import {
-  handleAssessment,
-  submitAppeal,
-  triggerCalculation,
-} from '../services/assessment';
+import { handleAssessment, submitAppeal, triggerCalculation } from '../services/assessment';
 
 /**
  * POST /api/assessment/:id/action
@@ -18,7 +16,11 @@ import {
 export async function handleAction(req: Request, res: Response): Promise<void> {
   try {
     const id = parseInt(req.params.id);
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ code: 401, message: '未登录' });
+      return;
+    }
     const { action, remark } = req.body;
 
     if (!id || isNaN(id)) {
@@ -34,7 +36,7 @@ export async function handleAction(req: Request, res: Response): Promise<void> {
     res.json({ code: 200, data: result, message: '操作成功' });
   } catch (error) {
     const message = (error as Error).message || '操作失败';
-    console.error('[Assessment] 处理考核记录失败:', error);
+    log.error('处理考核记录失败:', error);
     res.status(400).json({ code: 400, message });
   }
 }
@@ -47,7 +49,11 @@ export async function handleAction(req: Request, res: Response): Promise<void> {
 export async function handleAppeal(req: Request, res: Response): Promise<void> {
   try {
     const id = parseInt(req.params.id);
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ code: 401, message: '未登录' });
+      return;
+    }
     const { reason, documents } = req.body;
 
     if (!id || isNaN(id)) {
@@ -63,7 +69,7 @@ export async function handleAppeal(req: Request, res: Response): Promise<void> {
     res.json({ code: 200, data: result, message: '申诉提交成功' });
   } catch (error) {
     const message = (error as Error).message || '申诉提交失败';
-    console.error('[Assessment] 提交申诉失败:', error);
+    log.error('提交申诉失败:', error);
     res.status(400).json({ code: 400, message });
   }
 }
@@ -79,7 +85,7 @@ export async function handleCalculate(req: Request, res: Response): Promise<void
     const result = await triggerCalculation({ category, ruleType });
     res.json({ code: 200, data: result, message: '计算完成' });
   } catch (error) {
-    console.error('[Assessment] 触发计算失败:', error);
+    log.error('触发计算失败:', error);
     res.status(500).json({ code: 500, message: '计算失败' });
   }
 }

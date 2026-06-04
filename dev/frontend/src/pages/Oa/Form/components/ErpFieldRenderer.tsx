@@ -104,6 +104,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
       fetchOptions();
       onChange?.(field.multiple ? [] : undefined);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [cascadeValue, field.cascadeFrom, field.multiple, fetchOptions]);
 
   const handleSearch = useCallback(

@@ -3,7 +3,14 @@
  * 测试 ErpMeta 状态机的核心读写逻辑
  */
 
-import { getErpMeta, initErpMeta, updateErpMetaStatus, mergeErpResponseData, markErpFailed, retryErpOperation } from './erp-meta-utils';
+import {
+  getErpMeta,
+  initErpMeta,
+  updateErpMetaStatus,
+  mergeErpResponseData,
+  markErpFailed,
+  retryErpOperation,
+} from './erp-meta-utils';
 import { appQuery } from '../../db/appPool';
 import type { ErpMeta, OaInstanceRow } from '../oa/oa.types';
 
@@ -13,9 +20,13 @@ jest.mock('../../db/appPool', () => ({
 }));
 
 // Mock form-types 的动态导入
-jest.mock('../oa/form-types', () => ({
-  getFormTypeByCode: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '../oa/form-types',
+  () => ({
+    getFormTypeByCode: jest.fn(),
+  }),
+  { virtual: true }
+);
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 
@@ -46,8 +57,8 @@ function createMockInstance(erpMeta: ErpMeta | null = null): OaInstanceRow {
 
 /** 从 mock 调用记录中提取最后一次 UPDATE 的 erp_meta JSON 参数 */
 function getLastUpdateErpMeta(): ErpMeta {
-  const updateCall = mockAppQuery.mock.calls.find(
-    (call) => (call[0] as string).includes('UPDATE oa_approval_instances SET erp_meta')
+  const updateCall = mockAppQuery.mock.calls.find(call =>
+    (call[0] as string).includes('UPDATE oa_approval_instances SET erp_meta')
   );
   if (!updateCall) throw new Error('未找到 UPDATE erp_meta 调用');
   return JSON.parse(updateCall![1]![0] as string) as ErpMeta;
@@ -167,7 +178,9 @@ describe('mergeErpResponseData', () => {
 
     const updatedJson = getLastUpdateErpMeta();
     expect(updatedJson.responseData.expenditureBillId).toBe(12345);
-    expect(updatedJson.responseData.createdAssets).toEqual([{ erpAssetId: 999, code: 'GDZC-0001' }]);
+    expect(updatedJson.responseData.createdAssets).toEqual([
+      { erpAssetId: 999, code: 'GDZC-0001' },
+    ]);
   });
 
   it('应覆盖同名的 responseData 字段', async () => {

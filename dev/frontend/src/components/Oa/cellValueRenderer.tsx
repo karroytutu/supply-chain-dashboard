@@ -24,9 +24,10 @@ export function renderCellValue(
       return formatCurrency(cellValue as number);
     case 'number':
       return (cellValue as number).toLocaleString();
-    case 'select':
+    case 'select': {
       const option = childField.options?.find((o) => o.value === cellValue);
       return option?.label || String(cellValue);
+    }
     case 'erp_customer':
     case 'erp_department':
     case 'erp_staff':

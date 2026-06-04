@@ -29,6 +29,7 @@ module.exports = {
     'max-params': ['warn', 4],
 
     // 代码质量
+    'no-console': 'warn',
     'no-duplicate-imports': 'error',
     'no-unused-vars': 'off',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
@@ -54,6 +55,22 @@ module.exports = {
       files: ['src/**/*.tsx'],
       rules: {
         'max-lines': ['warn', { max: 200, skipBlankLines: true, skipComments: true }],
+      },
+    },
+    {
+      // 测试文件放宽限制
+      files: ['src/**/*.spec.tsx', 'src/**/*.spec.ts', 'src/**/*.test.ts'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        'max-lines-per-function': 'off',
+        'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
+      },
+    },
+    {
+      // 常量文件允许更长
+      files: ['src/constants/**/*.ts'],
+      rules: {
+        'max-lines': ['warn', { max: 800, skipBlankLines: true, skipComments: true }],
       },
     },
   ],

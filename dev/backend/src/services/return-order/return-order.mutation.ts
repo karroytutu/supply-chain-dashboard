@@ -2,8 +2,9 @@
  * 退货单变更服务
  * 业务逻辑层，委托 Repository 执行数据访问，写入后自动失效缓存
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ReturnOrder');
 
-import { appQuery } from '../../db/appPool';
 import * as repo from './return-order.repository';
 import { toReturnOrderDTO } from './return-order.mapper';
 import {
@@ -106,7 +107,7 @@ export async function batchConfirmReturnOrders(
         comment: ruleDecision === 'can_return' ? '可采购退货' : '不可采购退货',
       });
     } catch (ruleError) {
-      console.error(`[ReturnOrder] 创建商品退货规则失败: ${row.goods_id}`, ruleError);
+      log.error(`创建商品退货规则失败: ${row.goods_id}`, ruleError);
     }
   }
 
@@ -123,29 +124,32 @@ export async function batchConfirmReturnOrders(
         const order = toReturnOrderDTO(orderRow);
 
         // 检查规则3：退货时保质期不足考核（统一考核模块）
-        if (order.daysToExpireAtReturn && order.daysToExpireAtReturn < RETURN_EXPIRE_INSUFFICIENT_DAYS) {
+        if (
+          order.daysToExpireAtReturn &&
+          order.daysToExpireAtReturn < RETURN_EXPIRE_INSUFFICIENT_DAYS
+        ) {
           runCalculation({
             triggered_by: 'realtime',
             category: 'return_order',
             rule_type: 'return_expire_insufficient',
             source_id: order.id,
           }).catch(error => {
-            console.error('[Assessment] 退货保质期不足考核计算失败:', error);
+            log.error('退货保质期不足考核计算失败:', error);
           });
         }
 
         if (newStatus === 'pending_erp_fill') {
           notifyPendingErpFill(order).catch(error => {
-            console.error('[DingTalk] 待填写ERP通知失败:', error);
+            log.error('待填写ERP通知失败:', error);
           });
         } else if (newStatus === 'pending_marketing_sale') {
           notifyPendingMarketingSale(order).catch(error => {
-            console.error('[DingTalk] 待营销处理通知失败:', error);
+            log.error('待营销处理通知失败:', error);
           });
         }
       }
     } catch (notifyError) {
-      console.error('[DingTalk] 确认后通知失败:', notifyError);
+      log.error('确认后通知失败:', notifyError);
     }
   }
 
@@ -188,9 +192,7 @@ export async function cancelReturnOrder(
  * 填写ERP退货单号
  * 状态: pending_erp_fill -> pending_warehouse_execute
  */
-export async function fillErpReturnNo(
-  params: FillErpReturnNoParams
-): Promise<ReturnOrder> {
+export async function fillErpReturnNo(params: FillErpReturnNoParams): Promise<ReturnOrder> {
   const { id, erpReturnNo, operatorId, operatorName } = params;
 
   const currentStatus = await repo.getOrderStatus(id);
@@ -217,7 +219,7 @@ export async function fillErpReturnNo(
 
   // 发送钉钉通知给仓储人员
   notifyPendingWarehouseExecute(returnOrder, erpReturnNo).catch(error => {
-    console.error('[DingTalk] 待仓储执行通知失败:', error);
+    log.error('待仓储执行通知失败:', error);
   });
 
   return returnOrder;
@@ -227,9 +229,7 @@ export async function fillErpReturnNo(
  * 仓储执行退货
  * 状态: pending_warehouse_execute -> completed
  */
-export async function warehouseExecute(
-  params: WarehouseExecuteParams
-): Promise<ReturnOrder> {
+export async function warehouseExecute(params: WarehouseExecuteParams): Promise<ReturnOrder> {
   const { id, evidenceUrls, comment, operatorId, operatorName } = params;
 
   const currentStatus = await repo.getOrderStatus(id);
@@ -306,9 +306,7 @@ export async function autoCompleteMarketingSale(): Promise<{
  * 回退退货单
  * 将状态从 pending_erp_fill 或 pending_marketing_sale 回退到 pending_confirm
  */
-export async function rollbackReturnOrder(
-  params: RollbackReturnOrderParams
-): Promise<ReturnOrder> {
+export async function rollbackReturnOrder(params: RollbackReturnOrderParams): Promise<ReturnOrder> {
   const { id, operatorId, operatorName, comment } = params;
 
   const currentStatus = await repo.getOrderStatus(id);

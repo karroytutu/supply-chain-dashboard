@@ -2,12 +2,11 @@
  * 催收管理 - 定时提醒任务
  * 定时检查延期到期催收任务并发送提醒通知
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ArCollection');
 
 import { appQuery } from '../../db/appPool';
-import {
-  sendCollectionNotification,
-  buildExtensionExpiryMessage,
-} from './ar-collection-notify';
+import { sendCollectionNotification, buildExtensionExpiryMessage } from './ar-collection-notify';
 import type { CollectionTask } from './ar-collection.types';
 
 /**
@@ -15,7 +14,7 @@ import type { CollectionTask } from './ar-collection.types';
  * 查询 extension 状态且 extension_until 在3天内到期的任务
  */
 export async function checkExtensionExpiryReminders(): Promise<void> {
-  console.log('[ReminderTask] 开始延期到期提醒检查...');
+  log.info('开始延期到期提醒检查...');
 
   try {
     // 查询延期中且即将到期（3天内）的任务
@@ -32,11 +31,11 @@ export async function checkExtensionExpiryReminders(): Promise<void> {
 
     const tasks = tasksResult.rows;
     if (tasks.length === 0) {
-      console.log('[ReminderTask] 无延期即将到期的任务');
+      log.info('无延期即将到期的任务');
       return;
     }
 
-    console.log(`[ReminderTask] 发现 ${tasks.length} 个延期即将到期任务`);
+    log.info(`发现 ${tasks.length} 个延期即将到期任务`);
 
     let sentCount = 0;
 
@@ -65,12 +64,12 @@ export async function checkExtensionExpiryReminders(): Promise<void> {
           sentCount++;
         }
       } catch (error) {
-        console.error(`[ReminderTask] 延期到期提醒发送失败(task_no=${task.task_no}):`, error);
+        log.error(`延期到期提醒发送失败(task_no=${task.task_no}):`, error);
       }
     }
 
-    console.log(`[ReminderTask] 延期到期提醒检查完成，发送 ${sentCount} 条提醒`);
+    log.info(`延期到期提醒检查完成，发送 ${sentCount} 条提醒`);
   } catch (error) {
-    console.error('[ReminderTask] 延期到期提醒检查失败:', error);
+    log.error('延期到期提醒检查失败:', error);
   }
 }

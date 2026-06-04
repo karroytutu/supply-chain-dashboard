@@ -10,6 +10,7 @@ import { groupByModule, getAllKeys } from '@/components/PermissionTree/utils';
 import { assignRolePermissions } from '@/services/api/auth';
 import type { PermissionItem } from '@/components/PermissionTree/types';
 import styles from './PermissionAssignModal.less';
+import { getErrorMessage } from '../../../../utils/errorUtils';
 
 interface RoleItem {
   id: number;
@@ -78,8 +79,8 @@ const PermissionAssignModal: React.FC<PermissionAssignModalProps> = ({
       message.success('权限分配成功');
       onSuccess();
       onClose();
-    } catch (error: any) {
-      message.error(error.message || '分配失败');
+    } catch (error) {
+      message.error(getErrorMessage(error) || '分配失败');
     } finally {
       setLoading(false);
     }

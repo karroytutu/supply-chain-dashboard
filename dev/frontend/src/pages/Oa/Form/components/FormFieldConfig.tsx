@@ -113,7 +113,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
         />
       );
 
-    case 'money':
+    case 'money': {
       const amount = formData[field.key];
       return (
         <div>
@@ -125,7 +125,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
             min={0}
             precision={2}
             formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-            parser={(v) => v!.replace(/\$\s?|(,*)/g, '') as any}
+            parser={(v) => (v ?? '').replace(/\$\s?|(,*)/g, '') as any}
             disabled={field.disabled}
           />
           {upper && amount != null ? (
@@ -135,6 +135,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           ) : null}
         </div>
       );
+    }
 
     case 'select':
       return (

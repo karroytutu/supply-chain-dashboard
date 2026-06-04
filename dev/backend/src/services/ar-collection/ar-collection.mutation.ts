@@ -4,5 +4,14 @@
  * @module services/ar-collection/ar-collection.mutation
  */
 
-export { submitVerify, applyExtension, markDifference, confirmVerify } from './mutations/verify-extension';
-export { escalateTask, resolveDifference, rollbackEscalation } from './mutations/escalate-operations';
+export {
+  submitVerify,
+  applyExtension,
+  markDifference,
+  confirmVerify,
+} from './mutations/verify-extension';
+export {
+  escalateTask,
+  resolveDifference,
+  rollbackEscalation,
+} from './mutations/escalate-operations';

@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
-import { message } from 'antd';
-import type { TreeProps } from 'antd';
+import {  type TreeProps } from 'antd';
 import { getCategoryTree, getProductsForSelection } from '@/services/api/strategic-product';
 import type { CategoryNode, SelectableProduct } from '@/types/strategic-product';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('StrategicProducthooks');
 
 export interface ProductSelectionData {
   addCategoryTree: CategoryNode[];
@@ -35,7 +36,7 @@ export function useProductSelectionData(): ProductSelectionData {
       const result = await getCategoryTree();
       setAddCategoryTree(result);
     } catch (error) {
-      console.error('加载品类树失败:', error);
+      log.error('加载品类树失败:', error);
     }
   }, []);
 
@@ -50,7 +51,7 @@ export function useProductSelectionData(): ProductSelectionData {
       setProductsPage(page);
       setProductsPageSize(pageSize);
     } catch (error) {
-      console.error('加载商品列表失败:', error);
+      log.error('加载商品列表失败:', error);
       setProductsForSelection([]);
       setProductsTotal(0);
     } finally {

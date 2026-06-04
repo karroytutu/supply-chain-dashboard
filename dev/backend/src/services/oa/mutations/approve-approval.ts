@@ -2,18 +2,11 @@
  * OA - 同意操作
  * @module services/oa/mutations/approve-approval
  */
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('OA');
 
-import {
-  FormTypeDefinition,
-  ApprovalActionRequest,
-  OaInstanceRow,
-  OaNodeRow,
-} from '../oa.types';
-import {
-  validateInputData,
-  isCurrentApprover,
-  getCurrentApproverNode,
-} from '../oa-utils';
+import { FormTypeDefinition, OaInstanceRow, OaNodeRow } from '../oa.types';
+import { validateInputData, isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
 import { transaction, mergeFormData } from './shared-utils';
 import {
@@ -49,7 +42,7 @@ export async function approveApproval(
   let isLastNode = false;
   let autoNodeToExecute: OaNodeRow | null = null;
 
-  await transaction(async (client) => {
+  await transaction(async client => {
     const instanceResult0 = await client.query<OaInstanceRow>(
       `SELECT * FROM oa_approval_instances WHERE id = $1`,
       [instanceId]
@@ -76,16 +69,13 @@ export async function approveApproval(
         }
       }
 
-      await client.query(
-        `UPDATE oa_approval_nodes SET input_data = $1 WHERE id = $2`,
-        [JSON.stringify(inputData), currentNode.id]
-      );
+      await client.query(`UPDATE oa_approval_nodes SET input_data = $1 WHERE id = $2`, [
+        JSON.stringify(inputData),
+        currentNode.id,
+      ]);
 
       const currentFormData = instance0.form_data;
-      const mergedFormData = mergeFormData(
-        currentFormData as Record<string, unknown>,
-        inputData
-      );
+      const mergedFormData = mergeFormData(currentFormData as Record<string, unknown>, inputData);
 
       await client.query(
         `UPDATE oa_approval_instances SET form_data = $1, updated_at = NOW() WHERE id = $2`,
@@ -119,7 +109,13 @@ export async function approveApproval(
            SET erp_meta = $1, current_node_order = $2, status = 'processing', updated_at = NOW()
            WHERE id = $3`,
           [
-            JSON.stringify({ status: 'processing', responseData: {}, requestLog: null, applicationNo: '', retries: 0 }),
+            JSON.stringify({
+              status: 'processing',
+              responseData: {},
+              requestLog: null,
+              applicationNo: '',
+              retries: 0,
+            }),
             nextNode.node_order,
             instanceId,
           ]
@@ -143,7 +139,10 @@ export async function approveApproval(
         (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
        VALUES ($1, 'approve', $2, $3, $4, $5, $6)`,
       [
-        instanceId, userId, userName, currentNode.node_order,
+        instanceId,
+        userId,
+        userName,
+        currentNode.node_order,
         comment || null,
         inputData ? JSON.stringify({ inputData }) : null,
       ]
@@ -160,23 +159,33 @@ export async function approveApproval(
   if (callbackInstance && formType) {
     const ftCode = formType.code;
     if (callbackInputData && formType.onNodeCompleted) {
-      formType.onNodeCompleted(callbackInstance, callbackNodeOrder, callbackInputData, callbackFormData || {})
+      formType
+        .onNodeCompleted(
+          callbackInstance,
+          callbackNodeOrder,
+          callbackInputData,
+          callbackFormData || {}
+        )
         .catch(err => {
-          console.error(`[OA] 节点回调执行失败 [${ftCode} node=${callbackNodeOrder}]:`, err);
+          log.error(`节点回调执行失败 [${ftCode} node=${callbackNodeOrder}]:`, err);
         });
     }
 
     if (autoNodeToExecute && formType.onApproved) {
       const autoNode = autoNodeToExecute as OaNodeRow;
       setImmediate(() => {
-        executeAutoNodeCallback(instanceId, autoNode, formType!, callbackInstance!, callbackFormData || {})
-          .catch(err => console.error(`[OA] executeAutoNodeCallback 顶层错误:`, err));
+        executeAutoNodeCallback(
+          instanceId,
+          autoNode,
+          formType!,
+          callbackInstance!,
+          callbackFormData || {}
+        ).catch(err => log.error(`executeAutoNodeCallback 顶层错误:`, err));
       });
     } else if (isLastNode && formType.onApproved) {
-      formType.onApproved(callbackInstance, callbackFormData || {})
-        .catch(err => {
-          console.error(`[OA] 审批通过回调执行失败 [${ftCode}]:`, err);
-        });
+      formType.onApproved(callbackInstance, callbackFormData || {}).catch(err => {
+        log.error(`审批通过回调执行失败 [${ftCode}]:`, err);
+      });
     }
   }
 
@@ -185,18 +194,27 @@ export async function approveApproval(
     setImmediate(() => {
       // 新增：完成当前审批人的钉钉待办
       completeApprovalTodo(instanceId, userId, 'AGREE').catch(err => {
-        console.error('[ProcessCentre] 完成钉钉待办失败:', err);
+        log.error('完成钉钉待办失败:', err);
       });
-      sendApprovalNotifications(instanceId, userId, userName, callbackInstance!, formType!, isLastNode).catch(err => {
-        console.error('[OA] 审批通知发送失败:', err);
+      sendApprovalNotifications(
+        instanceId,
+        userId,
+        userName,
+        callbackInstance!,
+        formType!,
+        isLastNode
+      ).catch(err => {
+        log.error('审批通知发送失败:', err);
       });
-      triggerCcIfApplicable(instanceId, callbackNodeOrder, formType!, callbackInstance!).catch(err => {
-        console.error('[OA] CC 触发失败:', err);
-      });
+      triggerCcIfApplicable(instanceId, callbackNodeOrder, formType!, callbackInstance!).catch(
+        err => {
+          log.error('CC 触发失败:', err);
+        }
+      );
       // 最后一个节点通过时，完成壳实例
       if (isLastNode) {
         finalizeProcessInstance(instanceId, 'agree').catch(err => {
-          console.error('[ProcessCentre] 完成壳实例失败:', err);
+          log.error('完成壳实例失败:', err);
         });
       }
     });

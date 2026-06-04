@@ -3,7 +3,7 @@
  * 展示三系统 (ERP/WMS/B2B) Token 状态 + 操作按钮 + 操作日志
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Card, Row, Col, Tag, Button, Table, Space, message, Tooltip, Badge } from 'antd';
+import { Card, Row, Col, Tag, Button, Table, Space, message, Tooltip } from 'antd';
 import {
   ReloadOutlined,
   SafetyCertificateOutlined,
@@ -89,7 +89,7 @@ export default function TokenManager() {
     }
   }, []);
 
-  const loadLogs = useCallback(async (page: number = 1) => {
+  const loadLogs = useCallback(async (page = 1) => {
     try {
       const result = await getTokenLogs({ page, pageSize: 20 });
       setLogs(result.data || []);

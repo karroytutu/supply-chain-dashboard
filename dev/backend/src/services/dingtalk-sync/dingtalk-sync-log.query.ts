@@ -3,7 +3,8 @@
  * 负责同步日志的CRUD操作
  */
 
-import { appQuery, getAppClient } from '../../db/appPool';
+import { SqlParam } from '../../db/types';
+import { appQuery } from '../../db/appPool';
 import type {
   SyncLogQueryParams,
   SyncLogRecord,
@@ -29,7 +30,7 @@ export async function createSyncLog(params: CreateSyncLogParams): Promise<number
  */
 export async function updateSyncLog(id: number, params: UpdateSyncLogParams): Promise<void> {
   const fields: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
   let paramIndex = 1;
 
   const fieldMap: Record<string, any> = {
@@ -68,10 +69,12 @@ export async function updateSyncLog(id: number, params: UpdateSyncLogParams): Pr
 /**
  * 分页查询同步日志
  */
-export async function getSyncLogs(params: SyncLogQueryParams): Promise<{ list: SyncLogRecord[]; total: number }> {
+export async function getSyncLogs(
+  params: SyncLogQueryParams
+): Promise<{ list: SyncLogRecord[]; total: number }> {
   const { page, pageSize, status, sync_type } = params;
   const conditions: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
   let paramIndex = 1;
 
   if (status) {
@@ -107,10 +110,7 @@ export async function getSyncLogs(params: SyncLogQueryParams): Promise<{ list: S
  * 获取单条同步日志详情
  */
 export async function getSyncLogById(id: number): Promise<SyncLogRecord | null> {
-  const result = await appQuery(
-    'SELECT * FROM dingtalk_sync_logs WHERE id = $1',
-    [id]
-  );
+  const result = await appQuery('SELECT * FROM dingtalk_sync_logs WHERE id = $1', [id]);
   return result.rows[0] || null;
 }
 

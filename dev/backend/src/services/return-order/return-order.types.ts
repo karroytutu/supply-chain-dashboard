@@ -25,8 +25,8 @@ export interface ReturnOrder {
   returnDate: Date | null;
   expireDate: Date | null;
   shelfLife: number | null;
-  daysToExpire: number | null;           // 当前剩余保质期（动态计算）
-  daysToExpireAtReturn: number | null;   // 退货时剩余保质期（静态历史）
+  daysToExpire: number | null; // 当前剩余保质期（动态计算）
+  daysToExpireAtReturn: number | null; // 退货时剩余保质期（静态历史）
   status: ReturnOrderStatus;
   sourceBillNo: string | null;
   consumerName: string | null;
@@ -36,16 +36,16 @@ export interface ReturnOrder {
   erpFilledAt: Date | null;
   warehouseExecutedBy: number | null;
   warehouseExecutedAt: Date | null;
-  warehouseReturnQuantity: number | null;  // 历史字段保留
-  warehouseEvidenceUrl: string | null;     // 仓储退货凭证图片URL
+  warehouseReturnQuantity: number | null; // 历史字段保留
+  warehouseEvidenceUrl: string | null; // 仓储退货凭证图片URL
   warehouseComment: string | null;
   marketingCompletedBy: number | null;
   marketingCompletedAt: Date | null;
   marketingComment: string | null;
   ruleId: number | null;
-  purchasePrice: number | null;          // 商品进价（用于考核计算）
-  ruleConfirmedAt: Date | null;          // 规则确认时间（用于ERP录入超时考核）
-  ruleConfirmedBy: number | null;        // 规则确认人
+  purchasePrice: number | null; // 商品进价（用于考核计算）
+  ruleConfirmedAt: Date | null; // 规则确认时间（用于ERP录入超时考核）
+  ruleConfirmedBy: number | null; // 规则确认人
   createdAt: Date;
   updatedAt: Date;
   // 关联信息
@@ -53,9 +53,9 @@ export interface ReturnOrder {
   warehouseExecutorName?: string;
   marketingCompleterName?: string;
   // 库存信息
-  currentStock: number | null;  // 当前残次品库存（数量）
+  currentStock: number | null; // 当前残次品库存（数量）
   currentStockDisplay?: string; // 当前残次品库存（显示文本，如"1件2包"）
-  currentStockUnit?: string;    // 当前残次品库存单位
+  currentStockUnit?: string; // 当前残次品库存单位
 }
 
 /** 退货单列表查询参数 */
@@ -112,12 +112,12 @@ export interface CreateReturnOrderParams {
   expireDate?: Date;
   shelfLife?: number;
   daysToExpire?: number;
-  daysToExpireAtReturn?: number;  // 退货时剩余保质期
+  daysToExpireAtReturn?: number; // 退货时剩余保质期
   sourceBillNo?: string;
   consumerName?: string;
   marketingManager?: string;
   status?: ReturnOrderStatus;
-  purchasePrice?: number;  // 商品进价（用于考核计算）
+  purchasePrice?: number; // 商品进价（用于考核计算）
 }
 
 /** 批量确认参数 */
@@ -154,7 +154,7 @@ export interface FillErpReturnNoParams {
 /** 仓储执行参数 */
 export interface WarehouseExecuteParams {
   id: number;
-  evidenceUrls: string[];  // 仓储退货凭证图片URL列表
+  evidenceUrls: string[]; // 仓储退货凭证图片URL列表
   comment?: string;
   operatorId: number;
   operatorName: string;

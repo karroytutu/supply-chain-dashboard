@@ -6,8 +6,12 @@
 import { appQuery as query, getAppClient } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
-import type { AssessmentRecordRow, AssessmentQueryParams, AssessmentStatsRow } from './assessment.types';
-import { normalizeAssessmentRole } from './assessment.types';
+import {
+  type AssessmentRecordRow,
+  type AssessmentQueryParams,
+  type AssessmentStatsRow,
+  normalizeAssessmentRole,
+} from './assessment.types';
 
 // ==================== 缓存配置 ====================
 
@@ -116,7 +120,10 @@ export async function getMyRecords(
   userId: number,
   params: AssessmentQueryParams
 ): Promise<{ rows: AssessmentRecordRow[]; total: number }> {
-  const cacheKey = generateCacheKey('my-records', { userId, ...params } as unknown as Record<string, unknown>);
+  const cacheKey = generateCacheKey('my-records', { userId, ...params } as unknown as Record<
+    string,
+    unknown
+  >);
   const cached = cache.get<{ rows: AssessmentRecordRow[]; total: number }>(cacheKey);
   if (cached) return cached;
 
@@ -160,6 +167,34 @@ export async function getById(id: number): Promise<AssessmentRecordRow | null> {
     cache.set(cacheKey, row, CACHE_TTL.DASHBOARD);
   }
   return row;
+}
+
+// ==================== 来源查询 ====================
+
+/**
+ * 按来源 ID 查询考核记录（用于催收任务详情合并显示）
+ * 替代旧 ar-assessment 模块的 getAssessmentsByTaskId
+ * @param sourceId 来源 ID（如催收任务 ID）
+ * @param sourceType 来源类型，默认 'ar_collection_task'
+ */
+export async function getRecordsBySourceId(
+  sourceId: number,
+  sourceType = 'ar_collection_task'
+): Promise<AssessmentRecordRow[]> {
+  const cacheKey = `${CACHE_PREFIX}by-source:${sourceType}:${sourceId}`;
+  const cached = cache.get<AssessmentRecordRow[]>(cacheKey);
+  if (cached) return cached;
+
+  const result = await query(
+    `SELECT * FROM assessment_records
+     WHERE source_id = $1 AND source_type = $2
+     ORDER BY rule_type, assessment_role`,
+    [sourceId, sourceType]
+  );
+
+  const rows = result.rows as AssessmentRecordRow[];
+  cache.set(cacheKey, rows, CACHE_TTL.HIGH_FREQUENCY);
+  return rows;
 }
 
 // ==================== 写入方法 ====================
@@ -209,10 +244,19 @@ export async function upsertRecord(data: {
   `;
 
   const values = [
-    data.category, data.rule_type, data.source_type, data.source_id,
-    data.source_no, data.source_name, data.assessment_user_id,
-    data.assessment_user_name, normalizeAssessmentRole(data.assessment_role), data.base_amount,
-    data.penalty_rate, data.overdue_days, data.penalty_amount,
+    data.category,
+    data.rule_type,
+    data.source_type,
+    data.source_id,
+    data.source_no,
+    data.source_name,
+    data.assessment_user_id,
+    data.assessment_user_name,
+    normalizeAssessmentRole(data.assessment_role),
+    data.base_amount,
+    data.penalty_rate,
+    data.overdue_days,
+    data.penalty_amount,
     JSON.stringify(data.rule_snapshot),
   ];
 
@@ -360,10 +404,19 @@ export async function batchUpsertRecords(
 
     for (const record of records) {
       const values = [
-        record.category, record.rule_type, record.source_type, record.source_id,
-        record.source_no, record.source_name, record.assessment_user_id,
-        record.assessment_user_name, normalizeAssessmentRole(record.assessment_role), record.base_amount,
-        record.penalty_rate, record.overdue_days, record.penalty_amount,
+        record.category,
+        record.rule_type,
+        record.source_type,
+        record.source_id,
+        record.source_no,
+        record.source_name,
+        record.assessment_user_id,
+        record.assessment_user_name,
+        normalizeAssessmentRole(record.assessment_role),
+        record.base_amount,
+        record.penalty_rate,
+        record.overdue_days,
+        record.penalty_amount,
         JSON.stringify(record.rule_snapshot),
       ];
       const result = await client.query(sql, values);

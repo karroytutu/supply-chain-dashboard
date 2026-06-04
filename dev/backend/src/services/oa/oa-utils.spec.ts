@@ -126,9 +126,7 @@ describe('validateFormData', () => {
 
     it('可选字段缺失不报错', () => {
       const optionalSchema: FormSchema = {
-        fields: [
-          { key: 'name', label: '名称', type: 'text', required: false },
-        ],
+        fields: [{ key: 'name', label: '名称', type: 'text', required: false }],
       };
       expect(validateFormData(optionalSchema, {})).toEqual([]);
     });
@@ -137,11 +135,24 @@ describe('validateFormData', () => {
   describe('visibleWhen 条件隐藏', () => {
     const schema: FormSchema = {
       fields: [
-        { key: 'hasIncome', label: '是否产生收入', type: 'select', required: true,
-          options: [{ value: 'true', label: '是' }, { value: 'false', label: '否' }] },
-        { key: 'disposalValue', label: '处置收入', type: 'money', required: false,
+        {
+          key: 'hasIncome',
+          label: '是否产生收入',
+          type: 'select',
+          required: true,
+          options: [
+            { value: 'true', label: '是' },
+            { value: 'false', label: '否' },
+          ],
+        },
+        {
+          key: 'disposalValue',
+          label: '处置收入',
+          type: 'money',
+          required: false,
           visibleWhen: { field: 'hasIncome', operator: '==', value: 'true' },
-          requiredWhen: { field: 'hasIncome', operator: '==', value: 'true' } },
+          requiredWhen: { field: 'hasIncome', operator: '==', value: 'true' },
+        },
       ],
     };
 
@@ -164,8 +175,13 @@ describe('validateFormData', () => {
   describe('requiredWhen 条件必填', () => {
     const schema: FormSchema = {
       fields: [
-        { key: 'amount', label: '金额', type: 'money', required: false,
-          requiredWhen: { field: 'type', operator: '==', value: 'expense' } },
+        {
+          key: 'amount',
+          label: '金额',
+          type: 'money',
+          required: false,
+          requiredWhen: { field: 'type', operator: '==', value: 'expense' },
+        },
       ],
     };
 
@@ -183,7 +199,10 @@ describe('validateFormData', () => {
     const schema: FormSchema = {
       fields: [
         {
-          key: 'lines', label: '采购明细', type: 'table', required: true,
+          key: 'lines',
+          label: '采购明细',
+          type: 'table',
+          required: true,
           children: [
             { key: 'assetName', label: '资产名称', type: 'text', required: true },
             { key: 'quantity', label: '数量', type: 'number', required: true, min: 1 },
@@ -214,9 +233,7 @@ describe('validateFormData', () => {
 
   describe('数值范围校验', () => {
     const schema: FormSchema = {
-      fields: [
-        { key: 'cost', label: '维修费用', type: 'money', required: true, min: 100 },
-      ],
+      fields: [{ key: 'cost', label: '维修费用', type: 'money', required: true, min: 100 }],
     };
 
     it('值小于 min 时报错', () => {
@@ -237,8 +254,13 @@ describe('validateFormData', () => {
 describe('filterNodesByCondition', () => {
   const nodes: WorkflowNodeDef[] = [
     { order: 1, name: '需求提报', type: 'role', roleCode: 'admin' },
-    { order: 2, name: '行政询价', type: 'data_input', roleCode: 'admin_staff',
-      condition: { field: 'estimatedCost', operator: '>=', value: 500 } },
+    {
+      order: 2,
+      name: '行政询价',
+      type: 'data_input',
+      roleCode: 'admin_staff',
+      condition: { field: 'estimatedCost', operator: '>=', value: 500 },
+    },
     { order: 3, name: '总经理审批', type: 'role', roleCode: 'admin' },
   ];
 

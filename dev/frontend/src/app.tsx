@@ -10,6 +10,8 @@ import { initChunkErrorGlobalListener } from '@/utils/chunk-error-handler';
 import { AppMessageBridge } from '@/utils/appMessage';
 import { usePermission } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/constants/permissions';
+import { createLogger } from '@/utils/logger';
+const log = createLogger('App');
 
 // 在 React 渲染之前注册全局 chunk 加载错误监听
 initChunkErrorGlobalListener();
@@ -155,14 +157,14 @@ export async function getInitialState() {
   } catch (error: any) {
     // 基于 HTTP 状态码判断认证错误（替代关键词匹配，更可靠）
     if (error?.status === 401 || error?.status === 403) {
-      console.warn('[App] 认证失败，跳转登录页:', error?.message);
+      log.warn('认证失败，跳转登录页:', error?.message);
       localStorage.removeItem(TOKEN_KEY);
       window.location.href = '/login';
       return { name: '', avatar: '', permissions: [], roles: [], __authRedirecting: true };
     }
 
     // 网络/临时错误 → 重试一次
-    console.warn('[App] 获取用户信息失败，重试中:', error?.message);
+    log.warn('获取用户信息失败，重试中:', error?.message);
     try {
       const user = await getCurrentUser();
       return {
@@ -172,7 +174,7 @@ export async function getInitialState() {
         roles: user.roles?.map(r => r.code) || [],
       };
     } catch (retryError: any) {
-      console.error('[App] 重试获取用户信息仍失败:', retryError?.message);
+      log.error('重试获取用户信息仍失败:', retryError?.message);
       localStorage.removeItem(TOKEN_KEY);
       window.location.href = '/login';
       return { name: '', avatar: '', permissions: [], roles: [], __authRedirecting: true };
@@ -210,7 +212,7 @@ export const layout = () => ({
 });
 
 export function onRouteChange({ location }: { location: { pathname: string } }) {
-  console.log('[App] 路由变化:', location.pathname);
+  log.info('路由变化:', location.pathname);
 }
 
 /**

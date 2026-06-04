@@ -26,46 +26,22 @@ const router = Router();
 router.use(authMiddleware);
 
 // 获取战略商品列表
-router.get(
-  '/',
-  requirePermission('strategic:read'),
-  getStrategicProductsController
-);
+router.get('/', requirePermission('strategic:read'), getStrategicProductsController);
 
 // 获取统计数据
-router.get(
-  '/stats',
-  requirePermission('strategic:read'),
-  getStrategicProductStatsController
-);
+router.get('/stats', requirePermission('strategic:read'), getStrategicProductStatsController);
 
 // 获取品类树
-router.get(
-  '/categories/tree',
-  requirePermission('strategic:read'),
-  getCategoryTreeController
-);
+router.get('/categories/tree', requirePermission('strategic:read'), getCategoryTreeController);
 
 // 获取可选商品列表
-router.get(
-  '/products',
-  requirePermission('strategic:read'),
-  getProductsForSelectionController
-);
+router.get('/products', requirePermission('strategic:read'), getProductsForSelectionController);
 
 // 批量添加战略商品
-router.post(
-  '/',
-  requirePermission('strategic:write'),
-  addStrategicProductsController
-);
+router.post('/', requirePermission('strategic:write'), addStrategicProductsController);
 
 // 同步品类路径
-router.post(
-  '/sync-category',
-  requirePermission('strategic:write'),
-  syncCategoryPathController
-);
+router.post('/sync-category', requirePermission('strategic:write'), syncCategoryPathController);
 
 // 批量确认战略商品
 router.post(
@@ -89,10 +65,6 @@ router.post(
 );
 
 // 删除战略商品
-router.delete(
-  '/:id',
-  requirePermission('strategic:write'),
-  deleteStrategicProductController
-);
+router.delete('/:id', requirePermission('strategic:write'), deleteStrategicProductController);
 
 export default router;

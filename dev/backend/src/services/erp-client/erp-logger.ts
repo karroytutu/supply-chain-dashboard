@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// erp-logger.ts: 日志模块自身兜底，不能依赖自身记录错误
 /**
  * ERP 请求日志
  * 记录每次 ERP API 调用到 erp_api_logs 表

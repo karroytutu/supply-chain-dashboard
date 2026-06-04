@@ -2,17 +2,12 @@
  * OA - 加签 + 撤回操作
  * @module services/oa/mutations/countersign-withdraw
  */
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
-import {
-  OaInstanceRow,
-  OaNodeRow,
-} from '../oa.types';
-import {
-  isCurrentApprover,
-  isApplicant,
-  getCurrentApproverNode,
-} from '../oa-utils';
+import { OaInstanceRow, OaNodeRow } from '../oa.types';
+import { isCurrentApprover, isApplicant, getCurrentApproverNode } from '../oa-utils';
 import { notifyCountersign, notifyWithdrawn } from '../oa-notify';
 import { completeAllPendingTodos } from '../oa-process-centre';
 import { transaction, getInstanceNotifyData } from './shared-utils';
@@ -44,7 +39,7 @@ export async function countersignApproval(
 
   const countersignUsers = countersignUsersResult.rows;
 
-  await transaction(async (client) => {
+  await transaction(async client => {
     const currentNode = await getCurrentApproverNode(client, instanceId, userId);
     if (!currentNode) {
       throw new Error('未找到待审批节点');
@@ -109,7 +104,10 @@ export async function countersignApproval(
         (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
        VALUES ($1, 'countersign', $2, $3, $4, $5, $6)`,
       [
-        instanceId, userId, userName, currentNode.node_order,
+        instanceId,
+        userId,
+        userName,
+        currentNode.node_order,
         comment || null,
         JSON.stringify({
           countersignType,
@@ -122,7 +120,7 @@ export async function countersignApproval(
 
   setImmediate(() => {
     sendCountersignNotification(instanceId, userId, userName, countersignUserIds).catch(err => {
-      console.error('[OA] 加签通知发送失败:', err);
+      log.error('加签通知发送失败:', err);
     });
   });
 }
@@ -155,7 +153,7 @@ export async function withdrawApproval(
     throw new Error('只有审批中的申请可以撤回');
   }
 
-  await transaction(async (client) => {
+  await transaction(async client => {
     await client.query(
       `UPDATE oa_approval_instances SET status = 'withdrawn', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [instanceId]
@@ -176,10 +174,10 @@ export async function withdrawApproval(
   setImmediate(() => {
     // 新增：取消所有被取消节点审批人的钉钉待办 + 完成壳实例
     completeAllPendingTodos(instanceId, 'refuse').catch(err => {
-      console.error('[ProcessCentre] 批量取消钉钉待办失败:', err);
+      log.error('批量取消钉钉待办失败:', err);
     });
     sendWithdrawNotification(instanceId, userId, userName).catch(err => {
-      console.error('[OA] 撤回通知发送失败:', err);
+      log.error('撤回通知发送失败:', err);
     });
   });
 }

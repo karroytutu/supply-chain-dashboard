@@ -2,6 +2,8 @@
  * 数据总览服务模块
  * 提供全局统计数据和趋势数据
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Overview');
 
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
@@ -110,8 +112,10 @@ export async function getOverviewStats(): Promise<OverviewStats> {
       _statsRefreshing = true;
       computeStats()
         .then(data => cache.set(cacheKey, data, CACHE_TTL.DASHBOARD))
-        .catch(err => console.warn('[Overview] 后台刷新统计数据失败:', err))
-        .finally(() => { _statsRefreshing = false; });
+        .catch(err => log.warn('后台刷新统计数据失败:', err))
+        .finally(() => {
+          _statsRefreshing = false;
+        });
     }
     return stale;
   }
@@ -137,7 +141,7 @@ export async function getOverviewFull(): Promise<OverviewFull> {
  * 获取趋势数据
  * @param days 天数，默认7天
  */
-export async function getTrendData(days: number = 7): Promise<TrendData> {
+export async function getTrendData(days = 7): Promise<TrendData> {
   // 检查缓存
   const cacheKey = `overview:trend:${days}`;
   const cached = cache.get<TrendData>(cacheKey);
@@ -151,7 +155,7 @@ export async function getTrendData(days: number = 7): Promise<TrendData> {
   // 尝试从数据库获取历史数据
   try {
     const result = await appQuery<{
-      date: any;  // PostgreSQL DATE 返回 Date 对象
+      date: any; // PostgreSQL DATE 返回 Date 对象
       rate: number;
       in_stock_count: number;
       total_count: number;
@@ -177,14 +181,14 @@ export async function getTrendData(days: number = 7): Promise<TrendData> {
     });
   } catch (error) {
     // 表不存在或其他错误，使用模拟数据
-    console.warn('获取历史趋势数据失败，使用模拟数据:', error);
+    log.warn('获取历史趋势数据失败，使用模拟数据:', error);
   }
 
   // 如果没有历史数据，生成模拟趋势
   if (data.length === 0) {
     const availability = await getAvailabilityData();
     const baseRate = availability.strategicAvailability?.value || availability.value;
-    
+
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
@@ -211,10 +215,7 @@ export async function getTrendData(days: number = 7): Promise<TrendData> {
  * 获取当前预警商品数量
  */
 async function getCurrentWarningCount(): Promise<number> {
-  const [availability, turnover] = await Promise.all([
-    getAvailabilityData(),
-    getTurnoverData(),
-  ]);
+  const [availability, turnover] = await Promise.all([getAvailabilityData(), getTurnoverData()]);
 
   return (
     (availability.warningStats?.outOfStock || 0) +

@@ -1,4 +1,12 @@
-import { SignOptions, sign, verify, decode, TokenExpiredError, JsonWebTokenError, NotBeforeError } from 'jsonwebtoken';
+import {
+  SignOptions,
+  sign,
+  verify,
+  decode,
+  TokenExpiredError,
+  JsonWebTokenError,
+  NotBeforeError,
+} from 'jsonwebtoken';
 import { config } from '../config';
 
 export interface JwtPayload {
@@ -12,6 +20,8 @@ export interface JwtPayload {
 /**
  * 生成访问令牌
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Utils');
 export function generateToken(payload: JwtPayload): string {
   const options: SignOptions = {
     expiresIn: '24h',
@@ -28,13 +38,13 @@ export function verifyToken(token: string): JwtPayload | null {
     return decoded;
   } catch (error) {
     if (error instanceof TokenExpiredError) {
-      console.warn('[JWT] Token expired:', error.expiredAt);
+      log.warn('Token expired:', error.expiredAt);
     } else if (error instanceof JsonWebTokenError) {
-      console.warn('[JWT] Invalid token:', error.message);
+      log.warn('Invalid token:', error.message);
     } else if (error instanceof NotBeforeError) {
-      console.warn('[JWT] Token not yet active');
+      log.warn('Token not yet active');
     } else {
-      console.error('[JWT] Unknown verification error:', error);
+      log.error('Unknown verification error:', error);
     }
     return null;
   }
@@ -47,7 +57,7 @@ export function decodeToken(token: string): JwtPayload | null {
   try {
     const decoded = decode(token) as JwtPayload;
     return decoded;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -59,11 +69,11 @@ export function extractTokenFromHeader(authHeader: string | undefined): string |
   if (!authHeader) {
     return null;
   }
-  
+
   const parts = authHeader.split(' ');
   if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
     return null;
   }
-  
+
   return parts[1];
 }

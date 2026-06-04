@@ -24,7 +24,10 @@ export function toDTO(row: CreditLicenseDeferredRow): CreditLicenseDeferredDTO {
     overdueDays = Math.ceil((now.getTime() - deadlineDate.getTime()) / (1000 * 60 * 60 * 24));
     penaltyAmount = overdueDays * CREDIT_LICENSE_PENALTY_PER_DAY;
   } else {
-    remainingDays = Math.max(0, Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+    remainingDays = Math.max(
+      0,
+      Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    );
   }
 
   return {

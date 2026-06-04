@@ -1,14 +1,20 @@
 /**
  * 催收管理 - 统计与待办查询服务
  */
-
+import { SqlParam } from '../../db/types';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ArCollection');
 import { appQuery as query } from '../../db/appPool';
 import { AR_EXTENSION_MAX_DAYS } from '../../utils/constants';
 
 /**
  * 构建统计查询的角色 WHERE 条件（不含表别名前缀）
  */
-function buildStatsRoleFilter(role: string, userId: number, paramIndex: number): { sql: string; params: any[]; nextIndex: number } {
+export function buildStatsRoleFilter(
+  role: string,
+  userId: number,
+  paramIndex: number
+): { sql: string; params: SqlParam[]; nextIndex: number } {
   switch (role) {
     case 'marketer':
       return {
@@ -86,9 +92,7 @@ export async function getCollectionStats(userId: number, role: string) {
       status: r.status,
       count: parseInt(r.count) || 0,
       amount: parseFloat(r.amount) || 0,
-      percentage: totalTasks > 0
-        ? Math.round((parseInt(r.count) / totalTasks) * 10000) / 100
-        : 0,
+      percentage: totalTasks > 0 ? Math.round((parseInt(r.count) / totalTasks) * 10000) / 100 : 0,
     }));
 
     // 升级任务按层级分组，添加 escalated_l1 / escalated_l2 虚拟状态条目
@@ -115,9 +119,8 @@ export async function getCollectionStats(userId: number, role: string) {
       .filter(d => d.status !== 'escalated')
       .reduce((sum, d) => sum + d.count, 0);
     statusDistribution.forEach(d => {
-      d.percentage = totalForPercentage > 0
-        ? Math.round((d.count / totalForPercentage) * 10000) / 100
-        : 0;
+      d.percentage =
+        totalForPercentage > 0 ? Math.round((d.count / totalForPercentage) * 10000) / 100 : 0;
     });
 
     return {
@@ -140,8 +143,8 @@ export async function getCollectionStats(userId: number, role: string) {
       statusDistribution,
     };
   } catch (error) {
-    console.error('[ArCollection] 获取统计概览失败:', error);
-    throw new Error('获取催收统计失败');
+    log.error('获取统计概览失败:', error);
+    throw new Error('获取催收统计失败', { cause: error });
   }
 }
 
@@ -162,8 +165,8 @@ export async function getMyTasks(userId: number, role: string) {
     // admin/manager/operations_manager 返回总览
     return await getAdminTasks();
   } catch (error) {
-    console.error('[ArCollection] 获取我的待办失败:', error);
-    throw new Error('获取我的待办失败');
+    log.error('获取我的待办失败:', error);
+    throw new Error('获取我的待办失败', { cause: error });
   }
 }
 
@@ -185,9 +188,27 @@ async function getMarketerTasks(userId: number) {
   return {
     role: 'marketer',
     categories: [
-      { key: 'collecting', label: '催收中', count: parseInt(r.collecting) || 0, amount: parseFloat(r.collecting_amount) || 0, urgent: false },
-      { key: 'extension', label: '延期中', count: parseInt(r.extension) || 0, amount: parseFloat(r.extension_amount) || 0, urgent: false },
-      { key: 'overdue_follow', label: '超时未跟进', count: parseInt(r.overdue_follow) || 0, amount: parseFloat(r.overdue_follow_amount) || 0, urgent: true },
+      {
+        key: 'collecting',
+        label: '催收中',
+        count: parseInt(r.collecting) || 0,
+        amount: parseFloat(r.collecting_amount) || 0,
+        urgent: false,
+      },
+      {
+        key: 'extension',
+        label: '延期中',
+        count: parseInt(r.extension) || 0,
+        amount: parseFloat(r.extension_amount) || 0,
+        urgent: false,
+      },
+      {
+        key: 'overdue_follow',
+        label: '超时未跟进',
+        count: parseInt(r.overdue_follow) || 0,
+        amount: parseFloat(r.overdue_follow_amount) || 0,
+        urgent: true,
+      },
     ],
   };
 }
@@ -206,8 +227,20 @@ async function getFinanceTasks() {
   return {
     role: 'current_accountant',
     categories: [
-      { key: 'difference', label: '差异待处理', count: parseInt(r.difference) || 0, amount: parseFloat(r.difference_amount) || 0, urgent: true },
-      { key: 'legal_pending', label: '待法务处理', count: parseInt(r.legal_pending) || 0, amount: parseFloat(r.legal_pending_amount) || 0, urgent: false },
+      {
+        key: 'difference',
+        label: '差异待处理',
+        count: parseInt(r.difference) || 0,
+        amount: parseFloat(r.difference_amount) || 0,
+        urgent: true,
+      },
+      {
+        key: 'legal_pending',
+        label: '待法务处理',
+        count: parseInt(r.legal_pending) || 0,
+        amount: parseFloat(r.legal_pending_amount) || 0,
+        urgent: false,
+      },
     ],
   };
 }
@@ -225,8 +258,20 @@ async function getCashierTasks() {
   return {
     role: 'cashier',
     categories: [
-      { key: 'pending_verify', label: '待核销确认', count: parseInt(r.pending_verify) || 0, amount: parseFloat(r.pending_verify_amount) || 0, urgent: true },
-      { key: 'today_submitted', label: '今日提交', count: parseInt(r.today_submitted) || 0, amount: 0, urgent: false },
+      {
+        key: 'pending_verify',
+        label: '待核销确认',
+        count: parseInt(r.pending_verify) || 0,
+        amount: parseFloat(r.pending_verify_amount) || 0,
+        urgent: true,
+      },
+      {
+        key: 'today_submitted',
+        label: '今日提交',
+        count: parseInt(r.today_submitted) || 0,
+        amount: 0,
+        urgent: false,
+      },
     ],
   };
 }
@@ -244,7 +289,13 @@ async function getAdminTasks() {
   return {
     role: 'admin',
     categories: [
-      { key: 'active', label: '进行中任务', count: parseInt(r.active) || 0, amount: parseFloat(r.active_amount) || 0, urgent: false },
+      {
+        key: 'active',
+        label: '进行中任务',
+        count: parseInt(r.active) || 0,
+        amount: parseFloat(r.active_amount) || 0,
+        urgent: false,
+      },
       { key: 'total', label: '全部任务', count: parseInt(r.total) || 0, amount: 0, urgent: false },
     ],
   };

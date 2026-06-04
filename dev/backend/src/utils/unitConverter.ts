@@ -33,7 +33,7 @@ export interface StockUnitConversionOptions {
 
 /**
  * 转换库存数量和日均销量到显示单位
- * 
+ *
  * 规则：
  * 1. 优先使用包装单位显示
  * 2. 如果包装单位数量为0但基本单位数量大于0，则显示基本单位
@@ -41,16 +41,16 @@ export interface StockUnitConversionOptions {
  */
 export function convertStockUnits(options: StockUnitConversionOptions): UnitConversionResult {
   const { baseQuantity, baseAvgDaily, unitFactor, baseUnitName, pkgUnitName } = options;
-  
+
   // 计算包装单位数量
   const pkgQuantity = unitFactor > 1 ? Math.floor(baseQuantity / unitFactor) : baseQuantity;
-  
+
   // 计算包装单位日均销量
   const pkgAvgDaily = unitFactor > 1 ? baseAvgDaily / unitFactor : baseAvgDaily;
-  
+
   // 判断是否使用基本单位显示
   const useBaseUnit = pkgQuantity === 0 && baseQuantity > 0;
-  
+
   return {
     displayQuantity: useBaseUnit ? baseQuantity : pkgQuantity,
     displayUnit: useBaseUnit ? baseUnitName : pkgUnitName,

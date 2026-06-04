@@ -5,8 +5,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Modal, Table, Button, Input, message } from 'antd';
 import { getSettlementOrdersPaged } from '@/services/api/oa';
-import type { SettlementRecord } from './SettlementOrderPicker';
-import { TABLE_COLUMNS, PAGE_SIZE } from './SettlementOrderPicker';
+import { type SettlementRecord, TABLE_COLUMNS, PAGE_SIZE } from './SettlementOrderPicker';
 import styles from './SettlementOrderPicker.less';
 
 interface SettlementOrderPickerModalProps {
@@ -86,6 +85,7 @@ const SettlementOrderPickerModal: React.FC<SettlementOrderPickerModalProps> = ({
         if (searchTimer.current) clearTimeout(searchTimer.current);
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [open]);
 
   const handleClose = () => {

@@ -3,14 +3,15 @@
  * 自动注入认证、公共头部、重试、限流、日志
  * @module services/erp-client/erp-client
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ERP');
 
 import axios, { AxiosRequestConfig } from 'axios';
 import { getErpConfig, ERP_API_VERSION } from './erp-config';
 import { getErpAccessToken } from './erp-auth';
 import { createLogEntry, writeErpLog } from './erp-logger';
-import { ErpApiError } from './erp-client.types';
-import type { ErpRequestOptions, ErpApiResponse } from './erp-client.types';
-import logger from '../../utils/logger';
+import { ErpApiError, type ErpRequestOptions } from './erp-client.types';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 /** 请求限流队列 */
 let _lastRequestTime = 0;
@@ -35,16 +36,18 @@ async function waitForRateLimit(): Promise<void> {
 /**
  * 构造公共请求头
  */
-async function buildCommonHeaders(customHeaders?: Record<string, string>): Promise<Record<string, string>> {
+async function buildCommonHeaders(
+  customHeaders?: Record<string, string>
+): Promise<Record<string, string>> {
   const config = getErpConfig();
   const token = await getErpAccessToken();
 
   return {
-    'authorization': `Bearer ${token}`,
-    'cid': config.cid,
-    'uid': config.uid,
-    'SaasCid': config.cid,
-    'apiversion': ERP_API_VERSION,
+    authorization: `Bearer ${token}`,
+    cid: config.cid,
+    uid: config.uid,
+    SaasCid: config.cid,
+    apiversion: ERP_API_VERSION,
     'Content-Type': 'application/json;charset=UTF-8',
     ...customHeaders,
   };
@@ -112,11 +115,16 @@ export async function erpRequest<T = any>(
           retryCount,
           businessType: options?.businessType,
           businessId: options?.businessId,
-        }).catch(err => logger.warn('[ErpClient] 日志写入失败:', err?.message)); // 日志写入失败不影响业务
+        }).catch(err => log.warn('日志写入失败:', err?.message)); // 日志写入失败不影响业务
       }
 
       // 舟谱 API 错误码检查
-      if (responseData && typeof responseData === 'object' && responseData.code !== undefined && responseData.code !== 0) {
+      if (
+        responseData &&
+        typeof responseData === 'object' &&
+        responseData.code !== undefined &&
+        responseData.code !== 0
+      ) {
         throw new ErpApiError(
           responseData.message || `舟谱API错误(code=${responseData.code})`,
           responseData.code,
@@ -138,12 +146,12 @@ export async function erpRequest<T = any>(
             path: fullPath,
             requestHeaders: sanitizedHeaders,
             requestBody: method.toUpperCase() !== 'GET' ? data : undefined,
-            errorMessage: error.message,
+            errorMessage: getErrorMessage(error),
             durationMs: Date.now() - startTime,
             retryCount,
             businessType: options?.businessType,
             businessId: options?.businessId,
-          }).catch(err => logger.warn('[ErpClient] 日志写入失败:', err?.message)); // 日志写入失败不影响业务
+          }).catch(err => log.warn('日志写入失败:', err?.message)); // 日志写入失败不影响业务
         }
         throw error;
       }
@@ -152,7 +160,10 @@ export async function erpRequest<T = any>(
       retryCount++;
       if (retryCount <= config.retryMax) {
         const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
-        console.warn(`[ErpClient] 请求失败，${delay}ms 后第 ${retryCount} 次重试: ${fullPath}`, error.message);
+        log.warn(
+          `请求失败，${delay}ms 后第 ${retryCount} 次重试: ${fullPath}`,
+          getErrorMessage(error)
+        );
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -171,7 +182,7 @@ export async function erpRequest<T = any>(
       retryCount,
       businessType: options?.businessType,
       businessId: options?.businessId,
-    }).catch(err => logger.warn('[ErpClient] 日志写入失败:', err?.message)); // 日志写入失败不影响业务
+    }).catch(err => log.warn('日志写入失败:', err?.message)); // 日志写入失败不影响业务
   }
 
   throw new ErpApiError(

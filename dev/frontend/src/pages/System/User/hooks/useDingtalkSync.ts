@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { getErrorMessage } from '../../../../utils/errorUtils';
 import {
   getSyncStatus,
   getSyncLogs,
@@ -85,8 +86,8 @@ export function useDingtalkSync(): UseDingtalkSyncReturn {
       await fetchSyncStatus();
       await fetchLogs();
       return { success: true };
-    } catch (error: any) {
-      return { success: false, message: error.message || '同步异常' };
+    } catch (error) {
+      return { success: false, message: getErrorMessage(error) || '同步异常' };
     } finally {
       setSyncing(false);
     }
@@ -126,6 +127,7 @@ export function useDingtalkSync(): UseDingtalkSyncReturn {
     if (syncStatus && !syncStatus.is_running) {
       fetchLogs();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [syncStatus?.is_running]);
 
   return {

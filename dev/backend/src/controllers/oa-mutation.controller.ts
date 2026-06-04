@@ -2,6 +2,8 @@
  * OA操作控制器
  * @module controllers/oa-mutation.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('OaMutation');
 
 import { Request, Response } from 'express';
 import { getFormTypeByCodeQuery } from '../services/oa/oa-form-type.query';
@@ -19,7 +21,7 @@ import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 /** 提交审批 */
 export async function submit(req: Request, res: Response): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -42,12 +44,12 @@ export async function submit(req: Request, res: Response): Promise<void> {
       formType,
       user.userId,
       user.name,
-      user.department_name
+      ((user as unknown as Record<string, unknown>).department_name as string | null) ?? null
     );
 
     res.json(buildSuccessResponse(result, '提交成功'));
   } catch (error) {
-    console.error('提交审批失败:', error);
+    log.error('提交审批失败:', error);
     const message = error instanceof Error ? error.message : '提交审批失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
@@ -56,7 +58,7 @@ export async function submit(req: Request, res: Response): Promise<void> {
 /** 同意审批 */
 export async function approve(req: Request, res: Response): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -66,12 +68,14 @@ export async function approve(req: Request, res: Response): Promise<void> {
     const { comment, inputData } = req.body;
     const result = await approveApproval(instanceId, user.userId, user.name, comment, inputData);
     if (result.status === 'processing') {
-      res.status(202).json(buildSuccessResponse({ status: 'processing' }, '审批已通过，系统处理中'));
+      res
+        .status(202)
+        .json(buildSuccessResponse({ status: 'processing' }, '审批已通过，系统处理中'));
     } else {
       res.json(buildSuccessResponse(null, '审批通过'));
     }
   } catch (error) {
-    console.error('同意审批失败:', error);
+    log.error('同意审批失败:', error);
     const message = error instanceof Error ? error.message : '同意审批失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
@@ -80,7 +84,7 @@ export async function approve(req: Request, res: Response): Promise<void> {
 /** 拒绝审批 */
 export async function reject(req: Request, res: Response): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -96,7 +100,7 @@ export async function reject(req: Request, res: Response): Promise<void> {
     await rejectApproval(instanceId, user.userId, user.name, comment);
     res.json(buildSuccessResponse(null, '已拒绝'));
   } catch (error) {
-    console.error('拒绝审批失败:', error);
+    log.error('拒绝审批失败:', error);
     const message = error instanceof Error ? error.message : '拒绝审批失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
@@ -105,7 +109,7 @@ export async function reject(req: Request, res: Response): Promise<void> {
 /** 转交审批 */
 export async function transfer(req: Request, res: Response): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -121,7 +125,7 @@ export async function transfer(req: Request, res: Response): Promise<void> {
     await transferApproval(instanceId, user.userId, user.name, transferToUserId, comment);
     res.json(buildSuccessResponse(null, '转交成功'));
   } catch (error) {
-    console.error('转交审批失败:', error);
+    log.error('转交审批失败:', error);
     const message = error instanceof Error ? error.message : '转交审批失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
@@ -130,7 +134,7 @@ export async function transfer(req: Request, res: Response): Promise<void> {
 /** 加签 */
 export async function countersign(req: Request, res: Response): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -143,10 +147,17 @@ export async function countersign(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    await countersignApproval(instanceId, user.userId, user.name, countersignType, countersignUserIds, comment);
+    await countersignApproval(
+      instanceId,
+      user.userId,
+      user.name,
+      countersignType,
+      countersignUserIds,
+      comment
+    );
     res.json(buildSuccessResponse(null, '加签成功'));
   } catch (error) {
-    console.error('加签失败:', error);
+    log.error('加签失败:', error);
     const message = error instanceof Error ? error.message : '加签失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
@@ -155,7 +166,7 @@ export async function countersign(req: Request, res: Response): Promise<void> {
 /** 撤回审批 */
 export async function withdraw(req: Request, res: Response): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -165,7 +176,7 @@ export async function withdraw(req: Request, res: Response): Promise<void> {
     await withdrawApproval(instanceId, user.userId, user.name);
     res.json(buildSuccessResponse(null, '撤回成功'));
   } catch (error) {
-    console.error('撤回审批失败:', error);
+    log.error('撤回审批失败:', error);
     const message = error instanceof Error ? error.message : '撤回审批失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
@@ -174,7 +185,7 @@ export async function withdraw(req: Request, res: Response): Promise<void> {
 /** 标记抄送已读 */
 export async function markCcAsRead(req: Request, res: Response): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json(buildErrorResponse(401, '未登录'));
       return;
@@ -184,7 +195,7 @@ export async function markCcAsRead(req: Request, res: Response): Promise<void> {
     await markCcRead(instanceId, user.userId);
     res.json(buildSuccessResponse(null, '已标记已读'));
   } catch (error) {
-    console.error('标记抄送已读失败:', error);
+    log.error('标记抄送已读失败:', error);
     const message = error instanceof Error ? error.message : '标记已读失败';
     res.status(400).json(buildErrorResponse(400, message));
   }

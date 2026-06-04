@@ -2,15 +2,14 @@
  * 钉钉服务 - 消息发送
  * @module services/dingtalk-message.service
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Service');
 
 import { config } from '../config';
 import { getAccessToken, sendDingtalkRequest } from './dingtalk-client';
 import { createNotificationLog, updateNotificationLogStatus } from './notification-log.service';
-import type {
-  MessageType,
-  SendMessageOptions,
-  SendResult,
-} from './dingtalk-types';
+import type { MessageType, SendMessageOptions, SendResult } from './dingtalk-types';
+import { getErrorMessage } from '../utils/errorUtils';
 
 /**
  * 发送钉钉工作通知
@@ -24,7 +23,7 @@ export async function sendWorkNotification(
 ): Promise<SendResult> {
   try {
     if (!userIdList || userIdList.length === 0) {
-      console.log('[Dingtalk] 工作通知跳过: 接收者列表为空');
+      log.info('工作通知跳过: 接收者列表为空');
       return { success: false, message: '接收者列表为空' };
     }
 
@@ -74,7 +73,8 @@ export async function sendWorkNotification(
         }
         const oa = options.oaMessage;
         const oaBody: any = { title: oa.body.title };
-        if (oa.body.form) oaBody.form = oa.body.form.map(row => ({ key: row.key, value: row.value }));
+        if (oa.body.form)
+          oaBody.form = oa.body.form.map(row => ({ key: row.key, value: row.value }));
         if (oa.body.content) oaBody.content = oa.body.content;
         if (oa.body.rich) oaBody.rich = oa.body.rich;
         if (oa.body.image) oaBody.image = oa.body.image;
@@ -122,35 +122,42 @@ export async function sendWorkNotification(
 
     if (response.errcode === 0) {
       const taskId = response.taskId;
-      console.log('[Dingtalk] 工作通知发送成功:', { taskId, msgType, receivers: userIdList.length });
+      log.info('工作通知发送成功:', { taskId, msgType, receivers: userIdList.length });
 
       const logId = await createNotificationLog({
         businessType: options?.businessType || 'collection',
         businessId: options?.businessId,
         businessNo: options?.businessNo,
-        msgType, title, content: contentForLog,
-        taskId, receiverIds: userIdList, createdBy: options?.createdBy,
+        msgType,
+        title,
+        content: contentForLog,
+        taskId,
+        receiverIds: userIdList,
+        createdBy: options?.createdBy,
       });
 
       await updateNotificationLogStatus(logId, 'sent', taskId);
       return { success: true, message: '发送成功', taskId, logId };
     } else {
       const errMsg = response.errmsg || '发送失败';
-      console.error('[Dingtalk] 工作通知发送失败:', response);
+      log.error('工作通知发送失败:', response);
 
       const logId = await createNotificationLog({
         businessType: options?.businessType || 'collection',
         businessId: options?.businessId,
         businessNo: options?.businessNo,
-        msgType, title, content: contentForLog,
-        receiverIds: userIdList, createdBy: options?.createdBy,
+        msgType,
+        title,
+        content: contentForLog,
+        receiverIds: userIdList,
+        createdBy: options?.createdBy,
       });
 
       await updateNotificationLogStatus(logId, 'failed', undefined, errMsg);
       return { success: false, message: errMsg, logId };
     }
-  } catch (error: any) {
-    console.error('[Dingtalk] 工作通知发送异常:', error.message);
-    return { success: false, message: error.message || '发送异常' };
+  } catch (error) {
+    log.error('工作通知发送异常:', getErrorMessage(error));
+    return { success: false, message: getErrorMessage(error) || '发送异常' };
   }
 }

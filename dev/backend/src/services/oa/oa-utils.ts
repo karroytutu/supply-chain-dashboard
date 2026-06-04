@@ -16,8 +16,17 @@ import type {
 } from './oa.types';
 
 // Re-export from split modules
-export { numberToChineseUpper, validateFormData, validateInputData, checkCondition } from './oa-form-utils';
-export { filterNodesByCondition, resolveApproverId, findUserIdsByRoleCodes } from './oa-workflow-utils';
+export {
+  numberToChineseUpper,
+  validateFormData,
+  validateInputData,
+  checkCondition,
+} from './oa-form-utils';
+export {
+  filterNodesByCondition,
+  resolveApproverId,
+  findUserIdsByRoleCodes,
+} from './oa-workflow-utils';
 
 // =====================================================
 // 编号生成
@@ -56,7 +65,9 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     ...(codeDefinition?.onNodeCompleted && { onNodeCompleted: codeDefinition.onNodeCompleted }),
     ...(codeDefinition?.onApproved && { onApproved: codeDefinition.onApproved }),
     ...(codeDefinition?.getCCRoles && { getCCRoles: codeDefinition.getCCRoles }),
-    ...(codeDefinition?.resolvePreviewContext && { resolvePreviewContext: codeDefinition.resolvePreviewContext }),
+    ...(codeDefinition?.resolvePreviewContext && {
+      resolvePreviewContext: codeDefinition.resolvePreviewContext,
+    }),
   };
 }
 

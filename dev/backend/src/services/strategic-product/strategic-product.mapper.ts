@@ -83,7 +83,10 @@ export function toStrategicProductStatsDTO(row: StrategicProductStatsRow): Strat
 /**
  * 商品选择行 → ProductForSelection
  */
-export function toProductForSelectionDTO(row: ProductForSelectionRow, strategicGoodsIds: Set<string>): ProductForSelection {
+export function toProductForSelectionDTO(
+  row: ProductForSelectionRow,
+  strategicGoodsIds: Set<string>
+): ProductForSelection {
   // 生成规格字符串（单位换算关系）
   let specification = '';
   const pkgUnit = row.pkg_unit_name;

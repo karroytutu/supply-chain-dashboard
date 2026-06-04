@@ -2,21 +2,18 @@
  * OA - 提交操作
  * @module services/oa/mutations/submit-approval
  */
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
-import {
-  FormTypeDefinition,
-  SubmitApprovalRequest,
-  OaInstanceRow,
-  OaNodeRow,
-} from '../oa.types';
+import { FormTypeDefinition, SubmitApprovalRequest, OaInstanceRow, OaNodeRow } from '../oa.types';
 import {
   generateInstanceNo,
   validateFormData,
   filterNodesByCondition,
   resolveApproverId,
 } from '../oa-utils';
-import { getFormTypeByCode } from '../form-types';
+
 import { initErpMeta } from '../../fixed-asset/erp-meta-utils';
 import { notifyPendingApproval } from '../oa-notify';
 import { createProcessInstance } from '../oa-process-centre';
@@ -49,10 +46,7 @@ export async function submitApproval(
   const instanceNo = await generateInstanceNo();
 
   // 3. 解析审批节点（根据条件过滤）
-  const filteredNodes = filterNodesByCondition(
-    formType.workflowDef.nodes,
-    req.formData
-  );
+  const filteredNodes = filterNodesByCondition(formType.workflowDef.nodes, req.formData);
 
   if (filteredNodes.length === 0) {
     throw new Error('审批流程配置错误：至少需要一个审批节点');
@@ -63,7 +57,7 @@ export async function submitApproval(
   const firstNodeIsAuto = filteredNodes[0].type === 'auto';
   const hasAutoNode = filteredNodes.some(n => n.type === 'auto');
 
-  const result = await transaction(async (client) => {
+  const result = await transaction(async client => {
     // 插入审批实例
     const initialStatus = firstNodeIsAuto ? 'processing' : 'pending';
     const initialNodeOrder = firstNodeIsAuto ? filteredNodes[0].order : 1;
@@ -145,11 +139,11 @@ export async function submitApproval(
   // 初始化 erp_meta
   if (req.formData.applicationNo) {
     await initErpMeta(result.id, req.formData.applicationNo as string).catch(err => {
-      console.error(`[OA] erp_meta 初始化失败 [instanceId=${result.id}]:`, err);
+      log.error(`erp_meta 初始化失败 [instanceId=${result.id}]:`, err);
     });
   } else if (hasAutoNode) {
     await initErpMeta(result.id, '').catch(err => {
-      console.error(`[OA] erp_meta 初始化失败 [instanceId=${result.id}]:`, err);
+      log.error(`erp_meta 初始化失败 [instanceId=${result.id}]:`, err);
     });
   }
 
@@ -171,19 +165,20 @@ export async function submitApproval(
       userId,
       req.title,
       formType.formSchema,
-      req.formData as Record<string, unknown>,
+      req.formData as Record<string, unknown>
     ).catch(err => {
-      console.error('[ProcessCentre] 创建壳实例失败:', err);
+      log.error('创建壳实例失败:', err);
     });
 
     if (firstNodeIsAuto && autoNodeToExecute && formType.onApproved) {
       // auto 节点回调内部会自行通知下一个审批人，无需再发提交通知
       const formData = req.formData as Record<string, unknown>;
-      executeAutoNodeCallback(result.id, autoNodeToExecute!, formType!, result, formData)
-        .catch(err => console.error(`[OA] submitApproval auto节点异步执行错误:`, err));
+      executeAutoNodeCallback(result.id, autoNodeToExecute!, formType!, result, formData).catch(
+        err => log.error(`submitApproval auto节点异步执行错误:`, err)
+      );
     } else {
       sendSubmitNotifications(result, formType, userId).catch(err => {
-        console.error('[OA] 提交通知发送失败:', err);
+        log.error('提交通知发送失败:', err);
       });
     }
   });
@@ -203,7 +198,11 @@ async function sendSubmitNotifications(
   const data = await getInstanceNotifyData(instance.id);
   if (!data) return;
 
-  const nodeResult = await query<{ assigned_user_id: number; node_name: string; node_order: number }>(
+  const nodeResult = await query<{
+    assigned_user_id: number;
+    node_name: string;
+    node_order: number;
+  }>(
     `SELECT assigned_user_id, node_name, node_order FROM oa_approval_nodes
      WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
      ORDER BY node_order LIMIT 1`,

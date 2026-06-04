@@ -17,16 +17,24 @@ export async function cleanupExpenditureBill(billId: number): Promise<void> {
   const time = Date.now();
 
   // 步骤1：反审
-  await erpPost(config.expenditureBillReApprovePath, { id: billId, cid, uid, time }, {
-    pathPrefix: '/saas/pro/',
-    businessType: 'cleanup_expenditure_reapprove',
-  });
+  await erpPost(
+    config.expenditureBillReApprovePath,
+    { id: billId, cid, uid, time },
+    {
+      pathPrefix: '/saas/pro/',
+      businessType: 'cleanup_expenditure_reapprove',
+    }
+  );
 
   // 步骤2：取消
-  await erpPost(config.expenditureBillCancelPath, { id: billId, cid, uid }, {
-    pathPrefix: '/saas/pro/',
-    businessType: 'cleanup_expenditure_cancel',
-  });
+  await erpPost(
+    config.expenditureBillCancelPath,
+    { id: billId, cid, uid },
+    {
+      pathPrefix: '/saas/pro/',
+      businessType: 'cleanup_expenditure_cancel',
+    }
+  );
 }
 
 /**
@@ -39,14 +47,22 @@ export async function cleanupIncomeBill(billId: number): Promise<void> {
   const time = Date.now();
 
   // 步骤1：反审
-  await erpPost(config.incomeReApprovePath, { id: billId, cid, uid, time }, {
-    pathPrefix: '/saas/pro/',
-    businessType: 'cleanup_income_reapprove',
-  });
+  await erpPost(
+    config.incomeReApprovePath,
+    { id: billId, cid, uid, time },
+    {
+      pathPrefix: '/saas/pro/',
+      businessType: 'cleanup_income_reapprove',
+    }
+  );
 
   // 步骤2：取消
-  await erpPost(config.incomeCancelPath, { id: billId, cid, uid }, {
-    pathPrefix: '/saas/pro/',
-    businessType: 'cleanup_income_cancel',
-  });
+  await erpPost(
+    config.incomeCancelPath,
+    { id: billId, cid, uid },
+    {
+      pathPrefix: '/saas/pro/',
+      businessType: 'cleanup_income_cancel',
+    }
+  );
 }

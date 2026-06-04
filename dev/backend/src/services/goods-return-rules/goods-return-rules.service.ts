@@ -2,6 +2,7 @@
  * 商品退货规则服务
  */
 
+import { SqlParam } from '../../db/types';
 import { appQuery } from '../../db/appPool';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
 import type {
@@ -25,7 +26,7 @@ export async function getGoodsReturnRules(
   const { page = 1, pageSize = 20, keyword, canReturnToSupplier } = params;
   const offset = (page - 1) * pageSize;
   const conditions: string[] = ['grr.is_active = TRUE'];
-  const queryParams: any[] = [];
+  const queryParams: SqlParam[] = [];
   let paramIndex = 1;
 
   if (canReturnToSupplier !== undefined) {
@@ -33,7 +34,9 @@ export async function getGoodsReturnRules(
     queryParams.push(canReturnToSupplier);
   }
   if (keyword) {
-    conditions.push(`(grr.goods_name ILIKE $${paramIndex++} OR grr.goods_id ILIKE $${paramIndex++})`);
+    conditions.push(
+      `(grr.goods_name ILIKE $${paramIndex++} OR grr.goods_id ILIKE $${paramIndex++})`
+    );
     queryParams.push(`%${escapeLikePattern(keyword)}%`, `%${escapeLikePattern(keyword)}%`);
   }
 
@@ -56,7 +59,7 @@ export async function getGoodsReturnRules(
     LEFT JOIN users u ON grr.confirmed_by = u.id
     WHERE ${whereClause}
     ORDER BY grr.updated_at DESC
-    LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
+    LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
     listParams
   );
 
@@ -184,7 +187,7 @@ export async function batchSetGoodsReturnRules(
 
   // 批量插入新规则
   // 先构建参数数组，确保参数数量与占位符数量一致
-  const insertParams: any[] = [];
+  const insertParams: SqlParam[] = [];
   goodsIds.forEach(goodsId => {
     insertParams.push(goodsId, '', canReturnToSupplier, userId);
   });
@@ -192,9 +195,12 @@ export async function batchSetGoodsReturnRules(
   const commentParamIndex = insertParams.length + 1;
   insertParams.push(comment || null);
 
-  const values = goodsIds.map((_, i) => 
-    `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4}, NOW(), $${commentParamIndex}, TRUE)`
-  ).join(', ');
+  const values = goodsIds
+    .map(
+      (_, i) =>
+        `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4}, NOW(), $${commentParamIndex}, TRUE)`
+    )
+    .join(', ');
 
   const result = await appQuery(
     `INSERT INTO goods_return_rules 
@@ -218,9 +224,7 @@ export async function batchSetGoodsReturnRules(
 /**
  * 按商品ID检查是否有生效规则
  */
-export async function checkGoodsReturnRule(
-  goodsId: string
-): Promise<GoodsReturnRule | null> {
+export async function checkGoodsReturnRule(goodsId: string): Promise<GoodsReturnRule | null> {
   const result = await appQuery<GoodsReturnRuleRow>(
     `SELECT * FROM goods_return_rules 
      WHERE goods_id = $1 AND is_active = TRUE

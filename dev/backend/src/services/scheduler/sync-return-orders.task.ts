@@ -2,6 +2,8 @@
  * 退货数据同步定时任务
  * 每天08:30从ERP同步昨天的退货数据
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Scheduler');
 
 import { appQuery } from '../../db/appPool';
 import { getProductByName } from '../erp-client/erp-product.service';
@@ -11,9 +13,12 @@ import { getSalesDetailByOriginStr } from '../erp-client/erp-sales-detail.servic
 import { searchErpCustomers } from '../erp-client/erp-customer.service';
 import { getExpiringThreshold } from '../../utils/constants';
 import { checkGoodsReturnRule } from '../goods-return-rules/goods-return-rules.service';
-import { createReturnOrder, autoCompleteMarketingSale } from '../return-order/return-order.mutation';
+import {
+  createReturnOrder,
+  autoCompleteMarketingSale,
+} from '../return-order/return-order.mutation';
 import { sendDailyNewReturnReminder } from '../return-order/return-order-notify';
-import type { CreateReturnOrderParams, ReturnOrder } from '../return-order/return-order.types';
+import type { ReturnOrder } from '../return-order/return-order.types';
 
 /**
  * 云仓退货验收明细记录
@@ -59,16 +64,16 @@ export async function syncReturnOrders(): Promise<{
   createdCount: number;
   skippedCount: number;
 }> {
-  console.log('[SyncReturnOrders] 开始同步退货数据...');
+  log.info('开始同步退货数据...');
   const startTime = Date.now();
 
   // 获取昨天的时间范围
   const yesterday = getYesterdayRange();
-  console.log(`[SyncReturnOrders] 同步时间范围: ${yesterday.start} ~ ${yesterday.end}`);
+  log.info(`同步时间范围: ${yesterday.start} ~ ${yesterday.end}`);
 
   // 1. 查询昨天新增的退货验收明细
   const returnRecords = await queryReturnAcceptanceRecords(yesterday.start, yesterday.end);
-  console.log(`[SyncReturnOrders] 查询到 ${returnRecords.length} 条退货记录`);
+  log.info(`查询到 ${returnRecords.length} 条退货记录`);
 
   let expiringCount = 0;
   let createdCount = 0;
@@ -77,9 +82,13 @@ export async function syncReturnOrders(): Promise<{
   for (const record of returnRecords) {
     try {
       // 2. 幂等性检查：检查退货单号是否已存在（与数据库唯一约束一致）
-      const exists = await checkReturnOrderExists(record.sourceBillNo, record.goodsId, record.unitName);
+      const exists = await checkReturnOrderExists(
+        record.sourceBillNo,
+        record.goodsId,
+        record.unitName
+      );
       if (exists) {
-        console.log(`[SyncReturnOrders] 跳过已存在的记录: ${record.sourceBillNo}, 商品: ${record.goodsName}`);
+        log.info(`跳过已存在的记录: ${record.sourceBillNo}, 商品: ${record.goodsName}`);
         skippedCount++;
         continue;
       }
@@ -87,7 +96,7 @@ export async function syncReturnOrders(): Promise<{
       // 3. 查询商品档案获取保质期（使用商品名称匹配）
       const goodsInfo = await queryGoodsInfo(record.goodsName);
       if (!goodsInfo) {
-        console.warn(`[SyncReturnOrders] 未找到商品档案: ${record.goodsName}`);
+        log.warn(`未找到商品档案: ${record.goodsName}`);
         continue;
       }
 
@@ -97,12 +106,14 @@ export async function syncReturnOrders(): Promise<{
 
       // 仅处理临期商品
       if (daysToExpire > threshold) {
-        console.log(`[SyncReturnOrders] 商品非临期，跳过: ${record.goodsName}, 剩余${daysToExpire}天，阈值${threshold}天`);
+        log.info(
+          `商品非临期，跳过: ${record.goodsName}, 剩余${daysToExpire}天，阈值${threshold}天`
+        );
         continue;
       }
 
       expiringCount++;
-      console.log(`[SyncReturnOrders] 发现临期商品: ${record.goodsName}, 剩余${daysToExpire}天`);
+      log.info(`发现临期商品: ${record.goodsName}, 剩余${daysToExpire}天`);
 
       // 5. 查询商品退货规则
       const rule = await checkGoodsReturnRule(record.goodsId);
@@ -144,27 +155,31 @@ export async function syncReturnOrders(): Promise<{
       });
 
       if (!created) {
-        console.log(`[SyncReturnOrders] 退货单已存在，跳过: ${record.sourceBillNo}, 商品: ${record.goodsName}`);
+        log.info(`退货单已存在，跳过: ${record.sourceBillNo}, 商品: ${record.goodsName}`);
         skippedCount++;
         continue;
       }
 
       createdCount++;
-      console.log(`[SyncReturnOrders] 创建退货单成功: ${returnNo}, 状态: ${status}`);
+      log.info(`创建退货单成功: ${returnNo}, 状态: ${status}`);
     } catch (error) {
-      console.error(`[SyncReturnOrders] 处理记录失败: ${record.sourceBillNo}`, error);
+      log.error(`处理记录失败: ${record.sourceBillNo}`, error);
     }
   }
 
   const duration = Date.now() - startTime;
-  console.log(`[SyncReturnOrders] 同步完成，总记录: ${returnRecords.length}, 临期: ${expiringCount}, 创建: ${createdCount}, 跳过: ${skippedCount}, 耗时: ${duration}ms`);
+  log.info(
+    `同步完成，总记录: ${returnRecords.length}, 临期: ${expiringCount}, 创建: ${createdCount}, 跳过: ${skippedCount}, 耗时: ${duration}ms`
+  );
 
   // 自动检查销售完成情况
   try {
     const autoCompleteResult = await autoCompleteMarketingSale();
-    console.log(`[SyncReturnOrders] 销售完成检查: 检查 ${autoCompleteResult.checkedCount} 条, 完成 ${autoCompleteResult.completedCount} 条`);
+    log.info(
+      `销售完成检查: 检查 ${autoCompleteResult.checkedCount} 条, 完成 ${autoCompleteResult.completedCount} 条`
+    );
   } catch (autoError) {
-    console.error('[SyncReturnOrders] 自动销售完成检查失败:', autoError);
+    log.error('自动销售完成检查失败:', autoError);
   }
 
   return {
@@ -264,7 +279,7 @@ async function queryMarketingManager(sourceBillNo: string): Promise<string | nul
   try {
     const salesDetail = await getSalesDetailByOriginStr(sourceBillNo);
     if (!salesDetail) {
-      console.warn(`[SyncReturnOrders] 未找到销售结算记录: ${sourceBillNo}`);
+      log.warn(`未找到销售结算记录: ${sourceBillNo}`);
       return null;
     }
 
@@ -272,13 +287,13 @@ async function queryMarketingManager(sourceBillNo: string): Promise<string | nul
     const customers = await searchErpCustomers(consumerName);
     const matched = customers.find(c => c.name === consumerName);
     if (!matched) {
-      console.warn(`[SyncReturnOrders] 未找到客户档案: ${consumerName}`);
+      log.warn(`未找到客户档案: ${consumerName}`);
       return null;
     }
 
     return (matched as any).consumerManagerName || null;
   } catch (error) {
-    console.error(`[SyncReturnOrders] 查询责任营销师失败: ${sourceBillNo}`, error);
+    log.error(`查询责任营销师失败: ${sourceBillNo}`, error);
     return null;
   }
 }
@@ -291,7 +306,7 @@ async function queryConsumerName(sourceBillNo: string): Promise<string | null> {
     const salesDetail = await getSalesDetailByOriginStr(sourceBillNo);
     return salesDetail?.consumerName || null;
   } catch (error) {
-    console.error(`[SyncReturnOrders] 查询客户名称失败: ${sourceBillNo}`, error);
+    log.error(`查询客户名称失败: ${sourceBillNo}`, error);
     return null;
   }
 }
@@ -340,7 +355,7 @@ function generateReturnNo(): string {
  */
 export async function sendNewReturnReminder(): Promise<void> {
   try {
-    console.log('[SyncReturnOrders] 准备发送新增临期退货提醒...');
+    log.info('准备发送新增临期退货提醒...');
 
     // 查询今天新增的待确认退货单
     const today = getTodayRange();
@@ -360,18 +375,18 @@ export async function sendNewReturnReminder(): Promise<void> {
     );
 
     const orders = result.rows;
-    console.log(`[SyncReturnOrders] 查询到 ${orders.length} 条待确认退货单`);
+    log.info(`查询到 ${orders.length} 条待确认退货单`);
 
     if (orders.length === 0) {
-      console.log('[SyncReturnOrders] 无新增待确认退货单，跳过提醒');
+      log.info('无新增待确认退货单，跳过提醒');
       return;
     }
 
     // 发送批量提醒
     await sendDailyNewReturnReminder(orders);
-    console.log('[SyncReturnOrders] 新增临期退货提醒发送完成');
+    log.info('新增临期退货提醒发送完成');
   } catch (error) {
-    console.error('[SyncReturnOrders] 发送新增临期退货提醒失败:', error);
+    log.error('发送新增临期退货提醒失败:', error);
   }
 }
 
@@ -402,7 +417,7 @@ async function queryPurchasePrice(goodsName: string): Promise<number | null> {
     const price = costMap.get(goodsName);
     return price && price > 0 ? price : null;
   } catch (error) {
-    console.error(`[SyncReturnOrders] 查询商品进价失败: ${goodsName}`, error);
+    log.error(`查询商品进价失败: ${goodsName}`, error);
     return null;
   }
 }

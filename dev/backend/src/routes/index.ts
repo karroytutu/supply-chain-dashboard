@@ -1,6 +1,16 @@
 import { Router } from 'express';
-import { healthCheck, getDashboard, getWarningProductsController, getCategoryTreeController, getCategoryOutOfStockController } from '../controllers/dashboard.controller';
-import { getOverviewStatsController, getOverviewFullController, getTrendDataController } from '../controllers/overview.controller';
+import {
+  healthCheck,
+  getDashboard,
+  getWarningProductsController,
+  getCategoryTreeController,
+  getCategoryOutOfStockController,
+} from '../controllers/dashboard.controller';
+import {
+  getOverviewStatsController,
+  getOverviewFullController,
+  getTrendDataController,
+} from '../controllers/overview.controller';
 import { getWorkspaceDataController } from '../controllers/workspace.controller';
 import { getThresholds } from '../controllers/config.controller';
 import { authMiddleware } from '../middleware/auth';

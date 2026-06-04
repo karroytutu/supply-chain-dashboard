@@ -2,9 +2,8 @@
  * 战略商品表格工具栏
  */
 import React from 'react';
-import { Input, Button, Badge, Dropdown, Segmented, Select } from 'antd';
+import { Input, Button, Badge, Dropdown, Segmented, Select, type MenuProps } from 'antd';
 import { SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, DownOutlined, SyncOutlined, DownloadOutlined } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
 import type { StrategicProductStatus } from '@/types/strategic-product';
 import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';

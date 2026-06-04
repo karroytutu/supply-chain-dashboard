@@ -2,6 +2,8 @@
  * 战略商品管理 - 查询控制器
  * @module controllers/strategic-product-query.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('StrategicProductQuery');
 
 import { Request, Response } from 'express';
 import {
@@ -27,7 +29,7 @@ export async function getStrategicProductsController(req: Request, res: Response
 
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('获取战略商品列表失败:', error);
+    log.error('获取战略商品列表失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取战略商品列表失败'));
   }
 }
@@ -38,7 +40,7 @@ export async function getStrategicProductStatsController(req: Request, res: Resp
     const stats = await getStrategicProductStats();
     res.json(buildSuccessResponse(stats));
   } catch (error) {
-    console.error('获取战略商品统计失败:', error);
+    log.error('获取战略商品统计失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取战略商品统计失败'));
   }
 }
@@ -49,7 +51,7 @@ export async function getCategoryTreeController(req: Request, res: Response) {
     const tree = await getCategoryTree();
     res.json(buildSuccessResponse(tree));
   } catch (error) {
-    console.error('获取品类树失败:', error);
+    log.error('获取品类树失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取品类树失败'));
   }
 }
@@ -68,7 +70,7 @@ export async function getProductsForSelectionController(req: Request, res: Respo
 
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('获取商品列表失败:', error);
+    log.error('获取商品列表失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取商品列表失败'));
   }
 }

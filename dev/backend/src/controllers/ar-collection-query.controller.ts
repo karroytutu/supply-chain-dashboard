@@ -3,6 +3,8 @@
  * 处理催收任务的查询、统计等 HTTP 请求
  * @module controllers/ar-collection-query.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('ArCollectionQuery');
 
 import { Request, Response } from 'express';
 import {
@@ -17,9 +19,13 @@ import {
   getUpcomingWarnings,
   getWarningReminders,
 } from '../services/ar-collection';
-import { getAssessmentsByTaskId } from '../services/ar-assessment';
+import { assessmentRepository } from '../services/assessment';
 import type { CollectionActionDTO } from '../services/ar-collection/ar-collection.dto';
-import type { TaskStatus, Priority, EscalationLevel } from '../services/ar-collection/ar-collection.types';
+import type {
+  TaskStatus,
+  Priority,
+  EscalationLevel,
+} from '../services/ar-collection/ar-collection.types';
 import type { WarningLevel } from '../services/ar-collection/ar-warning.query';
 import {
   toTaskDTO,
@@ -38,8 +44,10 @@ export const getStats = async (req: Request, res: Response) => {
     const data = await getCollectionStats(userId, role);
     res.json({ code: 200, message: 'success', data });
   } catch (error) {
-    console.error('[ArCollectionController] getStats 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取统计失败' });
+    log.error('getStats 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取统计失败' });
   }
 };
 
@@ -55,7 +63,7 @@ export const getTasks = async (req: Request, res: Response) => {
       status: req.query.status as TaskStatus | undefined,
       priority: req.query.priority as Priority | undefined,
       escalation_level: req.query.escalation_level
-        ? parseInt(req.query.escalation_level as string) as EscalationLevel
+        ? (parseInt(req.query.escalation_level as string) as EscalationLevel)
         : undefined,
       handler_id: req.query.handler_id ? parseInt(req.query.handler_id as string) : undefined,
       start_date: req.query.start_date as string | undefined,
@@ -74,8 +82,10 @@ export const getTasks = async (req: Request, res: Response) => {
     };
     res.json({ code: 200, message: 'success', data });
   } catch (error) {
-    console.error('[ArCollectionController] getTasks 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取任务列表失败' });
+    log.error('getTasks 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取任务列表失败' });
   }
 };
 
@@ -96,8 +106,10 @@ export const getTaskById = async (req: Request, res: Response) => {
     }
     res.json({ code: 200, message: 'success', data: toTaskDTO(result) });
   } catch (error) {
-    console.error('[ArCollectionController] getTaskById 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取任务详情失败' });
+    log.error('getTaskById 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取任务详情失败' });
   }
 };
 
@@ -112,8 +124,10 @@ export const getTaskDetails = async (req: Request, res: Response) => {
     const result = await getTaskDetailsService(taskId);
     res.json({ code: 200, message: 'success', data: result.map(toDetailDTO) });
   } catch (error) {
-    console.error('[ArCollectionController] getTaskDetails 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取任务明细失败' });
+    log.error('getTaskDetails 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取任务明细失败' });
   }
 };
 
@@ -128,10 +142,12 @@ export const getTaskActions = async (req: Request, res: Response) => {
     // 并发查询操作记录和考核记录
     const [actions, assessments] = await Promise.all([
       getTaskActionsService(taskId),
-      getAssessmentsByTaskId(taskId),
+      assessmentRepository.getRecordsBySourceId(taskId),
     ]);
     // 转换操作记录，过滤 null（toActionDTO 可能返回 null）
-    const actionItems = actions.map(toActionDTO).filter((x): x is CollectionActionDTO => x !== null);
+    const actionItems = actions
+      .map(toActionDTO)
+      .filter((x): x is CollectionActionDTO => x !== null);
     // 将考核记录转换为操作记录格式
     const assessmentItems = assessments.map(assessmentToActionDTO);
     // 合并并按时间倒序排列
@@ -140,8 +156,10 @@ export const getTaskActions = async (req: Request, res: Response) => {
     );
     res.json({ code: 200, message: 'success', data: merged });
   } catch (error) {
-    console.error('[ArCollectionController] getTaskActions 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取操作历史失败' });
+    log.error('getTaskActions 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取操作历史失败' });
   }
 };
 
@@ -156,8 +174,10 @@ export const getLegalProgress = async (req: Request, res: Response) => {
     const result = await getLegalProgressService(taskId);
     res.json({ code: 200, message: 'success', data: result.map(toLegalProgressDTO) });
   } catch (error) {
-    console.error('[ArCollectionController] getLegalProgress 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取法律进展失败' });
+    log.error('getLegalProgress 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取法律进展失败' });
   }
 };
 
@@ -169,8 +189,10 @@ export const getMyTasks = async (req: Request, res: Response) => {
     const data = await getMyTasksService(userId, role);
     res.json({ code: 200, message: 'success', data });
   } catch (error) {
-    console.error('[ArCollectionController] getMyTasks 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取我的待办失败' });
+    log.error('getMyTasks 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取我的待办失败' });
   }
 };
 
@@ -180,8 +202,10 @@ export const getHandlers = async (req: Request, res: Response) => {
     const data = await getHandlersService();
     res.json({ code: 200, message: 'success', data });
   } catch (error) {
-    console.error('[ArCollectionController] getHandlers 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取处理人列表失败' });
+    log.error('getHandlers 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取处理人列表失败' });
   }
 };
 
@@ -193,7 +217,9 @@ export const getWarnings = async (req: Request, res: Response) => {
       page: parseInt(req.query.page as string) || 1,
       pageSize: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
       warningLevel: req.query.warningLevel as WarningLevel | undefined,
-      managerUserId: req.query.managerUserId ? parseInt(req.query.managerUserId as string) : undefined,
+      managerUserId: req.query.managerUserId
+        ? parseInt(req.query.managerUserId as string)
+        : undefined,
     };
 
     // 非管理员只能查看自己负责的预警
@@ -205,8 +231,10 @@ export const getWarnings = async (req: Request, res: Response) => {
     const data = await getUpcomingWarnings(params);
     res.json({ code: 200, message: 'success', data });
   } catch (error) {
-    console.error('[ArCollectionController] getWarnings 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取预警数据失败' });
+    log.error('getWarnings 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取预警数据失败' });
   }
 };
 
@@ -218,7 +246,9 @@ export const getReminders = async (req: Request, res: Response) => {
       page: parseInt(req.query.page as string) || 1,
       pageSize: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
       erpBillId: req.query.erpBillId as string | undefined,
-      managerUserId: req.query.managerUserId ? parseInt(req.query.managerUserId as string) : undefined,
+      managerUserId: req.query.managerUserId
+        ? parseInt(req.query.managerUserId as string)
+        : undefined,
     };
 
     // 非管理员只能查看自己的提醒记录
@@ -230,7 +260,9 @@ export const getReminders = async (req: Request, res: Response) => {
     const data = await getWarningReminders(params);
     res.json({ code: 200, message: 'success', data });
   } catch (error) {
-    console.error('[ArCollectionController] getReminders 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '获取提醒历史失败' });
+    log.error('getReminders 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '获取提醒历史失败' });
   }
 };

@@ -5,14 +5,20 @@
  * - checkExtensionExpiry: 每2小时检查延期到期
  * - checkHoldExpiry: 每2小时检查期限压单到期
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ArCollection');
 
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery, getAppClient } from '../../db/appPool';
 import type { TaskStatus } from './ar-collection.types';
-import type { ERPDebtRecord } from './ar-debt.types';
+import type {} from './ar-debt.types';
 import { detectAllHoardChanges } from './ar-hoard-detect';
 import { invalidateTaskCache, invalidateStatsCache } from './ar-collection.repository';
-import { AR_HOLD_TYPE_TIME_LIMITED, AR_HOARD_TAG_HOARD, AR_DETAIL_STATUS_HOARD_EXCLUDED } from '../../utils/constants';
+import {
+  AR_HOLD_TYPE_TIME_LIMITED,
+  AR_HOARD_TAG_HOARD,
+  AR_DETAIL_STATUS_HOARD_EXCLUDED,
+} from '../../utils/constants';
 
 // 从独立模块导出任务生成函数
 export { generateCollectionTasks } from './ar-collection-task-generator';
@@ -40,13 +46,13 @@ interface TaskInfo {
 // ============================================
 
 export async function syncERPDebts(): Promise<void> {
-  console.log('[ARSync] 开始同步ERP欠款数据...');
+  log.info('开始同步ERP欠款数据...');
   const startTime = Date.now();
 
   try {
     // 1. 从ERP API获取所有客户欠款明细（skipCache=true，同步任务绕过缓存）
     const erpDebts = await fetchAllErpDebts(true);
-    console.log(`[ARSync] ERP API获取到 ${erpDebts.length} 条欠款记录`);
+    log.info(`ERP API获取到 ${erpDebts.length} 条欠款记录`);
 
     // 2. 获取本地所有活跃明细
     const localResult = await appQuery<LocalDetail>(
@@ -59,7 +65,7 @@ export async function syncERPDebts(): Promise<void> {
     }
 
     // 3. 找出ERP中存在的billId集合
-    const erpBillIds = new Set(erpDebts.map((d) => d.billId));
+    const erpBillIds = new Set(erpDebts.map(d => d.billId));
 
     // 4. 处理ERP中消失的记录
     let removedCount = 0;
@@ -80,21 +86,23 @@ export async function syncERPDebts(): Promise<void> {
         insertCount++;
       } else if (Number(existing.left_amount) !== Number(debt.leftAmount)) {
         // 金额变化 - 更新
-        await appQuery(
-          `UPDATE ar_collection_details SET left_amount = $1 WHERE id = $2`,
-          [debt.leftAmount, existing.id]
-        );
+        await appQuery(`UPDATE ar_collection_details SET left_amount = $1 WHERE id = $2`, [
+          debt.leftAmount,
+          existing.id,
+        ]);
         updateCount++;
       }
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[ARSync] 同步完成: 新增=${insertCount}, 更新=${updateCount}, 消失=${removedCount}, 耗时=${duration}ms`);
+    log.info(
+      `同步完成: 新增=${insertCount}, 更新=${updateCount}, 消失=${removedCount}, 耗时=${duration}ms`
+    );
 
     // 6. 压单检测（兜底机制）
     await detectAllHoardChanges();
   } catch (error) {
-    console.error('[ARSync] ERP欠款数据同步失败:', error);
+    log.error('ERP欠款数据同步失败:', error);
     throw error;
   }
 }
@@ -104,7 +112,7 @@ export async function syncERPDebts(): Promise<void> {
 // ============================================
 
 export async function checkExtensionExpiry(): Promise<void> {
-  console.log('[ARSync] 检查延期到期...');
+  log.info('检查延期到期...');
   try {
     // 查询已到期的延期任务
     const result = await appQuery<{ id: number; current_extension_id: number }>(
@@ -113,7 +121,7 @@ export async function checkExtensionExpiry(): Promise<void> {
     );
 
     if (result.rows.length === 0) {
-      console.log('[ARSync] 无到期延期任务');
+      log.info('无到期延期任务');
       return;
     }
 
@@ -159,7 +167,7 @@ export async function checkExtensionExpiry(): Promise<void> {
       }
       invalidateStatsCache();
 
-      console.log(`[ARSync] 处理了 ${result.rows.length} 个到期延期任务，已失效相关缓存`);
+      log.info(`处理了 ${result.rows.length} 个到期延期任务，已失效相关缓存`);
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -167,7 +175,7 @@ export async function checkExtensionExpiry(): Promise<void> {
       client.release();
     }
   } catch (error) {
-    console.error('[ARSync] 延期到期检查失败:', error);
+    log.error('延期到期检查失败:', error);
     throw error;
   }
 }
@@ -185,7 +193,7 @@ interface ExpiredHoldDetail {
 }
 
 export async function checkHoldExpiry(): Promise<void> {
-  console.log('[ARSync] 检查期限压单到期...');
+  log.info('检查期限压单到期...');
   try {
     // 查询已到期的期限压单明细（利用部分索引高效扫描）
     const result = await appQuery<ExpiredHoldDetail>(
@@ -199,7 +207,7 @@ export async function checkHoldExpiry(): Promise<void> {
     );
 
     if (result.rows.length === 0) {
-      console.log('[ARSync] 无到期期限压单');
+      log.info('无到期期限压单');
       return;
     }
 
@@ -230,7 +238,11 @@ export async function checkHoldExpiry(): Promise<void> {
         );
 
         // 2. 重算任务指标
-        const recalcResult = await client.query<{ total: string; cnt: string; max_overdue: string }>(
+        const recalcResult = await client.query<{
+          total: string;
+          cnt: string;
+          max_overdue: string;
+        }>(
           `SELECT COALESCE(SUM(left_amount), 0)::numeric as total,
                   COUNT(*)::int as cnt,
                   COALESCE(MAX(overdue_days), 0)::int as max_overdue
@@ -255,10 +267,9 @@ export async function checkHoldExpiry(): Promise<void> {
           [taskId]
         );
         if (taskResult.rows[0]?.status === 'closed' && newCount > 0) {
-          await client.query(
-            `UPDATE ar_collection_tasks SET status = 'collecting' WHERE id = $1`,
-            [taskId]
-          );
+          await client.query(`UPDATE ar_collection_tasks SET status = 'collecting' WHERE id = $1`, [
+            taskId,
+          ]);
         }
 
         // 4. 记录操作日志
@@ -284,7 +295,9 @@ export async function checkHoldExpiry(): Promise<void> {
       }
       invalidateStatsCache();
 
-      console.log(`[ARSync] 处理了 ${result.rows.length} 条到期期限压单，涉及 ${affectedTaskIds.length} 个任务，已失效相关缓存`);
+      log.info(
+        `处理了 ${result.rows.length} 条到期期限压单，涉及 ${affectedTaskIds.length} 个任务，已失效相关缓存`
+      );
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -292,7 +305,7 @@ export async function checkHoldExpiry(): Promise<void> {
       client.release();
     }
   } catch (error) {
-    console.error('[ARSync] 期限压单到期检查失败:', error);
+    log.error('期限压单到期检查失败:', error);
     throw error;
   }
 }
@@ -314,15 +327,12 @@ async function handleRemovedDebt(detail: LocalDetail): Promise<void> {
 
   // 如果任务已关闭，跳过处理，避免重复记录历史
   if (task.status === 'closed') {
-    console.log(`[ARSync] 任务 #${task.id} 已关闭，跳过处理`);
+    log.info(`任务 #${task.id} 已关闭，跳过处理`);
     return;
   }
 
   // 自动关闭任务（所有非关闭状态统一处理）
-  await appQuery(
-    `UPDATE ar_collection_tasks SET status = 'closed' WHERE id = $1`,
-    [task.id]
-  );
+  await appQuery(`UPDATE ar_collection_tasks SET status = 'closed' WHERE id = $1`, [task.id]);
   await appQuery(
     `INSERT INTO ar_collection_actions
       (task_id, action_type, action_result, remark, operator_name)
@@ -331,5 +341,5 @@ async function handleRemovedDebt(detail: LocalDetail): Promise<void> {
   );
   invalidateTaskCache(detail.task_id);
   invalidateStatsCache();
-  console.log(`[ARSync] 自动关闭任务 #${task.id}(${task.consumer_name})，原状态=${task.status}`);
+  log.info(`自动关闭任务 #${task.id}(${task.consumer_name})，原状态=${task.status}`);
 }

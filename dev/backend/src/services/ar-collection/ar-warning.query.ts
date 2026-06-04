@@ -3,12 +3,13 @@
  * - 查询即将逾期的欠款数据（从ERP实时查询）
  * - 查询预警提醒历史记录
  */
+import { SqlParam } from '../../db/types';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ArCollection');
 
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery } from '../../db/appPool';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
-import logger from '../../utils/logger';
-import type { ERPDebtRecord } from './ar-debt.types';
 import { enrichDebtRecords, filterHoardDebts } from './ar-debt-enrichment.service';
 
 // ============================================
@@ -30,16 +31,16 @@ export interface UpcomingWarningDetail {
   daysToExpire: number;
   warningLevel: WarningLevel;
   reminderCount: number;
-  settleMethod: number;        // 结算方式: 1=现款7天, 2=挂账
-  consumerExpireDay: number;   // 最大欠款天数
-  hoardTag: string | null;    // 压单标记
+  settleMethod: number; // 结算方式: 1=现款7天, 2=挂账
+  consumerExpireDay: number; // 最大欠款天数
+  hoardTag: string | null; // 压单标记
 }
 
 /** 预警汇总（3级） */
 export interface WarningSummary {
-  today: { count: number; amount: number };        // 今日到期（0天）
-  within2Days: { count: number; amount: number };  // 1-2天内到期
-  within5Days: { count: number; amount: number };  // 3-5天内到期
+  today: { count: number; amount: number }; // 今日到期（0天）
+  within2Days: { count: number; amount: number }; // 1-2天内到期
+  within5Days: { count: number; amount: number }; // 3-5天内到期
   totalCount: number;
   totalAmount: number;
 }
@@ -93,7 +94,7 @@ export interface ReminderQueryParams {
  * 从ERP实时查询未逾期但即将到期的欠款
  */
 export async function getUpcomingWarnings(
-  params: WarningQueryParams = {},
+  params: WarningQueryParams = {}
 ): Promise<UpcomingWarningData> {
   const { page = 1, pageSize = 20, warningLevel, managerUserId } = params;
 
@@ -106,7 +107,7 @@ export async function getUpcomingWarnings(
   const nonHoardDebts = filterHoardDebts(enrichedDebts);
 
   // 3. 计算每条记录的到期日期和剩余天数
-  const upcomingDebts: (typeof nonHoardDebts[number] & {
+  const upcomingDebts: ((typeof nonHoardDebts)[number] & {
     expireDate: Date;
     daysToExpire: number;
     warningLevel: WarningLevel;
@@ -115,14 +116,18 @@ export async function getUpcomingWarnings(
   for (const debt of nonHoardDebts) {
     const workDate = new Date(debt.workTime);
     // 注意: PostgreSQL numeric 类型返回字符串，需要转换为数字比较
-    const maxDays = Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE ? (Number(debt.consumerExpireDay) || 0) : AR_DEFAULT_EXPIRE_DAYS;
+    const maxDays =
+      Number(debt.settleMethod) === AR_SETTLE_METHOD_CONSUMER_EXPIRE
+        ? Number(debt.consumerExpireDay) || 0
+        : AR_DEFAULT_EXPIRE_DAYS;
     const expireDate = new Date(workDate.getTime() + maxDays * 86400000);
     const daysToExpire = Math.ceil((expireDate.getTime() - now.getTime()) / 86400000);
 
     // 筛选: 未逾期且5天内到期（包含今天到期）
     if (daysToExpire >= 0 && daysToExpire <= 5) {
       // 计算预警等级（3级：today=今日到期, high=1-2天, medium=3-5天）
-      const level: WarningLevel = daysToExpire === 0 ? 'today' : (daysToExpire <= 2 ? 'high' : 'medium');
+      const level: WarningLevel =
+        daysToExpire === 0 ? 'today' : daysToExpire <= 2 ? 'high' : 'medium';
 
       upcomingDebts.push({
         ...debt,
@@ -134,7 +139,7 @@ export async function getUpcomingWarnings(
   }
 
   // 3. 获取已发送提醒次数
-  const billIds = upcomingDebts.map((d) => d.billId);
+  const billIds = upcomingDebts.map(d => d.billId);
   const reminderCounts = new Map<string, number>();
 
   if (billIds.length > 0) {
@@ -143,7 +148,7 @@ export async function getUpcomingWarnings(
        FROM ar_warning_reminders
        WHERE erp_bill_id = ANY($1)
        GROUP BY erp_bill_id`,
-      [billIds],
+      [billIds]
     );
     for (const row of countsResult.rows) {
       reminderCounts.set(row.erp_bill_id, parseInt(row.count, 10));
@@ -151,27 +156,27 @@ export async function getUpcomingWarnings(
   }
 
   // 4. 获取责任人ID映射
-  const managerNames = [...new Set(upcomingDebts.map((d) => d.managerUsers).filter(Boolean))];
+  const managerNames = [...new Set(upcomingDebts.map(d => d.managerUsers).filter(Boolean))];
   const managerIdMap = new Map<string, number>();
 
-  logger.debug('[WarningQuery] 即将到期记录数:', upcomingDebts.length);
-  logger.debug('[WarningQuery] 负责人列表:', managerNames);
+  log.debug('即将到期记录数:', upcomingDebts.length);
+  log.debug('负责人列表:', managerNames);
 
   if (managerNames.length > 0) {
     const usersResult = await appQuery<{ name: string; id: number }>(
       `SELECT name, id FROM users WHERE name = ANY($1)`,
-      [managerNames],
+      [managerNames]
     );
     for (const row of usersResult.rows) {
       managerIdMap.set(row.name, row.id);
     }
-    logger.debug('[WarningQuery] 用户名映射:', Object.fromEntries(managerIdMap));
+    log.debug('用户名映射:', Object.fromEntries(managerIdMap));
   }
 
   // 5. 构建明细数据
-  let details: UpcomingWarningDetail[] = upcomingDebts.map((debt) => ({
+  let details: UpcomingWarningDetail[] = upcomingDebts.map(debt => ({
     erpBillId: debt.billId,
-    billNo: debt.bizOrderStr || debt.billId,  // 使用订单号作为单据编号
+    billNo: debt.bizOrderStr || debt.billId, // 使用订单号作为单据编号
     consumerName: debt.consumerName,
     managerUserName: debt.managerUsers || '',
     managerUserId: debt.managerUsers ? managerIdMap.get(debt.managerUsers) || null : null,
@@ -187,12 +192,12 @@ export async function getUpcomingWarnings(
 
   // 6. 筛选
   if (warningLevel) {
-    details = details.filter((d) => d.warningLevel === warningLevel);
+    details = details.filter(d => d.warningLevel === warningLevel);
   }
   if (managerUserId) {
-    logger.debug('[WarningQuery] 过滤负责人ID:', managerUserId, '过滤前:', details.length);
-    details = details.filter((d) => d.managerUserId === managerUserId);
-    logger.debug('[WarningQuery] 过滤后:', details.length);
+    log.debug('过滤负责人ID:', managerUserId, '过滤前:', details.length);
+    details = details.filter(d => d.managerUserId === managerUserId);
+    log.debug('过滤后:', details.length);
   }
 
   // 7. 排序：按剩余天数升序
@@ -200,9 +205,9 @@ export async function getUpcomingWarnings(
 
   // 8. 计算汇总（3级）——基于筛选后的明细数据
   const summary: WarningSummary = {
-    today: { count: 0, amount: 0 },         // 今日到期（0天）
-    within2Days: { count: 0, amount: 0 },  // 1-2天内到期
-    within5Days: { count: 0, amount: 0 },  // 3-5天内到期
+    today: { count: 0, amount: 0 }, // 今日到期（0天）
+    within2Days: { count: 0, amount: 0 }, // 1-2天内到期
+    within5Days: { count: 0, amount: 0 }, // 3-5天内到期
     totalCount: 0,
     totalAmount: 0,
   };
@@ -243,14 +248,15 @@ export async function getUpcomingWarnings(
 /**
  * 获取预警提醒历史记录
  */
-export async function getWarningReminders(
-  params: ReminderQueryParams = {},
-): Promise<{ list: WarningReminder[]; pagination: { page: number; pageSize: number; total: number } }> {
+export async function getWarningReminders(params: ReminderQueryParams = {}): Promise<{
+  list: WarningReminder[];
+  pagination: { page: number; pageSize: number; total: number };
+}> {
   const { page = 1, pageSize = 20, erpBillId, managerUserId } = params;
 
   // 构建查询条件
   const conditions: string[] = [];
-  const queryParams: any[] = [];
+  const queryParams: SqlParam[] = [];
   let paramIndex = 1;
 
   if (erpBillId) {
@@ -267,7 +273,7 @@ export async function getWarningReminders(
   // 查询总数
   const countResult = await appQuery<{ count: string }>(
     `SELECT COUNT(*) as count FROM ar_warning_reminders ${whereClause}`,
-    queryParams,
+    queryParams
   );
   const total = parseInt(countResult.rows[0]?.count || '0', 10);
 
@@ -280,7 +286,7 @@ export async function getWarningReminders(
      ${whereClause}
      ORDER BY created_at DESC
      LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
-    [...queryParams, pageSize, offset],
+    [...queryParams, pageSize, offset]
   );
 
   return {
@@ -309,14 +315,14 @@ export async function getWarningReminders(
  */
 export async function hasReminderSentToday(
   erpBillId: string,
-  reminderType: string,
+  reminderType: string
 ): Promise<boolean> {
   const result = await appQuery<{ count: string }>(
     `SELECT COUNT(*) as count FROM ar_warning_reminders
      WHERE erp_bill_id = $1
        AND reminder_type = $2
        AND DATE(created_at) = CURRENT_DATE`,
-    [erpBillId, reminderType],
+    [erpBillId, reminderType]
   );
   return parseInt(result.rows[0]?.count || '0', 10) > 0;
 }
@@ -352,7 +358,7 @@ export async function recordWarningReminder(params: {
       params.reminderType,
       params.reminderStatus,
       params.receiverUserId,
-    ],
+    ]
   );
 }
 
@@ -363,12 +369,12 @@ export async function recordWarningReminder(params: {
  */
 export async function hasBillReminderSent(
   erpBillId: string,
-  reminderType: 'pre_5d' | 'pre_2d',
+  reminderType: 'pre_5d' | 'pre_2d'
 ): Promise<boolean> {
   const result = await appQuery<{ count: string }>(
     `SELECT COUNT(*) as count FROM ar_warning_reminders
      WHERE erp_bill_id = $1 AND reminder_type = $2`,
-    [erpBillId, reminderType],
+    [erpBillId, reminderType]
   );
   return parseInt(result.rows[0]?.count || '0', 10) > 0;
 }

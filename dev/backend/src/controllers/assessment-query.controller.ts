@@ -2,6 +2,8 @@
  * 统一考核管理 - 查询控制器
  * 提供考核记录的列表查询、统计、我的考核、分类配置、详情等接口
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('AssessmentQuery');
 
 import { Request, Response } from 'express';
 import {
@@ -10,8 +12,8 @@ import {
   getMyAssessments,
   getAssessmentById,
   getCategoriesConfig,
+  type AssessmentQueryParams,
 } from '../services/assessment';
-import type { AssessmentQueryParams } from '../services/assessment';
 
 /**
  * GET /api/assessment
@@ -35,7 +37,7 @@ export async function getRecords(req: Request, res: Response): Promise<void> {
     const result = await getAssessmentRecords(params);
     res.json({ code: 200, data: result });
   } catch (error) {
-    console.error('[Assessment] 查询考核记录失败:', error);
+    log.error('查询考核记录失败:', error);
     res.status(500).json({ code: 500, message: '查询失败' });
   }
 }
@@ -51,7 +53,7 @@ export async function getStats(req: Request, res: Response): Promise<void> {
     const stats = await getAssessmentStats(category);
     res.json({ code: 200, data: stats });
   } catch (error) {
-    console.error('[Assessment] 查询统计数据失败:', error);
+    log.error('查询统计数据失败:', error);
     res.status(500).json({ code: 500, message: '查询统计失败' });
   }
 }
@@ -62,7 +64,7 @@ export async function getStats(req: Request, res: Response): Promise<void> {
  */
 export async function getMyRecords(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ code: 401, message: '未登录' });
       return;
@@ -78,7 +80,7 @@ export async function getMyRecords(req: Request, res: Response): Promise<void> {
     const result = await getMyAssessments(userId, params);
     res.json({ code: 200, data: result });
   } catch (error) {
-    console.error('[Assessment] 查询我的考核记录失败:', error);
+    log.error('查询我的考核记录失败:', error);
     res.status(500).json({ code: 500, message: '查询失败' });
   }
 }
@@ -92,7 +94,7 @@ export async function getCategories(req: Request, res: Response): Promise<void> 
     const config = await getCategoriesConfig();
     res.json({ code: 200, data: config });
   } catch (error) {
-    console.error('[Assessment] 查询分类配置失败:', error);
+    log.error('查询分类配置失败:', error);
     res.status(500).json({ code: 500, message: '查询失败' });
   }
 }
@@ -117,7 +119,7 @@ export async function getDetail(req: Request, res: Response): Promise<void> {
 
     res.json({ code: 200, data: record });
   } catch (error) {
-    console.error('[Assessment] 查询考核记录详情失败:', error);
+    log.error('查询考核记录详情失败:', error);
     res.status(500).json({ code: 500, message: '查询失败' });
   }
 }

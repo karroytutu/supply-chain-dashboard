@@ -8,8 +8,17 @@
  * - tier3(7天以上): 营销师 按欠款70%, 营销经理 按欠款30%（比例）
  */
 
-import { registerAssessmentRule, DEFAULT_ALLOWED_TRANSITIONS, DEFAULT_STATUS_LABELS } from '../assessment.rules';
-import type { CalculationContext, CalculationResult, AssessmentRecordRow, NotificationContent } from '../assessment.types';
+import {
+  registerAssessmentRule,
+  DEFAULT_ALLOWED_TRANSITIONS,
+  DEFAULT_STATUS_LABELS,
+} from '../assessment.rules';
+import type {
+  CalculationContext,
+  CalculationResult,
+  AssessmentRecordRow,
+  NotificationContent,
+} from '../assessment.types';
 import { getUsersByRole } from '../utils';
 import { AR_ASSESSMENT_EFFECTIVE_DATE } from '../../../utils/constants';
 import { appQuery } from '../../../db/appPool';
@@ -41,9 +50,27 @@ const EFFECTIVE_DATE = new Date(AR_ASSESSMENT_EFFECTIVE_DATE);
 
 /** 催收考核规则配置 */
 const AR_TIER_CONFIG = {
-  tier1: { name: '一级考核(3-5天)', minDays: 3, maxDays: 5, marketerAmount: 10, supervisorAmount: 20 },
-  tier2: { name: '二级考核(5-7天)', minDays: 5, maxDays: 7, marketerAmount: 20, supervisorAmount: 40 },
-  tier3: { name: '三级考核(7天以上)', minDays: 7, maxDays: null, marketerRatio: 0.7, supervisorRatio: 0.3 },
+  tier1: {
+    name: '一级考核(3-5天)',
+    minDays: 3,
+    maxDays: 5,
+    marketerAmount: 10,
+    supervisorAmount: 20,
+  },
+  tier2: {
+    name: '二级考核(5-7天)',
+    minDays: 5,
+    maxDays: 7,
+    marketerAmount: 20,
+    supervisorAmount: 40,
+  },
+  tier3: {
+    name: '三级考核(7天以上)',
+    minDays: 7,
+    maxDays: null,
+    marketerRatio: 0.7,
+    supervisorRatio: 0.3,
+  },
 } as const;
 
 // ==================== 共用查询逻辑 ====================
@@ -85,9 +112,8 @@ async function queryExistingRecords(sourceIds: number[], ruleType: string): Prom
  */
 function calculateOverdueDays(assessmentStartTime: Date): number {
   const startTime = new Date(assessmentStartTime);
-  const effectiveStartTime = startTime.getTime() < EFFECTIVE_DATE.getTime()
-    ? EFFECTIVE_DATE
-    : startTime;
+  const effectiveStartTime =
+    startTime.getTime() < EFFECTIVE_DATE.getTime() ? EFFECTIVE_DATE : startTime;
   const diffMs = Date.now() - effectiveStartTime.getTime();
   return Math.floor(diffMs / 86400000);
 }
@@ -101,9 +127,11 @@ function buildArNotification(records: AssessmentRecordRow[], role: string): Noti
   const totalAmount = records.reduce((sum, r) => sum + parseFloat(r.penalty_amount || '0'), 0);
   const roleName = role === 'marketer' ? '营销师' : '营销经理';
 
-  const tableRows = records.map(r => {
-    return `| ${r.source_no || '-'} | ${r.source_name || '-'} | ${r.overdue_days}天 | ¥${parseFloat(r.penalty_amount).toFixed(2)} |`;
-  }).join('\n');
+  const tableRows = records
+    .map(r => {
+      return `| ${r.source_no || '-'} | ${r.source_name || '-'} | ${r.overdue_days}天 | ¥${parseFloat(r.penalty_amount).toFixed(2)} |`;
+    })
+    .join('\n');
 
   const markdown = `### 催收考核通知
 
@@ -140,7 +168,7 @@ registerAssessmentRule({
   sourceType: 'ar_collection_task',
   sourceLabel: '催收任务',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     const config = AR_TIER_CONFIG.tier1;
     const tasks = await queryActiveTasks();
     if (tasks.length === 0) return [];
@@ -172,7 +200,11 @@ registerAssessmentRule({
           penalty_rate: 0,
           overdue_days: overdueDays,
           penalty_amount: config.marketerAmount,
-          rule_snapshot: { tier: 'tier1', ruleName: config.name, marketerAmount: config.marketerAmount },
+          rule_snapshot: {
+            tier: 'tier1',
+            ruleName: config.name,
+            marketerAmount: config.marketerAmount,
+          },
         });
       }
 
@@ -193,7 +225,11 @@ registerAssessmentRule({
             penalty_rate: 0,
             overdue_days: overdueDays,
             penalty_amount: config.supervisorAmount,
-            rule_snapshot: { tier: 'tier1', ruleName: config.name, supervisorAmount: config.supervisorAmount },
+            rule_snapshot: {
+              tier: 'tier1',
+              ruleName: config.name,
+              supervisorAmount: config.supervisorAmount,
+            },
           });
         }
       }
@@ -219,7 +255,7 @@ registerAssessmentRule({
   sourceType: 'ar_collection_task',
   sourceLabel: '催收任务',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     const config = AR_TIER_CONFIG.tier2;
     const tasks = await queryActiveTasks();
     if (tasks.length === 0) return [];
@@ -251,7 +287,11 @@ registerAssessmentRule({
           penalty_rate: 0,
           overdue_days: overdueDays,
           penalty_amount: config.marketerAmount,
-          rule_snapshot: { tier: 'tier2', ruleName: config.name, marketerAmount: config.marketerAmount },
+          rule_snapshot: {
+            tier: 'tier2',
+            ruleName: config.name,
+            marketerAmount: config.marketerAmount,
+          },
         });
       }
 
@@ -272,7 +312,11 @@ registerAssessmentRule({
             penalty_rate: 0,
             overdue_days: overdueDays,
             penalty_amount: config.supervisorAmount,
-            rule_snapshot: { tier: 'tier2', ruleName: config.name, supervisorAmount: config.supervisorAmount },
+            rule_snapshot: {
+              tier: 'tier2',
+              ruleName: config.name,
+              supervisorAmount: config.supervisorAmount,
+            },
           });
         }
       }
@@ -298,7 +342,7 @@ registerAssessmentRule({
   sourceType: 'ar_collection_task',
   sourceLabel: '催收任务',
 
-  calculate: async (ctx: CalculationContext): Promise<CalculationResult[]> => {
+  calculate: async (_ctx: CalculationContext): Promise<CalculationResult[]> => {
     const config = AR_TIER_CONFIG.tier3;
     const tasks = await queryActiveTasks();
     if (tasks.length === 0) return [];
@@ -331,7 +375,11 @@ registerAssessmentRule({
           penalty_rate: config.marketerRatio,
           overdue_days: overdueDays,
           penalty_amount: penaltyAmount,
-          rule_snapshot: { tier: 'tier3', ruleName: config.name, marketerRatio: config.marketerRatio },
+          rule_snapshot: {
+            tier: 'tier3',
+            ruleName: config.name,
+            marketerRatio: config.marketerRatio,
+          },
         });
       }
 
@@ -353,7 +401,11 @@ registerAssessmentRule({
             penalty_rate: config.supervisorRatio,
             overdue_days: overdueDays,
             penalty_amount: penaltyAmount,
-            rule_snapshot: { tier: 'tier3', ruleName: config.name, supervisorRatio: config.supervisorRatio },
+            rule_snapshot: {
+              tier: 'tier3',
+              ruleName: config.name,
+              supervisorRatio: config.supervisorRatio,
+            },
           });
         }
       }

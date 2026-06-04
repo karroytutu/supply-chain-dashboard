@@ -1,11 +1,10 @@
 import React from 'react';
 import { Table, Button, Tag } from 'antd';
-import { DownloadOutlined } from '@ant-design/icons';
+
 import type { ColumnsType } from 'antd/es/table';
 import { history } from 'umi';
 import type { ApprovalInstance } from '@/types/oa';
 import { formatDateTime } from '@/utils/format';
-import styles from '../index.less';
 
 // 审批状态映射
 const statusMap: Record<string, { color: string; text: string }> = {

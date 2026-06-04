@@ -11,10 +11,18 @@
  *
  * 不包含任何业务逻辑，仅负责连接管理和事件分发。
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Service');
 
 import { EventEmitter } from 'events';
-import { DWClient, EventAck, type DWClientDownStream, type EventAckData } from 'dingtalk-stream-sdk-nodejs';
+import {
+  DWClient,
+  EventAck,
+  type DWClientDownStream,
+  type EventAckData,
+} from 'dingtalk-stream-sdk-nodejs';
 import { config } from '../config';
+import { getErrorMessage } from '../utils/errorUtils';
 
 /**
  * 钉钉事件总线
@@ -41,7 +49,7 @@ const CONNECT_RETRY_BASE_DELAY = 3000;
  */
 export function startDingtalkStream(): void {
   if (streamClient) {
-    console.log('[DingtalkStream] 已有连接实例，跳过重复启动');
+    log.info('已有连接实例，跳过重复启动');
     return;
   }
 
@@ -49,7 +57,7 @@ export function startDingtalkStream(): void {
   const clientSecret = config.dingtalk.appSecret;
 
   if (!clientId || !clientSecret) {
-    console.warn('[DingtalkStream] 未配置 appKey/appSecret，跳过 Stream 连接');
+    log.warn('未配置 appKey/appSecret，跳过 Stream 连接');
     return;
   }
 
@@ -64,7 +72,7 @@ export function startDingtalkStream(): void {
 
     try {
       const data = JSON.parse(msg.data || '{}');
-      console.log(`[DingtalkStream] 收到事件: ${eventType}, eventId=${msg.headers.eventId}`);
+      log.info(`收到事件: ${eventType}, eventId=${msg.headers.eventId}`);
 
       // 分发到事件总线，各模块自行处理
       dingtalkEvents.emit(eventType, data, msg.headers);
@@ -73,20 +81,23 @@ export function startDingtalkStream(): void {
       dingtalkEvents.emit('*', eventType, data, msg.headers);
 
       return { status: EventAck.SUCCESS };
-    } catch (error: any) {
-      console.error(`[DingtalkStream] 解析事件 ${eventType} 失败:`, error.message);
-      return { status: EventAck.LATER, message: error.message };
+    } catch (error) {
+      log.error(`解析事件 ${eventType} 失败:`, getErrorMessage(error));
+      return { status: EventAck.LATER, message: getErrorMessage(error) };
     }
   });
 
   // 建立 WebSocket 连接
-  streamClient.connect().then(() => {
-    console.log('[DingtalkStream] ✅ 事件总线已启动，WebSocket 连接已建立');
-  }).catch((err: any) => {
-    console.error('[DingtalkStream] ❌ WebSocket 连接失败:', err.message);
-    streamClient = null;
-    scheduleReconnect(1);
-  });
+  streamClient
+    .connect()
+    .then(() => {
+      log.info('✅ 事件总线已启动，WebSocket 连接已建立');
+    })
+    .catch((err: any) => {
+      log.error('❌ WebSocket 连接失败:', getErrorMessage(err));
+      streamClient = null;
+      scheduleReconnect(1);
+    });
 }
 
 /**
@@ -95,15 +106,15 @@ export function startDingtalkStream(): void {
  */
 function scheduleReconnect(attempt: number): void {
   if (isShuttingDown) {
-    console.log('[DingtalkStream] 进程正在关闭，取消重连');
+    log.info('进程正在关闭，取消重连');
     return;
   }
   if (attempt > MAX_CONNECT_RETRIES) {
-    console.error(`[DingtalkStream] 已达最大重试次数(${MAX_CONNECT_RETRIES})，放弃重连。离职检测将依赖定期同步`);
+    log.error(`已达最大重试次数(${MAX_CONNECT_RETRIES})，放弃重连。离职检测将依赖定期同步`);
     return;
   }
   const delay = CONNECT_RETRY_BASE_DELAY * Math.pow(2, attempt - 1);
-  console.log(`[DingtalkStream] ${delay / 1000}s 后进行第${attempt}次重连...`);
+  log.info(`${delay / 1000}s 后进行第${attempt}次重连...`);
   setTimeout(() => {
     if (isShuttingDown) return;
     streamClient = null; // 确保 guard 不阻止重建
@@ -120,6 +131,6 @@ export function stopDingtalkStream(): void {
   if (streamClient) {
     streamClient.disconnect();
     streamClient = null;
-    console.log('[DingtalkStream] 事件总线已停止');
+    log.info('事件总线已停止');
   }
 }

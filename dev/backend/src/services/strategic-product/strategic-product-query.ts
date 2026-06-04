@@ -4,7 +4,11 @@
  */
 
 import * as repo from './strategic-product.repository';
-import { toStrategicProductDTO, toStrategicProductStatsDTO, toProductForSelectionDTO } from './strategic-product.mapper';
+import {
+  toStrategicProductDTO,
+  toStrategicProductStatsDTO,
+  toProductForSelectionDTO,
+} from './strategic-product.mapper';
 import type {
   StrategicProduct,
   StrategicProductQueryParams,

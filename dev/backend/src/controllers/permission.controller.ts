@@ -8,6 +8,7 @@ import {
   deletePermission,
 } from '../services/permission.service';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
+import { getErrorMessage } from '../utils/errorUtils';
 
 /**
  * 获取所有权限
@@ -30,19 +31,19 @@ export async function getPermissionTreeHandler(req: Request, res: Response) {
  */
 export async function getPermission(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的权限ID'));
     return;
   }
-  
+
   const permission = await getPermissionById(id);
-  
+
   if (!permission) {
     res.status(404).json(buildErrorResponse(404, '权限不存在'));
     return;
   }
-  
+
   res.json(buildSuccessResponse(permission));
 }
 
@@ -51,12 +52,12 @@ export async function getPermission(req: Request, res: Response) {
  */
 export async function createNewPermission(req: Request, res: Response) {
   const { code, name, resource_type, resource_key, action, parent_id, sort_order } = req.body;
-  
+
   if (!code || !name || !resource_type || !resource_key || !action) {
     res.status(400).json(buildErrorResponse(400, '缺少必要参数'));
     return;
   }
-  
+
   try {
     const permission = await createPermission({
       code,
@@ -82,19 +83,19 @@ export async function createNewPermission(req: Request, res: Response) {
  */
 export async function updatePermissionInfo(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的权限ID'));
     return;
   }
-  
+
   const permission = await updatePermission(id, req.body);
-  
+
   if (!permission) {
     res.status(404).json(buildErrorResponse(404, '权限不存在'));
     return;
   }
-  
+
   res.json(buildSuccessResponse(permission));
 }
 
@@ -103,22 +104,22 @@ export async function updatePermissionInfo(req: Request, res: Response) {
  */
 export async function deletePermissionHandler(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的权限ID'));
     return;
   }
-  
+
   try {
     const success = await deletePermission(id);
-    
+
     if (!success) {
       res.status(404).json(buildErrorResponse(404, '权限不存在'));
       return;
     }
-    
+
     res.json(buildSuccessResponse(null, '权限删除成功'));
-  } catch (error: any) {
-    res.status(400).json(buildErrorResponse(400, error.message));
+  } catch (error) {
+    res.status(400).json(buildErrorResponse(400, getErrorMessage(error)));
   }
 }

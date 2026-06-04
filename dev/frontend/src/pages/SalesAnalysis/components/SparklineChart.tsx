@@ -28,16 +28,6 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
     value: string;
   } | null>(null);
 
-  const safeData = Array.isArray(data) ? data : [];
-  if (safeData.length === 0) return null;
-
-  const values = safeData.map((d) => d.value);
-  const maxVal = Math.max(...values);
-  const minVal = Math.min(...values);
-  const range = maxVal - minVal || 1;
-
-  const barColor = isNegative ? '#f3b7bd' : color;
-
   const handleMouseEnter = useCallback(
     (idx: number, item: { date: string; value: number }, e: React.MouseEvent) => {
       setHoveredIdx(idx);
@@ -61,6 +51,16 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
     setHoveredIdx(null);
     setTooltip(null);
   }, []);
+
+  const safeData = Array.isArray(data) ? data : [];
+  if (safeData.length === 0) return null;
+
+  const values = safeData.map((d) => d.value);
+  const maxVal = Math.max(...values);
+  const minVal = Math.min(...values);
+  const range = maxVal - minVal || 1;
+
+  const barColor = isNegative ? '#f3b7bd' : color;
 
   return (
     <div className={styles.container}>

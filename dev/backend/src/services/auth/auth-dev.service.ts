@@ -2,11 +2,19 @@
  * 认证服务 - 开发环境工具
  * @module services/auth/auth-dev.service
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Auth');
 
 import { appQuery } from '../../db/appPool';
 import { generateToken, JwtPayload } from '../../utils/jwt';
-import type { LoginResult, RoleInfo } from './auth-user.service';
-import { getCurrentUser, getUserRolesAndPermissions, recordLoginLog } from './auth-user.service';
+import { getErrorMessage } from '../../utils/errorUtils';
+import {
+  type LoginResult,
+  type RoleInfo,
+  getCurrentUser,
+  getUserRolesAndPermissions,
+  recordLoginLog,
+} from './auth-user.service';
 
 /**
  * 切换用户
@@ -50,11 +58,11 @@ export async function devSwitchUser(userId: number): Promise<LoginResult> {
         permissions,
       },
     };
-  } catch (error: any) {
-    console.error('开发切换用户失败:', error.message);
+  } catch (error) {
+    log.error('开发切换用户失败:', getErrorMessage(error));
     return {
       success: false,
-      message: error.message || '切换用户失败',
+      message: getErrorMessage(error) || '切换用户失败',
     };
   }
 }
@@ -62,7 +70,9 @@ export async function devSwitchUser(userId: number): Promise<LoginResult> {
 /**
  * 获取可切换用户列表
  */
-export async function devGetUsers(): Promise<{ id: number; name: string; avatar?: string; roles: RoleInfo[] }[]> {
+export async function devGetUsers(): Promise<
+  { id: number; name: string; avatar?: string; roles: RoleInfo[] }[]
+> {
   try {
     const result = await appQuery<any>(
       `SELECT u.id, u.name, u.avatar,
@@ -88,8 +98,8 @@ export async function devGetUsers(): Promise<{ id: number; name: string; avatar?
       avatar: row.avatar,
       roles: row.roles || [],
     }));
-  } catch (error: any) {
-    console.error('获取开发用户列表失败:', error.message);
+  } catch (error) {
+    log.error('获取开发用户列表失败:', getErrorMessage(error));
     return [];
   }
 }
@@ -106,10 +116,7 @@ export async function devLogin(ipAddress?: string, userAgent?: string): Promise<
   }
 
   try {
-    let user = await appQuery<any>(
-      "SELECT * FROM users WHERE dingtalk_user_id = 'dev_admin'",
-      []
-    );
+    let user = await appQuery<any>("SELECT * FROM users WHERE dingtalk_user_id = 'dev_admin'", []);
 
     if (user.rows.length === 0) {
       const insertResult = await appQuery(
@@ -122,10 +129,10 @@ export async function devLogin(ipAddress?: string, userAgent?: string): Promise<
 
       const adminRole = await appQuery('SELECT id FROM roles WHERE code = $1', ['admin']);
       if (adminRole.rows.length > 0) {
-        await appQuery(
-          'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)',
-          [user.rows[0].id, adminRole.rows[0].id]
-        );
+        await appQuery('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [
+          user.rows[0].id,
+          adminRole.rows[0].id,
+        ]);
       } else {
         const createRoleResult = await appQuery(
           `INSERT INTO roles (code, name, description, is_system, status)
@@ -133,24 +140,21 @@ export async function devLogin(ipAddress?: string, userAgent?: string): Promise<
           RETURNING *`,
           []
         );
-        await appQuery(
-          'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)',
-          [user.rows[0].id, createRoleResult.rows[0].id]
-        );
+        await appQuery('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [
+          user.rows[0].id,
+          createRoleResult.rows[0].id,
+        ]);
 
         const permissions = await appQuery('SELECT id FROM permissions');
         for (const perm of permissions.rows) {
-          await appQuery(
-            'INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)',
-            [createRoleResult.rows[0].id, perm.id]
-          );
+          await appQuery('INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)', [
+            createRoleResult.rows[0].id,
+            perm.id,
+          ]);
         }
       }
     } else {
-      await appQuery(
-        'UPDATE users SET last_login_at = NOW() WHERE id = $1',
-        [user.rows[0].id]
-      );
+      await appQuery('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.rows[0].id]);
     }
 
     const userData = user.rows[0];
@@ -185,11 +189,11 @@ export async function devLogin(ipAddress?: string, userAgent?: string): Promise<
         permissions,
       },
     };
-  } catch (error: any) {
-    console.error('开发登录失败:', error.message);
+  } catch (error) {
+    log.error('开发登录失败:', getErrorMessage(error));
     return {
       success: false,
-      message: error.message || '开发登录失败',
+      message: getErrorMessage(error) || '开发登录失败',
     };
   }
 }

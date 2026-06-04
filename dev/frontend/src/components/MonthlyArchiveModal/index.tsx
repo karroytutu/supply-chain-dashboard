@@ -4,6 +4,8 @@ import type { TablePaginationConfig } from 'antd/es/table';
 import { RiseOutlined, FallOutlined } from '@ant-design/icons';
 import { getProcurementArchive, type MonthlyArchiveRecord } from '@/services/api/dashboard';
 import styles from './index.less';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('MonthlyArchiveModal');
 
 interface MonthlyArchiveModalProps {
   visible: boolean;
@@ -34,7 +36,7 @@ const MonthlyArchiveModal: React.FC<MonthlyArchiveModalProps> = ({
         total: result.total,
       }));
     } catch (error) {
-      console.error('[MonthlyArchiveModal] 加载数据失败:', error);
+      log.error('加载数据失败:', error);
     } finally {
       setLoading(false);
     }

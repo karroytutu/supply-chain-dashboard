@@ -2,8 +2,15 @@ import React from 'react';
 import { Table, Button, Tag, Space } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import type { PenaltyRecord, PenaltyType, PenaltyStatus, PenaltyRole } from '@/types/return-penalty.d';
-import { PENALTY_TYPE_NAMES, PENALTY_STATUS_NAMES, PENALTY_ROLE_NAMES } from '@/types/return-penalty.d';
+import {
+  type PenaltyRecord,
+  type PenaltyType,
+  type PenaltyStatus,
+  type PenaltyRole,
+  PENALTY_TYPE_NAMES,
+  PENALTY_STATUS_NAMES,
+  PENALTY_ROLE_NAMES,
+} from '@/types/return-penalty.d';
 
 interface PenaltyTableProps {
   data: PenaltyRecord[];

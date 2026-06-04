@@ -13,17 +13,9 @@ const router = Router();
 router.use(authMiddleware);
 
 // 获取月度存档列表
-router.get(
-  '/archive',
-  requirePermission('procurement:archive:read'),
-  getArchiveList
-);
+router.get('/archive', requirePermission('procurement:archive:read'), getArchiveList);
 
 // 手动触发月度存档
-router.post(
-  '/archive/generate',
-  requirePermission('procurement:archive:read'),
-  generateArchive
-);
+router.post('/archive/generate', requirePermission('procurement:archive:read'), generateArchive);
 
 export default router;

@@ -3,6 +3,8 @@
  * 协调 ERP/WMS/B2B 三系统的 Token 获取、刷新、验证
  * @module services/token-manager
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('TokenManager');
 
 import * as tokenRepo from './token-repository';
 import { performB2bExchangeAndSave, verifyB2bToken } from './b2b-exchange';
@@ -24,7 +26,7 @@ export * as tokenRepository from './token-repository';
  */
 function buildStatusInfo(
   record: TokenRecord | undefined,
-  lastLoginAt: string | null = null,
+  lastLoginAt: string | null = null
 ): TokenStatusInfo {
   if (!record || !record.token_value) {
     return {
@@ -42,7 +44,7 @@ function buildStatusInfo(
   if (record.expires_at) {
     const expiresMs = new Date(record.expires_at).getTime();
     const remainingMs = expiresMs - Date.now();
-    remainingHours = Math.max(0, Math.round(remainingMs / (1000 * 60 * 60) * 10) / 10);
+    remainingHours = Math.max(0, Math.round((remainingMs / (1000 * 60 * 60)) * 10) / 10);
   }
 
   return {
@@ -102,7 +104,10 @@ export async function getNativeToken(): Promise<{ authorization: string; expires
       const exp = payload.u?.exp || payload.exp;
       expiresAt = exp > 1e12 ? exp : exp * 1000;
     } catch (parseError) {
-      console.warn('[TokenManager] JWT 解析失败且数据库无 expires_at，使用默认 13 天过期。Token 可能无效:', parseError);
+      log.warn(
+        'JWT 解析失败且数据库无 expires_at，使用默认 13 天过期。Token 可能无效:',
+        parseError
+      );
       expiresAt = Date.now() + 13 * 24 * 60 * 60 * 1000;
     }
   }
@@ -128,16 +133,16 @@ const ERP_MAX_CONSECUTIVE_FAILURES = 3;
  * 执行顺序：ERP → WMS → B2B（B2B 依赖 ERP Token，必须在 ERP 之后处理）
  */
 export async function checkAndRefreshAllTokens(): Promise<void> {
-  console.log('[TokenManager] 开始检查所有 Token 状态...');
+  log.info('开始检查所有 Token 状态...');
 
   // 1. 检查 ERP Token（B2B 依赖它，必须优先确保可用）
   let erpTokenAvailable = false;
   try {
     const erpRecord = await tokenRepo.getTokenRecord('erp');
     if (!erpRecord || !erpRecord.token_value) {
-      console.log('[TokenManager] ERP Token 不存在，尝试登录...');
+      log.info('ERP Token 不存在，尝试登录...');
       if (_erpConsecutiveFailures >= ERP_MAX_CONSECUTIVE_FAILURES) {
-        console.warn(`[TokenManager] ERP 登录已连续失败 ${_erpConsecutiveFailures} 次，跳过自动重试，请检查凭据配置`);
+        log.warn(`ERP 登录已连续失败 ${_erpConsecutiveFailures} 次，跳过自动重试，请检查凭据配置`);
       } else {
         const loginOk = await performErpLoginAndSave();
         if (loginOk) {
@@ -145,7 +150,7 @@ export async function checkAndRefreshAllTokens(): Promise<void> {
           erpTokenAvailable = true;
         } else {
           _erpConsecutiveFailures++;
-          console.warn(`[TokenManager] ERP 登录失败 (${_erpConsecutiveFailures}/${ERP_MAX_CONSECUTIVE_FAILURES})`);
+          log.warn(`ERP 登录失败 (${_erpConsecutiveFailures}/${ERP_MAX_CONSECUTIVE_FAILURES})`);
         }
       }
     } else {
@@ -153,9 +158,9 @@ export async function checkAndRefreshAllTokens(): Promise<void> {
       const updatedAt = erpRecord.updated_at ? new Date(erpRecord.updated_at).getTime() : 0;
       const ageMs = Date.now() - updatedAt;
       if (ageMs > 60 * 60 * 1000) {
-        console.log('[TokenManager] ERP Token 已超过1小时，强制重新登录...');
+        log.info('ERP Token 已超过1小时，强制重新登录...');
         if (_erpConsecutiveFailures >= ERP_MAX_CONSECUTIVE_FAILURES) {
-          console.warn(`[TokenManager] ERP 登录已连续失败 ${_erpConsecutiveFailures} 次，跳过自动重试`);
+          log.warn(`ERP 登录已连续失败 ${_erpConsecutiveFailures} 次，跳过自动重试`);
         } else {
           const loginOk = await performErpLoginAndSave();
           if (loginOk) {
@@ -169,10 +174,10 @@ export async function checkAndRefreshAllTokens(): Promise<void> {
         // 验证有效性
         const isValid = await verifyErpToken(erpRecord.token_value);
         if (!isValid) {
-          console.log('[TokenManager] ERP Token 已失效，重新登录...');
+          log.info('ERP Token 已失效，重新登录...');
           await tokenRepo.updateLoginStatus('erp', 'expired');
           if (_erpConsecutiveFailures >= ERP_MAX_CONSECUTIVE_FAILURES) {
-            console.warn(`[TokenManager] ERP 登录已连续失败 ${_erpConsecutiveFailures} 次，跳过自动重试`);
+            log.warn(`ERP 登录已连续失败 ${_erpConsecutiveFailures} 次，跳过自动重试`);
           } else {
             const loginOk = await performErpLoginAndSave();
             if (loginOk) {
@@ -188,60 +193,60 @@ export async function checkAndRefreshAllTokens(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('[TokenManager] ERP Token 检查失败:', error);
+    log.error('ERP Token 检查失败:', error);
   }
 
   // 2. 检查 WMS Token
   try {
     const wmsRecord = await tokenRepo.getTokenRecord('wms');
     if (!wmsRecord || !wmsRecord.token_value) {
-      console.log('[TokenManager] WMS Session 不存在，尝试登录...');
+      log.info('WMS Session 不存在，尝试登录...');
       await performWmsLoginAndSave();
     } else {
       const updatedAt = wmsRecord.updated_at ? new Date(wmsRecord.updated_at).getTime() : 0;
       const ageMs = Date.now() - updatedAt;
       if (ageMs > 60 * 60 * 1000) {
-        console.log('[TokenManager] WMS Session 已超过1小时，重新登录...');
+        log.info('WMS Session 已超过1小时，重新登录...');
         await performWmsLoginAndSave();
       } else {
         const isValid = await verifyWmsToken(wmsRecord.token_value);
         if (!isValid) {
-          console.log('[TokenManager] WMS Session 已失效，重新登录...');
+          log.info('WMS Session 已失效，重新登录...');
           await performWmsLoginAndSave();
         }
       }
     }
   } catch (error) {
-    console.error('[TokenManager] WMS Token 检查失败:', error);
+    log.error('WMS Token 检查失败:', error);
   }
 
   // 3. 检查 B2B Token（依赖 ERP Token，必须在 ERP 确认有效后才处理）
   if (!erpTokenAvailable) {
-    console.log('[TokenManager] ERP Token 不可用，跳过 B2B Token 检查');
+    log.info('ERP Token 不可用，跳过 B2B Token 检查');
   } else {
     try {
       const b2bRecord = await tokenRepo.getTokenRecord('b2b');
       if (!b2bRecord || !b2bRecord.token_value) {
-        console.log('[TokenManager] B2B Token 不存在，尝试兑换...');
+        log.info('B2B Token 不存在，尝试兑换...');
         await performB2bExchangeAndSave();
       } else {
         const updatedAt = b2bRecord.updated_at ? new Date(b2bRecord.updated_at).getTime() : 0;
         const ageMs = Date.now() - updatedAt;
         if (ageMs > 60 * 60 * 1000) {
-          console.log('[TokenManager] B2B Token 已超过1小时，重新兑换...');
+          log.info('B2B Token 已超过1小时，重新兑换...');
           await performB2bExchangeAndSave();
         } else {
           const isValid = await verifyB2bToken(b2bRecord.token_value);
           if (!isValid) {
-            console.log('[TokenManager] B2B Token 已失效，重新兑换...');
+            log.info('B2B Token 已失效，重新兑换...');
             await performB2bExchangeAndSave();
           }
         }
       }
     } catch (error) {
-      console.error('[TokenManager] B2B Token 检查失败:', error);
+      log.error('B2B Token 检查失败:', error);
     }
   }
 
-  console.log('[TokenManager] Token 检查完成');
+  log.info('Token 检查完成');
 }

@@ -4,7 +4,12 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
-import { beforeSubmitCustomerCredit, getCustomerCreditCCRoles, onApprovedCustomerCredit, resolveCustomerCreditPreviewContext } from '../customer-credit-callback';
+import {
+  beforeSubmitCustomerCredit,
+  getCustomerCreditCCRoles,
+  onApprovedCustomerCredit,
+  resolveCustomerCreditPreviewContext,
+} from '../customer-credit-callback';
 
 /**
  * 客户授信申请表单类型定义

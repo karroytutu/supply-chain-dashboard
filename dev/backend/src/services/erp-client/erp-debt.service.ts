@@ -120,9 +120,7 @@ export async function fetchAllErpDebts(skipCache = false): Promise<ERPDebtRecord
   }
 
   // 过滤 leftAmount > 0 并转换类型
-  const debts = allRecords
-    .filter(r => parseFloat(r.leftAmount) > 0)
-    .map(toERPDebtRecord);
+  const debts = allRecords.filter(r => parseFloat(r.leftAmount) > 0).map(toERPDebtRecord);
 
   // 写入缓存（TTL 30s）
   cache.set(cacheKey, debts, CACHE_TTL.HIGH_FREQUENCY);

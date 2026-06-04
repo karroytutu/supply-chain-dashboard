@@ -3,11 +3,14 @@
  * 使用 Cookie 认证（WMSJSESSIONID），从 Token 管理模块获取
  * @module services/erp-client/erp-wms-client
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ERP');
 
 import axios, { AxiosRequestConfig } from 'axios';
 import { getErpConfig } from './erp-config';
 import { getWmsSessionId } from './erp-auth';
 import { ErpApiError } from './erp-client.types';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 /** WMS 请求限流（与主 ERP 共享 200ms 限流） */
 let _lastWmsRequestTime = 0;
@@ -28,21 +31,14 @@ async function waitForWmsRateLimit(): Promise<void> {
 /**
  * WMS GET 请求
  */
-export async function wmsGet<T = any>(
-  path: string,
-  params?: Record<string, any>
-): Promise<T> {
+export async function wmsGet<T = any>(path: string, params?: Record<string, any>): Promise<T> {
   return wmsRequest<T>('GET', path, params);
 }
 
 /**
  * WMS 核心请求方法
  */
-export async function wmsRequest<T = any>(
-  method: string,
-  path: string,
-  data?: any
-): Promise<T> {
+export async function wmsRequest<T = any>(method: string, path: string, data?: any): Promise<T> {
   const config = getErpConfig();
   const wmsBaseUrl = config.wmsBaseUrl || 'https://wms.zhoupudata.com';
   const url = `${wmsBaseUrl}${path}`;
@@ -61,8 +57,8 @@ export async function wmsRequest<T = any>(
         url,
         timeout: config.timeout,
         headers: {
-          'Cookie': `WMSJSESSIONID=${sessionId}`,
-          'Accept': 'application/json',
+          Cookie: `WMSJSESSIONID=${sessionId}`,
+          Accept: 'application/json',
         },
       };
 
@@ -79,7 +75,7 @@ export async function wmsRequest<T = any>(
       retryCount++;
       if (retryCount <= config.retryMax) {
         const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
-        console.warn(`[WmsClient] 请求失败，${delay}ms 后第 ${retryCount} 次重试: ${path}`, error.message);
+        log.warn(`请求失败，${delay}ms 后第 ${retryCount} 次重试: ${path}`, getErrorMessage(error));
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

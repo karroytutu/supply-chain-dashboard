@@ -4,6 +4,8 @@ import dayjs from 'dayjs';
 import { getReturnOrders, getReturnOrderStats } from '@/services/api/procurement-return';
 import type { ReturnOrder, ReturnOrderStats, ReturnOrderStatus, ReturnOrderQueryParams } from '@/types/procurement-return';
 import type { PaginatedResult } from '@/types/warning';
+import { createLogger } from '../../../../utils/logger';
+const log = createLogger('ProcurementReturnOrders');
 
 const DEFAULT_STATS: ReturnOrderStats = {
   pendingConfirm: 0, pendingErpFill: 0, pendingWarehouseExecute: 0,
@@ -37,7 +39,7 @@ export function useReturnOrdersData(filters: {
       const result = await getReturnOrderStats();
       setStats(result);
     } catch (error) {
-      console.error('加载统计信息失败:', error);
+      log.error('加载统计信息失败:', error);
     }
   }, []);
 

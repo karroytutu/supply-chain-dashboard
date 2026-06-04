@@ -42,7 +42,7 @@ export function setDingtalkViewportHeight(): void {
  * 在钉钉环境下持续修正 --vh 值（窗口缩放、旋转等场景）
  */
 export function initDingtalkViewportHeight(): () => void {
-  if (!isInDingtalk()) return () => {};
+  if (!isInDingtalk()) return () => { /* no-op outside DingTalk */ };
 
   setDingtalkViewportHeight();
   window.addEventListener('resize', setDingtalkViewportHeight);

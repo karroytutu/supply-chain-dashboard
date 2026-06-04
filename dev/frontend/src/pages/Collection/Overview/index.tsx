@@ -15,6 +15,8 @@ import CollectionTable from './components/CollectionTable';
 import { getUpcomingWarnings } from '@/services/api/ar-collection';
 import type { UpcomingWarning, WarningLevel } from '@/types/ar-collection';
 import './index.less';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('CollectionOverview');
 
 const CollectionOverview: React.FC = () => {
   const overview = useOverview();
@@ -39,7 +41,7 @@ const CollectionOverview: React.FC = () => {
       const data = await getUpcomingWarnings(params);
       setWarningDetailData(data.details || []);
     } catch (error) {
-      console.error('获取预警明细失败:', error);
+      log.error('获取预警明细失败:', error);
     } finally {
       setWarningDetailLoading(false);
     }

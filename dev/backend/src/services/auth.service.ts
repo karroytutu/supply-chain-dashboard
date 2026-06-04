@@ -3,31 +3,35 @@
  * 实际实现已拆分到 auth/ 子目录，此文件仅做 re-export 保持向后兼容
  * @module services/auth.service
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Service');
 
-import { appQuery } from '../db/appPool';
 import { generateToken, JwtPayload } from '../utils/jwt';
-import {
-  getUserInfoByAuthCode,
-  getUserInfoByCode,
-} from './dingtalk.service';
+import { getUserInfoByAuthCode, getUserInfoByCode } from './dingtalk.service';
 
-// Re-export from auth/ submodules
-export type { LoginResult, UserInfo, RoleInfo } from './auth/auth-user.service';
-export {
+// Import and re-export from auth/ submodules
+import { getErrorMessage } from '../utils/errorUtils';
+import {
+  type LoginResult,
+  type UserInfo,
+  type RoleInfo,
   createOrUpdateUser,
   getUserRolesAndPermissions,
   getCurrentUser,
   recordLoginLog,
 } from './auth/auth-user.service';
+export type { LoginResult, UserInfo, RoleInfo };
+export { createOrUpdateUser, getUserRolesAndPermissions, getCurrentUser, recordLoginLog };
 export { devSwitchUser, devGetUsers, devLogin } from './auth/auth-dev.service';
-
-import type { LoginResult, UserInfo } from './auth/auth-user.service';
-import { createOrUpdateUser, getUserRolesAndPermissions, recordLoginLog } from './auth/auth-user.service';
 
 /**
  * 钉钉免登
  */
-export async function autoLogin(authCode: string, ipAddress?: string, userAgent?: string): Promise<LoginResult> {
+export async function autoLogin(
+  authCode: string,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<LoginResult> {
   try {
     const dingtalkUser = await getUserInfoByAuthCode(authCode);
     const user = await createOrUpdateUser(dingtalkUser);
@@ -70,11 +74,11 @@ export async function autoLogin(authCode: string, ipAddress?: string, userAgent?
         permissions,
       },
     };
-  } catch (error: any) {
-    console.error('钉钉免登失败:', error.message);
+  } catch (error) {
+    log.error('钉钉免登失败:', getErrorMessage(error));
     return {
       success: false,
-      message: error.message || '钉钉免登失败',
+      message: getErrorMessage(error) || '钉钉免登失败',
     };
   }
 }
@@ -82,7 +86,11 @@ export async function autoLogin(authCode: string, ipAddress?: string, userAgent?
 /**
  * 扫码登录回调
  */
-export async function qrcodeCallback(code: string, ipAddress?: string, userAgent?: string): Promise<LoginResult> {
+export async function qrcodeCallback(
+  code: string,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<LoginResult> {
   try {
     const dingtalkUser = await getUserInfoByCode(code);
     const user = await createOrUpdateUser(dingtalkUser);
@@ -125,11 +133,11 @@ export async function qrcodeCallback(code: string, ipAddress?: string, userAgent
         permissions,
       },
     };
-  } catch (error: any) {
-    console.error('扫码登录失败:', error.message);
+  } catch (error) {
+    log.error('扫码登录失败:', getErrorMessage(error));
     return {
       success: false,
-      message: error.message || '扫码登录失败',
+      message: getErrorMessage(error) || '扫码登录失败',
     };
   }
 }

@@ -5,8 +5,7 @@
  */
 import { useState, useEffect } from 'react';
 import type { FormSchema, FormField } from '@/types/oa';
-import { oaApi } from '@/services/api/oa';
-import type { ErpReferenceType } from '@/services/api/oa';
+import { oaApi, type ErpReferenceType } from '@/services/api/oa';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
 import { resolveStoredName } from '../utils/resolveStoredName';
 

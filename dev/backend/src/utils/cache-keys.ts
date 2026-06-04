@@ -33,7 +33,8 @@ export const CACHE_KEY = {
   /** 客户搜索缓存 */
   ERP_CUSTOMER_SEARCH: (keyword: string) => `erp:customer:search:${keyword}` as const,
   /** 客户详情缓存 */
-  ERP_CUSTOMER_PROFILE: (customerId: string | number) => `erp:customer:profile:${customerId}` as const,
+  ERP_CUSTOMER_PROFILE: (customerId: string | number) =>
+    `erp:customer:profile:${customerId}` as const,
   /** 客户搜索缓存前缀（用于 invalidate 批量清除） */
   ERP_CUSTOMER_SEARCH_PREFIX: 'erp:customer:search' as const,
   /** 客户详情缓存前缀（用于 invalidate 批量清除） */

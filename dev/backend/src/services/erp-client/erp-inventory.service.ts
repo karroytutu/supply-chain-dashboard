@@ -117,8 +117,11 @@ export async function fetchAllInventory(skipCache = false): Promise<ErpInventory
   };
 
   _inventoryInFlight = doFetch();
-  try { return await _inventoryInFlight; }
-  finally { _inventoryInFlight = null; }
+  try {
+    return await _inventoryInFlight;
+  } finally {
+    _inventoryInFlight = null;
+  }
 }
 
 /**
@@ -150,8 +153,8 @@ export async function getStockSummaryMap(): Promise<Map<number, number>> {
   const inventory = await fetchAllInventory();
   const rawMap = aggregateSum(
     inventory,
-    (r) => String(r.goodsId),
-    (r) => r.availableBaseQuantity
+    r => String(r.goodsId),
+    r => r.availableBaseQuantity
   );
 
   // aggregateSum returns Map<string, number>, convert to Map<number, number>
@@ -171,8 +174,8 @@ export async function getStockByNameMap(): Promise<Map<string, number>> {
   const inventory = await fetchAllInventory();
   _stockByNameMap = aggregateSum(
     inventory,
-    (r) => r.goodsName,
-    (r) => r.availableBaseQuantity
+    r => r.goodsName,
+    r => r.availableBaseQuantity
   );
 
   return _stockByNameMap;

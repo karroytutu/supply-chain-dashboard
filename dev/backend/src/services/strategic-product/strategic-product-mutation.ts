@@ -2,6 +2,8 @@
  * 战略商品变更服务
  * 业务逻辑层，委托 Repository 执行数据访问，写入后自动失效缓存
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('StrategicProduct');
 
 import * as repo from './strategic-product.repository';
 import { toStrategicProductDTO } from './strategic-product.mapper';
@@ -23,10 +25,10 @@ export async function addStrategicProducts(
   params: AddStrategicProductsParams
 ): Promise<{ addedCount: number; skippedCount: number }> {
   const { goodsIds, userId } = params;
-  console.log('添加战略商品，goodsIds:', goodsIds);
+  log.info('添加战略商品，goodsIds:', goodsIds);
 
   const result = await repo.addProducts(goodsIds, userId);
-  console.log(`添加完成: 成功 ${result.addedCount}, 跳过 ${result.skippedCount}`);
+  log.info(`添加完成: 成功 ${result.addedCount}, 跳过 ${result.skippedCount}`);
 
   if (result.addedCount > 0) {
     repo.invalidateProductCache();

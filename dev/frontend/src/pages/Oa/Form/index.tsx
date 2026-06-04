@@ -3,7 +3,7 @@
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { history, useParams, useAccess } from 'umi';
-import { Button, Spin, Form, message, Alert } from 'antd';
+import { Button, Spin, Form, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApi } from '@/services/api/oa';
 import type { FormTypeDefinition } from '@/types/oa';
@@ -14,6 +14,7 @@ import ConditionalFieldWrapper, { checkCondition } from './components/Conditiona
 import { ApprovalFlow } from '@/components/Oa';
 import { initDingtalkViewportHeight } from '@/utils/dingtalk/utils';
 import styles from './index.less';
+import { getErrorMessage } from '../../../utils/errorUtils';
 
 const FormPage: React.FC = () => {
   const { typeCode } = useParams<{ typeCode: string }>();
@@ -46,6 +47,7 @@ const FormPage: React.FC = () => {
     if (typeCode) {
       loadFormType(typeCode);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [typeCode]);
 
   /** 从 formSchema 计算字段 key→label 映射，用于流程预览条件人性化 */
@@ -144,7 +146,7 @@ const FormPage: React.FC = () => {
       if (error.errorFields) {
         message.error('请填写必填项');
       } else {
-        message.error(error.message || '提交失败');
+        message.error(getErrorMessage(error) || '提交失败');
       }
     } finally {
       setSubmitting(false);

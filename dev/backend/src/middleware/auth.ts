@@ -8,9 +8,12 @@ import {
 } from '../services/permission-cache.service';
 import { CACHE_TTL } from '../utils/cache';
 import { buildErrorResponse } from '../utils/response';
+import { createLogger } from '../utils/logger';
+const log = createLogger('Middleware');
 
 // 扩展Express Request类型
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: JwtPayload;
@@ -25,40 +28,39 @@ declare global {
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   const token = extractTokenFromHeader(authHeader);
-  
+
   if (!token) {
     res.status(401).json(buildErrorResponse(401, '未提供认证令牌'));
     return;
   }
-  
+
   const payload = verifyToken(token);
-  
+
   if (!payload) {
     res.status(401).json(buildErrorResponse(401, '无效的认证令牌'));
     return;
   }
-  
+
   // 检查用户状态是否正常
   try {
-    const result = await appQuery<{ status: number }>(
-      'SELECT status FROM users WHERE id = $1',
-      [payload.userId]
-    );
-    
+    const result = await appQuery<{ status: number }>('SELECT status FROM users WHERE id = $1', [
+      payload.userId,
+    ]);
+
     if (result.rows.length === 0 || result.rows[0].status !== 1) {
       res.status(401).json(buildErrorResponse(401, '用户已被禁用'));
       return;
     }
   } catch (error) {
-    console.error('检查用户状态失败:', error);
+    log.error('检查用户状态失败:', error);
     res.status(500).json(buildErrorResponse(500, '服务器错误'));
     return;
   }
-  
+
   // 从缓存获取权限，缓存未命中则查询数据库
   try {
     let permissionData = getUserPermissionCache(payload.userId);
-    
+
     if (!permissionData) {
       const { roles, permissions } = await getUserRolesAndPermissions(payload.userId);
       permissionData = {
@@ -68,17 +70,17 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       // 缓存30秒
       setUserPermissionCache(payload.userId, permissionData, CACHE_TTL.HIGH_FREQUENCY);
     }
-    
+
     // 挂载用户信息和权限到请求对象
     req.user = {
       ...payload,
       roles: permissionData.roles,
       permissions: permissionData.permissions,
     };
-    
+
     next();
   } catch (error) {
-    console.error('获取用户权限失败:', error);
+    log.error('获取用户权限失败:', error);
     res.status(500).json(buildErrorResponse(500, '服务器错误'));
   }
 }
@@ -90,13 +92,13 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 export async function optionalAuthMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   const token = extractTokenFromHeader(authHeader);
-  
+
   if (token) {
     const payload = verifyToken(token);
     if (payload) {
       req.user = payload;
     }
   }
-  
+
   next();
 }

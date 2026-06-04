@@ -13,7 +13,7 @@ import {
   getStrategicProducts,
 } from '@/services/api/strategic-product';
 import { exportStrategicProducts } from '../utils/export';
-import type { StrategicProduct, StrategicProductStatus } from '@/types/strategic-product';
+import type { StrategicProduct } from '@/types/strategic-product';
 import type { StrategicFilters } from './useStrategicFilters';
 
 interface UseStrategicActionsParams {

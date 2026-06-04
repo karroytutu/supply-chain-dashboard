@@ -1,3 +1,8 @@
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Sdk');
+
+
+
 /**
  * 钉钉 SDK 加载和 dd.ready 管理
  */
@@ -75,7 +80,7 @@ export function waitDingtalkReady(): Promise<void> {
 
     window.dd.error((error: any) => {
       clearTimeout(timeout);
-      console.error('[Dingtalk] dd.error:', error);
+      log.error('dd.error:', error);
       reject(new Error('钉钉SDK初始化失败'));
     });
   });

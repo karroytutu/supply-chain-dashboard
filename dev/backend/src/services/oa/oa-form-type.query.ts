@@ -2,15 +2,13 @@
  * OA表单类型查询服务
  * @module services/oa/oa-form-type.query
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('OA');
 
 import { appQuery as query } from '../../db/appPool';
-import {
-  FormTypeDefinition,
-  FormCategory,
-  OaFormTypeRow,
-} from './oa.types';
+import { FormTypeDefinition, FormCategory, OaFormTypeRow } from './oa.types';
 import { mapFormTypeRow } from './oa-utils';
-import { ALL_FORM_TYPES, getFormTypeByCode, getFormTypesByCategory } from './form-types';
+import { ALL_FORM_TYPES, getFormTypeByCode } from './form-types';
 
 /**
  * 获取所有可用的表单类型
@@ -25,17 +23,17 @@ export async function getActiveFormTypes(): Promise<FormTypeDefinition[]> {
     if (result.rows.length > 0) {
       const dbFormTypes = result.rows.map(mapFormTypeRow);
       // 收集数据库中已有的 code
-      const dbCodes = new Set(dbFormTypes.map((ft) => ft.code));
+      const dbCodes = new Set(dbFormTypes.map(ft => ft.code));
       // 补充代码定义中存在但数据库中尚未入库的表单类型
-      const codeOnlyTypes = ALL_FORM_TYPES.filter((ft) => !dbCodes.has(ft.code));
+      const codeOnlyTypes = ALL_FORM_TYPES.filter(ft => !dbCodes.has(ft.code));
       return [...dbFormTypes, ...codeOnlyTypes];
     }
 
     // 数据库无数据时使用代码定义
     return ALL_FORM_TYPES;
-  } catch (error) {
+  } catch (_error) {
     // 表不存在时使用代码定义
-    console.warn('oa_form_types table not found, using code definitions');
+    log.warn('oa_form_types table not found, using code definitions');
     return ALL_FORM_TYPES;
   }
 }
@@ -56,8 +54,8 @@ export async function getFormTypeByCodeQuery(code: string): Promise<FormTypeDefi
 
     // 数据库无数据时使用代码定义
     return getFormTypeByCode(code) || null;
-  } catch (error) {
-    console.warn('oa_form_types table not found, using code definitions');
+  } catch (_error) {
+    log.warn('oa_form_types table not found, using code definitions');
     return getFormTypeByCode(code) || null;
   }
 }
@@ -65,9 +63,11 @@ export async function getFormTypeByCodeQuery(code: string): Promise<FormTypeDefi
 /**
  * 按分类分组获取表单类型
  */
-export async function getFormTypesGroupedByCategory(): Promise<Record<FormCategory, FormTypeDefinition[]>> {
+export async function getFormTypesGroupedByCategory(): Promise<
+  Record<FormCategory, FormTypeDefinition[]>
+> {
   const formTypes = await getActiveFormTypes();
-  
+
   const grouped: Record<FormCategory, FormTypeDefinition[]> = {
     finance: [],
     supply_chain: [],

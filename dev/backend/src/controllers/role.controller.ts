@@ -9,18 +9,20 @@ import {
   assignRolePermissions,
 } from '../services/role.service';
 import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '../utils/response';
+import { getErrorMessage } from '../utils/errorUtils';
 
 /**
  * 获取角色列表
  */
 export async function listRoles(req: Request, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
+  const pageSize =
+    parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 10;
   const keyword = req.query.keyword as string;
   const status = req.query.status !== undefined ? parseInt(req.query.status as string) : undefined;
-  
+
   const result = await getRoleList({ page, pageSize, keyword, status });
-  
+
   res.json(buildPagedResponse(result.list, result.total, page, pageSize));
 }
 
@@ -37,19 +39,19 @@ export async function listAllRoles(req: Request, res: Response) {
  */
 export async function getRole(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的角色ID'));
     return;
   }
-  
+
   const role = await getRoleById(id);
-  
+
   if (!role) {
     res.status(404).json(buildErrorResponse(404, '角色不存在'));
     return;
   }
-  
+
   res.json(buildSuccessResponse(role));
 }
 
@@ -58,12 +60,12 @@ export async function getRole(req: Request, res: Response) {
  */
 export async function createNewRole(req: Request, res: Response) {
   const { code, name, description } = req.body;
-  
+
   if (!code || !name) {
     res.status(400).json(buildErrorResponse(400, '角色编码和名称不能为空'));
     return;
   }
-  
+
   try {
     const role = await createRole({ code, name, description });
     res.json(buildSuccessResponse(role, '角色创建成功'));
@@ -81,19 +83,19 @@ export async function createNewRole(req: Request, res: Response) {
  */
 export async function updateRoleInfo(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的角色ID'));
     return;
   }
-  
+
   const role = await updateRole(id, req.body);
-  
+
   if (!role) {
     res.status(404).json(buildErrorResponse(404, '角色不存在'));
     return;
   }
-  
+
   res.json(buildSuccessResponse(role));
 }
 
@@ -102,23 +104,23 @@ export async function updateRoleInfo(req: Request, res: Response) {
  */
 export async function deleteRoleHandler(req: Request, res: Response) {
   const id = parseInt(req.params.id);
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的角色ID'));
     return;
   }
-  
+
   try {
     const success = await deleteRole(id);
-    
+
     if (!success) {
       res.status(404).json(buildErrorResponse(404, '角色不存在'));
       return;
     }
-    
+
     res.json(buildSuccessResponse(null, '角色删除成功'));
-  } catch (error: any) {
-    res.status(400).json(buildErrorResponse(400, error.message));
+  } catch (error) {
+    res.status(400).json(buildErrorResponse(400, getErrorMessage(error)));
   }
 }
 
@@ -128,18 +130,18 @@ export async function deleteRoleHandler(req: Request, res: Response) {
 export async function assignPermissions(req: Request, res: Response) {
   const id = parseInt(req.params.id);
   const { permissionIds } = req.body;
-  
+
   if (isNaN(id)) {
     res.status(400).json(buildErrorResponse(400, '无效的角色ID'));
     return;
   }
-  
+
   if (!Array.isArray(permissionIds)) {
     res.status(400).json(buildErrorResponse(400, '权限ID列表格式错误'));
     return;
   }
-  
+
   await assignRolePermissions(id, permissionIds);
-  
+
   res.json(buildSuccessResponse(null, '权限分配成功'));
 }

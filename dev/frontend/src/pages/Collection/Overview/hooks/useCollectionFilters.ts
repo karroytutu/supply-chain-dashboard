@@ -15,8 +15,9 @@ import {
   tabToApiParams,
   getCollectionRole,
   getDefaultStatusTab,
+  type StatusTab,
+  type CollectionFilters,
 } from './collectionFilterUtils';
-import type { StatusTab, CollectionFilters } from './collectionFilterUtils';
 
 export type { RoleView, EscalationTab, StatusTab, CollectionFilters } from './collectionFilterUtils';
 export { tabToApiParams, getCollectionRole } from './collectionFilterUtils';

@@ -4,6 +4,8 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { getAssessmentRecords, getAssessmentStats } from '@/services/api/assessment';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('Assessmenthooks');
 
 /** 统计数据初始值 */
 const INITIAL_STATS: AssessmentStats = {
@@ -29,7 +31,7 @@ export function useAssessmentData(queryParams: AssessmentQueryParams) {
       setRecords(res?.list || []);
       setTotal(res?.total || 0);
     } catch (error) {
-      console.error('加载考核记录失败:', error);
+      log.error('加载考核记录失败:', error);
     } finally {
       setLoading(false);
     }
@@ -43,7 +45,7 @@ export function useAssessmentData(queryParams: AssessmentQueryParams) {
         setStats(res);
       }
     } catch (error) {
-      console.error('加载统计数据失败:', error);
+      log.error('加载统计数据失败:', error);
     }
   }, [queryParams.category]);
 

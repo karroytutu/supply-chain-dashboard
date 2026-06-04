@@ -2,10 +2,20 @@
  * 预警商品服务模块入口
  */
 
-import type { PaginationParams, PaginatedResult, WarningProduct, StrategicLevel } from './warning.types';
+import type {
+  PaginationParams,
+  PaginatedResult,
+  WarningProduct,
+  StrategicLevel,
+} from './warning.types';
 import { getStrategicGoodsIds, clearStrategicGoodsCache } from './warning-cache';
 import { getOutOfStockProducts, getLowStockProducts } from './stock-warning.service';
-import { getOverstockProducts, OVERSTOCK_MILD_DAYS, OVERSTOCK_MODERATE_DAYS, OVERSTOCK_SERIOUS_DAYS } from './overstock-warning.service';
+import {
+  getOverstockProducts,
+  OVERSTOCK_MILD_DAYS,
+  OVERSTOCK_MODERATE_DAYS,
+  OVERSTOCK_SERIOUS_DAYS,
+} from './overstock-warning.service';
 import { getExpiringProducts } from './expiring-warning.service';
 import { getSlowMovingProducts } from './slowmoving-warning.service';
 
@@ -17,18 +27,23 @@ interface WarningHandlerParams {
 }
 
 // 预警类型映射表
-const WARNING_TYPE_HANDLERS: Record<string, (params: WarningHandlerParams) => Promise<PaginatedResult<WarningProduct>>> = {
-  'out_of_stock': getOutOfStockProducts,
-  'low_stock': getLowStockProducts,
-  'mild_overstock': (params) => getOverstockProducts(OVERSTOCK_MILD_DAYS, OVERSTOCK_MODERATE_DAYS, params),
-  'moderate_overstock': (params) => getOverstockProducts(OVERSTOCK_MODERATE_DAYS, OVERSTOCK_SERIOUS_DAYS, params),
-  'serious_overstock': (params) => getOverstockProducts(OVERSTOCK_SERIOUS_DAYS, null, params),
-  'expiring_7': (params) => getExpiringProducts(0, 7, params),
-  'expiring_15': (params) => getExpiringProducts(7, 15, params),
-  'expiring_30': (params) => getExpiringProducts(15, 30, params),
-  'mild_slow_moving': (params) => getSlowMovingProducts(7, 15, params),
-  'moderate_slow_moving': (params) => getSlowMovingProducts(15, 30, params),
-  'serious_slow_moving': (params) => getSlowMovingProducts(30, null, params),
+const WARNING_TYPE_HANDLERS: Record<
+  string,
+  (params: WarningHandlerParams) => Promise<PaginatedResult<WarningProduct>>
+> = {
+  out_of_stock: getOutOfStockProducts,
+  low_stock: getLowStockProducts,
+  mild_overstock: params =>
+    getOverstockProducts(OVERSTOCK_MILD_DAYS, OVERSTOCK_MODERATE_DAYS, params),
+  moderate_overstock: params =>
+    getOverstockProducts(OVERSTOCK_MODERATE_DAYS, OVERSTOCK_SERIOUS_DAYS, params),
+  serious_overstock: params => getOverstockProducts(OVERSTOCK_SERIOUS_DAYS, null, params),
+  expiring_7: params => getExpiringProducts(0, 7, params),
+  expiring_15: params => getExpiringProducts(7, 15, params),
+  expiring_30: params => getExpiringProducts(15, 30, params),
+  mild_slow_moving: params => getSlowMovingProducts(7, 15, params),
+  moderate_slow_moving: params => getSlowMovingProducts(15, 30, params),
+  serious_slow_moving: params => getSlowMovingProducts(30, null, params),
 };
 
 /**

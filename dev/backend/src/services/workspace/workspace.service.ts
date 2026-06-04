@@ -64,9 +64,7 @@ export async function getWorkspaceData(
   // 并行获取各模块数据，各模块独立容错
   const [oaData, collectionData, returnData, strategicData, assessmentData] =
     await Promise.allSettled([
-      hasPermission(permissions, roles, 'oa:read')
-        ? fetchOaModule(userId)
-        : Promise.resolve(null),
+      hasPermission(permissions, roles, 'oa:read') ? fetchOaModule(userId) : Promise.resolve(null),
       hasPermission(permissions, roles, 'ar:collection:read')
         ? fetchCollectionModule(userId, roles)
         : Promise.resolve(null),
@@ -89,7 +87,7 @@ export async function getWorkspaceData(
       modules.push(mod);
       totalPending += Number(mod.totalPending) || 0;
       urgentCount += mod.items
-        .filter((i) => i.level === 'urgent')
+        .filter(i => i.level === 'urgent')
         .reduce((s, i) => s + (Number(i.count) || 0), 0);
     }
   }
@@ -149,7 +147,11 @@ async function fetchCollectionModule(userId: number, roles: string[]): Promise<W
     totalPending: collecting + waiting,
     items: [
       { label: '催收中', count: collecting, level: collecting > 0 ? 'urgent' : 'normal' },
-      { label: '待处理（差异/延期/升级）', count: waiting, level: waiting > 0 ? 'warning' : 'normal' },
+      {
+        label: '待处理（差异/延期/升级）',
+        count: waiting,
+        level: waiting > 0 ? 'warning' : 'normal',
+      },
       { label: '需关注', count: attention, level: 'normal' },
     ],
   };
@@ -167,7 +169,11 @@ async function fetchReturnModule(): Promise<WorkspaceModule> {
     icon: 'ShoppingOutlined',
     totalPending: pendingConfirm + pendingErp + pendingWarehouse,
     items: [
-      { label: '退货单待确认', count: pendingConfirm, level: pendingConfirm > 0 ? 'urgent' : 'normal' },
+      {
+        label: '退货单待确认',
+        count: pendingConfirm,
+        level: pendingConfirm > 0 ? 'urgent' : 'normal',
+      },
       { label: '待ERP填写', count: pendingErp, level: pendingErp > 0 ? 'warning' : 'normal' },
       { label: '待仓储执行', count: pendingWarehouse, level: 'normal' },
     ],
@@ -183,13 +189,13 @@ async function fetchStrategicModule(): Promise<WorkspaceModule> {
     name: '战略商品',
     icon: 'StarOutlined',
     totalPending: pending,
-    items: [
-      { label: '待确认商品', count: pending, level: pending > 0 ? 'warning' : 'normal' },
-    ],
+    items: [{ label: '待确认商品', count: pending, level: pending > 0 ? 'warning' : 'normal' }],
   };
 }
 
-async function fetchAssessmentModule(): Promise<WorkspaceModule & { _todayNew: number; _todayDone: number }> {
+async function fetchAssessmentModule(): Promise<
+  WorkspaceModule & { _todayNew: number; _todayDone: number }
+> {
   const stats = await getAssessmentStats();
   const pendingCount = Number(stats?.pending_count) || 0;
   const todayNew = Number(stats?.today_new) || 0;

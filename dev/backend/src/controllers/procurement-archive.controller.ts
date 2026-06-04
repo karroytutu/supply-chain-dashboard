@@ -1,7 +1,8 @@
 /**
  * 采购绩效存档控制器
  */
-
+import { createLogger } from '../utils/logger';
+const log = createLogger('ProcurementArchive');
 import { Request, Response } from 'express';
 import { getMonthlyArchiveList, saveMonthlyArchive } from '../services/procurement-archive';
 import { buildPagedResponse, buildSuccessResponse, buildErrorResponse } from '../utils/response';
@@ -23,7 +24,7 @@ export async function getArchiveList(req: Request, res: Response): Promise<void>
 
     res.json(buildPagedResponse(result.records, result.total, result.page, result.pageSize));
   } catch (error) {
-    console.error('[ProcurementArchiveController] 获取存档列表失败:', error);
+    log.error('获取存档列表失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取存档列表失败'));
   }
 }
@@ -51,9 +52,14 @@ export async function generateArchive(req: Request, res: Response): Promise<void
 
     await saveMonthlyArchive(archiveDate, 'manual');
 
-    res.json(buildSuccessResponse(null, `${archiveDate.getFullYear()}年${archiveDate.getMonth() + 1}月存档完成`));
+    res.json(
+      buildSuccessResponse(
+        null,
+        `${archiveDate.getFullYear()}年${archiveDate.getMonth() + 1}月存档完成`
+      )
+    );
   } catch (error) {
-    console.error('[ProcurementArchiveController] 手动存档失败:', error);
+    log.error('手动存档失败:', error);
     res.status(500).json(buildErrorResponse(500, '手动存档失败'));
   }
 }

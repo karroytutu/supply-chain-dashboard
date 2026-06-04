@@ -42,18 +42,23 @@ describe('toSnakeCase', () => {
 
 describe('toCamelKeys', () => {
   it('converts flat object keys', () => {
-    expect(toCamelKeys({ first_name: 'John', last_name: 'Doe' }))
-      .toEqual({ firstName: 'John', lastName: 'Doe' });
+    expect(toCamelKeys({ first_name: 'John', last_name: 'Doe' })).toEqual({
+      firstName: 'John',
+      lastName: 'Doe',
+    });
   });
 
   it('converts nested object keys', () => {
-    expect(toCamelKeys({ user_info: { first_name: 'John', home_address: { zip_code: '12345' } } }))
-      .toEqual({ userInfo: { firstName: 'John', homeAddress: { zipCode: '12345' } } });
+    expect(
+      toCamelKeys({ user_info: { first_name: 'John', home_address: { zip_code: '12345' } } })
+    ).toEqual({ userInfo: { firstName: 'John', homeAddress: { zipCode: '12345' } } });
   });
 
   it('converts arrays of objects', () => {
-    expect(toCamelKeys([{ first_name: 'A' }, { first_name: 'B' }]))
-      .toEqual([{ firstName: 'A' }, { firstName: 'B' }]);
+    expect(toCamelKeys([{ first_name: 'A' }, { first_name: 'B' }])).toEqual([
+      { firstName: 'A' },
+      { firstName: 'B' },
+    ]);
   });
 
   it('preserves null and undefined', () => {
@@ -74,25 +79,31 @@ describe('toCamelKeys', () => {
   });
 
   it('handles nested arrays within objects', () => {
-    expect(toCamelKeys({ order_items: [{ item_name: 'A', unit_price: 10 }] }))
-      .toEqual({ orderItems: [{ itemName: 'A', unitPrice: 10 }] });
+    expect(toCamelKeys({ order_items: [{ item_name: 'A', unit_price: 10 }] })).toEqual({
+      orderItems: [{ itemName: 'A', unitPrice: 10 }],
+    });
   });
 });
 
 describe('toSnakeKeys', () => {
   it('converts flat object keys', () => {
-    expect(toSnakeKeys({ firstName: 'John', lastName: 'Doe' }))
-      .toEqual({ first_name: 'John', last_name: 'Doe' });
+    expect(toSnakeKeys({ firstName: 'John', lastName: 'Doe' })).toEqual({
+      first_name: 'John',
+      last_name: 'Doe',
+    });
   });
 
   it('converts nested object keys', () => {
-    expect(toSnakeKeys({ userInfo: { firstName: 'John', homeAddress: { zipCode: '12345' } } }))
-      .toEqual({ user_info: { first_name: 'John', home_address: { zip_code: '12345' } } });
+    expect(
+      toSnakeKeys({ userInfo: { firstName: 'John', homeAddress: { zipCode: '12345' } } })
+    ).toEqual({ user_info: { first_name: 'John', home_address: { zip_code: '12345' } } });
   });
 
   it('converts arrays of objects', () => {
-    expect(toSnakeKeys([{ firstName: 'A' }, { firstName: 'B' }]))
-      .toEqual([{ first_name: 'A' }, { first_name: 'B' }]);
+    expect(toSnakeKeys([{ firstName: 'A' }, { firstName: 'B' }])).toEqual([
+      { first_name: 'A' },
+      { first_name: 'B' },
+    ]);
   });
 
   it('preserves null and undefined', () => {
@@ -101,7 +112,11 @@ describe('toSnakeKeys', () => {
   });
 
   it('roundtrip: toCamelKeys(toSnakeKeys(obj)) preserves data', () => {
-    const original = { firstName: 'John', homeAddress: { zipCode: '12345' }, orderItems: [{ itemName: 'Widget' }] };
+    const original = {
+      firstName: 'John',
+      homeAddress: { zipCode: '12345' },
+      orderItems: [{ itemName: 'Widget' }],
+    };
     expect(toCamelKeys(toSnakeKeys(original))).toEqual(original);
   });
 });

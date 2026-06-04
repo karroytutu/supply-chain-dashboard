@@ -2,6 +2,8 @@
  * 退货单操作控制器
  * @module controllers/return-order.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('ReturnOrder');
 
 import { Request, Response } from 'express';
 import {
@@ -27,11 +29,18 @@ export const batchConfirmReturnOrdersController = async (req: Request, res: Resp
       return;
     }
 
-    const result = await batchConfirmReturnOrders({ orderIds, ruleDecision, operatorId, operatorName });
+    const result = await batchConfirmReturnOrders({
+      orderIds,
+      ruleDecision,
+      operatorId,
+      operatorName,
+    });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('批量确认退货单失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '批量确认退货单失败'));
+    log.error('批量确认退货单失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '批量确认退货单失败'));
   }
 };
 
@@ -50,8 +59,10 @@ export const cancelReturnOrderController = async (req: Request, res: Response) =
     const result = await cancelReturnOrder(id, operatorId, operatorName);
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('取消退货单失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '取消退货单失败'));
+    log.error('取消退货单失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '取消退货单失败'));
   }
 };
 
@@ -76,8 +87,12 @@ export const fillErpReturnNoController = async (req: Request, res: Response) => 
     const result = await fillErpReturnNo({ id, erpReturnNo, operatorId, operatorName });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('填写ERP退货单号失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '填写ERP退货单号失败'));
+    log.error('填写ERP退货单号失败:', error);
+    res
+      .status(500)
+      .json(
+        buildErrorResponse(500, error instanceof Error ? error.message : '填写ERP退货单号失败')
+      );
   }
 };
 
@@ -94,8 +109,10 @@ export const uploadReturnEvidenceController = async (req: Request, res: Response
     );
     res.json(buildSuccessResponse({ urls }));
   } catch (error) {
-    console.error('上传退货凭证失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '上传退货凭证失败'));
+    log.error('上传退货凭证失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '上传退货凭证失败'));
   }
 };
 
@@ -120,8 +137,10 @@ export const warehouseExecuteController = async (req: Request, res: Response) =>
     const result = await warehouseExecute({ id, evidenceUrls, comment, operatorId, operatorName });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('仓储执行退货失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '仓储执行退货失败'));
+    log.error('仓储执行退货失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '仓储执行退货失败'));
   }
 };
 
@@ -141,8 +160,12 @@ export const marketingSaleCompleteController = async (req: Request, res: Respons
     const result = await marketingSaleComplete({ id, comment, operatorId, operatorName });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('营销销售完成处理失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '营销销售完成处理失败'));
+    log.error('营销销售完成处理失败:', error);
+    res
+      .status(500)
+      .json(
+        buildErrorResponse(500, error instanceof Error ? error.message : '营销销售完成处理失败')
+      );
   }
 };
 
@@ -162,20 +185,24 @@ export const rollbackReturnOrderController = async (req: Request, res: Response)
     const result = await rollbackReturnOrder({ id, operatorId, operatorName, comment });
     res.json(buildSuccessResponse(result));
   } catch (error) {
-    console.error('回退退货单失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '回退退货单失败'));
+    log.error('回退退货单失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '回退退货单失败'));
   }
 };
 
 /** 手动触发同步退货数据 */
 export const triggerSyncController = async (req: Request, res: Response) => {
   try {
-    console.log('[TriggerSync] 手动触发退货数据同步...');
+    log.info('手动触发退货数据同步...');
     const result = await syncReturnOrders();
-    console.log('[TriggerSync] 同步完成:', result);
+    log.info('同步完成:', result);
     res.json(buildSuccessResponse(result, '同步完成'));
   } catch (error) {
-    console.error('[TriggerSync] 同步失败:', error);
-    res.status(500).json(buildErrorResponse(500, error instanceof Error ? error.message : '同步失败'));
+    log.error('同步失败:', error);
+    res
+      .status(500)
+      .json(buildErrorResponse(500, error instanceof Error ? error.message : '同步失败'));
   }
 };

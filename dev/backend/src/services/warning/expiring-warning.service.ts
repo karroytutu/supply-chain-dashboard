@@ -37,27 +37,37 @@ export async function getExpiringProducts(
   const productByName = new Map(allProducts.map(p => [p.name, p]));
 
   // 过滤批次库存：daysToExpire 在范围内
-  const filteredBatches = allBatchInventory.filter(b =>
-    b.daysToExpire > minDays && b.daysToExpire <= maxDays
+  const filteredBatches = allBatchInventory.filter(
+    b => b.daysToExpire > minDays && b.daysToExpire <= maxDays
   );
 
   // 按商品名聚合
-  const batchByGoods = new Map<string, {
-    totalBaseQty: number; totalCostAmount: number;
-    minDaysToExpire: number; nearestExpiryDate: string;
-  }>();
+  const batchByGoods = new Map<
+    string,
+    {
+      totalBaseQty: number;
+      totalCostAmount: number;
+      minDaysToExpire: number;
+      nearestExpiryDate: string;
+    }
+  >();
 
   for (const batch of filteredBatches) {
     const product = productByName.get(batch.goodsName);
     if (!product || product.state !== 0) continue;
     if (strategicLevel === 'strategic' && !strategicIds.has(String(product.goodsId))) continue;
-    if (strategicLevel === 'normal' && strategicIds.size > 0 && strategicIds.has(String(product.goodsId))) continue;
+    if (
+      strategicLevel === 'normal' &&
+      strategicIds.size > 0 &&
+      strategicIds.has(String(product.goodsId))
+    )
+      continue;
 
     let baseQty = parseFloat(batch.convertBaseQuantity) || 0;
     if (baseQty <= 0) {
       const rawQty = parseFloat(batch.quantity) || 0;
-      baseQty = batch.unitName === product.pkgUnitName
-        ? rawQty * (product.unitFactor || 1) : rawQty;
+      baseQty =
+        batch.unitName === product.pkgUnitName ? rawQty * (product.unitFactor || 1) : rawQty;
     }
 
     const costPrice = costPriceByName.get(batch.goodsName) || 0;
@@ -73,14 +83,18 @@ export async function getExpiringProducts(
       }
     } else {
       batchByGoods.set(batch.goodsName, {
-        totalBaseQty: baseQty, totalCostAmount: costAmount,
-        minDaysToExpire: batch.daysToExpire, nearestExpiryDate: batch.expireDate,
+        totalBaseQty: baseQty,
+        totalCostAmount: costAmount,
+        minDaysToExpire: batch.daysToExpire,
+        nearestExpiryDate: batch.expireDate,
       });
     }
   }
 
-  let items = Array.from(batchByGoods.entries()).map(([goodsName, d]) => ({
-    goodsName, product: productByName.get(goodsName)!, ...d,
+  const items = Array.from(batchByGoods.entries()).map(([goodsName, d]) => ({
+    goodsName,
+    product: productByName.get(goodsName)!,
+    ...d,
   }));
   items.sort((a, b) => a.minDaysToExpire - b.minDaysToExpire);
 
@@ -92,7 +106,8 @@ export async function getExpiringProducts(
     const unitFactor = parseUnitFactor(item.product.unitFactor);
     const converted = convertStockUnits({
       baseQuantity: parseQuantity(item.totalBaseQty),
-      baseAvgDaily: 0, unitFactor,
+      baseAvgDaily: 0,
+      unitFactor,
       baseUnitName: item.product.baseUnitName || '个',
       pkgUnitName: item.product.pkgUnitName || '个',
     });
@@ -103,16 +118,21 @@ export async function getExpiringProducts(
       productCode: String(item.product.goodsId),
       productName: item.goodsName,
       categoryId: String(item.product.goodsId),
-      categoryName, brand: null, specification: null,
+      categoryName,
+      brand: null,
+      specification: null,
       stock: {
-        quantity: converted.displayQuantity, unitName: converted.displayUnit,
-        costAmount: Math.round(item.totalCostAmount), warehouseLocation: null,
+        quantity: converted.displayQuantity,
+        unitName: converted.displayUnit,
+        costAmount: Math.round(item.totalCostAmount),
+        warehouseLocation: null,
       },
       turnover: { days: 0, avgDailySales: 0 },
       expiring: { daysToExpiry: item.minDaysToExpire, expiryDate: item.nearestExpiryDate },
       availability: { status: 'available' as const },
       strategicLevel: strategicIds.has(String(item.product.goodsId))
-        ? 'strategic' as const : 'normal' as const,
+        ? ('strategic' as const)
+        : ('normal' as const),
     };
   });
 

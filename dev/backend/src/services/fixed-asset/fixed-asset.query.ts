@@ -75,9 +75,10 @@ export async function searchErpAssets(keyword: string, usageStatus?: string): Pr
   const records = pageData?.records || [];
   if (keyword) {
     const kw = keyword.toLowerCase();
-    return records.filter((r) =>
-      (r.code && r.code.toLowerCase().includes(kw)) ||
-      (r.name && r.name.toLowerCase().includes(kw))
+    return records.filter(
+      r =>
+        (r.code && r.code.toLowerCase().includes(kw)) ||
+        (r.name && r.name.toLowerCase().includes(kw))
     );
   }
   return records;
@@ -100,7 +101,7 @@ async function getAllErpAssets(): Promise<ErpAsset[]> {
  */
 export async function getErpAssetDetail(erpAssetId: number): Promise<ErpAsset | null> {
   const assets = await getAllErpAssets();
-  return assets.find((a) => a.id === erpAssetId) || null;
+  return assets.find(a => a.id === erpAssetId) || null;
 }
 
 /**
@@ -122,13 +123,17 @@ export async function getErpAssetCategories(): Promise<ErpAssetCategory[]> {
   const { cid, uid } = getErpDefaults();
   const config = getErpConfig();
 
-  const result = await erpGet<ErpAssetCategory[]>('/asset-type/get-all', {
-    cid,
-    uid,
-  }, {
-    pathPrefix: config.assetPathPrefix,
-    businessType: 'fixed_asset_categories',
-  });
+  const result = await erpGet<ErpAssetCategory[]>(
+    '/asset-type/get-all',
+    {
+      cid,
+      uid,
+    },
+    {
+      pathPrefix: config.assetPathPrefix,
+      businessType: 'fixed_asset_categories',
+    }
+  );
   // erpGet 返回完整响应 {"code":0,"data":[...]}
   const data = ((result as any)?.data as ErpAssetCategory[]) || result;
   return Array.isArray(data) ? data : [];
@@ -149,15 +154,19 @@ export async function getErpAssetCategories(): Promise<ErpAssetCategory[]> {
 export async function getErpStaff(): Promise<ErpStaff[]> {
   const { cid, uid } = getErpDefaults();
 
-  const result = await erpPost<ErpPageData<ErpStaff>>('/staff/list-staff', {
-    size: 200,
-    current: 1,
-    cid,
-    uid,
-  }, {
-    pathPrefix: '/saas/pro/',
-    businessType: 'fixed_asset_staff',
-  });
+  const result = await erpPost<ErpPageData<ErpStaff>>(
+    '/staff/list-staff',
+    {
+      size: 200,
+      current: 1,
+      cid,
+      uid,
+    },
+    {
+      pathPrefix: '/saas/pro/',
+      businessType: 'fixed_asset_staff',
+    }
+  );
   // erpPost 返回完整响应 {"code":0,"data":{...}}
   const pageData = ((result as any)?.data as ErpPageData<ErpStaff>) || result;
   return pageData?.records || [];
@@ -194,18 +203,22 @@ export async function getErpDepartments(): Promise<ErpDepartment[]> {
 export async function getErpPaymentAccounts(): Promise<ErpPaymentAccount[]> {
   const { cid, uid } = getErpDefaults();
 
-  const result = await erpGet<ErpPaymentAccount[]>('/funds-account/list-payment-tree', {
-    from: 'bill',
-    typeIn: 'c,b,o',
-    state: '0',
-    page: '1',
-    rows: '500',
-    cid,
-    uid,
-  }, {
-    pathPrefix: '/saas/pro/',
-    businessType: 'fixed_asset_payment_accounts',
-  });
+  const result = await erpGet<ErpPaymentAccount[]>(
+    '/funds-account/list-payment-tree',
+    {
+      from: 'bill',
+      typeIn: 'c,b,o',
+      state: '0',
+      page: '1',
+      rows: '500',
+      cid,
+      uid,
+    },
+    {
+      pathPrefix: '/saas/pro/',
+      businessType: 'fixed_asset_payment_accounts',
+    }
+  );
   // erpGet 返回完整响应 {"code":0,"data":[...]}
   const data = ((result as any)?.data as ErpPaymentAccount[]) || result;
   return Array.isArray(data) ? data : [];

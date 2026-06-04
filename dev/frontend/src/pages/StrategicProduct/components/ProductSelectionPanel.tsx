@@ -4,9 +4,8 @@
  */
 
 import React from 'react';
-import { List, Checkbox, Input, Space, Dropdown, Button, Empty, Spin, Pagination } from 'antd';
+import { List, Checkbox, Input, Space, Dropdown, Button, Empty, Spin, Pagination, type MenuProps } from 'antd';
 import { SearchOutlined, DownOutlined } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
 import type { SelectableProduct } from '@/types/strategic-product';
 import styles from '../index.less';
 

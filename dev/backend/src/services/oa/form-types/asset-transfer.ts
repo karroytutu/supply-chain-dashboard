@@ -18,7 +18,10 @@ export const assetTransferFormType: FormTypeDefinition = {
   formSchema: {
     fields: [
       {
-        key: 'transferType', label: '申请类型', type: 'select', required: true,
+        key: 'transferType',
+        label: '申请类型',
+        type: 'select',
+        required: true,
         options: [
           { value: 'requisition', label: '领用' },
           { value: 'transfer', label: '调拨' },
@@ -27,10 +30,16 @@ export const assetTransferFormType: FormTypeDefinition = {
       { key: 'transferDate', label: '领用/调拨日期', type: 'date', required: true },
       { key: 'reason', label: '原因', type: 'textarea', required: true, maxLength: 500 },
       {
-        key: 'lines', label: '资产明细', type: 'table', required: true,
+        key: 'lines',
+        label: '资产明细',
+        type: 'table',
+        required: true,
         children: [
           {
-            key: 'assetSearch', label: '选择资产', type: 'asset_search', required: true,
+            key: 'assetSearch',
+            label: '选择资产',
+            type: 'asset_search',
+            required: true,
             searchApi: 'erp_assets',
             autoFill: {
               erpAssetId: 'id',
@@ -47,13 +56,20 @@ export const assetTransferFormType: FormTypeDefinition = {
           { key: 'assetNo', label: '资产编号', type: 'text', required: false, disabled: true },
           { key: 'assetName', label: '资产名称', type: 'text', required: false, disabled: true },
           {
-            key: 'toDeptId', label: '新使用部门', type: 'erp_department', required: true,
+            key: 'toDeptId',
+            label: '新使用部门',
+            type: 'erp_department',
+            required: true,
             searchApi: 'erp_departments',
             nameField: 'toDeptName',
           },
           {
-            key: 'toUserId', label: '新使用人', type: 'erp_staff', required: true,
-            searchApi: 'erp_staff', cascadeFrom: 'toDeptId',
+            key: 'toUserId',
+            label: '新使用人',
+            type: 'erp_staff',
+            required: true,
+            searchApi: 'erp_staff',
+            cascadeFrom: 'toDeptId',
             nameField: 'toUserName',
           },
           { key: 'toDepositAddress', label: '新存放地点', type: 'text', required: false },
@@ -65,14 +81,12 @@ export const assetTransferFormType: FormTypeDefinition = {
   },
 
   workflowDef: {
-    nodes: [
-      { order: 1, name: '行政专员审批', type: 'role', roleCode: 'admin_staff' },
-    ],
+    nodes: [{ order: 1, name: '行政专员审批', type: 'role', roleCode: 'admin_staff' }],
     ccRoles: ['admin'],
   },
 
   /** 提交前校验：确保每行都选择了资产 */
-  beforeSubmit: async (formData) => {
+  beforeSubmit: async formData => {
     const lines = formData.lines as Array<Record<string, unknown>> | undefined;
     if (!lines || lines.length === 0) {
       throw new Error('请至少添加一条资产明细');

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Spin, Empty, Drawer } from 'antd';
-import { getCategoryTree } from '@/services/api/dashboard';
+import { getCategoryTree, type CategoryTreeNode } from '@/services/api/dashboard';
 import { dataCache, CACHE_KEYS, CACHE_TTL } from '@/utils/cache';
-import type { CategoryTreeNode } from '@/services/api/dashboard';
 import CategoryTable from './CategoryTable';
 import ProductList from './ProductList';
 import styles from './index.less';
+import { createLogger } from '../../../../utils/logger';
+const log = createLogger('ProcurementDashboardcomponents');
 
 const CategoryAvailabilityCard: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -24,11 +25,11 @@ const CategoryAvailabilityCard: React.FC = () => {
       if (Array.isArray(result)) {
         setData(result);
       } else {
-        console.error('品类树数据格式错误，期望数组但收到:', typeof result, result);
+        log.error('品类树数据格式错误，期望数组但收到:', typeof result, result);
         setData([]);
       }
     } catch (error) {
-      console.error('获取品类齐全率数据失败:', error);
+      log.error('获取品类齐全率数据失败:', error);
       setData([]);
     } finally {
       setLoading(false);

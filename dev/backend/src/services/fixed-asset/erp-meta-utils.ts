@@ -3,6 +3,8 @@
  * 管理 oa_approval_instances.erp_meta 的读写操作
  * @module services/fixed-asset/erp-meta-utils
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('FixedAsset');
 
 import { appQuery } from '../../db/appPool';
 import type { ErpMeta, OaInstanceRow } from '../oa/oa.types';
@@ -49,8 +51,11 @@ async function getAndUpdateErpMeta(
 /**
  * 更新 ERP 处理状态
  */
-export async function updateErpMetaStatus(instanceId: number, status: ErpMetaStatus): Promise<void> {
-  await getAndUpdateErpMeta(instanceId, (meta) => {
+export async function updateErpMetaStatus(
+  instanceId: number,
+  status: ErpMetaStatus
+): Promise<void> {
+  await getAndUpdateErpMeta(instanceId, meta => {
     meta.status = status;
   });
 }
@@ -62,7 +67,7 @@ export async function mergeErpResponseData(
   instanceId: number,
   responseData: Record<string, unknown>
 ): Promise<void> {
-  await getAndUpdateErpMeta(instanceId, (meta) => {
+  await getAndUpdateErpMeta(instanceId, meta => {
     meta.responseData = { ...meta.responseData, ...responseData };
   });
 }
@@ -74,7 +79,7 @@ export async function markErpFailed(
   instanceId: number,
   errorLog: Record<string, unknown>
 ): Promise<void> {
-  await getAndUpdateErpMeta(instanceId, (meta) => {
+  await getAndUpdateErpMeta(instanceId, meta => {
     meta.status = 'erp_failed';
     meta.requestLog = errorLog;
     meta.retries += 1;
@@ -190,28 +195,31 @@ export async function retryErpOperation(instanceId: number): Promise<void> {
         );
 
         // 异步触发回调（与 executeAutoNodeCallback 契约一致）
-        formType.onApproved(instance, formData).then(async () => {
-          await appQuery(
-            `UPDATE oa_approval_nodes SET status = 'approved' WHERE instance_id = $1 AND node_type = 'auto'`,
-            [instanceId]
-          );
-          await appQuery(
-            `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-            [instanceId]
-          );
-        }).catch(async (err) => {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          console.error(`[ERP Retry] 回调执行失败 [${formType.code}]:`, err);
-          await markErpFailed(instanceId, { error: errMsg, source: 'erp_retry' });
-          await appQuery(
-            `UPDATE oa_approval_nodes SET status = 'failed', comment = $1 WHERE instance_id = $2 AND node_type = 'auto'`,
-            [errMsg, instanceId]
-          );
-          await appQuery(
-            `UPDATE oa_approval_instances SET status = 'erp_failed', updated_at = NOW() WHERE id = $1`,
-            [instanceId]
-          );
-        });
+        formType
+          .onApproved(instance, formData)
+          .then(async () => {
+            await appQuery(
+              `UPDATE oa_approval_nodes SET status = 'approved' WHERE instance_id = $1 AND node_type = 'auto'`,
+              [instanceId]
+            );
+            await appQuery(
+              `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+              [instanceId]
+            );
+          })
+          .catch(async err => {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            log.error(`ERP重试回调执行失败 [${formType.code}]:`, err);
+            await markErpFailed(instanceId, { error: errMsg, source: 'erp_retry' });
+            await appQuery(
+              `UPDATE oa_approval_nodes SET status = 'failed', comment = $1 WHERE instance_id = $2 AND node_type = 'auto'`,
+              [errMsg, instanceId]
+            );
+            await appQuery(
+              `UPDATE oa_approval_instances SET status = 'erp_failed', updated_at = NOW() WHERE id = $1`,
+              [instanceId]
+            );
+          });
       }
     }
   }
@@ -287,10 +295,10 @@ export async function recoverStuckAutoNodes(): Promise<number> {
   for (const row of stuck.rows) {
     try {
       await retryAutoNode(row.id);
-      console.log(`[Recovery] auto节点pending恢复成功 [instanceId=${row.id}]`);
+      log.info(`auto节点pending恢复成功 [instanceId=${row.id}]`);
       recovered++;
     } catch (error) {
-      console.error(`[Recovery] auto节点pending恢复失败 [instanceId=${row.id}]:`, error);
+      log.error(`auto节点pending恢复失败 [instanceId=${row.id}]:`, error);
     }
   }
   return recovered;

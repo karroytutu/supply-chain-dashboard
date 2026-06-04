@@ -2,6 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import { createLogger } from '../utils/logger';
+import { getErrorMessage } from '../utils/errorUtils';
+const log = createLogger('Database');
 
 /**
  * 执行数据库迁移
@@ -14,7 +17,7 @@ export async function runMigrations(
 
   // 检查迁移目录是否存在
   if (!fs.existsSync(migrationsDir)) {
-    console.log('迁移目录不存在，创建目录...');
+    log.info('迁移目录不存在，创建目录...');
     fs.mkdirSync(migrationsDir, { recursive: true });
   }
 
@@ -33,26 +36,26 @@ export async function runMigrations(
 
   const files = fs
     .readdirSync(migrationsDir)
-    .filter((f) => f.endsWith('.sql'))
+    .filter(f => f.endsWith('.sql'))
     .sort();
 
   if (files.length === 0) {
-    console.log('没有找到迁移文件');
+    log.info('没有找到迁移文件');
     return;
   }
 
   // 过滤掉已执行的迁移
-  const pendingFiles = files.filter((f) => !executedFiles.has(f));
+  const pendingFiles = files.filter(f => !executedFiles.has(f));
 
   if (pendingFiles.length === 0) {
-    console.log('所有迁移已执行，无需操作');
+    log.info('所有迁移已执行，无需操作');
     return;
   }
 
-  console.log(`找到 ${files.length} 个迁移文件，${pendingFiles.length} 个待执行`);
+  log.info(`找到 ${files.length} 个迁移文件，${pendingFiles.length} 个待执行`);
 
   for (const file of pendingFiles) {
-    console.log(`\n执行迁移: ${file}`);
+    log.info(`\n执行迁移: ${file}`);
     const filePath = path.join(migrationsDir, file);
     const sql = fs.readFileSync(filePath, 'utf8');
 
@@ -60,15 +63,15 @@ export async function runMigrations(
       await query(sql);
       // 记录迁移执行历史
       await query('INSERT INTO migrations_history (filename) VALUES ($1)', [file]);
-      console.log(`完成: ${file}`);
-    } catch (error: any) {
-      console.error(`迁移失败: ${file}`);
-      console.error('错误信息:', error.message);
+      log.info(`完成: ${file}`);
+    } catch (error) {
+      log.error(`迁移失败: ${file}`);
+      log.error('错误信息:', getErrorMessage(error));
       throw error;
     }
   }
 
-  console.log('\n所有迁移完成!');
+  log.info('\n所有迁移完成!');
 }
 
 /**
@@ -86,22 +89,22 @@ async function main() {
     password: process.env.APP_DB_PASSWORD || 'postgres',
   });
 
-  pool.on('error', (err) => {
-    console.error('数据库连接错误:', err);
+  pool.on('error', err => {
+    log.error('数据库连接错误:', err);
   });
 
   try {
     // 测试连接
-    console.log('连接数据库...');
+    log.info('连接数据库...');
     await pool.query('SELECT NOW()');
-    console.log('数据库连接成功\n');
+    log.info('数据库连接成功\n');
 
     // 执行迁移
     await runMigrations(pool.query.bind(pool));
 
     process.exit(0);
   } catch (error) {
-    console.error('迁移执行失败:', error);
+    log.error('迁移执行失败:', error);
     process.exit(1);
   } finally {
     await pool.end();

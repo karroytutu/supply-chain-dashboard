@@ -49,7 +49,7 @@ interface TreeNode extends CategoryTreeNode {
   children?: TreeNode[];
 }
 
-function addKeysToNodes(nodes: CategoryTreeNode[], parentKey: string = ''): TreeNode[] {
+function addKeysToNodes(nodes: CategoryTreeNode[], parentKey = ''): TreeNode[] {
   return nodes.map((node, index) => {
     const key = parentKey ? `${parentKey}-${index}` : `l1-${index}`;
     return {

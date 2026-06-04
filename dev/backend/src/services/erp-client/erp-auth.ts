@@ -4,6 +4,8 @@
  * Token 来源：内置 Token 管理模块（由 Playwright/HTTP 登录 + 定时任务维护）
  * @module services/erp-client/erp-auth
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ERP');
 
 import type { ErpToken } from './erp-client.types';
 
@@ -63,7 +65,7 @@ export async function refreshErpToken(): Promise<ErpToken> {
   const token: ErpToken = { authorization: result.authorization, expiresAt: result.expiresAt };
   _tokenCache = token;
 
-  console.log(`[ErpAuth] Token 刷新成功, 过期时间: ${new Date(result.expiresAt).toISOString()}`);
+  log.info(`Token 刷新成功, 过期时间: ${new Date(result.expiresAt).toISOString()}`);
   return token;
 }
 

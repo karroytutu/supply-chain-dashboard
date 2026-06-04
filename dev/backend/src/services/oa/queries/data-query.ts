@@ -5,10 +5,7 @@
 
 import { appQuery as query } from '../../../db/appPool';
 import { escapeLikePattern } from '../../../utils/sqlHelpers';
-import {
-  ApprovalListParams,
-  WorkflowNodeDef,
-} from '../oa.types';
+import { ApprovalListParams, WorkflowNodeDef } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { formatInstanceListItem, InstanceListItem } from '../oa.query';
 
@@ -65,16 +62,20 @@ export async function getDataListAll(
   const pageSize = params.pageSize || 20;
   const offset = (page - 1) * pageSize;
 
-  const countResult = await query<{ total: number }>(`
+  const countResult = await query<{ total: number }>(
+    `
     SELECT COUNT(DISTINCT i.id) as total
     FROM oa_approval_instances i
     JOIN oa_form_types ft ON i.form_type_id = ft.id
     ${whereClause}
-  `, queryParams);
+  `,
+    queryParams
+  );
 
   const total = countResult.rows[0]?.total || 0;
 
-  const listResult = await query<any>(`
+  const listResult = await query<any>(
+    `
     SELECT 
       i.id, i.instance_no, i.form_type_id, i.title, i.form_data,
       i.status, i.applicant_id, i.applicant_name, i.applicant_dept,
@@ -89,7 +90,9 @@ export async function getDataListAll(
     ${whereClause}
     ORDER BY i.submitted_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-  `, [...queryParams, pageSize, offset]);
+  `,
+    [...queryParams, pageSize, offset]
+  );
 
   return {
     list: listResult.rows.map(row => formatInstanceListItem(row)),

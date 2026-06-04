@@ -35,7 +35,7 @@ export async function getTurnoverData(): Promise<TurnoverData> {
   const currentYear = now.getFullYear();
   const currentMonthIndex = now.getMonth() + 1;
   const currentMonth = `${currentYear}-${String(currentMonthIndex).padStart(2, '0')}`;
-  
+
   const prevMonthIndex = now.getMonth() === 0 ? 12 : now.getMonth();
   const prevYear = now.getMonth() === 0 ? currentYear - 1 : currentYear;
   const prevMonth = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}`;
@@ -45,12 +45,18 @@ export async function getTurnoverData(): Promise<TurnoverData> {
   const prevCost = await getStockCostByMonth(prevMonth);
 
   // 周转天数 = 平均库存金额 / 日均出库成本
-  const currentTurnover = currentCost.totalCostAmount > 0
-    ? Math.round((currentCost.totalCostAmount / 2) / (currentCost.totalCostAmount / STANDARD_CALC_DAYS)) || 0
-    : 0;
-  const prevTurnover = prevCost.totalCostAmount > 0
-    ? Math.round((prevCost.totalCostAmount / 2) / (prevCost.totalCostAmount / STANDARD_CALC_DAYS)) || 0
-    : 0;
+  const currentTurnover =
+    currentCost.totalCostAmount > 0
+      ? Math.round(
+          currentCost.totalCostAmount / 2 / (currentCost.totalCostAmount / STANDARD_CALC_DAYS)
+        ) || 0
+      : 0;
+  const prevTurnover =
+    prevCost.totalCostAmount > 0
+      ? Math.round(
+          prevCost.totalCostAmount / 2 / (prevCost.totalCostAmount / STANDARD_CALC_DAYS)
+        ) || 0
+      : 0;
 
   // 计算环比
   let trend = 0;
@@ -122,7 +128,10 @@ async function getTurnoverWarningStats(): Promise<TurnoverWarningStats> {
  * 获取品类周转指标（通过 ERP API + 内存计算）
  * 替代原 SQL 多表 JOIN + CTE 查询 "近2月商品库存成本汇总" + "商品档案"
  */
-async function getCategoryTurnoverMetrics(currentMonth: string, prevMonth: string): Promise<CategoryMetric[]> {
+async function getCategoryTurnoverMetrics(
+  currentMonth: string,
+  prevMonth: string
+): Promise<CategoryMetric[]> {
   // 获取本月和上月的库存成本
   const [currentCost, prevCost, allProducts] = await Promise.all([
     getStockCostByMonth(currentMonth),
@@ -131,14 +140,19 @@ async function getCategoryTurnoverMetrics(currentMonth: string, prevMonth: strin
   ]);
 
   // 按品类聚合（使用商品的一级品类）
-  const categoryMap = new Map<string, {
-    productCount: number;
-    currentOutAmount: number;
-    prevOutAmount: number;
-  }>();
+  const categoryMap = new Map<
+    string,
+    {
+      productCount: number;
+      currentOutAmount: number;
+      prevOutAmount: number;
+    }
+  >();
 
   for (const product of allProducts) {
-    const categoryName = product.categoryChainName ? getCategoryName(product.categoryChainName) : undefined;
+    const categoryName = product.categoryChainName
+      ? getCategoryName(product.categoryChainName)
+      : undefined;
     if (!categoryName) continue;
 
     if (!categoryMap.has(categoryName)) {
@@ -151,7 +165,7 @@ async function getCategoryTurnoverMetrics(currentMonth: string, prevMonth: strin
   // 使用月度总成本按比例分配到各品类（简化近似）
   const totalProducts = allProducts.length;
   if (totalProducts > 0) {
-    categoryMap.forEach((cat) => {
+    categoryMap.forEach(cat => {
       const ratio = cat.productCount / totalProducts;
       cat.currentOutAmount = currentCost.totalCostAmount * ratio;
       cat.prevOutAmount = prevCost.totalCostAmount * ratio;
@@ -162,12 +176,16 @@ async function getCategoryTurnoverMetrics(currentMonth: string, prevMonth: strin
   const result: CategoryMetric[] = [];
   let index = 0;
   categoryMap.forEach((cat, categoryName) => {
-    const avgDays = cat.currentOutAmount > 0
-      ? Math.round((currentCost.totalCostAmount / 2) / (cat.currentOutAmount / STANDARD_CALC_DAYS)) || 0
-      : 0;
-    const prevDaysValue = cat.prevOutAmount > 0
-      ? Math.round((prevCost.totalCostAmount / 2) / (cat.prevOutAmount / STANDARD_CALC_DAYS)) || 0
-      : 0;
+    const avgDays =
+      cat.currentOutAmount > 0
+        ? Math.round(
+            currentCost.totalCostAmount / 2 / (cat.currentOutAmount / STANDARD_CALC_DAYS)
+          ) || 0
+        : 0;
+    const prevDaysValue =
+      cat.prevOutAmount > 0
+        ? Math.round(prevCost.totalCostAmount / 2 / (cat.prevOutAmount / STANDARD_CALC_DAYS)) || 0
+        : 0;
 
     let catTrend = 0;
     let catTrendDirection: TrendDirection = 'flat';

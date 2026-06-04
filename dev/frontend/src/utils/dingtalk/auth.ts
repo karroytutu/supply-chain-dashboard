@@ -3,6 +3,8 @@
  * 合并 PC 端和移动端免登逻辑
  */
 import { loadDingtalkSDK, waitDingtalkReady } from './sdk';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Auth');
 
 interface RequestAuthCodeParams {
   corpId: string;
@@ -17,17 +19,17 @@ async function requestAuthCode(params: RequestAuthCodeParams): Promise<string> {
   await loadDingtalkSDK();
 
   const { corpId, agentId } = params;
-  console.log('[Dingtalk] 免登调用, corpId:', corpId, 'agentId:', agentId);
-  console.log('[Dingtalk] dd对象是否存在:', !!window.dd);
-  console.log('[Dingtalk] dd.runtime是否存在:', !!window.dd?.runtime);
-  console.log('[Dingtalk] dd.runtime.permission是否存在:', !!window.dd?.runtime?.permission);
+  log.info('免登调用, corpId:', corpId, 'agentId:', agentId);
+  log.info('dd对象是否存在:', !!window.dd);
+  log.info('dd.runtime是否存在:', !!window.dd?.runtime);
+  log.info('dd.runtime.permission是否存在:', !!window.dd?.runtime?.permission);
 
   // 等待 dd.ready
   try {
     await waitDingtalkReady();
-    console.log('[Dingtalk] dd.ready 完成');
+    log.info('dd.ready 完成');
   } catch (err) {
-    console.warn('[Dingtalk] dd.ready 等待失败，尝试直接调用:', err);
+    log.warn('dd.ready 等待失败，尝试直接调用:', err);
   }
 
   return new Promise((resolve, reject) => {
@@ -45,11 +47,11 @@ async function requestAuthCode(params: RequestAuthCodeParams): Promise<string> {
     window.dd.runtime.permission.requestAuthCode({
       ...apiParams,
       onSuccess: (result: { code: string }) => {
-        console.log('[Dingtalk] 获取授权码成功:', result.code?.substring(0, 10) + '...');
+        log.info('获取授权码成功:', result.code?.substring(0, 10) + '...');
         resolve(result.code);
       },
       onFail: (error: any) => {
-        console.error('[Dingtalk] 获取授权码失败:', JSON.stringify(error));
+        log.error('获取授权码失败:', JSON.stringify(error));
         reject(new Error(error.errorMessage || error.message || '获取授权码失败'));
       },
     });

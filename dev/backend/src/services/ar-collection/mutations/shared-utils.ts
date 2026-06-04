@@ -24,10 +24,9 @@ export async function getTaskAndValidate(
   taskId: number,
   allowedStatuses: TaskStatus[]
 ): Promise<CollectionTask> {
-  const result = await query<CollectionTask>(
-    'SELECT * FROM ar_collection_tasks WHERE id = $1',
-    [taskId]
-  );
+  const result = await query<CollectionTask>('SELECT * FROM ar_collection_tasks WHERE id = $1', [
+    taskId,
+  ]);
   if (result.rows.length === 0) {
     throw new Error(`催收任务不存在: ${taskId}`);
   }

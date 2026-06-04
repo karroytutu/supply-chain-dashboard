@@ -6,16 +6,21 @@
 
 import { appQuery as query } from '../../db/appPool';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
-import {
-  ApprovalListParams,
-  ApprovalStats,
-  ApprovalStatus,
-} from './oa.types';
+import { ApprovalListParams, ApprovalStats, ApprovalStatus } from './oa.types';
 
 // Re-export from extracted modules
 export { getApprovalDetail } from './queries/approval-detail';
-export type { ApprovalDetail, ApprovalNodeDetail, ApprovalActionDetail, CcUserDetail } from './queries/approval-detail';
-export { getDataListAll, resolvePreviewApproversForNodes, previewApprovers } from './queries/data-query';
+export type {
+  ApprovalDetail,
+  ApprovalNodeDetail,
+  ApprovalActionDetail,
+  CcUserDetail,
+} from './queries/approval-detail';
+export {
+  getDataListAll,
+  resolvePreviewApproversForNodes,
+  previewApprovers,
+} from './queries/data-query';
 export type { PreviewApprover } from './queries/data-query';
 
 // =====================================================
@@ -159,7 +164,6 @@ function buildListWhereClause(
   if (params.applicantName && params.applicantName.trim()) {
     conditions.push(`i.applicant_name ILIKE $${paramIndex}`);
     queryParams.push(`%${escapeLikePattern(params.applicantName.trim())}%`);
-    paramIndex++;
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -180,26 +184,31 @@ export async function getApprovalList(
   const pageSize = params.pageSize || 20;
   const offset = (page - 1) * pageSize;
 
-  const countResult = await query<{ total: number }>(`
+  const countResult = await query<{ total: number }>(
+    `
     SELECT COUNT(DISTINCT i.id) as total
     FROM oa_approval_instances i
     JOIN oa_form_types ft ON i.form_type_id = ft.id
     ${whereClause}
-  `, queryParams);
+  `,
+    queryParams
+  );
 
   const total = countResult.rows[0]?.total || 0;
 
-  const ccReadAtColumn = params.viewMode === 'cc'
-    ? `(
+  const ccReadAtColumn =
+    params.viewMode === 'cc'
+      ? `(
         SELECT cc.read_at
         FROM oa_approval_cc cc
         WHERE cc.instance_id = i.id
           AND cc.user_id = $1
         LIMIT 1
       ) as cc_read_at`
-    : `NULL as cc_read_at`;
+      : `NULL as cc_read_at`;
 
-  const listResult = await query<any>(`
+  const listResult = await query<any>(
+    `
     SELECT 
       i.id, i.instance_no, i.form_type_id, i.title, i.form_data,
       i.status, i.applicant_id, i.applicant_name, i.applicant_dept,
@@ -215,7 +224,9 @@ export async function getApprovalList(
     ${whereClause}
     ${orderBy}
     LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
-  `, [...queryParams, pageSize, offset]);
+  `,
+    [...queryParams, pageSize, offset]
+  );
 
   return {
     list: listResult.rows.map(row => formatInstanceListItem(row, params.viewMode)),
@@ -232,33 +243,45 @@ export async function getApprovalList(
  */
 export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
   const [pendingResult, processedResult, myResult, ccResult] = await Promise.all([
-    query<{ count: number }>(`
+    query<{ count: number }>(
+      `
       SELECT COUNT(DISTINCT i.id) as count
       FROM oa_approval_instances i
       JOIN oa_approval_nodes n ON n.instance_id = i.id
       WHERE n.assigned_user_id = $1
         AND n.status = 'pending'
         AND i.status = 'pending'
-    `, [userId]),
+    `,
+      [userId]
+    ),
 
-    query<{ count: number }>(`
+    query<{ count: number }>(
+      `
       SELECT COUNT(DISTINCT i.id) as count
       FROM oa_approval_instances i
       JOIN oa_approval_nodes n ON n.instance_id = i.id
       WHERE n.assigned_user_id = $1
         AND n.status IN ('approved', 'rejected', 'transferred')
-    `, [userId]),
+    `,
+      [userId]
+    ),
 
-    query<{ count: number }>(`
+    query<{ count: number }>(
+      `
       SELECT COUNT(*) as count FROM oa_approval_instances WHERE applicant_id = $1
-    `, [userId]),
+    `,
+      [userId]
+    ),
 
-    query<{ count: number }>(`
+    query<{ count: number }>(
+      `
       SELECT COUNT(DISTINCT i.id) as count
       FROM oa_approval_instances i
       JOIN oa_approval_cc cc ON cc.instance_id = i.id
       WHERE cc.user_id = $1
-    `, [userId]),
+    `,
+      [userId]
+    ),
   ]);
 
   return {

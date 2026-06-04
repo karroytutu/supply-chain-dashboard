@@ -1,3 +1,8 @@
+import { createLogger } from '../../utils/logger';
+const log = createLogger('DataCache');
+
+
+
 /**
  * 数据缓存类
  * 支持缓存过期、请求去重
@@ -76,7 +81,7 @@ class DataCache {
     // 1. 检查缓存
     const cached = this.get<T>(key);
     if (cached !== null) {
-      console.log(`[DataCache] 缓存命中: ${key}`);
+      log.debug(`缓存命中: ${key}`);
       return cached;
     }
 
@@ -85,14 +90,14 @@ class DataCache {
     if (pending) {
       // 如果请求时间超过 30 秒，可能是超时了，重新发起新请求
       if (Date.now() - pending.timestamp < 30 * 1000) {
-        console.log(`[DataCache] 复用进行中的请求: ${key}`);
+        log.debug(`复用进行中的请求: ${key}`);
         return pending.promise;
       }
       this.pendingRequests.delete(key);
     }
 
     // 3. 发起新请求
-    console.log(`[DataCache] 发起新请求: ${key}`);
+    log.debug(`发起新请求: ${key}`);
     const promise = fetcher();
     this.pendingRequests.set(key, { promise, timestamp: Date.now() });
 

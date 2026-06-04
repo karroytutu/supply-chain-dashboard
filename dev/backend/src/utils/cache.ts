@@ -2,6 +2,8 @@
  * 内存缓存模块
  * 用于缓存数据库查询结果，减少重复计算
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Utils');
 
 interface CacheItem<T> {
   data: T;
@@ -9,7 +11,7 @@ interface CacheItem<T> {
   ttl: number;
 }
 
-class MemoryCache {
+export class MemoryCache {
   private cache = new Map<string, CacheItem<any>>();
   private cleanupInterval: NodeJS.Timeout | null = null;
   private maxSize: number;
@@ -114,7 +116,7 @@ class MemoryCache {
       }
     }
     if (cleanedCount > 100) {
-      console.warn(`[Cache] 清理了 ${cleanedCount} 条过期缓存，可能需要增大 TTL 或减少缓存频率`);
+      log.warn(`清理了 ${cleanedCount} 条过期缓存，可能需要增大 TTL 或减少缓存频率`);
     }
   }
 

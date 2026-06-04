@@ -31,14 +31,14 @@ function groupUsers(users: DevUserItem[]): { group: string; users: DevUserItem[]
   users.forEach((u) => {
     const group = getUserGroup(u);
     if (!map.has(group)) map.set(group, []);
-    map.get(group)!.push(u);
+    (map.get(group) as DevUserItem[]).push(u);
   });
 
   const order = ['管理员', '系统管理', '运营', '财务', '采购', '仓储', '营销'];
   const result: { group: string; users: DevUserItem[] }[] = [];
   order.forEach((g) => {
     if (map.has(g)) {
-      result.push({ group: g, users: map.get(g)! });
+      result.push({ group: g, users: map.get(g) as DevUserItem[] });
       map.delete(g);
     }
   });

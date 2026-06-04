@@ -15,9 +15,7 @@ import { PoolClient } from 'pg';
  *   return { success: true };
  * });
  */
-export async function withTransaction<T>(
-  fn: (client: PoolClient) => Promise<T>
-): Promise<T> {
+export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await getAppClient();
   try {
     await client.query('BEGIN');

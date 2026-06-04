@@ -1,3 +1,4 @@
+import { SqlParam } from '../db/types';
 import { appQuery } from '../db/appPool';
 import {
   getPermissionTreeCache,
@@ -40,9 +41,9 @@ export async function getPermissionTree(): Promise<PermissionTreeNode[]> {
   if (cached) {
     return cached;
   }
-  
+
   const permissions = await getAllPermissions();
-  
+
   // 构建树形结构
   const buildTree = (parentId: number | null): PermissionTreeNode[] => {
     return permissions
@@ -52,7 +53,7 @@ export async function getPermissionTree(): Promise<PermissionTreeNode[]> {
         children: buildTree(p.id),
       }));
   };
-  
+
   const tree = buildTree(null);
 
   // 使用默认缓存时长
@@ -65,11 +66,8 @@ export async function getPermissionTree(): Promise<PermissionTreeNode[]> {
  * 获取权限详情
  */
 export async function getPermissionById(id: number): Promise<Permission | null> {
-  const result = await appQuery<Permission>(
-    'SELECT * FROM permissions WHERE id = $1',
-    [id]
-  );
-  
+  const result = await appQuery<Permission>('SELECT * FROM permissions WHERE id = $1', [id]);
+
   return result.rows.length > 0 ? result.rows[0] : null;
 }
 
@@ -88,25 +86,43 @@ export async function createPermission(data: {
   const result = await appQuery<Permission>(
     `INSERT INTO permissions (code, name, resource_type, resource_key, action, parent_id, sort_order)
     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [data.code, data.name, data.resource_type, data.resource_key, data.action, data.parent_id || null, data.sort_order || 0]
+    [
+      data.code,
+      data.name,
+      data.resource_type,
+      data.resource_key,
+      data.action,
+      data.parent_id || null,
+      data.sort_order || 0,
+    ]
   );
-  
+
   // 清除权限树缓存
   invalidatePermissionTreeCache();
-  
+
   return result.rows[0];
 }
 
 /**
  * 更新权限
  */
-export async function updatePermission(id: number, data: Partial<Permission>): Promise<Permission | null> {
+export async function updatePermission(
+  id: number,
+  data: Partial<Permission>
+): Promise<Permission | null> {
   const fields: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
   let paramIndex = 1;
-  
-  const allowedFields = ['name', 'resource_type', 'resource_key', 'action', 'parent_id', 'sort_order'];
-  
+
+  const allowedFields = [
+    'name',
+    'resource_type',
+    'resource_key',
+    'action',
+    'parent_id',
+    'sort_order',
+  ];
+
   for (const field of allowedFields) {
     if (data[field as keyof Permission] !== undefined) {
       fields.push(`${field} = $${paramIndex}`);
@@ -114,21 +130,21 @@ export async function updatePermission(id: number, data: Partial<Permission>): P
       paramIndex++;
     }
   }
-  
+
   if (fields.length === 0) {
     return getPermissionById(id);
   }
-  
+
   values.push(id);
-  
+
   const result = await appQuery<Permission>(
     `UPDATE permissions SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
     values
   );
-  
+
   // 清除权限树缓存
   invalidatePermissionTreeCache();
-  
+
   return result.rows.length > 0 ? result.rows[0] : null;
 }
 
@@ -142,11 +158,11 @@ export async function deletePermission(id: number): Promise<boolean> {
     'SELECT COUNT(*) as count FROM permissions WHERE parent_id = $1',
     [id]
   );
-  
+
   if (parseInt(childrenResult.rows[0].count, 10) > 0) {
     throw new Error('存在子权限，无法删除');
   }
-  
+
   // 检查是否被角色使用
   const rolesResult = await appQuery<{ role_name: string }>(
     `SELECT DISTINCT r.name as role_name
@@ -155,20 +171,17 @@ export async function deletePermission(id: number): Promise<boolean> {
     WHERE rp.permission_id = $1`,
     [id]
   );
-  
+
   if (rolesResult.rows.length > 0) {
     const roleNames = rolesResult.rows.map(r => r.role_name).join('、');
     throw new Error(`该权限已被以下角色使用，无法删除: ${roleNames}`);
   }
-  
+
   // 删除权限
-  const result = await appQuery(
-    'DELETE FROM permissions WHERE id = $1',
-    [id]
-  );
-  
+  const result = await appQuery('DELETE FROM permissions WHERE id = $1', [id]);
+
   // 清除权限树缓存
   invalidatePermissionTreeCache();
-  
+
   return (result.rowCount ?? 0) > 0;
 }

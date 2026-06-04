@@ -19,7 +19,10 @@ export const assetPurchaseFormType: FormTypeDefinition = {
   formSchema: {
     fields: [
       {
-        key: 'lines', label: '采购明细', type: 'table', required: true,
+        key: 'lines',
+        label: '采购明细',
+        type: 'table',
+        required: true,
         children: [
           { key: 'assetName', label: '资产名称', type: 'text', required: true },
           { key: 'specification', label: '规格型号', type: 'text', required: false },
@@ -37,40 +40,94 @@ export const assetPurchaseFormType: FormTypeDefinition = {
       { order: 1, name: '需求提报', type: 'role', roleCode: 'admin' },
       { order: 2, name: '总经理审批', type: 'role', roleCode: 'admin' },
       {
-        order: 3, name: '行政询价', type: 'data_input', roleCode: 'admin_staff',
+        order: 3,
+        name: '行政询价',
+        type: 'data_input',
+        roleCode: 'admin_staff',
         inputSchema: {
           fields: [
-            { name: 'lines', label: '询价结果', type: 'table', required: true, columns: [
-              { name: 'supplierName', label: '供应商', type: 'text', required: true },
-              { name: 'quotationPrice', label: '询价单价', type: 'amount', required: true },
-              { name: 'assetTypeId', label: '资产分类', type: 'erp_asset_category', required: true, searchApi: 'erp_asset_categories' },
-              { name: 'deptId', label: '使用部门', type: 'erp_department', required: false, searchApi: 'erp_departments' },
-              { name: 'userId', label: '使用人', type: 'erp_staff', required: false, searchApi: 'erp_staff', cascadeFrom: 'deptId' },
-              { name: 'depositAddress', label: '存放地点', type: 'text', required: false },
-              { name: 'estimatedResidualValueRate', label: '残值率(%)', type: 'number', required: false },
-              { name: 'depreciationMethod', label: '折旧方法', type: 'select', required: false, options: [
-                { label: '年限平均法', value: 'YEARS_AVERAGE_METHOD' },
-              ]},
-              { name: 'estimatedServiceMonths', label: '使用月数', type: 'number', required: false },
-            ]},
+            {
+              name: 'lines',
+              label: '询价结果',
+              type: 'table',
+              required: true,
+              columns: [
+                { name: 'supplierName', label: '供应商', type: 'text', required: true },
+                { name: 'quotationPrice', label: '询价单价', type: 'amount', required: true },
+                {
+                  name: 'assetTypeId',
+                  label: '资产分类',
+                  type: 'erp_asset_category',
+                  required: true,
+                  searchApi: 'erp_asset_categories',
+                },
+                {
+                  name: 'deptId',
+                  label: '使用部门',
+                  type: 'erp_department',
+                  required: false,
+                  searchApi: 'erp_departments',
+                },
+                {
+                  name: 'userId',
+                  label: '使用人',
+                  type: 'erp_staff',
+                  required: false,
+                  searchApi: 'erp_staff',
+                  cascadeFrom: 'deptId',
+                },
+                { name: 'depositAddress', label: '存放地点', type: 'text', required: false },
+                {
+                  name: 'estimatedResidualValueRate',
+                  label: '残值率(%)',
+                  type: 'number',
+                  required: false,
+                },
+                {
+                  name: 'depreciationMethod',
+                  label: '折旧方法',
+                  type: 'select',
+                  required: false,
+                  options: [{ label: '年限平均法', value: 'YEARS_AVERAGE_METHOD' }],
+                },
+                {
+                  name: 'estimatedServiceMonths',
+                  label: '使用月数',
+                  type: 'number',
+                  required: false,
+                },
+              ],
+            },
           ],
         },
       },
       { order: 4, name: '总经理审批', type: 'role', roleCode: 'admin' },
       {
-        order: 5, name: '出纳支付', type: 'data_input', roleCode: 'cashier',
+        order: 5,
+        name: '出纳支付',
+        type: 'data_input',
+        roleCode: 'cashier',
         inputSchema: {
           fields: [
             { name: 'paymentAmount', label: '支付金额', type: 'amount', required: true },
             { name: 'paymentDate', label: '支付日期', type: 'date', required: true },
-            { name: 'paymentSubjectId', label: '付款账户', type: 'erp_payment_account', required: true, searchApi: 'erp_payment_accounts' },
+            {
+              name: 'paymentSubjectId',
+              label: '付款账户',
+              type: 'erp_payment_account',
+              required: true,
+              searchApi: 'erp_payment_accounts',
+            },
             { name: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
             { name: 'paymentNote', label: '支付备注', type: 'text', required: false },
           ],
         },
       },
       {
-        order: 6, name: '行政采购', type: 'data_input', roleCode: 'admin_staff',
+        order: 6,
+        name: '行政采购',
+        type: 'data_input',
+        roleCode: 'admin_staff',
         inputSchema: {
           fields: [
             { name: 'purchaseDate', label: '采购日期', type: 'date', required: true },
@@ -79,14 +136,23 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         },
       },
       {
-        order: 7, name: '资产入库', type: 'data_input', roleCode: 'admin_staff',
+        order: 7,
+        name: '资产入库',
+        type: 'data_input',
+        roleCode: 'admin_staff',
         inputSchema: {
           fields: [
-            { name: 'lines', label: '入库信息', type: 'table', required: true, columns: [
-              { name: 'actualPrice', label: '实际单价', type: 'amount', required: true },
-              { name: 'arrivalDate', label: '到货日期', type: 'date', required: true },
-              { name: 'note', label: '备注', type: 'text', required: false },
-            ]},
+            {
+              name: 'lines',
+              label: '入库信息',
+              type: 'table',
+              required: true,
+              columns: [
+                { name: 'actualPrice', label: '实际单价', type: 'amount', required: true },
+                { name: 'arrivalDate', label: '到货日期', type: 'date', required: true },
+                { name: 'note', label: '备注', type: 'text', required: false },
+              ],
+            },
           ],
         },
       },

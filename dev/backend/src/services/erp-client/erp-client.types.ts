@@ -102,7 +102,7 @@ export class ErpApiError extends Error {
   public readonly path: string;
   public readonly statusCode: number;
 
-  constructor(message: string, code: number, path: string, statusCode: number = 500) {
+  constructor(message: string, code: number, path: string, statusCode = 500) {
     super(message);
     this.name = 'ErpApiError';
     this.code = code;

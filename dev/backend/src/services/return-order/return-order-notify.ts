@@ -2,6 +2,8 @@
  * 退货单钉钉通知服务
  * 处理退货单各节点的钉钉工作通知推送
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ReturnOrder');
 
 import { appQuery } from '../../db/appPool';
 import { sendWorkNotification } from '../dingtalk.service';
@@ -22,7 +24,7 @@ async function getDingtalkUserIdsByRole(roleCode: string): Promise<string[]> {
     );
     return result.rows.map(row => row.dingtalk_user_id).filter(id => id && id !== 'dev_admin');
   } catch (error) {
-    console.error('[DingTalk] 获取角色用户失败:', roleCode, error);
+    log.error('获取角色用户失败:', roleCode, error);
     return [];
   }
 }
@@ -41,7 +43,7 @@ async function getDingtalkUserIdByName(userName: string): Promise<string | null>
     const dingtalkId = result.rows[0].dingtalk_user_id;
     return dingtalkId === 'dev_admin' ? null : dingtalkId;
   } catch (error) {
-    console.error('[DingTalk] 根据姓名获取用户钉钉ID失败:', userName, error);
+    log.error('根据姓名获取用户钉钉ID失败:', userName, error);
     return null;
   }
 }
@@ -59,7 +61,7 @@ async function getDingtalkUserIdByUserId(userId: number): Promise<string | null>
     const dingtalkId = result.rows[0].dingtalk_user_id;
     return dingtalkId === 'dev_admin' ? null : dingtalkId;
   } catch (error) {
-    console.error('[DingTalk] 获取用户钉钉ID失败:', userId, error);
+    log.error('获取用户钉钉ID失败:', userId, error);
     return null;
   }
 }
@@ -79,7 +81,7 @@ async function getUserNamesByRole(roleCode: string): Promise<string[]> {
     );
     return result.rows.map(row => row.name);
   } catch (error) {
-    console.error('[DingTalk] 获取角色用户姓名失败:', roleCode, error);
+    log.error('获取角色用户姓名失败:', roleCode, error);
     return [];
   }
 }
@@ -89,12 +91,12 @@ async function getUserNamesByRole(roleCode: string): Promise<string[]> {
  */
 function getStatusText(status: ReturnOrderStatus): string {
   const statusMap: Record<ReturnOrderStatus, string> = {
-    'pending_confirm': '待确认',
-    'pending_erp_fill': '待填写ERP退货单号',
-    'pending_warehouse_execute': '待仓储执行',
-    'pending_marketing_sale': '待营销销售处理',
-    'completed': '已完成',
-    'cancelled': '已取消',
+    pending_confirm: '待确认',
+    pending_erp_fill: '待填写ERP退货单号',
+    pending_warehouse_execute: '待仓储执行',
+    pending_marketing_sale: '待营销销售处理',
+    completed: '已完成',
+    cancelled: '已取消',
   };
   return statusMap[status] || status;
 }
@@ -139,16 +141,16 @@ const ACTION_URL = 'https://xly.gzzxd.com/procurement/return/orders';
 export async function sendDailyNewReturnReminder(orders: ReturnOrder[]): Promise<void> {
   try {
     if (!orders || orders.length === 0) {
-      console.log('[DingTalk] 无新增临期退货，跳过推送');
+      log.info('无新增临期退货，跳过推送');
       return;
     }
 
-    console.log(`[DingTalk] 准备发送每日新增临期退货提醒，共 ${orders.length} 条`);
+    log.info(`准备发送每日新增临期退货提醒，共 ${orders.length} 条`);
 
     // 获取采购主管
     const userIdList = await getDingtalkUserIdsByRole('procurement_manager');
     if (userIdList.length === 0) {
-      console.log('[DingTalk] 没有采购主管，跳过推送');
+      log.info('没有采购主管，跳过推送');
       return;
     }
 
@@ -161,9 +163,12 @@ export async function sendDailyNewReturnReminder(orders: ReturnOrder[]): Promise
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     // 构建表格内容
-    const tableRows = orders.map(order => 
-      `| ${order.returnNo} | ${order.goodsName} | ${order.quantity}${order.unit || ''} | ${order.daysToExpire}天 |`
-    ).join('\n');
+    const tableRows = orders
+      .map(
+        order =>
+          `| ${order.returnNo} | ${order.goodsName} | ${order.quantity}${order.unit || ''} | ${order.daysToExpire}天 |`
+      )
+      .join('\n');
 
     const title = `【临期退货】您有 ${orders.length} 条临期退货入库待确认是否可以采购退货`;
     const content = `### 临期退货提醒
@@ -184,9 +189,9 @@ ${tableRows}
 推送时间：${formatTimestamp()}`;
 
     const result = await sendWorkNotification(userIdList, title, content);
-    console.log('[DingTalk] 每日新增临期退货提醒发送结果:', result);
+    log.info('每日新增临期退货提醒发送结果:', result);
   } catch (error) {
-    console.error('[DingTalk] 每日新增临期退货提醒发送失败:', error);
+    log.error('每日新增临期退货提醒发送失败:', error);
   }
 }
 
@@ -198,16 +203,16 @@ ${tableRows}
 export async function sendDailyPendingErpReminder(orders: ReturnOrder[]): Promise<void> {
   try {
     if (!orders || orders.length === 0) {
-      console.log('[DingTalk] 无待填ERP退货单，跳过推送');
+      log.info('无待填ERP退货单，跳过推送');
       return;
     }
 
-    console.log(`[DingTalk] 准备发送每日待填ERP退货单提醒，共 ${orders.length} 条`);
+    log.info(`准备发送每日待填ERP退货单提醒，共 ${orders.length} 条`);
 
     // 获取采购主管
     const userIdList = await getDingtalkUserIdsByRole('procurement_manager');
     if (userIdList.length === 0) {
-      console.log('[DingTalk] 没有采购主管，跳过推送');
+      log.info('没有采购主管，跳过推送');
       return;
     }
 
@@ -216,10 +221,12 @@ export async function sendDailyPendingErpReminder(orders: ReturnOrder[]): Promis
     const greeting = userNames.length > 0 ? `${userNames.join('、')}：` : '您好：';
 
     // 构建表格内容
-    const tableRows = orders.map(order => {
-      const confirmedAt = order.updatedAt ? formatDateShort(order.updatedAt) : '-';
-      return `| ${order.returnNo} | ${order.goodsName} | ${order.quantity}${order.unit || ''} | ${confirmedAt} |`;
-    }).join('\n');
+    const tableRows = orders
+      .map(order => {
+        const confirmedAt = order.updatedAt ? formatDateShort(order.updatedAt) : '-';
+        return `| ${order.returnNo} | ${order.goodsName} | ${order.quantity}${order.unit || ''} | ${confirmedAt} |`;
+      })
+      .join('\n');
 
     const title = `【待填写】您有 ${orders.length} 条退货单待填写ERP采购退货单号`;
     const content = `### 待填写ERP退货单号提醒
@@ -240,9 +247,9 @@ ${tableRows}
 推送时间：${formatTimestamp()}`;
 
     const result = await sendWorkNotification(userIdList, title, content);
-    console.log('[DingTalk] 每日待填ERP退货单提醒发送结果:', result);
+    log.info('每日待填ERP退货单提醒发送结果:', result);
   } catch (error) {
-    console.error('[DingTalk] 每日待填ERP退货单提醒发送失败:', error);
+    log.error('每日待填ERP退货单提醒发送失败:', error);
   }
 }
 
@@ -270,22 +277,22 @@ function buildOrderInfoMarkdown(order: ReturnOrder): string {
  */
 export async function notifyCannotPurchaseReturn(order: ReturnOrder): Promise<void> {
   try {
-    console.log('[DingTalk] 准备发送无法采购退货通知:', order.returnNo);
+    log.info('准备发送无法采购退货通知:', order.returnNo);
 
     // 根据责任营销师姓名获取具体用户
     const userIdList: string[] = [];
-    
+
     if (order.marketingManager) {
       const dingtalkId = await getDingtalkUserIdByName(order.marketingManager);
       if (dingtalkId) {
         userIdList.push(dingtalkId);
       } else {
-        console.warn(`[DingTalk] 未找到责任营销师 ${order.marketingManager} 的钉钉ID`);
+        log.warn(`未找到责任营销师 ${order.marketingManager} 的钉钉ID`);
       }
     }
 
     if (userIdList.length === 0) {
-      console.log('[DingTalk] 没有可用的通知接收者');
+      log.info('没有可用的通知接收者');
       return;
     }
 
@@ -310,9 +317,9 @@ ${order.marketingManager}：
 推送时间：${formatTimestamp()}`;
 
     const result = await sendWorkNotification(userIdList, title, content);
-    console.log('[DingTalk] 无法采购退货通知发送结果:', result);
+    log.info('无法采购退货通知发送结果:', result);
   } catch (error) {
-    console.error('[DingTalk] 无法采购退货通知发送失败:', error);
+    log.error('无法采购退货通知发送失败:', error);
   }
 }
 
@@ -326,12 +333,12 @@ export async function notifyPendingWarehouseExecute(
   erpReturnNo: string
 ): Promise<void> {
   try {
-    console.log('[DingTalk] 准备发送待仓储执行通知:', order.returnNo);
+    log.info('准备发送待仓储执行通知:', order.returnNo);
 
     // 获取仓储主管
     const userIdList = await getDingtalkUserIdsByRole('warehouse_manager');
     if (userIdList.length === 0) {
-      console.log('[DingTalk] 没有仓储主管，跳过推送');
+      log.info('没有仓储主管，跳过推送');
       return;
     }
 
@@ -358,9 +365,9 @@ ${greeting}
 推送时间：${formatTimestamp()}`;
 
     const result = await sendWorkNotification(userIdList, title, content);
-    console.log('[DingTalk] 待仓储执行通知发送结果:', result);
+    log.info('待仓储执行通知发送结果:', result);
   } catch (error) {
-    console.error('[DingTalk] 待仓储执行通知发送失败:', error);
+    log.error('待仓储执行通知发送失败:', error);
   }
 }
 
@@ -374,12 +381,12 @@ ${greeting}
  */
 export async function notifyNewReturnOrder(order: ReturnOrder): Promise<void> {
   try {
-    console.log('[DingTalk] 准备发送新退货单通知:', order.returnNo);
+    log.info('准备发送新退货单通知:', order.returnNo);
 
     // 获取采购主管
     const userIdList = await getDingtalkUserIdsByRole('procurement_manager');
     if (userIdList.length === 0) {
-      console.log('[DingTalk] 没有可用的通知接收者');
+      log.info('没有可用的通知接收者');
       return;
     }
 
@@ -394,9 +401,9 @@ ${buildOrderInfoMarkdown(order)}
 推送时间：${formatTimestamp()}`;
 
     const result = await sendWorkNotification(userIdList, title, content);
-    console.log('[DingTalk] 新退货单通知发送结果:', result);
+    log.info('新退货单通知发送结果:', result);
   } catch (error) {
-    console.error('[DingTalk] 新退货单通知发送失败:', error);
+    log.error('新退货单通知发送失败:', error);
   }
 }
 
@@ -406,12 +413,12 @@ ${buildOrderInfoMarkdown(order)}
  */
 export async function notifyPendingErpFill(order: ReturnOrder): Promise<void> {
   try {
-    console.log('[DingTalk] 准备发送待填写ERP通知:', order.returnNo);
+    log.info('准备发送待填写ERP通知:', order.returnNo);
 
     // 获取采购主管
     const userIdList = await getDingtalkUserIdsByRole('procurement_manager');
     if (userIdList.length === 0) {
-      console.log('[DingTalk] 没有可用的通知接收者');
+      log.info('没有可用的通知接收者');
       return;
     }
 
@@ -426,9 +433,9 @@ ${buildOrderInfoMarkdown(order)}
 推送时间：${formatTimestamp()}`;
 
     const result = await sendWorkNotification(userIdList, title, content);
-    console.log('[DingTalk] 待填写ERP通知发送结果:', result);
+    log.info('待填写ERP通知发送结果:', result);
   } catch (error) {
-    console.error('[DingTalk] 待填写ERP通知发送失败:', error);
+    log.error('待填写ERP通知发送失败:', error);
   }
 }
 

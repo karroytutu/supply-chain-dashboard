@@ -4,7 +4,7 @@
  */
 import React, { useMemo } from 'react';
 import { Collapse, Button, Space, Tag, Checkbox } from 'antd';
-import { RightOutlined } from '@ant-design/icons';
+
 import type { PermissionItem } from '@/components/PermissionTree/types';
 import { getModulePermissionIds } from '@/components/PermissionTree/utils';
 import styles from './ModuleGroup.less';
@@ -81,7 +81,7 @@ const ModuleGroup: React.FC<ModuleGroupProps> = ({
   };
 
   // 渲染权限项
-  const renderPermissionItem = (item: PermissionItem, level: number = 0) => {
+  const renderPermissionItem = (item: PermissionItem, level = 0) => {
     const isChecked = checkedKeys.includes(item.id);
     const indentStyle = { paddingLeft: level * 20 };
     

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { message } from 'antd';
 import { oaApi } from '@/services/api/oa';
+import { getErrorMessage } from '../../../../utils/errorUtils';
 
 interface UseApprovalCenterActionsParams {
   selectedId: number | null;
@@ -33,8 +34,8 @@ export function useApprovalCenterActions({
       reloadList();
       reloadStats();
       reloadDetail(selectedId);
-    } catch (error: any) {
-      message.error(error.message || '操作失败');
+    } catch (error) {
+      message.error(getErrorMessage(error) || '操作失败');
     }
   };
 
@@ -51,8 +52,8 @@ export function useApprovalCenterActions({
       reloadList();
       reloadStats();
       reloadDetail(selectedId);
-    } catch (error: any) {
-      message.error(error.message || '操作失败');
+    } catch (error) {
+      message.error(getErrorMessage(error) || '操作失败');
     }
   };
 
@@ -63,8 +64,8 @@ export function useApprovalCenterActions({
       message.success('撤回成功');
       reloadList();
       reloadStats();
-    } catch (error: any) {
-      message.error(error.message || '操作失败');
+    } catch (error) {
+      message.error(getErrorMessage(error) || '操作失败');
     }
   };
 
@@ -88,8 +89,8 @@ export function useApprovalCenterActions({
       reloadList();
       reloadStats();
       if (selectedId) reloadDetail(selectedId);
-    } catch (error: any) {
-      message.error(error.message || '操作失败');
+    } catch (error) {
+      message.error(getErrorMessage(error) || '操作失败');
     }
   };
 

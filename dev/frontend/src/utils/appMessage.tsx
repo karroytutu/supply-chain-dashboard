@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { App } from 'antd';
 import type { MessageInstance } from 'antd/es/message/interface';
+import { createLogger } from '../utils/logger';
+const log = createLogger('AppMessage');
+
 
 let messageApi: MessageInstance | null = null;
 
@@ -31,7 +34,7 @@ export function showErrorMessage(content: string): void {
     return;
   }
 
-  console.error('[AppMessage]', content);
+  log.error(content);
 }
 
 export function showLoadingMessage(content: string, duration?: number): void {
@@ -41,5 +44,5 @@ export function showLoadingMessage(content: string, duration?: number): void {
     return;
   }
 
-  console.info('[AppMessage]', content);
+  log.info(content);
 }

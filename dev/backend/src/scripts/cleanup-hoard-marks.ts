@@ -10,6 +10,8 @@
  *
  * 注意：如果 ERP API 不支持批量清除，可能需要运维人员手动操作 ERP 后台
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Script');
 
 import { appQuery } from '../db/appPool';
 import { erpPost } from '../services/erp-client/erp-client';
@@ -21,7 +23,7 @@ interface HoardRecord {
 }
 
 async function main(): Promise<void> {
-  console.log('[CleanupHoard] 开始清理 ERP 压单标记...');
+  log.info('开始清理 ERP 压单标记...');
 
   // 1. 从被撤回的压单审批实例中提取结算单 ID
   // 迁移脚本 063 已将所有 hold_order 审批实例标记为 withdrawn，
@@ -35,7 +37,7 @@ async function main(): Promise<void> {
   );
 
   if (result.rows.length === 0) {
-    console.log('[CleanupHoard] 无需清理的 ERP 压单标记（无被撤回的压单审批）');
+    log.info('无需清理的 ERP 压单标记（无被撤回的压单审批）');
     return;
   }
 
@@ -45,7 +47,12 @@ async function main(): Promise<void> {
     const orders = row.form_data?.holdSettlementOrders;
     if (Array.isArray(orders)) {
       for (const id of orders) {
-        const numId = typeof id === 'object' && id !== null ? Number((id as Record<string, unknown>).bizId ?? (id as Record<string, unknown>).id ?? 0) : Number(id);
+        const numId =
+          typeof id === 'object' && id !== null
+            ? Number(
+                (id as Record<string, unknown>).bizId ?? (id as Record<string, unknown>).id ?? 0
+              )
+            : Number(id);
         if (!isNaN(numId) && numId > 0) {
           orderIds.add(numId);
         }
@@ -54,11 +61,11 @@ async function main(): Promise<void> {
   }
 
   if (orderIds.size === 0) {
-    console.log('[CleanupHoard] 被撤回的压单审批中无有效结算单 ID');
+    log.info('被撤回的压单审批中无有效结算单 ID');
     return;
   }
 
-  console.log(`[CleanupHoard] 从 ${result.rows.length} 个被撤回审批中提取 ${orderIds.size} 个结算单 ID`);
+  log.info(`从 ${result.rows.length} 个被撤回审批中提取 ${orderIds.size} 个结算单 ID`);
 
   const { cid, uid } = getErpDefaults();
   let successCount = 0;
@@ -73,26 +80,26 @@ async function main(): Promise<void> {
         { pathPrefix: '/saas/pro/', businessType: 'unmark_hold_orders' }
       );
       successCount++;
-      console.log(`[CleanupHoard] 已清除: ${orderId}`);
+      log.info(`已清除: ${orderId}`);
     } catch (error) {
       failCount++;
-      console.error(
+      log.error(
         `[CleanupHoard] 清除失败: ${orderId}:`,
         error instanceof Error ? error.message : error
       );
     }
   }
 
-  console.log(`[CleanupHoard] 清理完成: 成功=${successCount}, 失败=${failCount}`);
+  log.info(`清理完成: 成功=${successCount}, 失败=${failCount}`);
 
   if (failCount > 0) {
-    console.warn('[CleanupHoard] 部分结算单清除失败，可能需要运维人员手动在 ERP 后台操作');
+    log.warn('部分结算单清除失败，可能需要运维人员手动在 ERP 后台操作');
   }
 
   process.exit(0);
 }
 
 main().catch(error => {
-  console.error('[CleanupHoard] 脚本执行失败:', error);
+  log.error('脚本执行失败:', error);
   process.exit(1);
 });

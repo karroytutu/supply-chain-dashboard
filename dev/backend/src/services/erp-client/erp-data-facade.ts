@@ -12,7 +12,13 @@ import {
   getCostPriceByNameMap,
   type ErpInventoryRecord,
 } from './erp-inventory.service';
-import { groupBy, countBy, sumBy, getCategoryName, getCategoryLevel } from '../../utils/arrayAggregation';
+import {
+  groupBy,
+  countBy,
+  sumBy,
+  getCategoryName,
+  getCategoryLevel,
+} from '../../utils/arrayAggregation';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 
@@ -34,10 +40,7 @@ export async function getProductsWithStock(): Promise<ProductWithStock[]> {
   const cached = cache.get<ProductWithStock[]>(CACHE_KEY.ERP_FACADE_PRODUCTS_WITH_STOCK);
   if (cached) return cached;
 
-  const [products, stockMap] = await Promise.all([
-    fetchAllProducts(0),
-    getStockSummaryMap(),
-  ]);
+  const [products, stockMap] = await Promise.all([fetchAllProducts(0), getStockSummaryMap()]);
 
   const result = products.map(p => {
     const totalStock = stockMap.get(p.goodsId) ?? 0;
@@ -86,9 +89,8 @@ export async function getCategoryAggregation(): Promise<CategoryAggregation[]> {
   l1Groups.forEach((products, l1Name) => {
     const totalCount = products.length;
     const inStockCount = countBy(products, p => p.hasStock);
-    const availabilityRate = totalCount > 0
-      ? Math.round((inStockCount / totalCount) * 1000) / 10
-      : 0;
+    const availabilityRate =
+      totalCount > 0 ? Math.round((inStockCount / totalCount) * 1000) / 10 : 0;
 
     const l1Node: CategoryAggregation = {
       name: l1Name,
@@ -204,13 +206,11 @@ export async function getAvailabilityStats(
       if (!p.hasStock) return false;
       const avgDaily = dailySalesMap.get(p.name) || 0;
       if (avgDaily <= 0) return false;
-      return (p.totalStock / avgDaily) <= LOW_STOCK_DAYS;
+      return p.totalStock / avgDaily <= LOW_STOCK_DAYS;
     });
   }
 
-  const availabilityRate = totalEnabled > 0
-    ? Math.round((inStock / totalEnabled) * 1000) / 10
-    : 0;
+  const availabilityRate = totalEnabled > 0 ? Math.round((inStock / totalEnabled) * 1000) / 10 : 0;
 
   return { totalEnabled, inStock, outOfStock, lowStock, availabilityRate };
 }

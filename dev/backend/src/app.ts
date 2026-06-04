@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// app.ts: 进程生命周期管理，console 用于 FATAL 异常和优雅关闭（logger 可能未初始化）
 import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
@@ -14,9 +16,9 @@ import strategicProductRoutes from './routes/strategic-product.routes';
 import returnOrderRoutes from './routes/return-order.routes';
 import goodsReturnRulesRoutes from './routes/goods-return-rules.routes';
 import procurementArchiveRoutes from './routes/procurement-archive.routes';
-import returnPenaltyRoutes from './routes/return-penalty.routes';
+
 import arCollectionRoutes from './routes/ar-collection.routes';
-import arAssessmentRoutes from './routes/ar-assessment.routes';
+
 import assessmentRoutes from './routes/assessment.routes';
 import creditLicenseRoutes from './routes/credit-license.routes';
 import oaRoutes from './routes/oa.routes';
@@ -29,6 +31,7 @@ import { registerSyncEventHandlers } from './services/dingtalk-sync/dingtalk-syn
 import logger from './utils/logger';
 import { runMigrations } from './db/migrate';
 import { appQuery } from './db/appPool';
+import { getErrorMessage } from './utils/errorUtils';
 
 // 防止 EPIPE (Broken Pipe) 错误导致进程崩溃
 // 当父进程关闭输出管道时（如后台启动的 shell 退出），stdout/stderr 写入会触发 EPIPE
@@ -48,7 +51,11 @@ process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
   // 此时 console 写入会失败，不应尝试记录，直接静默退出
   if (error?.code === 'EPIPE' || error?.errno === -32) {
     // 尝试用 logger 写入文件（不依赖 stdout），失败则忽略
-    try { logger.error('[EPIPE] Broken pipe, process exiting'); } catch { /* ignore */ }
+    try {
+      logger.error('[EPIPE] Broken pipe, process exiting');
+    } catch {
+      /* ignore */
+    }
     setTimeout(() => process.exit(0), 100);
     return;
   }
@@ -56,8 +63,14 @@ process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
   try {
     console.error('[FATAL] Uncaught Exception:', error?.message || error);
     console.error('[FATAL] Stack:', error?.stack || 'No stack trace');
-  } catch { /* console 写入失败，忽略 */ }
-  try { logger.error('[FATAL] Uncaught Exception:', error); } catch { /* ignore */ }
+  } catch {
+    /* console 写入失败，忽略 */
+  }
+  try {
+    logger.error('[FATAL] Uncaught Exception:', error);
+  } catch {
+    /* ignore */
+  }
   // 延迟退出，给日志 1 秒 flush 时间
   setTimeout(() => process.exit(1), 1000);
 });
@@ -70,8 +83,14 @@ process.on('unhandledRejection', (reason, promise) => {
   }
   try {
     console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reasonMsg);
-  } catch { /* console 写入失败，忽略 */ }
-  try { logger.error('[FATAL] Unhandled Rejection at:', { promise, reason }); } catch { /* ignore */ }
+  } catch {
+    /* console 写入失败，忽略 */
+  }
+  try {
+    logger.error('[FATAL] Unhandled Rejection at:', { promise, reason });
+  } catch {
+    /* ignore */
+  }
 });
 
 const app = express();
@@ -81,19 +100,24 @@ app.set('trust proxy', 1);
 
 // 安全中间件
 app.use(helmet());
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3100'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:3000',
+      'http://localhost:3100',
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
 // 全局限流（仅限写操作，避免读接口被误限）
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
   message: { success: false, message: '请求过于频繁，请稍后再试' },
-  skip: (req) => {
+  skip: req => {
     // 豁免高频只读接口，这些接口每次页面加载/路由切换都会调用
     // 注意：中间件挂载在 /api 下，req.path 已去除 /api 前缀
     const readOnlyPaths = [
@@ -102,7 +126,7 @@ const globalLimiter = rateLimit({
       '/auth/dingtalk/qrcode-config',
       '/health',
     ];
-    return req.method === 'GET' && readOnlyPaths.some((p) => req.path.startsWith(p));
+    return req.method === 'GET' && readOnlyPaths.some(p => req.path.startsWith(p));
   },
 });
 app.use('/api', globalLimiter);
@@ -150,12 +174,12 @@ app.listen(config.port, async () => {
       console.log('[Migration] 数据库迁移完成');
       break;
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
+      const errMsg = error instanceof Error ? getErrorMessage(error) : String(error);
       console.error(`[Migration] 第 ${attempt}/${maxMigrationRetries} 次迁移失败: ${errMsg}`);
       if (attempt < maxMigrationRetries) {
         const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
         console.log(`[Migration] ${delay / 1000} 秒后重试...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await new Promise(resolve => setTimeout(resolve, delay));
       } else {
         console.error('[Migration] 所有重试已耗尽，服务终止');
         logger.error('数据库迁移失败，服务将终止:', error);
@@ -178,8 +202,8 @@ const gracefulShutdown = (signal: string) => {
   try {
     stopDingtalkStream();
     console.log('[App] 钉钉 Stream 连接已关闭');
-  } catch (err: any) {
-    console.error('[App] 关闭钉钉 Stream 失败:', err.message);
+  } catch (err) {
+    console.error('[App] 关闭钉钉 Stream 失败:', getErrorMessage(err));
   }
   // 给进行中的请求 5 秒完成时间
   console.log('[App] 等待 5 秒让进行中的请求完成...');

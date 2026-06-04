@@ -5,6 +5,8 @@ import { checkDingtalkEnv, dingtalkAutoLogin, dingtalkCallback, getCurrentUser, 
 import { getAuthCode, isInDingtalk, getClientType } from '@/utils/dingtalk';
 import DingtalkQrcode from './components/DingtalkQrcode';
 import styles from './index.less';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Login');
 
 const TOKEN_KEY = 'auth_token';
 
@@ -35,10 +37,10 @@ export default function LoginPage() {
 
   // 处理登录成功
   const handleLoginSuccess = useCallback((token: string, user: any) => {
-    console.log('[Login] 登录成功，准备跳转', { token: token?.substring(0, 20) + '...', user });
+    log.info('登录成功，准备跳转', { token: token?.substring(0, 20) + '...', user });
     localStorage.setItem(TOKEN_KEY, token);
     const redirect = (history.location as any).query?.redirect || '/';
-    console.log('[Login] 跳转目标:', redirect);
+    log.info('跳转目标:', redirect);
     // 使用 window.location.href 强制页面重新加载，确保 auth wrapper 正确初始化
     window.location.href = redirect;
   }, []);
@@ -55,7 +57,7 @@ export default function LoginPage() {
       } else {
         setError(result.message || '登录失败');
       }
-    } catch (err: any) {
+    } catch (err) {
       setError(getLoginErrorMessage(err) || '免登失败');
     } finally {
       setLoading(false);
@@ -64,19 +66,19 @@ export default function LoginPage() {
 
   // 扫码登录回调
   const handleQrcodeCallback = useCallback(async (authCode: string) => {
-    console.log('[Login] 开始处理扫码回调，authCode:', authCode?.substring(0, 10) + '...');
+    log.info('开始处理扫码回调，authCode:', authCode?.substring(0, 10) + '...');
     try {
       setLoading(true);
       const result = await dingtalkCallback(authCode);
-      console.log('[Login] 扫码登录结果:', result);
+      log.info('扫码登录结果:', result);
       
       if (result.token) {
         handleLoginSuccess(result.token, result.user);
       } else {
         setError(result.message || '登录失败');
       }
-    } catch (err: any) {
-      console.error('[Login] 扫码登录异常:', err);
+    } catch (err) {
+      log.error('扫码登录异常:', err);
       setError(getLoginErrorMessage(err));
     } finally {
       setLoading(false);
@@ -94,7 +96,7 @@ export default function LoginPage() {
       } else {
         setError(result.message || '开发登录失败');
       }
-    } catch (err: any) {
+    } catch (err) {
       setError(getLoginErrorMessage(err) || '开发登录失败');
     } finally {
       setDevLoginLoading(false);

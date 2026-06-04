@@ -101,8 +101,8 @@ export function validateFormData(
 
     const value = formData[field.key];
 
-    const isRequired = field.required ||
-      (field.requiredWhen ? checkCondition(field.requiredWhen, formData) : false);
+    const isRequired =
+      field.required || (field.requiredWhen ? checkCondition(field.requiredWhen, formData) : false);
 
     if (isRequired) {
       if (value === undefined || value === null || value === '') {
@@ -128,7 +128,7 @@ export function validateFormData(
         break;
 
       case 'number':
-      case 'money':
+      case 'money': {
         const numValue = Number(value);
         if (isNaN(numValue)) {
           errors.push(`${field.label}必须是数字`);
@@ -141,6 +141,7 @@ export function validateFormData(
           }
         }
         break;
+      }
 
       case 'select':
       case 'multi-select':

@@ -5,7 +5,6 @@
 import { useCallback, useMemo } from 'react';
 import type { UserInfo } from '@/services/api/auth';
 
-// @ts-ignore - useModel 由 @umijs/plugins/dist/model 提供
 import { useModel } from 'umi';
 
 interface PermissionState {

@@ -19,10 +19,6 @@ export {
   getDeferredByInstanceId,
 } from './credit-license.service';
 
-export {
-  checkLicenseDeferredReminders,
-} from './credit-license-reminder.task';
+export { checkLicenseDeferredReminders } from './credit-license-reminder.task';
 
-export {
-  markOverdueDeferredUploads,
-} from './credit-license-overdue.task';
+export { markOverdueDeferredUploads } from './credit-license-overdue.task';

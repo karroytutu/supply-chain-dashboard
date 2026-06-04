@@ -3,6 +3,8 @@
  * 处理催收任务的核销、升级、诉讼等 HTTP 请求
  * @module controllers/ar-collection-mutation.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('ArCollectionMutation');
 
 import { Request, Response } from 'express';
 import {
@@ -59,7 +61,11 @@ export const applyExtension = async (req: Request, res: Response) => {
       return;
     }
     const operator = getOperator(req);
-    await applyExtensionService(taskId, fromExtensionDTO(req.body, taskId, operator.id, operator.name), operator);
+    await applyExtensionService(
+      taskId,
+      fromExtensionDTO(req.body, taskId, operator.id, operator.name),
+      operator
+    );
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '延期申请失败');
@@ -75,7 +81,11 @@ export const markDifference = async (req: Request, res: Response) => {
       return;
     }
     const operator = getOperator(req);
-    await markDifferenceService(taskId, fromDifferenceDTO(req.body, taskId, operator.id, operator.name), operator);
+    await markDifferenceService(
+      taskId,
+      fromDifferenceDTO(req.body, taskId, operator.id, operator.name),
+      operator
+    );
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '标记差异失败');
@@ -91,7 +101,11 @@ export const escalateTask = async (req: Request, res: Response) => {
       return;
     }
     const operator = getOperator(req);
-    await escalateTaskService(taskId, fromEscalateDTO(req.body, taskId, operator.id, operator.name), operator);
+    await escalateTaskService(
+      taskId,
+      fromEscalateDTO(req.body, taskId, operator.id, operator.name),
+      operator
+    );
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '升级处理失败');
@@ -107,7 +121,11 @@ export const rollbackEscalation = async (req: Request, res: Response) => {
       return;
     }
     const operator = getOperator(req);
-    await rollbackEscalationService(taskId, fromRollbackDTO(req.body, taskId, operator.id, operator.name), operator);
+    await rollbackEscalationService(
+      taskId,
+      fromRollbackDTO(req.body, taskId, operator.id, operator.name),
+      operator
+    );
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '退回操作失败');
@@ -143,7 +161,11 @@ export const resolveDifference = async (req: Request, res: Response) => {
       return;
     }
     const operator = getOperator(req);
-    await resolveDifferenceService(taskId, fromResolveDifferenceDTO(req.body, taskId, operator.id, operator.name), operator);
+    await resolveDifferenceService(
+      taskId,
+      fromResolveDifferenceDTO(req.body, taskId, operator.id, operator.name),
+      operator
+    );
     res.json({ code: 200, message: 'success', data: null });
   } catch (error) {
     handleMutationError(res, error, '差异解决失败');
@@ -235,7 +257,9 @@ export const uploadEvidence = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('[ArCollectionController] uploadEvidence 失败:', error);
-    res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '上传失败' });
+    log.error('uploadEvidence 失败:', error);
+    res
+      .status(500)
+      .json({ code: 500, message: error instanceof Error ? error.message : '上传失败' });
   }
 };

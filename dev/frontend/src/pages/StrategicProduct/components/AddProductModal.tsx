@@ -2,8 +2,7 @@
  * 添加战略商品弹窗组件
  */
 import React, { useState, useEffect } from 'react';
-import { Modal, Tree, Collapse } from 'antd';
-import type { TreeProps } from 'antd';
+import { Modal, Tree, Collapse, type TreeProps } from 'antd';
 import type { CategoryNode, SelectableProduct } from '@/types/strategic-product';
 import ProductSelectionPanel from './ProductSelectionPanel';
 import styles from '../index.less';

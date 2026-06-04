@@ -3,16 +3,16 @@
  * 收敛所有 SQL 查询和缓存逻辑，Service 层不再直接编写 SQL
  * 遵循规范：Controller → Service → Repository → DB
  */
+import { SqlParam } from '../../db/types';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('ReturnOrder');
 
 import { appQuery } from '../../db/appPool';
 import { fetchAllProducts } from '../erp-client/erp-product.service';
 import { getDefectiveBatchInventory } from '../erp-client/erp-batch-inventory.service';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
-import type {
-  ReturnOrderQueryParams,
-  ReturnOrderStatus,
-} from './return-order.types';
+import type { ReturnOrderQueryParams, ReturnOrderStatus } from './return-order.types';
 import type { ReturnOrderRow } from './return-order-utils';
 
 const CACHE_PREFIX = 'return:order';
@@ -26,7 +26,7 @@ export async function getOrders(params: ReturnOrderQueryParams) {
   const { page = 1, pageSize = 20, keyword, status, startDate, endDate } = params;
   const offset = (page - 1) * pageSize;
   const conditions: string[] = ['1=1'];
-  const queryParams: any[] = [];
+  const queryParams: SqlParam[] = [];
   let paramIndex = 1;
 
   if (status) {
@@ -34,7 +34,9 @@ export async function getOrders(params: ReturnOrderQueryParams) {
     queryParams.push(status);
   }
   if (keyword) {
-    conditions.push(`(ro.goods_name ILIKE $${paramIndex} OR ro.return_no ILIKE $${paramIndex} OR ro.source_bill_no ILIKE $${paramIndex} OR ro.consumer_name ILIKE $${paramIndex})`);
+    conditions.push(
+      `(ro.goods_name ILIKE $${paramIndex} OR ro.return_no ILIKE $${paramIndex} OR ro.source_bill_no ILIKE $${paramIndex} OR ro.consumer_name ILIKE $${paramIndex})`
+    );
     queryParams.push(`%${escapeLikePattern(keyword)}%`);
     paramIndex++;
   }
@@ -80,7 +82,7 @@ export async function getOrders(params: ReturnOrderQueryParams) {
     LEFT JOIN users mu ON ro.marketing_completed_by = mu.id
     WHERE ${whereClause}
     ORDER BY ro.created_at DESC
-    LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
+    LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
     listParams
   );
 
@@ -227,9 +229,22 @@ export async function getRawOrderById(id: number) {
  */
 export async function createOrder(params: any): Promise<ReturnOrderRow> {
   const {
-    returnNo, goodsId, goodsName, quantity, unit,
-    batchDate, returnDate, expireDate, shelfLife, daysToExpire, daysToExpireAtReturn,
-    sourceBillNo, consumerName, marketingManager, status, purchasePrice,
+    returnNo,
+    goodsId,
+    goodsName,
+    quantity,
+    unit,
+    batchDate,
+    returnDate,
+    expireDate,
+    shelfLife,
+    daysToExpire,
+    daysToExpireAtReturn,
+    sourceBillNo,
+    consumerName,
+    marketingManager,
+    status,
+    purchasePrice,
   } = params;
 
   const orderStatus = status || 'pending_confirm';
@@ -244,11 +259,22 @@ export async function createOrder(params: any): Promise<ReturnOrderRow> {
      ON CONFLICT (source_bill_no, goods_id, unit) DO NOTHING
      RETURNING *`,
     [
-      returnNo, goodsId, goodsName, quantity, unit || null,
-      batchDate || null, returnDate || null, expireDate || null,
-      shelfLife || null, daysToExpire ?? null, daysAtReturn ?? null,
-      sourceBillNo || null, consumerName || null, marketingManager || null,
-      orderStatus, purchasePrice || null,
+      returnNo,
+      goodsId,
+      goodsName,
+      quantity,
+      unit || null,
+      batchDate || null,
+      returnDate || null,
+      expireDate || null,
+      shelfLife || null,
+      daysToExpire ?? null,
+      daysAtReturn ?? null,
+      sourceBillNo || null,
+      consumerName || null,
+      marketingManager || null,
+      orderStatus,
+      purchasePrice || null,
     ]
   );
 
@@ -325,7 +351,11 @@ export async function batchConfirm(
 /**
  * 填写ERP退货单号
  */
-export async function fillErpReturnNo(id: number, erpReturnNo: string, operatorId: number): Promise<ReturnOrderRow | null> {
+export async function fillErpReturnNo(
+  id: number,
+  erpReturnNo: string,
+  operatorId: number
+): Promise<ReturnOrderRow | null> {
   const result = await appQuery<ReturnOrderRow>(
     `UPDATE expiring_return_orders
      SET erp_return_no = $1,
@@ -343,7 +373,12 @@ export async function fillErpReturnNo(id: number, erpReturnNo: string, operatorI
 /**
  * 仓储执行退货
  */
-export async function warehouseExecute(id: number, operatorId: number, evidenceUrlJson: string, comment: string | null): Promise<ReturnOrderRow | null> {
+export async function warehouseExecute(
+  id: number,
+  operatorId: number,
+  evidenceUrlJson: string,
+  comment: string | null
+): Promise<ReturnOrderRow | null> {
   const result = await appQuery<ReturnOrderRow>(
     `UPDATE expiring_return_orders
      SET warehouse_executed_by = $1,
@@ -362,7 +397,11 @@ export async function warehouseExecute(id: number, operatorId: number, evidenceU
 /**
  * 营销销售完成
  */
-export async function marketingSaleComplete(id: number, operatorId: number, comment: string | null): Promise<ReturnOrderRow | null> {
+export async function marketingSaleComplete(
+  id: number,
+  operatorId: number,
+  comment: string | null
+): Promise<ReturnOrderRow | null> {
   const result = await appQuery<ReturnOrderRow>(
     `UPDATE expiring_return_orders
      SET marketing_completed_by = $1,
@@ -447,7 +486,13 @@ export async function autoCompleteMarketingSale(): Promise<{
          WHERE id = $1`,
         [order.id]
       );
-      await recordAction(order.id, 'marketing_complete', null, '系统自动检测', '残次品库存已清零，自动完成销售');
+      await recordAction(
+        order.id,
+        'marketing_complete',
+        null,
+        '系统自动检测',
+        '残次品库存已清零，自动完成销售'
+      );
       completedCount++;
     }
   }
@@ -493,7 +538,7 @@ async function enrichStockData(rows: ReturnOrderRow[]): Promise<void> {
       stockByGoods.get(batch.goodsName)!.set(batch.unitName, existing + qty);
     }
   } catch (error) {
-    console.error('[ReturnOrder] 查询库存失败:', error);
+    log.error('查询库存失败:', error);
   }
 
   // 合并库存数据到退货单行
@@ -518,8 +563,8 @@ function convertStockDisplay(
   if (!stockUnits || stockUnits.size === 0) return null;
   if (!returnOrderUnit) return null;
 
-  const pkgQty = unitInfo?.pkgUnit ? (stockUnits.get(unitInfo.pkgUnit) || 0) : 0;
-  const baseQty = unitInfo?.baseUnit ? (stockUnits.get(unitInfo.baseUnit) || 0) : 0;
+  const pkgQty = unitInfo?.pkgUnit ? stockUnits.get(unitInfo.pkgUnit) || 0 : 0;
+  const baseQty = unitInfo?.baseUnit ? stockUnits.get(unitInfo.baseUnit) || 0 : 0;
   const unitFactor = unitInfo?.unitFactor || 1;
   const totalBaseQty = pkgQty * unitFactor + baseQty;
 

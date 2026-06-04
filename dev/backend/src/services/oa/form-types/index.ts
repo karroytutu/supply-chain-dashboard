@@ -1,7 +1,7 @@
 /**
  * 表单类型注册表
  * @module services/oa/form-types/index
- * 
+ *
  * 新增表单类型时，请在此文件中导入并添加到 ALL_FORM_TYPES 数组。
  */
 
@@ -17,7 +17,7 @@ import { customerModifyFormType } from './customer-modify';
 
 /**
  * 所有已注册的表单类型
- * 
+ *
  * 新增表单类型时，在此数组中添加导入的表单类型定义。
  */
 export const ALL_FORM_TYPES: FormTypeDefinition[] = [
@@ -35,7 +35,7 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
  * 根据编码获取表单类型定义
  */
 export function getFormTypeByCode(code: string): FormTypeDefinition | undefined {
-  return ALL_FORM_TYPES.find((ft) => ft.code === code);
+  return ALL_FORM_TYPES.find(ft => ft.code === code);
 }
 
 /**

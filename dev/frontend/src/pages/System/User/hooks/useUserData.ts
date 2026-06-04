@@ -54,6 +54,7 @@ export function useUserData(
   useEffect(() => {
     fetchUsers();
     fetchRoles();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [page, pageSize, activeStatus]);
 
   return {

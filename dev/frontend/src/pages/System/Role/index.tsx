@@ -5,12 +5,13 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Input, Space, Modal, message, Form, Input as AntInput } from 'antd';
 import { SearchOutlined, PlusOutlined } from '@ant-design/icons';
 import { getRoleList, createRole, updateRole, deleteRole, getPermissionTree } from '@/services/api/auth';
-import { Authorized } from '@/components/Authorized';
-import { PERMISSIONS, ROLES } from '@/constants/permissions';
+
+import {  ROLES } from '@/constants/permissions';
 import { usePermission } from '@/hooks/usePermission';
 import RoleTable from './components/RoleTable';
 import PermissionAssignModal from './components/PermissionAssignModal';
 import styles from './index.less';
+import { getErrorMessage } from '../../../utils/errorUtils';
 
 interface RoleItem {
   id: number;
@@ -73,6 +74,7 @@ export default function RoleManage() {
   useEffect(() => {
     loadRoles();
     loadPermissionTree();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, []);
 
   // 搜索
@@ -112,8 +114,8 @@ export default function RoleManage() {
 
       setEditModalVisible(false);
       loadRoles();
-    } catch (error: any) {
-      message.error(error.message || '保存失败');
+    } catch (error) {
+      message.error(getErrorMessage(error) || '保存失败');
     }
   };
 
@@ -123,8 +125,8 @@ export default function RoleManage() {
       await deleteRole(role.id);
       message.success('删除成功');
       loadRoles();
-    } catch (error: any) {
-      message.error(error.message || '删除失败');
+    } catch (error) {
+      message.error(getErrorMessage(error) || '删除失败');
     }
   };
 

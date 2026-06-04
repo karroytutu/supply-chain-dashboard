@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Spin } from 'antd';
 import { getQrcodeConfig } from '@/services/api/auth';
 import styles from '../index.less';
+import { createLogger } from '../../../utils/logger';
+const log = createLogger('Logincomponents');
 
 interface DingtalkQrcodeProps {
   onCallback: (authCode: string) => void;
@@ -29,13 +31,13 @@ export default function DingtalkQrcode({ onCallback }: DingtalkQrcodeProps) {
   // 监听来自iframe的消息
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      console.log('[DingtalkQrcode] 收到消息:', event.data, '来源:', event.origin);
+      log.info('收到消息:', event.data, '来源:', event.origin);
 
       const expectedOrigin = getOriginFromUrl(config?.redirectUri) || window.location.origin;
 
       // 安全验证：检查消息来源
       if (event.origin !== expectedOrigin) {
-        console.warn('[DingtalkQrcode] 收到来自非预期来源的消息:', {
+        log.warn('收到来自非预期来源的消息:', {
           actualOrigin: event.origin,
           expectedOrigin,
         });
@@ -45,7 +47,7 @@ export default function DingtalkQrcode({ onCallback }: DingtalkQrcodeProps) {
       // 验证消息类型
       if (event.data?.type === DINGTALK_CALLBACK_TYPE) {
         const { authCode } = event.data.payload || {};
-        console.log('[DingtalkQrcode] 收到钉钉回调，authCode:', authCode?.substring(0, 10) + '...');
+        log.info('收到钉钉回调，authCode:', authCode?.substring(0, 10) + '...');
         if (authCode) {
           onCallback(authCode);
         }
@@ -65,7 +67,7 @@ export default function DingtalkQrcode({ onCallback }: DingtalkQrcodeProps) {
         const result = await getQrcodeConfig();
         const redirectOrigin = getOriginFromUrl(result.redirectUri);
         if (redirectOrigin && redirectOrigin !== window.location.origin) {
-          console.warn('[DingtalkQrcode] 回调地址与当前页面来源不一致:', {
+          log.warn('回调地址与当前页面来源不一致:', {
             currentOrigin: window.location.origin,
             redirectOrigin,
             redirectUri: result.redirectUri,
@@ -73,7 +75,7 @@ export default function DingtalkQrcode({ onCallback }: DingtalkQrcodeProps) {
         }
         setConfig(result);
       } catch (error) {
-        console.error('获取扫码配置失败:', error);
+        log.error('获取扫码配置失败:', error);
       } finally {
         setLoading(false);
       }

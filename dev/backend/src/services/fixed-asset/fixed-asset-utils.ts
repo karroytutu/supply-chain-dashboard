@@ -3,7 +3,12 @@
  * @module services/fixed-asset/fixed-asset-utils
  */
 
-import type { ApplicationType, ApplicationStatus, PurchaseLine, ErpAsset } from './fixed-asset.types';
+import type {
+  ApplicationType,
+  ApplicationStatus,
+  PurchaseLine,
+  ErpAsset,
+} from './fixed-asset.types';
 import { getErpDefaults } from '../erp-client';
 
 /**
@@ -21,7 +26,10 @@ export function validateMaintenanceCost(estimatedCost: number): string | null {
  * 验证维修询价数量
  * >= 500元时至少需要2家供应商询价
  */
-export function validateQuotationCount(estimatedCost: number, quotationCount: number): string | null {
+export function validateQuotationCount(
+  estimatedCost: number,
+  quotationCount: number
+): string | null {
   if (estimatedCost >= 500 && quotationCount < 2) {
     return '预估费用500元以上需至少录入2家供应商询价';
   }
@@ -32,9 +40,16 @@ export function validateQuotationCount(estimatedCost: number, quotationCount: nu
  * 获取申请状态显示名
  */
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
-  pending: '待审批', quoting: '询价中', paying: '支付中', purchasing: '采购中',
-  storing: '入库中', approved: '审批通过', rejected: '已驳回',
-  cancelled: '已取消', completed: '已完成', erp_failed: 'ERP操作失败',
+  pending: '待审批',
+  quoting: '询价中',
+  paying: '支付中',
+  purchasing: '采购中',
+  storing: '入库中',
+  approved: '审批通过',
+  rejected: '已驳回',
+  cancelled: '已取消',
+  completed: '已完成',
+  erp_failed: 'ERP操作失败',
 };
 export function getApplicationStatusLabel(status: ApplicationStatus): string {
   return STATUS_LABELS[status];
@@ -44,7 +59,10 @@ export function getApplicationStatusLabel(status: ApplicationStatus): string {
  * 获取申请类型显示名
  */
 const TYPE_LABELS: Record<ApplicationType, string> = {
-  purchase: '采购申请', transfer: '领用调拨', maintenance: '维修申请', disposal: '清理申请',
+  purchase: '采购申请',
+  transfer: '领用调拨',
+  maintenance: '维修申请',
+  disposal: '清理申请',
 };
 export function getApplicationTypeLabel(type: ApplicationType): string {
   return TYPE_LABELS[type];
@@ -52,11 +70,15 @@ export function getApplicationTypeLabel(type: ApplicationType): string {
 
 /** 采购流程节点→状态映射 */
 const PURCHASE_NODE_STATUS: Record<number, ApplicationStatus> = {
-  3: 'quoting', 5: 'paying', 6: 'purchasing', 7: 'storing',
+  3: 'quoting',
+  5: 'paying',
+  6: 'purchasing',
+  7: 'storing',
 };
 /** 维修流程节点→状态映射 */
 const MAINTENANCE_NODE_STATUS: Record<number, ApplicationStatus> = {
-  2: 'quoting', 4: 'paying',
+  2: 'quoting',
+  4: 'paying',
 };
 
 /**
@@ -77,7 +99,7 @@ function calcMonthlyDepreciation(
   residualValueRate: number,
   serviceMonths: number
 ): string {
-  const residualValue = originalValue * residualValueRate / 100;
+  const residualValue = (originalValue * residualValueRate) / 100;
   const netValue = originalValue - residualValue;
   const monthly = netValue / serviceMonths;
   return monthly.toFixed(2);
@@ -87,14 +109,14 @@ function calcMonthlyDepreciation(
  * 计算残值
  */
 function calcResidualValue(originalValue: number, residualValueRate: number): string {
-  return (originalValue * residualValueRate / 100).toFixed(2);
+  return ((originalValue * residualValueRate) / 100).toFixed(2);
 }
 
 /**
  * 计算原值净额
  */
 function calcNetValue(originalValue: number, residualValueRate: number): string {
-  return (originalValue - originalValue * residualValueRate / 100).toFixed(2);
+  return (originalValue - (originalValue * residualValueRate) / 100).toFixed(2);
 }
 
 /**
@@ -139,7 +161,9 @@ export function buildAssetCreatePayload(
   unitAllocation?: { deptId: number; userId: number; depositAddress: string },
   assetCode?: string
 ): Record<string, unknown> {
-  const originalValue = parseFloat(line.actualPrice || line.quotationPrice || line.estimatedBudget || '0');
+  const originalValue = parseFloat(
+    line.actualPrice || line.quotationPrice || line.estimatedBudget || '0'
+  );
   const residualRate = line.estimatedResidualValueRate || 5;
   const serviceMonths = line.estimatedServiceMonths || 48;
   const { cid, uid } = getErpDefaults();
@@ -163,7 +187,11 @@ export function buildAssetCreatePayload(
     estimatedServiceMonths: serviceMonths,
     estimatedServiceMonthsPure: calcMonthlyDepreciation(originalValue, residualRate, serviceMonths),
     initialAccruedMonth: '1',
-    initialAccumulatedDepreciation: calcMonthlyDepreciation(originalValue, residualRate, serviceMonths),
+    initialAccumulatedDepreciation: calcMonthlyDepreciation(
+      originalValue,
+      residualRate,
+      serviceMonths
+    ),
     originalValuePure: calcNetValue(originalValue, residualRate),
     note: line.note || '',
     cid,

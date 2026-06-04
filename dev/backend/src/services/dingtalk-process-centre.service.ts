@@ -8,8 +8,9 @@
  *
  * @module services/dingtalk-process-centre.service
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('Service');
 
-import { config } from '../config';
 import { getAccessToken, apiRequest } from './dingtalk-client';
 
 // =====================================================
@@ -18,10 +19,10 @@ import { getAccessToken, apiRequest } from './dingtalk-client';
 
 /** 表单组件定义（用于创建模板） */
 export interface ProcessFormComponent {
-  componentType: string;    // 钉钉控件名，如 'TextField'、'TextareaField'
+  componentType: string; // 钉钉控件名，如 'TextField'、'TextareaField'
   props: {
-    componentId: string;    // 组件ID，如 'TextField-xxx'
-    label: string;          // 字段标签
+    componentId: string; // 组件ID，如 'TextField-xxx'
+    label: string; // 字段标签
     required?: boolean;
     placeholder?: string;
   };
@@ -29,16 +30,16 @@ export interface ProcessFormComponent {
 
 /** 表单组件值（用于创建壳实例时传递摘要数据） */
 export interface FormComponentValue {
-  name: string;            // 字段名（对应模板组件的 label）
-  value: string;           // 字段值
-  componentType?: string;  // 控件类型，如 'TextField'
+  name: string; // 字段名（对应模板组件的 label）
+  value: string; // 字段值
+  componentType?: string; // 控件类型，如 'TextField'
 }
 
 /** 流程中心待办任务参数 */
 export interface PcTaskParam {
-  userId: string;       // 钉钉企业内 userId
-  url: string;          // 详情页跳转URL（需适配移动端和PC端）
-  customData?: string;  // 自定义数据（可选，跳转时回传）
+  userId: string; // 钉钉企业内 userId
+  url: string; // 详情页跳转URL（需适配移动端和PC端）
+  customData?: string; // 自定义数据（可选，跳转时回传）
 }
 
 /** 流程中心待办任务状态 */
@@ -73,7 +74,7 @@ export async function saveProcessTemplate(
   name: string,
   formComponents: ProcessFormComponent[],
   detailUrl: string,
-  existingProcessCode?: string,
+  existingProcessCode?: string
 ): Promise<string> {
   const headers = await buildHeaders();
 
@@ -97,20 +98,17 @@ export async function saveProcessTemplate(
     body.processCode = existingProcessCode;
   }
 
-  const result = await apiRequest(
-    'POST',
-    '/v1.0/workflow/processCentres/schemas',
-    body,
-    headers
-  );
+  const result = await apiRequest('POST', '/v1.0/workflow/processCentres/schemas', body, headers);
 
   const processCode = result?.result?.processCode || result?.processCode;
   if (!processCode) {
-    throw new Error(`[ProcessCentre] 模板创建失败: 未返回 processCode, response=${JSON.stringify(result)}`);
+    throw new Error(
+      `[ProcessCentre] 模板创建失败: 未返回 processCode, response=${JSON.stringify(result)}`
+    );
   }
 
   const action = existingProcessCode ? '更新' : '创建';
-  console.log(`[ProcessCentre] 模板${action}成功:`, { name, processCode });
+  log.info(`模板${action}成功:`, { name, processCode });
   return processCode;
 }
 
@@ -154,10 +152,12 @@ export async function createWorkrecordInstance(
 
   const processInstanceId = result?.result?.processInstanceId || result?.processInstanceId;
   if (!processInstanceId) {
-    throw new Error(`[ProcessCentre] 壳实例创建失败: 未返回 processInstanceId, response=${JSON.stringify(result)}`);
+    throw new Error(
+      `[ProcessCentre] 壳实例创建失败: 未返回 processInstanceId, response=${JSON.stringify(result)}`
+    );
   }
 
-  console.log('[ProcessCentre] 壳实例创建成功:', { processCode, processInstanceId });
+  log.info('壳实例创建成功:', { processCode, processInstanceId });
   return processInstanceId;
 }
 
@@ -187,7 +187,7 @@ export async function updateWorkrecordStatus(
     throw new Error(`[ProcessCentre] 壳实例状态更新失败: ${JSON.stringify(apiResult)}`);
   }
 
-  console.log('[ProcessCentre] 壳实例状态更新成功:', { processInstanceId, status, result });
+  log.info('壳实例状态更新成功:', { processInstanceId, status, result });
 }
 
 // =====================================================
@@ -226,7 +226,7 @@ export async function createPcTasks(
   }
 
   const taskIds: number[] = (result.result || []).map((t: { taskId: number }) => t.taskId);
-  console.log('[ProcessCentre] 待办创建成功:', { processInstanceId, activityId, taskCount: taskIds.length });
+  log.info('待办创建成功:', { processInstanceId, activityId, taskCount: taskIds.length });
   return taskIds;
 }
 
@@ -254,7 +254,7 @@ export async function updatePcTaskStatus(
     throw new Error(`[ProcessCentre] 待办状态更新失败: ${JSON.stringify(result)}`);
   }
 
-  console.log('[ProcessCentre] 待办状态更新成功:', { processInstanceId, count: tasks.length });
+  log.info('待办状态更新成功:', { processInstanceId, count: tasks.length });
 }
 
 /**
@@ -288,5 +288,5 @@ export async function cancelPcTasks(
     throw new Error(`[ProcessCentre] 待办批量取消失败: ${JSON.stringify(result)}`);
   }
 
-  console.log('[ProcessCentre] 待办批量取消成功:', { processInstanceId, activityId, activityIds });
+  log.info('待办批量取消成功:', { processInstanceId, activityId, activityIds });
 }

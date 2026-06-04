@@ -1,68 +1,30 @@
 /**
  * MemoryCache 单元测试
  * 测试 TTL 过期、pattern 失效、容量限制、stale-while-revalidate
+ * 直接使用真实 MemoryCache 类，通过 jest.useFakeTimers() 消除 setInterval 副作用
  */
 
-// 直接测试 MemoryCache 类（不依赖单例，避免清理 interval 干扰）
-// 从 cache.ts 复制类定义进行独立测试
+jest.mock('../utils/logger', () => ({
+  createLogger: () => ({
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+  }),
+}));
 
-interface CacheItem<T> {
-  data: T;
-  timestamp: number;
-  ttl: number;
-}
-
-class TestMemoryCache {
-  cache = new Map<string, CacheItem<any>>();
-  private maxSize: number;
-
-  constructor(maxSize = 1000) {
-    this.maxSize = maxSize;
-  }
-
-  get<T>(key: string): T | null {
-    const item = this.cache.get(key);
-    if (!item || Date.now() - item.timestamp > item.ttl) {
-      if (item) this.cache.delete(key);
-      return null;
-    }
-    return item.data as T;
-  }
-
-  getStale<T>(key: string): T | null {
-    const item = this.cache.get(key);
-    return item ? (item.data as T) : null;
-  }
-
-  isFresh(key: string): boolean {
-    const item = this.cache.get(key);
-    if (!item) return false;
-    return Date.now() - item.timestamp <= item.ttl;
-  }
-
-  set<T>(key: string, data: T, ttl: number): void {
-    if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey !== undefined) this.cache.delete(firstKey);
-    }
-    this.cache.set(key, { data, timestamp: Date.now(), ttl });
-  }
-
-  invalidate(pattern?: string): void {
-    if (!pattern) { this.cache.clear(); return; }
-    for (const key of this.cache.keys()) {
-      if (key.includes(pattern)) this.cache.delete(key);
-    }
-  }
-
-  get size(): number { return this.cache.size; }
-}
+import { MemoryCache, CACHE_TTL } from './cache';
 
 describe('MemoryCache', () => {
-  let cache: TestMemoryCache;
+  let cache: MemoryCache;
 
   beforeEach(() => {
-    cache = new TestMemoryCache(10);
+    jest.useFakeTimers();
+    cache = new MemoryCache(10);
+  });
+
+  afterEach(() => {
+    cache.destroy();
+    jest.useRealTimers();
   });
 
   describe('get/set', () => {
@@ -77,9 +39,7 @@ describe('MemoryCache', () => {
 
     it('returns null for expired key', () => {
       cache.set('key1', 'value1', 1); // 1ms TTL
-      // Simulate expiry by manipulating timestamp
-      const item = cache.cache.get('key1')!;
-      item.timestamp = Date.now() - 100;
+      jest.advanceTimersByTime(10);    // 前进 10ms，超过 1ms TTL
       expect(cache.get('key1')).toBeNull();
     });
 
@@ -93,8 +53,8 @@ describe('MemoryCache', () => {
   describe('getStale', () => {
     it('returns data even when expired', () => {
       cache.set('key1', 'value1', 1);
-      const item = cache.cache.get('key1')!;
-      item.timestamp = Date.now() - 100;
+      jest.advanceTimersByTime(10);
+      // getStale 返回过期但未清理的数据
       expect(cache.getStale('key1')).toBe('value1');
     });
 
@@ -111,8 +71,7 @@ describe('MemoryCache', () => {
 
     it('returns false for expired data', () => {
       cache.set('key1', 'value1', 1);
-      const item = cache.cache.get('key1')!;
-      item.timestamp = Date.now() - 100;
+      jest.advanceTimersByTime(10);
       expect(cache.isFresh('key1')).toBe(false);
     });
 
@@ -126,7 +85,7 @@ describe('MemoryCache', () => {
       cache.set('a:1', 'v1', 60000);
       cache.set('b:1', 'v2', 60000);
       cache.invalidate();
-      expect(cache.size).toBe(0);
+      expect(cache.getStats().size).toBe(0);
     });
 
     it('clears matching pattern only', () => {
@@ -142,23 +101,25 @@ describe('MemoryCache', () => {
 
   describe('maxSize', () => {
     it('evicts oldest entry when max size reached', () => {
-      const smallCache = new TestMemoryCache(3);
+      const smallCache = new MemoryCache(3);
       smallCache.set('k1', 'v1', 60000);
       smallCache.set('k2', 'v2', 60000);
       smallCache.set('k3', 'v3', 60000);
       smallCache.set('k4', 'v4', 60000); // should evict k1
       expect(smallCache.get('k1')).toBeNull();
       expect(smallCache.get('k4')).toBe('v4');
+      smallCache.destroy();
     });
 
     it('does not evict when updating existing key', () => {
-      const smallCache = new TestMemoryCache(3);
+      const smallCache = new MemoryCache(3);
       smallCache.set('k1', 'v1', 60000);
       smallCache.set('k2', 'v2', 60000);
       smallCache.set('k3', 'v3', 60000);
       smallCache.set('k1', 'v1-updated', 60000); // update, no eviction
-      expect(smallCache.size).toBe(3);
+      expect(smallCache.getStats().size).toBe(3);
       expect(smallCache.get('k1')).toBe('v1-updated');
+      smallCache.destroy();
     });
   });
 
@@ -182,11 +143,36 @@ describe('MemoryCache', () => {
       expect(cache.get('bool')).toBe(true);
     });
   });
+
+  describe('getStats', () => {
+    it('returns current size and keys', () => {
+      cache.set('a', 'v1', 60000);
+      cache.set('b', 'v2', 60000);
+      const stats = cache.getStats();
+      expect(stats.size).toBe(2);
+      expect(stats.keys).toEqual(expect.arrayContaining(['a', 'b']));
+    });
+
+    it('returns empty stats for empty cache', () => {
+      const stats = cache.getStats();
+      expect(stats.size).toBe(0);
+      expect(stats.keys).toEqual([]);
+    });
+  });
+
+  describe('destroy', () => {
+    it('clears all data and stops interval', () => {
+      cache.set('a', 'v1', 60000);
+      cache.set('b', 'v2', 60000);
+      cache.destroy();
+      expect(cache.getStats().size).toBe(0);
+      expect(cache.get('a')).toBeNull();
+    });
+  });
 });
 
 describe('CACHE_TTL constants', () => {
-  it('exports three tiers', async () => {
-    const { CACHE_TTL } = await import('./cache');
+  it('exports three tiers', () => {
     expect(CACHE_TTL.HIGH_FREQUENCY).toBe(30000);
     expect(CACHE_TTL.DASHBOARD).toBe(60000);
     expect(CACHE_TTL.LOW_FREQUENCY).toBe(300000);

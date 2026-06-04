@@ -3,6 +3,8 @@
  * 将超过截止日期的 pending/reminded 记录标记为 overdue
  * @module services/credit-license/credit-license-overdue.task
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('CreditLicense');
 
 import * as repository from './credit-license.repository';
 
@@ -13,14 +15,14 @@ import * as repository from './credit-license.repository';
  * @returns 标记的记录数
  */
 export async function markOverdueDeferredUploads(): Promise<number> {
-  console.log('[CreditLicenseOverdue] 开始标记逾期记录...');
+  log.info('开始标记逾期记录...');
 
   try {
     const count = await repository.markOverdueBatch();
-    console.log(`[CreditLicenseOverdue] 标记完成，${count} 条记录标记为逾期`);
+    log.info(`标记完成，${count} 条记录标记为逾期`);
     return count;
   } catch (error) {
-    console.error('[CreditLicenseOverdue] 标记失败:', error);
+    log.error('标记失败:', error);
     return 0;
   }
 }

@@ -2,8 +2,7 @@
  * 品类树侧边栏组件
  */
 import React from 'react';
-import { Card, Tree } from 'antd';
-import type { TreeProps } from 'antd';
+import { Card, Tree, type TreeProps } from 'antd';
 import type { CategoryNode } from '@/types/strategic-product';
 import styles from '../index.less';
 

@@ -47,11 +47,11 @@ export async function getErpGrades(): Promise<ErpGrade[]> {
   if (cached) return cached;
 
   const { cid, uid } = getErpDefaults();
-  const result = await erpPost(
+  const result = (await erpPost(
     '/store-grade-query/query-list',
     { cid, uid },
     { pathPrefix: '/redcoast/', businessType: 'customer_grade_list' }
-  ) as any;
+  )) as any;
 
   const grades: ErpGrade[] = result?.data || result || [];
   cache.set(cacheKey, grades, CACHE_TTL.LOW_FREQUENCY);
@@ -68,11 +68,11 @@ export async function getErpGroups(): Promise<ErpGroup[]> {
   if (cached) return cached;
 
   const { cid, uid } = getErpDefaults();
-  const result = await erpPost(
+  const result = (await erpPost(
     '/store-group-query/query-list',
     { cid, uid },
     { pathPrefix: '/redcoast/', businessType: 'customer_group_list' }
-  ) as any;
+  )) as any;
 
   const groups: ErpGroup[] = result?.data || result || [];
   cache.set(cacheKey, groups, CACHE_TTL.LOW_FREQUENCY);
@@ -89,11 +89,11 @@ export async function getErpAreas(): Promise<ErpArea[]> {
   if (cached) return cached;
 
   const { cid, uid } = getErpDefaults();
-  const result = await erpPost(
+  const result = (await erpPost(
     '/store-area-query/query-list',
     { cid, uid },
     { pathPrefix: '/redcoast/', businessType: 'customer_area_list' }
-  ) as any;
+  )) as any;
 
   // API 返回树形结构，需递归展平为列表
   const rawData = result?.data || result || [];

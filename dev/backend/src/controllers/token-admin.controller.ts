@@ -2,6 +2,8 @@
  * Token 管理 - 控制器
  * @module controllers/token-admin.controller
  */
+import { createLogger } from '../utils/logger';
+const log = createLogger('TokenAdmin');
 
 import { Request, Response } from 'express';
 import {
@@ -12,8 +14,8 @@ import {
   verifyErpToken,
   verifyWmsToken,
   verifyB2bToken,
+  type TokenSystem,
 } from '../services/token-manager';
-import type { TokenSystem } from '../services/token-manager';
 import * as tokenRepo from '../services/token-manager/token-repository';
 import { buildSuccessResponse, buildErrorResponse, buildPagedResponse } from '../utils/response';
 
@@ -42,7 +44,9 @@ export const getTokenLogsController = async (req: Request, res: Response) => {
     let system: TokenSystem | undefined;
     if (systemRaw) {
       if (!VALID_SYSTEMS.includes(systemRaw as TokenSystem)) {
-        return res.status(400).json(buildErrorResponse(400, `无效的 system 参数，可选值: ${VALID_SYSTEMS.join(', ')}`));
+        return res
+          .status(400)
+          .json(buildErrorResponse(400, `无效的 system 参数，可选值: ${VALID_SYSTEMS.join(', ')}`));
       }
       system = systemRaw as TokenSystem;
     }
@@ -66,13 +70,15 @@ export const triggerErpLoginController = async (req: Request, res: Response) => 
 
   // 异步执行，不阻塞响应
   performErpLoginAndSave(userId).catch(error => {
-    console.error('[TokenAdmin] ERP 登录异步任务失败:', error);
+    log.error('ERP 登录异步任务失败:', error);
   });
 
-  res.json(buildSuccessResponse(
-    { message: 'ERP 登录任务已触发，请查看操作日志获取结果' },
-    'ERP 登录任务已启动'
-  ));
+  res.json(
+    buildSuccessResponse(
+      { message: 'ERP 登录任务已触发，请查看操作日志获取结果' },
+      'ERP 登录任务已启动'
+    )
+  );
 };
 
 /** 触发 WMS 登录 */
@@ -89,10 +95,12 @@ export const triggerWmsLoginController = async (req: Request, res: Response) => 
       // 检查是否因为需要短信验证码
       const wmsRecord = await tokenRepo.getTokenRecord('wms');
       if (wmsRecord?.needs_sms) {
-        res.json(buildSuccessResponse({
-          needsSms: true,
-          message: '已发送短信验证码，请输入验证码完成登录',
-        }));
+        res.json(
+          buildSuccessResponse({
+            needsSms: true,
+            message: '已发送短信验证码，请输入验证码完成登录',
+          })
+        );
       } else {
         res.status(400).json(buildErrorResponse(400, 'WMS 登录失败，请查看操作日志'));
       }

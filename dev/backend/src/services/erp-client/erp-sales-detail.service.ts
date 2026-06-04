@@ -167,8 +167,8 @@ export async function getDailySalesMap(days = 30): Promise<Map<string, number>> 
   // 按商品名汇总销量，除以天数得到日均
   const totalSalesMap = aggregateSum(
     details,
-    (d) => d.goodsName,
-    (d) => d.baseQuantity
+    d => d.goodsName,
+    d => d.baseQuantity
   );
 
   const dailyMap = new Map<string, number>();
@@ -204,8 +204,8 @@ export async function getLastSaleMap(): Promise<Map<string, string>> {
 
   const lastSaleMap = lastBy(
     details,
-    (d) => d.goodsName,
-    (d) => d.settleTime
+    d => d.goodsName,
+    d => d.settleTime
   );
 
   // 转换为 Map<string, string>
@@ -223,9 +223,7 @@ export async function getLastSaleMap(): Promise<Map<string, string>> {
 /**
  * 按订单号查询销售明细（用于退货同步获取客户名/营销师）
  */
-export async function getSalesDetailByOriginStr(
-  originStr: string
-): Promise<ErpSalesDetail | null> {
+export async function getSalesDetailByOriginStr(originStr: string): Promise<ErpSalesDetail | null> {
   // 先尝试从缓存中查找
   const now = new Date();
   const fromDate = new Date(now);

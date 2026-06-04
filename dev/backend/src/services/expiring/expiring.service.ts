@@ -69,9 +69,18 @@ export async function getExpiringData(): Promise<ExpiringData> {
 
     if (dte <= expiringThreshold) expiringCost += batchCost;
     const existing = expiringGoods.get(batch.goodsName) || { w7: false, w15: false, w30: false };
-    if (dte <= EXPIRING_SERIOUS_DAYS) { within7Cost += batchCost; existing.w7 = true; }
-    if (dte > EXPIRING_SERIOUS_DAYS && dte <= EXPIRING_WARNING_DAYS) { within15Cost += batchCost; existing.w15 = true; }
-    if (dte > EXPIRING_WARNING_DAYS && dte <= EXPIRING_ATTENTION_DAYS) { within30Cost += batchCost; existing.w30 = true; }
+    if (dte <= EXPIRING_SERIOUS_DAYS) {
+      within7Cost += batchCost;
+      existing.w7 = true;
+    }
+    if (dte > EXPIRING_SERIOUS_DAYS && dte <= EXPIRING_WARNING_DAYS) {
+      within15Cost += batchCost;
+      existing.w15 = true;
+    }
+    if (dte > EXPIRING_WARNING_DAYS && dte <= EXPIRING_ATTENTION_DAYS) {
+      within30Cost += batchCost;
+      existing.w30 = true;
+    }
     expiringGoods.set(batch.goodsName, existing);
   }
 
@@ -150,9 +159,14 @@ export async function getExpiringProducts(
   const productByName = new Map(allProducts.map(p => [p.name, p]));
 
   // 过滤批次：daysToExpire 在范围内，按商品聚合
-  const batchByGoods = new Map<string, {
-    totalQty: number; minDaysToExpire: number; nearestExpiryDate: string;
-  }>();
+  const batchByGoods = new Map<
+    string,
+    {
+      totalQty: number;
+      minDaysToExpire: number;
+      nearestExpiryDate: string;
+    }
+  >();
 
   for (const batch of allBatches) {
     if (batch.daysToExpire <= minDays || batch.daysToExpire > maxDays) continue;
@@ -176,8 +190,10 @@ export async function getExpiringProducts(
     }
   }
 
-  let items = Array.from(batchByGoods.entries()).map(([goodsName, d]) => ({
-    goodsName, product: productByName.get(goodsName)!, ...d,
+  const items = Array.from(batchByGoods.entries()).map(([goodsName, d]) => ({
+    goodsName,
+    product: productByName.get(goodsName)!,
+    ...d,
   }));
   items.sort((a, b) => a.minDaysToExpire - b.minDaysToExpire);
 

@@ -6,7 +6,7 @@
 import * as repository from './credit-license.repository';
 import { toDTO, toDTOList } from './credit-license.mapper';
 import { erpUploadBusinessLicense } from '../erp-client/erp-credit-update.service';
-import { resolveLicenseFilePath } from '../../middleware/credit-upload';
+
 import { CREDIT_LICENSE_DEFERRED_DEADLINE_DAYS } from '../../utils/constants';
 import * as assessmentRepository from '../assessment/assessment.repository';
 import type {
@@ -115,7 +115,9 @@ export async function getDeferredUploads(
 /**
  * 根据审批实例ID查询延期补交记录
  */
-export async function getDeferredByInstanceId(oaInstanceId: number): Promise<CreditLicenseDeferredDTO | null> {
+export async function getDeferredByInstanceId(
+  oaInstanceId: number
+): Promise<CreditLicenseDeferredDTO | null> {
   const row = await repository.getByInstanceId(oaInstanceId);
   return row ? toDTO(row) : null;
 }

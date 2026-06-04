@@ -6,6 +6,8 @@ import { message } from 'antd';
 import { getWarningProducts } from '@/services/api/dashboard';
 import { warningTypeMap } from './constants';
 import type { WarningProduct, StrategicLevel } from '@/types/warning';
+import { createLogger } from '../../utils/logger';
+const log = createLogger('WarningPanel');
 
 interface WarningPanelProps {
   stockWarnings: { outOfStock: number; lowStock: number };
@@ -79,6 +81,7 @@ export function useWarningData({
         }
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [totalWarnings]);
 
   // 根据选中项加载商品数据
@@ -105,7 +108,7 @@ export function useWarningData({
         // 请求成功，重置重试计数
         retryCountRef.current = 0;
       } catch (error) {
-        console.error('加载预警商品数据失败:', error);
+        log.error('加载预警商品数据失败:', error);
 
         // 失败后自动重试一次（延迟2秒）
         if (retryCountRef.current === 0) {

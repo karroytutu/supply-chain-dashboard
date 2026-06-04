@@ -2,11 +2,17 @@
  * 库存齐全率服务模块
  * 负责战略商品齐全率、品类齐全率、品类树形数据等
  */
+import { createLogger } from '../../utils/logger';
+const log = createLogger('Availability');
 
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
-import { LOW_STOCK_DAYS, STANDARD_CALC_DAYS } from '../../utils/constants';
-import { getAvailabilityStats, getCategoryAggregation, getOutOfStockProducts } from '../erp-client/erp-data-facade';
+import { STANDARD_CALC_DAYS } from '../../utils/constants';
+import {
+  getAvailabilityStats,
+  getCategoryAggregation,
+  getOutOfStockProducts,
+} from '../erp-client/erp-data-facade';
 import { getStockByNameMap } from '../erp-client/erp-inventory.service';
 import { getDailySalesMap } from '../erp-client/erp-sales-detail.service';
 import { getMonthlyAvailability } from '../erp-client/erp-snapshot.service';
@@ -41,7 +47,11 @@ export async function getAvailabilityData(): Promise<AvailabilityData> {
     categoryName: cat.name || '未分类',
     value: cat.availabilityRate,
     trend: Math.round((Math.random() * 4 - 2) * 10) / 10,
-    trendDirection: (Math.random() > 0.5 ? 'up' : Math.random() > 0.3 ? 'down' : 'flat') as TrendDirection,
+    trendDirection: (Math.random() > 0.5
+      ? 'up'
+      : Math.random() > 0.3
+        ? 'down'
+        : 'flat') as TrendDirection,
     productCount: cat.totalCount,
   }));
 
@@ -112,8 +122,8 @@ export async function getStrategicMonthlyAvailability(
   const month = beijingTime.getMonth(); // 0-based
   // 构建月初日期字符串
   const monthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-  
-  console.log('[getStrategicMonthlyAvailability] Debug:', {
+
+  log.info('[getStrategicMonthlyAvailability] Debug:', {
     now: now.toISOString(),
     beijingTimeStr,
     year,
@@ -131,13 +141,14 @@ export async function getStrategicMonthlyAvailability(
     dailyRates.push({ date: dateStr, rate, inStockCount });
   });
   dailyRates.sort((a, b) => a.date.localeCompare(b.date));
-  
-  console.log('[getStrategicMonthlyAvailability] 查询结果:', {
+
+  log.info('[getStrategicMonthlyAvailability] 查询结果:', {
     monthStartStr,
     daysInMonth: dailyRates.length,
-    dateRange: dailyRates.length > 0 
-      ? `${dailyRates[0].date} ~ ${dailyRates[dailyRates.length - 1].date}`
-      : '无数据',
+    dateRange:
+      dailyRates.length > 0
+        ? `${dailyRates[0].date} ~ ${dailyRates[dailyRates.length - 1].date}`
+        : '无数据',
   });
 
   // 计算月度平均齐全率
@@ -166,11 +177,11 @@ export async function getCategoryTreeData(): Promise<CategoryTreeNode[]> {
   const cacheKey = 'category:tree';
   const cached = cache.get<CategoryTreeNode[]>(cacheKey);
   if (cached) {
-    console.log('[getCategoryTreeData] 使用缓存数据');
+    log.info('使用缓存数据');
     return cached;
   }
 
-  console.log('[getCategoryTreeData] 缓存未命中，查询数据库...');
+  log.info('缓存未命中，查询数据库...');
 
   // 使用 SQL 层聚合，直接获取各级品类的统计数据
   // 通过 facade 获取品类聚合数据（内存计算）
@@ -226,7 +237,7 @@ export async function getCategoryTreeData(): Promise<CategoryTreeNode[]> {
 
   // 存入缓存
   cache.set(cacheKey, l1Nodes, CACHE_TTL.LOW_FREQUENCY);
-  console.log(`[getCategoryTreeData] 数据已缓存，共 ${l1Nodes.length} 个一级品类`);
+  log.info(`数据已缓存，共 ${l1Nodes.length} 个一级品类`);
 
   return l1Nodes;
 }

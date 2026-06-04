@@ -18,7 +18,10 @@ export const assetDisposalFormType: FormTypeDefinition = {
   formSchema: {
     fields: [
       {
-        key: 'assetSearch', label: '选择资产', type: 'asset_search', required: true,
+        key: 'assetSearch',
+        label: '选择资产',
+        type: 'asset_search',
+        required: true,
         searchApi: 'erp_assets',
         autoFill: {
           erpAssetId: 'id',
@@ -34,23 +37,46 @@ export const assetDisposalFormType: FormTypeDefinition = {
       { key: 'assetNo', label: '资产编号', type: 'text', required: false, disabled: true },
       { key: 'assetName', label: '资产名称', type: 'text', required: false, disabled: true },
       { key: 'originalValue', label: '原值', type: 'money', required: false, disabled: true },
-      { key: 'accumulatedDepreciation', label: '累计折旧', type: 'money', required: false, disabled: true },
+      {
+        key: 'accumulatedDepreciation',
+        label: '累计折旧',
+        type: 'money',
+        required: false,
+        disabled: true,
+      },
       { key: 'netValue', label: '净值', type: 'money', required: false, disabled: true },
       {
-        key: 'disposalType', label: '清理方式', type: 'select', required: true,
+        key: 'disposalType',
+        label: '清理方式',
+        type: 'select',
+        required: true,
         options: [
           { value: 'sale', label: '出售' },
           { value: 'inventory_loss', label: '盘亏' },
         ],
       },
-      { key: 'disposalReason', label: '清理原因', type: 'textarea', required: true, maxLength: 500 },
-      { key: 'hasIncome', label: '是否产生收入', type: 'select', required: true,
+      {
+        key: 'disposalReason',
+        label: '清理原因',
+        type: 'textarea',
+        required: true,
+        maxLength: 500,
+      },
+      {
+        key: 'hasIncome',
+        label: '是否产生收入',
+        type: 'select',
+        required: true,
         options: [
           { value: 'true', label: '是' },
           { value: 'false', label: '否' },
         ],
       },
-      { key: 'disposalValue', label: '处置收入', type: 'money', required: false,
+      {
+        key: 'disposalValue',
+        label: '处置收入',
+        type: 'money',
+        required: false,
         visibleWhen: { field: 'hasIncome', operator: '==', value: 'true' },
         requiredWhen: { field: 'hasIncome', operator: '==', value: 'true' },
       },
@@ -60,13 +86,11 @@ export const assetDisposalFormType: FormTypeDefinition = {
   },
 
   workflowDef: {
-    nodes: [
-      { order: 1, name: '总经理审批', type: 'role', roleCode: 'admin' },
-    ],
+    nodes: [{ order: 1, name: '总经理审批', type: 'role', roleCode: 'admin' }],
   },
 
   /** 提交前校验：确保选择了资产且条件字段合法 */
-  beforeSubmit: async (formData) => {
+  beforeSubmit: async formData => {
     if (!formData.erpAssetId) {
       throw new Error('请通过资产搜索选择要清理的资产');
     }

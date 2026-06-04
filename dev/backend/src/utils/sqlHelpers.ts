@@ -25,8 +25,5 @@
  * @returns 转义后的字符串，可安全用于 LIKE/ILIKE pattern
  */
 export function escapeLikePattern(input: string): string {
-  return input
-    .replace(/\\/g, '\\\\')
-    .replace(/%/g, '\\%')
-    .replace(/_/g, '\\_');
+  return input.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }

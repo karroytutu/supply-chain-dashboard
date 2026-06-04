@@ -6,7 +6,10 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
-import { onApprovedAssessmentAppeal, onRejectedAssessmentAppeal } from '../assessment-appeal-callback';
+import {
+  onApprovedAssessmentAppeal,
+  onRejectedAssessmentAppeal,
+} from '../assessment-appeal-callback';
 
 /**
  * 考核申诉表单类型定义

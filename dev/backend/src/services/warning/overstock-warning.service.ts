@@ -7,7 +7,12 @@ import { getStockByNameMap, getCostPriceByNameMap } from '../erp-client/erp-inve
 import { getDailySalesMap } from '../erp-client/erp-sales-detail.service';
 import { convertStockUnits, parseUnitFactor, parseQuantity } from '../../utils/unitConverter';
 import { getCategoryName } from '../../utils/arrayAggregation';
-import { OVERSTOCK_MILD_DAYS, OVERSTOCK_MODERATE_DAYS, OVERSTOCK_SERIOUS_DAYS, STANDARD_CALC_DAYS } from '../../utils/constants';
+import {
+  OVERSTOCK_MILD_DAYS,
+  OVERSTOCK_MODERATE_DAYS,
+  OVERSTOCK_SERIOUS_DAYS,
+  STANDARD_CALC_DAYS,
+} from '../../utils/constants';
 import { getStrategicGoodsIds } from './warning-cache';
 import type { WarningProduct, PaginatedResult, StrategicLevel } from './warning.types';
 
@@ -99,7 +104,9 @@ export async function getOverstockProducts(
       },
       expiring: { daysToExpiry: null, expiryDate: null },
       availability: { status: 'available' as const },
-      strategicLevel: strategicIds.has(String(p.goodsId)) ? 'strategic' as const : 'normal' as const,
+      strategicLevel: strategicIds.has(String(p.goodsId))
+        ? ('strategic' as const)
+        : ('normal' as const),
     };
   });
 

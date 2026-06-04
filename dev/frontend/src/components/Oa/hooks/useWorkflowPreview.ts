@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { oaApi } from '@/services/api/oa';
-import type { PreviewApprover } from '@/services/api/oa';
+import { oaApi, type PreviewApprover } from '@/services/api/oa';
 import type { WorkflowNodeDef } from '@/types/oa';
 
 interface WorkflowPreviewResult {

@@ -5,7 +5,7 @@
 import React, { useMemo } from 'react';
 import { Spin, Result, Button } from 'antd';
 import { history, useParams } from 'umi';
-import useTaskDetail from './hooks/useTaskDetail';
+import useTaskDetail, { type ModalType } from './hooks/useTaskDetail';
 import useConfirmVerify from './hooks/useConfirmVerify';
 import TaskHeader from './components/TaskHeader';
 import DetailTable from './components/DetailTable';
@@ -21,7 +21,6 @@ import SendNoticeModal from '../components/SendNoticeModal';
 import LawsuitModal from '../components/LawsuitModal';
 import RollbackModal from '../components/RollbackModal';
 import type { CollectionDetail } from '@/types/ar-collection';
-import type { ModalType } from './hooks/useTaskDetail';
 import './index.less';
 
 const TaskDetailPage: React.FC = () => {

@@ -1,8 +1,17 @@
 import { Request, Response } from 'express';
-import { autoLogin, qrcodeCallback, getCurrentUser, devLogin, devSwitchUser, devGetUsers } from '../services/auth.service';
+import {
+  autoLogin,
+  qrcodeCallback,
+  getCurrentUser,
+  devLogin,
+  devSwitchUser,
+  devGetUsers,
+} from '../services/auth.service';
 import { config } from '../config';
 import crypto from 'crypto';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
+import { createLogger } from '../utils/logger';
+const log = createLogger('Auth');
 
 // 存储state值（生产环境应使用Redis）
 const stateStore = new Map<string, { expiresAt: number }>();
@@ -24,9 +33,9 @@ function getAllowedAppOrigins(): Set<string> {
   const defaultOrigins = ['http://localhost:3000', 'http://localhost:3100'];
   const envOrigins = (process.env.ALLOWED_ORIGINS || '')
     .split(',')
-    .map((origin) => origin.trim())
+    .map(origin => origin.trim())
     .filter(Boolean)
-    .map((origin) => normalizeOrigin(origin))
+    .map(origin => normalizeOrigin(origin))
     .filter((origin): origin is string => Boolean(origin));
 
   for (const origin of defaultOrigins) {
@@ -69,26 +78,32 @@ function resolveAppBaseUrl(req: Request): string {
  */
 export async function checkEnv(req: Request, res: Response) {
   const userAgent = req.headers['user-agent'] || '';
-  
+
   // 检测是否在钉钉环境
   const isInDingtalk = userAgent.toLowerCase().includes('dingtalk');
-  
+
   // 检测客户端类型
   let clientType: 'pc' | 'mobile' | 'outside' = 'outside';
   if (isInDingtalk) {
-    if (userAgent.toLowerCase().includes('mobile') || userAgent.toLowerCase().includes('android') || userAgent.toLowerCase().includes('iphone')) {
+    if (
+      userAgent.toLowerCase().includes('mobile') ||
+      userAgent.toLowerCase().includes('android') ||
+      userAgent.toLowerCase().includes('iphone')
+    ) {
       clientType = 'mobile';
     } else {
       clientType = 'pc';
     }
   }
-  
-  res.json(buildSuccessResponse({
-    isInDingtalk,
-    clientType,
-    corpId: config.dingtalk.corpId,
-    agentId: config.dingtalk.agentId,
-  }));
+
+  res.json(
+    buildSuccessResponse({
+      isInDingtalk,
+      clientType,
+      corpId: config.dingtalk.corpId,
+      agentId: config.dingtalk.agentId,
+    })
+  );
 }
 
 /**
@@ -96,21 +111,26 @@ export async function checkEnv(req: Request, res: Response) {
  */
 export async function dingtalkAutoLogin(req: Request, res: Response) {
   const { authCode } = req.body;
-  
-  console.log('[Auth] 收到免登请求, authCode:', authCode ? `${authCode.substring(0, 10)}... (长度: ${authCode.length})` : '空');
-  
+
+  log.info(
+    '收到免登请求, authCode:',
+    authCode ? `${authCode.substring(0, 10)}... (长度: ${authCode.length})` : '空'
+  );
+
   if (!authCode) {
     res.status(400).json(buildErrorResponse(400, '缺authCode参数'));
     return;
   }
-  
+
   const ipAddress = req.ip || req.socket.remoteAddress;
   const userAgent = req.headers['user-agent'];
-  
+
   const result = await autoLogin(authCode, ipAddress, userAgent);
-  
+
   if (result.success) {
-    res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
+    res.json(
+      buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success')
+    );
   } else {
     res.status(401).json(buildErrorResponse(401, result.message || '登录失败'));
   }
@@ -122,33 +142,35 @@ export async function dingtalkAutoLogin(req: Request, res: Response) {
 export async function getQrcodeConfig(req: Request, res: Response) {
   // 生成state值防CSRF
   const state = crypto.randomBytes(16).toString('hex');
-  
+
   // 存储state，5分钟过期
   stateStore.set(state, { expiresAt: Date.now() + 5 * 60 * 1000 });
-  
+
   // 清理过期的state
   for (const [key, value] of stateStore.entries()) {
     if (value.expiresAt < Date.now()) {
       stateStore.delete(key);
     }
   }
-  
+
   // 使用配置的基础URL构建回调地址
   const baseUrl = resolveAppBaseUrl(req);
   const redirectUri = `${baseUrl}/login/callback`;
 
-  console.info('[Auth] 生成扫码配置', {
+  log.info('生成扫码配置', {
     requestOrigin: req.get('origin') || null,
     requestReferer: req.get('referer') || null,
     resolvedBaseUrl: baseUrl,
     redirectUri,
   });
-  
-  res.json(buildSuccessResponse({
-    appId: config.dingtalk.appKey,
-    redirectUri,
-    state,
-  }));
+
+  res.json(
+    buildSuccessResponse({
+      appId: config.dingtalk.appKey,
+      redirectUri,
+      state,
+    })
+  );
 }
 
 /**
@@ -156,15 +178,15 @@ export async function getQrcodeConfig(req: Request, res: Response) {
  */
 export async function dingtalkCallback(req: Request, res: Response) {
   const { authCode, code, state } = req.body;
-  
+
   // 使用authCode或code（钉钉不同版本的参数名可能不同）
   const actualCode = authCode || code;
-  
+
   if (!actualCode) {
     res.status(400).json(buildErrorResponse(400, '缺少授权码'));
     return;
   }
-  
+
   // 验证state（防CSRF）
   if (state && !stateStore.has(state)) {
     res.status(400).json(buildErrorResponse(400, '无效的state参数'));
@@ -176,22 +198,24 @@ export async function dingtalkCallback(req: Request, res: Response) {
     stateStore.delete(state);
   }
 
-  console.info('[Auth] 收到扫码回调请求', {
+  log.info('收到扫码回调请求', {
     hasState: Boolean(state),
     codeLength: actualCode.length,
     requestOrigin: req.get('origin') || null,
     requestReferer: req.get('referer') || null,
   });
-  
+
   const ipAddress = req.ip || req.socket.remoteAddress;
   const userAgent = req.headers['user-agent'];
-  
+
   const result = await qrcodeCallback(actualCode, ipAddress, userAgent);
-  
+
   if (result.success) {
-    res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
+    res.json(
+      buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success')
+    );
   } else {
-    console.warn('[Auth] 扫码登录失败', {
+    log.warn('扫码登录失败', {
       message: result.message || '登录失败',
       hasState: Boolean(state),
     });
@@ -207,14 +231,14 @@ export async function getMe(req: Request, res: Response) {
     res.status(401).json(buildErrorResponse(401, '未登录'));
     return;
   }
-  
+
   const user = await getCurrentUser(req.user.userId);
-  
+
   if (!user) {
     res.status(404).json(buildErrorResponse(404, '用户不存在'));
     return;
   }
-  
+
   res.json(buildSuccessResponse(user));
 }
 
@@ -243,7 +267,9 @@ export async function developmentLogin(req: Request, res: Response) {
   const result = await devLogin(ipAddress, userAgent);
 
   if (result.success) {
-    res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
+    res.json(
+      buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success')
+    );
   } else {
     res.status(401).json(buildErrorResponse(401, result.message || '登录失败'));
   }
@@ -267,16 +293,18 @@ export async function developmentGetUsers(req: Request, res: Response) {
  */
 export async function developmentSwitchUser(req: Request, res: Response) {
   const { userId } = req.body;
-  
+
   if (!userId || typeof userId !== 'number') {
     res.status(400).json(buildErrorResponse(400, '缺userId参数'));
     return;
   }
-  
+
   const result = await devSwitchUser(userId);
-  
+
   if (result.success) {
-    res.json(buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success'));
+    res.json(
+      buildSuccessResponse({ token: result.token, user: result.user }, result.message || 'success')
+    );
   } else {
     res.status(401).json(buildErrorResponse(401, result.message || '切换失败'));
   }

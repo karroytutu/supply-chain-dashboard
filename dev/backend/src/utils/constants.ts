@@ -155,8 +155,8 @@ export const AR_ESCALATION_HANDLER_ROLES: Record<number, string> = {
  * @usedBy ar-collection.mutation.ts (退回时确定恢复角色)
  */
 export const AR_ROLLBACK_HANDLER_ROLES: Record<number, string> = {
-  2: ROLE_CODES.MARKETING_MANAGER,   // L2→L1: 财务退回给营销经理
-  1: ROLE_CODES.MARKETER,            // L1→L0: 营销经理退回给营销师
+  2: ROLE_CODES.MARKETING_MANAGER, // L2→L1: 财务退回给营销经理
+  1: ROLE_CODES.MARKETER, // L1→L0: 营销经理退回给营销师
 };
 
 // ==================== 退货考核阈值 ====================
@@ -251,10 +251,10 @@ export const OA_NOTIFICATION_FORM_SUMMARY_MAX_FIELDS = 5;
 
 /** OA钉钉通知状态栏映射 @usedBy oa-notify.ts (状态栏更新) */
 export const OA_DINGTALK_STATUS = {
-  APPROVED:   { value: '已通过', bg: '#52C41A' },
-  REJECTED:   { value: '已拒绝', bg: '#F5222D' },
-  WITHDRAWN:  { value: '已撤回', bg: '#999999' },
-  CC:         { value: '抄送',   bg: '#1890FF' },
+  APPROVED: { value: '已通过', bg: '#52C41A' },
+  REJECTED: { value: '已拒绝', bg: '#F5222D' },
+  WITHDRAWN: { value: '已撤回', bg: '#999999' },
+  CC: { value: '抄送', bg: '#1890FF' },
 } as const;
 
 // ==================== OA流程中心ProcessCentre相关常量 ====================
@@ -294,7 +294,9 @@ export function getExpiringThreshold(shelfLife: number): number {
 /**
  * 获取周转健康状态
  */
-export function getTurnoverHealthStatus(turnoverDays: number): 'excellent' | 'good' | 'attention' | 'warning' {
+export function getTurnoverHealthStatus(
+  turnoverDays: number
+): 'excellent' | 'good' | 'attention' | 'warning' {
   if (turnoverDays <= TURNOVER_EXCELLENT_DAYS) return 'excellent';
   if (turnoverDays <= TURNOVER_GOOD_DAYS) return 'good';
   if (turnoverDays <= TURNOVER_ATTENTION_DAYS) return 'attention';
@@ -304,7 +306,9 @@ export function getTurnoverHealthStatus(turnoverDays: number): 'excellent' | 'go
 /**
  * 获取临期预警级别
  */
-export function getExpiringWarningLevel(expiringRate: number): 'normal' | 'attention' | 'warning' | 'serious' {
+export function getExpiringWarningLevel(
+  expiringRate: number
+): 'normal' | 'attention' | 'warning' | 'serious' {
   if (expiringRate > EXPIRING_RATE_SERIOUS) return 'serious';
   if (expiringRate > EXPIRING_RATE_WARNING) return 'warning';
   if (expiringRate > EXPIRING_RATE_ATTENTION) return 'attention';

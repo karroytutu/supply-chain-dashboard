@@ -1,7 +1,9 @@
 import { history, Outlet, useModel } from 'umi';
 import { Spin } from 'antd';
 import { useEffect, useState } from 'react';
-import { getCurrentUser, UserInfo } from '@/services/api/auth';
+import { getCurrentUser } from '@/services/api/auth';
+import { createLogger } from '../utils/logger';
+const log = createLogger('Auth');
 
 const TOKEN_KEY = 'auth_token';
 
@@ -47,7 +49,7 @@ export default function AuthWrapper() {
         }));
         setLoading(false);
       } catch (error) {
-        console.error('[AuthWrapper] 获取用户信息失败:', error);
+        log.error('获取用户信息失败:', error);
         localStorage.removeItem(TOKEN_KEY);
         setGlobalUser(null);
         const currentPath = history.location.pathname + history.location.search;
@@ -59,6 +61,7 @@ export default function AuthWrapper() {
     };
 
     checkAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, []);
 
   if (loading) {
