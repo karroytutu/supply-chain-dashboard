@@ -21,7 +21,7 @@ jest.mock('./ar-collection-notify', () => ({
   buildMergedWarningMessage: jest.fn(),
 }));
 
-jest.mock('./ar-debt-enrichment.service', () => ({
+jest.mock('../erp-debt/erp-debt-enrichment.service', () => ({
   enrichDebtRecords: jest.fn(),
   filterHoardDebts: jest.fn(),
 }));
@@ -31,7 +31,7 @@ import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery } from '../../db/appPool';
 import { hasBillReminderSent, recordWarningReminder } from './ar-warning.query';
 import { sendCollectionNotification, buildMergedWarningMessage } from './ar-collection-notify';
-import { enrichDebtRecords, filterHoardDebts } from './ar-debt-enrichment.service';
+import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 
 const mockFetchDebts = fetchAllErpDebts as jest.Mock;
 const mockAppQuery = appQuery as jest.Mock;

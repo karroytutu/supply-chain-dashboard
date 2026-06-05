@@ -10,7 +10,7 @@ import { waitForPageLoad } from './helpers/antd';
 test.describe('认证流程', () => {
   test('无 token 访问受保护页面 → 自动跳转 /login', async ({ page }) => {
     // 先导航到目标页面，再清除 localStorage（避免 about:blank 上访问 localStorage 的 SecurityError）
-    await page.goto('/collection/overview');
+    await page.goto('/oa/center');
     await page.evaluate(() => localStorage.clear());
     await page.context().clearCookies();
     await page.reload();
@@ -30,14 +30,6 @@ test.describe('认证流程', () => {
 
   test('已认证用户导航到数据总览 → 页面加载', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/overview');
-    await waitForPageLoad(authenticatedPage);
-
-    const body = authenticatedPage.locator('body');
-    await expect(body).toBeVisible();
-  });
-
-  test('已认证用户导航到催收总览 → 页面加载', async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/collection/overview');
     await waitForPageLoad(authenticatedPage);
 
     const body = authenticatedPage.locator('body');

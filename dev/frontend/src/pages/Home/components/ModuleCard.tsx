@@ -32,7 +32,7 @@ const COLOR_MAP: Record<string, { bg: string; fg: string }> = {
 
 const ROUTE_MAP: Record<string, string> = {
   'oa': '/oa/center',
-  collection: '/collection/overview',
+  collection: '/oa/center',
   'return-order': '/procurement/return/orders',
   'strategic-product': '/procurement/strategic-products',
   assessment: '/assessment',

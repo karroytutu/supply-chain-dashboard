@@ -19,7 +19,7 @@ import {
   // generateCollectionTasks, // [催收OA集成] 已由 generateCollectionOaInstances 替代
   checkExtensionExpiry,
   checkHoldExpiry,
-} from '../ar-collection/ar-collection-sync.task';
+} from '../erp-debt/erp-debt-sync.task';
 import { checkExtensionExpiryReminders } from '../ar-collection/ar-collection-reminder.task';
 import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
 // [统一考核迁移] 旧模块已停用，由统一考核模块替代
@@ -133,7 +133,7 @@ export function startScheduler(): void {
 
   // 催收任务生成 - 每日20:00（已迁移到OA流程引擎）
   // [催收OA集成] 旧模块已由 generateCollectionOaInstances 替代
-  // import { generateCollectionTasks } from '../ar-collection/ar-collection-sync.task';
+  // import { generateCollectionTasks } from '../erp-debt/erp-debt-sync.task';
   cron.schedule(
     '0 20 * * *',
     async () => {

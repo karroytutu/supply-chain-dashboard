@@ -18,6 +18,9 @@ export {
   notifyCc,
 } from './oa-notify-handlers';
 
+// Re-export shared user resolver（用户解析已抽取至 services/notification/）
+export { getDingtalkUserIds } from '../notification';
+
 // =====================================================
 // 通知参数类型
 // =====================================================
@@ -40,16 +43,6 @@ export interface NotifyParams {
 // =====================================================
 // 辅助函数
 // =====================================================
-
-/** 获取用户的钉钉ID */
-export async function getDingtalkUserIds(userIds: number[]): Promise<string[]> {
-  if (userIds.length === 0) return [];
-  const result = await query<{ dingtalk_user_id: string | null }>(
-    `SELECT dingtalk_user_id FROM users WHERE id = ANY($1) AND dingtalk_user_id IS NOT NULL`,
-    [userIds]
-  );
-  return result.rows.map(r => r.dingtalk_user_id).filter((id): id is string => !!id);
-}
 
 /** 构建 DingtalkNotifyParams */
 export function toDingtalkParams(params: NotifyParams) {

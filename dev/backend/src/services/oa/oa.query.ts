@@ -291,3 +291,88 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
     cc: ccResult.rows[0]?.count || 0,
   };
 }
+
+/**
+ * 催收 OA 统计：查询 ar_collection 类型审批实例的状态分布
+ * 供工作台催收模块展示使用
+ */
+export async function getCollectionOaStats(
+  userId: number,
+  role: string
+): Promise<{
+  pending: { count: number; amount: number };
+  approved: { count: number; amount: number };
+  attention: { count: number; amount: number };
+}> {
+  // 角色过滤：通过 OA 节点的 assigned_user_id 过滤
+  let roleFilter = '';
+  const params: (number | string)[] = [];
+  let paramIdx = 1;
+
+  if (role === 'marketer') {
+    roleFilter = `AND EXISTS (
+      SELECT 1 FROM oa_approval_nodes n2
+      WHERE n2.instance_id = i.id AND n2.assigned_user_id = $${paramIdx}
+        AND n2.role_code = 'marketer' AND n2.status = 'pending'
+    )`;
+    params.push(userId);
+    paramIdx++;
+  } else if (role === 'current_accountant' || role === 'finance_staff') {
+    roleFilter = `AND EXISTS (
+      SELECT 1 FROM oa_approval_nodes n2
+      WHERE n2.instance_id = i.id AND n2.assigned_user_id IS NOT NULL
+        AND n2.role_code IN ('current_accountant', 'finance_staff') AND n2.status = 'pending'
+    )`;
+  } else if (role === 'cashier') {
+    roleFilter = `AND i.status = 'pending' AND EXISTS (
+      SELECT 1 FROM oa_approval_nodes n2
+      WHERE n2.instance_id = i.id AND n2.node_name LIKE '%核销%' AND n2.status = 'pending'
+    )`;
+  }
+  // admin/manager 等角色：不过滤，看全量
+
+  const result = await query<{
+    pending_count: number;
+    pending_amount: number;
+    approved_count: number;
+    approved_amount: number;
+    attention_count: number;
+    attention_amount: number;
+  }>(
+    `SELECT
+      COUNT(CASE WHEN i.status = 'pending' THEN 1 END) AS pending_count,
+      COALESCE(SUM(CASE WHEN i.status = 'pending'
+        THEN (i.form_data->>'totalAmount')::numeric END), 0) AS pending_amount,
+      COUNT(CASE WHEN i.status = 'approved' THEN 1 END) AS approved_count,
+      COALESCE(SUM(CASE WHEN i.status = 'approved'
+        THEN (i.form_data->>'totalAmount')::numeric END), 0) AS approved_amount,
+      COUNT(CASE WHEN i.status = 'pending' AND EXISTS (
+        SELECT 1 FROM oa_approval_nodes n3
+        WHERE n3.instance_id = i.id AND n3.node_name LIKE '%差异%'
+      ) THEN 1 END) AS attention_count,
+      COALESCE(SUM(CASE WHEN i.status = 'pending' AND EXISTS (
+        SELECT 1 FROM oa_approval_nodes n3
+        WHERE n3.instance_id = i.id AND n3.node_name LIKE '%差异%'
+      ) THEN (i.form_data->>'totalAmount')::numeric END), 0) AS attention_amount
+    FROM oa_approval_instances i
+    JOIN oa_form_types ft ON i.form_type_id = ft.id
+    WHERE ft.code = 'ar_collection' ${roleFilter}`,
+    params
+  );
+
+  const row = result.rows[0];
+  return {
+    pending: {
+      count: Number(row?.pending_count) || 0,
+      amount: Number(row?.pending_amount) || 0,
+    },
+    approved: {
+      count: Number(row?.approved_count) || 0,
+      amount: Number(row?.approved_amount) || 0,
+    },
+    attention: {
+      count: Number(row?.attention_count) || 0,
+      amount: Number(row?.attention_amount) || 0,
+    },
+  };
+}

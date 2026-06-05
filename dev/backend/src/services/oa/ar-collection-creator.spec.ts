@@ -21,7 +21,7 @@ jest.mock('../erp-client/erp-debt.service', () => ({
   fetchAllErpDebts: jest.fn(),
 }));
 
-jest.mock('../ar-collection/ar-debt-enrichment.service', () => ({
+jest.mock('../erp-debt/erp-debt-enrichment.service', () => ({
   enrichDebtRecords: jest.fn(),
   filterHoardDebts: jest.fn(),
 }));
@@ -42,7 +42,7 @@ jest.mock('./oa-utils', () => ({
 
 import { appQuery, getAppClient } from '../../db/appPool';
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
-import { enrichDebtRecords, filterHoardDebts } from '../ar-collection/ar-debt-enrichment.service';
+import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 import { evaluateEntryRules, extractEntryMetadata } from '../ar-collection/ar-collection-entry-rules';
 import { getFormTypeByCode } from './form-types';
 import { generateInstanceNo } from './oa-utils';

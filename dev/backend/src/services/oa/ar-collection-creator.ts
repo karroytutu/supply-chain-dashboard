@@ -11,9 +11,9 @@ const log = createLogger('ArCollectionCreator');
 
 import { appQuery as query, getAppClient } from '../../db/appPool';
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
-import { enrichDebtRecords, filterHoardDebts } from '../ar-collection/ar-debt-enrichment.service';
+import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 import { evaluateEntryRules, extractEntryMetadata, COLLECTION_ENTRY_RULES } from '../ar-collection/ar-collection-entry-rules';
-import type { EnrichedDebtRecord } from '../ar-collection/ar-debt.types';
+import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
 import { submitApproval } from './mutations/submit-approval';
 import { getFormTypeByCode } from './form-types';
 import { generateInstanceNo } from './oa-utils';

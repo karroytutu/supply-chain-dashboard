@@ -46,8 +46,6 @@ export * as assessmentRepository from './assessment.repository';
 export { toDTO, toDTOList, toStatsDTO } from './assessment.mapper';
 
 // 规则注册（导入即执行注册）
-// [催收OA集成] 旧考核规则已停用，由 oa-collection-node-rules 替代
-// import './rules/ar-collection-rules';
 import './rules/return-order-rules';
 import './rules/credit-license-rules';
 import './rules/oa-collection-node-rules';
