@@ -114,11 +114,11 @@ export async function submitApproval(
       );
     }
 
-    // 记录操作日志
+    // 记录操作日志（submit 不关联具体审批节点，node_order 为 NULL）
     await client.query(
       `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order)
-       VALUES ($1, 'submit', $2, $3, 1)`,
+        (instance_id, action_type, operator_id, operator_name)
+       VALUES ($1, 'submit', $2, $3)`,
       [instance.id, userId, userName]
     );
 

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Tag } from 'antd';
 import type { ApprovalNode, ApprovalAction, ErpMeta } from '@/types/oa';
-import { formatDateTime } from '@/utils/format';
 import { NODE_STATUS_TEXT, ACTION_TYPE_CONFIG } from './flow-types';
 import ErpStep from './ErpStep';
 import styles from './ApprovalFlow.less';
@@ -14,7 +13,7 @@ interface TimelineApprovalGroupProps {
 }
 
 /** 渲染单条操作记录 */
-function ActionEntry({ action }: { action: ApprovalAction }) {
+export function ActionEntry({ action }: { action: ApprovalAction }) {
   const config = ACTION_TYPE_CONFIG[action.actionType];
   return (
     <div key={action.id} className={styles.timelineActionEntry}>
@@ -24,9 +23,6 @@ function ActionEntry({ action }: { action: ApprovalAction }) {
       {action.comment && (
         <span className={styles.timelineActionComment}>{action.comment}</span>
       )}
-      <span className={styles.timelineActionTime}>
-        {formatDateTime(action.actionAt)}
-      </span>
     </div>
   );
 }
