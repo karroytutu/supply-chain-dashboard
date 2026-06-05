@@ -1,216 +1,304 @@
 /**
- * ApprovalDetailPanel 操作型/审批型节点 UI 差异化测试
- * @module pages/Oa/Center/components/ApprovalDetailPanel.spec
+ * ApprovalDetailPanel 单元测试
+ * 覆盖：自加载详情、权限覆盖逻辑（canOperate/canWithdraw）、移动端返回栏、空态
  */
+
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ApprovalDetail } from '@/types/oa';
 
-// Mock hooks
+// ==================== Mocks ====================
+
+const { mockOaApi, mockUseApprovalActions, mockActionState } = vi.hoisted(() => {
+  const mockActionState = {
+    actionLoading: false,
+    actionModalVisible: false,
+    actionType: null,
+    actionComment: '',
+    transferUsers: [],
+    openActionModal: vi.fn(),
+    closeActionModal: vi.fn(),
+    executeAction: vi.fn(),
+    executeWithdraw: vi.fn(),
+    setActionComment: vi.fn(),
+    setTransferUserId: vi.fn(),
+    canOperate: false,
+    canWithdraw: false,
+    currentStep: 0,
+  };
+
+  return {
+    mockOaApi: {
+      getDetail: vi.fn(),
+    },
+    mockUseApprovalActions: vi.fn(() => mockActionState),
+    mockActionState,
+  };
+});
+
+vi.mock('umi', () => ({
+  useModel: vi.fn(),
+}));
+
+vi.mock('antd', async () => {
+  const actual = await vi.importActual('antd');
+  return {
+    ...actual,
+  };
+});
+
+vi.mock('@/services/api/oa', () => ({
+  oaApi: mockOaApi,
+}));
+
 vi.mock('@/hooks/usePermission', () => ({
-  usePermission: () => ({ currentUser: { id: 1, name: 'tester' } }),
+  usePermission: vi.fn(() => ({ currentUser: { id: 100, name: '测试用户' } })),
 }));
 
-vi.mock('@/components/Oa/hooks/useErpFieldResolve', () => ({
-  useErpFieldResolve: () => ({ resolvedMap: {} }),
-}));
-
-vi.mock('@/components/Oa/hooks/useErpLicenseResolve', () => ({
-  useErpLicenseResolve: () => ({ erpLicenseUrls: [] }),
-}));
-
-// Mock heavy sub-components
-vi.mock('@/components/Oa/ApprovalFlow', () => ({
-  default: () => <div data-testid="approval-flow">ApprovalFlow</div>,
+vi.mock('@/components/Oa/hooks/useApprovalActions', () => ({
+  useApprovalActions: (...args: any[]) => mockUseApprovalActions(...args),
 }));
 
 vi.mock('@/components/Oa', () => ({
-  FormFieldRenderer: ({ value }: { value: unknown }) => <span>{String(value ?? '')}</span>,
+  ApprovalDetailContent: (props: any) => (
+    <div
+      data-testid="approval-detail-content"
+      data-can-operate={String(props.canOperateOverride)}
+      data-can-withdraw={String(props.canWithdrawOverride)}
+      data-form-layout={props.formLayout}
+    >
+      ApprovalDetailContent
+    </div>
+  ),
 }));
 
-vi.mock('@/components/Oa/FormFieldsDiff', () => ({
-  default: () => <div>FormFieldsDiff</div>,
-  hasOriginalFields: () => false,
+vi.mock('../../../../utils/logger', () => ({
+  createLogger: () => ({
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+  }),
 }));
 
-vi.mock('../../Form/components/ConditionalFieldWrapper', () => ({
-  checkCondition: () => true,
-}));
-
-// CSS modules mock - 需要 default 导出
 vi.mock('../index.less', () => ({
-  default: new Proxy({}, { get: (_, k) => String(k) }),
+  default: new Proxy({}, { get: (_t, prop) => String(prop) }),
+  __esModule: true,
 }));
 
 import ApprovalDetailPanel from './ApprovalDetailPanel';
+import { usePermission } from '@/hooks/usePermission';
 
-// =====================================================
-// Test helpers
-// =====================================================
+// ==================== 测试数据工厂 ====================
 
-const baseNode = {
-  id: 1,
-  nodeOrder: 1,
-  nodeName: '审批节点',
-  nodeType: 'role',
-  assignedUserId: 1,
-  assignedUserName: 'tester',
-  status: 'pending' as const,
-  actionComment: null,
-  actedAt: null,
-};
-
-const baseDetail: ApprovalDetail = {
-  id: 100,
-  instanceNo: 'OA-20260601-001',
-  formTypeCode: 'ar_collection',
-  formTypeName: '催收任务',
-  formTypeIcon: null,
-  title: '催收任务审批',
-  status: 'pending',
-  applicantId: 2,
-  applicantName: '张三',
-  applicantDept: '营销部',
-  currentNodeOrder: 1,
-  currentNodeName: '审批节点',
-  submittedAt: '2026-06-01T00:00:00Z',
-  completedAt: null,
-  formData: { field1: 'value1' },
-  formSchema: { fields: [] },
-  workflowDef: {
+function makeDetail(overrides: Partial<ApprovalDetail> = {}): ApprovalDetail {
+  return {
+    id: 1,
+    instanceNo: 'OA-2026-001',
+    formTypeCode: 'other_payment',
+    formTypeName: '其他付款申请单',
+    formTypeIcon: null,
+    title: '测试审批',
+    status: 'pending',
+    applicantId: 100,
+    applicantName: '申请人',
+    applicantDept: '技术部',
+    currentNodeOrder: 1,
+    currentNodeName: '审批节点',
+    submittedAt: '2026-06-01T10:00:00Z',
+    completedAt: null,
+    previewFields: [],
+    formData: {},
+    formSchema: { fields: [] },
+    workflowDef: null,
     nodes: [
-      { order: 1, name: '审批节点', type: 'role', interactionType: 'approval' },
+      { id: 1, nodeOrder: 1, status: 'pending', assignedUserId: 100 } as any,
     ],
-  },
-  nodes: [baseNode],
-  actions: [],
-  ccUsers: [],
-  erpMeta: null,
-};
+    actions: [],
+    ccUsers: [],
+    erpMeta: null,
+    ...overrides,
+  } as ApprovalDetail;
+}
 
-const operationDetail: ApprovalDetail = {
-  ...baseDetail,
-  workflowDef: {
-    nodes: [
-      { order: 1, name: '操作节点', type: 'role', interactionType: 'operation' },
-    ],
-  },
-};
+// ==================== 测试用例 ====================
 
-const noop = vi.fn();
 const defaultProps = {
-  detailLoading: false,
-  detail: baseDetail,
+  selectedId: null as number | null,
   viewMode: 'pending' as const,
-  onApprove: noop,
-  onReject: noop,
-  onWithdraw: noop,
-  onTransfer: noop,
-  onUpdate: noop,
+  onActionComplete: vi.fn(),
+  onWithdrawComplete: vi.fn(),
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockOaApi.getDetail.mockResolvedValue({ data: makeDetail() });
+  vi.mocked(usePermission).mockReturnValue({
+    currentUser: { id: 100, name: '测试用户' },
+  } as any);
 });
 
-// =====================================================
-// Tests
-// =====================================================
+describe('ApprovalDetailPanel - 数据加载', () => {
+  it('selectedId=null → 显示 Empty 占位，不调用 API', () => {
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={null} />);
 
-// Ant Design 在两个汉字之间自动插入空格（如“同意”渲染为“同 意”），用 \s* 匹配
-const BTN = {
-  approve: /同\s*意/,
-  reject: /拒\s*绝/,
-  complete: /完\s*成/,
-  update: /更\s*新/,
-  more: /更\s*多/,
-};
-
-describe('ApprovalDetailPanel - 审批型节点 (interactionType=approval)', () => {
-  it('显示“同意”和“拒绝”按钮', () => {
-    render(<ApprovalDetailPanel {...defaultProps} detail={baseDetail} />);
-    expect(screen.getByRole('button', { name: BTN.approve })).toBeTruthy();
-    expect(screen.getByRole('button', { name: BTN.reject })).toBeTruthy();
-  });
-
-  it('不显示“完成”和“更新”按钮', () => {
-    render(<ApprovalDetailPanel {...defaultProps} detail={baseDetail} />);
-    expect(screen.queryByRole('button', { name: BTN.complete })).toBeNull();
-    expect(screen.queryByRole('button', { name: BTN.update })).toBeNull();
-  });
-
-  it('点击“同意”触发 onApprove', () => {
-    const onApprove = vi.fn();
-    render(<ApprovalDetailPanel {...defaultProps} detail={baseDetail} onApprove={onApprove} />);
-    fireEvent.click(screen.getByRole('button', { name: BTN.approve }));
-    expect(onApprove).toHaveBeenCalledOnce();
-  });
-
-  it('点击“拒绝”触发 onReject', () => {
-    const onReject = vi.fn();
-    render(<ApprovalDetailPanel {...defaultProps} detail={baseDetail} onReject={onReject} />);
-    fireEvent.click(screen.getByRole('button', { name: BTN.reject }));
-    expect(onReject).toHaveBeenCalledOnce();
-  });
-});
-
-describe('ApprovalDetailPanel - 操作型节点 (interactionType=operation)', () => {
-  it('显示“完成”和“更新”按钮', () => {
-    render(<ApprovalDetailPanel {...defaultProps} detail={operationDetail} />);
-    expect(screen.getByRole('button', { name: BTN.complete })).toBeTruthy();
-    expect(screen.getByRole('button', { name: BTN.update })).toBeTruthy();
-  });
-
-  it('不显示“同意”和“拒绝”主按钮', () => {
-    render(<ApprovalDetailPanel {...defaultProps} detail={operationDetail} />);
-    expect(screen.queryByRole('button', { name: BTN.approve })).toBeNull();
-    expect(screen.queryByRole('button', { name: BTN.reject })).toBeNull();
-  });
-
-  it('点击“完成”触发 onApprove', () => {
-    const onApprove = vi.fn();
-    render(
-      <ApprovalDetailPanel {...defaultProps} detail={operationDetail} onApprove={onApprove} />
-    );
-    fireEvent.click(screen.getByRole('button', { name: BTN.complete }));
-    expect(onApprove).toHaveBeenCalledOnce();
-  });
-
-  it('点击“更新”触发 onUpdate', () => {
-    const onUpdate = vi.fn();
-    render(
-      <ApprovalDetailPanel {...defaultProps} detail={operationDetail} onUpdate={onUpdate} />
-    );
-    fireEvent.click(screen.getByRole('button', { name: BTN.update }));
-    expect(onUpdate).toHaveBeenCalledOnce();
-  });
-
-  it('显示“更多”按钮（包含退回和转交）', () => {
-    render(<ApprovalDetailPanel {...defaultProps} detail={operationDetail} />);
-    expect(screen.getByRole('button', { name: BTN.more })).toBeTruthy();
-  });
-});
-
-describe('ApprovalDetailPanel - 状态处理', () => {
-  it('加载中显示 Spin', () => {
-    const { container } = render(
-      <ApprovalDetailPanel {...defaultProps} detailLoading={true} detail={null} />
-    );
-    expect(container.querySelector('.ant-spin')).toBeTruthy();
-  });
-
-  it('detail 为 null 显示空状态', () => {
-    render(<ApprovalDetailPanel {...defaultProps} detail={null} />);
     expect(screen.getByText('请选择流程查看详情')).toBeTruthy();
+    expect(mockOaApi.getDetail).not.toHaveBeenCalled();
   });
 
-  it('非当前审批人时不显示操作按钮', () => {
-    // currentUser.id=1, but node assignedUserId=99
-    const otherNode = { ...baseNode, assignedUserId: 99 };
-    const detail = { ...baseDetail, nodes: [otherNode] };
-    render(<ApprovalDetailPanel {...defaultProps} detail={detail} />);
-    expect(screen.queryByRole('button', { name: BTN.approve })).toBeNull();
-    expect(screen.queryByRole('button', { name: BTN.reject })).toBeNull();
+  it('selectedId 有值 → 调用 oaApi.getDetail 并渲染 ApprovalDetailContent', async () => {
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={42} />);
+
+    await waitFor(() => {
+      expect(mockOaApi.getDetail).toHaveBeenCalledWith(42);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('approval-detail-content')).toBeTruthy();
+    });
+  });
+
+  it('加载失败 → 显示错误状态和重试按钮', async () => {
+    mockOaApi.getDetail.mockRejectedValueOnce(new Error('网络错误'));
+
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={1} />);
+
+    await waitFor(() => {
+      expect(mockOaApi.getDetail).toHaveBeenCalledWith(1);
+    });
+
+    // loading 结束后 detail 仍为 null，但 loadError=true → 显示错误状态
+    await waitFor(() => {
+      expect(screen.getByText('加载失败')).toBeTruthy();
+    });
+  });
+});
+
+describe('ApprovalDetailPanel - 权限覆盖逻辑', () => {
+  it('viewMode=pending + status=pending + 当前用户是审批人 → canOperateOverride=true', async () => {
+    const detail = makeDetail({
+      status: 'pending',
+      currentNodeOrder: 1,
+      nodes: [{ id: 1, nodeOrder: 1, status: 'pending', assignedUserId: 100 } as any],
+    });
+    mockOaApi.getDetail.mockResolvedValue({ data: detail });
+
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={1} viewMode="pending" />);
+
+    await waitFor(() => {
+      const content = screen.getByTestId('approval-detail-content');
+      expect(content.getAttribute('data-can-operate')).toBe('true');
+    });
+  });
+
+  it('viewMode=processed → canOperateOverride=false（即使当前用户是审批人）', async () => {
+    const detail = makeDetail({
+      status: 'pending',
+      nodes: [{ id: 1, nodeOrder: 1, status: 'pending', assignedUserId: 100 } as any],
+    });
+    mockOaApi.getDetail.mockResolvedValue({ data: detail });
+
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={1} viewMode="processed" />);
+
+    await waitFor(() => {
+      const content = screen.getByTestId('approval-detail-content');
+      expect(content.getAttribute('data-can-operate')).toBe('false');
+    });
+  });
+
+  it('viewMode=my + 当前用户是申请人 → canWithdrawOverride=true', async () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    mockOaApi.getDetail.mockResolvedValue({ data: detail });
+
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={1} viewMode="my" />);
+
+    await waitFor(() => {
+      const content = screen.getByTestId('approval-detail-content');
+      expect(content.getAttribute('data-can-withdraw')).toBe('true');
+    });
+  });
+
+  it('viewMode=cc → canOperate 和 canWithdraw 均为 false', async () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    mockOaApi.getDetail.mockResolvedValue({ data: detail });
+
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={1} viewMode="cc" />);
+
+    await waitFor(() => {
+      const content = screen.getByTestId('approval-detail-content');
+      expect(content.getAttribute('data-can-operate')).toBe('false');
+      expect(content.getAttribute('data-can-withdraw')).toBe('false');
+    });
+  });
+});
+
+describe('ApprovalDetailPanel - 传参验证', () => {
+  it('formLayout 始终传 "list"', async () => {
+    mockOaApi.getDetail.mockResolvedValue({ data: makeDetail() });
+
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={1} />);
+
+    await waitFor(() => {
+      const content = screen.getByTestId('approval-detail-content');
+      expect(content.getAttribute('data-form-layout')).toBe('list');
+    });
+  });
+
+  it('useApprovalActions 的 onActionComplete 绑定 selectedId', async () => {
+    mockOaApi.getDetail.mockResolvedValue({ data: makeDetail() });
+    const onActionComplete = vi.fn();
+
+    render(
+      <ApprovalDetailPanel {...defaultProps} selectedId={42} onActionComplete={onActionComplete} />,
+    );
+
+    await waitFor(() => {
+      expect(mockUseApprovalActions).toHaveBeenCalled();
+    });
+
+    // 获取传给 useApprovalActions 的 config
+    const config = mockUseApprovalActions.mock.calls[0][0];
+    expect(config.instanceId).toBe(42);
+
+    // 调用 onActionComplete 时应传入 selectedId
+    if (config.onActionComplete) {
+      await config.onActionComplete();
+      expect(onActionComplete).toHaveBeenCalledWith(42);
+    }
+  });
+});
+
+describe('ApprovalDetailPanel - 移动端', () => {
+  it('isMobile=true → 渲染返回箭头和标题栏', async () => {
+    const detail = makeDetail({ formTypeName: '付款审批' });
+    mockOaApi.getDetail.mockResolvedValue({ data: detail });
+    const onBack = vi.fn();
+
+    render(
+      <ApprovalDetailPanel {...defaultProps} selectedId={1} isMobile onBack={onBack} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('付款审批')).toBeTruthy();
+    });
+
+    // 点击返回箭头
+    const arrow = document.querySelector('.anticon-arrow-left');
+    if (arrow) {
+      (arrow as HTMLElement).click();
+      expect(onBack).toHaveBeenCalled();
+    }
+  });
+
+  it('isMobile=false → 不渲染返回栏', async () => {
+    mockOaApi.getDetail.mockResolvedValue({ data: makeDetail() });
+
+    render(<ApprovalDetailPanel {...defaultProps} selectedId={1} isMobile={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('approval-detail-content')).toBeTruthy();
+    });
+
+    expect(document.querySelector('.mobileBackBar')).toBeNull();
   });
 });

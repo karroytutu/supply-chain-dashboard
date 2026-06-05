@@ -45,43 +45,6 @@
     }
   }
 
-  .detailBody {
-    flex: 1;
-    display: flex;
-    gap: 24px;
-    min-height: 0;
-  }
-
-  .detailLeft {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .detailRight {
-    width: 360px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .detailRightScroll {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .actionBarFixed {
-    padding-top: 12px;
-    background: #fff;
-    border-top: 1px solid #f0f0f0;
-    border-radius: 0 0 8px 8px;
-
-    :global {
-      .ant-btn {
-        margin-top: 4px;
-      }
-    }
-  }
-
   .card {
     margin-bottom: 16px;
 
@@ -139,62 +102,18 @@
     }
   }
 
-  .detailBody {
-    flex-direction: column;
-    gap: 12px;
-    overflow: hidden; // 防止内容溢出
-  }
-
-  .detailLeft {
-    overflow-y: auto; // 恢复独立滚动，与固定底栏配合
-    flex: 1;
-    min-height: 0;
-  }
-
-  .detailRight {
-    width: 100%;
-  }
-
-  // 右侧滚动区域在移动端不独立滚动，跟随页面流
-  .detailRightScroll {
-    overflow: visible;
-    flex: none;
-  }
-
-  // 固定操作栏（参考 Form 页 footer 模式）
-  .actionBarFixed {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    padding: 10px 12px;
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
-    border-top: 1px solid @border-color-split;
-    border-radius: 0;
-    background: @component-background;
-
-    :global {
-      .ant-btn {
-        min-height: @touch-target-size;
-        font-size: 14px;
-        margin-top: 0;
-      }
-    }
-  }
-
   // 卡片内边距缩减
   .card {
     margin-bottom: 12px;
 
     :global {
-      .ant-card-body {
-        padding: 12px;
-      }
-
       .ant-card-head {
         padding: 0 12px;
         min-height: @touch-target-size;
+      }
+
+      .ant-card-body {
+        padding: 12px;
       }
     }
   }
@@ -215,46 +134,6 @@
     }
   }
 
-  .detailBody {
-    gap: 8px;
-  }
-
-  .card :global(.ant-card-body) {
-    padding: 8px 10px;
-  }
-
-  .actionBarFixed {
-    padding: 8px 10px;
-    gap: 6px;
-
-    :global(.ant-btn) {
-      font-size: 13px;
-    }
-  }
-}
-
-// ── 超小屏手机 (≤480px) ──
-@media (max-width: @screen-xs) {
-  .pageHeader {
-    .headerInfo {
-      margin-left: 4px;
-
-      h4 {
-        font-size: 13px;
-      }
-    }
-
-    padding: 6px 8px;
-  }
-
-  .detailBody {
-    gap: 6px;
-  }
-
-  .detailPage {
-    padding-bottom: 60px;
-  }
-
   .card {
     :global {
       .ant-card-head {
@@ -266,48 +145,5 @@
       }
     }
   }
-
-  .actionBarFixed :global(.ant-btn) {
-    font-size: 12px;
-    padding: 4px 8px;
-  }
 }
 
-// ── 极小屏 (iPhone SE, ≤375px) ──
-@media (max-width: @screen-xxs) {
-  .detailPage {
-    padding: 4px;
-    padding-bottom: 60px;
-  }
-
-  .pageHeader {
-    padding: 4px 6px;
-
-    .headerInfo {
-      margin-left: 4px;
-
-      h4 {
-        font-size: 12px;
-      }
-
-      span {
-        font-size: 11px;
-        display: block; // 每个信息独占一行
-      }
-    }
-  }
-
-  .detailBody {
-    gap: 4px;
-  }
-
-  .card :global(.ant-card-body) {
-    padding: 4px 6px;
-  }
-
-  .actionBarFixed :global(.ant-btn) {
-    font-size: 11px;
-    padding: 2px 6px;
-    min-height: 36px;
-  }
-}

@@ -3,9 +3,8 @@ import { useParams, history } from 'umi';
 import { Button, Spin, Typography, Result } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { type DetailErrorType, useApprovalDetail } from './hooks/useApprovalDetail';
-import { useErpFieldResolve } from '@/components/Oa/hooks/useErpFieldResolve';
-import { DetailLeftColumn, ApprovalStatusTag } from './components/DetailSubComponents';
-import { DetailRightColumn } from './components/DetailRightColumn';
+import { ApprovalDetailContent, ApprovalStatusTag } from '@/components/Oa';
+import LicenseDeferredCard from './components/LicenseDeferredCard';
 import { formatDateTime } from '@/utils/format';
 import styles from './index.less';
 
@@ -28,16 +27,32 @@ const renderErrorState = (errorType: DetailErrorType, loadDetail: () => void) =>
 const ApprovalDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const {
-    loading, detail, nodes, actions, errorType, actionLoading,
-    actionModalVisible, actionType, actionComment, transferUsers,
-    setActionModalVisible, setActionComment, setTransferUserId,
-    openActionModal, handleAction, handleWithdraw, canOperate, canWithdraw, getCurrentStep, loadDetail,
+    loading, detail, errorType, loadDetail,
+    actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
+    canOperate, canWithdraw, currentStep,
+    openActionModal, closeActionModal, executeAction, executeWithdraw,
+    setActionComment, setTransferUserId,
   } = useApprovalDetail(id);
-
-  const { resolvedMap } = useErpFieldResolve(detail?.formSchema, detail?.formData);
 
   if (loading) return <div className={styles.loadingContainer}><Spin size="large" /></div>;
   if (!detail) return renderErrorState(errorType, loadDetail);
+
+  const actionState = {
+    actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
+    canOperate, canWithdraw, currentStep,
+    openActionModal, closeActionModal, executeAction, executeWithdraw,
+    setActionComment, setTransferUserId,
+  };
+
+  const extraContent = detail.formTypeCode === 'customer_credit' ? (
+    <LicenseDeferredCard
+      instanceId={detail.id}
+      approvalStatus={detail.status}
+      applicantId={detail.applicantId}
+      customerId={detail.formData?.customerId as number | undefined}
+      cardClassName={styles.card}
+    />
+  ) : undefined;
 
   return (
     <div className={styles.detailPage}>
@@ -57,20 +72,13 @@ const ApprovalDetailPage: React.FC = () => {
           )}
         </div>
       </div>
-      <div className={styles.detailBody}>
-        <div className={styles.detailLeft}>
-          <DetailLeftColumn detail={detail} resolvedMap={resolvedMap} />
-        </div>
-        <div className={styles.detailRight}>
-          <DetailRightColumn detail={detail} nodes={nodes} actions={actions}
-            actionLoading={actionLoading} actionModalVisible={actionModalVisible} actionType={actionType}
-            actionComment={actionComment} transferUsers={transferUsers} getCurrentStep={getCurrentStep}
-            canOperate={canOperate} canWithdraw={canWithdraw} openActionModal={openActionModal}
-            handleAction={handleAction} handleWithdraw={handleWithdraw}
-            setActionModalVisible={setActionModalVisible} setActionComment={setActionComment}
-            setTransferUserId={setTransferUserId} />
-        </div>
-      </div>
+      <ApprovalDetailContent
+        detail={detail}
+        actionState={actionState}
+        formLayout="descriptions"
+        extraContentBefore={extraContent}
+        showHeader={false}
+      />
     </div>
   );
 };

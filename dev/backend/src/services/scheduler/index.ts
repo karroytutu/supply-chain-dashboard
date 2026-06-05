@@ -15,7 +15,7 @@ import { runCalculation } from '../assessment/assessment-calculate';
 import { sendAssessmentNotifications } from '../assessment/assessment-notify';
 import * as assessmentRepository from '../assessment/assessment.repository';
 import {
-  syncERPDebts,
+  // syncERPDebts, // [催收流水线合并] 已迁移至 collection-pipeline.task
   // generateCollectionTasks, // [催收OA集成] 已由 generateCollectionOaInstances 替代
   checkExtensionExpiry,
   checkHoldExpiry,
@@ -29,7 +29,7 @@ import { recoverStuckProcessing, recoverStuckAutoNodes } from '../fixed-asset/er
 import { checkLicenseDeferredReminders, markOverdueDeferredUploads } from '../credit-license';
 import { saveMonthlyArchive, getLastMonthEndDate } from '../procurement-archive';
 import { checkAndRefreshAllTokens } from '../token-manager';
-import { generateCollectionOaInstances } from '../oa/ar-collection-creator';
+import { runCollectionPipeline } from './collection-pipeline.task';
 import {
   syncDingtalkDepartments,
   fullSyncDingtalkUsers,
@@ -116,61 +116,15 @@ export function startScheduler(): void {
     }
   );
 
-  // 催收数据同步 - 每日06:00
-  cron.schedule(
-    '0 6 * * *',
-    async () => {
-      log.info('执行催收ERP数据同步...');
-      try {
-        await syncERPDebts();
-        log.info('催收ERP数据同步完成');
-      } catch (error) {
-        log.error('催收ERP数据同步失败:', error);
-      }
-    },
-    { timezone: 'Asia/Shanghai' }
-  );
-
-  // 催收任务生成 - 每日20:00（已迁移到OA流程引擎）
-  // [催收OA集成] 旧模块已由 generateCollectionOaInstances 替代
-  // import { generateCollectionTasks } from '../erp-debt/erp-debt-sync.task';
+  // 催收统一流水线 - 每日20:00
+  // 合并原: syncERPDebts(06:00) + generateCollectionOaInstances(20:00) + OA催收节点考核(20:45)
   cron.schedule(
     '0 20 * * *',
     async () => {
-      log.info('执行催收OA实例生成...');
       try {
-        await generateCollectionOaInstances();
-        log.info('催收OA实例生成完成');
+        await runCollectionPipeline();
       } catch (error) {
-        log.error('催收OA实例生成失败:', error);
-      }
-    },
-    { timezone: 'Asia/Shanghai' }
-  );
-
-  // OA催收节点考核 - 每日20:45（在催收OA实例生成之后）
-  cron.schedule(
-    '0 45 20 * * *',
-    async () => {
-      log.info('执行OA催收节点考核计算任务...');
-      try {
-        const result = await runCalculation({
-          triggered_by: 'scheduled',
-          category: 'oa_collection',
-        });
-        log.info(`OA催收节点考核完成: ${result.totalRecords} 条记录, ${result.newRecords} 条新增`);
-
-        if (result.newRecords > 0) {
-          const pendingRecords = await assessmentRepository.getRecords({
-            category: 'oa_collection',
-            status: 'pending' as any,
-            page: 1,
-            page_size: 1000,
-          });
-          await sendAssessmentNotifications(pendingRecords.rows);
-        }
-      } catch (error) {
-        log.error('OA催收节点考核计算失败:', error);
+        log.error('催收统一流水线执行异常:', error);
       }
     },
     { timezone: 'Asia/Shanghai' }
@@ -394,9 +348,7 @@ export function startScheduler(): void {
   log.info('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
   log.info('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
   log.info('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');
-  log.info('  - 催收ERP数据同步: 每天 06:00 (Asia/Shanghai)');
-  log.info('  - 催收OA实例生成: 每天 20:00 (Asia/Shanghai)');
-  log.info('  - OA催收节点考核: 每天 20:45 (Asia/Shanghai)');
+  log.info('  - 催收统一流水线: 每天 20:00 (Asia/Shanghai) [ERP同步→OA实例生成→考核计算]');
   log.info('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
   log.info('  - 期限压单到期检查: 每2小时 (Asia/Shanghai)');
   log.info('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
