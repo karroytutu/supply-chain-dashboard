@@ -84,13 +84,6 @@ const FormPage: React.FC = () => {
     return false;
   };
 
-  // 生成审批标题
-  const generateTitle = (ft: FormTypeDefinition, data: Record<string, unknown>): string => {
-    const textField = ft.formSchema.fields.find((f) => f.type === 'text' || f.type === 'textarea');
-    const mainFieldValue = textField ? data[textField.key] : '';
-    return `${ft.name} - ${mainFieldValue || '新申请'}`;
-  };
-
   // 提交表单
   const handleSubmit = async () => {
     try {
@@ -126,7 +119,7 @@ const FormPage: React.FC = () => {
         }
       }
 
-      const title = generateTitle(formType, values);
+      const title = formType.name;
 
       setSubmitting(true);
       const result = await oaApi.submitApproval({

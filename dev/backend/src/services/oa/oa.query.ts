@@ -7,6 +7,7 @@
 import { appQuery as query } from '../../db/appPool';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
 import { ApprovalListParams, ApprovalStats, ApprovalStatus } from './oa.types';
+import { extractFormSummary } from './oa-form-summary';
 
 // Re-export from extracted modules
 export { getApprovalDetail } from './queries/approval-detail';
@@ -44,9 +45,23 @@ export interface InstanceListItem {
   completedAt: Date | null;
   /** 抄送是否未读（仅 viewMode='cc' 时有意义） */
   isUnread?: boolean;
+  /** 表单字段预览摘要（前几个关键字段） */
+  previewFields: Array<{ label: string; value: string }>;
 }
 
-export function formatInstanceListItem(row: any, viewMode?: string): InstanceListItem {
+export function formatInstanceListItem(
+  row: any,
+  viewMode?: string,
+  formSchema?: any
+): InstanceListItem {
+  // 优先使用显式传入的 formSchema；回退到 row.form_schema（向后兼容）；
+  // 两者都无值时跳过 extractFormSummary，避免无效计算
+  const resolvedSchema = formSchema ?? row.form_schema ?? null;
+  const formData = row.form_data || null;
+  const previewFields = resolvedSchema && formData
+    ? extractFormSummary(resolvedSchema, formData).map(r => ({ label: r.key, value: r.value }))
+    : [];
+
   return {
     id: row.id as number,
     instanceNo: row.instance_no as string,
@@ -63,6 +78,7 @@ export function formatInstanceListItem(row: any, viewMode?: string): InstanceLis
     submittedAt: row.submitted_at as Date,
     completedAt: row.completed_at as Date | null,
     isUnread: viewMode === 'cc' ? row.cc_read_at === null : undefined,
+    previewFields,
   };
 }
 
@@ -152,10 +168,10 @@ function buildListWhereClause(
     paramIndex++;
   }
 
-  // keyword 模糊搜索审批编号和标题（OR 关系，括号包裹与外部 AND 衔接）
+  // keyword 模糊搜索审批编号、标题和申请人（OR 关系，括号包裹与外部 AND 衔接）
   if (params.keyword && params.keyword.trim()) {
     const keywordPattern = `%${escapeLikePattern(params.keyword.trim())}%`;
-    conditions.push(`(i.instance_no ILIKE $${paramIndex} OR i.title ILIKE $${paramIndex})`);
+    conditions.push(`(i.instance_no ILIKE $${paramIndex} OR i.title ILIKE $${paramIndex} OR i.applicant_name ILIKE $${paramIndex})`);
     queryParams.push(keywordPattern);
     paramIndex++;
   }
@@ -228,8 +244,21 @@ export async function getApprovalList(
     [...queryParams, pageSize, offset]
   );
 
+  // 批量查询 form_schema（同一 form_type_id 只查一次，避免逐行重复传输 JSONB）
+  const uniqueFormTypeIds = [...new Set(listResult.rows.map(r => r.form_type_id))];
+  const schemaMap = new Map<number, any>();
+  if (uniqueFormTypeIds.length > 0) {
+    const schemaResult = await query<{ id: number; form_schema: any }>(
+      `SELECT id, form_schema FROM oa_form_types WHERE id = ANY($1)`,
+      [uniqueFormTypeIds]
+    );
+    for (const r of schemaResult.rows) schemaMap.set(r.id, r.form_schema);
+  }
+
   return {
-    list: listResult.rows.map(row => formatInstanceListItem(row, params.viewMode)),
+    list: listResult.rows.map(row =>
+      formatInstanceListItem(row, params.viewMode, schemaMap.get(row.form_type_id))
+    ),
     total,
   };
 }

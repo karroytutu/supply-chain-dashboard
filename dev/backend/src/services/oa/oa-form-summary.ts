@@ -34,6 +34,18 @@ export function extractFormSummary(
   for (const field of formSchema.fields) {
     if (rows.length >= OA_NOTIFICATION_FORM_SUMMARY_MAX_FIELDS) break;
 
+    // 跳过隐藏字段（key 以 _ 开头）
+    if (field.key.startsWith('_')) continue;
+
+    // ERP 类型字段（erp_customer / erp_settlement_order 等）：通过 nameField 解析显示名称
+    if (field.nameField) {
+      const displayName = formData[field.nameField];
+      if (displayName && typeof displayName === 'string') {
+        rows.push({ key: field.label, value: displayName });
+        continue;
+      }
+    }
+
     // 跳过不可展示类型
     if (!SUMMARIZABLE_TYPES.has(field.type)) continue;
 

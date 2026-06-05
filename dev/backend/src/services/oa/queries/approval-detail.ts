@@ -127,6 +127,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       nodesResult.rows.find(n => n.node_order === instance.current_node_order)?.node_name || null,
     submittedAt: instance.submitted_at,
     completedAt: instance.completed_at,
+    previewFields: [],  // 详情页展示完整表单，无需字段预览
     formData: instance.form_data,
     formSchema: instance.form_schema || codeFallback?.formSchema || { fields: [] },
     workflowDef: instance.workflow_def || codeFallback?.workflowDef || null,
