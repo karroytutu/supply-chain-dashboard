@@ -16,6 +16,8 @@ export function useApprovalCenter() {
   });
   const actions = useApprovalCenterActions({
     selectedId: filters.selectedId,
+    setSelectedId: filters.setSelectedId,
+    currentList: data.list,
     reloadList: data.loadList,
     reloadStats: data.loadStats,
     reloadDetail: data.loadDetail,

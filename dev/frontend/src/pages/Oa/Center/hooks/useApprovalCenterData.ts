@@ -34,7 +34,7 @@ export function useApprovalCenterData(filters: FiltersState) {
     }
   }, []);
 
-  const loadList = useCallback(async () => {
+  const loadList = useCallback(async (): Promise<ApprovalInstance[]> => {
     setLoading(true);
     try {
       const result = await oaApi.getApprovalList({
@@ -44,11 +44,10 @@ export function useApprovalCenterData(filters: FiltersState) {
       });
       setList(result.data);
       setTotal(result.total);
-      if (result.data.length > 0 && !filters.selectedId) {
-        // 不在 data hook 中设置 selectedId，由外部处理
-      }
+      return result.data;
     } catch (error) {
       log.error('加载列表失败:', error);
+      return [];
     } finally {
       setLoading(false);
     }
