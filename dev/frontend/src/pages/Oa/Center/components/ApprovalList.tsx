@@ -71,6 +71,16 @@ const ApprovalList: React.FC<ApprovalListProps> = ({
                   <span className={styles.itemApplicant}>{item.applicantName}</span>
                   <span className={styles.itemType}>{item.formTypeName}</span>
                 </div>
+                {item.previewFields.length > 0 && (
+                  <div className={styles.itemPreview}>
+                    {item.previewFields.map((field, idx) => (
+                      <div key={idx} className={styles.previewField}>
+                        <span className={styles.previewLabel}>{field.label}：</span>
+                        <span className={styles.previewValue}>{field.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className={styles.itemFooter}>
                   {item.status === 'pending' ? (
                     <Tag color="orange">等待 {item.currentNodeName || '处理'}</Tag>

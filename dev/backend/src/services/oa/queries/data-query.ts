@@ -42,10 +42,10 @@ export async function getDataListAll(
     paramIndex++;
   }
 
-  // keyword 模糊搜索审批编号和标题（OR 关系，括号包裹与外部 AND 衔接）
+  // keyword 模糊搜索审批编号、标题和申请人（OR 关系，括号包裹与外部 AND 衔接）
   if (params.keyword && params.keyword.trim()) {
     const keywordPattern = `%${escapeLikePattern(params.keyword.trim())}%`;
-    conditions.push(`(i.instance_no ILIKE $${paramIndex} OR i.title ILIKE $${paramIndex})`);
+    conditions.push(`(i.instance_no ILIKE $${paramIndex} OR i.title ILIKE $${paramIndex} OR i.applicant_name ILIKE $${paramIndex})`);
     queryParams.push(keywordPattern);
     paramIndex++;
   }

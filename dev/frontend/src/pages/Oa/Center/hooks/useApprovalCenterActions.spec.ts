@@ -54,6 +54,7 @@ const makeList = (ids: number[]): ApprovalInstance[] =>
     currentNodeName: '审批节点',
     submittedAt: '2026-06-01',
     completedAt: null,
+    previewFields: [],
   }));
 
 const noop = vi.fn().mockResolvedValue(undefined);
