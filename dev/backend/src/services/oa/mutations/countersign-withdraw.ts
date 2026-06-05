@@ -10,10 +10,11 @@ import { OaInstanceRow, OaNodeRow } from '../oa.types';
 import { isCurrentApprover, isApplicant, getCurrentApproverNode } from '../oa-utils';
 import { notifyCountersign, notifyWithdrawn } from '../oa-notify';
 import { completeAllPendingTodos } from '../oa-process-centre';
-import { transaction, getInstanceNotifyData } from './shared-utils';
+import { transaction, getInstanceNotifyData, insertNodeAfter } from './shared-utils';
 
 /**
  * 加签审批
+ * 重构后使用通用的 insertNodeAfter 函数实现节点插入
  */
 export async function countersignApproval(
   instanceId: number,
@@ -45,58 +46,42 @@ export async function countersignApproval(
       throw new Error('未找到待审批节点');
     }
 
-    const allNodesResult = await client.query<OaNodeRow>(
-      `SELECT * FROM oa_approval_nodes WHERE instance_id = $1 ORDER BY node_order`,
-      [instanceId]
-    );
+    // 确定插入位置：前加签在当前节点之前，后加签在当前节点之后
+    const insertAfterOrder = countersignType === 'before'
+      ? currentNode.node_order - 1
+      : currentNode.node_order;
 
-    if (countersignType === 'before') {
-      const increment = countersignUsers.length;
-      const nodesToShift = allNodesResult.rows
-        .filter(n => n.node_order >= currentNode.node_order)
-        .sort((a, b) => b.node_order - a.node_order);
-      for (const node of nodesToShift) {
-        await client.query(
-          `UPDATE oa_approval_nodes SET node_order = node_order + $1 WHERE id = $2`,
-          [increment, node.id]
-        );
-      }
+    // 使用通用的 insertNodeAfter 函数逐个插入加签节点
+    // 后加签时每次递增 insertAfterOrder，确保节点顺序与 countersignUsers 数组一致
+    let currentInsertAfter = insertAfterOrder;
+    for (const csUser of countersignUsers) {
+      const insertedNode = await insertNodeAfter(client, instanceId, currentInsertAfter, {
+        name: '加签',
+        type: 'countersign',
+        assignedUserId: csUser.id,
+        assignedUserName: csUser.name,
+      });
 
-      let insertOrder = currentNode.node_order;
-      for (const csUser of countersignUsers) {
-        await client.query(
-          `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, assigned_user_id, assigned_user_name, status, is_countersign, countersign_parent_node_id)
-           VALUES ($1, $2, '加签', 'countersign', $3, $4, 'pending', true, $5)`,
-          [instanceId, insertOrder++, csUser.id, csUser.name, currentNode.id]
-        );
-      }
-
+      // 使用 insertNodeAfter 返回的 id 精确定位新插入的节点（避免 PG 不支持的 ORDER BY LIMIT）
       await client.query(
-        `UPDATE oa_approval_instances SET current_node_order = $1, updated_at = NOW() WHERE id = $2`,
-        [currentNode.node_order, instanceId]
+        `UPDATE oa_approval_nodes
+         SET is_countersign = true, countersign_parent_node_id = $1
+         WHERE id = $2`,
+        [currentNode.id, insertedNode.id]
       );
-    } else {
-      const increment = countersignUsers.length;
-      const nodesToShift = allNodesResult.rows
-        .filter(n => n.node_order > currentNode.node_order)
-        .sort((a, b) => b.node_order - a.node_order);
-      for (const node of nodesToShift) {
-        await client.query(
-          `UPDATE oa_approval_nodes SET node_order = node_order + $1 WHERE id = $2`,
-          [increment, node.id]
-        );
-      }
 
-      let insertOrder = currentNode.node_order + 1;
-      for (const csUser of countersignUsers) {
-        await client.query(
-          `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, assigned_user_id, assigned_user_name, status, is_countersign, countersign_parent_node_id)
-           VALUES ($1, $2, '加签', 'countersign', $3, $4, 'pending', true, $5)`,
-          [instanceId, insertOrder++, csUser.id, csUser.name, currentNode.id]
-        );
+      // 后加签时递增插入位置，保证顺序正确
+      if (countersignType === 'after') {
+        currentInsertAfter++;
       }
+    }
+
+    // 前加签时需要更新当前节点顺序（因为 insertNodeAfter 会在 insertAfterOrder 之后插入）
+    if (countersignType === 'before') {
+      await client.query(
+        `UPDATE oa_approval_instances SET current_node_order = current_node_order + $1, updated_at = NOW() WHERE id = $2`,
+        [countersignUsers.length, instanceId]
+      );
     }
 
     await client.query(

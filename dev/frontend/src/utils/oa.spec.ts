@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getRoleDisplayName, humanizeCondition, isSafeUrl, getFieldLinkUrl } from './oa';
-import type { ConditionDef, FormField } from '@/types/oa';
+import { getRoleDisplayName, humanizeCondition, isSafeUrl, getFieldLinkUrl, getInteractionType } from './oa';
+import type { ConditionDef, FormField, ApprovalDetail } from '@/types/oa';
 
 // ==================== getRoleDisplayName ====================
 
@@ -129,5 +129,76 @@ describe('getFieldLinkUrl', () => {
     const field: FormField = { key: 'test', label: '测试', type: 'text', required: false };
     const formData = { _testUrl: 12345 };
     expect(getFieldLinkUrl(field, formData)).toBeNull();
+  });
+});
+
+// ==================== getInteractionType ====================
+
+describe('getInteractionType', () => {
+  function makeDetail(overrides: Partial<ApprovalDetail> = {}): ApprovalDetail {
+    return {
+      nodes: [],
+      workflowDef: null,
+      currentNodeOrder: 1,
+      ...overrides,
+    } as ApprovalDetail;
+  }
+
+  it('workflowDef 为 null 时返回 approval', () => {
+    const detail = makeDetail({ workflowDef: null });
+    expect(getInteractionType(detail)).toBe('approval');
+  });
+
+  it('当前节点不存在时返回 approval', () => {
+    const detail = makeDetail({
+      nodes: [{ nodeOrder: 2, status: 'pending' } as any],
+      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'role' as const, interactionType: 'operation' as const }] },
+      currentNodeOrder: 1, // 无 nodeOrder=1 的节点
+    });
+    expect(getInteractionType(detail)).toBe('approval');
+  });
+
+  it('workflowDef 中无对应节点时返回 approval', () => {
+    const detail = makeDetail({
+      nodes: [{ nodeOrder: 1, status: 'pending' } as any],
+      workflowDef: { nodes: [{ order: 2, name: '节点2', type: 'role' as const, interactionType: 'operation' as const }] },
+      currentNodeOrder: 1,
+    });
+    expect(getInteractionType(detail)).toBe('approval');
+  });
+
+  it('节点配置 interactionType=operation 时返回 operation', () => {
+    const detail = makeDetail({
+      nodes: [{ nodeOrder: 1, status: 'pending' } as any],
+      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'role' as const, interactionType: 'operation' as const }] },
+      currentNodeOrder: 1,
+    });
+    expect(getInteractionType(detail)).toBe('operation');
+  });
+
+  it('节点未配置 interactionType 时返回 approval（默认）', () => {
+    const detail = makeDetail({
+      nodes: [{ nodeOrder: 1, status: 'pending' } as any],
+      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'role' as const }] },
+      currentNodeOrder: 1,
+    });
+    expect(getInteractionType(detail)).toBe('approval');
+  });
+
+  it('多节点时正确匹配当前节点', () => {
+    const detail = makeDetail({
+      nodes: [
+        { nodeOrder: 1, status: 'approved' } as any,
+        { nodeOrder: 2, status: 'pending' } as any,
+      ],
+      workflowDef: {
+        nodes: [
+          { order: 1, name: '节点1', type: 'role' as const, interactionType: 'approval' as const },
+          { order: 2, name: '节点2', type: 'role' as const, interactionType: 'operation' as const },
+        ],
+      },
+      currentNodeOrder: 2,
+    });
+    expect(getInteractionType(detail)).toBe('operation');
   });
 });

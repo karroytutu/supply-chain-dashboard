@@ -57,6 +57,7 @@ export function useApprovalCenter() {
       withdraw: actions.handleWithdraw,
       openTransfer: actions.openTransferModal,
       transfer: actions.handleTransfer,
+      update: actions.handleUpdate,
     },
   };
 }

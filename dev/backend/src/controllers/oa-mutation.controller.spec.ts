@@ -16,6 +16,10 @@ jest.mock('../services/oa/oa.mutation', () => ({
   markCcRead: jest.fn(),
 }));
 
+jest.mock('../services/oa/mutations/update-instance', () => ({
+  updateInstanceFormData: jest.fn(),
+}));
+
 import {
   submit,
   approve,
@@ -24,6 +28,7 @@ import {
   countersign,
   withdraw,
   markCcAsRead,
+  updateInstance,
 } from './oa-mutation.controller';
 import { getFormTypeByCodeQuery } from '../services/oa/oa-form-type.query';
 import {
@@ -35,6 +40,7 @@ import {
   withdrawApproval,
   markCcRead,
 } from '../services/oa/oa.mutation';
+import { updateInstanceFormData } from '../services/oa/mutations/update-instance';
 import { createMockRequest, createMockResponse } from '../__tests__/helpers/testFactory';
 
 beforeEach(() => {
@@ -219,6 +225,60 @@ describe('withdraw', () => {
     const res = createMockResponse();
     await withdraw(req, res);
     expect(res.status).toHaveBeenCalledWith(400);
+  });
+});
+
+describe('updateInstance', () => {
+  it('未登录返回 401', async () => {
+    const res = createMockResponse();
+    await updateInstance(noAuthReq(), res);
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('缺少 formData 参数返回 400', async () => {
+    const req = authReq({ params: { id: '1' }, body: {} });
+    const res = createMockResponse();
+    await updateInstance(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('formData 类型不是对象返回 400', async () => {
+    const req = authReq({ params: { id: '1' }, body: { formData: 'string' } });
+    const res = createMockResponse();
+    await updateInstance(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('正常更新返回成功', async () => {
+    (updateInstanceFormData as jest.MockedFunction<typeof updateInstanceFormData>).mockResolvedValueOnce(undefined);
+    const req = authReq({
+      params: { id: '5' },
+      body: { formData: { field1: 'value1' }, comment: '更新备注' },
+    });
+    const res = createMockResponse();
+    await updateInstance(req, res);
+    expect(updateInstanceFormData).toHaveBeenCalledWith(
+      5, 1, 'tester', { field1: 'value1' }, '更新备注'
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: '数据已更新' })
+    );
+  });
+
+  it('服务层异常返回 400', async () => {
+    (updateInstanceFormData as jest.MockedFunction<typeof updateInstanceFormData>).mockRejectedValueOnce(
+      new Error('审批实例不存在')
+    );
+    const req = authReq({
+      params: { id: '999' },
+      body: { formData: { x: 1 } },
+    });
+    const res = createMockResponse();
+    await updateInstance(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('审批实例不存在') })
+    );
   });
 });
 

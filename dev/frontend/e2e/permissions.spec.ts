@@ -64,11 +64,11 @@ test.describe('通用页面可访问性', () => {
 
 test.describe('路由保护', () => {
   test('未认证请求被重定向到登录页', async ({ page }) => {
-    // 清除认证状态
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
-
+    // 先导航到目标页面，再清除认证状态（避免 about:blank 上访问 localStorage 的 SecurityError）
     await page.goto('/system/users');
+    await page.evaluate(() => localStorage.clear());
+    await page.context().clearCookies();
+    await page.reload();
     await page.waitForURL('**/login**', { timeout: 10000 });
 
     expect(page.url()).toContain('/login');

@@ -104,7 +104,7 @@ export const test = base.extend<TestFixtures>({
       }, { apiUrl: API_URL, role: roleCode });
 
       // 刷新页面以应用新用户身份
-      await page.reload({ waitUntil: 'networkidle' });
+      await page.reload({ waitUntil: 'domcontentloaded' });
     };
 
     await use(switchRoleFn);

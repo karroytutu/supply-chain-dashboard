@@ -94,6 +94,17 @@ export function useApprovalCenterActions({
     }
   };
 
+  const handleUpdate = async (formData: Record<string, unknown>, comment?: string) => {
+    if (!selectedId) return;
+    try {
+      await oaApi.updateInstance(selectedId, { formData, comment });
+      message.success('数据已更新');
+      reloadDetail(selectedId);
+    } catch (error) {
+      message.error(getErrorMessage(error) || '更新失败');
+    }
+  };
+
   return {
     reject: {
       visible: rejectModalVisible,
@@ -113,5 +124,6 @@ export function useApprovalCenterActions({
     handleWithdraw,
     openTransferModal,
     handleTransfer,
+    handleUpdate,
   };
 }

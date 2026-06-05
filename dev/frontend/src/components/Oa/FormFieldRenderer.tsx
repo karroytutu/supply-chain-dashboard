@@ -214,6 +214,17 @@ const FieldRenderer: React.FC<{
         />
       );
     }
+    case 'signature': {
+      const sigValue = value as string;
+      if (!sigValue) return <Text type="secondary">未签名</Text>;
+      return (
+        <img
+          src={sigValue}
+          alt="签名"
+          style={{ maxWidth: 200, maxHeight: 100, border: '1px solid #d9d9d9', borderRadius: 4 }}
+        />
+      );
+    }
     default:
       return <Text>{String(value)}</Text>;
   }

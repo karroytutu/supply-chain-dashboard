@@ -45,6 +45,7 @@ export type FormFieldType =
   | 'relate-approval'
   | 'location'
   | 'radio'
+  | 'signature' // 电子签名（手写签名控件，支持复用历史签名）
   // ERP 参考数据字段类型
   | 'asset_search'
   | 'erp_department'
@@ -112,6 +113,16 @@ export interface FormSchema {
 }
 
 // =====================================================
+// 节点级字段权限与交互类型
+// =====================================================
+
+/** 字段权限类型 */
+export type FieldPermission = 'editable' | 'readonly' | 'hidden';
+
+/** 节点交互类型（固化类型） */
+export type NodeInteractionType = 'approval' | 'operation';
+
+// =====================================================
 // 审批流程相关类型
 // =====================================================
 
@@ -157,6 +168,12 @@ export interface WorkflowNodeDef {
   condition?: ConditionDef;
   /** 数据录入表单 schema（仅 data_input 类型） */
   inputSchema?: NodeInputSchema;
+  /** 字段权限配置：控制每个字段在该节点下的可见/可编辑状态 */
+  fieldPermissions?: Record<string, FieldPermission>;
+  /** 下拉选项过滤：控制 select 类型字段的可选选项 */
+  fieldOptionFilter?: Record<string, string[]>;
+  /** 节点交互类型：决定显示哪些操作按钮（默认 'approval'） */
+  interactionType?: NodeInteractionType;
 }
 
 export interface WorkflowDef {
@@ -218,6 +235,7 @@ export interface ApprovalNode {
   nodeOrder: number;
   nodeName: string;
   nodeType: string;
+  roleCode?: string | null;
   assignedUserId: number | null;
   assignedUserName: string | null;
   /** 审批人头像URL */
@@ -264,6 +282,7 @@ export interface ErpMeta {
 export interface ApprovalDetail extends ApprovalInstance {
   formData: Record<string, unknown>;
   formSchema: FormSchema;
+  workflowDef: WorkflowDef | null;
   nodes: ApprovalNode[];
   actions: ApprovalAction[];
   ccUsers: CcUser[];
