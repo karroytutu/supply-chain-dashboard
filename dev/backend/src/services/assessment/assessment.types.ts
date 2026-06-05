@@ -6,7 +6,7 @@
 // ==================== 枚举类型 ====================
 
 /** 考核分类 */
-export type AssessmentCategory = 'ar_collection' | 'return_order' | 'credit_license';
+export type AssessmentCategory = 'ar_collection' | 'return_order' | 'credit_license' | 'oa_collection';
 
 /**
  * 规则类型按 category 区分:
@@ -215,4 +215,5 @@ export const ASSESSMENT_CATEGORY_LABELS: Record<AssessmentCategory, string> = {
   ar_collection: '催收考核',
   return_order: '退货考核',
   credit_license: '执照考核',
+  oa_collection: 'OA催收考核',
 };

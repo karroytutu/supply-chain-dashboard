@@ -4,7 +4,7 @@
  */
 
 import { appQuery as query } from '../../../db/appPool';
-import { OaActionRow, FormSchema } from '../oa.types';
+import { OaActionRow, FormSchema, WorkflowDef } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { InstanceListItem } from '../oa.query';
 
@@ -15,6 +15,7 @@ export interface ApprovalDetail extends InstanceListItem {
   applicantAvatar: string | null;
   formData: Record<string, unknown>;
   formSchema: FormSchema;
+  workflowDef: WorkflowDef | null;
   erpMeta: Record<string, unknown> | null;
   nodes: ApprovalNodeDetail[];
   actions: ApprovalActionDetail[];
@@ -26,6 +27,7 @@ export interface ApprovalNodeDetail {
   nodeOrder: number;
   nodeName: string;
   nodeType: string;
+  roleCode: string | null;
   assignedUserId: number | null;
   assignedUserName: string | null;
   assignedUserAvatar: string | null;
@@ -66,6 +68,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       ft.name as form_type_name,
       ft.icon as form_type_icon,
       ft.form_schema as form_schema,
+      ft.workflow_def as workflow_def,
       u.avatar AS applicant_avatar
     FROM oa_approval_instances i
     LEFT JOIN oa_form_types ft ON i.form_type_id = ft.id
@@ -126,12 +129,14 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     completedAt: instance.completed_at,
     formData: instance.form_data,
     formSchema: instance.form_schema || codeFallback?.formSchema || { fields: [] },
+    workflowDef: instance.workflow_def || codeFallback?.workflowDef || null,
     erpMeta: instance.erp_meta,
     nodes: nodesResult.rows.map((n: any) => ({
       id: n.id,
       nodeOrder: n.node_order,
       nodeName: n.node_name,
       nodeType: n.node_type,
+      roleCode: n.role_code || null,
       assignedUserId: n.assigned_user_id,
       assignedUserName: n.assigned_user_name,
       assignedUserAvatar: n.assigned_user_avatar || null,

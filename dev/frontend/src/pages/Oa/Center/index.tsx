@@ -67,6 +67,7 @@ const Center: React.FC = () => {
             onReject={() => rejectModal.setVisible(true)}
             onWithdraw={actions.withdraw}
             onTransfer={actions.openTransfer}
+            onUpdate={() => data.detail && actions.update(data.detail.formData)}
           />
         </>
       ) : mobile.mobileView === 'list' ? (
@@ -94,6 +95,7 @@ const Center: React.FC = () => {
           onReject={() => rejectModal.setVisible(true)}
           onWithdraw={actions.withdraw}
           onTransfer={actions.openTransfer}
+          onUpdate={() => data.detail && actions.update(data.detail.formData)}
         />
       )}
 

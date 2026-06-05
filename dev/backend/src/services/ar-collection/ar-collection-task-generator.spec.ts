@@ -293,12 +293,17 @@ describe('generateCollectionTasks - Pipeline', () => {
 
 describe('generateCollectionTasks - 序号生成', () => {
   it('今日已有任务时递增序号', async () => {
+    // 动态获取今日日期字符串，避免硬编码日期导致测试不稳定
+    const todayCompact = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const existingMaxSeq = `AR${todayCompact}003`;
+    const expectedNewNo = `AR${todayCompact}004`;
+
     const client = createMockClient();
     client.query.mockImplementation((sql: string) => {
       if (sql.includes('pg_try_advisory_lock')) return Promise.resolve({ rows: [{ locked: true }] });
       if (sql.includes('pg_advisory_unlock')) return Promise.resolve({ rows: [] });
       if (sql === 'BEGIN' || sql === 'COMMIT') return Promise.resolve({ rows: [] });
-      if (sql.includes('task_no LIKE')) return Promise.resolve({ rows: [{ max_seq: 'AR20260604003' }] });
+      if (sql.includes('task_no LIKE')) return Promise.resolve({ rows: [{ max_seq: existingMaxSeq }] });
       if (sql.includes('INSERT INTO ar_collection_tasks')) return Promise.resolve({ rows: [{ id: 10 }] });
       return Promise.resolve({ rows: [] });
     });
@@ -323,11 +328,11 @@ describe('generateCollectionTasks - 序号生成', () => {
 
     await generateCollectionTasks();
 
-    // 验证 taskNo 应为 AR20260604004 (3+1=4, padStart(3) = '004')
+    // 验证 taskNo 应为 AR{今日日期}004 (3+1=4, padStart(3) = '004')
     const insertCall = client.query.mock.calls.find(
       (c: any[]) => typeof c[0] === 'string' && c[0].includes('INSERT INTO ar_collection_tasks')
     );
     expect(insertCall).toBeDefined();
-    expect(insertCall![1][0]).toBe('AR20260604004');
+    expect(insertCall![1][0]).toBe(expectedNewNo);
   });
 });

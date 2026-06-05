@@ -4,7 +4,7 @@ import type { ApprovalDetail, ApprovalNode } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import { usePermission } from '@/hooks/usePermission';
 
-type ActionType = 'approve' | 'reject' | 'transfer' | 'countersign' | null;
+type ActionType = 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | null;
 
 export interface ApprovalActions {
   actionLoading: boolean;
@@ -16,7 +16,7 @@ export interface ApprovalActions {
   setActionModalVisible: (visible: boolean) => void;
   setActionComment: (comment: string) => void;
   setTransferUserId: (id: number | null) => void;
-  openActionModal: (type: 'approve' | 'reject' | 'transfer' | 'countersign') => void;
+  openActionModal: (type: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update') => void;
   handleAction: () => Promise<void>;
   handleWithdraw: () => Promise<void>;
   canOperate: () => boolean;
@@ -69,6 +69,13 @@ export function useApprovalActions(
         case 'countersign':
           message.warning('加签功能需要选择加签人员');
           break;
+        case 'update':
+          await oaApi.updateInstance(parseInt(id), {
+            formData: detail?.formData || {},
+            comment: actionComment || undefined,
+          });
+          message.success('数据已更新');
+          break;
       }
       setActionModalVisible(false);
       setActionComment('');
@@ -95,7 +102,7 @@ export function useApprovalActions(
     }
   };
 
-  const openActionModal = (type: 'approve' | 'reject' | 'transfer' | 'countersign') => {
+  const openActionModal = (type: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update') => {
     setActionType(type);
     setActionModalVisible(true);
     if (type === 'transfer') {

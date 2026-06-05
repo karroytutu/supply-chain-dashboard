@@ -29,6 +29,7 @@ import {
   countersign,
   withdraw,
   markCcAsRead,
+  updateInstance,
 } from '../controllers/oa-mutation.controller';
 import {
   // 数据管理
@@ -176,6 +177,9 @@ router.post('/instances/:id/withdraw', requirePermission('oa:write'), withdraw);
 
 // 标记抄送已读
 router.post('/instances/:id/cc-read', requirePermission('oa:read'), markCcAsRead);
+
+// 更新实例表单数据（操作型节点，不推进流程）
+router.post('/instances/:id/update', requirePermission('oa:write'), updateInstance);
 
 // 获取转交候选人列表
 router.get(

@@ -53,6 +53,7 @@ export type FormFieldType =
   | 'relate-approval'
   | 'location'
   | 'radio'
+  | 'signature' // 电子签名（手写签名控件，支持复用历史签名）
   // ERP 参考数据字段类型（固定资产审批使用）
   | 'asset_search' // 搜索选择ERP资产
   | 'erp_department' // 选择ERP部门
@@ -165,6 +166,27 @@ export interface FormSchema {
 }
 
 // =====================================================
+// 节点级字段权限与交互类型
+// =====================================================
+
+/**
+ * 字段权限类型
+ * - editable: 可编辑（字段显示且可编辑）
+ * - readonly: 只读（字段显示但不可编辑，灰色展示）
+ * - hidden: 隐藏（字段不显示，默认值）
+ */
+export type FieldPermission = 'editable' | 'readonly' | 'hidden';
+
+/**
+ * 节点交互类型（固化类型，不允许自由组合）
+ * - approval: 审批型（同意/拒绝为主按钮，退回/转交/加签折叠到更多）
+ * - operation: 操作型（完成/更新为主按钮，退回/转交折叠到更多）
+ *
+ * 未配置时默认为 'approval'，与现有表单行为一致
+ */
+export type NodeInteractionType = 'approval' | 'operation';
+
+// =====================================================
 // 审批流程相关类型
 // =====================================================
 
@@ -275,6 +297,12 @@ export interface WorkflowNodeDef {
   condition?: ConditionDef | ConditionDef[];
   /** 数据录入表单 schema（仅 data_input 类型） */
   inputSchema?: NodeInputSchema;
+  /** 字段权限配置：控制每个字段在该节点下的可见/可编辑状态 */
+  fieldPermissions?: Record<string, FieldPermission>;
+  /** 下拉选项过滤：控制 select 类型字段的可选选项（独立于权限） */
+  fieldOptionFilter?: Record<string, string[]>;
+  /** 节点交互类型：决定显示哪些操作按钮（默认 'approval'） */
+  interactionType?: NodeInteractionType;
 }
 
 /**
@@ -517,7 +545,8 @@ export type ApprovalActionType =
   | 'countersign'
   | 'withdraw'
   | 'cancel'
-  | 'resubmit';
+  | 'resubmit'
+  | 'update'; // 操作型节点的"更新"操作（保存数据，不触发流转）
 
 /**
  * oa_approval_actions 表行

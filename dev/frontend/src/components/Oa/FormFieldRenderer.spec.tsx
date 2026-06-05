@@ -114,4 +114,33 @@ describe('FormFieldRenderer', () => {
     // formatCurrency 格式化为 ¥1,234.50
     expect(screen.getByText('¥1,234.50')).toBeInTheDocument();
   });
+
+  it('signature 类型有签名值：渲染 img', () => {
+    const field: FormField = {
+      key: 'sig',
+      label: '签名',
+      type: 'signature',
+      required: false,
+    } as any;
+
+    render(<FieldRenderer field={field} value="data:image/png;base64,abc123" />);
+
+    const img = screen.getByAltText('签名');
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', 'data:image/png;base64,abc123');
+  });
+
+  it('signature 类型空值：显示 -（被顶部空值检查拦截）', () => {
+    const field: FormField = {
+      key: 'sig',
+      label: '签名',
+      type: 'signature',
+      required: false,
+    } as any;
+
+    render(<FieldRenderer field={field} value={null} />);
+
+    // 空值被 L32 的 null/undefined 检查拦截，返回 - 而非走到 signature case
+    expect(screen.getByText('-')).toBeInTheDocument();
+  });
 });

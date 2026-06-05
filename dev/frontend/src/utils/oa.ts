@@ -3,7 +3,7 @@
  * @module utils/oa
  */
 
-import type { ConditionDef, FormField } from '@/types/oa';
+import type { ConditionDef, FormField, ApprovalDetail, NodeInteractionType } from '@/types/oa';
 
 /** 角色 roleCode → 中文显示名映射 */
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
@@ -76,4 +76,15 @@ export function getFieldLinkUrl(
   const url = formData[`_${field.key}Url`];
   if (typeof url === 'string' && url && isSafeUrl(url)) return url;
   return null;
+}
+
+/**
+ * 获取当前审批节点的交互类型
+ * 根据 workflowDef 中当前节点的 interactionType 配置，返回 'operation' 或 'approval'（默认）
+ */
+export function getInteractionType(detail: ApprovalDetail): NodeInteractionType {
+  const currentNode = detail.nodes.find(n => n.nodeOrder === detail.currentNodeOrder);
+  if (!currentNode || !detail.workflowDef) return 'approval';
+  const workflowNode = detail.workflowDef.nodes.find(n => n.order === currentNode.nodeOrder);
+  return workflowNode?.interactionType || 'approval';
 }

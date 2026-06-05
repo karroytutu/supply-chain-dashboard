@@ -466,6 +466,20 @@ export async function getTransferCandidates(): Promise<Array<{ id: number; name:
   return res;
 }
 
+/**
+ * 更新实例表单数据（操作型节点，不推进流程）
+ * 将新 formData 合并到已有数据中，插入操作记录
+ */
+export async function updateInstance(
+  instanceId: number,
+  data: { formData: Record<string, unknown>; comment?: string }
+): Promise<void> {
+  await request<{ success: boolean; message: string }>(
+    `/oa/instances/${instanceId}/update`,
+    { method: 'POST', body: data }
+  );
+}
+
 // =====================================================
 // 营业执照延期补交接口
 // =====================================================
@@ -563,4 +577,5 @@ export const oaApi = {
   supplementLicense,
   getLicenseDeferredByInstance,
   getMyLicenseDeferredUploads,
+  updateInstance,
 };

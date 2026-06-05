@@ -200,3 +200,29 @@ export async function markCcAsRead(req: Request, res: Response): Promise<void> {
     res.status(400).json(buildErrorResponse(400, message));
   }
 }
+
+/** 更新实例表单数据（操作型节点，不推进流程） */
+export async function updateInstance(req: Request, res: Response): Promise<void> {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json(buildErrorResponse(401, '未登录'));
+      return;
+    }
+
+    const instanceId = parseInt(req.params.id);
+    const { formData, comment } = req.body;
+    if (!formData || typeof formData !== 'object') {
+      res.status(400).json(buildErrorResponse(400, '缺少 formData 参数'));
+      return;
+    }
+
+    const { updateInstanceFormData } = await import('../services/oa/mutations/update-instance');
+    await updateInstanceFormData(instanceId, user.userId, user.name, formData, comment);
+    res.json(buildSuccessResponse(null, '数据已更新'));
+  } catch (error) {
+    log.error('更新实例数据失败:', error);
+    const message = error instanceof Error ? error.message : '更新数据失败';
+    res.status(400).json(buildErrorResponse(400, message));
+  }
+}

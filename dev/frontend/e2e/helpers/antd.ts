@@ -7,11 +7,14 @@
 import { type Page, type Locator, expect } from '@playwright/test';
 
 /**
- * 等待页面加载完成（networkidle + DOMContentLoaded）
+ * 等待页面加载完成（DOM + 有限时间的网络等待）
+ * 注意：不使用 networkidle，因为部分页面（如数据总览）有持续的 API 轮询，
+ * 会导致 networkidle 永远不触发。
  */
 export async function waitForPageLoad(page: Page): Promise<void> {
-  await page.waitForLoadState('networkidle');
   await page.waitForLoadState('domcontentloaded');
+  // 给网络请求一个短暂的窗口期，但不强制等待 networkidle
+  await page.waitForTimeout(500);
 }
 
 /**

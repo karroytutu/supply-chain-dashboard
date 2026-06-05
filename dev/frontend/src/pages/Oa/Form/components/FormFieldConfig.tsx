@@ -8,6 +8,7 @@ import { getFieldLinkUrl } from '@/utils/oa';
 import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
 import PhotoFieldRenderer from './PhotoFieldRenderer';
+import { SignaturePad } from '@/components/Oa/SignaturePad';
 import { createBeforeUpload, validateDocumentFile } from '@/utils/uploadValidation';
 import styles from '../index.less';
 
@@ -203,6 +204,15 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
 
     case 'table':
       return <TableFieldRenderer field={field} value={value as Record<string, unknown>[] | undefined} onChange={onChange as ((value: Record<string, unknown>[]) => void) | undefined} />;
+
+    case 'signature':
+      return (
+        <SignaturePad
+          value={value as string | undefined}
+          onChange={onChange as ((value: string | undefined) => void) | undefined}
+          readOnly={field.disabled}
+        />
+      );
 
     default:
       return <Input value={value as string | undefined} onChange={onChange as React.ChangeEventHandler<HTMLInputElement> | undefined} placeholder={placeholder || `请输入${field.label}`} disabled={field.disabled} />;

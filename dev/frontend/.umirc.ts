@@ -93,20 +93,15 @@ export default defineConfig({
       routes: [
         {
           path: 'overview',
-          component: '@/pages/Collection/Overview',
-          name: '催收总览',
-          access: PERMISSIONS.FINANCE.AR.READ,
+          redirect: '/oa/center',
         },
         {
           path: 'task/:id',
-          component: '@/pages/Collection/TaskDetail',
-          name: '任务详情',
-          hideInMenu: true,
-          access: PERMISSIONS.FINANCE.AR.READ,
+          redirect: '/oa/center',
         },
         {
           path: 'assessment',
-          redirect: '/assessment?category=ar_collection',
+          redirect: '/assessment?category=oa_collection',
         },
       ],
     },

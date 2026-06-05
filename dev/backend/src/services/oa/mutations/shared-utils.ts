@@ -5,7 +5,7 @@
 
 import { appQuery as query, getAppClient } from '../../../db/appPool';
 import { PoolClient } from 'pg';
-import { OaInstanceRow } from '../oa.types';
+import { OaInstanceRow, OaNodeRow, NodeType, NodeInputSchema } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 
 /**
@@ -61,4 +61,60 @@ export async function getInstanceNotifyData(instanceId: number) {
   const formType = formTypeCode ? getFormTypeByCode(formTypeCode) : undefined;
 
   return { instance, formTypeName, formType, formTypeCode };
+}
+
+/**
+ * 动态插入节点（在指定节点之后）
+ * 1. 将 afterOrder 之后的所有节点 node_order +1（单条 SQL）
+ * 2. 在 afterOrder + 1 位置插入新节点
+ * 3. 返回新插入的节点
+ *
+ * @param client - 数据库连接（需在事务内）
+ * @param instanceId - OA 实例 ID
+ * @param afterOrder - 在此节点顺序之后插入
+ * @param newNode - 新节点配置
+ */
+export async function insertNodeAfter(
+  client: PoolClient,
+  instanceId: number,
+  afterOrder: number,
+  newNode: {
+    name: string;
+    type: NodeType;
+    roleCode?: string;
+    assignedUserId?: number;
+    assignedUserName?: string;
+    inputSchema?: NodeInputSchema;
+  }
+): Promise<OaNodeRow> {
+  const newOrder = afterOrder + 1;
+
+  // 1. 将 afterOrder 之后的所有节点 node_order +1（单条 SQL，替代循环逐条更新）
+  await client.query(
+    `UPDATE oa_approval_nodes
+     SET node_order = node_order + 1, updated_at = NOW()
+     WHERE instance_id = $1 AND node_order >= $2`,
+    [instanceId, newOrder]
+  );
+
+  // 2. 插入新节点
+  const insertResult = await client.query<OaNodeRow>(
+    `INSERT INTO oa_approval_nodes
+       (instance_id, node_order, node_name, node_type, role_code,
+        assigned_user_id, assigned_user_name, input_schema, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+     RETURNING *`,
+    [
+      instanceId,
+      newOrder,
+      newNode.name,
+      newNode.type,
+      newNode.roleCode || null,
+      newNode.assignedUserId || null,
+      newNode.assignedUserName || null,
+      newNode.inputSchema ? JSON.stringify(newNode.inputSchema) : null,
+    ]
+  );
+
+  return insertResult.rows[0];
 }

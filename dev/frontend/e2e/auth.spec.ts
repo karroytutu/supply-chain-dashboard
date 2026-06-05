@@ -9,11 +9,11 @@ import { waitForPageLoad } from './helpers/antd';
 
 test.describe('认证流程', () => {
   test('无 token 访问受保护页面 → 自动跳转 /login', async ({ page }) => {
-    // 清除 storageState 以模拟未登录
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
-
+    // 先导航到目标页面，再清除 localStorage（避免 about:blank 上访问 localStorage 的 SecurityError）
     await page.goto('/collection/overview');
+    await page.evaluate(() => localStorage.clear());
+    await page.context().clearCookies();
+    await page.reload();
     await page.waitForURL('**/login**', { timeout: 10000 });
 
     expect(page.url()).toContain('/login');
