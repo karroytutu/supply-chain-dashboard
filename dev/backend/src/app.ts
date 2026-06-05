@@ -17,9 +17,6 @@ import returnOrderRoutes from './routes/return-order.routes';
 import goodsReturnRulesRoutes from './routes/goods-return-rules.routes';
 import procurementArchiveRoutes from './routes/procurement-archive.routes';
 
-// [催收OA集成] 旧路由已停用，由 OA 流程引擎替代
-// import arCollectionRoutes from './routes/ar-collection.routes';
-
 import assessmentRoutes from './routes/assessment.routes';
 import creditLicenseRoutes from './routes/credit-license.routes';
 import oaRoutes from './routes/oa.routes';
@@ -150,8 +147,6 @@ app.use('/api/goods-return-rules', goodsReturnRulesRoutes);
 // [统一考核迁移] 旧路由已停用，由 /api/assessment 替代
 // app.use('/api/return-penalty', returnPenaltyRoutes);
 app.use('/api/procurement', procurementArchiveRoutes);
-// [催收OA集成] 旧路由已停用，由 OA 流程引擎替代
-// app.use('/api/ar-collection', arCollectionRoutes);
 // [统一考核迁移] 旧路由已停用，由 /api/assessment 替代
 // app.use('/api/ar-assessment', arAssessmentRoutes);
 app.use('/api/assessment', assessmentRoutes);

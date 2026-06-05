@@ -17,7 +17,7 @@ import {
   type EntryRuleConfig,
   type CollectionEntryVerdict,
 } from './ar-collection-entry-rules';
-import type { EnrichedDebtRecord } from './ar-debt.types';
+import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
 
 // ==================== 测试数据工厂 ====================
 

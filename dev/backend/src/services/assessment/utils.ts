@@ -19,7 +19,7 @@ interface UserBasicInfo {
  * 根据角色编码获取用户列表
  * @param roleCode 角色编码
  * @param departmentId 可选部门ID筛选
- * @usedBy ar-collection-rules.ts, return-order-rules.ts
+ * @usedBy return-order-rules.ts, oa-collection-node-rules.ts
  */
 export async function getUsersByRole(
   roleCode: string,

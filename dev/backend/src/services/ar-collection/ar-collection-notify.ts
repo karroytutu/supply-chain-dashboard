@@ -3,11 +3,9 @@
  * ActionCard 与预警消息已拆分到 ar-collection-notify-cards.ts
  * @module services/ar-collection/ar-collection-notify
  */
-import { createLogger } from '../../utils/logger';
-const log = createLogger('ArCollection');
 
-import { appQuery } from '../../db/appPool';
-import { sendWorkNotification, type SendMessageOptions } from '../dingtalk.service';
+import type { SendMessageOptions } from '../dingtalk.service';
+import { sendNotification, sendNotificationByRole } from '../notification';
 import type { CollectionTask, EscalationLevel } from './ar-collection.types';
 
 // Re-export from cards module
@@ -55,77 +53,19 @@ function formatAmount(amount: number | null): string {
   return `¥${Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-/** 根据用户ID列表查询钉钉用户ID */
-async function getDingtalkUserIds(userIds: number[]): Promise<string[]> {
-  if (!userIds || userIds.length === 0) return [];
-
-  try {
-    const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
-    const result = await appQuery<{ dingtalk_user_id: string }>(
-      `SELECT dingtalk_user_id FROM users
-       WHERE id IN (${placeholders}) AND status = 1 AND dingtalk_user_id IS NOT NULL`,
-      userIds
-    );
-    return result.rows.map(row => row.dingtalk_user_id).filter(id => id && id !== 'dev_admin');
-  } catch (error) {
-    log.error('查询钉钉用户ID失败:', error);
-    return [];
-  }
-}
-
-/** 根据角色编码查询钉钉用户ID列表 */
-async function getDingtalkUserIdsByRole(roleCode: string): Promise<string[]> {
-  try {
-    const result = await appQuery<{ dingtalk_user_id: string }>(
-      `SELECT u.dingtalk_user_id
-       FROM users u
-       JOIN user_roles ur ON u.id = ur.user_id
-       JOIN roles r ON ur.role_id = r.id
-       WHERE r.code = $1 AND u.status = 1 AND r.status = 1
-         AND u.dingtalk_user_id IS NOT NULL`,
-      [roleCode]
-    );
-    return result.rows.map(row => row.dingtalk_user_id).filter(id => id && id !== 'dev_admin');
-  } catch (error) {
-    log.error('获取角色用户失败:', roleCode, error);
-    return [];
-  }
-}
-
-/** 统一通知发送入口（通知失败仅记录日志） */
+/** 统一通知发送入口（委托给共享通知服务） */
 export async function sendCollectionNotification(params: NotifyParams): Promise<void> {
-  try {
-    const { userIds, title, content, options } = params;
-    const dingtalkIds = await getDingtalkUserIds(userIds);
-    if (dingtalkIds.length === 0) {
-      log.info('无有效接收者，跳过通知:', title);
-      return;
-    }
-    const result = await sendWorkNotification(dingtalkIds, title, content, options);
-    log.info('通知发送结果:', title, result);
-  } catch (error) {
-    log.error('通知发送失败:', params.title, error);
-  }
+  await sendNotification(params);
 }
 
-/** 发送通知给指定角色的所有用户 */
+/** 发送通知给指定角色的所有用户（委托给共享通知服务） */
 export async function sendCollectionNotificationByRole(
   roleCode: string,
   title: string,
   content: string,
   options?: SendMessageOptions
 ): Promise<void> {
-  try {
-    const dingtalkIds = await getDingtalkUserIdsByRole(roleCode);
-    if (dingtalkIds.length === 0) {
-      log.info('角色无有效用户，跳过通知:', roleCode, title);
-      return;
-    }
-    const result = await sendWorkNotification(dingtalkIds, title, content, options);
-    log.info('角色通知发送结果:', roleCode, result);
-  } catch (error) {
-    log.error('角色通知发送失败:', roleCode, title, error);
-  }
+  await sendNotificationByRole(roleCode, title, content, options);
 }
 
 // ============================================

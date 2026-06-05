@@ -26,7 +26,7 @@ jest.mock('../erp-client/erp-customer.service', () => ({
 jest.mock('../erp-client/erp-settlement.service', () => ({
   searchErpSettlementOrders: jest.fn(),
 }));
-jest.mock('./ar-debt-enrichment.service', () => ({
+jest.mock('../erp-debt/erp-debt-enrichment.service', () => ({
   enrichDebtRecords: jest.fn(),
   filterHoardDebts: jest.fn(),
 }));
@@ -40,7 +40,7 @@ import {
 } from './ar-warning.query';
 import { appQuery } from '../../db/appPool';
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
-import { enrichDebtRecords, filterHoardDebts } from './ar-debt-enrichment.service';
+import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 
 const mockAppQuery = appQuery as jest.Mock;

@@ -30,7 +30,7 @@ export const sendPaginatedSuccess = (
 
 /**
  * 统一处理 POST 操作错误，根据错误信息返回合适的状态码
- * 用于 ar-collection 等使用 code 风格响应的控制器
+ * 用于 credit-license 等使用 code 风格响应的控制器
  */
 export function handleMutationError(res: Response, error: unknown, fallbackMsg: string): void {
   const msg = error instanceof Error ? error.message : fallbackMsg;

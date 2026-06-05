@@ -86,26 +86,6 @@ export default defineConfig({
       ],
     },
     {
-      path: '/collection',
-      name: '催收管理',
-      icon: 'AlertOutlined',
-      wrappers: ['@/wrappers/auth'],
-      routes: [
-        {
-          path: 'overview',
-          redirect: '/oa/center',
-        },
-        {
-          path: 'task/:id',
-          redirect: '/oa/center',
-        },
-        {
-          path: 'assessment',
-          redirect: '/assessment?category=oa_collection',
-        },
-      ],
-    },
-    {
       path: '/assessment',
       name: '考核中心',
       icon: 'AuditOutlined',

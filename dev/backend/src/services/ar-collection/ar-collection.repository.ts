@@ -9,13 +9,30 @@ import { appQuery as query } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
 import type { TaskQueryParams } from './ar-collection.types';
-import { PENDING_ROLE_SQL, ASSESSMENT_TIERS_SQL } from './ar-collection.query.sql';
 
 const CACHE_PREFIX = 'ar:collection';
 const TASK_MAX_OVERDUE_DAYS_SQL =
   'COALESCE(detail_stats.dynamic_max_overdue_days, t.max_overdue_days, 0)';
 const DETAIL_OVERDUE_DAYS_SQL =
   'COALESCE(GREATEST(0, CURRENT_DATE - d.expire_time::date), d.overdue_days, 0)';
+
+/** pendingRole 计算 SQL 片段 */
+const PENDING_ROLE_SQL = `
+  CASE
+    WHEN t.status = 'collecting' OR t.status = 'extension' THEN 'marketer'
+    WHEN t.status = 'escalated' AND t.escalation_level = 1 THEN 'supervisor'
+    WHEN t.status = 'difference_processing' THEN 'finance'
+    WHEN t.status = 'escalated' AND t.escalation_level = 2 THEN 'finance'
+    WHEN t.status = 'pending_verify' THEN 'cashier'
+    ELSE NULL
+  END AS pending_role`;
+
+/** 考核层级子查询 SQL 片段 */
+const ASSESSMENT_TIERS_SQL = `(
+  SELECT array_agg(DISTINCT rule_type)
+  FROM assessment_records
+  WHERE source_id = t.id AND source_type = 'ar_collection_task'
+) AS assessment_tiers`;
 
 export function hasCollectionFullAccess(role: string): boolean {
   return (

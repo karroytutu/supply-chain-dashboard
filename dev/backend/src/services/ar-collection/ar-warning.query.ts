@@ -10,7 +10,7 @@ const log = createLogger('ArCollection');
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery } from '../../db/appPool';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
-import { enrichDebtRecords, filterHoardDebts } from './ar-debt-enrichment.service';
+import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 
 // ============================================
 // 类型定义

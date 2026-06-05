@@ -57,8 +57,8 @@ export function mockApiError(message: string, code = 500): { success: false; mes
  * @param overrides 需要自定义实现的函数名和实现
  *
  * @example
- * mockApiModule('@/services/api/ar-collection', {
- *   getCollectionTasks: vi.fn().mockResolvedValue(mockApiSuccess({ list: [], total: 0 })),
+ * mockApiModule('@/services/api/oa', {
+ *   getInstances: vi.fn().mockResolvedValue(mockApiSuccess({ list: [], total: 0 })),
  * });
  */
 export function mockApiModule(

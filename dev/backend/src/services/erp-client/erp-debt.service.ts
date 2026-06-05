@@ -8,7 +8,7 @@ import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
-import type { ERPDebtRecord } from '../ar-collection/ar-debt.types';
+import type { ERPDebtRecord } from '../erp-debt/erp-debt.types';
 
 /** API 返回的原始欠款记录 */
 interface ApiDebtRecord {

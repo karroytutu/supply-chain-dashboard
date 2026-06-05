@@ -7,7 +7,7 @@
 import { createLogger } from '../../utils/logger';
 const log = createLogger('ArCollection');
 
-import type { EnrichedDebtRecord } from './ar-debt.types';
+import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
 import type { EntryRuleSnapshot } from './ar-collection.types';
 
 // ============================================
@@ -57,7 +57,7 @@ export type EntryRuleEvaluator = (
 // 规则配置常量
 // ============================================
 
-/** 催收准入规则配置 @usedBy ar-collection-task-generator.ts */
+/** 催收准入规则配置 @usedBy oa/ar-collection-creator.ts */
 export const COLLECTION_ENTRY_RULES: Record<EntryRuleType, EntryRuleConfig> = {
   overdue_days: {
     type: 'overdue_days',
@@ -75,7 +75,7 @@ export const COLLECTION_ENTRY_RULES: Record<EntryRuleType, EntryRuleConfig> = {
   },
 };
 
-/** 入催原因中文映射 @usedBy ar-collection.mapper.ts, frontend */
+/** 入催原因中文映射 @usedBy oa/ar-collection-creator.ts, frontend */
 export const ENTRY_REASON_LABELS: Record<EntryRuleType, string> = {
   overdue_days: '逾期',
   max_overdue_orders: '超单',

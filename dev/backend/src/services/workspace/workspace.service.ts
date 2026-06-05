@@ -3,8 +3,7 @@
  * 聚合各业务模块待办数据，供首页工作台展示
  */
 
-import { getApprovalStats } from '../oa/oa.query';
-import { getCollectionStats } from '../ar-collection/ar-collection.stats';
+import { getApprovalStats, getCollectionOaStats } from '../oa/oa.query';
 import { getStats as getReturnOrderStats } from '../return-order/return-order.repository';
 import { getStats as getStrategicProductStats } from '../strategic-product/strategic-product.repository';
 import { getStats as getAssessmentStats } from '../assessment/assessment.repository';
@@ -135,24 +134,20 @@ async function fetchOaModule(userId: number): Promise<WorkspaceModule> {
 async function fetchCollectionModule(userId: number, roles: string[]): Promise<WorkspaceModule> {
   // 按角色优先级选取最合适的角色进行查询
   const role = pickCollectionRole(roles);
-  const stats = await getCollectionStats(userId, role);
-  const collecting = Number((stats as any).collecting?.count) || 0;
-  const waiting = Number((stats as any).waiting?.count) || 0;
-  const attention = Number((stats as any).attention?.count) || 0;
+  const stats = await getCollectionOaStats(userId, role);
+  const pending = Number(stats.pending?.count) || 0;
+  const approved = Number(stats.approved?.count) || 0;
+  const attention = Number(stats.attention?.count) || 0;
 
   return {
     code: 'collection',
     name: '催收管理',
     icon: 'AlertOutlined',
-    totalPending: collecting + waiting,
+    totalPending: pending,
     items: [
-      { label: '催收中', count: collecting, level: collecting > 0 ? 'urgent' : 'normal' },
-      {
-        label: '待处理（差异/延期/升级）',
-        count: waiting,
-        level: waiting > 0 ? 'warning' : 'normal',
-      },
-      { label: '需关注', count: attention, level: 'normal' },
+      { label: '待审批', count: pending, level: pending > 0 ? 'urgent' : 'normal' },
+      { label: '已通过', count: approved, level: 'normal' },
+      { label: '需关注（差异处理）', count: attention, level: attention > 0 ? 'warning' : 'normal' },
     ],
   };
 }

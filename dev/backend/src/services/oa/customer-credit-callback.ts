@@ -18,7 +18,7 @@ import { getCustomerLicenseInfo, getErpCustomerProfile } from '../erp-client/erp
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import { resolveLicenseFilePath } from '../../middleware/credit-upload';
 import { cache } from '../../utils/cache';
-import { detectHoardChangesByCustomer } from '../ar-collection/ar-hoard-detect';
+import { detectHoardChangesByCustomer } from '../erp-debt/erp-hoard-detect';
 import fs from 'fs';
 import {
   CREDIT_SETTLE_METHOD_ON_ACCOUNT,

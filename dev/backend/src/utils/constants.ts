@@ -88,7 +88,7 @@ export const EXPIRING_RATE_ATTENTION = 1;
 // ==================== 角色编码 ====================
 
 /** 管理角色编码（用于权限判断和角色映射）
- * @usedBy ar-collection-query.controller.ts, ar-collection.mutation.ts
+ * @usedBy oa/ar-collection-callback.ts, assessment/rules/oa-collection-node-rules.ts
  */
 export const ROLE_CODES = {
   ADMIN: 'admin',
@@ -112,52 +112,35 @@ export const MANAGER_ROLES = [
 
 // ==================== 催收相关阈值 ====================
 
-/** 催收延期最大天数 @usedBy ar-collection.mutation.ts (校验延期天数) */
+/** 催收延期最大天数 @usedBy oa/ar-collection-callback.ts (校验延期天数), config.controller.ts */
 export const AR_EXTENSION_MAX_DAYS = 30;
 
-/** 催收默认到期天数 @usedBy ar-warning.query.ts, ar-collection-task-generator.ts, ar-warning.task.ts */
+/** 催收默认到期天数 @usedBy ar-warning.query.ts, ar-warning.task.ts, oa/ar-collection-creator.ts */
 export const AR_DEFAULT_EXPIRE_DAYS = 7;
 
-/** 结算方式-消费者到期标识 @usedBy ar-warning.query.ts, ar-collection-task-generator.ts, ar-warning.task.ts */
+/** 结算方式-消费者到期标识 @usedBy ar-warning.query.ts, ar-warning.task.ts, erp-debt/erp-debt-enrichment.service.ts, oa/ar-collection-creator.ts */
 export const AR_SETTLE_METHOD_CONSUMER_EXPIRE = 2;
 
-/** 催收考核起效日期 @usedBy ar-assessment-calculate.ts (判断考核是否生效) */
+/** 催收考核起效日期 @usedBy config.controller.ts (通过配置接口暴露给前端) */
 export const AR_ASSESSMENT_EFFECTIVE_DATE = '2026-04-23';
 
-/** 催收压单标记-正常 @usedBy ar-debt-enrichment.service.ts */
+/** 催收压单标记-正常 @usedBy erp-debt/erp-debt-enrichment.service.ts */
 export const AR_HOARD_TAG_NORMAL = 'NORMAL';
 
-/** 催收压单标记-压单 @usedBy ar-debt-enrichment.service.ts */
+/** 催收压单标记-压单 @usedBy erp-debt/erp-debt-enrichment.service.ts */
 export const AR_HOARD_TAG_HOARD = 'HOARD';
 
-/** 催收明细压单排除状态 @usedBy ar-hoard-detect.ts (标记压单排除明细) */
+/** 催收明细压单排除状态 @usedBy erp-debt/erp-hoard-detect.ts (标记压单排除明细) */
 export const AR_DETAIL_STATUS_HOARD_EXCLUDED = 'hoard_excluded';
 
-/** 压单类型-长期压单 @usedBy ar-hoard-detect.ts, ar-debt-enrichment.service.ts, customer-credit-callback.ts */
+/** 压单类型-长期压单 @usedBy erp-debt/erp-hoard-detect.ts, erp-debt/erp-debt-enrichment.service.ts, oa/customer-credit-callback.ts */
 export const AR_HOLD_TYPE_LONG_TERM = 'long_term';
 
-/** 压单类型-期限压单 @usedBy ar-hoard-detect.ts, ar-debt-enrichment.service.ts, ar-collection-sync.task.ts, customer-credit-callback.ts */
+/** 压单类型-期限压单 @usedBy erp-debt/erp-hoard-detect.ts, erp-debt/erp-debt-enrichment.service.ts, erp-debt/erp-debt-sync.task.ts, oa/customer-credit-callback.ts */
 export const AR_HOLD_TYPE_TIME_LIMITED = 'time_limited';
 
-/** 压单类型联合 @usedBy ar-debt.types.ts, ar-debt-enrichment.service.ts */
+/** 压单类型联合 @usedBy erp-debt/erp-debt.types.ts, erp-debt/erp-debt-enrichment.service.ts */
 export type ArHoldType = typeof AR_HOLD_TYPE_LONG_TERM | typeof AR_HOLD_TYPE_TIME_LIMITED;
-
-/** 升级处理角色映射: 升级层级 → 处理角色编码
- * @usedBy ar-collection.mutation.ts (升级时确定目标角色)
- * @usedBy ar-collection.mutation.ts (退回时确定恢复角色)
- */
-export const AR_ESCALATION_HANDLER_ROLES: Record<number, string> = {
-  1: ROLE_CODES.MARKETING_MANAGER,
-  2: ROLE_CODES.CURRENT_ACCOUNTANT,
-};
-
-/** 退回目标角色映射: 当前升级层级 → 退回后处理角色编码
- * @usedBy ar-collection.mutation.ts (退回时确定恢复角色)
- */
-export const AR_ROLLBACK_HANDLER_ROLES: Record<number, string> = {
-  2: ROLE_CODES.MARKETING_MANAGER, // L2→L1: 财务退回给营销经理
-  1: ROLE_CODES.MARKETER, // L1→L0: 营销经理退回给营销师
-};
 
 // ==================== 退货考核阈值 ====================
 

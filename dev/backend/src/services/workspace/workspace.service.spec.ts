@@ -6,9 +6,7 @@ jest.mock('../../utils/errorUtils', () => ({
 }));
 jest.mock('../oa/oa.query', () => ({
   getApprovalStats: jest.fn(),
-}));
-jest.mock('../ar-collection/ar-collection.stats', () => ({
-  getCollectionStats: jest.fn(),
+  getCollectionOaStats: jest.fn(),
 }));
 jest.mock('../return-order/return-order.repository', () => ({
   getStats: jest.fn(),
@@ -33,15 +31,14 @@ jest.mock('../../utils/cache-keys', () => ({
 }));
 
 import { getWorkspaceData } from './workspace.service';
-import { getApprovalStats } from '../oa/oa.query';
-import { getCollectionStats } from '../ar-collection/ar-collection.stats';
+import { getApprovalStats, getCollectionOaStats } from '../oa/oa.query';
 import { getStats as getReturnOrderStats } from '../return-order/return-order.repository';
 import { getStats as getStrategicProductStats } from '../strategic-product/strategic-product.repository';
 import { getStats as getAssessmentStats } from '../assessment/assessment.repository';
 import { cache } from '../../utils/cache';
 
 const mockGetApprovalStats = getApprovalStats as jest.MockedFunction<typeof getApprovalStats>;
-const mockGetCollectionStats = getCollectionStats as jest.MockedFunction<typeof getCollectionStats>;
+const mockGetCollectionOaStats = getCollectionOaStats as jest.MockedFunction<typeof getCollectionOaStats>;
 const mockGetReturnOrderStats = getReturnOrderStats as jest.MockedFunction<typeof getReturnOrderStats>;
 const mockGetStrategicProductStats = getStrategicProductStats as jest.MockedFunction<typeof getStrategicProductStats>;
 const mockGetAssessmentStats = getAssessmentStats as jest.MockedFunction<typeof getAssessmentStats>;
@@ -64,11 +61,11 @@ describe('getWorkspaceData', () => {
 
   it('fetches all modules for admin user', async () => {
     mockGetApprovalStats.mockResolvedValue({ pending: '3', my: '1', cc: '2' } as any);
-    mockGetCollectionStats.mockResolvedValue({
-      collecting: { count: '5' },
-      waiting: { count: '2' },
-      attention: { count: '1' },
-    } as any);
+    mockGetCollectionOaStats.mockResolvedValue({
+      pending: { count: 5, amount: 0 },
+      approved: { count: 2, amount: 0 },
+      attention: { count: 1, amount: 0 },
+    });
     mockGetReturnOrderStats.mockResolvedValue({
       pending_confirm: '1',
       pending_erp_fill: '0',
@@ -98,16 +95,16 @@ describe('getWorkspaceData', () => {
     // Only OA module should be fetched
     expect(result.modules).toHaveLength(1);
     expect(result.modules[0]!.code).toBe('oa');
-    expect(mockGetCollectionStats).not.toHaveBeenCalled();
+    expect(mockGetCollectionOaStats).not.toHaveBeenCalled();
   });
 
   it('handles module failures gracefully (Promise.allSettled)', async () => {
     mockGetApprovalStats.mockRejectedValue(new Error('OA service down'));
-    mockGetCollectionStats.mockResolvedValue({
-      collecting: { count: '1' },
-      waiting: { count: '0' },
-      attention: { count: '0' },
-    } as any);
+    mockGetCollectionOaStats.mockResolvedValue({
+      pending: { count: 1, amount: 0 },
+      approved: { count: 0, amount: 0 },
+      attention: { count: 0, amount: 0 },
+    });
     mockGetReturnOrderStats.mockResolvedValue({} as any);
     mockGetStrategicProductStats.mockResolvedValue({} as any);
     mockGetAssessmentStats.mockResolvedValue({} as any);
@@ -130,7 +127,7 @@ describe('getWorkspaceData', () => {
 
   it('counts urgent items correctly', async () => {
     mockGetApprovalStats.mockResolvedValue({ pending: '5', my: '0', cc: '0' } as any);
-    mockGetCollectionStats.mockResolvedValue({ collecting: { count: '0' }, waiting: { count: '0' }, attention: { count: '0' } } as any);
+    mockGetCollectionOaStats.mockResolvedValue({ pending: { count: 0, amount: 0 }, approved: { count: 0, amount: 0 }, attention: { count: 0, amount: 0 } });
     mockGetReturnOrderStats.mockResolvedValue({} as any);
     mockGetStrategicProductStats.mockResolvedValue({} as any);
     mockGetAssessmentStats.mockResolvedValue({} as any);

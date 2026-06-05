@@ -30,7 +30,7 @@ const ACTIONS: QuickAction[] = [
     icon: <PhoneOutlined />,
     label: '催收任务',
     desc: '查看催收任务列表',
-    path: '/collection/overview',
+    path: '/oa/center',
   },
   {
     icon: <StarOutlined />,

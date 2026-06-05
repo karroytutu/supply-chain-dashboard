@@ -19,8 +19,8 @@ import {
   buildMergedWarningMessage,
   type WarningDebtItem,
 } from './ar-collection-notify';
-import type { EnrichedDebtRecord } from './ar-debt.types';
-import { enrichDebtRecords, filterHoardDebts } from './ar-debt-enrichment.service';
+import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
+import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 
 // ============================================
 // 类型定义
