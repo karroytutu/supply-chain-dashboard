@@ -181,11 +181,11 @@ async function createBatchOaInstances(
           [instanceId]
         );
 
-        // 插入操作记录
+        // 插入操作记录（submit 不关联具体审批节点，node_order 为 NULL）
         await client.query(
           `INSERT INTO oa_approval_actions
-            (instance_id, action_type, operator_id, operator_name, node_order, comment)
-           VALUES ($1, 'submit', $2, $3, 1, '系统自动创建催收实例')`,
+            (instance_id, action_type, operator_id, operator_name, comment)
+           VALUES ($1, 'submit', $2, $3, '系统自动创建催收实例')`,
           [instanceId, systemUser.id, systemUser.name]
         );
 

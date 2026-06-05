@@ -71,7 +71,7 @@ describe('getApprovalDetail', () => {
     const actions = [
       {
         id: 100, action_type: 'submit', operator_id: 5, operator_name: '张三',
-        node_order: 1, comment: null, details: null, action_at: new Date('2026-06-01'),
+        node_order: null, comment: null, details: null, action_at: new Date('2026-06-01'),
       },
     ];
 

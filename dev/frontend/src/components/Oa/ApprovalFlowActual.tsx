@@ -6,7 +6,7 @@ import { formatDateTime } from '@/utils/format';
 import { NODE_TYPE_CONFIG } from './flow-types';
 import TimelineItem from './TimelineItem';
 import TimelineStartNode, { StartNodeIcon } from './TimelineStartNode';
-import TimelineApprovalGroup from './TimelineApprovalGroup';
+import TimelineApprovalGroup, { ActionEntry } from './TimelineApprovalGroup';
 import TimelineCcNode from './TimelineCcNode';
 import styles from './ApprovalFlow.less';
 
@@ -132,6 +132,9 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
   const groupedNodes = groupNodesByOrder(nodes);
   const actionsByNodeOrder = groupActionsByNodeOrder(actions);
 
+  // 提取 submit 动作，显示在“发起申请”起始节点下
+  const submitActions = actions.filter(a => a.actionType === 'submit');
+
   // 构造时间线条目数组
   const entries: React.ReactNode[] = [];
 
@@ -151,6 +154,11 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
       isLast={groupedNodes.length === 0 && (!ccUsers || ccUsers.length === 0)}
     >
       <TimelineStartNode applicantName={applicantName} />
+      {submitActions.length > 0 && (
+        <div className={styles.timelineActionList}>
+          {submitActions.map(action => <ActionEntry key={action.id} action={action} />)}
+        </div>
+      )}
     </TimelineItem>
   );
 
