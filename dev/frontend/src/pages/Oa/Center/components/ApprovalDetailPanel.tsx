@@ -1,161 +1,101 @@
-import React from 'react';
-import { Spin, Empty, Tag, Button, Popconfirm, Tooltip, Dropdown } from 'antd';
-import {
-  SwapOutlined,
-  TeamOutlined,
-  MessageOutlined,
-  ArrowLeftOutlined,
-  MoreOutlined,
-  RollbackOutlined,
-  SaveOutlined,
-  CheckOutlined,
-} from '@ant-design/icons';
-import {
-  type ApprovalDetail,
-  type ViewMode,
-  STATUS_LABELS,
-  STATUS_COLORS,
-} from '@/types/oa';
-import ApprovalFlow from '@/components/Oa/ApprovalFlow';
-import { FormFieldRenderer as FieldRenderer } from '@/components/Oa';
-import FormFieldsDiff, { hasOriginalFields } from '@/components/Oa/FormFieldsDiff';
-import { useErpFieldResolve } from '@/components/Oa/hooks/useErpFieldResolve';
-import { useErpLicenseResolve } from '@/components/Oa/hooks/useErpLicenseResolve';
+/**
+ * 流程中心 - 详情面板（薄包装器）
+ * 内部加载详情数据 + 使用共享 useApprovalActions + 渲染共享 ApprovalDetailContent
+ */
+import React, { useState, useEffect, useCallback } from 'react';
+import { Spin, Empty, Result, Button } from 'antd';
+import { ArrowLeftOutlined } from '@ant-design/icons';
+import type { ApprovalDetail, ViewMode } from '@/types/oa';
+import { oaApi } from '@/services/api/oa';
+import { useApprovalActions } from '@/components/Oa/hooks/useApprovalActions';
+import { ApprovalDetailContent } from '@/components/Oa';
 import { usePermission } from '@/hooks/usePermission';
-import { getInteractionType } from '@/utils/oa';
-import { checkCondition } from '../../Form/components/ConditionalFieldWrapper';
+import { createLogger } from '../../../../utils/logger';
 import styles from '../index.less';
 
+const log = createLogger('OaCenter');
+
 interface ApprovalDetailPanelProps {
-  detailLoading: boolean;
-  detail: ApprovalDetail | null;
+  selectedId: number | null;
   viewMode: ViewMode;
-  onApprove: () => void;
-  onReject: () => void;
-  onWithdraw: () => void;
-  onTransfer: () => void;
-  onUpdate?: () => void;
+  onActionComplete: (instanceId: number) => Promise<void>;
+  onWithdrawComplete: () => Promise<void>;
   isMobile?: boolean;
   onBack?: () => void;
 }
 
-/** 渲染状态标签 */
-const renderStatusTag = (status: string) => (
-  <Tag color={STATUS_COLORS[status as keyof typeof STATUS_COLORS] || 'default'}>
-    {STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status}
-  </Tag>
-);
-
-/** 表单字段渲染（支持变更对比） */
-const FormFieldsList: React.FC<{ detail: ApprovalDetail; resolvedMap: Record<string, string>; erpLicenseUrls: string[] }> = ({
-  detail, resolvedMap, erpLicenseUrls,
-}) => (
-  <div className={styles.formDataSection}>
-    <h3>表单数据</h3>
-    <div className={styles.formDataList}>
-      {hasOriginalFields(detail.formData) ? (
-        <FormFieldsDiff
-          formSchema={detail.formSchema}
-          formData={detail.formData}
-          resolvedMap={resolvedMap}
-          erpLicenseUrls={erpLicenseUrls}
-          layout="list"
-        />
-      ) : (
-        detail.formSchema?.fields?.map((field) => {
-          const value = detail.formData[field.key];
-          if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return null;
-          if (field.key.startsWith('_')) return null;
-          return (
-            <div key={field.key} className={styles.formDataRow}>
-              <span className={styles.formLabel}>{field.label}</span>
-              <span className={styles.formValue}>
-                <FieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
-              </span>
-            </div>
-          );
-        })
-      )}
-    </div>
-  </div>
-);
-
-/** 审批操作区 */
-const ActionBar: React.FC<{
-  viewMode: ViewMode;
-  detail: ApprovalDetail;
-  currentUserId: number | undefined;
-  onApprove: () => void;
-  onReject: () => void;
-  onWithdraw: () => void;
-  onTransfer: () => void;
-  onUpdate?: () => void;
-}> = ({
-  viewMode, detail, currentUserId, onApprove, onReject, onWithdraw, onTransfer, onUpdate,
+const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
+  selectedId, viewMode, onActionComplete, onWithdrawComplete, isMobile, onBack,
 }) => {
-  const currentNode = detail.nodes.find((n) => n.nodeOrder === detail.currentNodeOrder);
-  const isCurrentApprover = currentNode?.assignedUserId === currentUserId;
-  const isApplicant = detail.applicantId === currentUserId;
-  const interactionType = getInteractionType(detail);
-
-  return (
-    <>
-      {viewMode === 'pending' && detail.status === 'pending' && isCurrentApprover && (
-        <div className={styles.actionBar}>
-          {interactionType === 'operation' ? (
-            <>
-              <div className={styles.actionLeft}>
-                <Dropdown menu={{
-                  items: [
-                    { key: 'rollback', icon: <RollbackOutlined />, label: '退回', onClick: onReject },
-                    { key: 'transfer', icon: <SwapOutlined />, label: '转交', onClick: onTransfer },
-                  ],
-                }}>
-                  <Button icon={<MoreOutlined />}>更多</Button>
-                </Dropdown>
-              </div>
-              <div className={styles.actionRight}>
-                <Button icon={<SaveOutlined />} onClick={onUpdate}>更新</Button>
-                <Button type="primary" icon={<CheckOutlined />} onClick={onApprove}>完成</Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className={styles.actionLeft}>
-                <Button icon={<SwapOutlined />} onClick={onTransfer}>转交</Button>
-                <Tooltip title="功能开发中"><Button icon={<TeamOutlined />} disabled>加签</Button></Tooltip>
-                <Tooltip title="功能开发中"><Button icon={<MessageOutlined />} disabled>评论</Button></Tooltip>
-              </div>
-              <div className={styles.actionRight}>
-                <Button danger onClick={onReject}>拒绝</Button>
-                <Button type="primary" onClick={onApprove}>同意</Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-      {viewMode === 'my' && detail.status === 'pending' && isApplicant && (
-        <div className={styles.actionBar}>
-          <Popconfirm title="确定要撤回此审批吗？" onConfirm={onWithdraw} okText="确定" cancelText="取消">
-            <Button danger>撤回审批</Button>
-          </Popconfirm>
-        </div>
-      )}
-    </>
-  );
-};
-
-/** 详情内容（detail 非 null 时渲染） */
-const DetailContent: React.FC<{
-  detail: ApprovalDetail; viewMode: ViewMode;
-  onApprove: () => void; onReject: () => void; onWithdraw: () => void; onTransfer: () => void;
-  onUpdate?: () => void;
-  isMobile?: boolean; onBack?: () => void;
-}> = ({ detail, viewMode, onApprove, onReject, onWithdraw, onTransfer, onUpdate, isMobile, onBack }) => {
   const { currentUser } = usePermission();
-  const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
-  const { erpLicenseUrls } = useErpLicenseResolve(detail.formSchema, detail.formData);
-  const currentStep = detail.nodes.findIndex(n => n.status === 'pending');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detail, setDetail] = useState<ApprovalDetail | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  const loadDetail = useCallback(async (id: number) => {
+    setDetailLoading(true);
+    setLoadError(false);
+    try {
+      const res = await oaApi.getDetail(id);
+      setDetail(res.data);
+    } catch (error) {
+      log.error('加载详情失败:', error);
+      setLoadError(true);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) {
+      loadDetail(selectedId);
+    } else {
+      setDetail(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
+  }, [selectedId]);
+
+  const nodes = detail?.nodes || [];
+
+  // W6: 用 useCallback 稳定引用，避免每次渲染创建新函数导致下游重渲染
+  const handleActionCompleteCb = useCallback(() => {
+    if (selectedId) onActionComplete(selectedId);
+  }, [selectedId, onActionComplete]);
+
+  const actionState = useApprovalActions({
+    instanceId: selectedId ?? undefined,
+    detail,
+    nodes,
+    onActionComplete: selectedId ? handleActionCompleteCb : undefined,
+    onWithdrawComplete,
+  });
+
+  if (detailLoading) {
+    return <div className={styles.detailPanel}><div className={styles.loadingContainer}><Spin /></div></div>;
+  }
+
+  if (!detail) {
+    if (loadError && selectedId) {
+      return (
+        <div className={styles.detailPanel}>
+          <Result
+            status="error"
+            title="加载失败"
+            extra={<Button onClick={() => loadDetail(selectedId)}>重试</Button>}
+          />
+        </div>
+      );
+    }
+    return <div className={styles.detailPanel}><Empty description="请选择流程查看详情" /></div>;
+  }
+
+  // 根据 viewMode 计算 canOperate/canWithdraw 覆盖值
+  const currentNode = detail.nodes.find((n) => n.nodeOrder === detail.currentNodeOrder);
+  const isCurrentApprover = currentNode?.assignedUserId === currentUser?.id;
+  const isApplicant = detail.applicantId === currentUser?.id;
+
+  const canOperate = viewMode === 'pending' && detail.status === 'pending' && isCurrentApprover;
+  const canWithdraw = viewMode === 'my' && detail.status === 'pending' && isApplicant;
 
   return (
     <div className={styles.detailPanel}>
@@ -166,47 +106,15 @@ const DetailContent: React.FC<{
         </div>
       )}
       <div className={styles.detailScroll}>
-        <div className={styles.detailHeader}>
-          <h2 className={styles.detailTitle}>{detail.formTypeName}</h2>
-          <div className={styles.detailMeta}>
-            <span>编号: {detail.instanceNo}</span>
-            <span>申请人: {detail.applicantName}</span>
-            <span>部门: {detail.applicantDept || '-'}</span>
-          </div>
-          <div className={styles.detailStatus}>
-            {renderStatusTag(detail.status)}
-          </div>
-        </div>
-        <FormFieldsList detail={detail} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
-        <div className={styles.flowSection}>
-          <h3>审批流程</h3>
-          <ApprovalFlow
-            nodes={detail.nodes} ccUsers={detail.ccUsers} currentStep={currentStep}
-            instanceStatus={detail.status} erpMeta={detail.erpMeta} instanceId={detail.id}
-            applicantName={detail.applicantName}
-            applicantAvatar={detail.applicantAvatar} submittedAt={detail.submittedAt}
-          />
-        </div>
+        <ApprovalDetailContent
+          detail={detail}
+          actionState={actionState}
+          formLayout="list"
+          canOperateOverride={canOperate}
+          canWithdrawOverride={canWithdraw}
+        />
       </div>
-      <ActionBar viewMode={viewMode} detail={detail} currentUserId={currentUser?.id}
-        onApprove={onApprove} onReject={onReject} onWithdraw={onWithdraw} onTransfer={onTransfer} onUpdate={onUpdate} />
     </div>
-  );
-};
-
-const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
-  detailLoading, detail, viewMode, onApprove, onReject, onWithdraw, onTransfer, onUpdate, isMobile, onBack,
-}) => {
-  if (detailLoading) {
-    return <div className={styles.detailPanel}><div className={styles.loadingContainer}><Spin /></div></div>;
-  }
-  if (!detail) {
-    return <div className={styles.detailPanel}><Empty description="请选择流程查看详情" /></div>;
-  }
-  return (
-    <DetailContent detail={detail} viewMode={viewMode}
-      onApprove={onApprove} onReject={onReject} onWithdraw={onWithdraw} onTransfer={onTransfer} onUpdate={onUpdate}
-      isMobile={isMobile} onBack={onBack} />
   );
 };
 

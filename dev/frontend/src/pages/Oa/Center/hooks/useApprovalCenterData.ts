@@ -1,10 +1,10 @@
 /**
  * 流程中心 - 数据加载 Hook
- * 管理 API 调用、数据状态、loading 状态
+ * 管理列表和统计数据的 API 调用（详情加载已移至 ApprovalDetailPanel 内部）
  */
 import { useState, useEffect, useCallback } from 'react';
 import { oaApi } from '@/services/api/oa';
-import type { ApprovalInstance, ApprovalDetail, ApprovalStats, ViewMode } from '@/types/oa';
+import type { ApprovalInstance, ApprovalStats, ViewMode } from '@/types/oa';
 import { createLogger } from '../../../../utils/logger';
 const log = createLogger('OaCenter');
 
@@ -12,18 +12,15 @@ interface FiltersState {
   viewMode: ViewMode;
   page: number;
   searchText: string;
-  selectedId: number | null;
 }
 
 export function useApprovalCenterData(filters: FiltersState) {
   const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [stats, setStats] = useState<ApprovalStats>({
     total: 0, pending: 0, processed: 0, approved: 0, rejected: 0, my: 0, cc: 0,
   });
   const [list, setList] = useState<ApprovalInstance[]>([]);
   const [total, setTotal] = useState(0);
-  const [detail, setDetail] = useState<ApprovalDetail | null>(null);
 
   const loadStats = useCallback(async () => {
     try {
@@ -54,30 +51,10 @@ export function useApprovalCenterData(filters: FiltersState) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [filters.viewMode, filters.page]);
 
-  const loadDetail = useCallback(async (id: number) => {
-    setDetailLoading(true);
-    try {
-      const res = await oaApi.getDetail(id);
-      setDetail(res.data);
-    } catch (error) {
-      log.error('加载详情失败:', error);
-    } finally {
-      setDetailLoading(false);
-    }
-  }, []);
-
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   useEffect(() => { loadStats(); }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   useEffect(() => { loadList(); }, [filters.viewMode, filters.page]);
-  useEffect(() => {
-    if (filters.selectedId) {
-      loadDetail(filters.selectedId);
-    } else {
-      setDetail(null);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
-  }, [filters.selectedId]);
 
-  return { loading, detailLoading, stats, list, total, detail, loadList, loadStats, loadDetail };
+  return { loading, stats, list, total, loadList, loadStats };
 }

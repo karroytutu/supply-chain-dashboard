@@ -110,6 +110,22 @@
   gap: 12px;
 }
 
+// 卡片（descriptions 布局）
+.card {
+  margin-bottom: 16px;
+
+  :global {
+    .ant-card-head {
+      padding: 0 16px;
+      min-height: 40px;
+    }
+
+    .ant-card-body {
+      padding: 16px;
+    }
+  }
+}
+
 // 文件列表
 .fileList {
   display: flex;
@@ -124,6 +140,31 @@
 
     &:hover {
       text-decoration: underline;
+    }
+  }
+}
+
+// ── 移动端操作栏固定底部 (≤768px) ──
+@media (max-width: @screen-md) {
+  .content {
+    padding-bottom: 72px; // 为固定操作栏预留空间
+  }
+
+  .actionBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    margin-top: 0;
+    border-radius: 0;
+    padding: 10px 12px;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+    border-top: 1px solid #f0f0f0;
+
+    :global(.ant-btn) {
+      min-height: @touch-target-size;
+      font-size: 14px;
     }
   }
 }

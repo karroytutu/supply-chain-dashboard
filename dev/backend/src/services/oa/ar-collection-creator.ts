@@ -19,8 +19,8 @@ import { getFormTypeByCode } from './form-types';
 import { generateInstanceNo } from './oa-utils';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 
-/** Advisory Lock 标识（与旧生成器共用同一个锁，防止并发） */
-const ADVISORY_LOCK_ID = 20260421;
+/** Advisory Lock 标识（开发/生产使用不同 ID，避免共用数据库时互相阻塞） */
+const ADVISORY_LOCK_ID = process.env.NODE_ENV === 'production' ? 20260421 : 20260422;
 
 // =====================================================
 // 导出函数
@@ -252,7 +252,7 @@ async function getSystemUser(): Promise<{ id: number; name: string; dept: string
   const result = await query<{ id: number; name: string; department_name: string | null }>(
     `SELECT u.id, u.name, d.name as department_name
      FROM users u
-     LEFT JOIN departments d ON u.department_id = d.id
+     LEFT JOIN dingtalk_departments d ON u.department_id = d.dingtalk_dept_id
      WHERE u.status = 1
      ORDER BY CASE WHEN u.name = '系统' THEN 0 ELSE 1 END, u.id
      LIMIT 1`
