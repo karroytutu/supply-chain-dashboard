@@ -145,7 +145,9 @@
 }
 
 // ── 移动端操作栏固定底部 (≤768px) ──
-@media (max-width: @screen-md) {
+// 注：使用硬编码值替代 Ant Design Less 变量（@screen-md），
+// 因为 CSS Modules 模式下无法访问全局 Less 变量
+@media (max-width: 768px) {
   .content {
     padding-bottom: 72px; // 为固定操作栏预留空间
   }
@@ -163,7 +165,7 @@
     border-top: 1px solid #f0f0f0;
 
     :global(.ant-btn) {
-      min-height: @touch-target-size;
+      min-height: 44px;
       font-size: 14px;
     }
   }
