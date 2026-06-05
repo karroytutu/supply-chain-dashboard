@@ -99,7 +99,8 @@ function buildListWhereClause(
 
   switch (params.viewMode) {
     case 'pending':
-      // 同时约束节点状态和实例状态，避免已完成的实例因残留 pending 节点而误显示
+      // 同时约束节点状态和实例状态，并校验节点为当前活跃节点（node_order = current_node_order），
+      // 避免后续尚未轮到的节点出现在审批人的待处理列表中
       conditions.push(`i.status = 'pending'`);
       conditions.push(`
         EXISTS (
@@ -107,6 +108,7 @@ function buildListWhereClause(
           WHERE n.instance_id = i.id
             AND n.assigned_user_id = $${paramIndex}
             AND n.status = 'pending'
+            AND n.node_order = i.current_node_order
         )
       `);
       queryParams.push(userId);
@@ -114,6 +116,8 @@ function buildListWhereClause(
       break;
 
     case 'processed':
+      // 排除已终态实例，避免残留节点误导显示
+      conditions.push(`i.status NOT IN ('withdrawn', 'cancelled')`);
       conditions.push(`
         EXISTS (
           SELECT 1 FROM oa_approval_nodes n
@@ -280,6 +284,7 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
       WHERE n.assigned_user_id = $1
         AND n.status = 'pending'
         AND i.status = 'pending'
+        AND n.node_order = i.current_node_order
     `,
       [userId]
     ),
@@ -291,6 +296,7 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
       JOIN oa_approval_nodes n ON n.instance_id = i.id
       WHERE n.assigned_user_id = $1
         AND n.status IN ('approved', 'rejected', 'transferred')
+        AND i.status NOT IN ('withdrawn', 'cancelled')
     `,
       [userId]
     ),
@@ -343,6 +349,7 @@ export async function getCollectionOaStats(
       SELECT 1 FROM oa_approval_nodes n2
       WHERE n2.instance_id = i.id AND n2.assigned_user_id = $${paramIdx}
         AND n2.role_code = 'marketer' AND n2.status = 'pending'
+        AND n2.node_order = i.current_node_order
     )`;
     params.push(userId);
     paramIdx++;
@@ -351,11 +358,13 @@ export async function getCollectionOaStats(
       SELECT 1 FROM oa_approval_nodes n2
       WHERE n2.instance_id = i.id AND n2.assigned_user_id IS NOT NULL
         AND n2.role_code IN ('current_accountant', 'finance_staff') AND n2.status = 'pending'
+        AND n2.node_order = i.current_node_order
     )`;
   } else if (role === 'cashier') {
     roleFilter = `AND i.status = 'pending' AND EXISTS (
       SELECT 1 FROM oa_approval_nodes n2
       WHERE n2.instance_id = i.id AND n2.node_name LIKE '%核销%' AND n2.status = 'pending'
+        AND n2.node_order = i.current_node_order
     )`;
   }
   // admin/manager 等角色：不过滤，看全量
