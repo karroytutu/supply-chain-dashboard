@@ -2,20 +2,25 @@
  * 流程中心 - 业务操作 Hook
  * 管理审批操作（同意/拒绝/撤回/转交）和 Modal 控制
  */
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { message } from 'antd';
 import { oaApi } from '@/services/api/oa';
 import { getErrorMessage } from '../../../../utils/errorUtils';
+import type { ApprovalInstance } from '@/types/oa';
 
 interface UseApprovalCenterActionsParams {
   selectedId: number | null;
-  reloadList: () => Promise<void>;
+  setSelectedId: (id: number | null) => void;
+  currentList: ApprovalInstance[];
+  reloadList: () => Promise<ApprovalInstance[]>;
   reloadStats: () => Promise<void>;
   reloadDetail: (id: number) => Promise<void>;
 }
 
 export function useApprovalCenterActions({
   selectedId,
+  setSelectedId,
+  currentList,
   reloadList,
   reloadStats,
   reloadDetail,
@@ -26,14 +31,27 @@ export function useApprovalCenterActions({
   const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
   const [transferUserId, setTransferUserId] = useState<number | null>(null);
 
+  /** 操作完成后自动选中下一条待处理项 */
+  const selectNextPending = useCallback((newList: ApprovalInstance[], processedId: number) => {
+    if (newList.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    // 找到被处理项在原列表中的位置
+    const currentIndex = currentList.findIndex(item => item.id === processedId);
+    // 新列表中，同位置或最后一个
+    const nextIndex = Math.min(currentIndex >= 0 ? currentIndex : 0, newList.length - 1);
+    setSelectedId(newList[nextIndex].id);
+  }, [currentList, setSelectedId]);
+
   const handleApprove = async () => {
     if (!selectedId) return;
     try {
       await oaApi.approve(selectedId);
       message.success('已通过');
-      reloadList();
+      const newList = await reloadList();
       reloadStats();
-      reloadDetail(selectedId);
+      selectNextPending(newList, selectedId);
     } catch (error) {
       message.error(getErrorMessage(error) || '操作失败');
     }
@@ -49,9 +67,9 @@ export function useApprovalCenterActions({
       message.success('已拒绝');
       setRejectModalVisible(false);
       setRejectReason('');
-      reloadList();
+      const newList = await reloadList();
       reloadStats();
-      reloadDetail(selectedId);
+      selectNextPending(newList, selectedId);
     } catch (error) {
       message.error(getErrorMessage(error) || '操作失败');
     }
@@ -86,9 +104,9 @@ export function useApprovalCenterActions({
       message.success('已转交');
       setTransferModalVisible(false);
       setTransferUserId(null);
-      reloadList();
+      const newList = await reloadList();
       reloadStats();
-      if (selectedId) reloadDetail(selectedId);
+      selectNextPending(newList, selectedId);
     } catch (error) {
       message.error(getErrorMessage(error) || '操作失败');
     }
