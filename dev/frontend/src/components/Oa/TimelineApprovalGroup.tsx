@@ -1,7 +1,6 @@
 import React from 'react';
-import { Tag } from 'antd';
 import type { ApprovalNode, ApprovalAction, ErpMeta } from '@/types/oa';
-import { NODE_STATUS_TEXT, ACTION_TYPE_CONFIG } from './flow-types';
+import { ACTION_TYPE_CONFIG } from './flow-types';
 import ErpStep from './ErpStep';
 import styles from './ApprovalFlow.less';
 
@@ -27,6 +26,11 @@ export function ActionEntry({ action }: { action: ApprovalAction }) {
   );
 }
 
+/**
+ * 审批节点组内容渲染
+ * 统一评论模型后，节点标题行已由 TimelineItem 渲染（Name + Role + Status + Time）
+ * 此组件仅渲染：node.comment（历史兼容）+ 操作记录（非 comment 类型）
+ */
 const TimelineApprovalGroup: React.FC<TimelineApprovalGroupProps> = ({
   nodes,
   actions = [],
@@ -37,24 +41,9 @@ const TimelineApprovalGroup: React.FC<TimelineApprovalGroupProps> = ({
     <div className={styles.timelineApprovalGroup}>
       {nodes.map((node) => (
         <div key={node.id} className={styles.timelineApprovalNode}>
-          <div className={styles.timelineApprovalBody}>
-            <span className={styles.timelineApprovalOperator}>
-              {node.nodeType === 'auto'
-                ? node.nodeName || '系统自动执行'
-                : node.assignedUserName || '待分配'}
-            </span>
-            {node.isCountersign && (
-              <Tag color="purple" className={styles.nodeTypeTag}>
-                加签
-              </Tag>
-            )}
-            <span className={styles.timelineApprovalStatus}>
-              {NODE_STATUS_TEXT[node.status] || node.status}
-            </span>
-          </div>
-
+          {/* node.comment 历史数据兼容渲染（deprecated，统一评论模型后不再写入） */}
           {node.comment && (
-            <div className={styles.timelineComment}>{node.comment}</div>
+            <div className={styles.timelineCommentLegacy}>{node.comment}</div>
           )}
 
           {node.nodeType === 'auto' && erpMeta && (
@@ -63,6 +52,7 @@ const TimelineApprovalGroup: React.FC<TimelineApprovalGroupProps> = ({
         </div>
       ))}
 
+      {/* 非 comment 类型的操作记录（如 submit 等，大部分已不再渲染） */}
       {actions.length > 0 && (
         <div className={styles.timelineActionList}>
           {actions.map((action) => (

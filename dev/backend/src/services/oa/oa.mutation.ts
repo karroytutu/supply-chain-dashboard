@@ -22,6 +22,9 @@ export { rejectApproval, transferApproval } from './mutations/reject-transfer';
 // 加签 + 撤回
 export { countersignApproval, withdrawApproval } from './mutations/countersign-withdraw';
 
+// 独立评论
+export { addCommentToInstance } from './mutations/add-comment';
+
 /**
  * 标记抄送已读
  */

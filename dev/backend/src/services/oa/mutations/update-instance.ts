@@ -46,11 +46,28 @@ export async function updateInstanceFormData(
     [JSON.stringify(mergedFormData), instanceId]
   );
 
-  // 4. 插入操作记录（action_type='update'，不推进节点）
+  // 4. 查询当前节点顺序（用于评论记录关联）
+  const instResult = await query<{ current_node_order: number }>(
+    `SELECT current_node_order FROM oa_approval_instances WHERE id = $1`,
+    [instanceId]
+  );
+  const currentNodeOrder = instResult.rows[0]?.current_node_order ?? null;
+
+  // 5. 插入操作记录（action_type='update'，不推进节点）
   await query(
     `INSERT INTO oa_approval_actions
-       (instance_id, action_type, operator_id, operator_name, comment)
-     VALUES ($1, 'update', $2, $3, $4)`,
-    [instanceId, userId, userName, comment || null]
+       (instance_id, action_type, operator_id, operator_name, node_order, comment)
+     VALUES ($1, 'update', $2, $3, $4, $5)`,
+    [instanceId, userId, userName, currentNodeOrder, null]
   );
+
+  // 6. 如果用户填写了备注，作为独立 comment 记录插入（统一评论模型）
+  if (comment && comment.trim()) {
+    await query(
+      `INSERT INTO oa_approval_actions
+         (instance_id, action_type, operator_id, operator_name, node_order, comment)
+       VALUES ($1, 'comment', $2, $3, $4, $5)`,
+      [instanceId, userId, userName, currentNodeOrder, comment.trim()]
+    );
+  }
 }

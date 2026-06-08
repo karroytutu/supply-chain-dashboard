@@ -93,7 +93,7 @@ export async function countersignApproval(
         userId,
         userName,
         currentNode.node_order,
-        comment || null,
+        null,
         JSON.stringify({
           countersignType,
           countersignUserIds,
@@ -101,6 +101,16 @@ export async function countersignApproval(
         }),
       ]
     );
+
+    // 如果用户填写了加签备注，作为独立 comment 记录插入（统一评论模型）
+    if (comment && comment.trim()) {
+      await client.query(
+        `INSERT INTO oa_approval_actions
+          (instance_id, action_type, operator_id, operator_name, node_order, comment)
+         VALUES ($1, 'comment', $2, $3, $4, $5)`,
+        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
+      );
+    }
   });
 
   setImmediate(() => {

@@ -42,6 +42,7 @@ const mockActionsReturn = {
   setTransferUserId: vi.fn(),
   canOperate: false,
   canWithdraw: false,
+  canComment: false,
   currentStep: 0,
 };
 

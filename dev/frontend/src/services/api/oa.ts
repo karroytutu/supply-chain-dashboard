@@ -253,6 +253,19 @@ export async function withdraw(instanceId: number): Promise<void> {
   );
 }
 
+/**
+ * 添加评论（独立评论，不执行审批动作）
+ */
+export async function addComment(
+  instanceId: number,
+  data: { comment: string }
+): Promise<void> {
+  await request<{ success: boolean; message: string }>(
+    `/oa/instances/${instanceId}/comment`,
+    { method: 'POST', body: data }
+  );
+}
+
 /** 标记抄送已读 */
 export async function markCcRead(instanceId: number): Promise<void> {
   await request<{ success: boolean; message: string }>(
@@ -564,6 +577,7 @@ export const oaApi = {
   transfer,
   countersign,
   withdraw,
+  addComment,
   getDataList,
   exportData,
   getErpReference,

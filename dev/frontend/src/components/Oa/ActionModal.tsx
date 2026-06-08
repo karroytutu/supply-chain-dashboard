@@ -12,7 +12,7 @@ interface TransferUser {
 
 interface ActionModalProps {
   visible: boolean;
-  actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | null;
+  actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | null;
   actionComment: string;
   actionLoading: boolean;
   /** 转交候选人列表（从后端获取） */
@@ -27,6 +27,7 @@ interface ActionModalProps {
 
 /** 获取操作弹窗标题 */
 const getActionModalTitle = (actionType: string | null, interactionType?: NodeInteractionType) => {
+  if (actionType === 'comment') return '添加评论';
   if (interactionType === 'operation') {
     switch (actionType) {
       case 'approve': return '确认完成';
@@ -74,10 +75,12 @@ const ActionModal: React.FC<ActionModalProps> = ({
           </div>
         )}
         <div style={{ marginBottom: 0 }}>
-          <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>审批意见：</label>
+          <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
+            {actionType === 'comment' ? '评论内容：' : '审批意见：'}
+          </label>
           <TextArea
             rows={4}
-            placeholder="请输入审批意见（选填）"
+            placeholder={actionType === 'comment' ? '请输入评论内容' : '请输入审批意见（选填）'}
             value={actionComment}
             onChange={(e) => onCommentChange(e.target.value)}
           />

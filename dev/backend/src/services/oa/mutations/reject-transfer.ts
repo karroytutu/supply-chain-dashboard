@@ -34,8 +34,8 @@ export async function rejectApproval(
     }
 
     await client.query(
-      `UPDATE oa_approval_nodes SET status = 'rejected', comment = $1, acted_at = NOW() WHERE id = $2`,
-      [comment, currentNode.id]
+      `UPDATE oa_approval_nodes SET status = 'rejected', comment = NULL, acted_at = NOW() WHERE id = $1`,
+      [currentNode.id]
     );
 
     await client.query(
@@ -53,8 +53,18 @@ export async function rejectApproval(
       `INSERT INTO oa_approval_actions
         (instance_id, action_type, operator_id, operator_name, node_order, comment)
        VALUES ($1, 'reject', $2, $3, $4, $5)`,
-      [instanceId, userId, userName, currentNode.node_order, comment]
+      [instanceId, userId, userName, currentNode.node_order, null]
     );
+
+    // 拒绝原因作为独立 comment 记录插入（统一评论模型）
+    if (comment && comment.trim()) {
+      await client.query(
+        `INSERT INTO oa_approval_actions
+          (instance_id, action_type, operator_id, operator_name, node_order, comment)
+         VALUES ($1, 'comment', $2, $3, $4, $5)`,
+        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
+      );
+    }
 
     // 触发审批驳回回调
     const instResult = await client.query<OaInstanceRow>(
@@ -136,10 +146,20 @@ export async function transferApproval(
         userId,
         userName,
         currentNode.node_order,
-        comment || null,
+        null,
         JSON.stringify({ transferToUserId, transferToUserName: targetUserName }),
       ]
     );
+
+    // 如果用户填写了转交备注，作为独立 comment 记录插入（统一评论模型）
+    if (comment && comment.trim()) {
+      await client.query(
+        `INSERT INTO oa_approval_actions
+          (instance_id, action_type, operator_id, operator_name, node_order, comment)
+         VALUES ($1, 'comment', $2, $3, $4, $5)`,
+        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
+      );
+    }
   });
 
   setImmediate(() => {

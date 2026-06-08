@@ -127,15 +127,19 @@ const ActionBar: React.FC<{
   interactionType: 'approval' | 'operation';
   canOperate: boolean;
   canWithdraw: boolean;
-  onOpenAction: (type: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update') => void;
+  canComment: boolean;
+  onOpenAction: (type: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment') => void;
   onWithdraw: () => void;
-}> = ({ detail, interactionType, canOperate, canWithdraw, onOpenAction, onWithdraw }) => {
+}> = ({ detail, interactionType, canOperate, canWithdraw, canComment, onOpenAction, onWithdraw }) => {
 
   if (canOperate) {
     if (interactionType === 'operation') {
       return (
         <div className={styles.actionBar}>
           <div className={styles.actionLeft}>
+            {canComment && (
+              <Button onClick={() => onOpenAction('comment')}>评论</Button>
+            )}
             <Dropdown menu={{
               items: [
                 { key: 'rollback', icon: <RollbackOutlined />, label: '退回', onClick: () => onOpenAction('reject') },
@@ -157,12 +161,26 @@ const ActionBar: React.FC<{
         <div className={styles.actionLeft}>
           <Button icon={<SwapOutlined />} onClick={() => onOpenAction('transfer')}>转交</Button>
           <Tooltip title="功能开发中"><Button icon={<TeamOutlined />} disabled>加签</Button></Tooltip>
-          <Tooltip title="功能开发中"><Button icon={<MessageOutlined />} disabled>评论</Button></Tooltip>
+          {canComment && (
+            <Button onClick={() => onOpenAction('comment')}>评论</Button>
+          )}
         </div>
         <div className={styles.actionRight}>
           <Button danger onClick={() => onOpenAction('reject')}>驳回</Button>
           <Button type="primary" onClick={() => onOpenAction('approve')}>同意</Button>
         </div>
+      </div>
+    );
+  }
+
+  // 申请人或非当前审批人但有评论权限时，只显示评论按钮
+  if (canComment) {
+    return (
+      <div className={styles.actionBar}>
+        <div className={styles.actionLeft}>
+          <Button onClick={() => onOpenAction('comment')}>评论</Button>
+        </div>
+        <div className={styles.actionRight} />
       </div>
     );
   }
@@ -209,6 +227,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
         interactionType={interactionType}
         canOperate={canOperateOverride !== undefined ? canOperateOverride : actionState.canOperate}
         canWithdraw={canWithdrawOverride !== undefined ? canWithdrawOverride : actionState.canWithdraw}
+        canComment={actionState.canComment}
         onOpenAction={actionState.openActionModal} onWithdraw={actionState.executeWithdraw}
       />
       <ActionModal

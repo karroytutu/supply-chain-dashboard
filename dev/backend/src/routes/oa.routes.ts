@@ -30,6 +30,7 @@ import {
   withdraw,
   markCcAsRead,
   updateInstance,
+  addComment,
 } from '../controllers/oa-mutation.controller';
 import {
   // 数据管理
@@ -180,6 +181,9 @@ router.post('/instances/:id/cc-read', requirePermission('oa:read'), markCcAsRead
 
 // 更新实例表单数据（操作型节点，不推进流程）
 router.post('/instances/:id/update', requirePermission('oa:write'), updateInstance);
+
+// 添加评论（独立评论，不执行审批动作）
+router.post('/instances/:id/comment', requirePermission('oa:write'), addComment);
 
 // 获取转交候选人列表
 router.get(

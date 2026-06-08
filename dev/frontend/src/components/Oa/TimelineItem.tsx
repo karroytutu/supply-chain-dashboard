@@ -6,6 +6,12 @@ interface TimelineItemProps {
   icon: React.ReactNode;
   /** 节点标题 */
   title: string;
+  /** 副标题（如角色名） */
+  subtitle?: string;
+  /** 状态文字（如“已同意”“待处理”） */
+  status?: string;
+  /** 状态文字颜色 */
+  statusColor?: string;
   /** 右侧时间 */
   time?: string | null;
   /** 是否为第一项（控制竖线是否从顶部开始） */
@@ -29,6 +35,9 @@ function getLineStyle(
 const TimelineItem: React.FC<TimelineItemProps> = ({
   icon,
   title,
+  subtitle,
+  status,
+  statusColor,
   time,
   isFirst,
   isLast,
@@ -47,7 +56,13 @@ const TimelineItem: React.FC<TimelineItemProps> = ({
       </div>
       <div className={styles.timelineContent}>
         <div className={styles.timelineHeader}>
-          <span className={styles.timelineTitle}>{title}</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+            <span className={styles.timelineTitle}>{title}</span>
+            {subtitle && <span className={styles.timelineSubtitle}>{subtitle}</span>}
+            {status && (
+              <span className={styles.timelineStatus} style={{ color: statusColor }}>{status}</span>
+            )}
+          </div>
           {time && <span className={styles.timelineTime}>{time}</span>}
         </div>
         {children}

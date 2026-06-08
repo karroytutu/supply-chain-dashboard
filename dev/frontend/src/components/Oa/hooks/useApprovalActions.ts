@@ -10,7 +10,7 @@ import { oaApi } from '@/services/api/oa';
 import { usePermission } from '@/hooks/usePermission';
 import { getErrorMessage } from '@/utils/errorUtils';
 
-export type ActionType = 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | null;
+export type ActionType = 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | null;
 
 export interface UseApprovalActionsConfig {
   instanceId: number | undefined;
@@ -36,6 +36,7 @@ export interface UseApprovalActionsReturn {
   setTransferUserId: (v: number | null) => void;
   canOperate: boolean;
   canWithdraw: boolean;
+  canComment: boolean;
   currentStep: number;
 }
 
@@ -67,6 +68,18 @@ export function useApprovalActions({
     if (!detail || detail.status !== 'pending') return false;
     return detail.applicantId === currentUser?.id;
   }, [detail, currentUser?.id]);
+
+  const canComment = useMemo(() => {
+    if (!detail) return false;
+    // 终态不允许评论
+    if (!['pending', 'processing'].includes(detail.status)) return false;
+    // 当前节点审批人/处理人
+    const currentNode = nodes.find((n) => n.status === 'pending');
+    if (currentNode?.assignedUserId === currentUser?.id) return true;
+    // 申请人
+    if (detail.applicantId === currentUser?.id) return true;
+    return false;
+  }, [detail, nodes, currentUser?.id]);
 
   const currentStep = useMemo(() => {
     const pendingIndex = nodes.findIndex((n) => n.status === 'pending');
@@ -124,6 +137,14 @@ export function useApprovalActions({
           });
           message.success('数据已更新');
           break;
+        case 'comment':
+          if (!actionComment.trim()) {
+            message.warning('请输入评论内容');
+            return;
+          }
+          await oaApi.addComment(instanceId, { comment: actionComment });
+          message.success('评论已添加');
+          break;
       }
       setActionModalVisible(false);
       setActionComment('');
@@ -174,6 +195,6 @@ export function useApprovalActions({
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId,
-    canOperate, canWithdraw, currentStep,
+    canOperate, canWithdraw, canComment, currentStep,
   };
 }

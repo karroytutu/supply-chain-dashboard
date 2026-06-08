@@ -15,6 +15,7 @@ import {
   countersignApproval,
   withdrawApproval,
   markCcRead,
+  addCommentToInstance,
 } from '../services/oa/oa.mutation';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
@@ -223,6 +224,31 @@ export async function updateInstance(req: Request, res: Response): Promise<void>
   } catch (error) {
     log.error('更新实例数据失败:', error);
     const message = error instanceof Error ? error.message : '更新数据失败';
+    res.status(400).json(buildErrorResponse(400, message));
+  }
+}
+
+/** 添加评论（独立评论，不执行审批动作） */
+export async function addComment(req: Request, res: Response): Promise<void> {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json(buildErrorResponse(401, '未登录'));
+      return;
+    }
+
+    const instanceId = parseInt(req.params.id);
+    const { comment } = req.body;
+    if (!comment || !comment.trim()) {
+      res.status(400).json(buildErrorResponse(400, '请输入评论内容'));
+      return;
+    }
+
+    await addCommentToInstance(instanceId, user.userId, user.name, comment);
+    res.json(buildSuccessResponse(null, '评论已添加'));
+  } catch (error) {
+    log.error('添加评论失败:', error);
+    const message = error instanceof Error ? error.message : '添加评论失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
 }
