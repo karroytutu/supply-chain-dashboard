@@ -67,12 +67,15 @@ describe('approveApproval', () => {
       // Simulate the transaction callback with a mock client
       const mockClient = {
         query: jest.fn()
-          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // instance
-          .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] }) // form type code
-          .mockResolvedValueOnce({ rows: [{ id: 10, node_order: 1, node_type: 'role' }] }) // current node
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // SELECT instance0
+          .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] }) // SELECT form type code
+          // getCurrentApproverNode is MOCKED, does not consume client.query
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
-          .mockResolvedValueOnce({ rows: [] }), // UPDATE status
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE instance status
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action
+          .mockResolvedValueOnce({ rows: [] }), // INSERT comment - 统一评论模型新增
         };
       return fn(mockClient);
     });

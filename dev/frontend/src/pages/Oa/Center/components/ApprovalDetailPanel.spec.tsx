@@ -25,6 +25,7 @@ const { mockOaApi, mockUseApprovalActions, mockActionState } = vi.hoisted(() => 
     setTransferUserId: vi.fn(),
     canOperate: false,
     canWithdraw: false,
+    canComment: false,
     currentStep: 0,
   };
 

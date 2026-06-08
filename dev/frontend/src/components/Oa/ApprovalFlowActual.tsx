@@ -106,6 +106,31 @@ function getApprovalGroupTime(nodes: ApprovalNode[]): string | null {
   return null;
 }
 
+/** 获取审批节点组的状态文字和颜色（用于 TimelineItem 标题行） */
+function getApprovalGroupStatus(nodes: ApprovalNode[]): { status: string; statusColor: string } | null {
+  const firstNode = nodes[0];
+  const statusMap: Record<string, { text: string; color: string }> = {
+    approved: { text: '已同意', color: '#52c41a' },
+    rejected: { text: '已拒绝', color: '#f5222d' },
+    transferred: { text: '已转交', color: '#fa8c16' },
+    pending: { text: '待处理', color: '#fa8c16' },
+    processing: { text: '处理中', color: '#1890ff' },
+    skipped: { text: '已跳过', color: '#999' },
+    cancelled: { text: '已取消', color: '#999' },
+    failed: { text: '执行失败', color: '#f5222d' },
+  };
+  const config = statusMap[firstNode.status];
+  if (!config) return null;
+  return { status: config.text, statusColor: config.color };
+}
+
+/** 获取审批节点组的审批人姓名（用于 TimelineItem 标题行） */
+function getApprovalGroupSubtitle(nodes: ApprovalNode[]): string | undefined {
+  const firstNode = nodes[0];
+  if (firstNode.nodeType === 'auto') return undefined;
+  return firstNode.assignedUserName || undefined;
+}
+
 export interface ApprovalFlowActualProps {
   nodes: ApprovalNode[];
   ccUsers?: CcUser[];
@@ -132,13 +157,19 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
   const groupedNodes = groupNodesByOrder(nodes);
   const actionsByNodeOrder = groupActionsByNodeOrder(actions);
 
-  // 提取 submit 动作，显示在“发起申请”起始节点下
+  // 提取 submit 动作，显示在"发起申请"起始节点下
   const submitActions = actions.filter(a => a.actionType === 'submit');
-
+  
+  // 提取 nodeOrder 为 null 的评论，显示在"发起申请"起始节点之后
+  const startNodeComments = actions.filter(
+    a => a.actionType === 'comment' && a.nodeOrder == null
+  );
+  
   // 构造时间线条目数组
   const entries: React.ReactNode[] = [];
-
+  
   // 1. 发起申请节点（始终视为已完成，显示对勾）
+  const hasNodesAfterStart = groupedNodes.length > 0 || (ccUsers && ccUsers.length > 0);
   entries.push(
     <TimelineItem
       key="start"
@@ -151,7 +182,7 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
       }
       title="发起申请"
       time={submittedAt ? formatDateTime(submittedAt) : null}
-      isLast={groupedNodes.length === 0 && (!ccUsers || ccUsers.length === 0)}
+      isLast={!hasNodesAfterStart && startNodeComments.length === 0}
     >
       <TimelineStartNode applicantName={applicantName} />
       {submitActions.length > 0 && (
@@ -161,29 +192,87 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
       )}
     </TimelineItem>
   );
+  
+  // 1.5 起始节点评论（nodeOrder 为 null 的 comment，如历史数据标注）
+  startNodeComments.forEach((action, index) => {
+    const isLastComment = index === startNodeComments.length - 1;
+    entries.push(
+      <TimelineItem
+        key={`start-comment-${action.id}`}
+        icon={<div className={styles.timelineCommentDot} />}
+        title=""
+        isLast={!hasNodesAfterStart && isLastComment}
+      >
+        <div className={styles.timelineCommentEntry}>
+          <div className={styles.timelineCommentHeader}>
+            <span className={styles.timelineCommentAuthor}>{action.operatorName || '未知'}</span>
+            <span className={styles.timelineCommentLabel}>添加了评论</span>
+            {action.actionAt && (
+              <span className={styles.timelineCommentTime}>{formatDateTime(action.actionAt)}</span>
+            )}
+          </div>
+          <div className={styles.timelineCommentContent}>{action.comment}</div>
+        </div>
+      </TimelineItem>
+    );
+  });
 
   // 2. 审批节点组
   groupedNodes.forEach((group, index) => {
     const firstNode = group[0];
     const nodeActions = actionsByNodeOrder.get(firstNode.nodeOrder) || [];
     const isLast = index === groupedNodes.length - 1 && (!ccUsers || ccUsers.length === 0);
+    const groupStatus = getApprovalGroupStatus(group);
+    const subtitle = getApprovalGroupSubtitle(group);
+
+    // 分离 comment 类型和非 comment 类型的 action
+    const commentActions = nodeActions.filter(a => a.actionType === 'comment');
+    const otherActions = nodeActions.filter(a => a.actionType !== 'comment');
 
     entries.push(
       <TimelineItem
         key={`approval-${firstNode.nodeOrder}`}
         icon={getApprovalGroupIcon(group)}
         title={firstNode.nodeName}
+        subtitle={subtitle}
+        status={groupStatus?.status}
+        statusColor={groupStatus?.statusColor}
         time={getApprovalGroupTime(group)}
-        isLast={isLast}
+        isLast={isLast && commentActions.length === 0}
       >
         <TimelineApprovalGroup
           nodes={group}
-          actions={nodeActions}
+          actions={otherActions}
           erpMeta={firstNode.nodeType === 'auto' ? erpMeta : undefined}
           instanceId={instanceId}
         />
       </TimelineItem>
     );
+
+    // comment 类型的 action 作为独立条目渲染在节点之后
+    commentActions.forEach(action => {
+      entries.push(
+        <TimelineItem
+          key={`comment-${action.id}`}
+          icon={
+            <div className={styles.timelineCommentDot} />
+          }
+          title=""
+          isLast={isLast && commentActions.indexOf(action) === commentActions.length - 1}
+        >
+          <div className={styles.timelineCommentEntry}>
+            <div className={styles.timelineCommentHeader}>
+              <span className={styles.timelineCommentAuthor}>{action.operatorName || '未知'}</span>
+              <span className={styles.timelineCommentLabel}>添加了评论</span>
+              {action.actionAt && (
+                <span className={styles.timelineCommentTime}>{formatDateTime(action.actionAt)}</span>
+              )}
+            </div>
+            <div className={styles.timelineCommentContent}>{action.comment}</div>
+          </div>
+        </TimelineItem>
+      );
+    });
   });
 
   // 3. 抄送节点

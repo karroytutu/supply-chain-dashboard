@@ -546,7 +546,8 @@ export type ApprovalActionType =
   | 'withdraw'
   | 'cancel'
   | 'resubmit'
-  | 'update'; // 操作型节点的"更新"操作（保存数据，不触发流转）
+  | 'update' // 操作型节点的"更新"操作（保存数据，不触发流转）
+  | 'comment'; // 独立评论（不执行审批动作，仅留言）
 
 /**
  * oa_approval_actions 表行

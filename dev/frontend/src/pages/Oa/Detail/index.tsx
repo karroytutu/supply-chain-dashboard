@@ -29,7 +29,7 @@ const ApprovalDetailPage: React.FC = () => {
   const {
     loading, detail, errorType, loadDetail,
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
-    canOperate, canWithdraw, currentStep,
+    canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId,
   } = useApprovalDetail(id);
@@ -39,7 +39,7 @@ const ApprovalDetailPage: React.FC = () => {
 
   const actionState = {
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
-    canOperate, canWithdraw, currentStep,
+    canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId,
   };

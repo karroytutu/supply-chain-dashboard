@@ -94,6 +94,17 @@
     line-height: 22px;
   }
 
+  .timelineSubtitle {
+    font-size: 12px;
+    color: #999;
+    line-height: 20px;
+  }
+
+  .timelineStatus {
+    font-size: 12px;
+    line-height: 20px;
+  }
+
   .timelineTime {
     font-size: 12px;
     color: #999;
@@ -149,16 +160,66 @@
     color: #999;
   }
 
-  // 评论卡片
-  .timelineComment {
+  // 评论卡片（已废弃，仅历史数据兼容）
+  .timelineCommentLegacy {
     margin-top: 4px;
-    padding: 8px 12px;
-    background: #f5f5f5;
-    border-radius: 4px;
+    padding: 6px 10px;
+    background: transparent;
     font-size: 12px;
-    color: #666;
+    color: #999;
+    font-style: italic;
     line-height: 20px;
     word-break: break-word;
+  }
+
+  // 评论圆点（蓝色，用于独立评论条目）
+  .timelineCommentDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #1890ff;
+    margin-top: 6px;
+  }
+
+  // 评论条目容器
+  .timelineCommentEntry {
+    margin-top: 2px;
+  }
+
+  .timelineCommentHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .timelineCommentAuthor {
+    font-weight: 500;
+    font-size: 13px;
+    color: #1890ff;
+  }
+
+  .timelineCommentLabel {
+    font-size: 12px;
+    color: #999;
+  }
+
+  .timelineCommentTime {
+    font-size: 12px;
+    color: #999;
+    margin-left: auto;
+  }
+
+  .timelineCommentContent {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.6;
+    padding: 6px 10px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    word-break: break-word;
+    white-space: pre-wrap;
   }
 
   // 操作记录列表

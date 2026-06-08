@@ -104,6 +104,7 @@ function makeActionState(overrides: Partial<UseApprovalActionsReturn> = {}): Use
     setTransferUserId: vi.fn(),
     canOperate: false,
     canWithdraw: false,
+    canComment: false,
     currentStep: 0,
     ...overrides,
   };

@@ -84,8 +84,8 @@ export async function approveApproval(
     }
 
     await client.query(
-      `UPDATE oa_approval_nodes SET status = 'approved', comment = $1, acted_at = NOW() WHERE id = $2`,
-      [comment || null, currentNode.id]
+      `UPDATE oa_approval_nodes SET status = 'approved', comment = NULL, acted_at = NOW() WHERE id = $1`,
+      [currentNode.id]
     );
 
     const instanceResult = await client.query<OaInstanceRow>(
@@ -143,10 +143,20 @@ export async function approveApproval(
         userId,
         userName,
         currentNode.node_order,
-        comment || null,
+        null,
         inputData ? JSON.stringify({ inputData }) : null,
       ]
     );
+
+    // 如果用户填写了审批意见，作为独立 comment 记录插入（统一评论模型）
+    if (comment && comment.trim()) {
+      await client.query(
+        `INSERT INTO oa_approval_actions
+          (instance_id, action_type, operator_id, operator_name, node_order, comment)
+         VALUES ($1, 'comment', $2, $3, $4, $5)`,
+        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
+      );
+    }
 
     callbackInstance = instance;
     callbackNodeOrder = currentNode.node_order;
