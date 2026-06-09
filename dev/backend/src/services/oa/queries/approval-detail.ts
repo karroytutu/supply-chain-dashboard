@@ -9,6 +9,36 @@ import { getFormTypeByCode } from '../form-types';
 import { InstanceListItem } from '../oa.query';
 
 /**
+ * 合并 DB workflowDef 与 code 级 workflowDef 的字段权限元数据
+ * DB 中的 workflow_def JSON 可能只有节点结构（order/name/type/roleCode/interactionType），
+ * 缺少 fieldPermissions 和 fieldOptionFilter，需要从 code 定义中补充。
+ */
+function mergeWorkflowDefMeta(
+  dbWorkflowDef: WorkflowDef | null,
+  codeWorkflowDef: WorkflowDef | undefined
+): WorkflowDef | null {
+  if (!dbWorkflowDef) return codeWorkflowDef || null;
+  if (!codeWorkflowDef) return dbWorkflowDef;
+
+  const codeNodeMap = new Map(codeWorkflowDef.nodes.map(n => [n.order, n]));
+
+  const mergedNodes = dbWorkflowDef.nodes.map(dbNode => {
+    const codeNode = codeNodeMap.get(dbNode.order);
+    if (!codeNode) return dbNode;
+    return {
+      ...dbNode,
+      // 用 code 定义补充 DB 中缺失的字段权限和选项过滤
+      fieldPermissions: dbNode.fieldPermissions ?? codeNode.fieldPermissions,
+      fieldOptionFilter: dbNode.fieldOptionFilter ?? codeNode.fieldOptionFilter,
+      // interactionType 也补充（兼容旧迁移数据）
+      interactionType: dbNode.interactionType ?? codeNode.interactionType,
+    };
+  });
+
+  return { ...dbWorkflowDef, nodes: mergedNodes };
+}
+
+/**
  * 审批详情返回类型
  */
 export interface ApprovalDetail extends InstanceListItem {
@@ -130,7 +160,10 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     previewFields: [],  // 详情页展示完整表单，无需字段预览
     formData: instance.form_data,
     formSchema: instance.form_schema || codeFallback?.formSchema || { fields: [] },
-    workflowDef: instance.workflow_def || codeFallback?.workflowDef || null,
+    workflowDef: mergeWorkflowDefMeta(
+      instance.workflow_def as WorkflowDef | null,
+      codeFallback?.workflowDef
+    ),
     erpMeta: instance.erp_meta,
     nodes: nodesResult.rows.map((n: any) => ({
       id: n.id,

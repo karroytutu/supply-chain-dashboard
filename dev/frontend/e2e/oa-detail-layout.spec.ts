@@ -1,10 +1,14 @@
 /**
  * E2E 测试：OA 审批详情布局与交互补充场景
- * 覆盖：详情页 descriptions 布局、错误态导航、移动端回退、撤回流程
+ * 覆盖：详情页 descriptions 布局、错误态导航、移动端回退
+ *
+ * ⚠️ 数据安全说明：本项目开发和生产共用数据库，
+ * 禁止在 E2E 测试中执行审批同意/拒绝/撤回等写操作。
+ * 撤回流程的正确性验证已下沉到接口测试层（supertest + mock DB）。
  */
 
 import { test, expect } from './fixtures';
-import { waitForPageLoad, waitForMessage, confirmPopconfirm } from './helpers/antd';
+import { waitForPageLoad } from './helpers/antd';
 
 test.describe('详情页 descriptions 布局', () => {
   test('详情页使用 descriptions 布局渲染表单', async ({ authenticatedPage, apiClient }) => {
@@ -117,60 +121,5 @@ test.describe('移动端回退', () => {
 
     // 恢复视口
     await authenticatedPage.setViewportSize({ width: 1440, height: 900 });
-  });
-});
-
-test.describe('撤回流程', () => {
-  test('在"我发起的"视图 → 选中 pending 项 → 撤回 → 成功', async ({ authenticatedPage, apiClient }) => {
-    // 切换到"我发起的"视图
-    await authenticatedPage.goto('/oa/center?tab=my');
-    await waitForPageLoad(authenticatedPage);
-
-    // 检查是否有待处理的自己发起的审批
-    let myPendingCount = 0;
-    try {
-      const stats = await apiClient.get('/api/oa-approval/instances/stats');
-      myPendingCount = stats?.data?.my ?? stats?.my ?? 0;
-    } catch {
-      myPendingCount = 0;
-    }
-
-    if (myPendingCount === 0) {
-      test.info().annotations.push({
-        type: 'skipped',
-        description: '无"我发起的"审批，跳过撤回测试',
-      });
-      return;
-    }
-
-    // 点击第一个列表项
-    const listItems = authenticatedPage.locator('[class*="listItem"]');
-    if (await listItems.count() === 0) {
-      test.info().annotations.push({
-        type: 'skipped',
-        description: '列表为空',
-      });
-      return;
-    }
-
-    await listItems.first().click();
-    await waitForPageLoad(authenticatedPage);
-
-    // 查找"撤回审批"按钮
-    const withdrawBtn = authenticatedPage.getByRole('button', { name: /撤\s*回\s*审\s*批/ });
-    if (await withdrawBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await withdrawBtn.click();
-
-      // 等待 Popconfirm 出现并确认
-      await confirmPopconfirm(authenticatedPage);
-
-      // 应显示成功消息
-      await waitForMessage(authenticatedPage, '已撤回');
-    } else {
-      test.info().annotations.push({
-        type: 'skipped',
-        description: '无撤回按钮（可能审批已通过或当前用户非申请人）',
-      });
-    }
   });
 });

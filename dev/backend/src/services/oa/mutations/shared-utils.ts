@@ -11,6 +11,10 @@ import { getFormTypeByCode } from '../form-types';
 /**
  * 合并 inputData 到 form_data
  * data_input 类型节点完成后，将录入数据合并到实例的表单数据中
+ *
+ * 规则：
+ * - undefined = 未提交，跳过（不修改原值）
+ * - null = 用户显式清空，允许覆盖
  */
 export function mergeFormData(
   formData: Record<string, unknown>,
@@ -18,7 +22,7 @@ export function mergeFormData(
 ): Record<string, unknown> {
   const merged = { ...formData };
   for (const [key, value] of Object.entries(inputData)) {
-    if (value !== null && value !== undefined) {
+    if (value !== undefined) {
       merged[key] = value;
     }
   }

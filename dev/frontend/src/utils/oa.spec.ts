@@ -201,4 +201,38 @@ describe('getInteractionType', () => {
     });
     expect(getInteractionType(detail)).toBe('operation');
   });
+
+  it('动态插入节点（workflowDef 无匹配）+ marketer roleCode → 返回 operation', () => {
+    const detail = makeDetail({
+      nodes: [{ nodeOrder: 3, status: 'pending', roleCode: 'marketer' } as any],
+      workflowDef: {
+        nodes: [
+          { order: 1, name: '营销师催收', type: 'role' as const, interactionType: 'operation' as const },
+          { order: 2, name: '更新催收状态', type: 'auto' as const },
+        ],
+      },
+      currentNodeOrder: 3,
+    });
+    expect(getInteractionType(detail)).toBe('operation');
+  });
+
+  it('动态插入节点 + marketing_manager roleCode → 返回 operation', () => {
+    const detail = makeDetail({
+      nodes: [{ nodeOrder: 4, status: 'pending', roleCode: 'marketing_manager' } as any],
+      workflowDef: {
+        nodes: [{ order: 1, name: '营销师催收', type: 'role' as const, interactionType: 'operation' as const }],
+      },
+      currentNodeOrder: 4,
+    });
+    expect(getInteractionType(detail)).toBe('operation');
+  });
+
+  it('动态插入节点 + 非催收 roleCode（如 finance_staff）→ 返回 approval', () => {
+    const detail = makeDetail({
+      nodes: [{ nodeOrder: 5, status: 'pending', roleCode: 'finance_staff' } as any],
+      workflowDef: { nodes: [] },
+      currentNodeOrder: 5,
+    });
+    expect(getInteractionType(detail)).toBe('approval');
+  });
 });

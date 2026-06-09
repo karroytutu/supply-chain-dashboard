@@ -9,6 +9,7 @@ import type { ApprovalDetail, ApprovalNode } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import { usePermission } from '@/hooks/usePermission';
 import { getErrorMessage } from '@/utils/errorUtils';
+import type { EditableFormSectionRef } from '../EditableFormSection';
 
 export type ActionType = 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | null;
 
@@ -20,6 +21,8 @@ export interface UseApprovalActionsConfig {
   onActionComplete?: () => void | Promise<void>;
   /** 撤回成功后的回调（独立于审批操作，Center 场景下只刷新不跳转） */
   onWithdrawComplete?: () => void | Promise<void>;
+  /** 可编辑表单 ref（操作型节点时传入，用于获取表单编辑值和校验） */
+  editableFormRef?: React.RefObject<EditableFormSectionRef>;
 }
 
 export interface UseApprovalActionsReturn {
@@ -46,6 +49,7 @@ export function useApprovalActions({
   nodes,
   onActionComplete,
   onWithdrawComplete,
+  editableFormRef,
 }: UseApprovalActionsConfig): UseApprovalActionsReturn {
   const { currentUser } = usePermission();
   const [actionLoading, setActionLoading] = useState(false);
@@ -105,8 +109,20 @@ export function useApprovalActions({
     try {
       switch (actionType) {
         case 'approve': {
-          const res = await oaApi.approve(instanceId, { comment: actionComment }) as any;
-          if (res?.data?.status === 'processing') {
+          // 操作型节点：先校验可编辑表单必填规则
+          if (editableFormRef?.current) {
+            const errors = editableFormRef.current.validate();
+            if (errors.length > 0) {
+              message.error(errors.join('；'));
+              return; // 不关闭弹窗，finally 中 setActionLoading(false)
+            }
+          }
+          const inputData = editableFormRef?.current?.getEditedValues();
+          const res = await oaApi.approve(instanceId, {
+            comment: actionComment,
+            inputData: inputData && Object.keys(inputData).length > 0 ? inputData : undefined,
+          });
+          if (res?.status === 'processing') {
             message.success('审批已通过，系统处理中');
           } else {
             message.success('已通过');
@@ -130,13 +146,16 @@ export function useApprovalActions({
         case 'countersign':
           message.warning('加签功能需要选择加签人员');
           return; // 未执行操作，跳过状态清理和 onActionComplete
-        case 'update':
+        case 'update': {
+          // 操作型节点：发送编辑 diff 合并到原始 formData
+          const editedDiff = editableFormRef?.current?.getEditedValues() || {};
           await oaApi.updateInstance(instanceId, {
-            formData: detail?.formData || {},
+            formData: { ...(detail?.formData || {}), ...editedDiff },
             comment: actionComment || undefined,
           });
           message.success('数据已更新');
           break;
+        }
         case 'comment':
           if (!actionComment.trim()) {
             message.warning('请输入评论内容');
@@ -155,7 +174,7 @@ export function useApprovalActions({
     } finally {
       setActionLoading(false);
     }
-  }, [instanceId, actionType, actionComment, transferUserId, detail?.formData, onActionComplete]);
+  }, [instanceId, actionType, actionComment, transferUserId, detail?.formData, onActionComplete, editableFormRef]);
 
   const executeWithdraw = useCallback(async () => {
     if (!instanceId) return;

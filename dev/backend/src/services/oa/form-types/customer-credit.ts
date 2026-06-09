@@ -182,19 +182,21 @@ export const customerCreditFormType: FormTypeDefinition = {
 
   workflowDef: {
     nodes: [
-      // 节点1：营销经理审批
+      // 节点1：营销经理审批（授信场景为审批型，非催收操作型）
       {
         order: 1,
         name: '营销经理审批',
         type: 'role',
         roleCode: 'marketing_manager',
+        interactionType: 'approval' as const,
       },
-      // 节点2：往来会计审批
+      // 节点2：往来会计审批（授信场景为审批型，非催收操作型）
       {
         order: 2,
         name: '往来会计审批',
         type: 'role',
         roleCode: 'current_accountant',
+        interactionType: 'approval' as const,
       },
       // 节点3：自动更新ERP客户授信
       {

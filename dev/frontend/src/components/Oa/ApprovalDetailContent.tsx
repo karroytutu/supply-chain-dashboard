@@ -12,6 +12,7 @@ import {
 import type { ApprovalDetail } from '@/types/oa';
 import { ApprovalStatusTag, ApprovalFlow, FormFieldRenderer } from '@/components/Oa';
 import FormFieldsDiff, { hasOriginalFields } from './FormFieldsDiff';
+import EditableFormSection, { type EditableFormSectionRef } from './EditableFormSection';
 import { useErpFieldResolve } from './hooks/useErpFieldResolve';
 import { useErpLicenseResolve } from './hooks/useErpLicenseResolve';
 import ActionModal from './ActionModal';
@@ -32,6 +33,8 @@ export interface ApprovalDetailContentProps {
   canWithdrawOverride?: boolean;
   /** 是否显示头部信息（Detail 页面有自己的 pageHeader，传 false 避免重复） */
   showHeader?: boolean;
+  /** 可编辑表单 ref（操作型节点时传入，用于获取表单编辑值和校验） */
+  editableFormRef?: React.RefObject<EditableFormSectionRef>;
 }
 
 // ==================== 头部信息 ====================
@@ -202,17 +205,42 @@ const ActionBar: React.FC<{
 
 const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   detail, actionState, formLayout = 'list', extraContentBefore, className,
-  canOperateOverride, canWithdrawOverride, showHeader = true,
+  canOperateOverride, canWithdrawOverride, showHeader = true, editableFormRef,
 }) => {
   const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
   const { erpLicenseUrls } = useErpLicenseResolve(detail.formSchema, detail.formData);
   const interactionType = getInteractionType(detail);
 
+  // 计算当前节点是否可操作（与 ActionBar 保持一致的逻辑）
+  const canOperate = canOperateOverride !== undefined ? canOperateOverride : actionState.canOperate;
+
+  // 从 workflowDef 提取当前节点的字段权限和选项过滤
+  const currentNode = detail.nodes.find(n => n.nodeOrder === detail.currentNodeOrder);
+  const workflowNode = detail.workflowDef?.nodes.find(n => n.order === currentNode?.nodeOrder);
+  const fieldPermissions = workflowNode?.fieldPermissions;
+  const fieldOptionFilter = workflowNode?.fieldOptionFilter;
+
+  // 操作型节点 + 可操作时渲染可编辑表单，否则只读渲染
+  const isEditable = interactionType === 'operation' && canOperate && !!fieldPermissions;
+
   return (
     <div className={`${styles.content} ${className || ''}`}>
       {showHeader && <DetailHeader detail={detail} />}
       {extraContentBefore}
-      <FormFieldsSection detail={detail} layout={formLayout} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
+      {isEditable ? (
+        <EditableFormSection
+          ref={editableFormRef}
+          formSchema={detail.formSchema}
+          formData={detail.formData}
+          fieldPermissions={fieldPermissions!}
+          fieldOptionFilter={fieldOptionFilter}
+          resolvedMap={resolvedMap}
+          erpLicenseUrls={erpLicenseUrls}
+          layout={formLayout}
+        />
+      ) : (
+        <FormFieldsSection detail={detail} layout={formLayout} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
+      )}
       <div className={styles.flowSection}>
         <h3>审批流程</h3>
         <ApprovalFlow
@@ -225,7 +253,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
       <ActionBar
         detail={detail}
         interactionType={interactionType}
-        canOperate={canOperateOverride !== undefined ? canOperateOverride : actionState.canOperate}
+        canOperate={canOperate}
         canWithdraw={canWithdrawOverride !== undefined ? canWithdrawOverride : actionState.canWithdraw}
         canComment={actionState.canComment}
         onOpenAction={actionState.openActionModal} onWithdraw={actionState.executeWithdraw}

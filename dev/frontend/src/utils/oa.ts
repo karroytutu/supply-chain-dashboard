@@ -81,10 +81,17 @@ export function getFieldLinkUrl(
 /**
  * 获取当前审批节点的交互类型
  * 根据 workflowDef 中当前节点的 interactionType 配置，返回 'operation' 或 'approval'（默认）
+ * 对于动态插入的节点（升级/差异解决），当 workflowDef 匹配不到时，
+ * 根据节点 roleCode 推断交互类型（催收相关角色默认为 operation）
  */
 export function getInteractionType(detail: ApprovalDetail): NodeInteractionType {
   const currentNode = detail.nodes.find(n => n.nodeOrder === detail.currentNodeOrder);
   if (!currentNode || !detail.workflowDef) return 'approval';
+  // 先尝试 workflowDef 静态匹配
   const workflowNode = detail.workflowDef.nodes.find(n => n.order === currentNode.nodeOrder);
-  return workflowNode?.interactionType || 'approval';
+  if (workflowNode?.interactionType) return workflowNode.interactionType;
+  // fallback：根据 roleCode 推断（催收相关节点默认 operation）
+  const OPERATION_ROLES = ['marketer', 'marketing_manager', 'marketing_supervisor', 'current_accountant'];
+  if (currentNode.roleCode && OPERATION_ROLES.includes(currentNode.roleCode)) return 'operation';
+  return 'approval';
 }

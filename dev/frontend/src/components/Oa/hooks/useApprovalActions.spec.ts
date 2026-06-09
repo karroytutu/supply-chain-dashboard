@@ -275,7 +275,7 @@ describe('executeAction 操作执行', () => {
   }
 
   it('approve 成功（普通响应）→ message.success("已通过") + onActionComplete', async () => {
-    mockOaApi.approve.mockResolvedValueOnce({ data: { status: 'approved' } });
+    mockOaApi.approve.mockResolvedValueOnce({ status: 'approved' });
     const result = setupHook('approve');
 
     await act(async () => {
@@ -289,7 +289,7 @@ describe('executeAction 操作执行', () => {
   });
 
   it('approve 成功（processing 响应）→ "审批已通过，系统处理中"', async () => {
-    mockOaApi.approve.mockResolvedValueOnce({ data: { status: 'processing' } });
+    mockOaApi.approve.mockResolvedValueOnce({ status: 'processing' });
     const result = setupHook('approve');
 
     await act(async () => {
@@ -389,6 +389,83 @@ describe('executeAction 操作执行', () => {
       comment: undefined,
     });
     expect(mockMessage.success).toHaveBeenCalledWith('数据已更新');
+  });
+
+  // ---- editableFormRef 路径 ----
+
+  describe('editableFormRef 路径', () => {
+    function setupHookWithRef(actionType: 'approve' | 'update') {
+      const detail = makeDetail({ status: 'pending', formData: { amount: 1000, action: null } });
+      const nodes = [makeNode({ status: 'pending', assignedUserId: 100 })];
+      const editableFormRef = { current: null as any };
+
+      const { result } = renderHook(() =>
+        useApprovalActions({ instanceId: 42, detail, nodes, onActionComplete, editableFormRef: editableFormRef as any }),
+      );
+
+      act(() => { result.current.openActionModal(actionType); });
+      return { result, editableFormRef };
+    }
+
+    it('approve + 校验通过 → 发送 inputData', async () => {
+      mockOaApi.approve.mockResolvedValueOnce({ status: 'approved' });
+      const { result, editableFormRef } = setupHookWithRef('approve');
+      editableFormRef.current = {
+        validate: () => [],
+        getEditedValues: () => ({ action: 'verify', verifyRemark: '已核销' }),
+      };
+
+      await act(async () => { await result.current.executeAction(); });
+
+      expect(mockOaApi.approve).toHaveBeenCalledWith(42, expect.objectContaining({
+        inputData: { action: 'verify', verifyRemark: '已核销' },
+      }));
+      expect(mockMessage.success).toHaveBeenCalledWith('已通过');
+    });
+
+    it('approve + 校验失败 → message.error + 不调 API', async () => {
+      const { result, editableFormRef } = setupHookWithRef('approve');
+      editableFormRef.current = {
+        validate: () => ['「催收操作」不能为空'],
+        getEditedValues: () => ({}),
+      };
+
+      await act(async () => { await result.current.executeAction(); });
+
+      expect(mockMessage.error).toHaveBeenCalledWith('「催收操作」不能为空');
+      expect(mockOaApi.approve).not.toHaveBeenCalled();
+    });
+
+    it('approve + getEditedValues 返回空对象 → inputData=undefined', async () => {
+      mockOaApi.approve.mockResolvedValueOnce({ status: 'approved' });
+      const { result, editableFormRef } = setupHookWithRef('approve');
+      editableFormRef.current = {
+        validate: () => [],
+        getEditedValues: () => ({}),
+      };
+
+      await act(async () => { await result.current.executeAction(); });
+
+      // inputData 应为 undefined（空对象时不发送）
+      const approveCall = mockOaApi.approve.mock.calls[0];
+      expect(approveCall[1].inputData).toBeUndefined();
+    });
+
+    it('update + editableFormRef → 发送编辑 diff 合并 formData', async () => {
+      mockOaApi.updateInstance.mockResolvedValueOnce(undefined);
+      const { result, editableFormRef } = setupHookWithRef('update');
+      editableFormRef.current = {
+        validate: () => [],
+        getEditedValues: () => ({ action: 'extension' }),
+      };
+
+      await act(async () => { await result.current.executeAction(); });
+
+      expect(mockOaApi.updateInstance).toHaveBeenCalledWith(42, expect.objectContaining({
+        formData: expect.objectContaining({ amount: 1000, action: 'extension' }),
+      }));
+      expect(mockMessage.success).toHaveBeenCalledWith('数据已更新');
+    });
   });
 
   it('API 抛异常 → message.error + loading 恢复 false', async () => {

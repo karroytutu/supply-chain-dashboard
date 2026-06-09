@@ -257,6 +257,71 @@ describe('getApprovalDetail', () => {
     expect(result!.workflowDef).toBeNull();
   });
 
+  it('workflowDef 合并：DB 无 fieldPermissions 时从 code 补充', async () => {
+    const dbWf = { nodes: [{ order: 1, name: '营销师催收', type: 'role', roleCode: 'marketer', interactionType: 'operation' }] };
+    const codeWf = {
+      nodes: [{
+        order: 1, name: '营销师催收', type: 'role' as const, roleCode: 'marketer',
+        interactionType: 'operation' as const,
+        fieldPermissions: { consumerName: 'readonly', action: 'editable' },
+        fieldOptionFilter: { action: ['verify', 'extension'] },
+      }],
+    };
+    const instance = {
+      id: 20, instance_no: 'OA-020', form_type_code: 'ar_collection',
+      form_type_name: 'T', form_type_icon: null, form_schema: null,
+      workflow_def: dbWf,
+      title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
+      applicant_dept: null, applicant_avatar: null, current_node_order: 1,
+      submitted_at: new Date(), completed_at: null, form_data: {}, erp_meta: null,
+    };
+    (mockGetFormTypeByCode as jest.Mock).mockReturnValue({
+      code: 'ar_collection', name: '催收', icon: null,
+      formSchema: { fields: [] },
+      workflowDef: codeWf,
+    });
+    mockQuerySequence(mockAppQuery, [[instance], [], [], []]);
+    const result = await getApprovalDetail(20);
+    // DB 的 interactionType 保留，fieldPermissions 和 fieldOptionFilter 从 code 补充
+    expect(result!.workflowDef!.nodes[0].interactionType).toBe('operation');
+    expect(result!.workflowDef!.nodes[0].fieldPermissions).toEqual({ consumerName: 'readonly', action: 'editable' });
+    expect(result!.workflowDef!.nodes[0].fieldOptionFilter).toEqual({ action: ['verify', 'extension'] });
+  });
+
+  it('workflowDef 合并：DB 已有 fieldPermissions 时不覆盖', async () => {
+    const dbWf = {
+      nodes: [{
+        order: 1, name: '营销师催收', type: 'role', roleCode: 'marketer',
+        interactionType: 'operation',
+        fieldPermissions: { consumerName: 'editable' }, // DB 已有
+      }],
+    };
+    const codeWf = {
+      nodes: [{
+        order: 1, name: '营销师催收', type: 'role' as const, roleCode: 'marketer',
+        interactionType: 'operation' as const,
+        fieldPermissions: { consumerName: 'readonly', action: 'editable' }, // code 有但不应覆盖
+      }],
+    };
+    const instance = {
+      id: 21, instance_no: 'OA-021', form_type_code: 'ar_collection',
+      form_type_name: 'T', form_type_icon: null, form_schema: null,
+      workflow_def: dbWf,
+      title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
+      applicant_dept: null, applicant_avatar: null, current_node_order: 1,
+      submitted_at: new Date(), completed_at: null, form_data: {}, erp_meta: null,
+    };
+    (mockGetFormTypeByCode as jest.Mock).mockReturnValue({
+      code: 'ar_collection', name: '催收', icon: null,
+      formSchema: { fields: [] },
+      workflowDef: codeWf,
+    });
+    mockQuerySequence(mockAppQuery, [[instance], [], [], []]);
+    const result = await getApprovalDetail(21);
+    // DB 已有 fieldPermissions，不应被 code 覆盖
+    expect(result!.workflowDef!.nodes[0].fieldPermissions).toEqual({ consumerName: 'editable' });
+  });
+
   it('nodes 包含 roleCode 字段', async () => {
     const instance = {
       id: 10, instance_no: 'OA-010', form_type_code: 'test',

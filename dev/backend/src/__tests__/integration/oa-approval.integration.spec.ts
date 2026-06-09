@@ -239,6 +239,26 @@ describe('POST /api/oa/instances/:id/approve', () => {
 
     expect(res.status).toBe(202);
   });
+
+  it('带 inputData 审批 → 控制器正确传递到 service 层', async () => {
+    mockApprove.mockResolvedValueOnce({ status: 'approved' } as any);
+
+    const inputData = { action: 'verify', verifyRemark: '已核销' };
+    const res = await request(app)
+      .post('/api/oa/instances/10/approve')
+      .set('Authorization', 'Bearer valid-admin')
+      .send({ comment: '完成催收', inputData });
+
+    expect(res.status).toBe(200);
+    // 验证 approveApproval 被调用时传入了 inputData
+    expect(mockApprove).toHaveBeenCalledWith(
+      10,
+      expect.any(Number), // userId
+      undefined,           // userName（JWT mock 无 name 字段）
+      '完成催收',         // comment
+      inputData,          // inputData
+    );
+  });
 });
 
 // =====================================================

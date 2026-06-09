@@ -6,4 +6,6 @@ export { default as ActionModal } from './ActionModal';
 export { default as ApprovalDetailContent } from './ApprovalDetailContent';
 export { default as FormFieldDiff } from './FormFieldDiff';
 export { default as FormFieldsDiff, hasOriginalFields } from './FormFieldsDiff';
+export { default as EditableFormSection } from './EditableFormSection';
+export type { EditableFormSectionRef } from './EditableFormSection';
 export { SignaturePad } from './SignaturePad';

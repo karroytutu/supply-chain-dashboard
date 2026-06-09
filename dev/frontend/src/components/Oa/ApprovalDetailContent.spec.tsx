@@ -41,7 +41,7 @@ vi.mock('@/components/Oa', () => ({
   FormFieldRenderer: (props: any) => <span data-testid={`field-${props.field?.key}`}>{String(props.value ?? '')}</span>,
 }));
 
-const mockGetInteractionType = vi.fn(() => 'approval' as const);
+const mockGetInteractionType = vi.fn(() => 'approval' as 'approval' | 'operation');
 
 vi.mock('@/utils/oa', () => ({
   getInteractionType: (...args: any[]) => mockGetInteractionType(...args),

@@ -44,7 +44,7 @@ export async function approveApproval(
 
   await transaction(async client => {
     const instanceResult0 = await client.query<OaInstanceRow>(
-      `SELECT * FROM oa_approval_instances WHERE id = $1`,
+      `SELECT * FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
       [instanceId]
     );
     const instance0 = instanceResult0.rows[0];
@@ -60,19 +60,21 @@ export async function approveApproval(
       throw new Error('未找到待审批节点');
     }
 
-    // data_input 节点处理
-    if (currentNode.node_type === 'data_input' && inputData) {
-      if (currentNode.input_schema) {
-        const inputErrors = validateInputData(currentNode.input_schema, inputData);
-        if (inputErrors.length > 0) {
-          throw new Error(`录入数据校验失败: ${inputErrors.join('; ')}`);
+    // inputData 合并到 form_data（所有节点类型通用）
+    if (inputData && Object.keys(inputData).length > 0) {
+      // data_input 节点额外执行 input_schema 校验和 input_data 存储
+      if (currentNode.node_type === 'data_input') {
+        if (currentNode.input_schema) {
+          const inputErrors = validateInputData(currentNode.input_schema, inputData);
+          if (inputErrors.length > 0) {
+            throw new Error(`录入数据校验失败: ${inputErrors.join('; ')}`);
+          }
         }
+        await client.query(`UPDATE oa_approval_nodes SET input_data = $1 WHERE id = $2`, [
+          JSON.stringify(inputData),
+          currentNode.id,
+        ]);
       }
-
-      await client.query(`UPDATE oa_approval_nodes SET input_data = $1 WHERE id = $2`, [
-        JSON.stringify(inputData),
-        currentNode.id,
-      ]);
 
       const currentFormData = instance0.form_data;
       const mergedFormData = mergeFormData(currentFormData as Record<string, unknown>, inputData);

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useParams, history } from 'umi';
 import { Button, Spin, Typography, Result } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { type DetailErrorType, useApprovalDetail } from './hooks/useApprovalDetail';
 import { ApprovalDetailContent, ApprovalStatusTag } from '@/components/Oa';
+import type { EditableFormSectionRef } from '@/components/Oa/EditableFormSection';
 import LicenseDeferredCard from './components/LicenseDeferredCard';
 import { formatDateTime } from '@/utils/format';
 import styles from './index.less';
@@ -26,13 +27,14 @@ const renderErrorState = (errorType: DetailErrorType, loadDetail: () => void) =>
 
 const ApprovalDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const editableFormRef = useRef<EditableFormSectionRef>(null);
   const {
     loading, detail, errorType, loadDetail,
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
     canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId,
-  } = useApprovalDetail(id);
+  } = useApprovalDetail(id, editableFormRef);
 
   if (loading) return <div className={styles.loadingContainer}><Spin size="large" /></div>;
   if (!detail) return renderErrorState(errorType, loadDetail);
@@ -78,6 +80,7 @@ const ApprovalDetailPage: React.FC = () => {
         formLayout="descriptions"
         extraContentBefore={extraContent}
         showHeader={false}
+        editableFormRef={editableFormRef}
       />
     </div>
   );
