@@ -38,9 +38,22 @@ import {
 
 /**
  * 启动所有定时任务
+ * 注意：涉及钉钉API写入、通知发送、数据库修改的定时任务仅在 production 环境注册，
+ * 避免开发环境（APP_BASE_URL=http://localhost:3100）向钉钉写入错误URL或发送重复通知。
  */
 export function startScheduler(): void {
   log.info('正在启动定时任务调度器...');
+
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (!isProduction) {
+    log.warn('非生产环境: 跳过写入型定时任务注册（催收流水线、通知、数据同步等）');
+  }
+
+  // ==================== 以下任务仅在生产环境注册 ====================
+  // 涉及钉钉API写入、通知发送、数据库状态修改，开发环境运行会导致：
+  // - 使用错误的 APP_BASE_URL（localhost:3100）创建钉钉记录
+  // - 与生产环境产生重复通知和数据写入
+  if (isProduction) {
 
   // 注册退货数据同步任务
   // 每天08:30执行: 0 30 8 * * *
@@ -283,7 +296,9 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
-  // ==================== Token 管理 ====================
+  } // end if (isProduction) — 写入型任务到此结束
+
+  // ==================== Token 管理（所有环境） ====================
   // Token 检查与刷新 - 每5分钟
   cron.schedule(
     '*/5 * * * *',
@@ -297,7 +312,8 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
-  // ==================== 钉钉组织架构同步 ====================
+  // ==================== 钉钉组织架构同步（仅生产环境） ====================
+  if (isProduction) {
 
   // 钉钉部门同步 - 每天 06:00
   cron.schedule(
@@ -344,23 +360,29 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  } // end if (isProduction) — 钉钉同步任务
+
   log.info('定时任务已注册:');
-  log.info('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
-  log.info('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
-  log.info('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');
-  log.info('  - 催收统一流水线: 每天 20:00 (Asia/Shanghai) [ERP同步→OA实例生成→考核计算]');
-  log.info('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
-  log.info('  - 期限压单到期检查: 每2小时 (Asia/Shanghai)');
-  log.info('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
-  log.info('  - 钉钉通知重试: 每5分钟 (Asia/Shanghai)');
-  log.info('  - auto节点卡住恢复: 每5分钟 (Asia/Shanghai)');
-  log.info('  - 营业执照补交提醒: 每天 09:00 (Asia/Shanghai)');
-  log.info('  - 营业执照补交逾期+考核: 每天 09:15 (Asia/Shanghai)');
-  log.info('  - 采购绩效月度存档: 每月1号 01:00 (Asia/Shanghai)');
-  log.info('  - Token 管理检查: 每5分钟 (Asia/Shanghai)');
-  log.info('  - 钉钉部门同步: 每天 06:00 (Asia/Shanghai)');
-  log.info('  - 钉钉全量用户同步: 每天 07:00 (Asia/Shanghai)');
-  log.info('  - 钉钉增量用户同步: 每4小时 (Asia/Shanghai)');
+  log.info('  - Token 管理检查: 每5分钟 (Asia/Shanghai) [所有环境]');
+  if (isProduction) {
+    log.info('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
+    log.info('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
+    log.info('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');
+    log.info('  - 催收统一流水线: 每天 20:00 (Asia/Shanghai) [ERP同步→OA实例生成→考核计算]');
+    log.info('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
+    log.info('  - 期限压单到期检查: 每2小时 (Asia/Shanghai)');
+    log.info('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
+    log.info('  - 钉钉通知重试: 每5分钟 (Asia/Shanghai)');
+    log.info('  - auto节点卡住恢复: 每5分钟 (Asia/Shanghai)');
+    log.info('  - 营业执照补交提醒: 每天 09:00 (Asia/Shanghai)');
+    log.info('  - 营业执照补交逾期+考核: 每天 09:15 (Asia/Shanghai)');
+    log.info('  - 采购绩效月度存档: 每月1号 01:00 (Asia/Shanghai)');
+    log.info('  - 钉钉部门同步: 每天 06:00 (Asia/Shanghai)');
+    log.info('  - 钉钉全量用户同步: 每天 07:00 (Asia/Shanghai)');
+    log.info('  - 钉钉增量用户同步: 每4小时 (Asia/Shanghai)');
+  } else {
+    log.info('  (写入型任务已跳过，仅在生产环境注册)');
+  }
   log.info('定时任务调度器启动完成');
 }
 

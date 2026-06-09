@@ -5,9 +5,7 @@
 
 import type { ActionCardContent } from '../dingtalk.service';
 import type { CollectionTask, EscalationLevel } from './ar-collection.types';
-import { ESCALATION_LEVEL_NAMES } from './ar-collection-notify';
-
-const ACTION_URL = 'https://xly.gzzxd.com/collection/overview';
+import { ESCALATION_LEVEL_NAMES, getCollectionActionUrl } from './ar-collection-notify';
 
 function formatTimestamp(): string {
   return new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
@@ -49,7 +47,7 @@ export function buildEscalationActionCard(
     title: `【催收升级】${consumerName} 已升级至${toName}`,
     markdown,
     singleTitle: '查看详情',
-    singleUrl: ACTION_URL,
+    singleUrl: getCollectionActionUrl(),
   };
 }
 
@@ -77,7 +75,7 @@ ${verified ? '核销已确认，任务将更新为已核销状态。' : '核销�
     title: `${icon}【核销结果】${consumerName} 核销${statusText}`,
     markdown,
     singleTitle: '查看详情',
-    singleUrl: ACTION_URL,
+    singleUrl: getCollectionActionUrl(),
   };
 }
 
@@ -112,7 +110,7 @@ export function buildRollbackActionCard(
     title: `【催收退回】${consumerName} 已退回至${toName}`,
     markdown,
     singleTitle: '查看详情',
-    singleUrl: ACTION_URL,
+    singleUrl: getCollectionActionUrl(),
   };
 }
 
@@ -183,7 +181,7 @@ ${detailRows}${moreText}
 请提前与客户沟通，确保按时回款！
 
 ---
-点击查看详情: ${ACTION_URL}
+点击查看详情: ${getCollectionActionUrl()}
 
 推送时间：${formatTimestamp()}`;
 
@@ -291,7 +289,7 @@ ${sections.join('\n\n')}
 请及时跟进客户付款进度，避免逾期。
 
 ---
-点击查看详情: ${ACTION_URL}
+点击查看详情: ${getCollectionActionUrl()}
 
 推送时间：${formatTimestamp()}`;
 

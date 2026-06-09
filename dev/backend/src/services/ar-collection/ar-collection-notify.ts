@@ -7,6 +7,7 @@
 import type { SendMessageOptions } from '../dingtalk.service';
 import { sendNotification, sendNotificationByRole } from '../notification';
 import type { CollectionTask, EscalationLevel } from './ar-collection.types';
+import { config } from '../../config';
 
 // Re-export from cards module
 export {
@@ -42,7 +43,8 @@ export const ESCALATION_LEVEL_NAMES: Record<EscalationLevel, string> = {
   2: '财务',
 };
 
-const ACTION_URL = 'https://xly.gzzxd.com/collection/overview';
+// 催收管理页跳转URL（动态读取 config.app.baseUrl，避免硬编码域名）
+export const getCollectionActionUrl = (): string => `${config.app.baseUrl}/collection/overview`;
 
 function formatTimestamp(): string {
   return new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
@@ -95,7 +97,7 @@ ${urgency}您负责的催收任务延期即将到期：
 延期到期后任务将恢复为催收中状态，请及时跟进处理！
 
 ---
-点击查看详情: ${ACTION_URL}
+点击查看详情: ${getCollectionActionUrl()}
 
 推送时间：${formatTimestamp()}`;
 
@@ -129,7 +131,7 @@ export function buildEscalationMessage(
 请及时处理该催收任务！
 
 ---
-点击查看详情: ${ACTION_URL}
+点击查看详情: ${getCollectionActionUrl()}
 
 推送时间：${formatTimestamp()}`;
 
@@ -156,7 +158,7 @@ export function buildVerifyResultMessage(task: CollectionTask, verified: boolean
 ${verified ? '核销已确认，任务将更新为已核销状态。' : '核销未通过，请检查后重新提交或联系结算会计确认。'}
 
 ---
-点击查看详情: ${ACTION_URL}
+点击查看详情: ${getCollectionActionUrl()}
 
 推送时间：${formatTimestamp()}`;
 
