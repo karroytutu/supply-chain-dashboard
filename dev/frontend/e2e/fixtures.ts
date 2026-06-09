@@ -112,3 +112,4 @@ export const test = base.extend<TestFixtures>({
 });
 
 export { expect } from '@playwright/test';
+export type { Page, Route } from '@playwright/test';

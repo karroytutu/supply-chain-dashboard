@@ -34,12 +34,13 @@ jest.mock('../oa-process-centre', () => ({
 
 import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
-import { transaction } from './shared-utils';
+import { transaction, mergeFormData } from './shared-utils';
 import { approveApproval } from './approve-approval';
 
 const mockIsCurrentApprover = isCurrentApprover as jest.MockedFunction<typeof isCurrentApprover>;
 const mockGetCurrentNode = getCurrentApproverNode as jest.MockedFunction<typeof getCurrentApproverNode>;
 const mockTransaction = transaction as jest.MockedFunction<typeof transaction>;
+const mockMergeFormData = mergeFormData as jest.MockedFunction<typeof mergeFormData>;
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -136,5 +137,69 @@ describe('approveApproval', () => {
 
     const result = await approveApproval(1, 5, '张三');
     expect(result.status).toBe('processing');
+  });
+
+  it('role 节点 + inputData → 合并到 form_data（非 data_input 节点通用支持）', async () => {
+    mockIsCurrentApprover.mockResolvedValueOnce(true);
+
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: { action: null }, status: 'pending' }] }) // SELECT instance0 FOR UPDATE
+          .mockResolvedValueOnce({ rows: [{ code: 'ar_collection' }] }) // SELECT form type code
+          // getCurrentApproverNode is MOCKED, does not consume client.query
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE form_data (inputData merge)
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: { action: 'verify' }, status: 'pending' }] }) // re-fetch instance
+          .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE instance status
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action
+          .mockResolvedValueOnce({ rows: [] }), // INSERT comment
+      };
+      return fn(mockClient);
+    });
+
+    (getFormTypeByCode as jest.Mock).mockReturnValue({
+      code: 'ar_collection', name: '催收', formSchema: { fields: [] },
+    });
+
+    const inputData = { action: 'verify', verifyRemark: '已核销' };
+    const result = await approveApproval(1, 5, '张三', '完成', inputData);
+    expect(result.status).toBe('approved');
+
+    // 验证 mergeFormData 被调用
+    expect(mockMergeFormData).toHaveBeenCalledWith(
+      { action: null },
+      { action: 'verify', verifyRemark: '已核销' }
+    );
+  });
+
+  it('role 节点 + 无 inputData → 不合并 form_data', async () => {
+    mockIsCurrentApprover.mockResolvedValueOnce(true);
+
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
+          .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] })
+          // 无 inputData → 不调用 UPDATE form_data
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
+          .mockResolvedValueOnce({ rows: [] }) // next node
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE instance
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action
+          .mockResolvedValueOnce({ rows: [] }),
+      };
+      return fn(mockClient);
+    });
+
+    (getFormTypeByCode as jest.Mock).mockReturnValue({
+      code: 'other_payment', name: '其他付款', formSchema: { fields: [] },
+    });
+
+    const result = await approveApproval(1, 5, '张三');
+    expect(result.status).toBe('approved');
+    // mergeFormData 不应被调用（无 inputData）
+    expect(mockMergeFormData).not.toHaveBeenCalled();
   });
 });

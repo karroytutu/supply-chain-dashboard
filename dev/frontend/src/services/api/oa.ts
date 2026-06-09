@@ -179,12 +179,13 @@ export async function submitApproval(data: SubmitApprovalRequest): Promise<{
 
 /**
  * 同意审批
+ * @returns 响应数据，status='processing' 表示自动节点正在处理
  */
 export async function approve(
   instanceId: number,
-  data?: { comment?: string }
-): Promise<void> {
-  await request<{ success: boolean; message: string }>(
+  data?: { comment?: string; inputData?: Record<string, unknown> }
+): Promise<{ status?: string } | null> {
+  return request<{ status?: string } | null>(
     `/oa/instances/${instanceId}/approve`,
     {
       method: 'POST',

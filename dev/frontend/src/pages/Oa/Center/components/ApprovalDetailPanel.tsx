@@ -2,13 +2,14 @@
  * 流程中心 - 详情面板（薄包装器）
  * 内部加载详情数据 + 使用共享 useApprovalActions + 渲染共享 ApprovalDetailContent
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Spin, Empty, Result, Button } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import type { ApprovalDetail, ViewMode } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import { useApprovalActions } from '@/components/Oa/hooks/useApprovalActions';
 import { ApprovalDetailContent } from '@/components/Oa';
+import type { EditableFormSectionRef } from '@/components/Oa/EditableFormSection';
 import { usePermission } from '@/hooks/usePermission';
 import { createLogger } from '../../../../utils/logger';
 import styles from '../index.less';
@@ -57,10 +58,16 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
 
   const nodes = detail?.nodes || [];
 
+  // 可编辑表单 ref（操作型节点专用）
+  const editableFormRef = useRef<EditableFormSectionRef>(null);
+
   // W6: 用 useCallback 稳定引用，避免每次渲染创建新函数导致下游重渲染
-  const handleActionCompleteCb = useCallback(() => {
-    if (selectedId) onActionComplete(selectedId);
-  }, [selectedId, onActionComplete]);
+  const handleActionCompleteCb = useCallback(async () => {
+    if (selectedId) {
+      await loadDetail(selectedId); // 刷新详情（含表单数据重置）
+      await onActionComplete(selectedId); // 刷新列表
+    }
+  }, [selectedId, onActionComplete, loadDetail]);
 
   const actionState = useApprovalActions({
     instanceId: selectedId ?? undefined,
@@ -68,6 +75,7 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
     nodes,
     onActionComplete: selectedId ? handleActionCompleteCb : undefined,
     onWithdrawComplete,
+    editableFormRef,
   });
 
   if (detailLoading) {
@@ -112,6 +120,7 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
           formLayout="list"
           canOperateOverride={canOperate}
           canWithdrawOverride={canWithdraw}
+          editableFormRef={editableFormRef}
         />
       </div>
     </div>
