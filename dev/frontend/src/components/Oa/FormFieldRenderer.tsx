@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Typography, Table } from 'antd';
+import { Tag, Typography } from 'antd';
 import type { FormField } from '@/types/oa';
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import { getFieldLinkUrl } from '@/utils/oa';
@@ -7,8 +7,8 @@ import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
 import { FileTextOutlined } from '@ant-design/icons';
 import ErpNameDisplay from './ErpNameDisplay';
 import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
-import { renderCellValue } from './cellValueRenderer';
 import PhotoFieldDisplay from './PhotoFieldDisplay';
+import ReadonlyTable from './ReadonlyTable';
 import { resolveStoredName } from './utils/resolveStoredName';
 import styles from './FormFieldRenderer.less';
 
@@ -194,25 +194,8 @@ const FieldRenderer: React.FC<{
       return <Text style={{ whiteSpace: 'pre-wrap' }}>{value as string}</Text>;
     case 'table': {
       const rows = value as Record<string, unknown>[];
-      const children = field.children || [];
       if (!rows || rows.length === 0) return <Text type="secondary">-</Text>;
-      const tableColumns = children.map((col) => ({
-        title: col.label,
-        dataIndex: col.key,
-        key: col.key,
-        render: (cellVal: unknown, row: Record<string, unknown>) =>
-          renderCellValue(col, cellVal, row, resolvedMap),
-      }));
-      return (
-        <Table
-          columns={tableColumns}
-          dataSource={rows.map((row, idx) => ({ ...row, _key: idx }))}
-          rowKey="_key"
-          size="small"
-          pagination={false}
-          bordered
-        />
-      );
+      return <ReadonlyTable field={field} rows={rows} resolvedMap={resolvedMap} />;
     }
     case 'signature': {
       const sigValue = value as string;

@@ -42,3 +42,30 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+
+// 只读明细表格滚动容器
+.readonlyTableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+
+  // 固定列白色背景 + 滚动阴影
+  :global {
+    .ant-table-cell-fix-left {
+      background: #fff;
+    }
+
+    .ant-table-cell-fix-left-last::after {
+      box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.15);
+    }
+  }
+}

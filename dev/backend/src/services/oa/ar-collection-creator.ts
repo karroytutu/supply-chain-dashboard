@@ -216,7 +216,7 @@ async function createBatchOaInstances(
       try {
         const overdueDateStr = getOverdueDateStr(debts[0]);
         const formData = buildFormData(consumerName, overdueDateStr, debts);
-        const title = `逾期催收 - ${consumerName}（欠款¥${formData.totalAmount}）`;
+        const title = `逾期催收 - ${consumerName}`;
         const instanceNo = await generateInstanceNo();
 
         // 插入实例（含 current_node_order）
@@ -396,11 +396,15 @@ function buildFormData(
   const managerName = debts[0].managerUsers || null;
 
   const billDetails = debts.map(d => ({
-    billNo: d.billId,
+    billNo: d.billId,                           // 内部编号，不展示但保留用于核销校验
+    orderNo: d.bizOrderStr || '',                // 订单编号（用户可读）
     billType: d.billTypeName || '销售单',
     totalAmount: d.totalAmount,
     leftAmount: d.leftAmount,
     overdueDays: d.overdueDays || 0,
+    workTime: d.workTime,                        // 业务日期
+    writeOffAmount: d.writeOffAmount || 0,        // 已结金额
+    billNote: d.billNote || '',                  // 单据备注
   }));
 
   return {
@@ -409,6 +413,8 @@ function buildFormData(
     billCount: debts.length,
     maxOverdueDays,
     managerName,
+    maxDebtDays: debts[0].customerMaxDebtDays ?? null,
+    maxDebtOrderNum: debts[0].customerMaxDebtOrderNum ?? null,
     billDetails,
     _extensionCount: 0,
   };

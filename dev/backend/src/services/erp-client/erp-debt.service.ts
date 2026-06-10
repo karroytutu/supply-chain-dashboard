@@ -27,6 +27,10 @@ interface ApiDebtRecord {
   collectState?: string;
   salesmanName?: string;
   settlementState?: string;
+  /** 已结金额（核销金额），ERP 返回字符串 */
+  writeOffAmount?: string;
+  /** 单据备注，如 "XD241107000036访销订单" */
+  billNote?: string;
 }
 
 /** API 分页响应 */
@@ -64,6 +68,8 @@ function toERPDebtRecord(api: ApiDebtRecord): ERPDebtRecord {
     // 两者是同一业务概念的不同 API 字段名，映射为系统内部的 hoardTag: 'HOARD'/'NORMAL'
     // 未知值统一为 null，避免脏数据泄漏到 ar_collection_details.hoard_tag
     hoardTag: api.isHoard === '是' ? 'HOARD' : api.isHoard === '否' ? 'NORMAL' : null,
+    writeOffAmount: parseFloat(api.writeOffAmount || '0') || 0,
+    billNote: api.billNote || '',
   };
 }
 

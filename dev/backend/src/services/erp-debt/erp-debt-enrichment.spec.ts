@@ -45,6 +45,8 @@ function createERPDebt(overrides: Partial<ERPDebtRecord> = {}): ERPDebtRecord {
     billTypeName: '销售单',
     workTime: '2026-05-01',
     hoardTag: null,
+    writeOffAmount: 200,
+    billNote: 'ORDER-001访销订单',
     ...overrides,
   };
 }

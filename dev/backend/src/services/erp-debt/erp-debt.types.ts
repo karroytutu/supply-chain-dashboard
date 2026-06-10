@@ -24,6 +24,8 @@ export interface ERPDebtRecord {
   billTypeName: string;
   workTime: string;
   hoardTag?: string | null; // 压单标记（视图可能包含）
+  writeOffAmount: number; // 已结金额（核销金额）
+  billNote: string; // 单据备注，如 "XD241107000036访销订单"
 }
 
 // ============================================
