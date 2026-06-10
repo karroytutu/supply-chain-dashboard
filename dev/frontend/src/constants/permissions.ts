@@ -84,8 +84,6 @@ export const PERMISSIONS = {
   FINANCE: {
     AR: {
       READ: 'ar:collection:read',
-      WRITE: 'ar:collection:write',
-      ROLLBACK: 'ar:collection:rollback',
     },
     AR_PENALTY: {
       READ: 'finance:ar:penalty:read',
