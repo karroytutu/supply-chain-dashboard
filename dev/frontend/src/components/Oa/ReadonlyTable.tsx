@@ -1,14 +1,14 @@
 /**
  * 只读表格组件
- * 从 FormFieldRenderer 中提取，解决 React Hooks 规则违反问题
- * （useContainerWidth 不能在条件分支中调用）
+ * 供 OA 审批详情页等场景展示 table 类型字段
+ * 所有设备统一使用 Ant Design Table，移动端通过 CSS 媒体查询优化紧凑度和横滚体验
  */
 import React from 'react';
-import { Table, Tooltip } from 'antd';
+import { Table } from 'antd';
 import type { FormField } from '@/types/oa';
 import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
 import { renderCellValue } from './cellValueRenderer';
-import { useContainerWidth, getColumnWidth, NUMERIC_ALIGN_TYPES, ELLIPSIS_TYPES } from './hooks/useContainerWidth';
+import { NUMERIC_ALIGN_TYPES, useContainerWidth, getColumnWidth } from './hooks/useContainerWidth';
 import styles from './FormFieldRenderer.less';
 
 interface ReadonlyTableProps {
@@ -18,14 +18,13 @@ interface ReadonlyTableProps {
 }
 
 const ReadonlyTable: React.FC<ReadonlyTableProps> = ({ field, rows, resolvedMap }) => {
-  const [containerRef, containerWidth] = useContainerWidth();
   const children = field.children || [];
-  const minColumnWidthsSum = children.reduce((sum, col) => sum + getColumnWidth(col), 0);
-  const fixFirstCol = children.length >= 5;
+  const fixFirstCol = children.length >= 4;
+  const [containerRef, containerWidth] = useContainerWidth();
 
   const tableColumns = children.map((col, idx) => {
     const isNumeric = NUMERIC_ALIGN_TYPES.has(col.type);
-    const isEllipsis = ELLIPSIS_TYPES.has(col.type);
+    const isEllipsis = col.type === 'text' || col.type === 'textarea';
     return {
       title: col.label,
       dataIndex: col.key,
@@ -33,20 +32,14 @@ const ReadonlyTable: React.FC<ReadonlyTableProps> = ({ field, rows, resolvedMap 
       width: getColumnWidth(col),
       ...(fixFirstCol && idx === 0 ? { fixed: 'left' as const } : {}),
       ...(isNumeric ? { align: 'right' as const } : {}),
-      ...(isEllipsis ? { ellipsis: { showTitle: false } } : {}),
+      ...(isEllipsis ? { ellipsis: true } : {}),
       render: (cellVal: unknown, row: Record<string, unknown>) => {
-        const content = renderCellValue(col, cellVal, row, resolvedMap);
-        if (isEllipsis && cellVal !== null && cellVal !== undefined && cellVal !== '') {
-          return (
-            <Tooltip title={String(cellVal)} placement="topLeft">
-              <span>{content}</span>
-            </Tooltip>
-          );
-        }
-        return content;
+        return renderCellValue(col, cellVal, row, resolvedMap);
       },
     };
   });
+
+  const columnWidthsSum = tableColumns.reduce((sum, c) => sum + (c.width as number), 0);
 
   return (
     <div ref={containerRef} className={styles.readonlyTableWrapper}>
@@ -57,7 +50,7 @@ const ReadonlyTable: React.FC<ReadonlyTableProps> = ({ field, rows, resolvedMap 
         size="small"
         pagination={false}
         bordered
-        scroll={{ x: Math.max(containerWidth, minColumnWidthsSum) }}
+        scroll={{ x: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum }}
       />
     </div>
   );

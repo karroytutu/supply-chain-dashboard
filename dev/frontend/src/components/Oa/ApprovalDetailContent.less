@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .loadingContainer {
   display: flex;
   justify-content: center;
@@ -8,6 +10,9 @@
 .content {
   display: flex;
   flex-direction: column;
+  min-width: 0; // 防止子内容撑宽页面
+  max-width: 100%;
+  padding-bottom: 20px; // 补偿容器被移除的底部留白，确保短内容末尾有合理间距
 }
 
 // 头部信息
@@ -43,6 +48,9 @@
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
+  min-width: 0; // flex 子项约束
+  max-width: 100%;
+  overflow: hidden; // 阻断内容宽度传播
 
   h3 {
     font-size: 14px;
@@ -56,11 +64,13 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .formDataRow {
   display: flex;
   font-size: 13px;
+  min-width: 0; // flex 子项约束，防止表格内容撑开整行
 }
 
 .formLabel {
@@ -71,6 +81,7 @@
 
 .formValue {
   flex: 1;
+  min-width: 0; // 阻断 flex 子项 min-width:auto 默认行为，防止表格内容撑开父级
   color: #333;
 }
 
@@ -120,6 +131,29 @@
     &:hover {
       text-decoration: underline;
     }
+  }
+}
+
+// ==================== 移动端响应式 ====================
+
+@media (max-width: @screen-md) {
+  .content {
+    padding-bottom: 12px; // 与容器留白对齐
+  }
+}
+
+@media (max-width: @screen-sm) {
+  .content {
+    padding-bottom: 8px; // 与容器留白对齐
+  }
+
+  .formDataRow {
+    flex-direction: column;
+  }
+
+  .formLabel {
+    width: auto;
+    margin-bottom: 2px;
   }
 }
 

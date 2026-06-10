@@ -110,7 +110,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   const columns = field.children || [];
   const [containerRef, containerWidth] = useContainerWidth();
-  const fixFirstCol = columns.length >= 5;
+  const fixFirstCol = columns.length >= 4; // 与 ReadonlyTable 统一：列数≥4时固定首列
 
   const handleAdd = useCallback(() => {
     const newRow: Record<string, unknown> = {};
@@ -179,7 +179,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
         size="small"
         pagination={false}
         bordered
-        scroll={{ x: Math.max(containerWidth, columnWidthsSum) }}
+        scroll={{ x: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum }}
       />
       <Button type="dashed" onClick={handleAdd} icon={<PlusOutlined />} style={{ width: '100%', marginTop: 8 }}>
         添加一行

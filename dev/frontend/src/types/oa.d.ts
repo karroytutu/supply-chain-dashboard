@@ -82,7 +82,6 @@ export interface FormField {
   addressModel?: 'city' | 'district' | 'street';
   upper?: boolean;
   limit?: 5 | 10;
-  tableViewMode?: 'list' | 'table';
   children?: FormField[];
   statField?: Array<{ componentId: string; label: string }>;
   link?: string;

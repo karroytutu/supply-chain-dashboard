@@ -1,7 +1,10 @@
+@import '~@/styles/variables.less';
+
 // 表单数据行（复用父级布局结构）
 .formDataRow {
   display: flex;
   font-size: 13px;
+  min-width: 0; // 防止表格内容撑开整行
 }
 
 .formLabel {
@@ -12,6 +15,7 @@
 
 .formValue {
   flex: 1;
+  min-width: 0; // 阻断 flex 子项 min-width:auto 默认行为，防止表格内容撑开父级
   color: #333;
 }
 
@@ -119,5 +123,18 @@
 .descriptionsDiffValue {
   :global(.ant-descriptions-item-content) {
     vertical-align: top;
+  }
+}
+
+// ==================== 移动端响应式 ====================
+
+@media (max-width: @screen-sm) {
+  .formDataRow {
+    flex-direction: column;
+  }
+
+  .formLabel {
+    width: auto;
+    margin-bottom: 2px;
   }
 }
