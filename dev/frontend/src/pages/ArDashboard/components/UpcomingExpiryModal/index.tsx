@@ -4,13 +4,15 @@
  */
 
 import React from 'react';
-import { Modal, Table } from 'antd';
+import { Modal, Table, Alert } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 interface UpcomingExpiryModalProps {
   visible: boolean;
   onClose: () => void;
   data: UpcomingExpiryCustomer[];
+  loading?: boolean;
+  error?: string | null;
 }
 
 const columns: ColumnsType<UpcomingExpiryCustomer> = [
@@ -47,7 +49,7 @@ const columns: ColumnsType<UpcomingExpiryCustomer> = [
   },
 ];
 
-const UpcomingExpiryModal: React.FC<UpcomingExpiryModalProps> = ({ visible, onClose, data }) => {
+const UpcomingExpiryModal: React.FC<UpcomingExpiryModalProps> = ({ visible, onClose, data, loading, error }) => {
   return (
     <Modal
       title="即将逾期明细（5天内）"
@@ -57,10 +59,12 @@ const UpcomingExpiryModal: React.FC<UpcomingExpiryModalProps> = ({ visible, onCl
       width={680}
       destroyOnClose
     >
+      {error && <Alert message="加载失败" description={error} type="error" showIcon style={{ marginBottom: 12 }} />}
       <Table<UpcomingExpiryCustomer>
         rowKey="consumerName"
         columns={columns}
         dataSource={data}
+        loading={loading}
         pagination={false}
         size="small"
         scroll={{ x: 'max-content' }}

@@ -355,6 +355,18 @@ function parseNumberOrNull(value: string | undefined | null): number | null {
   return isNaN(num) ? null : num;
 }
 
+/**
+ * 一站式获取富化后的非压单欠款数据
+ * 供看板、预警、催收等多场景复用，避免各处重复调用 fetchAllErpDebts + enrich + filter
+ * @usedBy ar-dashboard-data.ts
+ */
+export async function getEnrichedNonHoardDebts(now: Date = new Date()): Promise<EnrichedDebtRecord[]> {
+  const { fetchAllErpDebts } = await import('../erp-client/erp-debt.service');
+  const allDebts = await fetchAllErpDebts();
+  const enriched = await enrichDebtRecords(allDebts, now);
+  return filterHoardDebts(enriched);
+}
+
 /** 带并发限制的并行映射 */
 async function parallelMap<T, R>(
   items: T[],

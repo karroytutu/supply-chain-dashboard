@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Upload, Image, Spin } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { PaperClipOutlined } from '@ant-design/icons';
@@ -18,12 +18,24 @@ interface PhotoFieldRendererProps {
   licenseLoading?: boolean;
 }
 
-/** 照片字段渲染组件（支持门头照和营业执照两种模式） */
+/** 照片字段渲染组件（支持门头照和营业执照两种模式）
+ * 本地上传文件通过 URL.createObjectURL 生成 blob URL，支持提交前预览大图、删除/添加图片
+ */
 const PhotoFieldRenderer: React.FC<PhotoFieldRendererProps> = ({
   value, onChange, maxCount, photoPurpose, existingPhotoUrl,
   customerLicenseInfo, licenseLoading,
 }) => {
   const isStorefront = photoPurpose === 'storefront';
+
+  // 追踪已创建的 blob URL（uid → blobUrl），用于组件卸载时批量释放
+  const blobUrlsRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    return () => {
+      blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      blobUrlsRef.current.clear();
+    };
+  }, []);
 
   return (
     <div>
@@ -60,10 +72,12 @@ const PhotoFieldRenderer: React.FC<PhotoFieldRendererProps> = ({
             <PaperClipOutlined /> 客户档案已有营业执照（{customerLicenseInfo.imageCount} 张）
           </div>
           <div className={styles.existingLicenseImages}>
-            {customerLicenseInfo.attachedPicUrls.map((url, idx) => (
-              <Image key={idx} src={url} className={styles.licenseThumbnail}
-                width={80} height={80} style={{ objectFit: 'cover', borderRadius: 4 }} />
-            ))}
+            <Image.PreviewGroup>
+              {customerLicenseInfo.attachedPicUrls.map((url, idx) => (
+                <Image key={idx} src={url} className={styles.licenseThumbnail}
+                  width={80} height={80} style={{ objectFit: 'cover', borderRadius: 4 }} />
+              ))}
+            </Image.PreviewGroup>
           </div>
         </div>
       )}
@@ -78,7 +92,26 @@ const PhotoFieldRenderer: React.FC<PhotoFieldRendererProps> = ({
       <Upload listType="picture-card" accept="image/*" multiple maxCount={maxCount}
         fileList={(value as UploadFile[]) || []}
         beforeUpload={createBeforeUpload(validateImageFile)}
-        onChange={({ fileList: newList }) => onChange?.(newList)}
+        onChange={({ fileList: newList }) => {
+          // 为本地文件生成 blob URL（不可变模式：clone 后赋值，不直接 mutate 原对象）
+          const enriched = newList.map((f) => {
+            if (f.originFileObj && !f.url && !f.thumbUrl) {
+              const blobUrl = URL.createObjectURL(f.originFileObj);
+              blobUrlsRef.current.set(f.uid, blobUrl);
+              return { ...f, url: blobUrl, thumbUrl: blobUrl };
+            }
+            return f;
+          });
+          // 释放已从列表中移除的文件的 blob URL
+          const currentUids = new Set(enriched.map((f) => f.uid));
+          blobUrlsRef.current.forEach((url, uid) => {
+            if (!currentUids.has(uid)) {
+              URL.revokeObjectURL(url);
+              blobUrlsRef.current.delete(uid);
+            }
+          });
+          onChange?.(enriched);
+        }}
       >
         <div>上传图片</div>
       </Upload>

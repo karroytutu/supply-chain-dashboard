@@ -1,7 +1,8 @@
 /**
  * 催收管理模块类型定义
  * 对应数据库表: ar_collection_tasks, ar_collection_details, ar_extension_records,
- *              ar_evidence_files, ar_collection_actions, ar_legal_progress
+ *              ar_collection_actions
+ * 注: ar_legal_progress 和 ar_evidence_files 已废弃（迁移 091 删除）
  */
 
 // ============================================
@@ -67,12 +68,6 @@ export type ActionType =
   | 'hoard_excluded'
   /** @deprecated 旧催收退回操作，已迁移至 OA 审批流程 */
   | 'rollback';
-
-/** 法律操作类型 */
-export type LegalActionType = 'send_notice' | 'file_lawsuit' | 'update_progress';
-
-/** 凭证文件类型 */
-export type EvidenceFileType = 'evidence' | 'signature' | 'customer_confirm';
 
 /** 延期记录状态 */
 export type ExtensionStatus = 'active' | 'expired' | 'cancelled';
@@ -203,23 +198,6 @@ export interface ExtensionRecord {
   expired_at: string | null;
 }
 
-/** 凭证文件(ar_evidence_files) */
-export interface EvidenceFile {
-  id: number;
-  task_id: number | null;
-
-  // 文件信息
-  file_type: EvidenceFileType;
-  file_name: string | null;
-  file_path: string | null;
-  file_size: number | null;
-  mime_type: string | null;
-
-  // 上传信息
-  uploaded_by: number | null;
-  uploaded_at: string;
-}
-
 /** 操作日志(ar_collection_actions) */
 export interface CollectionAction {
   id: number;
@@ -242,17 +220,6 @@ export interface CollectionAction {
   extension_until?: string | null;
   operator_display_name?: string | null;
 
-  created_at: string;
-}
-
-/** 法律催收进展(ar_legal_progress) */
-export interface LegalProgress {
-  id: number;
-  task_id: number;
-  action: LegalActionType;
-  description: string | null;
-  attachment_url: string | null;
-  operator_id: number | null;
   created_at: string;
 }
 

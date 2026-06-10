@@ -92,6 +92,15 @@ export const CACHE_KEY = {
   /** 品类聚合结果 */
   ERP_FACADE_CATEGORY_AGG: 'erp:facade:category_agg' as const,
 
+  // ==================== 应收看板相关 ====================
+  /** 应收看板聚合数据 */
+  AR_DASHBOARD_OVERVIEW: 'ar:dashboard:overview' as const,
+  /** 应收看板即将逾期弹窗 */
+  AR_DASHBOARD_UPCOMING_EXPIRY: 'ar:dashboard:upcoming-expiry' as const,
+  /** 应收看板管道即将逾期弹窗 */
+  AR_DASHBOARD_PIPELINE_EXPIRY: (s: string, l?: number) =>
+    `ar:dashboard:pipeline-expiry:${s}:${l ?? 0}` as const,
+
   // ==================== 工作台相关 ====================
   /** 工作台聚合数据（按用户） */
   WORKSPACE_DATA: (userId: number) => `workspace:data:${userId}` as const,

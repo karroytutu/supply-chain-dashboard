@@ -7,5 +7,5 @@
 
 export * from './erp-debt.types';
 export { syncERPDebts, checkExtensionExpiry, checkHoldExpiry } from './erp-debt-sync.task';
-export { enrichDebtRecords, filterHoardDebts, fetchCustomerData, fetchHoardTags } from './erp-debt-enrichment.service';
+export { enrichDebtRecords, filterHoardDebts, fetchCustomerData, fetchHoardTags, getEnrichedNonHoardDebts } from './erp-debt-enrichment.service';
 export { detectHoardChangesByCustomer, detectAllHoardChanges } from './erp-hoard-detect';

@@ -1,25 +1,20 @@
 /**
  * 应收账款全景看板 - 类型定义
- * 前端原型使用，后续对接后端 API 时扩展
+ * 与后端 ar-dashboard.types.ts 对齐
  */
 
 // ============================================
 // KPI 指标
 // ============================================
 
-/** 趋势方向（后续对接 API 时使用，当前 Mock 数据未设置） */
-type TrendDirection = 'up' | 'down' | 'flat';
-
-/** KPI 卡片数据 */
+/** KPI 卡片数据（API 返回，valueColor 由前端注入） */
 interface KpiCardData {
   key: string;
   title: string;
-  value: number;
+  value: number | null;
   unit?: string;
-  prefix?: React.ReactNode;
-  valueColor: string;
-  trend?: number;
-  trendDirection?: TrendDirection;
+  /** UI 颜色（前端从 KPI_COLOR_MAP 注入，不来自 API） */
+  valueColor?: string;
   /** 辅助信息（如即将逾期的笔数+金额） */
   auxiliary?: { label: string; value: string }[];
 }
@@ -28,7 +23,9 @@ interface KpiCardData {
 // 催收进度管道
 // ============================================
 
-/** 催收任务状态（与后端 TaskStatus 对齐） */
+/** 催收任务状态（与后端对齐）
+ * 注: 'closed' 为预留状态，后端当前不返回，未来支持结案操作时使用
+ */
 type CollectionTaskStatus =
   | 'collecting'
   | 'difference_processing'
@@ -42,43 +39,24 @@ type PendingRole = 'marketer' | 'supervisor' | 'finance';
 /** 升级层级（用于区分 escalated 下的 L1/L2） */
 type EscalationLevel = 1 | 2;
 
-/** 催收进度节点（按角色分组） */
+/** 催收进度节点（API 返回，color 由前端注入） */
 interface PipelineNode {
   status: CollectionTaskStatus;
   label: string;
   count: number;
   amount: number;
-  color: string;
-  /** 待处理角色，用于按角色分组展示 */
+  /** UI 颜色（前端从 NODE_COLOR_MAP 注入） */
+  color?: string;
   pendingRole: PendingRole;
-  /** 升级层级（仅 escalated 状态使用） */
   escalationLevel?: EscalationLevel;
-  /** 即将逾期笔数 */
   upcomingExpiryCount?: number;
-}
-
-/**
- * 角色分组汇总
- * @reserved 后续 API 对接时使用，当前页面直接通过 PipelineNode.pendingRole 分组
- */
-interface RoleGroup {
-  role: PendingRole;
-  label: string;
-  color: string;
-  nodes: PipelineNode[];
-  totalCount: number;
-  totalAmount: number;
 }
 
 /** 诉讼进度统计 */
 interface LegalProgressStats {
-  /** 催收函已发送 */
   noticeSent: number;
-  /** 已提起诉讼 */
   lawsuitFiled: number;
-  /** 诉讼进行中 */
   lawsuitInProgress: number;
-  /** 已判决/执行 */
   lawsuitCompleted: number;
 }
 
@@ -88,17 +66,13 @@ interface LegalProgressStats {
 
 /** 营销师统计数据 */
 interface MarketerStats {
-  marketerId: number;
+  marketerId: number | null;
   marketerName: string;
-  /** 欠款客户数 */
   debtCustomerCount: number;
-  /** 欠款总额 */
   debtAmount: number;
-  /** 逾期客户数 */
   overdueCustomerCount: number;
-  /** 逾期总额 */
   overdueAmount: number;
-  dso: number;
+  dso: number | null;
   collectingCount: number;
 }
 
@@ -108,28 +82,24 @@ interface MarketerStats {
 
 /** 明细表行数据 */
 interface ArDetailRow {
-  id: number;
   billNo: string;
   consumerName: string;
   billTypeName: string;
   totalAmount: number;
   leftAmount: number;
-  /** 单据日期 */
   billOrderTime: string;
   expireTime: string;
   overdueDays: number;
-  /** 账龄区间 */
   agingBucket: string;
-  /** 授信额度 */
-  creditLimit: number;
-  status: CollectionTaskStatus;
-  /** 升级层级（仅 escalated 状态有值） */
+  creditLimit: number | null;
+  /** 催收状态（null 表示未入催） */
+  status: CollectionTaskStatus | null;
   escalationLevel?: EscalationLevel;
   managerUserName: string;
 }
 
 // ============================================
-// 即将逾期弹窗
+// 弹窗数据
 // ============================================
 
 /** 即将逾期客户维度数据 */
@@ -157,34 +127,28 @@ interface PipelineFilter {
   escalationLevel?: EscalationLevel;
 }
 
-/** 明细表筛选参数 */
+/** 明细表本地筛选状态 */
 interface ArDetailFilters {
   status?: CollectionTaskStatus | '';
   escalationLevel?: EscalationLevel;
   overdueRange: string;
-  managerId?: number | '';
+  managerName?: string;
   keyword: string;
 }
 
 // ============================================
-// 看板聚合数据
+// 看板聚合数据（API 响应类型）
 // ============================================
 
-/**
- * 看板完整数据（聚合接口响应结构）
- * @reserved 后续对接后端 API 时作为响应类型使用
- */
+/** 看板完整数据（后端 API 响应） */
 interface ArDashboardData {
   kpiCards: KpiCardData[];
   pipeline: {
     nodes: PipelineNode[];
-    roleGroups: { role: PendingRole; label: string; color: string }[];
     legalProgress: LegalProgressStats;
   };
   marketers: MarketerStats[];
   details: ArDetailRow[];
-  /** 营销师选项列表 */
-  marketerOptions: { value: number; label: string }[];
-  /** 数据更新时间 */
+  marketerOptions: { value: string; label: string }[];
   updatedAt: string;
 }
