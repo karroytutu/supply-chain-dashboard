@@ -1,0 +1,44 @@
+.card {
+  border-radius: 8px;
+}
+
+.filters {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+
+.filterGrid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.count {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.45);
+  flex-shrink: 0;
+  padding-top: 6px;
+}
+
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+  }
+
+  .filterGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .count {
+    padding-top: 0;
+    text-align: right;
+    align-self: flex-end;
+  }
+}

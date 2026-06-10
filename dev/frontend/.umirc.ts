@@ -148,6 +148,14 @@ export default defineConfig({
       ],
     },
     {
+      path: '/ar-dashboard',
+      component: '@/pages/ArDashboard',
+      name: '应收看板',
+      icon: 'FundOutlined',
+      wrappers: ['@/wrappers/auth'],
+      access: PERMISSIONS.FINANCE.AR.READ,
+    },
+    {
       path: '/system',
       name: '系统管理',
       icon: 'setting',
