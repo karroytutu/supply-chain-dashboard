@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 // OA 审批操作栏
 // 所有参数严格对照 Canvas 设计预览 inline style 值
 // sticky 在所有屏幕尺寸生效（不只移动端）
@@ -137,32 +139,34 @@
   }
 }
 
-// ── 移动端微调（≤768px）──
-// sticky 已在所有尺寸生效，此处仅调整间距/字号
-@media (max-width: 768px) {
+// ── 移动端微调（≤@screen-md）──
+// 保持与 PC 端一致的一行水平布局，仅调整间距和按钮尺寸
+@media (max-width: @screen-md) {
   .actionBar {
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px 12px;
+    padding: 8px 10px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
     border-radius: 0;
+    overflow-x: auto;  // 极窄屏安全溢出
+    // 保持默认 flex-direction: row，不设为 column
   }
 
   .actionLeft {
-    width: 100%;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 8px;          // 从 16px 缩小到 8px，节省空间
+    flex-shrink: 0;    // 左侧不被压缩
   }
 
   .actionRight {
-    width: 100%;
+    gap: 8px;          // 从 12px 缩小到 8px
+    flex-shrink: 0;    // 右侧按钮不被压缩
+  }
 
-    .secondaryBtn,
-    .primaryBtn {
-      flex: 1;
-      justify-content: center;
-      min-height: 44px; // 触控友好
-    }
+  // 按钮保持触控友好高度，缩减内边距适配窄屏
+  .secondaryBtn,
+  .primaryBtn {
+    min-height: @touch-target-size;
+    padding: 0 12px;   // 从 20px 缩减到 12px，适配 375px 窄屏
+    font-size: 13px;
   }
 
   .actionItemIcon {
@@ -171,10 +175,5 @@
 
   .actionItemLabel {
     font-size: 11px;
-  }
-
-  .secondaryBtn,
-  .primaryBtn {
-    min-height: 44px;
   }
 }
