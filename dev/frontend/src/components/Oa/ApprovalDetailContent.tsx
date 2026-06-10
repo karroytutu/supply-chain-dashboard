@@ -180,6 +180,10 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
         visible={actionState.actionModalVisible} actionType={actionState.actionType}
         actionComment={actionState.actionComment} actionLoading={actionState.actionLoading}
         transferUsers={actionState.transferUsers} interactionType={interactionType}
+        countersignUserIds={actionState.countersignUserIds}
+        countersignType={actionState.countersignType}
+        onCountersignUserIdsChange={actionState.setCountersignUserIds}
+        onCountersignTypeChange={actionState.setCountersignType}
         onOk={actionState.executeAction} onCancel={actionState.closeActionModal}
         onCommentChange={actionState.setActionComment} onTransferUserChange={actionState.setTransferUserId}
       />

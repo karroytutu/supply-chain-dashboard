@@ -23,6 +23,8 @@ const hookState = {
   actionType: null,
   actionComment: '',
   transferUsers: [],
+  countersignUserIds: [],
+  countersignType: 'after',
   canOperate: false,
   canWithdraw: false,
   currentStep: 0,
@@ -32,6 +34,8 @@ const hookState = {
   executeWithdraw: vi.fn(),
   setActionComment: vi.fn(),
   setTransferUserId: vi.fn(),
+  setCountersignUserIds: vi.fn(),
+  setCountersignType: vi.fn(),
 };
 
 vi.mock('umi', () => ({
@@ -141,6 +145,8 @@ function resetState() {
   hookState.actionType = null;
   hookState.actionComment = '';
   hookState.transferUsers = [];
+  hookState.countersignUserIds = [];
+  hookState.countersignType = 'after';
   hookState.canOperate = false;
   hookState.canWithdraw = false;
   hookState.currentStep = 0;
@@ -150,6 +156,8 @@ function resetState() {
   hookState.executeWithdraw = vi.fn();
   hookState.setActionComment = vi.fn();
   hookState.setTransferUserId = vi.fn();
+  hookState.setCountersignUserIds = vi.fn();
+  hookState.setCountersignType = vi.fn();
 }
 
 beforeEach(() => {
@@ -229,13 +237,13 @@ describe('ApprovalDetailPage - 条件组件渲染', () => {
 });
 
 describe('ApprovalDetailPage - 传参验证', () => {
-  it('ApprovalDetailContent 接收 formLayout="descriptions" + showHeader=false', () => {
+  it('ApprovalDetailContent 接收 formLayout="list" + showHeader=false', () => {
     hookState.detail = makeDetail();
 
     render(<ApprovalDetailPage />);
 
     const content = screen.getByTestId('approval-detail-content');
-    expect(content.getAttribute('data-form-layout')).toBe('descriptions');
+    expect(content.getAttribute('data-form-layout')).toBe('list');
     expect(content.getAttribute('data-show-header')).toBe('false');
   });
 

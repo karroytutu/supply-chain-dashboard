@@ -31,12 +31,16 @@ export interface UseApprovalActionsReturn {
   actionType: ActionType;
   actionComment: string;
   transferUsers: Array<{ id: number; name: string }>;
+  countersignUserIds: number[];
+  countersignType: 'before' | 'after';
   openActionModal: (type: NonNullable<ActionType>) => void;
   closeActionModal: () => void;
   executeAction: () => Promise<void>;
   executeWithdraw: () => Promise<void>;
   setActionComment: (v: string) => void;
   setTransferUserId: (v: number | null) => void;
+  setCountersignUserIds: (v: number[]) => void;
+  setCountersignType: (v: 'before' | 'after') => void;
   canOperate: boolean;
   canWithdraw: boolean;
   canComment: boolean;
@@ -58,6 +62,8 @@ export function useApprovalActions({
   const [actionComment, setActionComment] = useState('');
   const [transferUserId, setTransferUserId] = useState<number | null>(null);
   const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
+  const [countersignUserIds, setCountersignUserIds] = useState<number[]>([]);
+  const [countersignType, setCountersignType] = useState<'before' | 'after'>('after');
 
   // ==================== 权限计算（useMemo）====================
 
@@ -144,8 +150,17 @@ export function useApprovalActions({
           message.success('已转交');
           break;
         case 'countersign':
-          message.warning('加签功能需要选择加签人员');
-          return; // 未执行操作，跳过状态清理和 onActionComplete
+          if (countersignUserIds.length === 0) {
+            message.warning('请选择加签人员');
+            return;
+          }
+          await oaApi.countersign(instanceId, {
+            countersignType,
+            countersignUserIds,
+            comment: actionComment || undefined,
+          });
+          message.success('已加签');
+          break;
         case 'update': {
           // 操作型节点：发送编辑 diff 合并到原始 formData
           const editedDiff = editableFormRef?.current?.getEditedValues() || {};
@@ -168,13 +183,15 @@ export function useApprovalActions({
       setActionModalVisible(false);
       setActionComment('');
       setTransferUserId(null);
+      setCountersignUserIds([]);
+      setCountersignType('after');
       await onActionComplete?.();
     } catch (error) {
       message.error(getErrorMessage(error) || '操作失败');
     } finally {
       setActionLoading(false);
     }
-  }, [instanceId, actionType, actionComment, transferUserId, detail?.formData, onActionComplete, editableFormRef]);
+  }, [instanceId, actionType, actionComment, transferUserId, countersignUserIds, countersignType, detail?.formData, onActionComplete, editableFormRef]);
 
   const executeWithdraw = useCallback(async () => {
     if (!instanceId) return;
@@ -197,7 +214,9 @@ export function useApprovalActions({
     setActionModalVisible(true);
     setActionComment('');
     setTransferUserId(null);
-    if (type === 'transfer') {
+    setCountersignUserIds([]);
+    setCountersignType('after');
+    if (type === 'transfer' || type === 'countersign') {
       oaApi.getTransferCandidates()
         .then((users) => setTransferUsers(users))
         .catch(() => setTransferUsers([]));
@@ -208,12 +227,15 @@ export function useApprovalActions({
     setActionModalVisible(false);
     setActionComment('');
     setTransferUserId(null);
+    setCountersignUserIds([]);
+    setCountersignType('after');
   }, []);
 
   return {
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
+    countersignUserIds, countersignType,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
-    setActionComment, setTransferUserId,
+    setActionComment, setTransferUserId, setCountersignUserIds, setCountersignType,
     canOperate, canWithdraw, canComment, currentStep,
   };
 }

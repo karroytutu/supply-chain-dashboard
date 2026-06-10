@@ -31,9 +31,11 @@ const ApprovalDetailPage: React.FC = () => {
   const {
     loading, detail, errorType, loadDetail,
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
+    countersignUserIds, countersignType,
     canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId,
+    setCountersignUserIds, setCountersignType,
   } = useApprovalDetail(id, editableFormRef);
 
   if (loading) return <div className={styles.loadingContainer}><Spin size="large" /></div>;
@@ -41,9 +43,11 @@ const ApprovalDetailPage: React.FC = () => {
 
   const actionState = {
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
+    countersignUserIds, countersignType,
     canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId,
+    setCountersignUserIds, setCountersignType,
   };
 
   const extraContent = detail.formTypeCode === 'customer_credit' ? (
@@ -77,7 +81,7 @@ const ApprovalDetailPage: React.FC = () => {
       <ApprovalDetailContent
         detail={detail}
         actionState={actionState}
-        formLayout="descriptions"
+        formLayout="list"
         extraContentBefore={extraContent}
         showHeader={false}
         editableFormRef={editableFormRef}
