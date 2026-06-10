@@ -10,7 +10,7 @@ import { formatDateTime } from '@/utils/format';
 const statusMap: Record<string, { color: string; text: string }> = {
   pending: { color: 'processing', text: '处理中' },
   approved: { color: 'success', text: '已通过' },
-  rejected: { color: 'error', text: '已驳回' },
+  rejected: { color: 'error', text: '已拒绝' },
   withdrawn: { color: 'default', text: '已撤回' },
   cancelled: { color: 'warning', text: '已取消' },
 };

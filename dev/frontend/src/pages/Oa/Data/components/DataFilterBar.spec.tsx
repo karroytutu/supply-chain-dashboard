@@ -140,7 +140,7 @@ describe('DataFilterBar 筛选控件', () => {
 
     expect(optionTexts).toContain('处理中');
     expect(optionTexts).toContain('已通过');
-    expect(optionTexts).toContain('已驳回');
+    expect(optionTexts).toContain('已拒绝');
     expect(optionTexts).toContain('已撤回');
     expect(optionTexts).toContain('已取消');
   });

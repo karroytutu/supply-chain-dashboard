@@ -31,7 +31,7 @@ const getActionModalTitle = (actionType: string | null, interactionType?: NodeIn
   if (interactionType === 'operation') {
     switch (actionType) {
       case 'approve': return '确认完成';
-      case 'reject': return '驳回';
+      case 'reject': return '拒绝';
       case 'update': return '更新数据';
       default: return actionType === 'transfer' ? '转交' : '操作';
     }
@@ -39,7 +39,7 @@ const getActionModalTitle = (actionType: string | null, interactionType?: NodeIn
   // 审批型（默认）保持原有标题
   switch (actionType) {
     case 'approve': return '已通过';
-    case 'reject': return '已驳回';
+    case 'reject': return '已拒绝';
     case 'transfer': return '转交';
     case 'countersign': return '加签处理';
     default: return '操作';

@@ -31,14 +31,14 @@ describe('ActionModal', () => {
     expect(screen.getByText('确认完成')).toBeTruthy();
   });
 
-  it('reject 类型（审批型）标题为"已驳回"', () => {
+  it('reject 类型（审批型）标题为"已拒绝"', () => {
     render(<ActionModal {...defaultProps} actionType="reject" />);
-    expect(screen.getByText('已驳回')).toBeTruthy();
+    expect(screen.getByText('已拒绝')).toBeTruthy();
   });
 
-  it('reject 类型（操作型）标题为"驳回"', () => {
+  it('reject 类型（操作型）标题为"拒绝"', () => {
     render(<ActionModal {...defaultProps} actionType="reject" interactionType="operation" />);
-    expect(screen.getByText('驳回')).toBeTruthy();
+    expect(screen.getByText('拒绝')).toBeTruthy();
   });
 
   it('transfer 类型标题为"转交"', () => {

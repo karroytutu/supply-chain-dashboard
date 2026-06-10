@@ -114,7 +114,7 @@ describe('DataTable 渲染', () => {
     expect(screen.getByText('李四')).toBeTruthy();
   });
 
-  it('状态列 Tag: pending→处理中, approved→已通过, rejected→已驳回', () => {
+  it('状态列 Tag: pending→处理中, approved→已通过, rejected→已拒绝', () => {
     const data = [
       makeInstance({ id: 1, status: 'pending' }),
       makeInstance({ id: 2, status: 'approved' }),
@@ -137,7 +137,7 @@ describe('DataTable 渲染', () => {
 
     expect(pendingTag?.textContent).toContain('处理中');
     expect(successTag?.textContent).toContain('已通过');
-    expect(errorTag?.textContent).toContain('已驳回');
+    expect(errorTag?.textContent).toContain('已拒绝');
   });
 
   it('completedAt / currentApproverName 为 null 时显示 "-"', () => {

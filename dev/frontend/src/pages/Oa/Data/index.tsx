@@ -43,7 +43,7 @@ const DataPage: React.FC = () => {
           <Card><Statistic title="已通过" value={stats.approved} valueStyle={{ color: '#52c41a' }} prefix={<Badge status="success" />} /></Card>
         </Col>
         <Col span={6}>
-          <Card><Statistic title="已驳回" value={stats.rejected} valueStyle={{ color: '#ff4d4f' }} prefix={<Badge status="error" />} /></Card>
+          <Card><Statistic title="已拒绝" value={stats.rejected} valueStyle={{ color: '#ff4d4f' }} prefix={<Badge status="error" />} /></Card>
         </Col>
       </Row>
 

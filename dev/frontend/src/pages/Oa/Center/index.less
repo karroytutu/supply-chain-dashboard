@@ -288,27 +288,7 @@
   }
 }
 
-// 操作栏（固定底部）
-.actionBar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 20px;
-  background: #fff;
-  border-top: 1px solid #f0f0f0;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
-  flex-shrink: 0;
-}
-
-.actionLeft {
-  display: flex;
-  gap: 8px;
-}
-
-.actionRight {
-  display: flex;
-  gap: 12px;
-}
+// 操作栏样式已迁移至 components/Oa/ActionBar.less
 
 // 响应式
 // ── 大屏 → 中屏 (≤1400px)：导航收起为图标 ──
@@ -434,34 +414,6 @@
     width: auto;
   }
 
-  // 操作栏：固定在底部
-  .actionBar {
-    position: sticky;
-    bottom: 0;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px 12px;
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
-    z-index: 10;
-  }
-
-  .actionLeft {
-    width: 100%;
-    justify-content: space-between;
-
-    :global(.ant-btn) {
-      flex: 1;
-    }
-  }
-
-  .actionRight {
-    width: 100%;
-
-    :global(.ant-btn) {
-      flex: 1;
-    }
-  }
-
   // 移动端详情返回栏
   .mobileBackBar {
     display: flex;
@@ -501,9 +453,6 @@
     padding: 10px;
   }
 
-  .actionBar {
-    padding: 8px;
-  }
 }
 
 // ── 超小屏手机 (≤480px) ──
@@ -523,13 +472,6 @@
     gap: 4px;
   }
 
-  .actionLeft,
-  .actionRight {
-    :global(.ant-btn) {
-      font-size: 12px;
-      padding: 4px 8px;
-    }
-  }
 }
 
 // ── iPhone SE 级别 (≤375px) ──
