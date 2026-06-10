@@ -1,0 +1,180 @@
+// OA 审批操作栏
+// 所有参数严格对照 Canvas 设计预览 inline style 值
+// sticky 在所有屏幕尺寸生效（不只移动端）
+
+// ── 操作栏容器 ──
+.actionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin-top: 16px;
+}
+
+// ── 左侧：垂直图标文字组合区 ──
+.actionLeft {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+// ── 单个垂直图标文字项 ──
+.actionItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 2px;
+  min-width: 44px;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.7;
+  }
+
+  &:active {
+    opacity: 0.5;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #1890ff;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.actionItemIcon {
+  font-size: 20px;
+  color: #666;
+  line-height: 1;
+}
+
+.actionItemLabel {
+  font-size: 12px;
+  color: #666;
+  line-height: 1;
+}
+
+// 禁用态（如加签"功能开发中"）
+.actionItemDisabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+
+  &:hover {
+    opacity: 0.4; // 覆盖 hover 效果
+  }
+
+  .actionItemLabel {
+    color: #999;
+  }
+}
+
+// ── 右侧：操作按钮区 ──
+.actionRight {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+// 次要按钮（拒绝/更新）：白底 + 灰色边框 + 深灰文字
+.secondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 20px;
+  border-radius: 4px;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #595959;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #40a9ff;
+    color: #40a9ff;
+  }
+
+  &:active {
+    border-color: #1890ff;
+    color: #1890ff;
+  }
+}
+
+// 主要按钮（同意/完成）：实心蓝底 + 白色文字
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 20px;
+  border-radius: 4px;
+  border: 1px solid #1890FF;
+  background: #1890FF;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #40a9ff;
+    border-color: #40a9ff;
+  }
+
+  &:active {
+    background: #1890ff;
+    border-color: #1890ff;
+  }
+}
+
+// ── 移动端微调（≤768px）──
+// sticky 已在所有尺寸生效，此处仅调整间距/字号
+@media (max-width: 768px) {
+  .actionBar {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+    border-radius: 0;
+  }
+
+  .actionLeft {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .actionRight {
+    width: 100%;
+
+    .secondaryBtn,
+    .primaryBtn {
+      flex: 1;
+      justify-content: center;
+      min-height: 44px; // 触控友好
+    }
+  }
+
+  .actionItemIcon {
+    font-size: 18px;
+  }
+
+  .actionItemLabel {
+    font-size: 11px;
+  }
+
+  .secondaryBtn,
+  .primaryBtn {
+    min-height: 44px;
+  }
+}

@@ -13,7 +13,7 @@ const { Option } = Select;
 const statusMap: Record<string, { color: string; text: string }> = {
   pending: { color: 'processing', text: '处理中' },
   approved: { color: 'success', text: '已通过' },
-  rejected: { color: 'error', text: '已驳回' },
+  rejected: { color: 'error', text: '已拒绝' },
   withdrawn: { color: 'default', text: '已撤回' },
   cancelled: { color: 'warning', text: '已取消' },
 };
@@ -55,7 +55,7 @@ const DataFilterBar: React.FC<DataFilterBarProps> = ({
             <Select placeholder="审批状态" allowClear style={{ width: '100%' }} value={status} onChange={setStatus}>
               <Option value="pending">处理中</Option>
               <Option value="approved">已通过</Option>
-              <Option value="rejected">已驳回</Option>
+              <Option value="rejected">已拒绝</Option>
               <Option value="withdrawn">已撤回</Option>
               <Option value="cancelled">已取消</Option>
             </Select>

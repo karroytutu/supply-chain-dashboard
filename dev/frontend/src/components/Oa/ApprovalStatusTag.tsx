@@ -35,7 +35,7 @@ const statusConfig: Record<
   },
   rejected: {
     color: 'error',
-    text: '已驳回',
+    text: '已拒绝',
     icon: <CloseCircleOutlined />,
   },
   erp_failed: {

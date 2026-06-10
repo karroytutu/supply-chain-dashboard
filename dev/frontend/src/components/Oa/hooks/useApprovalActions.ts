@@ -1,6 +1,6 @@
 /**
  * OA 审批操作共享 Hook
- * 统一管理审批操作（同意/驳回/转交/更新/撤回）的 API 调用、ActionModal 状态和权限判断
+ * 统一管理审批操作（同意/拒绝/转交/更新/撤回）的 API 调用、ActionModal 状态和权限判断
  * 供 Oa/Detail 独立页面和 Oa/Center 流程中心面板共用
  */
 import { useState, useMemo, useCallback } from 'react';
@@ -17,7 +17,7 @@ export interface UseApprovalActionsConfig {
   instanceId: number | undefined;
   detail: ApprovalDetail | null;
   nodes: ApprovalNode[];
-  /** 审批操作（同意/驳回/转交/更新）成功后的回调 */
+  /** 审批操作（同意/拒绝/转交/更新）成功后的回调 */
   onActionComplete?: () => void | Promise<void>;
   /** 撤回成功后的回调（独立于审批操作，Center 场景下只刷新不跳转） */
   onWithdrawComplete?: () => void | Promise<void>;
@@ -131,11 +131,11 @@ export function useApprovalActions({
         }
         case 'reject':
           if (!actionComment.trim()) {
-            message.warning('请填写驳回原因');
+            message.warning('请填写拒绝原因');
             return;
           }
           await oaApi.reject(instanceId, { comment: actionComment });
-          message.success('已驳回');
+          message.success('已拒绝');
           break;
         case 'transfer':
           if (transferUserId) {

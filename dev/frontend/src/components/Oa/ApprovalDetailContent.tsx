@@ -4,17 +4,14 @@
  * 负责：头部信息 + 表单渲染（list/descriptions 两种布局）+ 审批流程 + 操作栏 + ActionModal
  */
 import React from 'react';
-import { Button, Popconfirm, Tooltip, Dropdown, Card, Descriptions } from 'antd';
-import {
-  SwapOutlined, TeamOutlined, MessageOutlined,
-  MoreOutlined, RollbackOutlined, SaveOutlined, CheckOutlined,
-} from '@ant-design/icons';
+import { Card, Descriptions } from 'antd';
 import type { ApprovalDetail } from '@/types/oa';
 import { ApprovalStatusTag, ApprovalFlow, FormFieldRenderer } from '@/components/Oa';
 import FormFieldsDiff, { hasOriginalFields } from './FormFieldsDiff';
 import EditableFormSection, { type EditableFormSectionRef } from './EditableFormSection';
 import { useErpFieldResolve } from './hooks/useErpFieldResolve';
 import { useErpLicenseResolve } from './hooks/useErpLicenseResolve';
+import ActionBar from './ActionBar';
 import ActionModal from './ActionModal';
 import { getInteractionType } from '@/utils/oa';
 import { checkCondition } from '@/pages/Oa/Form/components/ConditionalFieldWrapper';
@@ -123,84 +120,6 @@ const FormFieldsSection: React.FC<{
   );
 };
 
-// ==================== 操作栏 ====================
-
-const ActionBar: React.FC<{
-  detail: ApprovalDetail;
-  interactionType: 'approval' | 'operation';
-  canOperate: boolean;
-  canWithdraw: boolean;
-  canComment: boolean;
-  onOpenAction: (type: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment') => void;
-  onWithdraw: () => void;
-}> = ({ detail, interactionType, canOperate, canWithdraw, canComment, onOpenAction, onWithdraw }) => {
-
-  if (canOperate) {
-    if (interactionType === 'operation') {
-      return (
-        <div className={styles.actionBar}>
-          <div className={styles.actionLeft}>
-            {canComment && (
-              <Button onClick={() => onOpenAction('comment')}>评论</Button>
-            )}
-            <Dropdown menu={{
-              items: [
-                { key: 'rollback', icon: <RollbackOutlined />, label: '退回', onClick: () => onOpenAction('reject') },
-                { key: 'transfer', icon: <SwapOutlined />, label: '转交', onClick: () => onOpenAction('transfer') },
-              ],
-            }}>
-              <Button icon={<MoreOutlined />}>更多</Button>
-            </Dropdown>
-          </div>
-          <div className={styles.actionRight}>
-            <Button icon={<SaveOutlined />} onClick={() => onOpenAction('update')}>更新</Button>
-            <Button type="primary" icon={<CheckOutlined />} onClick={() => onOpenAction('approve')}>完成</Button>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className={styles.actionBar}>
-        <div className={styles.actionLeft}>
-          <Button icon={<SwapOutlined />} onClick={() => onOpenAction('transfer')}>转交</Button>
-          <Tooltip title="功能开发中"><Button icon={<TeamOutlined />} disabled>加签</Button></Tooltip>
-          {canComment && (
-            <Button onClick={() => onOpenAction('comment')}>评论</Button>
-          )}
-        </div>
-        <div className={styles.actionRight}>
-          <Button danger onClick={() => onOpenAction('reject')}>驳回</Button>
-          <Button type="primary" onClick={() => onOpenAction('approve')}>同意</Button>
-        </div>
-      </div>
-    );
-  }
-
-  // 申请人或非当前审批人但有评论权限时，只显示评论按钮
-  if (canComment) {
-    return (
-      <div className={styles.actionBar}>
-        <div className={styles.actionLeft}>
-          <Button onClick={() => onOpenAction('comment')}>评论</Button>
-        </div>
-        <div className={styles.actionRight} />
-      </div>
-    );
-  }
-
-  if (canWithdraw) {
-    return (
-      <div className={styles.actionBar}>
-        <Popconfirm title="确定要撤回此审批吗？" onConfirm={onWithdraw} okText="确定" cancelText="取消">
-          <Button danger>撤回审批</Button>
-        </Popconfirm>
-      </div>
-    );
-  }
-
-  return null;
-};
-
 // ==================== 主组件 ====================
 
 const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
@@ -251,7 +170,6 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
         />
       </div>
       <ActionBar
-        detail={detail}
         interactionType={interactionType}
         canOperate={canOperate}
         canWithdraw={canWithdrawOverride !== undefined ? canWithdrawOverride : actionState.canWithdraw}

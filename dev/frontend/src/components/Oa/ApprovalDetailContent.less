@@ -89,27 +89,6 @@
   }
 }
 
-// 操作栏
-.actionBar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 16px;
-  background: #fff;
-  border-radius: 8px;
-  margin-top: 16px;
-}
-
-.actionLeft {
-  display: flex;
-  gap: 8px;
-}
-
-.actionRight {
-  display: flex;
-  gap: 12px;
-}
-
 // 卡片（descriptions 布局）
 .card {
   margin-bottom: 16px;
@@ -144,29 +123,3 @@
   }
 }
 
-// ── 移动端操作栏固定底部 (≤768px) ──
-// 注：使用硬编码值替代 Ant Design Less 变量（@screen-md），
-// 因为 CSS Modules 模式下无法访问全局 Less 变量
-@media (max-width: 768px) {
-  .content {
-    padding-bottom: 72px; // 为固定操作栏预留空间
-  }
-
-  .actionBar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    margin-top: 0;
-    border-radius: 0;
-    padding: 10px 12px;
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
-    border-top: 1px solid #f0f0f0;
-
-    :global(.ant-btn) {
-      min-height: 44px;
-      font-size: 14px;
-    }
-  }
-}

@@ -190,7 +190,7 @@ describe('ApprovalDetailContent - 表单布局', () => {
 });
 
 describe('ApprovalDetailContent - ActionBar 权限', () => {
-  it('canOperate=true + approval 类型 → 显示"同意""驳回""转交"', () => {
+  it('canOperate=true + approval 类型 → 显示"同意""拒绝""转交"', () => {
     const detail = makeDetail();
     const actionState = makeActionState({ canOperate: true });
     mockGetInteractionType.mockReturnValue('approval');
@@ -198,11 +198,11 @@ describe('ApprovalDetailContent - ActionBar 权限', () => {
     render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
 
     expect(screen.getByText(/同\s*意/)).toBeTruthy();
-    expect(screen.getByText(/驳\s*回/)).toBeTruthy();
+    expect(screen.getByText(/拒\s*绝/)).toBeTruthy();
     expect(screen.getByText(/转\s*交/)).toBeTruthy();
   });
 
-  it('canOperate=true + operation 类型 → 显示"完成""更新""更多"', () => {
+  it('canOperate=true + operation 类型 → 显示"完成""更新""退回""转交"', () => {
     const detail = makeDetail();
     const actionState = makeActionState({ canOperate: true });
     mockGetInteractionType.mockReturnValue('operation');
@@ -211,7 +211,8 @@ describe('ApprovalDetailContent - ActionBar 权限', () => {
 
     expect(screen.getByText(/完\s*成/)).toBeTruthy();
     expect(screen.getByText(/更\s*新/)).toBeTruthy();
-    expect(screen.getByText(/更\s*多/)).toBeTruthy();
+    expect(screen.getByText(/退\s*回/)).toBeTruthy();
+    expect(screen.getByText(/转\s*交/)).toBeTruthy();
   });
 
   it('canOperate=false + canWithdraw=true → 显示"撤回审批"', () => {
@@ -237,7 +238,7 @@ describe('ApprovalDetailContent - ActionBar 权限', () => {
     );
 
     expect(screen.queryByText(/同\s*意/)).toBeNull();
-    expect(screen.queryByText(/驳\s*回/)).toBeNull();
+    expect(screen.queryByText(/拒\s*绝/)).toBeNull();
   });
 
   it('extraContentBefore 插槽在表单区域前渲染', () => {
@@ -306,7 +307,7 @@ describe('ApprovalDetailContent - canOperateOverride / canWithdrawOverride 覆�
     );
 
     expect(screen.getByText(/同\s*意/)).toBeTruthy();
-    expect(screen.getByText(/驳\s*回/)).toBeTruthy();
+    expect(screen.getByText(/拒\s*绝/)).toBeTruthy();
   });
 
   it('canWithdrawOverride=true + actionState.canWithdraw=false → 显示撤回按钮', () => {

@@ -52,7 +52,7 @@ export const NODE_STATUS_TEXT: Record<string, string> = {
 export const ACTION_TYPE_CONFIG: Record<string, { label: string; cls: string }> = {
   submit: { label: '提交', cls: styles.actionTagSubmit },
   approve: { label: '通过', cls: styles.actionTagApprove },
-  reject: { label: '驳回', cls: styles.actionTagReject },
+  reject: { label: '拒绝', cls: styles.actionTagReject },
   transfer: { label: '转交', cls: styles.actionTagTransfer },
   countersign: { label: '加签', cls: styles.actionTagCountersign },
   withdraw: { label: '撤回', cls: styles.actionTagWithdraw },

@@ -299,7 +299,7 @@ describe('executeAction 操作执行', () => {
     expect(mockMessage.success).toHaveBeenCalledWith('审批已通过，系统处理中');
   });
 
-  it('reject 无评论 → message.warning("请填写驳回原因") + 不调 API', async () => {
+  it('reject 无评论 → message.warning("请填写拒绝原因") + 不调 API', async () => {
     const result = setupHook('reject');
     // 不设置 actionComment（默认空字符串）
 
@@ -307,13 +307,13 @@ describe('executeAction 操作执行', () => {
       await result.current.executeAction();
     });
 
-    expect(mockMessage.warning).toHaveBeenCalledWith('请填写驳回原因');
+    expect(mockMessage.warning).toHaveBeenCalledWith('请填写拒绝原因');
     expect(mockOaApi.reject).not.toHaveBeenCalled();
     // Modal 不关闭
     expect(result.current.actionModalVisible).toBe(true);
   });
 
-  it('reject 成功 → oaApi.reject + "已驳回"', async () => {
+  it('reject 成功 → oaApi.reject + "已拒绝"', async () => {
     mockOaApi.reject.mockResolvedValueOnce(undefined);
     const result = setupHook('reject');
 
@@ -327,7 +327,7 @@ describe('executeAction 操作执行', () => {
     });
 
     expect(mockOaApi.reject).toHaveBeenCalledWith(42, { comment: '不符合要求' });
-    expect(mockMessage.success).toHaveBeenCalledWith('已驳回');
+    expect(mockMessage.success).toHaveBeenCalledWith('已拒绝');
   });
 
   it('transfer 无 transferUserId → message.warning + 不调 API', async () => {
