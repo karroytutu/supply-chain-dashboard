@@ -75,8 +75,8 @@ const ALL_COLUMNS: ColumnsType<MarketerStats> = [
     dataIndex: 'dso',
     width: 90,
     align: 'center',
-    sorter: (a, b) => a.dso - b.dso,
-    render: (v: number) => (
+    sorter: (a, b) => (a.dso ?? 0) - (b.dso ?? 0),
+    render: (v: number | null) => v == null ? '--' : (
       <Tag color={dsoColor(v)} className={styles.dsoTag}>
         {v}天
       </Tag>
@@ -112,7 +112,7 @@ const MarketerPanel: React.FC<MarketerPanelProps> = ({ data }) => {
       className={styles.card}
     >
       <Table<MarketerStats>
-        rowKey="marketerId"
+        rowKey="marketerName"
         columns={columns}
         dataSource={data}
         pagination={false}

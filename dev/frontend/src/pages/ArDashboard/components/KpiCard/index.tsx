@@ -12,8 +12,9 @@ interface KpiCardProps {
   onClick?: () => void;
 }
 
-/** 格式化金额：>= 1万显示 X.X万 */
-const formatValue = (value: number, unit?: string): string | number => {
+/** 格式化金额：>= 1万显示 X.X万，null 显示 "--" */
+const formatValue = (value: number | null, unit?: string): string | number => {
+  if (value == null) return '--';
   if (unit === '元' && value >= 10000) {
     return `${(value / 10000).toFixed(1)}万`;
   }
@@ -22,7 +23,7 @@ const formatValue = (value: number, unit?: string): string | number => {
 
 const KpiCard: React.FC<KpiCardProps> = ({ data, onClick }) => {
   const displayValue = formatValue(data.value, data.unit);
-  const displayUnit = data.unit === '元' && data.value >= 10000 ? '元' : data.unit;
+  const displayUnit = data.value != null && data.unit === '元' && data.value >= 10000 ? '元' : data.unit;
   const isClickable = !!onClick;
 
   return (

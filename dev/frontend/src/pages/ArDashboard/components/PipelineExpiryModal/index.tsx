@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Modal, Table, Tag } from 'antd';
+import { Modal, Table, Tag, Alert } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 interface PipelineExpiryModalProps {
@@ -12,6 +12,8 @@ interface PipelineExpiryModalProps {
   onClose: () => void;
   nodeLabel: string;
   data: PipelineExpiryDetail[];
+  loading?: boolean;
+  error?: string | null;
 }
 
 const columns: ColumnsType<PipelineExpiryDetail> = [
@@ -62,6 +64,8 @@ const PipelineExpiryModal: React.FC<PipelineExpiryModalProps> = ({
   onClose,
   nodeLabel,
   data,
+  loading,
+  error,
 }) => {
   return (
     <Modal
@@ -72,10 +76,12 @@ const PipelineExpiryModal: React.FC<PipelineExpiryModalProps> = ({
       width={720}
       destroyOnClose
     >
+      {error && <Alert message="加载失败" description={error} type="error" showIcon style={{ marginBottom: 12 }} />}
       <Table<PipelineExpiryDetail>
         rowKey="billNo"
         columns={columns}
         dataSource={data}
+        loading={loading}
         pagination={false}
         size="small"
         scroll={{ x: 'max-content' }}

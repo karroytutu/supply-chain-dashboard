@@ -22,6 +22,7 @@ import creditLicenseRoutes from './routes/credit-license.routes';
 import oaRoutes from './routes/oa.routes';
 import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
 import tokenAdminRoutes from './routes/token-admin.routes';
+import arDashboardRoutes from './routes/ar-dashboard.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 import { startDingtalkStream, stopDingtalkStream } from './services/dingtalk-stream.service';
@@ -154,6 +155,7 @@ app.use('/api/credit-license', creditLicenseRoutes);
 app.use('/api/oa', oaRoutes);
 app.use('/api/dingtalk-sync', dingtalkSyncRoutes);
 app.use('/api/token-admin', tokenAdminRoutes);
+app.use('/api/ar-dashboard', arDashboardRoutes);
 
 // 错误处理
 app.use(errorHandler);

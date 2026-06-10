@@ -15,7 +15,7 @@ import styles from './index.less';
 
 interface ArDetailTableProps {
   data: ArDetailRow[];
-  marketerOptions: { value: number; label: string }[];
+  marketerOptions: { value: string; label: string }[];
   /** 催收进度管道联动复合筛选 */
   pipelineFilter: PipelineFilter;
 }
@@ -131,7 +131,7 @@ const ALL_COLUMNS: ColumnsType<ArDetailRow> = [
     dataIndex: 'creditLimit',
     width: 110,
     align: 'right' as const,
-    render: (v: number) => (
+    render: (v: number | null) => v == null ? '--' : (
       <span style={{ color: 'rgba(0,0,0,0.65)' }}>¥{v >= 10000 ? `${(v / 10000).toFixed(0)}万` : v.toLocaleString()}</span>
     ),
   }),
@@ -139,7 +139,8 @@ const ALL_COLUMNS: ColumnsType<ArDetailRow> = [
     title: '催收状态',
     dataIndex: 'status',
     width: 100,
-    render: (status: CollectionTaskStatus) => {
+    render: (status: CollectionTaskStatus | null) => {
+      if (!status) return <Tag>未入催</Tag>;
       const cfg = STATUS_LABEL_MAP[status];
       return cfg ? <Tag color={cfg.color}>{cfg.label}</Tag> : status;
     },
@@ -184,9 +185,8 @@ const ArDetailTable: React.FC<ArDetailTableProps> = ({
           return false;
         if (filters.overdueRange === '60+' && row.overdueDays <= 60) return false;
       }
-      if (filters.managerId) {
-        const selectedName = marketerOptions.find((m) => m.value === filters.managerId)?.label;
-        if (selectedName && row.managerUserName !== selectedName) return false;
+      if (filters.managerName) {
+        if (row.managerUserName !== filters.managerName) return false;
       }
       if (filters.keyword) {
         const kw = filters.keyword.toLowerCase();
@@ -227,9 +227,9 @@ const ArDetailTable: React.FC<ArDetailTableProps> = ({
             style={{ width: '100%' }}
           />
           <Select
-            value={filters.managerId || ''}
+            value={filters.managerName || ''}
             options={[{ value: '', label: '全部营销师' }, ...marketerOptions]}
-            onChange={(v) => setFilters((p) => ({ ...p, managerId: v as number | '' }))}
+            onChange={(v) => setFilters((p) => ({ ...p, managerName: v as string }))}
             style={{ width: '100%' }}
             placeholder="营销师"
           />
@@ -248,7 +248,7 @@ const ArDetailTable: React.FC<ArDetailTableProps> = ({
       </div>
 
       <Table<ArDetailRow>
-        rowKey="id"
+        rowKey="billNo"
         columns={columns}
         dataSource={filteredData}
         pagination={{ pageSize: isMobile ? 5 : 10, showSizeChanger: !isMobile, showTotal: (t) => `共 ${t} 条` }}
