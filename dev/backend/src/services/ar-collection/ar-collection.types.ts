@@ -21,14 +21,18 @@ export type TaskStatus =
   | 'difference_processing'
   | 'extension'
   | 'escalated'
+  /** @deprecated 旧系统状态，待确认数据库无历史数据后移除 */
   | 'pending_verify'
+  /** @deprecated 旧系统状态，待确认数据库无历史数据后移除 */
   | 'verified'
   | 'closed';
 
 /** 明细状态 */
 export type DetailStatus =
   | 'pending'
+  /** @deprecated 旧系统状态，待确认数据库无历史数据后移除 */
   | 'pending_verify'
+  /** @deprecated 旧系统状态，待确认数据库无历史数据后移除 */
   | 'partial_verified'
   | 'full_verified'
   | 'extension'
@@ -51,9 +55,9 @@ export type ActionType =
   | 'collect'
   | 'extension'
   | 'difference'
+  /** @deprecated 旧手动核销操作，已迁移至 OA 审批流程 */
   | 'verify'
   | 'escalate'
-  | 'confirm_verify'
   | 'resolve_difference'
   | 'send_notice'
   | 'file_lawsuit'
@@ -61,6 +65,7 @@ export type ActionType =
   | 'close'
   | 'erp_auto_closed'
   | 'hoard_excluded'
+  /** @deprecated 旧催收退回操作，已迁移至 OA 审批流程 */
   | 'rollback';
 
 /** 法律操作类型 */
@@ -262,23 +267,12 @@ export interface CollectionStats {
   difference_processing_count: number;
   extension_count: number;
   escalated_count: number;
-  pending_verify_count: number;
-  verified_count: number;
   closed_count: number;
   total_overdue_amount: number;
 }
 
-/** 我的待办摘要 */
-export interface MyTasksSummary {
-  my_collecting: number;
-  my_pending_verify: number;
-  my_difference_processing: number;
-  my_escalated: number;
-  total_amount: number;
-}
-
 // ============================================
-// 请求参数接口
+// 请求参数接口（仅保留仍被使用的类型）
 // ============================================
 
 /** 任务列表查询参数 */
@@ -295,96 +289,4 @@ export interface TaskQueryParams {
   end_date?: string;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
-}
-
-/** 核销/回款参数 */
-export interface VerifyParams {
-  task_id: number;
-  detail_ids: number[];
-  amounts: { detail_id: number; amount: number }[];
-  remark?: string;
-  operator_id: number;
-  operator_name: string;
-}
-
-/** 申请延期参数 */
-export interface ExtensionParams {
-  task_id: number;
-  detail_ids: number[];
-  extension_days: number;
-  evidence_file_id?: number;
-  signature_url?: string;
-  remark?: string;
-  operator_id: number;
-  operator_name: string;
-}
-
-/** 标记差异参数 */
-export interface DifferenceParams {
-  task_id: number;
-  detail_ids: number[];
-  remark: string;
-  operator_id: number;
-  operator_name: string;
-}
-
-/** 升级催收参数 */
-export interface EscalateParams {
-  task_id: number;
-  detail_ids: number[];
-  target_level?: EscalationLevel;
-  reason: string;
-  operator_id: number;
-  operator_name: string;
-}
-
-/** 出纳确认核销参数 */
-export interface ConfirmVerifyParams {
-  task_id: number;
-  detail_ids: number[];
-  confirmed: boolean;
-  remark?: string;
-  operator_id: number;
-  operator_name: string;
-}
-
-/** 差异解决参数 */
-export interface ResolveDifferenceParams {
-  task_id: number;
-  detail_ids: number[];
-  remark: string;
-  operator_id: number;
-  operator_name: string;
-}
-
-/** 退回升级参数 */
-export interface RollbackParams {
-  task_id: number;
-  reason: string;
-  operator_id: number;
-  operator_name: string;
-}
-
-/** 发送催收函参数 */
-export interface SendNoticeParams {
-  task_id: number;
-  description?: string;
-  attachment_url: string;
-  operator_id: number;
-}
-
-/** 提起诉讼参数 */
-export interface FileLawsuitParams {
-  task_id: number;
-  description: string;
-  attachment_url?: string;
-  operator_id: number;
-}
-
-/** 更新法律进展参数 */
-export interface UpdateLegalProgressParams {
-  task_id: number;
-  description: string;
-  attachment_url?: string;
-  operator_id: number;
 }
