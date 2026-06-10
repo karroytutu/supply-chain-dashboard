@@ -19,6 +19,7 @@ const { mockMessage, mockOaApi } = vi.hoisted(() => ({
     approve: vi.fn(),
     reject: vi.fn(),
     transfer: vi.fn(),
+    countersign: vi.fn(),
     withdraw: vi.fn(),
     updateInstance: vi.fn(),
     getTransferCandidates: vi.fn(),
@@ -257,8 +258,8 @@ describe('executeAction 操作执行', () => {
     const detail = makeDetail({ status: 'pending', formData: { amount: 1000 } });
     const nodes = [makeNode({ status: 'pending', assignedUserId: 100 })];
 
-    // transfer 类型会调用 getTransferCandidates，需预设返回值
-    if (actionType === 'transfer') {
+    // transfer/countersign 类型会调用 getTransferCandidates，需预设返回值
+    if (actionType === 'transfer' || actionType === 'countersign') {
       mockOaApi.getTransferCandidates.mockResolvedValue([]);
     }
 
@@ -363,17 +364,58 @@ describe('executeAction 操作执行', () => {
     expect(mockMessage.success).toHaveBeenCalledWith('已转交');
   });
 
-  it('countersign → message.warning + 不调用 onActionComplete + Modal 保持打开', async () => {
+  it('countersign 无 userIds → warning("请选择加签人员") + 不调 API + Modal 保持打开', async () => {
     const result = setupHook('countersign');
 
     await act(async () => {
       await result.current.executeAction();
     });
 
-    expect(mockMessage.warning).toHaveBeenCalledWith('加签功能需要选择加签人员');
+    expect(mockMessage.warning).toHaveBeenCalledWith('请选择加签人员');
+    expect(mockOaApi.countersign).not.toHaveBeenCalled();
     expect(onActionComplete).not.toHaveBeenCalled();
-    // Modal 保持打开（未执行操作）
     expect(result.current.actionModalVisible).toBe(true);
+  });
+
+  it('countersign 有 userIds → oaApi.countersign + "已加签" + Modal 关闭', async () => {
+    mockOaApi.countersign.mockResolvedValueOnce(undefined);
+    const result = setupHook('countersign');
+
+    act(() => {
+      result.current.setCountersignUserIds([200, 300]);
+      result.current.setCountersignType('before');
+    });
+
+    await act(async () => {
+      await result.current.executeAction();
+    });
+
+    expect(mockOaApi.countersign).toHaveBeenCalledWith(42, {
+      countersignType: 'before',
+      countersignUserIds: [200, 300],
+      comment: undefined,
+    });
+    expect(mockMessage.success).toHaveBeenCalledWith('已加签');
+    expect(onActionComplete).toHaveBeenCalledTimes(1);
+    expect(result.current.actionModalVisible).toBe(false);
+  });
+
+  it('countersign 带评论 → comment 正确传给 API', async () => {
+    mockOaApi.countersign.mockResolvedValueOnce(undefined);
+    const result = setupHook('countersign');
+
+    act(() => {
+      result.current.setCountersignUserIds([200]);
+      result.current.setActionComment('加签理由');
+    });
+
+    await act(async () => {
+      await result.current.executeAction();
+    });
+
+    expect(mockOaApi.countersign).toHaveBeenCalledWith(42, expect.objectContaining({
+      comment: '加签理由',
+    }));
   });
 
   it('update → oaApi.updateInstance + comment="" 时传 undefined', async () => {
@@ -554,6 +596,28 @@ describe('弹窗控制', () => {
     expect(result.current.actionModalVisible).toBe(true);
   });
 
+  it('openActionModal("countersign") → 也调用 getTransferCandidates 加载候选人', async () => {
+    mockOaApi.getTransferCandidates.mockResolvedValueOnce([
+      { id: 10, name: '王五' },
+    ]);
+    const detail = makeDetail();
+    const nodes = [makeNode()];
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    await act(async () => {
+      result.current.openActionModal('countersign');
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockOaApi.getTransferCandidates).toHaveBeenCalled();
+    expect(result.current.transferUsers).toEqual([{ id: 10, name: '王五' }]);
+    expect(result.current.actionType).toBe('countersign');
+    expect(result.current.actionModalVisible).toBe(true);
+  });
+
   it('openActionModal("transfer") 失败 → transferUsers 置 []', async () => {
     mockOaApi.getTransferCandidates.mockRejectedValueOnce(new Error('fail'));
     const detail = makeDetail();
@@ -571,7 +635,7 @@ describe('弹窗控制', () => {
     expect(result.current.transferUsers).toEqual([]);
   });
 
-  it('closeActionModal → visible=false + 重置 comment/userId', () => {
+  it('closeActionModal → visible=false + 重置 comment/countersign 状态', async () => {
     const detail = makeDetail();
     const nodes = [makeNode()];
 
@@ -579,17 +643,29 @@ describe('弹窗控制', () => {
       useApprovalActions({ instanceId: 1, detail, nodes }),
     );
 
+    // 先打开加签弹窗并设置人员
     act(() => {
-      result.current.openActionModal('approve');
+      result.current.openActionModal('countersign');
     });
     act(() => {
+      result.current.setCountersignUserIds([1, 2]);
       result.current.setActionComment('some comment');
     });
+
+    // 关闭弹窗
     act(() => {
       result.current.closeActionModal();
     });
-
     expect(result.current.actionModalVisible).toBe(false);
     expect(result.current.actionComment).toBe('');
+
+    // 再次打开并立即执行，应提示"请选择加签人员"（证明 countersignUserIds 已被重置）
+    act(() => {
+      result.current.openActionModal('countersign');
+    });
+    await act(async () => {
+      await result.current.executeAction();
+    });
+    expect(mockMessage.warning).toHaveBeenCalledWith('请选择加签人员');
   });
 });

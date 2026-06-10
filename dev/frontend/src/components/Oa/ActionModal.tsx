@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Input, Select } from 'antd';
+import { Modal, Input, Select, Segmented } from 'antd';
 
 const { TextArea } = Input;
 
@@ -23,6 +23,14 @@ interface ActionModalProps {
   onCancel: () => void;
   onCommentChange: (comment: string) => void;
   onTransferUserChange: (id: number | null) => void;
+  /** 加签选中的人员 ID 列表 */
+  countersignUserIds?: number[];
+  /** 加签类型：前加签/后加签 */
+  countersignType?: 'before' | 'after';
+  /** 加签人员变更回调 */
+  onCountersignUserIdsChange?: (ids: number[]) => void;
+  /** 加签类型变更回调 */
+  onCountersignTypeChange?: (type: 'before' | 'after') => void;
 }
 
 /** 获取操作弹窗标题 */
@@ -48,6 +56,7 @@ const getActionModalTitle = (actionType: string | null, interactionType?: NodeIn
 
 const ActionModal: React.FC<ActionModalProps> = ({
   visible, actionType, actionComment, actionLoading, transferUsers = [], interactionType,
+  countersignUserIds = [], countersignType = 'after', onCountersignUserIdsChange, onCountersignTypeChange,
   onOk, onCancel, onCommentChange, onTransferUserChange,
 }) => {
   return (
@@ -73,6 +82,35 @@ const ActionModal: React.FC<ActionModalProps> = ({
               options={transferUsers.map((u) => ({ value: u.id, label: u.name }))}
             />
           </div>
+        )}
+        {actionType === 'countersign' && (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>加签类型：</label>
+              <Segmented
+                block
+                value={countersignType}
+                onChange={(v) => onCountersignTypeChange?.(v as 'before' | 'after')}
+                options={[
+                  { value: 'before', label: '前加签（加签人先审）' },
+                  { value: 'after', label: '后加签（当前人先审）' },
+                ]}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>加签人员：</label>
+              <Select
+                mode="multiple"
+                style={{ width: '100%' }}
+                placeholder="请选择加签人员"
+                value={countersignUserIds}
+                onChange={(ids) => onCountersignUserIdsChange?.(ids)}
+                showSearch
+                optionFilterProp="label"
+                options={transferUsers.map((u) => ({ value: u.id, label: u.name }))}
+              />
+            </div>
+          </>
         )}
         <div style={{ marginBottom: 0 }}>
           <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>

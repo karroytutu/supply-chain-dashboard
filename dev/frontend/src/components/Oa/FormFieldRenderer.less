@@ -47,7 +47,7 @@
 
 // 只读明细表格滚动容器
 .readonlyTableWrapper {
-  position: relative; // 为 ::after 伪元素提供定位上下文
+  position: relative;
   max-width: 100%; // 硬约束：不超出父容器
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -74,27 +74,11 @@
     border-radius: 2px;
   }
 
-  // 固定列白色背景 + 滚动阴影
+  // 固定列白色背景（阴影由 Ant Design v5 原生 ping-left/ping-right 机制条件性控制）
   :global {
     .ant-table-cell-fix-left {
       background: #fff;
     }
-
-    .ant-table-cell-fix-left-last::after {
-      box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.15);
-    }
-  }
-
-  // 右侧滚动提示（始终显示，提示用户可横向滑动）
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 24px;
-    background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.06));
-    pointer-events: none;
   }
 
   // ==================== 移动端优化 ====================
@@ -114,11 +98,6 @@
       // 固定列背景改为浅灰，与普通单元格形成对比
       .ant-table-cell-fix-left {
         background: #fafafa;
-      }
-
-      // 固定列滚动阴影加深
-      .ant-table-cell-fix-left-last::after {
-        box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.2);
       }
     }
   }

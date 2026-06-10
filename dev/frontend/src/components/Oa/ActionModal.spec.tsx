@@ -14,6 +14,10 @@ const defaultProps = {
   actionType: 'approve' as const,
   actionComment: '',
   actionLoading: false,
+  countersignUserIds: [] as number[],
+  countersignType: 'after' as 'before' | 'after',
+  onCountersignUserIdsChange: vi.fn(),
+  onCountersignTypeChange: vi.fn(),
   onOk: vi.fn().mockResolvedValue(undefined),
   onCancel: vi.fn(),
   onCommentChange: vi.fn(),
@@ -93,5 +97,32 @@ describe('ActionModal', () => {
   it('approve 类型不显示转交人员 Select', () => {
     render(<ActionModal {...defaultProps} actionType="approve" />);
     expect(screen.queryByText('转交人员：')).toBeNull();
+  });
+
+  it('countersign 类型显示加签类型 Segmented', () => {
+    render(<ActionModal {...defaultProps} actionType="countersign" />);
+    expect(screen.getByText('加签类型：')).toBeTruthy();
+  });
+
+  it('countersign 类型显示加签人员 Select', () => {
+    render(
+      <ActionModal
+        {...defaultProps}
+        actionType="countersign"
+        transferUsers={[{ id: 1, name: '张三' }, { id: 2, name: '李四' }]}
+      />
+    );
+    expect(screen.getByText('加签人员：')).toBeTruthy();
+  });
+
+  it('countersign 类型不显示转交人员 Select', () => {
+    render(<ActionModal {...defaultProps} actionType="countersign" />);
+    expect(screen.queryByText('转交人员：')).toBeNull();
+  });
+
+  it('approve 类型不显示加签 UI', () => {
+    render(<ActionModal {...defaultProps} actionType="approve" />);
+    expect(screen.queryByText('加签类型：')).toBeNull();
+    expect(screen.queryByText('加签人员：')).toBeNull();
   });
 });

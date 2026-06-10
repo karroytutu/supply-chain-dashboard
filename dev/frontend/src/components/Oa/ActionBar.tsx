@@ -160,7 +160,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
     const leftItems: LeftItemData[] = [
       { icon: <SwapOutlined />, label: '转交', onClick: () => onOpenAction('transfer') },
       { icon: <RollbackOutlined />, label: '退回', onClick: () => onOpenAction('reject') },
-      { icon: <TeamOutlined />, label: '加签', disabled: true, tooltip: '功能开发中' },
+      { icon: <TeamOutlined />, label: '加签', onClick: () => onOpenAction('countersign') },
       ...(canComment ? [{ icon: <MessageOutlined />, label: '评论', onClick: () => onOpenAction('comment') }] : []),
     ];
 

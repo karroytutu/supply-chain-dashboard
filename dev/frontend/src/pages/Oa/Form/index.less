@@ -153,14 +153,10 @@
     border-radius: 2px;
   }
 
-  // 固定列白色背景 + 滚动阴影
+  // 固定列白色背景（阴影由 Ant Design v5 原生 ping-left/ping-right 机制条件性控制）
   :global {
     .ant-table-cell-fix-left {
       background: #fff;
-    }
-
-    .ant-table-cell-fix-left-last::after {
-      box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.15);
     }
   }
 
