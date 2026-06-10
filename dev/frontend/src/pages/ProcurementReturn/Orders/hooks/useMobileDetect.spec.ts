@@ -44,18 +44,18 @@ describe('useMobileDetect', () => {
     expect(result.current).toBe(true);
   });
 
-  it('768px 边界值：等于 768 时为桌面', () => {
+  it('768px 边界值：等于 768 时为移动端', () => {
     Object.defineProperty(window, 'innerWidth', { writable: true, value: 768 });
 
     const { result } = renderHook(() => useMobileDetect());
-    expect(result.current).toBe(false);
+    expect(result.current).toBe(true);
   });
 
-  it('767px 边界值：小于 768 时为移动', () => {
-    Object.defineProperty(window, 'innerWidth', { writable: true, value: 767 });
+  it('769px 边界值：大于 768 时为桌面', () => {
+    Object.defineProperty(window, 'innerWidth', { writable: true, value: 769 });
 
     const { result } = renderHook(() => useMobileDetect());
-    expect(result.current).toBe(true);
+    expect(result.current).toBe(false);
   });
 
   it('卸载时移除 resize 监听', () => {
