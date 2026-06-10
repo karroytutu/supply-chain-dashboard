@@ -148,9 +148,11 @@ function buildActivityId(instanceId: number, nodeOrder: number): string {
 
 /**
  * 构建详情页URL
+ * @param baseUrlOverride - 可选，覆盖 config.app.baseUrl（用于修复脚本在非生产环境运行时指定正确域名）
  */
-function buildDetailUrl(instanceId: number): string {
-  return `${config.app.baseUrl}/oa/detail/${instanceId}`;
+function buildDetailUrl(instanceId: number, baseUrlOverride?: string): string {
+  const baseUrl = baseUrlOverride || config.app.baseUrl;
+  return `${baseUrl}/oa/detail/${instanceId}`;
 }
 
 /**
@@ -206,7 +208,8 @@ export async function createProcessInstance(
   applicantUserId: number,
   title: string,
   formSchema?: FormSchema,
-  formData?: Record<string, unknown>
+  formData?: Record<string, unknown>,
+  baseUrlOverride?: string
 ): Promise<void> {
   try {
     const processCode = await getOrCreateProcessCode(formTypeCode, formTypeName);
@@ -224,7 +227,7 @@ export async function createProcessInstance(
     }
 
     const formComponentValues = buildFormComponentValues(title, formSchema, formData);
-    const url = buildDetailUrl(instanceId);
+    const url = buildDetailUrl(instanceId, baseUrlOverride);
 
     const processInstanceId = await createWorkrecordInstance(
       processCode,
@@ -310,7 +313,8 @@ export async function createApprovalTodo(
   approverUserId: number,
   formSchema?: FormSchema,
   formData?: Record<string, unknown>,
-  nodeOrder?: number
+  nodeOrder?: number,
+  baseUrlOverride?: string
 ): Promise<void> {
   try {
     // 检查壳实例是否存在
@@ -327,7 +331,7 @@ export async function createApprovalTodo(
     }
 
     const activityId = buildActivityId(instanceId, nodeOrder ?? 1);
-    const url = buildDetailUrl(instanceId);
+    const url = buildDetailUrl(instanceId, baseUrlOverride);
 
     const taskIds = await createPcTasks(mapping.dingtalk_process_instance_id, activityId, [
       { userId: dtUserId, url },
