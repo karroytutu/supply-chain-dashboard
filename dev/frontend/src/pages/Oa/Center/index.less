@@ -187,6 +187,7 @@
   flex-direction: column;
   background: #f5f7fa;
   min-height: 0; // 允许 flex 子元素正确收缩
+  min-width: 0; // 防止内容撑宽面板（flex-direction:row 的 flex 子项）
 }
 
 // 移动端详情返回栏（默认隐藏，移动端 @media 中显示）
@@ -204,7 +205,9 @@
 .detailScroll {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  overflow-x: hidden; // 表格等宽内容通过自身滚动条处理
+  min-width: 0; // 防止内容撑宽
+  padding: 20px 20px 0; // 底部留白移至 .content 的 padding-bottom
 }
 
 // 详情头部信息
@@ -397,7 +400,7 @@
   }
 
   .detailScroll {
-    padding: 12px;
+    padding: 12px 12px 0; // 底部留白移至 .content
   }
 
   .detailTitle {
@@ -445,7 +448,7 @@
   }
 
   .detailScroll {
-    padding: 8px;
+    padding: 8px 8px 0; // 底部留白移至 .content
   }
 
   .formDataSection,

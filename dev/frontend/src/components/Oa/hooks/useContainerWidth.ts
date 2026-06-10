@@ -25,17 +25,17 @@ export const TABLE_ERP_TYPES = new Set([
 /** 数字/金额类型列右对齐 */
 export const NUMERIC_ALIGN_TYPES = new Set(['money', 'number']);
 
-/** 文本类型列启用省略号 */
-export const ELLIPSIS_TYPES = new Set(['text', 'textarea']);
-
 // =====================================================
 // Hook: 容器宽度监听
 // =====================================================
 
-/** 监听容器宽度变化（基于原生 ResizeObserver） */
+/** 监听容器宽度变化（基于原生 ResizeObserver）
+ * 观察父元素而非自身，避免 Ant Design Table scroll.x 设置后影响自身测量导致反馈循环
+ */
 export function useContainerWidth(): [React.RefCallback<HTMLDivElement>, number] {
-  const [width, setWidth] = useState(800);
+  const [width, setWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 800)); // SSR 安全的初始值，减少首帧宽度跳动
   const observerRef = useRef<ResizeObserver | null>(null);
+  const lastWidthRef = useRef(0);
 
   const ref = useCallback((node: HTMLDivElement | null) => {
     if (observerRef.current) {
@@ -43,12 +43,23 @@ export function useContainerWidth(): [React.RefCallback<HTMLDivElement>, number]
       observerRef.current = null;
     }
     if (node) {
-      setWidth(node.clientWidth || 800);
+      // 观察父元素而非自身，断开测量→渲染→测量的反馈循环
+      const target = node.parentElement || node;
+      const initialWidth = target.clientWidth || 800;
+      lastWidthRef.current = initialWidth;
+      setWidth(initialWidth);
       observerRef.current = new ResizeObserver((entries) => {
         const entry = entries[0];
-        if (entry) setWidth(entry.contentRect.width);
+        if (entry) {
+          const newWidth = entry.contentRect.width;
+          // 1px 容差，避免亚像素渲染差异导致无意义的 re-render
+          if (Math.abs(newWidth - lastWidthRef.current) > 1) {
+            lastWidthRef.current = newWidth;
+            setWidth(newWidth);
+          }
+        }
       });
-      observerRef.current.observe(node);
+      observerRef.current.observe(target);
     }
   }, []);
 

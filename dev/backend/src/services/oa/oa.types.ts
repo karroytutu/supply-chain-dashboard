@@ -118,8 +118,6 @@ export interface FormField {
   upper?: boolean;
   /** 评分控件分制 */
   limit?: 5 | 10;
-  /** 明细控件填写方式 */
-  tableViewMode?: 'list' | 'table';
   /** 明细控件子字段 */
   children?: FormField[];
   /** 明细统计字段 */

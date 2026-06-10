@@ -128,9 +128,21 @@
 
 // 表格字段滚动容器
 .tableFieldWrapper {
-  width: 100%;
+  max-width: 100%; // 硬约束：不超出父容器
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+
+  // 约束 Ant Design Table 内部结构不撑宽外层
+  :global {
+    .ant-table-wrapper {
+      max-width: 100%;
+    }
+
+    .ant-table {
+      width: max-content;
+      min-width: 100%; // 内容少时仍然填满容器
+    }
+  }
 
   &::-webkit-scrollbar {
     height: 4px;
@@ -149,6 +161,21 @@
 
     .ant-table-cell-fix-left-last::after {
       box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  // 移动端紧凑化
+  @media (max-width: @screen-sm) {
+    :global {
+      .ant-table-cell {
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+
+      .ant-table-thead > tr > th {
+        padding: 6px 8px;
+        font-size: 12px;
+      }
     }
   }
 }

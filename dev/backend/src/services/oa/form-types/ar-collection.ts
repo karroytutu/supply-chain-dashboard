@@ -105,7 +105,6 @@ const arCollectionFormSchema: { fields: FormField[] } = {
       type: 'table' as const,
       required: false,
       disabled: true,
-      tableViewMode: 'table' as const,
       children: [
         // billNo（内部编号）不展示，但数据保留在 formData 中用于核销校验
         { key: 'orderNo', label: '订单编号', type: 'text' as const, required: false },
