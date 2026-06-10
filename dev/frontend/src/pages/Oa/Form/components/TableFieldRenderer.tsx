@@ -7,15 +7,9 @@ import { Button, Input, InputNumber, Select, DatePicker, Table, Popconfirm } fro
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { FormField } from '@/types/oa';
+import { TABLE_ERP_TYPES, useContainerWidth, getColumnWidth } from '@/components/Oa/hooks/useContainerWidth';
 import ErpFieldRenderer from './ErpFieldRenderer';
 import styles from '../index.less';
-
-/** ERP 字段类型集合 */
-const ERP_FIELD_TYPES = new Set([
-  'asset_search', 'erp_department', 'erp_staff',
-  'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order',
-  'erp_grade', 'erp_group', 'erp_area',
-]);
 
 interface TableFieldRendererProps {
   field: FormField;
@@ -34,7 +28,7 @@ const CellInput: React.FC<{
   onRowUpdate: (updates: Record<string, unknown>) => void;
 }> = ({ childField, value, onChange, rowData, onRowUpdate }) => {
   // ERP 字段类型：使用 ErpFieldRenderer
-  if (ERP_FIELD_TYPES.has(childField.type)) {
+  if (TABLE_ERP_TYPES.has(childField.type)) {
     const cascadeValue = childField.cascadeFrom ? rowData[childField.cascadeFrom] : undefined;
     return (
       <ErpFieldRenderer
@@ -115,6 +109,8 @@ const CellInput: React.FC<{
 const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = [], onChange }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   const columns = field.children || [];
+  const [containerRef, containerWidth] = useContainerWidth();
+  const fixFirstCol = columns.length >= 5;
 
   const handleAdd = useCallback(() => {
     const newRow: Record<string, unknown> = {};
@@ -144,11 +140,12 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   }, [value, onChange]);
 
   const tableColumns = [
-    ...columns.map((col) => ({
+    ...columns.map((col, idx) => ({
       title: col.label + (col.required ? ' *' : ''),
       dataIndex: col.key,
       key: col.key,
-      width: Math.max(120, col.label.length * 20 + 40),
+      width: getColumnWidth(col),
+      ...(fixFirstCol && idx === 0 ? { fixed: 'left' as const } : {}),
       render: (_: unknown, record: Record<string, unknown>, rowIndex: number) => (
         <CellInput
           childField={col}
@@ -171,8 +168,10 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
     },
   ];
 
+  const columnWidthsSum = tableColumns.reduce((sum, c) => sum + (c.width as number), 0);
+
   return (
-    <div className={styles.tableFieldWrapper}>
+    <div ref={containerRef} className={styles.tableFieldWrapper}>
       <Table
         columns={tableColumns}
         dataSource={value.map((row, idx) => ({ ...row, _key: idx }))}
@@ -180,7 +179,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
         size="small"
         pagination={false}
         bordered
-        scroll={{ x: columns.length * 150 }}
+        scroll={{ x: Math.max(containerWidth, columnWidthsSum) }}
       />
       <Button type="dashed" onClick={handleAdd} icon={<PlusOutlined />} style={{ width: '100%', marginTop: 8 }}>
         添加一行

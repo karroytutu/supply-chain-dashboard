@@ -44,6 +44,8 @@ function createDebt(overrides: Partial<EnrichedDebtRecord> & { billId?: string }
     customerMaxDebtOrderNum: null,
     customerMaxDebtDays: null,
     customerMaxDebtAmount: null,
+    writeOffAmount: 200,
+    billNote: 'ORDER-001访销订单',
     ...overrides,
   } as EnrichedDebtRecord;
 }

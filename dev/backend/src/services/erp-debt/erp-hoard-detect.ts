@@ -187,6 +187,8 @@ async function detectHoardChanges(details: DetectableDetail[]): Promise<Detectab
     consumerExpireDay: 0,
     billTypeName: '',
     workTime: '',
+    writeOffAmount: 0,
+    billNote: '',
   }));
 
   // 3. 获取最新 hoardTag 映射
