@@ -36,7 +36,8 @@ export async function notifyPendingApproval(
         approverId,
         params.formSchema,
         params.formData,
-        params.nodeOrder
+        params.nodeOrder,
+        params.baseUrlOverride
       );
     } catch (error) {
       log.error('创建钉钉待办失败:', error);

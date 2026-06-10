@@ -161,7 +161,8 @@ async function rebuildArCollectionInstances(): Promise<void> {
         instance.applicant_id,
         instance.title,
         formType.formSchema,
-        instance.form_data
+        instance.form_data,
+        PRODUCTION_BASE_URL  // 覆盖 config.app.baseUrl，确保使用生产域名
       );
       shellCreated++;
       console.log(`  ✓ 壳实例创建成功`);
@@ -202,6 +203,7 @@ async function rebuildArCollectionInstances(): Promise<void> {
           nodeOrder: 1,
           formSchema: formType.formSchema,
           formData: instance.form_data,
+          baseUrlOverride: PRODUCTION_BASE_URL,  // 覆盖 config.app.baseUrl
         },
         [marketerUserId]
       );

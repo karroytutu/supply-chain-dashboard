@@ -1,0 +1,232 @@
+.card {
+  border-radius: 8px;
+}
+
+/* 横向流向布局 */
+.flow {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+}
+
+.node {
+  flex: 1;
+  min-width: 120px;
+  text-align: center;
+  padding: 12px 8px;
+  border-radius: 8px;
+  border: 2px solid #f0f0f0;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  &:hover {
+    border-color: var(--node-color, #1890ff);
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.nodeActive {
+  border-color: var(--node-color, #1890ff);
+  background: #fff;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--node-color, #1890ff) 20%, transparent);
+}
+
+.roleTag {
+  margin-bottom: 2px;
+  font-size: 11px;
+  line-height: 18px;
+  padding: 0 6px;
+}
+
+.nodeLabel {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 500;
+}
+
+.nodeCount {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.nodeAmount {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.expiryBadge {
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #fff7e6;
+  color: #fa8c16;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    background: #ffe7ba;
+  }
+}
+
+.arrow {
+  flex-shrink: 0;
+  color: #d9d9d9;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+/* 诉讼进度 */
+.legalSection {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.legalTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.legalSteps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.legalStep {
+  text-align: center;
+  min-width: 70px;
+}
+
+.legalIcon {
+  font-size: 20px;
+  color: #1890ff;
+  margin-bottom: 4px;
+}
+
+.legalCount {
+  font-size: 24px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  line-height: 1.2;
+}
+
+.legalLabel {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 2px;
+}
+
+.legalArrow {
+  color: #d9d9d9;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .flow {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .node {
+    min-width: 100px;
+  }
+
+  .arrow {
+    display: none;
+  }
+
+  .nodeCount {
+    font-size: 20px;
+  }
+
+  .legalSteps {
+    flex-wrap: wrap;
+  }
+}
+
+/* 移动端纵向列表 */
+.verticalList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.verticalItem {
+  position: relative;
+  padding-left: 20px;
+
+  /* 左侧竖线连接 */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e8e8e8;
+  }
+
+  /* 节点圆点 */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 18px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #d9d9d9;
+    border: 2px solid #fff;
+    z-index: 1;
+  }
+}
+
+.hasLine {
+  padding-bottom: 4px;
+}
+
+.verticalItem .node {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: auto;
+  padding: 10px 12px;
+  flex-wrap: wrap;
+}
+
+.verticalItem .roleTag {
+  margin-bottom: 0;
+}
+
+.verticalItem .nodeLabel {
+  font-size: 14px;
+}
+
+.verticalItem .nodeCount {
+  font-size: 18px;
+}
+
+.verticalItem .expiryBadge {
+  margin-top: 0;
+  margin-left: auto;
+}

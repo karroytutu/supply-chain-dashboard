@@ -38,6 +38,8 @@ export interface NotifyParams {
   rejectUserName?: string;
   formSchema?: FormSchema;
   formData?: Record<string, unknown>;
+  /** 覆盖 config.app.baseUrl，用于修复脚本在非生产环境指定正确域名 */
+  baseUrlOverride?: string;
 }
 
 // =====================================================
