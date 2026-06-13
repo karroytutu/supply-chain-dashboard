@@ -277,6 +277,54 @@ export interface ConditionDef {
   value: number | string;
 }
 
+// =====================================================
+// 节点时限配置相关类型
+// =====================================================
+
+/** 节点时限配置 */
+export interface TimeoutConfig {
+  /** 时限时长（分钟），不配置表示无时限 */
+  durationMinutes: number;
+  /** 免考核宽限期（分钟），默认 0 */
+  gracePeriodMinutes?: number;
+  /** 催办策略（不配置=不催办，仅记录超时状态） */
+  reminder?: ReminderConfig;
+  /** 考核规则（不配置=超时不考核） */
+  assessment?: AssessmentConfig;
+}
+
+/** 催办策略 */
+export interface ReminderConfig {
+  /** 首次催办延迟（分钟，相对 deadline_at） */
+  firstReminderDelayMinutes?: number;
+  /** 催办间隔（分钟） */
+  intervalMinutes?: number;
+  /** 最大催办次数 */
+  maxReminders?: number;
+  /** 催办N次后抄送上级，0=不抄送 */
+  ccSupervisorAfterCount?: number;
+}
+
+/** 考核规则 */
+export interface AssessmentConfig {
+  /** 考核分级（按超时天数分级，每级固定金额） */
+  tiers: AssessmentTier[];
+  /** 免考核的节点名称列表 */
+  exemptNodeNames?: string[];
+}
+
+/** 考核分级 */
+export interface AssessmentTier {
+  /** 分级名称（如 '一级考核(3-5天)'） */
+  name: string;
+  /** 超时天数下限（含） */
+  minOverdueDays: number;
+  /** 超时天数上限（不含），null=无上限 */
+  maxOverdueDays: number | null;
+  /** 该档固定考核金额（元） */
+  penaltyAmount: number;
+}
+
 /**
  * 审批节点定义
  */
@@ -301,6 +349,8 @@ export interface WorkflowNodeDef {
   fieldOptionFilter?: Record<string, string[]>;
   /** 节点交互类型：决定显示哪些操作按钮（默认 'approval'） */
   interactionType?: NodeInteractionType;
+  /** 节点时限配置（不配置表示无时限约束） */
+  timeout?: TimeoutConfig;
 }
 
 /**
@@ -514,6 +564,16 @@ export interface OaNodeRow {
   countersign_parent_node_id: number | null;
   input_schema: NodeInputSchema | null;
   input_data: Record<string, unknown> | null;
+  /** 节点截止时间 */
+  deadline_at: Date | null;
+  /** 时限配置快照（创建时从 WorkflowNodeDef.timeout 复制） */
+  timeout_config: TimeoutConfig | null;
+  /** 最后催办时间 */
+  last_reminder_at: Date | null;
+  /** 已催办次数 */
+  reminder_count: number;
+  /** 首次抄送上级时间 */
+  cc_supervisor_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }

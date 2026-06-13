@@ -231,6 +231,23 @@ const arCollectionWorkflowDef = {
       interactionType: 'operation' as NodeInteractionType,
       fieldPermissions: buildFieldPermissions(0),
       fieldOptionFilter: { action: LEVEL_ACTION_OPTIONS[0] },
+      timeout: {
+        durationMinutes: 3 * 24 * 60, // 3天
+        reminder: {
+          firstReminderDelayMinutes: 0,
+          intervalMinutes: 8 * 60, // 每8小时
+          maxReminders: 10,
+          ccSupervisorAfterCount: 2,
+        },
+        assessment: {
+          exemptNodeNames: ['起诉立案', '庭审进展', '判决结果', '执行进展', '更新催收状态'],
+          tiers: [
+            { name: '一级考核(3-5天)', minOverdueDays: 3, maxOverdueDays: 5, penaltyAmount: 10 },
+            { name: '二级考核(5-7天)', minOverdueDays: 5, maxOverdueDays: 7, penaltyAmount: 20 },
+            { name: '三级考核(7天+)', minOverdueDays: 7, maxOverdueDays: null, penaltyAmount: 50 },
+          ],
+        },
+      },
     },
     {
       order: 2,

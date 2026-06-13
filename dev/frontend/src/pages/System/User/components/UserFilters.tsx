@@ -4,6 +4,7 @@
 import React from 'react';
 import { Input, Select, Button, Space } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import DeptTreeSelect from '@/components/DeptTreeSelect';
 import type { UserFilters as UserFiltersType, RoleInfo } from '../types';
 import styles from '../index.less';
 
@@ -41,6 +42,12 @@ const UserFilters: React.FC<UserFiltersProps> = ({
           style={{ width: 150 }}
           allowClear
           options={roles.map(r => ({ label: r.name, value: r.id }))}
+        />
+        <DeptTreeSelect
+          value={filters.departmentId}
+          onChange={departmentId => onFilterChange({ departmentId })}
+          placeholder="选择部门"
+          style={{ width: 220 }}
         />
         <Select
           placeholder="状态"

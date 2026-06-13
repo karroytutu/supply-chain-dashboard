@@ -58,11 +58,11 @@ describe('insertNodeAfter', () => {
       [1, 3] // instanceId=1, newOrder=afterOrder+1=3
     );
 
-    // INSERT: 新节点 SQL
+    // INSERT: 新节点 SQL（含 deadline_at、timeout_config、reminder_count）
     expect(client.query).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('INSERT INTO oa_approval_nodes'),
-      [1, 3, '加签', 'countersign', null, 200, '李四', null]
+      [1, 3, '加签', 'countersign', null, 200, '李四', null, null, null]
     );
 
     expect(result).toEqual(expectedRow);
@@ -221,9 +221,9 @@ describe('mergeFormData', () => {
     expect(result).toEqual({ a: 2 });
   });
 
-  it('null/undefined 值不覆盖', () => {
+  it('null 值覆盖已有字段（显式清空），undefined 值不覆盖', () => {
     const result = mergeFormData({ a: 1, b: 2 }, { a: null, b: undefined });
-    expect(result).toEqual({ a: 1, b: 2 });
+    expect(result).toEqual({ a: null, b: 2 });
   });
 
   it('不修改原对象', () => {

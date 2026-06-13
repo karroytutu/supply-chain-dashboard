@@ -35,6 +35,7 @@ import {
   fullSyncDingtalkUsers,
   incrementalSyncDingtalkUsers,
 } from '../dingtalk-sync';
+import { runOaTimeoutTask, runOaTimeoutAssessmentTask } from '../oa/timeout';
 
 /**
  * 启动所有定时任务
@@ -296,6 +297,25 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // OA节点超时催办扫描 - 每5分钟（催办间隔本身为8小时级别，1分钟精度无实际业务意义）
+  cron.schedule(
+    '*/5 * * * *',
+    async () => {
+      await runOaTimeoutTask();
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // OA节点超时考核计算 - 每天 09:00
+  cron.schedule(
+    '0 9 * * *',
+    async () => {
+      log.info('执行OA节点超时考核计算...');
+      await runOaTimeoutAssessmentTask();
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   } // end if (isProduction) — 写入型任务到此结束
 
   // ==================== Token 管理（所有环境） ====================
@@ -377,6 +397,8 @@ export function startScheduler(): void {
     log.info('  - 营业执照补交提醒: 每天 09:00 (Asia/Shanghai)');
     log.info('  - 营业执照补交逾期+考核: 每天 09:15 (Asia/Shanghai)');
     log.info('  - 采购绩效月度存档: 每月1号 01:00 (Asia/Shanghai)');
+    log.info('  - OA节点超时催办扫描: 每5分钟 (Asia/Shanghai)');
+    log.info('  - OA节点超时考核计算: 每天 09:00 (Asia/Shanghai)');
     log.info('  - 钉钉部门同步: 每天 06:00 (Asia/Shanghai)');
     log.info('  - 钉钉全量用户同步: 每天 07:00 (Asia/Shanghai)');
     log.info('  - 钉钉增量用户同步: 每4小时 (Asia/Shanghai)');

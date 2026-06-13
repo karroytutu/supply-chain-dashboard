@@ -11,7 +11,7 @@ import type { FormTypeDefinition } from '@/types/oa';
 // ==================== Mocks ====================
 
 // Authorized mock: 默认 pass-through（有权限），可通过 vi.mocked 切换行为
-const mockAuthorized = vi.fn(({ children }: any) => <>{children}</>);
+const mockAuthorized = vi.fn(({ children }: any): React.ReactElement | null => <>{children}</>);
 
 vi.mock('@/components/Authorized', () => ({
   Authorized: (props: any) => mockAuthorized(props),

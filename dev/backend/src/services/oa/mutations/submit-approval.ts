@@ -97,10 +97,18 @@ export async function submitApproval(
         approverName = userResult.rows[0]?.name || null;
       }
 
+      // 计算 deadline_at（如果配置了 timeout）
+      const deadlineAt = node.timeout
+        ? new Date(Date.now() + node.timeout.durationMinutes * 60000)
+        : null;
+      const timeoutConfigJson = node.timeout
+        ? JSON.stringify(node.timeout)
+        : null;
+
       await client.query(
         `INSERT INTO oa_approval_nodes
-          (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')`,
+          (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10)`,
         [
           instance.id,
           node.order,
@@ -110,6 +118,8 @@ export async function submitApproval(
           approverId,
           approverName,
           node.inputSchema ? JSON.stringify(node.inputSchema) : null,
+          deadlineAt,
+          timeoutConfigJson,
         ]
       );
     }

@@ -297,3 +297,23 @@ export function getExpiringWarningLevel(
   if (expiringRate > EXPIRING_RATE_ATTENTION) return 'attention';
   return 'normal';
 }
+
+// ==================== OA节点时限配置 ====================
+
+/** 首次催办延迟（分钟，相对 deadline_at） @usedBy oa-timeout.service.ts */
+export const OA_TIMEOUT_FIRST_REMINDER_DELAY_MINUTES = 0;
+
+/** 催办间隔（分钟） @usedBy oa-timeout.service.ts */
+export const OA_TIMEOUT_REMINDER_INTERVAL_MINUTES = 480;
+
+/** 最大催办次数 @usedBy oa-timeout.service.ts */
+export const OA_TIMEOUT_MAX_REMINDER_COUNT = 10;
+
+/** 催办N次后抄送上级 @usedBy oa-timeout.service.ts */
+export const OA_TIMEOUT_CC_SUPERVISOR_THRESHOLD = 2;
+
+/** 催办批量处理数量 @usedBy oa-timeout.service.ts */
+export const OA_TIMEOUT_REMINDER_BATCH_SIZE = 50;
+
+/** 催办批量处理间隔（毫秒） @usedBy oa-timeout.service.ts */
+export const OA_TIMEOUT_REMINDER_BATCH_INTERVAL_MS = 2000;

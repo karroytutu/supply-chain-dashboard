@@ -41,6 +41,8 @@ export interface InstanceListItem {
   applicantDept: string | null;
   currentNodeOrder: number;
   currentNodeName: string | null;
+  /** 当前节点截止时间（仅 pending 状态有值） */
+  currentNodeDeadlineAt: Date | null;
   submittedAt: Date;
   completedAt: Date | null;
   /** 抄送是否未读（仅 viewMode='cc' 时有意义） */
@@ -75,6 +77,7 @@ export function formatInstanceListItem(
     applicantDept: row.applicant_dept as string | null,
     currentNodeOrder: row.current_node_order as number,
     currentNodeName: row.current_node_name as string | null,
+    currentNodeDeadlineAt: row.current_node_deadline_at || null,
     submittedAt: row.submitted_at as Date,
     completedAt: row.completed_at as Date | null,
     isUnread: viewMode === 'cc' ? row.cc_read_at === null : undefined,
@@ -234,13 +237,18 @@ export async function getApprovalList(
       i.status, i.applicant_id, i.applicant_name, i.applicant_dept,
       i.current_node_order, i.submitted_at, i.completed_at,
       ft.code as form_type_code, ft.name as form_type_name, ft.icon as form_type_icon,
-      (
-        SELECT n.node_name FROM oa_approval_nodes n
-        WHERE n.instance_id = i.id AND n.node_order = i.current_node_order LIMIT 1
-      ) as current_node_name,
+      cn.node_name AS current_node_name,
+      cn.deadline_at AS current_node_deadline_at,
       ${ccReadAtColumn}
     FROM oa_approval_instances i
     JOIN oa_form_types ft ON i.form_type_id = ft.id
+    LEFT JOIN LATERAL (
+      SELECT n.node_name, n.deadline_at
+      FROM oa_approval_nodes n
+      WHERE n.instance_id = i.id AND n.node_order = i.current_node_order
+      ORDER BY CASE WHEN n.status = 'pending' THEN 0 ELSE 1 END
+      LIMIT 1
+    ) cn ON true
     ${whereClause}
     ${orderBy}
     LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}

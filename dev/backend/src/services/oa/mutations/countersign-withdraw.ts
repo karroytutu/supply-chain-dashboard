@@ -60,6 +60,7 @@ export async function countersignApproval(
         type: 'countersign',
         assignedUserId: csUser.id,
         assignedUserName: csUser.name,
+        timeout: currentNode.timeout_config || undefined,
       });
 
       // 使用 insertNodeAfter 返回的 id 精确定位新插入的节点（避免 PG 不支持的 ORDER BY LIMIT）

@@ -122,6 +122,44 @@ export type FieldPermission = 'editable' | 'readonly' | 'hidden';
 export type NodeInteractionType = 'approval' | 'operation';
 
 // =====================================================
+// 节点时限配置类型
+// =====================================================
+
+/** 节点时限配置 */
+export interface TimeoutConfig {
+  /** 时限时长（分钟） */
+  durationMinutes: number;
+  /** 免考核宽限期（分钟） */
+  gracePeriodMinutes?: number;
+  /** 催办策略（不配置=不催办） */
+  reminder?: ReminderConfig;
+  /** 考核规则（不配置=不考核） */
+  assessment?: AssessmentConfig;
+}
+
+/** 催办策略 */
+export interface ReminderConfig {
+  firstReminderDelayMinutes?: number;
+  intervalMinutes?: number;
+  maxReminders?: number;
+  ccSupervisorAfterCount?: number;
+}
+
+/** 考核规则 */
+export interface AssessmentConfig {
+  tiers: AssessmentTier[];
+  exemptNodeNames?: string[];
+}
+
+/** 考核分级 */
+export interface AssessmentTier {
+  name: string;
+  minOverdueDays: number;
+  maxOverdueDays: number | null;
+  penaltyAmount: number;
+}
+
+// =====================================================
 // 审批流程相关类型
 // =====================================================
 
@@ -173,6 +211,8 @@ export interface WorkflowNodeDef {
   fieldOptionFilter?: Record<string, string[]>;
   /** 节点交互类型：决定显示哪些操作按钮（默认 'approval'） */
   interactionType?: NodeInteractionType;
+  /** 节点时限配置（不配置表示无时限约束） */
+  timeout?: TimeoutConfig;
 }
 
 export interface WorkflowDef {
@@ -223,6 +263,8 @@ export interface ApprovalInstance {
   applicantAvatar?: string | null;
   currentNodeOrder: number;
   currentNodeName: string | null;
+  /** 当前节点截止时间（仅 pending 状态有值） */
+  currentNodeDeadlineAt: string | null;
   submittedAt: string;
   completedAt: string | null;
   /** 抄送是否未读（仅“抄送我的”列表中有意义） */
@@ -247,6 +289,14 @@ export interface ApprovalNode {
   actedAt: string | null;
   actionAt?: string | null;  // Alias for actedAt
   isCountersign: boolean;
+  /** 节点截止时间 */
+  deadlineAt: string | null;
+  /** 时限配置快照 */
+  timeoutConfig: TimeoutConfig | null;
+  /** 已催办次数 */
+  reminderCount: number;
+  /** 首次抄送上级时间 */
+  ccSupervisorAt: string | null;
 }
 
 export interface ApprovalAction {

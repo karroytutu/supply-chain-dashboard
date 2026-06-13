@@ -37,7 +37,7 @@ const { mockOaApi, mockUseApprovalActions, mockActionState } = vi.hoisted(() => 
     mockOaApi: {
       getDetail: vi.fn(),
     },
-    mockUseApprovalActions: vi.fn(() => mockActionState),
+    mockUseApprovalActions: vi.fn((_config?: any) => mockActionState),
     mockActionState,
   };
 });
@@ -262,12 +262,13 @@ describe('ApprovalDetailPanel - 传参验证', () => {
     });
 
     // 获取传给 useApprovalActions 的 config
-    const config = mockUseApprovalActions.mock.calls[0][0];
-    expect(config.instanceId).toBe(42);
+    const config = mockUseApprovalActions.mock.calls[0]?.[0];
+    expect(config).toBeDefined();
+    expect(config!.instanceId).toBe(42);
 
     // 调用 onActionComplete 时应传入 selectedId
-    if (config.onActionComplete) {
-      await config.onActionComplete();
+    if (config!.onActionComplete) {
+      await config!.onActionComplete();
       expect(onActionComplete).toHaveBeenCalledWith(42);
     }
   });

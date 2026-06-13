@@ -1,6 +1,6 @@
 import React from 'react';
-import { Spin } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
+import { Spin, Tooltip, Tag } from 'antd';
+import { UserOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import UserAvatar from '@/components/UserAvatar';
 import { usePermission } from '@/hooks/usePermission';
 import type { WorkflowNodeDef } from '@/types/oa';
@@ -120,6 +120,46 @@ const ApprovalFlowPreview: React.FC<ApprovalFlowPreviewProps> = ({
                 <span className={styles.timelineApprovalStatus}>
                   系统自动执行
                 </span>
+              )}
+              {/* 时限配置标签 */}
+              {node.timeout && (
+                <Tooltip
+                  title={
+                    <div style={{ fontSize: 12 }}>
+                      <div>处理时限: {node.timeout.durationMinutes >= 1440
+                        ? `${Math.floor(node.timeout.durationMinutes / 1440)}天`
+                        : `${Math.floor(node.timeout.durationMinutes / 60)}小时`}
+                      </div>
+                      {node.timeout.reminder && (
+                        <div>
+                          催办: {node.timeout.reminder.firstReminderDelayMinutes === 0 ? '超时即催办' : `超时${node.timeout.reminder.firstReminderDelayMinutes}分钟后`}
+                          {node.timeout.reminder.intervalMinutes ? `，每${node.timeout.reminder.intervalMinutes >= 60 ? `${node.timeout.reminder.intervalMinutes / 60}小时` : `${node.timeout.reminder.intervalMinutes}分钟`}` : ''}
+                          {node.timeout.reminder.ccSupervisorAfterCount ? `，催办${node.timeout.reminder.ccSupervisorAfterCount}次后抄送上级` : ''}
+                        </div>
+                      )}
+                      {node.timeout.assessment && node.timeout.assessment.tiers.length > 0 && (
+                        <div>
+                          考核: 阶梯固定金额
+                          {node.timeout.assessment.tiers.map((t, i) => (
+                            <div key={i} style={{ paddingLeft: 8 }}>
+                              {t.name}: ¥{t.penaltyAmount}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  }
+                >
+                  <Tag
+                    icon={<ClockCircleOutlined />}
+                    color="blue"
+                    style={{ marginTop: 4, cursor: 'pointer' }}
+                  >
+                    时限: {node.timeout.durationMinutes >= 1440
+                      ? `${Math.floor(node.timeout.durationMinutes / 1440)}天`
+                      : `${Math.floor(node.timeout.durationMinutes / 60)}小时`}
+                  </Tag>
+                </Tooltip>
               )}
             </div>
           </div>

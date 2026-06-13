@@ -168,6 +168,12 @@ export default defineConfig({
           access: PERMISSIONS.SYSTEM.USER.READ,
         },
         {
+          path: 'org-structure',
+          name: '组织架构',
+          component: '@/pages/System/OrgStructure',
+          access: PERMISSIONS.SYSTEM.ORG.READ,
+        },
+        {
           path: 'roles',
           name: '角色管理',
           component: '@/pages/System/Role',

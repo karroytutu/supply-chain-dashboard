@@ -49,6 +49,7 @@ export { toDTO, toDTOList, toStatsDTO } from './assessment.mapper';
 import './rules/return-order-rules';
 import './rules/credit-license-rules';
 import './rules/oa-collection-node-rules';
+import '../oa/timeout/oa-timeout-assessment';
 
 // 计算引擎
 export { runCalculation } from './assessment-calculate';
