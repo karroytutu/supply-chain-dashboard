@@ -17,7 +17,9 @@ jest.mock('../../db/appPool', () => ({
 jest.mock('./mutations/shared-utils', () => ({
   insertNodeAfter: jest.fn().mockResolvedValue({ id: 99 }),
   transaction: jest.fn((fn: any) => {
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = {
+      query: jest.fn().mockResolvedValue({ rows: [{ node_order: 2 }] }),
+    };
     return fn(mockClient);
   }),
 }));
@@ -307,5 +309,39 @@ describe('onApprovedArCollection - 其他操作', () => {
     const instance = createMockInstance();
     await onApprovedArCollection(instance, { action: 'lawsuit' });
     expect(mockTransaction).toHaveBeenCalled();
+  });
+});
+
+// =====================================================
+// insertCollectionNode - 节点插入位置验证
+// =====================================================
+
+describe('onApprovedArCollection - insertCollectionNode 位置计算', () => {
+  it('insertNodeAfter 的 afterOrder 为 auto 节点 node_order - 1', async () => {
+    // mock auto 节点 node_order=5 → afterOrder 应为 4
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn().mockResolvedValue({ rows: [{ node_order: 5 }] }),
+      };
+      return fn(mockClient);
+    });
+    const instance = createMockInstance();
+    await onApprovedArCollection(instance, { action: 'difference', _currentLevel: 0 });
+    expect(mockInsertNodeAfter).toHaveBeenCalledWith(
+      expect.anything(), expect.any(Number), 4, expect.any(Object),
+    );
+  });
+
+  it('无 auto 节点时抛出明确错误', async () => {
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn().mockResolvedValue({ rows: [] }), // 无 auto 节点
+      };
+      return fn(mockClient);
+    });
+    const instance = createMockInstance();
+    await expect(
+      onApprovedArCollection(instance, { action: 'difference', _currentLevel: 0 }),
+    ).rejects.toThrow('未找到 pending/processing 的 auto 节点');
   });
 });

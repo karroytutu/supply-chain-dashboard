@@ -49,6 +49,11 @@ export async function approveApproval(
     );
     const instance0 = instanceResult0.rows[0];
 
+    // 防止重复提交：auto 节点正在处理中时拒绝重复操作
+    if (instance0.status === 'processing') {
+      throw new Error('审批正在自动处理中，请勿重复操作');
+    }
+
     const formTypeCode = await client.query<{ code: string }>(
       `SELECT code FROM oa_form_types WHERE id = $1`,
       [instance0.form_type_id]

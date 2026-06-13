@@ -202,4 +202,18 @@ describe('approveApproval', () => {
     // mergeFormData 不应被调用（无 inputData）
     expect(mockMergeFormData).not.toHaveBeenCalled();
   });
+
+  it('实例处于 processing 状态时拒绝审批（防止 auto 节点处理期间重复操作）', async () => {
+    mockIsCurrentApprover.mockResolvedValueOnce(true);
+
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'processing' }] }),
+      };
+      return fn(mockClient);
+    });
+
+    await expect(approveApproval(1, 5, '张三')).rejects.toThrow('审批正在自动处理中，请勿重复操作');
+  });
 });
