@@ -88,6 +88,22 @@ const ApprovalDetailPage: React.FC = () => {
     setCountersignUserIds, setCountersignType,
   } = useApprovalDetail(id, editableFormRef);
 
+  // ✅ 所有 Hooks 必须在 early return 之前调用（React Hooks 规则）
+  const [remindLoading, setRemindLoading] = useState(false);
+  const handleRemind = useCallback(async () => {
+    if (!detail) return;
+    try {
+      setRemindLoading(true);
+      await remindNode(detail.id);
+      message.success('催办通知已发送');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : '催办失败';
+      message.error(errMsg);
+    } finally {
+      setRemindLoading(false);
+    }
+  }, [detail?.id]);
+
   if (loading) return <div className={styles.loadingContainer}><Spin size="large" /></div>;
   if (!detail) return renderErrorState(errorType, loadDetail);
 
@@ -102,18 +118,6 @@ const ApprovalDetailPage: React.FC = () => {
 
   // 当前节点超时信息
   const currentNode = detail.nodes?.find(n => n.status === 'pending' && n.deadlineAt);
-  const [remindLoading, setRemindLoading] = useState(false);
-  const handleRemind = useCallback(async () => {
-    try {
-      setRemindLoading(true);
-      await remindNode(detail.id);
-      message.success('催办通知已发送');
-    } catch (err: any) {
-      message.error(err?.message || '催办失败');
-    } finally {
-      setRemindLoading(false);
-    }
-  }, [detail.id]);
 
   const isOverdue = currentNode?.deadlineAt
     ? new Date(currentNode.deadlineAt).getTime() < Date.now()
