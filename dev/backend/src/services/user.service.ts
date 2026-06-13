@@ -30,6 +30,7 @@ export interface UserListParams {
   keyword?: string;
   status?: number;
   roleId?: number;
+  departmentId?: string;
 }
 
 export interface UserListResult {
@@ -41,7 +42,7 @@ export interface UserListResult {
  * 获取用户列表
  */
 export async function getUserList(params: UserListParams): Promise<UserListResult> {
-  const { page, pageSize, keyword, status, roleId } = params;
+  const { page, pageSize, keyword, status, roleId, departmentId } = params;
   const offset = (page - 1) * pageSize;
 
   let whereClause = '1=1';
@@ -65,6 +66,13 @@ export async function getUserList(params: UserListParams): Promise<UserListResul
   if (roleId) {
     roleJoinClause = ` AND id IN (SELECT user_id FROM user_roles WHERE role_id = $${paramIndex})`;
     queryParams.push(roleId);
+    paramIndex++;
+  }
+
+  // 部门筛选：直接用 users.department_id 匹配钉钉部门ID
+  if (departmentId) {
+    whereClause += ` AND department_id = $${paramIndex}`;
+    queryParams.push(departmentId);
     paramIndex++;
   }
 

@@ -301,8 +301,8 @@ async function createNewUser(
     const insertResult = await client.query(
       `INSERT INTO users (dingtalk_user_id, dingtalk_union_id, name, avatar, mobile, email,
          department_id, department_name, position, status, department_ids,
-         dingtalk_sync_hash, dingtalk_last_synced_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, NOW())
+         dingtalk_sync_hash, dingtalk_last_synced_at, manager_userid)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, NOW(), $12)
        RETURNING id`,
       [
         user.userid,
@@ -316,6 +316,7 @@ async function createNewUser(
         user.title || '',
         deptIdsStr,
         syncHash,
+        user.manager_userid || null,
       ]
     );
 
@@ -331,7 +332,7 @@ async function createNewUser(
     }
 
     // 创建用户-部门关联
-    await syncUserDepartments(client, newUserId, user.dept_id_list || [], localDepts);
+    await syncUserDepartments(client, newUserId, user, localDepts);
 
     await client.query('COMMIT');
   } catch (error) {
@@ -369,7 +370,8 @@ async function updateExistingUser(
         name = $3, avatar = $4, mobile = $5, email = $6,
         department_id = $7, department_name = $8, position = $9,
         department_ids = $10, dingtalk_sync_hash = $11,
-        dingtalk_last_synced_at = NOW(), updated_at = NOW()
+        dingtalk_last_synced_at = NOW(), updated_at = NOW(),
+        manager_userid = $13
       WHERE id = $12`,
       [
         user.userid,
@@ -384,11 +386,12 @@ async function updateExistingUser(
         deptIdsStr,
         syncHash,
         localUser.id,
+        user.manager_userid || null,
       ]
     );
 
     // 更新用户-部门关联
-    await syncUserDepartments(client, localUser.id, user.dept_id_list || [], localDepts);
+    await syncUserDepartments(client, localUser.id, user, localDepts);
 
     await client.query('COMMIT');
 
@@ -404,14 +407,24 @@ async function updateExistingUser(
 
 /**
  * 同步用户-部门关联
- * 先删除旧关联，再插入新关联
+ * 先删除旧关联，再插入新关联（含 is_leader 标记）
  */
 async function syncUserDepartments(
   client: any,
   userId: number,
-  deptIdList: number[],
+  user: DingtalkSyncUserInfo,
   localDepts: Map<string, { id: number; name: string; parent_id: string | null }>
 ): Promise<void> {
+  // 构建 dept_id -> is_leader 映射
+  const leaderMap = new Map<number, boolean>();
+  if (user.leader_in_dept) {
+    for (const item of user.leader_in_dept) {
+      leaderMap.set(item.dept_id, item.leader);
+    }
+  }
+
+  const deptIdList = user.dept_id_list || [];
+
   // 删除旧关联
   await client.query('DELETE FROM user_departments WHERE user_id = $1', [userId]);
 
@@ -421,11 +434,13 @@ async function syncUserDepartments(
     const localDept = localDepts.get(deptIdStr);
     if (!localDept) continue;
 
+    const isLeader = leaderMap.get(deptIdList[i]) || false;
+
     await client.query(
-      `INSERT INTO user_departments (user_id, dept_id, is_primary)
-       VALUES ($1, $2, $3)
+      `INSERT INTO user_departments (user_id, dept_id, is_primary, is_leader)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (user_id, dept_id) DO NOTHING`,
-      [userId, localDept.id, i === 0]
+      [userId, localDept.id, i === 0, isLeader]
     );
   }
 }

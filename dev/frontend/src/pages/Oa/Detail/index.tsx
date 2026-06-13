@@ -1,15 +1,65 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useParams, history } from 'umi';
-import { Button, Spin, Typography, Result } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Button, Spin, Typography, Result, Alert, message } from 'antd';
+import { ArrowLeftOutlined, ClockCircleOutlined, WarningOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { type DetailErrorType, useApprovalDetail } from './hooks/useApprovalDetail';
 import { ApprovalDetailContent, ApprovalStatusTag } from '@/components/Oa';
 import type { EditableFormSectionRef } from '@/components/Oa/EditableFormSection';
 import LicenseDeferredCard from './components/LicenseDeferredCard';
+import { remindNode } from '@/services/api/oa';
 import { formatDateTime } from '@/utils/format';
 import styles from './index.less';
 
 const { Text, Title } = Typography;
+
+/** 超时信息条组件 */
+function TimeoutInfoBar({
+  deadlineAt, nodeName, reminderCount, ccSupervisorAt,
+}: {
+  deadlineAt: string;
+  nodeName: string;
+  reminderCount: number;
+  ccSupervisorAt: string | null;
+}) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const now = Date.now();
+  const deadline = new Date(deadlineAt).getTime();
+  const diff = deadline - now;
+  const isOverdue = diff <= 0;
+
+  const absMs = Math.abs(diff);
+  const totalMin = Math.floor(absMs / 60000);
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const minutes = totalMin % 60;
+  const durationText = days > 0 ? `${days}天${hours}小时${minutes}分` : hours > 0 ? `${hours}小时${minutes}分` : `${minutes}分钟`;
+
+  return (
+    <Alert
+      type={isOverdue ? 'error' : 'warning'}
+      showIcon
+      icon={isOverdue ? <WarningOutlined /> : <ClockCircleOutlined />}
+      message={
+        <span>
+          当前节点「{nodeName}」{isOverdue ? `已超时 ${durationText}` : `剩余 ${durationText}`}
+        </span>
+      }
+      description={
+        <span style={{ fontSize: 12 }}>
+          截止时间: {formatDateTime(deadlineAt)}
+          {reminderCount > 0 && <span style={{ marginLeft: 12 }}>已催办: {reminderCount}次</span>}
+          {ccSupervisorAt && <span style={{ marginLeft: 12, color: '#fa541c' }}>上级已通知</span>}
+        </span>
+      }
+      style={{ marginBottom: 12 }}
+    />
+  );
+}
 
 /** 错误状态渲染 */
 const renderErrorState = (errorType: DetailErrorType, loadDetail: () => void) => {
@@ -50,6 +100,49 @@ const ApprovalDetailPage: React.FC = () => {
     setCountersignUserIds, setCountersignType,
   };
 
+  // 当前节点超时信息
+  const currentNode = detail.nodes?.find(n => n.status === 'pending' && n.deadlineAt);
+  const [remindLoading, setRemindLoading] = useState(false);
+  const handleRemind = useCallback(async () => {
+    try {
+      setRemindLoading(true);
+      await remindNode(detail.id);
+      message.success('催办通知已发送');
+    } catch (err: any) {
+      message.error(err?.message || '催办失败');
+    } finally {
+      setRemindLoading(false);
+    }
+  }, [detail.id]);
+
+  const isOverdue = currentNode?.deadlineAt
+    ? new Date(currentNode.deadlineAt).getTime() < Date.now()
+    : false;
+
+  const timeoutBar = currentNode?.deadlineAt ? (
+    <div>
+      <TimeoutInfoBar
+        deadlineAt={currentNode.deadlineAt}
+        nodeName={currentNode.nodeName}
+        reminderCount={currentNode.reminderCount ?? 0}
+        ccSupervisorAt={currentNode.ccSupervisorAt ?? null}
+      />
+      {isOverdue && (
+        <Button
+          type="primary"
+          danger
+          size="small"
+          icon={<ThunderboltOutlined />}
+          loading={remindLoading}
+          onClick={handleRemind}
+          style={{ marginTop: 8 }}
+        >
+          手动催办
+        </Button>
+      )}
+    </div>
+  ) : undefined;
+
   const extraContent = detail.formTypeCode === 'customer_credit' ? (
     <LicenseDeferredCard
       instanceId={detail.id}
@@ -59,6 +152,14 @@ const ApprovalDetailPage: React.FC = () => {
       cardClassName={styles.card}
     />
   ) : undefined;
+
+  // 合并 extraContent：超时提示 + 执照延期卡片
+  const combinedExtra = (
+    <>
+      {timeoutBar}
+      {extraContent}
+    </>
+  );
 
   return (
     <div className={styles.detailPage}>
@@ -82,7 +183,7 @@ const ApprovalDetailPage: React.FC = () => {
         detail={detail}
         actionState={actionState}
         formLayout="list"
-        extraContentBefore={extraContent}
+        extraContentBefore={combinedExtra}
         showHeader={false}
         editableFormRef={editableFormRef}
       />

@@ -18,6 +18,10 @@ export interface DingtalkSyncUserInfo {
   email?: string;
   dept_id_list: number[];
   title?: string;
+  /** 直属主管的钉钉 userId（钉钉管理后台设置） */
+  manager_userid?: string;
+  /** 在各部门是否为部门负责人 */
+  leader_in_dept?: { dept_id: number; leader: boolean }[];
 }
 
 /** 钉钉用户列表项（从 /topapi/v2/user/list 返回） */

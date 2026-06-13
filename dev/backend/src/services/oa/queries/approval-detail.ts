@@ -4,7 +4,7 @@
  */
 
 import { appQuery as query } from '../../../db/appPool';
-import { OaActionRow, FormSchema, WorkflowDef } from '../oa.types';
+import { OaActionRow, FormSchema, WorkflowDef, TimeoutConfig } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { InstanceListItem } from '../oa.query';
 
@@ -65,6 +65,14 @@ export interface ApprovalNodeDetail {
   comment: string | null;
   actedAt: Date | null;
   isCountersign: boolean;
+  /** 节点截止时间 */
+  deadlineAt: Date | null;
+  /** 时限配置快照 */
+  timeoutConfig: TimeoutConfig | null;
+  /** 已催办次数 */
+  reminderCount: number;
+  /** 首次抄送上级时间 */
+  ccSupervisorAt: Date | null;
 }
 
 export interface ApprovalActionDetail {
@@ -155,6 +163,8 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     currentNodeOrder: instance.current_node_order,
     currentNodeName:
       nodesResult.rows.find(n => n.node_order === instance.current_node_order)?.node_name || null,
+    currentNodeDeadlineAt:
+      nodesResult.rows.find(n => n.node_order === instance.current_node_order)?.deadline_at || null,
     submittedAt: instance.submitted_at,
     completedAt: instance.completed_at,
     previewFields: [],  // 详情页展示完整表单，无需字段预览
@@ -178,6 +188,10 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       comment: n.comment,
       actedAt: n.acted_at,
       isCountersign: n.is_countersign,
+      deadlineAt: n.deadline_at || null,
+      timeoutConfig: n.timeout_config || null,
+      reminderCount: n.reminder_count || 0,
+      ccSupervisorAt: n.cc_supervisor_at || null,
     })),
     actions: actionsResult.rows.map(a => ({
       id: a.id,

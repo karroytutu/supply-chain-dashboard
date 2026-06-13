@@ -6,7 +6,7 @@
 // ==================== 枚举类型 ====================
 
 /** 考核分类 */
-export type AssessmentCategory = 'ar_collection' | 'return_order' | 'credit_license' | 'oa_collection';
+export type AssessmentCategory = 'ar_collection' | 'return_order' | 'credit_license' | 'oa_collection' | 'oa_node_timeout';
 
 /**
  * 规则类型按 category 区分:
@@ -38,7 +38,8 @@ export type AssessmentRole =
   | 'procurement_manager'
   | 'warehouse_manager'
   | 'warehouse_keeper'
-  | 'logistics_manager';
+  | 'logistics_manager'
+  | 'operator';
 
 /**
  * 规范化被考核角色值
@@ -207,6 +208,7 @@ export const ASSESSMENT_ROLE_LABELS: Record<AssessmentRole, string> = {
   warehouse_manager: '仓储主管',
   warehouse_keeper: '仓储人员',
   logistics_manager: '物流经理',
+  operator: '审批操作人',
 };
 
 // ==================== 分类标签 ====================
@@ -216,4 +218,5 @@ export const ASSESSMENT_CATEGORY_LABELS: Record<AssessmentCategory, string> = {
   return_order: '退货考核',
   credit_license: '执照考核',
   oa_collection: 'OA催收考核',
+  oa_node_timeout: 'OA节点超时考核',
 };

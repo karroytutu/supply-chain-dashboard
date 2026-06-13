@@ -21,8 +21,9 @@ export async function listUsers(req: Request, res: Response) {
   const keyword = req.query.keyword as string;
   const status = req.query.status !== undefined ? parseInt(req.query.status as string) : undefined;
   const roleId = req.query.roleId !== undefined ? parseInt(req.query.roleId as string) : undefined;
+  const departmentId = req.query.departmentId as string | undefined;
 
-  const result = await getUserList({ page, pageSize, keyword, status, roleId });
+  const result = await getUserList({ page, pageSize, keyword, status, roleId, departmentId });
 
   res.json(buildPagedResponse(result.list, result.total, page, pageSize));
 }

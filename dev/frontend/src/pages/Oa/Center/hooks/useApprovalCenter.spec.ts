@@ -62,6 +62,7 @@ function makeInstance(id: number): ApprovalInstance {
     applicantDept: '部门',
     currentNodeOrder: 1,
     currentNodeName: '节点',
+    currentNodeDeadlineAt: null,
     submittedAt: '2026-06-01',
     completedAt: null,
     previewFields: [],

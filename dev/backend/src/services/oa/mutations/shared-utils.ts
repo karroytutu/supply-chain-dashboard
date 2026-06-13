@@ -5,7 +5,7 @@
 
 import { appQuery as query, getAppClient } from '../../../db/appPool';
 import { PoolClient } from 'pg';
-import { OaInstanceRow, OaNodeRow, NodeType, NodeInputSchema } from '../oa.types';
+import { OaInstanceRow, OaNodeRow, NodeType, NodeInputSchema, TimeoutConfig } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 
 /**
@@ -89,6 +89,8 @@ export async function insertNodeAfter(
     assignedUserId?: number;
     assignedUserName?: string;
     inputSchema?: NodeInputSchema;
+    /** 时限配置（可选，转交/加签时继承原节点配置） */
+    timeout?: TimeoutConfig;
   }
 ): Promise<OaNodeRow> {
   const newOrder = afterOrder + 1;
@@ -101,12 +103,21 @@ export async function insertNodeAfter(
     [instanceId, newOrder]
   );
 
-  // 2. 插入新节点
+  // 计算 deadline_at（转交/加签时重新计算截止时间）
+  const deadlineAt = newNode.timeout
+    ? new Date(Date.now() + newNode.timeout.durationMinutes * 60000)
+    : null;
+  const timeoutConfigJson = newNode.timeout
+    ? JSON.stringify(newNode.timeout)
+    : null;
+
+  // 2. 插入新节点（转交/加签时重置催办状态）
   const insertResult = await client.query<OaNodeRow>(
     `INSERT INTO oa_approval_nodes
        (instance_id, node_order, node_name, node_type, role_code,
-        assigned_user_id, assigned_user_name, input_schema, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+        assigned_user_id, assigned_user_name, input_schema, status,
+        deadline_at, timeout_config, reminder_count)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, 0)
      RETURNING *`,
     [
       instanceId,
@@ -117,6 +128,8 @@ export async function insertNodeAfter(
       newNode.assignedUserId || null,
       newNode.assignedUserName || null,
       newNode.inputSchema ? JSON.stringify(newNode.inputSchema) : null,
+      deadlineAt,
+      timeoutConfigJson,
     ]
   );
 

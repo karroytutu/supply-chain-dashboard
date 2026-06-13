@@ -9,7 +9,7 @@ export interface UserItem {
   avatar: string;
   mobile: string;
   email: string;
-  department_id: number;
+  department_id: string;
   department_name: string;
   position: string;
   status: number; // 1=正常, 0=禁用
@@ -50,7 +50,7 @@ export interface UserStats {
 /** 筛选参数 */
 export interface UserFilters {
   keyword: string;
-  departmentId?: number;
+  departmentId?: string;
   roleId?: number;
   status?: number;
 }

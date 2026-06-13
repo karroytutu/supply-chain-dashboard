@@ -1,5 +1,5 @@
-import React from 'react';
-import { SendOutlined, SettingOutlined, CheckCircleFilled } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { SendOutlined, SettingOutlined, CheckCircleFilled, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import UserAvatar from '@/components/UserAvatar';
 import type { ApprovalNode, ApprovalAction, CcUser, ApprovalStatus, ErpMeta } from '@/types/oa';
 import { formatDateTime } from '@/utils/format';
@@ -131,6 +131,64 @@ function getApprovalGroupSubtitle(nodes: ApprovalNode[]): string | undefined {
   return firstNode.assignedUserName || undefined;
 }
 
+/** 时限状态徽章组件 */
+function TimeoutStatusBadge({ node }: { node: ApprovalNode }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (!node.deadlineAt) return null;
+
+  const now = Date.now();
+  const deadline = new Date(node.deadlineAt).getTime();
+  const diff = deadline - now;
+  const isOverdue = diff <= 0;
+
+  const absMs = Math.abs(diff);
+  const totalMin = Math.floor(absMs / 60000);
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const minutes = totalMin % 60;
+  const durationText = days > 0 ? `${days}天${hours}小时` : hours > 0 ? `${hours}小时${minutes}分` : `${minutes}分钟`;
+
+  return (
+    <div style={{
+      marginTop: 8,
+      padding: '6px 10px',
+      borderRadius: 6,
+      backgroundColor: isOverdue ? '#fff2f0' : '#f6ffed',
+      border: `1px solid ${isOverdue ? '#ffccc7' : '#b7eb8f'}`,
+      fontSize: 12,
+      color: isOverdue ? '#cf1322' : '#389e0d',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {isOverdue
+          ? <WarningOutlined />
+          : <ClockCircleOutlined />
+        }
+        <span>
+          {isOverdue ? '已超时' : '剩余'} {durationText}
+        </span>
+        {node.reminderCount > 0 && (
+          <span style={{ marginLeft: 8, color: '#8c8c8c' }}>
+            🔔 已催办 {node.reminderCount} 次
+          </span>
+        )}
+        {node.ccSupervisorAt && (
+          <span style={{ marginLeft: 4, color: '#fa541c' }}>
+            📋 已抄送上级
+          </span>
+        )}
+      </div>
+      <div style={{ marginTop: 2, color: '#8c8c8c' }}>
+        截止: {formatDateTime(node.deadlineAt)}
+      </div>
+    </div>
+  );
+}
+
 export interface ApprovalFlowActualProps {
   nodes: ApprovalNode[];
   ccUsers?: CcUser[];
@@ -246,6 +304,10 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
           erpMeta={firstNode.nodeType === 'auto' ? erpMeta : undefined}
           instanceId={instanceId}
         />
+        {/* 时限状态展示（仅 pending 且有 deadlineAt 的节点） */}
+        {firstNode.status === 'pending' && firstNode.deadlineAt && (
+          <TimeoutStatusBadge node={firstNode} />
+        )}
       </TimelineItem>
     );
 

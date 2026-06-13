@@ -208,6 +208,8 @@ export async function fetchDingtalkUserDetail(
       email: r.email || '',
       dept_id_list: r.dept_id_list || [],
       title: r.title || '',
+      manager_userid: r.manager_userid || undefined,
+      leader_in_dept: r.leader_in_dept || undefined,
     };
   } catch (error) {
     log.error(`获取用户 ${userId} 详情异常:`, getErrorMessage(error));
@@ -268,6 +270,8 @@ export function computeSyncHash(user: DingtalkSyncUserInfo): string {
     user.avatar || '',
     user.title || '',
     (user.dept_id_list || []).sort().join(','),
+    user.manager_userid || '',
+    JSON.stringify(user.leader_in_dept || []),
   ].join('|');
 
   return crypto.createHash('md5').update(raw, 'utf8').digest('hex');

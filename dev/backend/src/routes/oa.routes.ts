@@ -185,6 +185,106 @@ router.post('/instances/:id/update', requirePermission('oa:write'), updateInstan
 // 添加评论（独立评论，不执行审批动作）
 router.post('/instances/:id/comment', requirePermission('oa:write'), addComment);
 
+// =====================================================
+// 节点时限接口
+// =====================================================
+
+// 获取实例的催办/抄送日志
+router.get(
+  '/instances/:id/timeout-logs',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const instanceId = parseInt(req.params.id, 10);
+      if (isNaN(instanceId)) {
+        res.status(400).json({ code: 400, message: '无效的实例ID' });
+        return;
+      }
+      const { getTimeoutLogs } = await import('../services/oa/timeout/oa-timeout.repository');
+      const logs = await getTimeoutLogs(instanceId);
+      res.json({ code: 200, data: logs });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: error instanceof Error ? error.message : '获取催办日志失败',
+      });
+    }
+  }
+);
+
+// 手动催办当前节点
+router.post(
+  '/instances/:id/remind',
+  requirePermission('oa:write'),
+  async (req: Request, res: Response) => {
+    try {
+      const instanceId = parseInt(req.params.id, 10);
+      if (isNaN(instanceId)) {
+        res.status(400).json({ code: 400, message: '无效的实例ID' });
+        return;
+      }
+      const { appQuery } = await import('../db/appPool');
+      const { sendReminder } = await import('../services/oa/timeout/oa-timeout-reminder');
+      const { insertTimeoutLog, updateReminderState } = await import(
+        '../services/oa/timeout/oa-timeout.repository'
+      );
+
+      // 查找当前 pending 节点
+      const nodeResult = await appQuery(
+        `SELECT n.*, i.instance_no, i.title, ft.name AS form_type_name
+         FROM oa_approval_nodes n
+         JOIN oa_approval_instances i ON i.id = n.instance_id
+         JOIN oa_form_types ft ON ft.id = i.form_type_id
+         WHERE n.instance_id = $1 AND n.status = 'pending'
+           AND n.deadline_at IS NOT NULL AND n.deadline_at < NOW()
+         LIMIT 1`,
+        [instanceId]
+      );
+
+      if (nodeResult.rows.length === 0) {
+        res.status(400).json({ code: 400, message: '当前无超时的待处理节点' });
+        return;
+      }
+
+      const node = nodeResult.rows[0];
+
+      // S2: 检查是否已达最大催办次数
+      const maxReminders = node.timeout_config?.reminder?.maxReminders;
+      if (maxReminders && node.reminder_count >= maxReminders) {
+        res.status(400).json({ code: 400, message: `已达最大催办次数 (${maxReminders})` });
+        return;
+      }
+
+      const sent = await sendReminder(node);
+      if (!sent) {
+        res.status(500).json({ code: 500, message: '催办通知发送失败，请检查钉钉连接' });
+        return;
+      }
+
+      await updateReminderState(node.id, {
+        last_reminder_at: new Date(),
+        reminder_count: node.reminder_count + 1,
+      });
+      await insertTimeoutLog({
+        node_id: node.id,
+        instance_id: instanceId,
+        log_type: 'manual_remind',
+        recipient_user_id: node.assigned_user_id,
+        recipient_user_name: node.assigned_user_name,
+        is_supervisor_cc: false,
+        message_content: { manual: true, reminder_count: node.reminder_count + 1 },
+      });
+
+      res.json({ code: 200, message: '催办通知已发送' });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: error instanceof Error ? error.message : '手动催办失败',
+      });
+    }
+  }
+);
+
 // 获取转交候选人列表
 router.get(
   '/transfer-candidates',

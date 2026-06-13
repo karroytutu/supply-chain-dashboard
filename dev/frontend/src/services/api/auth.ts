@@ -123,6 +123,7 @@ export async function getUserList(params: {
   keyword?: string;
   status?: number;
   roleId?: number;
+  departmentId?: string;
 }): Promise<{ data: any[]; total: number }> {
   return request.get('/users', { params });
 }

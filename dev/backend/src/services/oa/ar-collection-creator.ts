@@ -214,6 +214,7 @@ async function createBatchOaInstances(
       }
 
       try {
+        await client.query('SAVEPOINT sp_consumer');
         const overdueDateStr = getOverdueDateStr(debts[0]);
         const formData = buildFormData(consumerName, overdueDateStr, debts);
         const title = `逾期催收 - ${consumerName}`;
@@ -235,15 +236,29 @@ async function createBatchOaInstances(
           log.warn(`未找到营销师用户且无 fallback: ${formData.managerName}，节点将不分配审批人 [${consumerName}]`);
         }
 
-        // 节点 1：营销师催收（role 类型）
+        // 节点 1：营销师催收（role 类型）— 从表单类型定义读取 timeout 配置
+        const formType = getFormTypeByCode('ar_collection');
+        const marketerNodeDef = formType?.workflowDef?.nodes.find(n => n.order === 1);
+        const marketerTimeout = marketerNodeDef?.timeout ?? null;
+        const marketerDeadlineAt = marketerTimeout
+          ? new Date(Date.now() + marketerTimeout.durationMinutes * 60000)
+          : null;
+
         await client.query(
           `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, comment, status)
-           VALUES ($1, 1, '营销师催收', 'role', 'marketer', $2, $3, $4, 'pending')`,
-          [instanceId, marketer?.userId ?? null, marketer?.userName ?? null, marketer?.fallback ? (marketer.fallbackReason ?? null) : null]
+            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, comment, status, deadline_at, timeout_config)
+           VALUES ($1, 1, '营销师催收', 'role', 'marketer', $2, $3, $4, 'pending', $5, $6)`,
+          [
+            instanceId,
+            marketer?.userId ?? null,
+            marketer?.userName ?? null,
+            marketer?.fallback ? (marketer.fallbackReason ?? null) : null,
+            marketerDeadlineAt,
+            marketerTimeout ? JSON.stringify(marketerTimeout) : null,
+          ]
         );
 
-        // 节点 2：更新催收状态（auto 类型）
+        // 节点 2：更新催收状态（auto 类型，无时限）
         await client.query(
           `INSERT INTO oa_approval_nodes
             (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, status)
@@ -268,9 +283,11 @@ async function createBatchOaInstances(
         });
         existingInstances.add(consumerName); // 防止同批次重复
         log.info(`创建催收OA实例: ${title}`);
+        await client.query('RELEASE SAVEPOINT sp_consumer');
       } catch (err) {
+        await client.query('ROLLBACK TO SAVEPOINT sp_consumer');
         log.error(`创建催收OA实例失败 [${consumerName}]:`, err);
-        // 继续处理其他组，不阻断
+        // SAVEPOINT 已回滚，不影响后续客户
       }
     }
 

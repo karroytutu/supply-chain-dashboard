@@ -16,6 +16,7 @@ import { appQuery } from '../../db/appPool';
 import { invalidateUserPermissionCache } from '../permission-cache.service';
 import { syncDepartments } from './dingtalk-sync.mutation';
 import { getErrorMessage } from '../../utils/errorUtils';
+import { cache } from '../../utils/cache';
 
 // ==================== 幂等保护 ====================
 
@@ -155,6 +156,8 @@ async function handleDeptChange(data: any): Promise<void> {
     deptSyncInProgress = true;
     try {
       await syncDepartments();
+      // 清除组织架构缓存
+      cache.invalidate('org:');
       log.info('✅ 部门同步完成');
     } catch (error) {
       log.error('部门同步失败:', getErrorMessage(error));

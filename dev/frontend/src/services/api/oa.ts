@@ -495,6 +495,37 @@ export async function updateInstance(
 }
 
 // =====================================================
+// 节点时限接口
+// =====================================================
+
+/** 催办日志 DTO */
+export interface TimeoutLogDTO {
+  nodeId: number;
+  instanceId: number;
+  logType: 'reminder' | 'cc_supervisor' | 'manual_remind';
+  recipientUserId: number | null;
+  recipientUserName: string | null;
+  isSupervisorCc: boolean;
+  messageContent: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/** 获取实例的催办/抄送日志 */
+export async function getTimeoutLogs(instanceId: number): Promise<TimeoutLogDTO[]> {
+  return request<TimeoutLogDTO[]>(
+    `/oa/instances/${instanceId}/timeout-logs`
+  );
+}
+
+/** 手动催办当前超时节点 */
+export async function remindNode(instanceId: number): Promise<void> {
+  await request<{ code: number; message: string }>(
+    `/oa/instances/${instanceId}/remind`,
+    { method: 'POST' }
+  );
+}
+
+// =====================================================
 // 营业执照延期补交接口
 // =====================================================
 
@@ -593,4 +624,6 @@ export const oaApi = {
   getLicenseDeferredByInstance,
   getMyLicenseDeferredUploads,
   updateInstance,
+  getTimeoutLogs,
+  remindNode,
 };

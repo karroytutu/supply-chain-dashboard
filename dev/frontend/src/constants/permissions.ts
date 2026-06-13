@@ -44,6 +44,10 @@ export const PERMISSIONS = {
       READ: 'system:token:read',
       WRITE: 'system:token:write',
     },
+    // 组织架构
+    ORG: {
+      READ: 'system:org:read',
+    },
   },
 
   // 战略商品模块
