@@ -275,15 +275,18 @@ export async function recoverStuckProcessing(): Promise<number> {
  * @returns 恢复的实例数量
  */
 export async function recoverStuckAutoNodes(): Promise<number> {
-  // 检测：实例 status='pending' + 当前节点是 auto 类型 + 节点 status='pending' + 超过 5 分钟无更新
+  // 检测：实例 status='pending' + 存在 pending 的 auto 节点 + 超过 5 分钟无更新
+  // 注意：不再依赖 current_node_order JOIN，因为 insertCollectionNode 会 shift auto 节点的 node_order
   const stuck = await appQuery<{ id: number }>(
     `SELECT i.id FROM oa_approval_instances i
-     INNER JOIN oa_approval_nodes n
-       ON n.instance_id = i.id AND n.node_order = i.current_node_order
      WHERE i.status = 'pending'
-       AND n.node_type = 'auto'
-       AND n.status = 'pending'
-       AND i.updated_at < NOW() - interval '5 minutes'`
+       AND i.updated_at < NOW() - interval '5 minutes'
+       AND EXISTS (
+         SELECT 1 FROM oa_approval_nodes n
+         WHERE n.instance_id = i.id
+           AND n.node_type = 'auto'
+           AND n.status = 'pending'
+       )`
   );
 
   if (stuck.rows.length === 0) return 0;

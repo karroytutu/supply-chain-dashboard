@@ -193,16 +193,17 @@ describe('retryAutoNode', () => {
     await expect(retryAutoNode(1)).rejects.toThrow('审批已处于终态');
   });
 
-  it('非 auto 节点时抛出异常', async () => {
+  it('未找到需要重试的 auto 节点时抛出异常', async () => {
     mockTransaction.mockImplementation(async (fn: any) => {
       const client = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [mkInstance()] } as any)
-          .mockResolvedValueOnce({ rows: [mkNode({ node_type: 'role' })] } as any),
+          // 第二个查询：auto 节点查询返回空（没有找到 pending/failed 的 auto 节点）
+          .mockResolvedValueOnce({ rows: [] } as any),
       };
       return fn(client);
     });
-    await expect(retryAutoNode(1)).rejects.toThrow('当前节点不是 auto 类型');
+    await expect(retryAutoNode(1)).rejects.toThrow('未找到需要重试的 auto 节点');
   });
 
   it('成功重试并执行回调', async () => {

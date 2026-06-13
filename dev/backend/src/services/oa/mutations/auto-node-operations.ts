@@ -48,12 +48,13 @@ export async function executeAutoNodeCallback(
     // 检查是否需要在 auto 节点通过后触发抄送
     await triggerCcIfApplicable(instanceId, autoNode.node_order, formType, instance);
 
-    // 检查是否有下一个待审批节点
+    // 检查是否有下一个待审批节点（全局搜索所有 pending 节点，不限于 auto 节点之后的位置）
+    // 注意：不排除 auto 类型，因为现有代码在第 61 行有递归处理连续 auto 节点的逻辑
     const nextNodeResult = await query<OaNodeRow>(
       `SELECT * FROM oa_approval_nodes
-       WHERE instance_id = $1 AND node_order > $2 AND status = 'pending'
+       WHERE instance_id = $1 AND status = 'pending'
        ORDER BY node_order LIMIT 1`,
-      [instanceId, autoNode.node_order]
+      [instanceId]
     );
 
     if (nextNodeResult.rows.length > 0) {
@@ -160,16 +161,16 @@ export async function retryAutoNode(instanceId: number): Promise<void> {
       throw new Error('审批正在处理中，请稍后重试');
     }
 
+    // 直接查找需要重试的 auto 节点（不再依赖 current_node_order，防止节点位置偏移导致找不到或找错节点）
     const nodeResult = await client.query<OaNodeRow>(
-      `SELECT * FROM oa_approval_nodes WHERE instance_id = $1 AND node_order = $2`,
-      [instanceId, inst.current_node_order]
+      `SELECT * FROM oa_approval_nodes
+       WHERE instance_id = $1 AND node_type = 'auto' AND status IN ('pending', 'failed')
+       ORDER BY node_order LIMIT 1`,
+      [instanceId]
     );
     const node = nodeResult.rows[0];
-    if (!node || node.node_type !== 'auto') {
-      throw new Error('当前节点不是 auto 类型，无法重试');
-    }
-    if (node.status !== 'pending' && node.status !== 'failed') {
-      throw new Error(`auto 节点状态为 ${node.status}，不满足重试条件(需为 pending 或 failed)`);
+    if (!node) {
+      throw new Error('未找到需要重试的 auto 节点');
     }
 
     const erpMeta = inst.erp_meta || {

@@ -116,7 +116,7 @@ async function handleVerify(
   } else if (disappearedIds.length > 0) {
     // 部分消失：插入新同级节点继续操作
     log.info(`[${MODULE}] 核销标记: ${disappearedIds.length}/${billIds.length}笔已核销，插入新节点继续`);
-    await insertCollectionNode(instance.id, instance.current_node_order - 1, '继续催收', 'marketer', 0);
+    await insertCollectionNode(instance.id, '继续催收', 'marketer', 0);
   } else {
     log.info(`[${MODULE}] 核销标记: 暂无已核销账单`);
   }
@@ -151,7 +151,6 @@ async function handleExtension(
     log.info(`[${MODULE}] L1延期${extensionDays}天，插入总经理审批节点`);
     await insertCollectionNode(
       instance.id,
-      instance.current_node_order - 1,
       '总经理审批延期',
       ROLE_CODES.ADMIN,
       1, // approval type for GM
@@ -161,7 +160,6 @@ async function handleExtension(
     log.info(`[${MODULE}] L${currentLevel}延期${extensionDays}天，插入总经理审批节点`);
     await insertCollectionNode(
       instance.id,
-      instance.current_node_order - 1,
       '总经理审批延期',
       ROLE_CODES.ADMIN,
       currentLevel,
@@ -179,7 +177,6 @@ async function handleDifference(
   log.info(`[${MODULE}] 标记差异，插入财务差异处理节点`);
   await insertCollectionNode(
     instance.id,
-    instance.current_node_order - 1,
     '财务差异处理',
     ROLE_CODES.CURRENT_ACCOUNTANT,
     currentLevel,
@@ -204,7 +201,7 @@ async function handleEscalate(
   const nodeName = `${levelNames[nextLevel] || '上级'}催收`;
 
   log.info(`[${MODULE}] 升级到L${nextLevel}(${targetRole})，插入新节点`);
-  await insertCollectionNode(instance.id, instance.current_node_order - 1, nodeName, targetRole, nextLevel);
+  await insertCollectionNode(instance.id, nodeName, targetRole, nextLevel);
 }
 
 /**
@@ -212,7 +209,7 @@ async function handleEscalate(
  */
 async function handleResolveDiff(instance: OaInstanceRow): Promise<void> {
   log.info(`[${MODULE}] 差异解决，插入营销师催收节点`);
-  await insertCollectionNode(instance.id, instance.current_node_order - 1, '营销师催收', ROLE_CODES.MARKETER, 0);
+  await insertCollectionNode(instance.id, '营销师催收', ROLE_CODES.MARKETER, 0);
 }
 
 /**
@@ -222,7 +219,6 @@ async function handleLawsuit(instance: OaInstanceRow): Promise<void> {
   log.info(`[${MODULE}] 起诉，插入起诉立案节点`);
   await insertCollectionNode(
     instance.id,
-    instance.current_node_order - 1,
     '起诉立案',
     ROLE_CODES.CURRENT_ACCOUNTANT,
     2,
@@ -234,17 +230,31 @@ async function handleLawsuit(instance: OaInstanceRow): Promise<void> {
 // =====================================================
 
 /**
- * 插入催收节点（封装 insertNodeAfter，自动配置字段权限和交互类型）
+ * 插入催收节点（封装 insertNodeAfter）
+ * 在事务内查询实际 auto 节点位置，确保新节点插在正确位置（auto 节点之前）
  */
 async function insertCollectionNode(
   instanceId: number,
-  afterOrder: number,
   nodeName: string,
   roleCode: string,
   level: number,
 ): Promise<OaNodeRow> {
   return transaction(async (client: PoolClient) => {
-    return insertNodeAfter(client, instanceId, afterOrder, {
+    // 查询当前 pending/processing auto 节点的实际位置（避免依赖可能过时的 instance.current_node_order）
+    const autoNodeResult = await client.query<{ node_order: number }>(
+      `SELECT node_order FROM oa_approval_nodes
+       WHERE instance_id = $1 AND node_type = 'auto' AND status IN ('pending', 'processing')
+       ORDER BY node_order LIMIT 1`,
+      [instanceId]
+    );
+    // 无 auto 节点说明流程状态异常（insertCollectionNode 仅在 auto 节点回调中被调用），应抛出错误而非静默 fallback
+    if (autoNodeResult.rows.length === 0) {
+      throw new Error(`insertCollectionNode: 未找到 pending/processing 的 auto 节点 [instanceId=${instanceId}]`);
+    }
+    // 新节点插入到 auto 节点之前
+    const actualAfterOrder = autoNodeResult.rows[0].node_order - 1;
+
+    return insertNodeAfter(client, instanceId, actualAfterOrder, {
       name: nodeName,
       type: 'role',
       roleCode,
