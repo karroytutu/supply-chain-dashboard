@@ -74,6 +74,7 @@ describe('approveApproval', () => {
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
+          .mockResolvedValueOnce({ rows: [] }) // failedAutoCheck (empty = no failed auto nodes)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance status
           .mockResolvedValueOnce({ rows: [] }) // INSERT action
           .mockResolvedValueOnce({ rows: [] }), // INSERT comment - 统一评论模型新增
@@ -152,6 +153,7 @@ describe('approveApproval', () => {
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: { action: 'verify' }, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
+          .mockResolvedValueOnce({ rows: [] }) // failedAutoCheck (empty = no failed auto nodes)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance status
           .mockResolvedValueOnce({ rows: [] }) // INSERT action
           .mockResolvedValueOnce({ rows: [] }), // INSERT comment
@@ -186,6 +188,7 @@ describe('approveApproval', () => {
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
           .mockResolvedValueOnce({ rows: [] }) // next node
+          .mockResolvedValueOnce({ rows: [] }) // failedAutoCheck (empty = no failed auto nodes)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance
           .mockResolvedValueOnce({ rows: [] }) // INSERT action
           .mockResolvedValueOnce({ rows: [] }),
@@ -215,5 +218,35 @@ describe('approveApproval', () => {
     });
 
     await expect(approveApproval(1, 5, '张三')).rejects.toThrow('审批正在自动处理中，请勿重复操作');
+  });
+
+  it('无后续节点但存在 failed auto 节点时返回 erp_failed', async () => {
+    mockIsCurrentApprover.mockResolvedValueOnce(true);
+
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // SELECT instance0
+          .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] }) // SELECT form type code
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
+          .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
+          .mockResolvedValueOnce({ rows: [{ id: 99, node_name: '自动处理', comment: 'ERP执行失败' }] }) // failedAutoCheck - 有失败节点
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE instance → erp_failed
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action
+          .mockResolvedValueOnce({ rows: [] }), // INSERT comment
+      };
+      return fn(mockClient);
+    });
+
+    (getFormTypeByCode as jest.Mock).mockReturnValue({
+      code: 'other_payment',
+      name: '其他付款',
+      formSchema: { fields: [] },
+      onApproved: jest.fn(),
+    });
+
+    const result = await approveApproval(1, 5, '张三');
+    expect(result.status).toBe('erp_failed');
   });
 });

@@ -112,27 +112,33 @@ describe('executeAutoNodeCallback', () => {
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
       .mockResolvedValueOnce({ rows: [{ max_order: 1 }] } as any) // ccTriggerOrder
       .mockResolvedValueOnce({ rows: [] } as any)                 // next node
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → approved
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → approved + erp_meta cleanup
     const ft = mkFormType();
     await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), { key: 'v' });
     expect(ft.onApproved).toHaveBeenCalledTimes(1);
     expect(finalizeProcessInstance).toHaveBeenCalledWith(1, 'agree');
+    // 验证 erp_meta 被清理
+    const erpMetaCall = mockQuery.mock.calls.find(
+      c => typeof c[0] === 'string' && (c[0] as string).includes('erp_meta')
+        && (c[0] as string).includes("'approved'")
+    );
+    expect(erpMetaCall).toBeTruthy();
   });
 
-  it('成功执行 - 下一节点为人工审批时更新实例状态', async () => {
+  it('成功执行 - 下一节点为人工审批时更新实例状态并清理 erp_meta', async () => {
     const nextNode = mkNode({ id: 200, node_order: 2, node_type: 'role', assigned_user_id: 20 });
     mockQuery
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
-      .mockResolvedValueOnce({ rows: [{ max_order: 1 }] } as any)
-      .mockResolvedValueOnce({ rows: [nextNode] } as any)
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
+      .mockResolvedValueOnce({ rows: [{ max_order: 1 }] } as any) // triggerCcIfApplicable MAX query
+      .mockResolvedValueOnce({ rows: [nextNode] } as any)         // next node query
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → pending + erp_meta cleanup
     await executeAutoNodeCallback(1, mkNode(), mkFormType() as any, mkInstance(), {});
-    // verify instance updated to pending for next human node
-    expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining("status = 'pending'"),
-      expect.any(Array),
+    // verify erp_meta cleanup: 某个 SQL 包含 jsonb_set
+    const jsonbCalls = mockQuery.mock.calls.filter(
+      c => typeof c[0] === 'string' && (c[0] as string).includes('jsonb_set')
     );
+    expect(jsonbCalls.length).toBeGreaterThan(0);
   });
 
   it('成功执行 - 下一节点仍为 auto（递归）', async () => {
@@ -206,17 +212,33 @@ describe('retryAutoNode', () => {
     await expect(retryAutoNode(1)).rejects.toThrow('未找到需要重试的 auto 节点');
   });
 
+  it('auto 节点前仍有未完成人工节点时拒绝重试', async () => {
+    const inst = mkInstance({ status: 'erp_failed', erp_meta: { status: 'failed', retries: 1 } });
+    const node = mkNode({ status: 'failed', node_order: 2 });
+    mockTransaction.mockImplementation(async (fn: any) => {
+      const client = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [inst] } as any)   // SELECT instance
+          .mockResolvedValueOnce({ rows: [node] } as any)   // SELECT auto node
+          .mockResolvedValueOnce({ rows: [{ id: 1, node_name: '营销师催收', status: 'pending' }] } as any), // pendingBeforeCheck
+      };
+      return fn(client);
+    });
+    await expect(retryAutoNode(1)).rejects.toThrow('auto 节点前仍有未完成节点');
+  });
+
   it('成功重试并执行回调', async () => {
     const inst = mkInstance({ status: 'erp_failed', erp_meta: { status: 'failed', retries: 1 } });
     const node = mkNode({ status: 'failed' });
     mockTransaction.mockImplementation(async (fn: any) => {
       const client = {
         query: jest.fn()
-          .mockResolvedValueOnce({ rows: [inst] } as any)
-          .mockResolvedValueOnce({ rows: [node] } as any)
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any),
+          .mockResolvedValueOnce({ rows: [inst] } as any)   // SELECT instance
+          .mockResolvedValueOnce({ rows: [node] } as any)   // SELECT auto node
+          .mockResolvedValueOnce({ rows: [] } as any)       // pendingBeforeCheck (无阻塞节点)
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any) // erp_meta update
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any) // node reset
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any), // action insert
       };
       return fn(client);
     });

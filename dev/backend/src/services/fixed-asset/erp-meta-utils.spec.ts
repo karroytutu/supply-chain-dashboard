@@ -10,6 +10,7 @@ import {
   mergeErpResponseData,
   markErpFailed,
   retryErpOperation,
+  recoverStuckAutoNodes,
 } from './erp-meta-utils';
 import { appQuery } from '../../db/appPool';
 import type { ErpMeta, OaInstanceRow } from '../oa/oa.types';
@@ -24,6 +25,16 @@ jest.mock(
   '../oa/form-types',
   () => ({
     getFormTypeByCode: jest.fn(),
+  }),
+  { virtual: true }
+);
+
+// Mock oa.mutation 的动态导入
+const mockRetryAutoNode = jest.fn().mockResolvedValue(undefined);
+jest.mock(
+  '../oa/oa.mutation',
+  () => ({
+    retryAutoNode: (...args: any[]) => mockRetryAutoNode(...args),
   }),
   { virtual: true }
 );
@@ -274,7 +285,7 @@ describe('retryErpOperation', () => {
     await expect(retryErpOperation(1)).rejects.toThrow('审批实例不存在或无 erp_meta');
   });
 
-  it('erp_failed 状态时应重置为 pending 并触发回调', async () => {
+  it('erp_failed 状态时应重置 erp_meta 并委托 retryAutoNode', async () => {
     const failedMeta: ErpMeta = {
       status: 'erp_failed',
       responseData: { expenditureBillId: 12345 },
@@ -288,37 +299,51 @@ describe('retryErpOperation', () => {
       rows: [{ status: 'erp_failed' }],
     } as never);
 
-    // 第二次查询：获取 erp_meta 和 form_type_id
+    // 第二次查询：获取 erp_meta
     mockAppQuery.mockResolvedValueOnce({
-      rows: [{ erp_meta: { ...failedMeta }, form_type_id: 1 }],
+      rows: [{ erp_meta: { ...failedMeta } }],
     } as never);
 
     // setErpMeta 的 UPDATE
     mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
 
-    // UPDATE instances SET status='processing'
-    mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
-
-    // UPDATE nodes SET status='pending'
-    mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
-
-    // 获取 form_type code
-    mockAppQuery.mockResolvedValueOnce({
-      rows: [{ code: 'asset_purchase' }],
-    } as never);
-
-    // 获取实例详情（用于回调）
-    const mockInstance = createMockInstance({ ...failedMeta, status: 'pending' });
-    mockAppQuery.mockResolvedValueOnce({
-      rows: [mockInstance],
-    } as never);
-
     await retryErpOperation(1);
 
+    // 验证 erp_meta 被重置为 pending，responseData 也被清理
     const updatedJson = getLastUpdateErpMeta();
     expect(updatedJson.status).toBe('pending');
     expect(updatedJson.requestLog).toBeNull();
-    expect(updatedJson.retries).toBe(1);
-    expect(updatedJson.responseData.expenditureBillId).toBe(12345);
+    expect(updatedJson.responseData).toEqual({});
+
+    // 验证委托给了 retryAutoNode
+    expect(mockRetryAutoNode).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('recoverStuckAutoNodes', () => {
+  it('无卡住实例时返回 0', async () => {
+    mockAppQuery.mockResolvedValueOnce({ rows: [] } as never);
+    const result = await recoverStuckAutoNodes();
+    expect(result).toBe(0);
+  });
+
+  it('正常催收单（人工节点 pending + auto 节点 pending）不应被误检', async () => {
+    // SQL 查询中的 NOT EXISTS 子查询会排除有人工节点 pending 的实例
+    // 模拟：查询返回空（NOT EXISTS 正确排除了正常实例）
+    mockAppQuery.mockResolvedValueOnce({ rows: [] } as never);
+    const result = await recoverStuckAutoNodes();
+    expect(result).toBe(0);
+    // 验证 SQL 包含 NOT EXISTS 条件
+    const sqlCall = mockAppQuery.mock.calls[0][0] as string;
+    expect(sqlCall).toContain('NOT EXISTS');
+    expect(sqlCall).toContain("hn.node_type != 'auto'");
+  });
+
+  it('真正卡住的实例（人工节点已完成 + auto 节点 pending）应被检出并恢复', async () => {
+    // SQL 返回一个卡住的实例
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ id: 42 }] } as never);
+    await recoverStuckAutoNodes();
+    // 验证调用了 retryAutoNode
+    expect(mockRetryAutoNode).toHaveBeenCalledWith(42);
   });
 });

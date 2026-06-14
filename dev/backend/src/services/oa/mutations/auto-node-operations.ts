@@ -70,7 +70,8 @@ export async function executeAutoNodeCallback(
       } else {
         await query(
           `UPDATE oa_approval_instances
-           SET current_node_order = $1, status = 'pending', updated_at = NOW()
+           SET current_node_order = $1, status = 'pending', updated_at = NOW(),
+               erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"completed"')
            WHERE id = $2`,
           [nextNode.node_order, instanceId]
         );
@@ -97,7 +98,10 @@ export async function executeAutoNodeCallback(
       }
     } else {
       await query(
-        `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        `UPDATE oa_approval_instances
+         SET status = 'approved', completed_at = NOW(), updated_at = NOW(),
+             erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"completed"')
+         WHERE id = $1`,
         [instanceId]
       );
       // 完成钉钉流程中心壳实例（auto 节点为最后一个节点时）
@@ -171,6 +175,20 @@ export async function retryAutoNode(instanceId: number): Promise<void> {
     const node = nodeResult.rows[0];
     if (!node) {
       throw new Error('未找到需要重试的 auto 节点');
+    }
+
+    // 安全检查：auto 节点之前是否仍有未完成的人工节点
+    // 如果有，说明 auto 节点尚未轮到执行，不应提前触发
+    const pendingBeforeCheck = await client.query(
+      `SELECT id, node_name, status FROM oa_approval_nodes
+       WHERE instance_id = $1 AND node_order < $2 AND status IN ('pending', 'processing')`,
+      [instanceId, node.node_order]
+    );
+    if (pendingBeforeCheck.rows.length > 0) {
+      const blockingNode = pendingBeforeCheck.rows[0];
+      throw new Error(
+        `auto 节点前仍有未完成节点(${blockingNode.node_name}, ${blockingNode.status})，不应提前执行`
+      );
     }
 
     const erpMeta = inst.erp_meta || {

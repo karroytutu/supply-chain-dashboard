@@ -41,6 +41,7 @@ export async function approveApproval(
   let callbackFormData: Record<string, unknown> | undefined;
   let isLastNode = false;
   let autoNodeToExecute: OaNodeRow | null = null;
+  let hasErpFailed = false;
 
   await transaction(async client => {
     const instanceResult0 = await client.query<OaInstanceRow>(
@@ -135,10 +136,35 @@ export async function approveApproval(
         );
       }
     } else {
-      await client.query(
-        `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      // 无后续 pending 节点，准备标记实例完成
+      // 防御检查：确认没有 failed 状态的 auto 节点被跳过
+      const failedAutoCheck = await client.query(
+        `SELECT id, node_name, comment FROM oa_approval_nodes
+         WHERE instance_id = $1 AND node_type = 'auto' AND status = 'failed'
+         LIMIT 1`,
         [instanceId]
       );
+      if (failedAutoCheck.rows.length > 0) {
+        // 存在失败的 auto 节点，标记为 erp_failed 等待人工介入
+        hasErpFailed = true;
+        const failedNode = failedAutoCheck.rows[0];
+        await client.query(
+          `UPDATE oa_approval_instances
+           SET status = 'erp_failed', updated_at = NOW(),
+               erp_meta = jsonb_set(
+                 COALESCE(erp_meta, '{}'),
+                 '{status,requestLog}',
+                 '["erp_failed", {"error": $2, "source": "approve_defense_check"}]'::jsonb
+               )
+           WHERE id = $1`,
+          [instanceId, `Auto node "${failedNode.node_name}" failed: ${failedNode.comment || 'unknown'}`]
+        );
+      } else {
+        await client.query(
+          `UPDATE oa_approval_instances SET status = 'approved', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [instanceId]
+        );
+      }
     }
 
     await client.query(
@@ -199,7 +225,7 @@ export async function approveApproval(
           callbackFormData || {}
         ).catch(err => log.error(`executeAutoNodeCallback 顶层错误:`, err));
       });
-    } else if (isLastNode && formType.onApproved) {
+    } else if (isLastNode && formType.onApproved && !hasErpFailed) {
       formType.onApproved(callbackInstance, callbackFormData || {}).catch(err => {
         log.error(`审批通过回调执行失败 [${ftCode}]:`, err);
       });
@@ -228,8 +254,8 @@ export async function approveApproval(
           log.error('CC 触发失败:', err);
         }
       );
-      // 最后一个节点通过时，完成壳实例
-      if (isLastNode) {
+      // 最后一个节点通过时，完成壳实例（仅在审批真正通过时执行）
+      if (isLastNode && !hasErpFailed) {
         finalizeProcessInstance(instanceId, 'agree').catch(err => {
           log.error('完成壳实例失败:', err);
         });
@@ -239,6 +265,9 @@ export async function approveApproval(
 
   if (autoNodeToExecute) {
     return { status: 'processing' };
+  }
+  if (hasErpFailed) {
+    return { status: 'erp_failed' };
   }
   return { status: 'approved' };
 }
