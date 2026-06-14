@@ -79,12 +79,47 @@ export async function onApprovedArCollection(
     case COLLECTION_ACTIONS.SEND_LETTER:
       // 发函：记录信息，当前节点完成，催收继续留在L2
       log.info(`[${MODULE}] 发函完成: instanceId=${instance.id}`);
+      await insertResultComment(instance.id, '发函完成');
       break;
     case COLLECTION_ACTIONS.LAWSUIT:
       await handleLawsuit(instance);
       break;
     default:
       log.warn(`[${MODULE}] 未知催收操作: ${action}`);
+  }
+}
+
+// =====================================================
+// 处理结果评论：向自动环节写入系统处理说明
+// =====================================================
+
+/**
+ * 向自动环节插入一条系统处理结果评论
+ * 使用统一评论模型（oa_approval_actions action_type='comment'）
+ * 评论插入失败不影响主流程
+ */
+async function insertResultComment(
+  instanceId: number,
+  comment: string
+): Promise<void> {
+  try {
+    const autoNodeResult = await query<{ node_order: number }>(
+      `SELECT node_order FROM oa_approval_nodes
+       WHERE instance_id = $1 AND node_type = 'auto' AND status = 'processing'
+       ORDER BY node_order LIMIT 1`,
+      [instanceId]
+    );
+    if (autoNodeResult.rows.length > 0) {
+      await query(
+        `INSERT INTO oa_approval_actions
+          (instance_id, action_type, operator_name, node_order, comment)
+         VALUES ($1, 'comment', '系统', $2, $3)`,
+        [instanceId, autoNodeResult.rows[0].node_order, comment]
+      );
+    }
+  } catch (err) {
+    log.error(`[${MODULE}] 插入处理结果评论失败:`, err);
+    // 评论插入失败不应影响主流程
   }
 }
 
@@ -104,6 +139,7 @@ async function handleVerify(
 
   if (billIds.length === 0) {
     log.warn(`[${MODULE}] 核销标记: 无账单明细`);
+    await insertResultComment(instance.id, '核销验证：无账单明细，跳过检查');
     return;
   }
 
@@ -113,12 +149,22 @@ async function handleVerify(
   if (disappearedIds.length === billIds.length) {
     // 全部消失：实例完成（由 auto 节点后续处理）
     log.info(`[${MODULE}] 核销标记: 全部${billIds.length}笔已核销，流程结束`);
+    await insertResultComment(
+      instance.id,
+      `核销验证：${billIds.length}/${billIds.length}笔账单已全部核销，催收流程结束`
+    );
   } else if (disappearedIds.length > 0) {
     // 部分消失：插入新同级节点继续操作
+    const remaining = billIds.length - disappearedIds.length;
     log.info(`[${MODULE}] 核销标记: ${disappearedIds.length}/${billIds.length}笔已核销，插入新节点继续`);
+    await insertResultComment(
+      instance.id,
+      `核销验证：${disappearedIds.length}/${billIds.length}笔已核销，剩余${remaining}笔继续催收`
+    );
     await insertCollectionNode(instance.id, '继续催收', 'marketer', 0);
   } else {
     log.info(`[${MODULE}] 核销标记: 暂无已核销账单`);
+    await insertResultComment(instance.id, '核销验证：暂无已核销账单，需继续催收');
   }
 }
 
@@ -140,15 +186,18 @@ async function handleExtension(
   if (currentLevel === 0 && extensionCount === 0) {
     // L0首次延期：直接生效
     log.info(`[${MODULE}] L0首次延期${extensionDays}天，直接生效`);
+    await insertResultComment(instance.id, `延期${extensionDays}天已生效`);
   } else if (currentLevel === 0 && extensionCount >= 1) {
     // L0二次+延期：需要担保签字（signature字段已在表单中，这里验证）
     if (!formData.guarantorSignature) {
       throw new Error('二次延期需要营销担保签字');
     }
     log.info(`[${MODULE}] L0第${extensionCount + 1}次延期${extensionDays}天，担保签字已验证`);
+    await insertResultComment(instance.id, `延期${extensionDays}天，担保签字已验证`);
   } else if (currentLevel === 1) {
     // L1延期：插入总经理审批节点
     log.info(`[${MODULE}] L1延期${extensionDays}天，插入总经理审批节点`);
+    await insertResultComment(instance.id, `延期${extensionDays}天，已提交总经理审批`);
     await insertCollectionNode(
       instance.id,
       '总经理审批延期',
@@ -158,6 +207,7 @@ async function handleExtension(
   } else {
     // L2+延期：同 L1，插入总经理审批节点
     log.info(`[${MODULE}] L${currentLevel}延期${extensionDays}天，插入总经理审批节点`);
+    await insertResultComment(instance.id, `延期${extensionDays}天，已提交总经理审批`);
     await insertCollectionNode(
       instance.id,
       '总经理审批延期',
@@ -175,6 +225,7 @@ async function handleDifference(
   currentLevel: number
 ): Promise<void> {
   log.info(`[${MODULE}] 标记差异，插入财务差异处理节点`);
+  await insertResultComment(instance.id, '已标记差异，等待财务核实');
   await insertCollectionNode(
     instance.id,
     '财务差异处理',
@@ -201,6 +252,7 @@ async function handleEscalate(
   const nodeName = `${levelNames[nextLevel] || '上级'}催收`;
 
   log.info(`[${MODULE}] 升级到L${nextLevel}(${targetRole})，插入新节点`);
+  await insertResultComment(instance.id, `已升级到L${nextLevel}(${levelNames[nextLevel] || '上级'})催收`);
   await insertCollectionNode(instance.id, nodeName, targetRole, nextLevel);
 }
 
@@ -209,6 +261,7 @@ async function handleEscalate(
  */
 async function handleResolveDiff(instance: OaInstanceRow): Promise<void> {
   log.info(`[${MODULE}] 差异解决，插入营销师催收节点`);
+  await insertResultComment(instance.id, '差异已解决，已安排营销师继续催收');
   await insertCollectionNode(instance.id, '营销师催收', ROLE_CODES.MARKETER, 0);
 }
 
@@ -217,6 +270,7 @@ async function handleResolveDiff(instance: OaInstanceRow): Promise<void> {
  */
 async function handleLawsuit(instance: OaInstanceRow): Promise<void> {
   log.info(`[${MODULE}] 起诉，插入起诉立案节点`);
+  await insertResultComment(instance.id, '已进入起诉立案程序');
   await insertCollectionNode(
     instance.id,
     '起诉立案',
@@ -232,6 +286,7 @@ async function handleLawsuit(instance: OaInstanceRow): Promise<void> {
 /**
  * 插入催收节点（封装 insertNodeAfter）
  * 在事务内查询实际 auto 节点位置，确保新节点插在正确位置（auto 节点之前）
+ * 根据 roleCode 自动解析处理人，确保新建环节有明确的负责人
  */
 async function insertCollectionNode(
   instanceId: number,
@@ -254,12 +309,30 @@ async function insertCollectionNode(
     // 新节点插入到 auto 节点之前
     const actualAfterOrder = autoNodeResult.rows[0].node_order - 1;
 
+    // 根据角色编码查找对应的处理人（使用事务 client 保证查询一致性）
+    const roleResult = await client.query<{ user_id: number }>(
+      `SELECT ur.user_id FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE r.code = $1 AND r.status = 1
+       LIMIT 1`,
+      [roleCode]
+    );
+    const approverId = roleResult.rows[0]?.user_id || null;
+    let approverName: string | undefined;
+    if (approverId) {
+      const userResult = await client.query<{ name: string }>(
+        'SELECT name FROM users WHERE id = $1',
+        [approverId]
+      );
+      approverName = userResult.rows[0]?.name;
+    }
+
     return insertNodeAfter(client, instanceId, actualAfterOrder, {
       name: nodeName,
       type: 'role',
       roleCode,
-      assignedUserId: undefined, // 由 OA 引擎根据 roleCode 自动分配
-      assignedUserName: undefined,
+      assignedUserId: approverId ?? undefined,
+      assignedUserName: approverName,
     });
   });
 }
