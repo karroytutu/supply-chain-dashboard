@@ -40,6 +40,34 @@ export async function executeAutoNodeCallback(
       return;
     }
 
+    // 最终防线：执行 ERP 回调前确认 auto 节点之前没有未完成的人工环节
+    // 防止定时恢复任务误判导致自动环节在人工审批完成前被执行
+    // 仅检查 node_order < autoNode.node_order 的节点，auto 节点之后的人工节点属于正常 pending
+    const finalCheck = await query(
+      `SELECT id, node_name, status FROM oa_approval_nodes
+       WHERE instance_id = $1 AND node_type != 'auto'
+         AND node_order < $2
+         AND status IN ('pending', 'processing') LIMIT 1`,
+      [instanceId, autoNode.node_order]
+    );
+    if (finalCheck.rows.length > 0) {
+      const blocker = finalCheck.rows[0];
+      log.error(
+        `[安全防线] auto 节点执行前发现未完成人工环节: ` +
+        `instanceId=${instanceId}, blocker=${blocker.node_name}(${blocker.status})，中止执行`
+      );
+      // 回退 auto 节点为 pending，不执行 ERP 回调
+      await query(
+        `UPDATE oa_approval_nodes SET status = 'pending', acted_at = NULL WHERE id = $1`,
+        [autoNode.id]
+      );
+      await query(
+        `UPDATE oa_approval_instances SET status = 'pending', updated_at = NOW() WHERE id = $1`,
+        [instanceId]
+      );
+      return;
+    }
+
     await formType.onApproved!(instance, formData);
 
     // 成功：auto 节点 → approved

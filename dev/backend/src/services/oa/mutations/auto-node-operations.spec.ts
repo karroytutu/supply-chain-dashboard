@@ -109,6 +109,7 @@ describe('executeAutoNodeCallback', () => {
   it('成功执行 - 无后续节点（末位 auto）', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck (无阻塞)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
       .mockResolvedValueOnce({ rows: [{ max_order: 1 }] } as any) // ccTriggerOrder
       .mockResolvedValueOnce({ rows: [] } as any)                 // next node
@@ -129,6 +130,7 @@ describe('executeAutoNodeCallback', () => {
     const nextNode = mkNode({ id: 200, node_order: 2, node_type: 'role', assigned_user_id: 20 });
     mockQuery
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck (无阻塞)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
       .mockResolvedValueOnce({ rows: [{ max_order: 1 }] } as any) // triggerCcIfApplicable MAX query
       .mockResolvedValueOnce({ rows: [nextNode] } as any)         // next node query
@@ -145,11 +147,13 @@ describe('executeAutoNodeCallback', () => {
     const autoNode2 = mkNode({ id: 200, node_order: 2, node_type: 'auto' });
     mockQuery
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim node1
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck node1 (无阻塞)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node1 → approved
       .mockResolvedValueOnce({ rows: [{ max_order: 2 }] } as any) // cc
       .mockResolvedValueOnce({ rows: [autoNode2] } as any)        // next = auto
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // update current_node
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim node2
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck node2 (无阻塞)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node2 → approved
       .mockResolvedValueOnce({ rows: [{ max_order: 2 }] } as any) // cc node2
       .mockResolvedValueOnce({ rows: [] } as any)                 // no next
@@ -161,9 +165,9 @@ describe('executeAutoNodeCallback', () => {
 
   it('执行失败 → 节点标记为failed，实例标记为erp_failed', async () => {
     const ft = mkFormType({ onApproved: jest.fn().mockRejectedValue(new Error('ERP boom')) });
-    // claim + onApproved throws + node→failed + instance→erp_failed
     mockQuery
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)  // claim
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)  // finalCheck (无阻塞)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)  // node → failed
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any); // instance → erp_failed
     await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), {});
@@ -177,6 +181,43 @@ describe('executeAutoNodeCallback', () => {
       c => typeof c[0] === 'string' && (c[0] as string).includes("'erp_failed'")
     );
     expect(erpFailedCall).toBeTruthy();
+  });
+
+  it('最终防线：人工环节未完成时中止 auto 节点执行', async () => {
+    const ft = mkFormType();
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)  // claim 成功
+      .mockResolvedValueOnce({ rows: [{ id: 50, node_name: '营销经理审批', status: 'pending' }] } as any) // finalCheck 发现阻塞
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)  // 回退 auto 节点
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any); // 回退实例状态
+    await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), {});
+    expect(ft.onApproved).not.toHaveBeenCalled(); // 回调未执行
+    // 验证 auto 节点被回退为 pending
+    const revertCall = mockQuery.mock.calls.find(
+      c => typeof c[0] === 'string' && (c[0] as string).includes("'pending'")
+    );
+    expect(revertCall).toBeTruthy();
+  });
+
+  it('auto 节点后有 pending 人工节点时不阻塞执行（仅检查 node_order 之前的节点）', async () => {
+    // 场景：节点1=auto(order=1), 节点2=人工(order=2, pending)
+    // finalCheck 仅检查 node_order < 1 的节点，不会发现节点2，因此正常执行
+    const ft = mkFormType();
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck (无阻塞，节点2在 auto 之后不算)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
+      .mockResolvedValueOnce({ rows: [{ max_order: 2 }] } as any) // ccTriggerOrder
+      .mockResolvedValueOnce({ rows: [] } as any)                 // next node (无人工节点待审批)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → approved
+    await executeAutoNodeCallback(1, mkNode({ node_order: 1 }), ft as any, mkInstance(), {});
+    expect(ft.onApproved).toHaveBeenCalledTimes(1); // 回调正常执行
+    // 验证 finalCheck SQL 包含 node_order 过滤
+    const finalCheckCall = mockQuery.mock.calls[1];
+    const finalCheckSql = finalCheckCall[0] as string;
+    expect(finalCheckSql).toContain('node_order');
+    // 验证 finalCheck 参数包含 autoNode.node_order
+    expect(finalCheckCall[1]).toContain(1);
   });
 });
 

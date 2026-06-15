@@ -185,34 +185,72 @@ export async function recoverStuckProcessing(): Promise<number> {
 
   let recovered = 0;
   for (const row of stuck.rows) {
-    const meta = row.erp_meta;
-    if (meta?.status === 'completed' || meta?.status === 'erp_completed') {
-      // erp_meta 已经是终态但实例仍 processing → 直接完成
-      await appQuery(
-        `UPDATE oa_approval_instances
-         SET status = 'approved', completed_at = NOW(), updated_at = NOW(),
-             erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"completed"')
-         WHERE id = $1 AND status = 'processing'`,
-        [row.id]
-      );
-      await appQuery(
-        `UPDATE oa_approval_nodes SET status = 'approved' WHERE instance_id = $1 AND node_type = 'auto'`,
-        [row.id]
-      );
-    } else {
-      // erp_meta 仍在中间态 → 标记失败
-      await markErpFailed(row.id, { error: 'Auto node stuck timeout', source: 'stuck_recovery' });
-      await appQuery(
-        `UPDATE oa_approval_instances SET status = 'erp_failed', updated_at = NOW()
-         WHERE id = $1 AND status = 'processing'`,
-        [row.id]
-      );
-      await appQuery(
-        `UPDATE oa_approval_nodes SET status = 'failed', comment = '执行超时' WHERE instance_id = $1 AND node_type = 'auto'`,
-        [row.id]
-      );
+    try {
+      const meta = row.erp_meta;
+      if (meta?.status === 'completed' || meta?.status === 'erp_completed') {
+        // 【安全检查】确认 auto 节点之前没有未完成的人工环节，防止误将提前执行的 auto 节点标记为审批通过
+        // 先查 auto 节点的 node_order，再做位置感知过滤（auto 节点之后的人工节点属于正常 pending）
+        const autoNodeOrder = await appQuery<{ node_order: number }>(
+          `SELECT MIN(node_order) AS node_order FROM oa_approval_nodes
+           WHERE instance_id = $1 AND node_type = 'auto'`,
+          [row.id]
+        );
+        const humanCheck = await appQuery<{ blocked: boolean }>(
+          `SELECT EXISTS (
+            SELECT 1 FROM oa_approval_nodes n
+            WHERE n.instance_id = $1 AND n.node_type != 'auto'
+              AND n.node_order < $2
+              AND n.status IN ('pending', 'processing')
+          ) AS blocked`,
+          [row.id, autoNodeOrder.rows[0]?.node_order ?? 0]
+        );
+        if (humanCheck.rows[0]?.blocked) {
+          log.warn(
+            `[recoverStuckProcessing] 跳过：instanceId=${row.id} 仍有未完成人工环节，` +
+            `erp_meta=${meta?.status} 可能是提前执行导致，标记为 erp_failed 等待人工介入`
+          );
+          await markErpFailed(row.id, {
+            error: 'erp_meta 为终态但人工环节未完成，疑似提前执行',
+            source: 'stuck_recovery_safety_check',
+          });
+          await appQuery(
+            `UPDATE oa_approval_instances SET status = 'erp_failed', updated_at = NOW()
+             WHERE id = $1 AND status = 'processing'`,
+            [row.id]
+          );
+          recovered++;
+          continue;
+        }
+
+        // erp_meta 已经是终态且 auto 节点之前的人工环节都已完成 → 直接完成
+        await appQuery(
+          `UPDATE oa_approval_instances
+           SET status = 'approved', completed_at = NOW(), updated_at = NOW(),
+               erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"completed"')
+           WHERE id = $1 AND status = 'processing'`,
+          [row.id]
+        );
+        await appQuery(
+          `UPDATE oa_approval_nodes SET status = 'approved' WHERE instance_id = $1 AND node_type = 'auto'`,
+          [row.id]
+        );
+      } else {
+        // erp_meta 仍在中间态 → 标记失败
+        await markErpFailed(row.id, { error: 'Auto node stuck timeout', source: 'stuck_recovery' });
+        await appQuery(
+          `UPDATE oa_approval_instances SET status = 'erp_failed', updated_at = NOW()
+           WHERE id = $1 AND status = 'processing'`,
+          [row.id]
+        );
+        await appQuery(
+          `UPDATE oa_approval_nodes SET status = 'failed', comment = '执行超时' WHERE instance_id = $1 AND node_type = 'auto'`,
+          [row.id]
+        );
+      }
+      recovered++;
+    } catch (error) {
+      log.error(`[recoverStuckProcessing] 实例恢复失败 [instanceId=${row.id}]:`, error);
     }
-    recovered++;
   }
   return recovered;
   } finally {
@@ -262,12 +300,36 @@ export async function recoverStuckAutoNodes(): Promise<number> {
 
   if (stuck.rows.length === 0) return 0;
 
+  // 异常告警：正常情况下不应同时出现大量卡住的审批单
+  if (stuck.rows.length > 10) {
+    log.warn(`[recoverStuckAutoNodes] 异常：检测到 ${stuck.rows.length} 个卡住审批单（阈值 10），请检查`);
+  }
+
   // 动态导入避免循环依赖
   const { retryAutoNode } = await import('../oa/oa.mutation');
 
   let recovered = 0;
   for (const row of stuck.rows) {
     try {
+      // 应用层双重验证：SQL 排除可能因时序问题失效，再次确认 auto 节点之前没有未完成的人工环节
+      // 与 SQL 主查询保持一致：仅检查 node_order < MIN(auto.node_order) 的人工节点
+      const verify = await appQuery<{ blocked: boolean }>(
+        `SELECT EXISTS (
+          SELECT 1 FROM oa_approval_nodes hn
+          WHERE hn.instance_id = $1 AND hn.node_type != 'auto'
+            AND hn.status IN ('pending', 'processing')
+            AND hn.node_order < (
+              SELECT MIN(an.node_order) FROM oa_approval_nodes an
+              WHERE an.instance_id = $1 AND an.node_type = 'auto' AND an.status = 'pending'
+            )
+        ) AS blocked`,
+        [row.id]
+      );
+      if (verify.rows[0]?.blocked) {
+        log.warn(`[recoverStuckAutoNodes] 跳过：instanceId=${row.id} 仍有未完成人工环节`);
+        continue;
+      }
+
       await retryAutoNode(row.id);
       log.info(`auto节点pending恢复成功 [instanceId=${row.id}]`);
       recovered++;

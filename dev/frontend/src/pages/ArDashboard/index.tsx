@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Alert, Spin, Empty, Typography } from 'antd';
+import { Empty, Typography, Skeleton, Card, Button, Result } from 'antd';
 import KpiCard from './components/KpiCard';
 import CollectionPipeline from './components/CollectionPipeline';
 import MarketerPanel from './components/MarketerPanel';
@@ -25,6 +25,17 @@ const ArDashboard: React.FC = () => {
   const [data, setData] = useState<ArDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * 延迟显示骨架屏：后端 SWR 缓存命中时 API 在 ~5ms 返回，
+   * 此时显示骨架屏反而造成无意义闪烁。200ms 后才展示骨架屏。
+   */
+  const [showSkeleton, setShowSkeleton] = useState(false);
+  useEffect(() => {
+    if (!loading) { setShowSkeleton(false); return; }
+    const timer = setTimeout(() => setShowSkeleton(true), 200);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   /** 催收进度节点点击时，联动筛选明细表的复合状态 */
   const [pipelineFilter, setPipelineFilter] = useState<PipelineFilter>({ status: '' });
@@ -83,23 +94,65 @@ const ArDashboard: React.FC = () => {
       .catch(e => setPipelineExpiryModal({ visible: true, loading: false, nodeLabel: node.label, data: [], error: e.message || '加载失败' }));
   }, []);
 
-  // Loading 状态
-  if (loading) {
+  // Loading 状态：200ms 后显示骨架屏，缓存命中时不会闪烁
+  if (loading && showSkeleton) {
     return (
       <div className={styles.page}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-          <Spin size="large" tip="加载看板数据..." />
+        {/* 页头骨架 */}
+        <div className={styles.header}>
+          <Skeleton.Input active style={{ width: 200, height: 22 }} />
+          <Skeleton.Input active size="small" style={{ width: 160, height: 14 }} />
         </div>
+
+        {/* KPI 卡片骨架 — 复用 styles.kpiGrid 自动继承 4 个响应式断点 */}
+        <section className={styles.section}>
+          <div className={styles.kpiGrid}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} bordered={false} size="small" style={{ borderRadius: 8 }}>
+                <Skeleton active paragraph={{ rows: 1, width: ['50%', '40%'] }} title={false} />
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        {/* 催收进度骨架 */}
+        <section className={styles.section}>
+          <Card bordered={false} style={{ borderRadius: 8 }}>
+            <Skeleton active paragraph={{ rows: 3 }} />
+          </Card>
+        </section>
+
+        {/* 营销师面板骨架 */}
+        <section className={styles.section}>
+          <Card bordered={false} style={{ borderRadius: 8 }}>
+            <Skeleton active paragraph={{ rows: 4 }} />
+          </Card>
+        </section>
+
+        {/* 明细表骨架 */}
+        <section className={styles.section}>
+          <Card bordered={false} style={{ borderRadius: 8 }}>
+            <Skeleton active paragraph={{ rows: 5 }} />
+          </Card>
+        </section>
       </div>
     );
   }
 
-  // 错误状态
+  // 错误状态：保留页面标题 + 可重试的 Result 组件
   if (error) {
     return (
       <div className={styles.page}>
+        <div className={styles.header}>
+          <Title level={3} className={styles.title}>应收账款全景看板</Title>
+        </div>
         <div style={{ padding: 24 }}>
-          <Alert message="加载失败" description={error} type="error" showIcon />
+          <Result
+            status="error"
+            title="数据加载失败"
+            subTitle={error}
+            extra={<Button onClick={() => window.location.reload()}>重新加载</Button>}
+          />
         </div>
       </div>
     );

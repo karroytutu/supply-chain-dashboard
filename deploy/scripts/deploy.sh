@@ -214,6 +214,11 @@ build_backend_async() {
     else
         log_info "后端依赖未变更，跳过 npm ci"
     fi
+    # 构建前清空 dist/：tsc 不会删除已废弃的编译文件，源码目录重命名或删除后旧文件会残留
+    if [ -d "$PROJECT_ROOT/prod/backend/dist" ]; then
+        rm -rf "$PROJECT_ROOT/prod/backend/dist"
+        log_info "已清空旧编译产物: prod/backend/dist/"
+    fi
     npm run build
 }
 

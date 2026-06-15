@@ -10,6 +10,7 @@ import {
   mergeErpResponseData,
   markErpFailed,
   retryErpOperation,
+  recoverStuckProcessing,
   recoverStuckAutoNodes,
 } from './erp-meta-utils';
 import { appQuery } from '../../db/appPool';
@@ -43,6 +44,7 @@ const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 
 beforeEach(() => {
   mockAppQuery.mockReset();
+  mockRetryAutoNode.mockReset();
 });
 
 /** 创建模拟的审批实例行 */
@@ -342,8 +344,83 @@ describe('recoverStuckAutoNodes', () => {
   it('真正卡住的实例（人工节点已完成 + auto 节点 pending）应被检出并恢复', async () => {
     // SQL 返回一个卡住的实例
     mockAppQuery.mockResolvedValueOnce({ rows: [{ id: 42 }] } as never);
+    // 应用层双重验证：确认无人工环节阻塞
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ blocked: false }] } as never);
     await recoverStuckAutoNodes();
     // 验证调用了 retryAutoNode
     expect(mockRetryAutoNode).toHaveBeenCalledWith(42);
+  });
+
+  it('应用层验证：人工环节未完成时跳过恢复', async () => {
+    // SQL 返回一个实例（可能因时序问题被误检）
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ id: 99 }] } as never);
+    // 应用层验证发现仍有人工环节 pending
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ blocked: true }] } as never);
+    const result = await recoverStuckAutoNodes();
+    // 不应调用 retryAutoNode
+    expect(mockRetryAutoNode).not.toHaveBeenCalled();
+    expect(result).toBe(0);
+  });
+
+  it('超过阈值时记录告警日志', async () => {
+    // 模拟返回 11 个卡住的实例（超过阈值 10）
+    const manyInstances = Array.from({ length: 11 }, (_, i) => ({ id: i + 1 }));
+    mockAppQuery.mockResolvedValueOnce({ rows: manyInstances } as never);
+    // 为每个实例提供应用层验证（全部阻塞）
+    for (let i = 0; i < 11; i++) {
+      mockAppQuery.mockResolvedValueOnce({ rows: [{ blocked: true }] } as never);
+    }
+    await recoverStuckAutoNodes();
+    // 验证不执行任何 retry
+    expect(mockRetryAutoNode).not.toHaveBeenCalled();
+  });
+});
+
+describe('recoverStuckProcessing', () => {
+  it('erp_meta 为终态但 auto 节点前人工环节未完成时标记为 erp_failed', async () => {
+    // 查询返回一个 processing 状态的实例
+    mockAppQuery.mockResolvedValueOnce({
+      rows: [{ id: 55, erp_meta: { status: 'erp_completed', responseData: {}, requestLog: null, applicationNo: '', retries: 0 } }],
+    } as never);
+    // 查询 auto 节点的 node_order
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ node_order: 2 }] } as never);
+    // 安全检查发现 auto 节点前有人工环节未完成
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ blocked: true }] } as never);
+    // markErpFailed 调用 getAndUpdateErpMeta → SELECT + UPDATE
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ erp_meta: { status: 'erp_completed', responseData: {}, requestLog: null, applicationNo: '', retries: 0 } }] } as never);
+    mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never); // setErpMeta UPDATE
+    // 标记实例为 erp_failed
+    mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
+
+    const result = await recoverStuckProcessing();
+    expect(result).toBe(1);
+    // 验证实例被标记为 erp_failed 而非 approved
+    const failedCall = mockAppQuery.mock.calls.find(
+      c => typeof c[0] === 'string' && (c[0] as string).includes("'erp_failed'")
+    );
+    expect(failedCall).toBeTruthy();
+  });
+
+  it('erp_meta 为终态且 auto 节点前人工环节均已完成时直接标记为 approved', async () => {
+    // 查询返回一个 processing 状态的实例
+    mockAppQuery.mockResolvedValueOnce({
+      rows: [{ id: 77, erp_meta: { status: 'completed', responseData: {}, requestLog: null, applicationNo: 'APA1', retries: 0 } }],
+    } as never);
+    // 查询 auto 节点的 node_order
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ node_order: 2 }] } as never);
+    // 安全检查：auto 节点前无人工环节阻塞
+    mockAppQuery.mockResolvedValueOnce({ rows: [{ blocked: false }] } as never);
+    // UPDATE instance → approved
+    mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
+    // UPDATE nodes → approved
+    mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
+
+    const result = await recoverStuckProcessing();
+    expect(result).toBe(1);
+    // 验证实例被标记为 approved（正常完成路径）
+    const approvedCall = mockAppQuery.mock.calls.find(
+      c => typeof c[0] === 'string' && (c[0] as string).includes("'approved'") && (c[0] as string).includes('completed_at')
+    );
+    expect(approvedCall).toBeTruthy();
   });
 });
