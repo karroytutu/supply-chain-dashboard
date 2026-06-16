@@ -1,13 +1,14 @@
 /**
  * 最近更新卡片组件
- * 展示 changelog 中最近 3 个版本的更新摘要，点击可跳转更新日志页
+ * 展示 changelog 中最近 1 个版本的更新摘要，点击可跳转更新日志页
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Tag, Skeleton, Typography, Button } from 'antd';
 import { RightOutlined, HistoryOutlined } from '@ant-design/icons';
 import { history } from 'umi';
 import request from '@/services/api/request';
+import { formatDateTime } from '@/utils/format';
 import styles from './RecentUpdates.less';
 
 const { Text } = Typography;
@@ -27,12 +28,18 @@ interface ChangelogEntry {
   changes: string[];
 }
 
-const MAX_ENTRIES = 3;
+const MAX_ENTRIES = 1;
+const MAX_VISIBLE_CHANGES = 3;
 
 const RecentUpdates: React.FC = () => {
   const [entries, setEntries] = useState<ChangelogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const toggleExpand = useCallback(() => {
+    setExpanded((prev) => !prev);
+  }, []);
 
   useEffect(() => {
     request<{ entries: ChangelogEntry[] }>('/changelog')
@@ -64,8 +71,8 @@ const RecentUpdates: React.FC = () => {
 
       {loading ? (
         <div className={styles.skeleton}>
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} active paragraph={{ rows: 1 }} title={{ width: '40%' }} />
+          {[1].map((i) => (
+            <Skeleton key={i} active paragraph={{ rows: 2 }} title={{ width: '40%' }} />
           ))}
         </div>
       ) : (
@@ -75,7 +82,7 @@ const RecentUpdates: React.FC = () => {
               <div className={styles.meta}>
                 <Tag color="blue" className={styles.versionTag}>{entry.version}</Tag>
                 <Text type="secondary" className={styles.date}>
-                  {entry.date.split(' ')[0]}
+                  {formatDateTime(entry.date, 'YYYY-MM-DD HH:mm')}
                 </Text>
                 <span className={styles.typeTags}>
                   {entry.types.map((type) => {
@@ -89,9 +96,17 @@ const RecentUpdates: React.FC = () => {
                 </span>
               </div>
               <ul className={styles.changeList}>
-                {entry.changes.map((change, idx) => (
+                {(expanded
+                  ? entry.changes
+                  : entry.changes.slice(0, MAX_VISIBLE_CHANGES)
+                ).map((change, idx) => (
                   <li key={idx} className={styles.changeItem}>{change}</li>
                 ))}
+                {entry.changes.length > MAX_VISIBLE_CHANGES && (
+                  <li className={styles.expandLink} onClick={toggleExpand}>
+                    {expanded ? '收起' : `+${entry.changes.length - MAX_VISIBLE_CHANGES} 更多`}
+                  </li>
+                )}
               </ul>
             </div>
           ))}

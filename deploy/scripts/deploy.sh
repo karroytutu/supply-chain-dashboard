@@ -6,8 +6,8 @@
 #   --skip-build    跳过构建步骤，仅重启容器
 #   --backup        部署前创建备份
 #
-# 缓存策略：脚本自动检测 Dockerfile / docker-compose.yml / package.json
-# 是否变更，自动决定是否启用 --no-cache，无需手动干预。
+# 缓存策略：脚本仅检测 Dockerfile 是否变更来决定 --no-cache，
+# package.json / 代码变更由 Docker 原生层缓存自动处理，无需全量重建。
 
 set -e
 
@@ -57,55 +57,105 @@ log_info "项目路径: $PROJECT_ROOT"
 log_info "部署配置目录: $DEPLOY_DIR"
 
 # ========== 构建缓存自动检测 ==========
+#
+# 缓存策略（分层检测，精准控制重建范围）：
+#
+# | 变更类型              | 策略              | 原因
+# |-----------------------|-------------------|--------------------------------------
+# | Dockerfile 内容变更    | --no-cache 全量重建 | 可能调整了层顺序、基础镜像或系统依赖
+# | 仅 package.json 变更  | 不启用 --no-cache  | Docker 原生层缓存会自动检测 COPY 文件变化，
+# |                       |                   | 仅重建依赖层及之后的层
+# | 仅代码/产物变更       | 不启用 --no-cache  | 只重建最后几层（COPY dist），最快
+#
+# 前后端独立检测，互不影响。
 
-BUILD_CACHE_KEY_FILE="$DEPLOY_DIR/.build-cache-key"
+DOCKERFILE_CACHE_KEY_FILE="$DEPLOY_DIR/.dockerfile-cache-key"
 
-# 计算构建缓存 key（仅对影响 Docker 镜像内容的文件计算联合 md5）
-# 注意：docker-compose.yml 仅控制运行时配置（端口、volume、环境变量），
-# 不影响镜像内容，不纳入缓存检测
-compute_build_cache_key() {
+# 仅计算 Dockerfile 的哈希（决定是否 --no-cache）
+compute_dockerfile_cache_key() {
     local files=(
         "$PROJECT_ROOT/deploy/Dockerfile.backend"
         "$PROJECT_ROOT/deploy/Dockerfile.frontend"
-        "$PROJECT_ROOT/dev/backend/package.json"
-        "$PROJECT_ROOT/dev/frontend/package.json"
     )
     cat "${files[@]}" 2>/dev/null | md5sum | awk '{print $1}'
 }
 
-# 自动检测关键文件是否变更，决定是否需要 --no-cache
+# 自动检测 Dockerfile 是否变更，决定是否需要 --no-cache
+# package.json 变更由 Docker 原生层缓存处理，脚本不介入
 auto_detect_rebuild() {
     local current_key
-    current_key=$(compute_build_cache_key)
+    current_key=$(compute_dockerfile_cache_key)
 
-    if [ ! -f "$BUILD_CACHE_KEY_FILE" ]; then
+    if [ ! -f "$DOCKERFILE_CACHE_KEY_FILE" ]; then
         log_info "首次部署，自动启用 --no-cache 构建基础镜像层"
         NO_CACHE="--no-cache"
         return
     fi
 
     local saved_key
-    saved_key=$(cat "$BUILD_CACHE_KEY_FILE" 2>/dev/null || echo "")
+    saved_key=$(cat "$DOCKERFILE_CACHE_KEY_FILE" 2>/dev/null || echo "")
 
     if [ "$current_key" != "$saved_key" ]; then
-        log_info "检测到 Dockerfile/package.json 变更，自动启用 --no-cache"
-        log_info "（仅镜像内容变更才需要，compose 运行时配置变更不影响缓存）"
+        log_info "检测到 Dockerfile 变更，自动启用 --no-cache 全量重建"
         NO_CACHE="--no-cache"
     else
-        log_info "Dockerfile/package.json 未变更，复用 Docker 构建缓存"
+        log_info "Dockerfile 未变更，复用 Docker 构建缓存（package.json 变更由 Docker 层缓存自动处理）"
     fi
 }
 
-# 保存构建缓存 key
+# 保存 Dockerfile 缓存 key
 save_build_cache_key() {
     local current_key
-    current_key=$(compute_build_cache_key)
-    echo "$current_key" > "$BUILD_CACHE_KEY_FILE"
+    current_key=$(compute_dockerfile_cache_key)
+    echo "$current_key" > "$DOCKERFILE_CACHE_KEY_FILE"
     log_info "构建缓存 key 已保存"
 }
 
 # 执行自动检测
 auto_detect_rebuild
+
+# ========== Playwright 浏览器预置 ==========
+#
+# 问题：Playwright Chromium 从 CDN 下载（国内慢，175MB+，常超时）
+# 方案：构建前从宿主机缓存预置浏览器到构建上下文，Dockerfile 直接 COPY
+# 回退：若宿主机无缓存，Dockerfile 会自动回退到 CDN 下载
+
+PW_BROWSERS_DIR="$DEPLOY_DIR/playwright-browsers"
+HOST_PW_CACHE="${HOME}/.cache/ms-playwright"
+
+preseed_playwright_browsers() {
+    mkdir -p "$PW_BROWSERS_DIR"
+
+    local found=false
+    for dir in "$HOST_PW_CACHE"/chromium-* "$HOST_PW_CACHE"/chromium_headless_shell-*; do
+        if [ -d "$dir" ]; then
+            local dirname=$(basename "$dir")
+            cp -a "$dir" "$PW_BROWSERS_DIR/"
+            log_info "已预置 Playwright 浏览器: $dirname"
+            found=true
+        fi
+    done
+
+    if [ "$found" = true ]; then
+        local size
+        size=$(du -sh "$PW_BROWSERS_DIR" 2>/dev/null | cut -f1)
+        log_info "Playwright 浏览器预置完成 ($size)，Docker 构建时将 COPY 而非 CDN 下载"
+    else
+        log_warn "宿主机无 Playwright 浏览器缓存，Docker 构建时将回退到 CDN 下载"
+    fi
+}
+
+cleanup_playwright_browsers() {
+    if [ -d "$PW_BROWSERS_DIR" ]; then
+        rm -rf "$PW_BROWSERS_DIR"
+        log_info "已清理 Playwright 浏览器预置目录"
+    fi
+}
+
+# 构建前预置浏览器（Dockerfile 中 COPY 需要此目录）
+if [ "$SKIP_BUILD" = false ]; then
+    preseed_playwright_browsers
+fi
 
 # 切换到项目根目录
 cd "$PROJECT_ROOT"
@@ -361,9 +411,13 @@ log_info "已停止旧容器，网络保留复用"
 docker-compose build $NO_CACHE
 if [ $? -ne 0 ]; then
     log_error "Docker 镜像构建失败"
+    cleanup_playwright_browsers
     exit 1
 fi
 log_info "Docker 镜像打包完成（使用本地构建产物）"
+
+# 构建后清理 Playwright 浏览器预置目录（避免占用磁盘）
+cleanup_playwright_browsers
 
 # 启动容器
 docker-compose up -d

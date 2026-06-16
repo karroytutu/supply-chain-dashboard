@@ -18,18 +18,35 @@ WORKDIR /app
 
 # 依赖层（仅在 package.json 变动时失效）
 # 使用 npmmirror 国内镜像加速
+# BuildKit 缓存挂载：npm 下载包持久化，层缓存失效时仍可复用已下载的包
 COPY dev/backend/package*.json ./
-RUN npm config set registry https://registry.npmmirror.com && \
-    npm ci --omit=dev && npm cache clean --force
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm config set registry https://registry.npmmirror.com && \
+    npm ci --omit=dev
 
 # Playwright 浏览器层（独立缓存，代码变动不触发重装）
-# 仅安装 Chromium（比 Firefox 轻量，约 300MB vs 500MB）
+# 浏览器从宿主机缓存预置（deploy.sh 自动处理），避免构建时从 CDN 下载（国内慢）
+# install-deps 仅安装 Chromium 所需的系统依赖（apt 包），不下载浏览器本身
 # 使用 /app/.cache 而非 /root/.cache，确保 gosu 降权后 nodejs 用户可访问
-# 注意：playwright install-deps 使用阿里云 apt 源（在基础系统层已配置）
-# playwright install chromium 走默认 CDN，npmmirror 镜像版本不全故不配
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.cache/ms-playwright
-RUN npx playwright install-deps chromium && \
-    npx playwright install chromium && \
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    npx playwright install-deps chromium
+
+# 从宿主机预置的浏览器缓存中 COPY（由 deploy.sh 自动准备）
+# 仅在预置目录为空时才回退到 CDN 下载
+COPY deploy/playwright-browsers /tmp/pw-browsers
+RUN mkdir -p /app/.cache/ms-playwright && \
+    if ls /tmp/pw-browsers/chromium-* 1>/dev/null 2>&1; then \
+        cp -r /tmp/pw-browsers/* /app/.cache/ms-playwright/; \
+        echo "Playwright 浏览器已从宿主机缓存预置（跳过 CDN 下载）"; \
+    else \
+        echo "[WARN] 未找到预置浏览器，回退到 CDN 下载..."; \
+        unset PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD; \
+        npx playwright install chromium; \
+    fi && \
+    rm -rf /tmp/pw-browsers && \
     chown -R nodejs:nodejs /app/.cache
 
 # 代码层（频繁变动，放最后，避免影响上游缓存）
