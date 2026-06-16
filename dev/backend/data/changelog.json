@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "v2.2.1",
+      "date": "2026-06-16",
+      "types": ["optimization"],
+      "changes": [
+        "更新日志组件改用统一请求工具，自动携带认证Token，提高安全性"
+      ]
+    },
+    {
       "version": "v2.2.0",
       "date": "2026-06-16",
       "types": ["feature", "optimization"],

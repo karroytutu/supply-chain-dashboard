@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Timeline, Tag, Segmented, Input, Empty, Spin, Typography } from 'antd';
+import request from '@/services/api/request';
 import styles from './index.less';
 
 const { Title, Text } = Typography;
@@ -45,11 +46,10 @@ export default function Changelog() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [keyword, setKeyword] = useState('');
 
-  // 加载更新日志数据
+  // 加载更新日志数据（使用统一请求工具，自动携带认证 token）
   useEffect(() => {
     setLoading(true);
-    fetch('/api/changelog')
-      .then((res) => res.json())
+    request<{ entries: ChangelogEntry[] }>('/changelog')
       .then((data) => setEntries(data.entries || []))
       .catch(() => setEntries([]))
       .finally(() => setLoading(false));
