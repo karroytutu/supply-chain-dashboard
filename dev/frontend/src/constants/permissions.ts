@@ -120,6 +120,9 @@ export const PERMISSIONS = {
       READ: 'oa:data:read',
       EXPORT: 'oa:data:export',
     },
+    WORKFLOW: {
+      HANDOVER: 'oa:workflow:handover',
+    },
   },
 } as const;
 

@@ -60,7 +60,13 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     description: row.description || '',
     version: row.version,
     formSchema: codeDefinition?.formSchema || row.form_schema,
-    workflowDef: codeDefinition?.workflowDef || row.workflow_def,
+    // 版本比对：代码版本高于 DB 时用代码定义（新开发安全优先），否则 DB 优先（支持流程交接等运行时修改）
+    workflowDef: (() => {
+      const codeVersion = codeDefinition?.version || 0;
+      const dbVersion = row.version || 0;
+      if (codeDefinition && codeVersion > dbVersion) return codeDefinition.workflowDef;
+      return row.workflow_def || codeDefinition?.workflowDef;
+    })(),
     ...(codeDefinition?.beforeSubmit && { beforeSubmit: codeDefinition.beforeSubmit }),
     ...(codeDefinition?.onNodeCompleted && { onNodeCompleted: codeDefinition.onNodeCompleted }),
     ...(codeDefinition?.onApproved && { onApproved: codeDefinition.onApproved }),

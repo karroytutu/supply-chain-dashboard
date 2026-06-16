@@ -47,6 +47,13 @@ import {
   retryErpOperation,
   retryAutoNode,
 } from '../controllers/erp-reference.controller';
+import {
+  // 流程交接
+  scanHandoverHandler,
+  executeHandoverHandler,
+  searchUsersHandler,
+  getHistoryHandler,
+} from '../controllers/oa-handover.controller';
 import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
 
 const router = Router();
@@ -397,5 +404,21 @@ router.get('/data/export', requirePermission('oa:data:export'), exportData);
 
 // 下载导出文件（带鉴权）
 router.get('/data/export/download/:fileName', requirePermission('oa:data:export'), downloadExport);
+
+// =====================================================
+// 流程交接接口
+// =====================================================
+
+// 扫描交接影响范围
+router.get('/workflow-handover/scan', requirePermission('oa:workflow:handover'), scanHandoverHandler);
+
+// 执行交接
+router.post('/workflow-handover/execute', requirePermission('oa:workflow:handover'), executeHandoverHandler);
+
+// 搜索用户（交接人员选择器）
+router.get('/workflow-handover/user-search', requirePermission('oa:workflow:handover'), searchUsersHandler);
+
+// 交接历史
+router.get('/workflow-handover/history', requirePermission('oa:workflow:handover'), getHistoryHandler);
 
 export default router;

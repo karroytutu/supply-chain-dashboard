@@ -16,6 +16,10 @@ import {
   ApprovalActionRequest,
   ViewMode,
   WorkflowNodeDef,
+  HandoverScanResult,
+  HandoverExecuteRequest,
+  HandoverExecuteResult,
+  HandoverHistoryItem,
 } from '@/types/oa';
 
 // =====================================================
@@ -604,4 +608,39 @@ export const oaApi = {
   updateInstance,
   getTimeoutLogs,
   remindNode,
+  // 流程交接
+  scanHandoverImpact,
+  executeHandover,
+  searchHandoverUsers,
+  getHandoverHistory,
 };
+
+// =====================================================
+// 流程交接接口
+// =====================================================
+
+/** 扫描交接影响范围 */
+export async function scanHandoverImpact(sourceUserId: number): Promise<HandoverScanResult> {
+  return request<HandoverScanResult>(`/oa/workflow-handover/scan?source_user_id=${sourceUserId}`);
+}
+
+/** 执行交接 */
+export async function executeHandover(data: HandoverExecuteRequest): Promise<HandoverExecuteResult> {
+  return request<HandoverExecuteResult>('/oa/workflow-handover/execute', {
+    method: 'POST',
+    body: data,
+  });
+}
+
+/** 搜索用户（交接人员选择器） */
+export async function searchHandoverUsers(keyword: string): Promise<Array<{ id: number; name: string }>> {
+  return request(`/oa/workflow-handover/user-search?keyword=${encodeURIComponent(keyword)}`);
+}
+
+/** 获取交接历史 */
+export async function getHandoverHistory(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<{ list: HandoverHistoryItem[]; total: number }> {
+  return request(`/oa/workflow-handover/history?page=${page}&page_size=${pageSize}`);
+}
