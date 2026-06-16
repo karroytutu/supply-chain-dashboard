@@ -402,6 +402,27 @@ chmod 755 /data/uploads/ar-evidence
 chmod 755 /data/uploads/credit-license
 log_info "上传目录已创建: /data/uploads"
 
+# ========== 同步更新日志文件 ==========
+log_info "同步 changelog.json ..."
+CHANGELOG_SRC="$PROJECT_ROOT/dev/backend/data/changelog.json"
+CHANGELOG_DIR="/data/changelog"
+CHANGELOG_DST="$CHANGELOG_DIR/changelog.json"
+
+if [ -f "$CHANGELOG_SRC" ]; then
+    mkdir -p "$CHANGELOG_DIR"
+
+    if [ -f "$CHANGELOG_DST" ]; then
+        cp "$CHANGELOG_DST" "$CHANGELOG_DST.bak.$(date +%Y%m%d_%H%M%S)"
+        log_info "已备份现有生产 changelog.json"
+    fi
+
+    cp "$CHANGELOG_SRC" "$CHANGELOG_DST"
+    chmod 644 "$CHANGELOG_DST"
+    log_info "changelog.json 已同步到 $CHANGELOG_DST"
+else
+    log_warn "源文件不存在: $CHANGELOG_SRC，跳过 changelog 同步"
+fi
+
 # 停止并移除现有容器（保留网络避免冲突，up -d 会自动复用）
 docker-compose stop 2>/dev/null || true
 docker-compose rm -f 2>/dev/null || true
