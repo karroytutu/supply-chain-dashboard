@@ -14,7 +14,7 @@
     },
     {
       "version": "v2.4.0",
-      "date": "2026-06-17 23:50",
+      "date": "2026-06-17 02:52",
       "types": ["feature", "optimization"],
       "changes": [
         "新增OA流程交接功能，支持管理员将某用户的审批职责（流程定义角色+在途审批单）批量移交给另一用户",
@@ -27,7 +27,7 @@
     },
     {
       "version": "v2.3.2",
-      "date": "2026-06-17 22:46",
+      "date": "2026-06-17 00:15",
       "types": ["optimization"],
       "changes": [
         "容器启动脚本新增 /app/data 目录权限修复，确保 changelog 等数据文件可写",
@@ -36,7 +36,7 @@
     },
     {
       "version": "v2.3.1",
-      "date": "2026-06-16 23:30",
+      "date": "2026-06-17 00:01",
       "types": ["optimization"],
       "changes": [
         "Docker 构建优化：启用 BuildKit 缓存挂载，npm 包和 apt 缓存持久化，加速重复构建",
