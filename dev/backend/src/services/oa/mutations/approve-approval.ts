@@ -96,6 +96,54 @@ export async function approveApproval(
       [currentNode.id]
     );
 
+    // 先记录审批操作日志和评论（所有签署模式都需要记录，包括会签等待场景）
+    await client.query(
+      `INSERT INTO oa_approval_actions
+        (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
+       VALUES ($1, 'approve', $2, $3, $4, $5, $6)`,
+      [
+        instanceId,
+        userId,
+        userName,
+        currentNode.node_order,
+        null,
+        inputData ? JSON.stringify({ inputData }) : null,
+      ]
+    );
+
+    // 如果用户填写了审批意见，作为独立 comment 记录插入（统一评论模型）
+    if (comment && comment.trim()) {
+      await client.query(
+        `INSERT INTO oa_approval_actions
+          (instance_id, action_type, operator_id, operator_name, node_order, comment)
+         VALUES ($1, 'comment', $2, $3, $4, $5)`,
+        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
+      );
+    }
+
+    // 多人环节签署模式处理
+    if (currentNode.sign_mode !== null) {
+      if (currentNode.sign_mode === 'or') {
+        // 或签：任一人通过 → 同 order 其他 pending 标记为 skipped
+        await client.query(
+          `UPDATE oa_approval_nodes SET status = 'skipped', acted_at = NOW()
+           WHERE instance_id = $1 AND node_order = $2 AND id != $3 AND status = 'pending'`,
+          [instanceId, currentNode.node_order, currentNode.id]
+        );
+      } else {
+        // 会签：检查同 order 是否全部 approved
+        const remaining = await client.query<{ count: string }>(
+          `SELECT COUNT(*) as count FROM oa_approval_nodes
+           WHERE instance_id = $1 AND node_order = $2 AND id != $3 AND status != 'approved'`,
+          [instanceId, currentNode.node_order, currentNode.id]
+        );
+        if (parseInt(remaining.rows[0].count) > 0) {
+          // 还有人未通过 → 操作日志已记录，事务正常提交，但不流转到下一环节
+          return;
+        }
+      }
+    }
+
     const instanceResult = await client.query<OaInstanceRow>(
       `SELECT * FROM oa_approval_instances WHERE id = $1`,
       [instanceId]
@@ -165,30 +213,6 @@ export async function approveApproval(
           [instanceId]
         );
       }
-    }
-
-    await client.query(
-      `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
-       VALUES ($1, 'approve', $2, $3, $4, $5, $6)`,
-      [
-        instanceId,
-        userId,
-        userName,
-        currentNode.node_order,
-        null,
-        inputData ? JSON.stringify({ inputData }) : null,
-      ]
-    );
-
-    // 如果用户填写了审批意见，作为独立 comment 记录插入（统一评论模型）
-    if (comment && comment.trim()) {
-      await client.query(
-        `INSERT INTO oa_approval_actions
-          (instance_id, action_type, operator_id, operator_name, node_order, comment)
-         VALUES ($1, 'comment', $2, $3, $4, $5)`,
-        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
-      );
     }
 
     callbackInstance = instance;

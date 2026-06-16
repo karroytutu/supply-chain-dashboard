@@ -309,30 +309,69 @@ async function insertCollectionNode(
     // 新节点插入到 auto 节点之前
     const actualAfterOrder = autoNodeResult.rows[0].node_order - 1;
 
-    // 根据角色编码查找对应的处理人（使用事务 client 保证查询一致性）
+    // 根据角色编码查找对应的处理人（不再 LIMIT 1，取所有匹配用户）
     const roleResult = await client.query<{ user_id: number }>(
-      `SELECT ur.user_id FROM user_roles ur
+      `SELECT DISTINCT ur.user_id FROM user_roles ur
        JOIN roles r ON r.id = ur.role_id
-       WHERE r.code = $1 AND r.status = 1
-       LIMIT 1`,
+       WHERE r.code = $1 AND r.status = 1`,
       [roleCode]
     );
-    const approverId = roleResult.rows[0]?.user_id || null;
-    let approverName: string | undefined;
-    if (approverId) {
-      const userResult = await client.query<{ name: string }>(
-        'SELECT name FROM users WHERE id = $1',
-        [approverId]
-      );
-      approverName = userResult.rows[0]?.name;
+    const approverIds = roleResult.rows.map(r => r.user_id);
+
+    if (approverIds.length === 0) {
+      // 无人可分配：创建空环节
+      return insertNodeAfter(client, instanceId, actualAfterOrder, {
+        name: nodeName,
+        type: 'approval',
+        handler: { roleCode },
+      });
     }
 
-    return insertNodeAfter(client, instanceId, actualAfterOrder, {
-      name: nodeName,
-      type: 'role',
-      roleCode,
-      assignedUserId: approverId ?? undefined,
-      assignedUserName: approverName,
-    });
+    if (approverIds.length === 1) {
+      // 单人：直接分配
+      const userResult = await client.query<{ name: string }>(
+        'SELECT name FROM users WHERE id = $1', [approverIds[0]]
+      );
+      return insertNodeAfter(client, instanceId, actualAfterOrder, {
+        name: nodeName,
+        type: 'approval',
+        handler: { roleCode },
+        assignedUserId: approverIds[0],
+        assignedUserName: userResult.rows[0]?.name,
+        signMode: 'or',
+      });
+    }
+
+    // 多人：共享同一 node_order（与 submit-approval.ts 保持一致）
+    // 第一个人通过 insertNodeAfter 移位后续节点，后续人直接 INSERT 到同一位置
+    let firstInserted: OaNodeRow | undefined;
+    for (let i = 0; i < approverIds.length; i++) {
+      const uid = approverIds[i];
+      const userResult = await client.query<{ name: string }>(
+        'SELECT name FROM users WHERE id = $1', [uid]
+      );
+      if (i === 0) {
+        // 首次：通过 insertNodeAfter 移位后续节点并插入
+        firstInserted = await insertNodeAfter(client, instanceId, actualAfterOrder, {
+          name: nodeName,
+          type: 'approval',
+          handler: { roleCode },
+          assignedUserId: uid,
+          assignedUserName: userResult.rows[0]?.name,
+          signMode: 'or',
+        });
+      } else {
+        // 后续：直接 INSERT 到同一 node_order（不触发移位）
+        await client.query(
+          `INSERT INTO oa_approval_nodes
+            (instance_id, node_order, node_name, node_type, role_code,
+             assigned_user_id, assigned_user_name, status, sign_mode, reminder_count)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, 0)`,
+          [instanceId, firstInserted!.node_order, nodeName, 'approval',
+           roleCode, uid, userResult.rows[0]?.name, 'or']
+        );
+      }
+    }
+    return firstInserted!;
   });
 }

@@ -37,13 +37,14 @@ export const assetPurchaseFormType: FormTypeDefinition = {
 
   workflowDef: {
     nodes: [
-      { order: 1, name: '需求提报', type: 'role', roleCode: 'admin' },
-      { order: 2, name: '总经理审批', type: 'role', roleCode: 'admin' },
+      { order: 1, name: '需求提报', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
+      { order: 2, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
       {
         order: 3,
         name: '行政询价',
         type: 'data_input',
-        roleCode: 'admin_staff',
+        handler: { roleCode: 'admin_staff' },
+        signMode: 'or',
         inputSchema: {
           fields: [
             {
@@ -101,12 +102,13 @@ export const assetPurchaseFormType: FormTypeDefinition = {
           ],
         },
       },
-      { order: 4, name: '总经理审批', type: 'role', roleCode: 'admin' },
+      { order: 4, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
       {
         order: 5,
         name: '出纳支付',
         type: 'data_input',
-        roleCode: 'cashier',
+        handler: { roleCode: 'cashier' },
+        signMode: 'or',
         inputSchema: {
           fields: [
             { name: 'paymentAmount', label: '支付金额', type: 'amount', required: true },
@@ -127,7 +129,8 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         order: 6,
         name: '行政采购',
         type: 'data_input',
-        roleCode: 'admin_staff',
+        handler: { roleCode: 'admin_staff' },
+        signMode: 'or',
         inputSchema: {
           fields: [
             { name: 'purchaseDate', label: '采购日期', type: 'date', required: true },
@@ -139,7 +142,8 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         order: 7,
         name: '资产入库',
         type: 'data_input',
-        roleCode: 'admin_staff',
+        handler: { roleCode: 'admin_staff' },
+        signMode: 'or',
         inputSchema: {
           fields: [
             {

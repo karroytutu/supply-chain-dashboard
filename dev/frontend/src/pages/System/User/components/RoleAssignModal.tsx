@@ -11,56 +11,37 @@ import type { UserItem, RoleInfo } from '../types';
 interface RoleAssignModalProps {
   visible: boolean;
   user: UserItem | null;
-  users?: UserItem[];
   roles: RoleInfo[];
   onConfirm: (roleIds: number[]) => void;
   onCancel: () => void;
   loading: boolean;
-  mode?: 'single' | 'batch';
 }
 
 const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   visible,
   user,
-  users,
   roles,
   onConfirm,
   onCancel,
   loading,
-  mode = 'single',
 }) => {
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
   const { hasRole } = usePermission();
   const isAdmin = hasRole('admin');
 
-  // 初始化选中角色
+  // 初始化选中角色（取用户的所有角色）
   useEffect(() => {
     if (visible) {
-      if (mode === 'single' && user) {
-        // 单角色模式：只取第一个角色
-        const firstRole = user.roles?.[0];
-        setSelectedRoleIds(firstRole ? [firstRole.id] : []);
-      } else {
-        setSelectedRoleIds([]);
-      }
+      setSelectedRoleIds(user?.roles?.map(r => r.id) || []);
     }
-  }, [visible, user, mode]);
+  }, [visible, user]);
 
   const handleConfirm = () => {
     onConfirm(selectedRoleIds);
   };
 
   const getTitle = () => {
-    if (mode === 'batch') {
-      return `批量分配角色 - 已选择 ${users?.length || 0} 个用户`;
-    }
     return `分配角色 - ${user?.name || ''}`;
-  };
-
-  const getHint = () => {
-    return mode === 'batch'
-      ? '选择要分配给这些用户的角色：'
-      : '选择用户的角色：';
   };
 
   return (
@@ -75,7 +56,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
       cancelText="取消"
       destroyOnClose
     >
-      <p style={{ marginBottom: 12, color: '#8c8c8c', fontSize: 13 }}>{getHint()}</p>
+      <p style={{ marginBottom: 12, color: '#8c8c8c', fontSize: 13 }}>选择用户的角色（可多选）：</p>
       <SelectionCard
         dataSource={roles}
         selectedKeys={selectedRoleIds}
@@ -86,7 +67,7 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
           descriptionKey: 'description',
           codeKey: 'code',
           tagKey: 'isSystem',
-          mode: 'single',
+          mode: 'multiple',
           disabledKey: item => !isAdmin && item.isSystem === true,
           disabledTooltip: '系统角色仅管理员可分配',
           columns: 2,

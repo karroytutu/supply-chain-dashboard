@@ -356,8 +356,9 @@ describe('onApprovedArCollection - insertResultComment', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
-          .mockResolvedValueOnce({ rows: [{ node_order: 2 }] })
-          .mockResolvedValueOnce({ rows: [{ name: '营销师' }] }),
+          .mockResolvedValueOnce({ rows: [{ node_order: 2 }] })   // auto 节点查询
+          .mockResolvedValueOnce({ rows: [{ user_id: 10 }] })     // 角色查找 (DISTINCT)
+          .mockResolvedValueOnce({ rows: [{ name: '营销师' }] }), // 处理人名称查询
       };
       return fn(mockClient);
     });
@@ -561,10 +562,11 @@ describe('onApprovedArCollection - insertCollectionNode 处理人分配', () => 
     expect(mockInsertNodeAfter).toHaveBeenCalledWith(
       expect.anything(), expect.any(Number), expect.any(Number),
       expect.objectContaining({
-        type: 'role',
-        roleCode: 'marketing_manager',
+        type: 'approval',
+        handler: { roleCode: 'marketing_manager' },
         assignedUserId: 10,
         assignedUserName: '李江山',
+        signMode: 'or',
       }),
     );
   });
@@ -584,10 +586,11 @@ describe('onApprovedArCollection - insertCollectionNode 处理人分配', () => 
     expect(mockInsertNodeAfter).toHaveBeenCalledWith(
       expect.anything(), expect.any(Number), expect.any(Number),
       expect.objectContaining({
-        type: 'role',
-        roleCode: 'current_accountant',
+        type: 'approval',
+        handler: { roleCode: 'current_accountant' },
         assignedUserId: 10,
         assignedUserName: '王会计',
+        signMode: 'or',
       }),
     );
   });
@@ -606,9 +609,8 @@ describe('onApprovedArCollection - insertCollectionNode 处理人分配', () => 
     expect(mockInsertNodeAfter).toHaveBeenCalledWith(
       expect.anything(), expect.any(Number), expect.any(Number),
       expect.objectContaining({
-        type: 'role',
-        assignedUserId: undefined,
-        assignedUserName: undefined,
+        type: 'approval',
+        handler: { roleCode: 'marketing_manager' },
       }),
     );
   });

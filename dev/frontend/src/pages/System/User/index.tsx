@@ -52,24 +52,14 @@ export default function UserManage() {
   // 分配角色弹窗状态
   const [roleModalVisible, setRoleModalVisible] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserItem | null>(null);
-  const [batchRoleMode, setBatchRoleMode] = useState(false);
 
   const openAssignModal = (user: UserItem) => {
     setCurrentUser(user);
-    setBatchRoleMode(false);
-    setRoleModalVisible(true);
-  };
-
-  const openBatchAssignModal = () => {
-    setCurrentUser(null);
-    setBatchRoleMode(true);
     setRoleModalVisible(true);
   };
 
   const handleRoleConfirm = async (roleIds: number[]) => {
-    if (batchRoleMode) {
-      await actions.batch.assignRoles(roleIds);
-    } else if (currentUser) {
+    if (currentUser) {
       const { assignUserRoles } = await import('@/services/api/auth');
       await assignUserRoles(currentUser.id, roleIds);
     }
@@ -119,7 +109,6 @@ export default function UserManage() {
               onCheckChange={handleCheckAll}
               onBatchEnable={actions.batch.enable}
               onBatchDisable={actions.batch.disable}
-              onBatchAssignRoles={openBatchAssignModal}
               loading={batchLoading}
             />
             <UserTable
@@ -190,12 +179,10 @@ export default function UserManage() {
       <RoleAssignModal
         visible={roleModalVisible}
         user={currentUser}
-        users={batchRoleMode ? dataSource.filter(u => selectedRowKeys.includes(u.id)) : undefined}
         roles={roles}
         onConfirm={handleRoleConfirm}
         onCancel={() => setRoleModalVisible(false)}
         loading={batchLoading}
-        mode={batchRoleMode ? 'batch' : 'single'}
       />
     </div>
   );

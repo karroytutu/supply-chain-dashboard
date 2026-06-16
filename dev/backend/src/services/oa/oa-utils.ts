@@ -24,7 +24,7 @@ export {
 } from './oa-form-utils';
 export {
   filterNodesByCondition,
-  resolveApproverId,
+  resolveHandlerRule,
   findUserIdsByRoleCodes,
 } from './oa-workflow-utils';
 

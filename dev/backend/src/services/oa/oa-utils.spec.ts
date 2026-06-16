@@ -253,15 +253,15 @@ describe('validateFormData', () => {
 
 describe('filterNodesByCondition', () => {
   const nodes: WorkflowNodeDef[] = [
-    { order: 1, name: '需求提报', type: 'role', roleCode: 'admin' },
+    { order: 1, name: '需求提报', type: 'approval', handler: { roleCode: 'admin' } },
     {
       order: 2,
       name: '行政询价',
       type: 'data_input',
-      roleCode: 'admin_staff',
+      handler: { roleCode: 'admin_staff' },
       condition: { field: 'estimatedCost', operator: '>=', value: 500 },
     },
-    { order: 3, name: '总经理审批', type: 'role', roleCode: 'admin' },
+    { order: 3, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' } },
   ];
 
   it('无条件节点始终保留', () => {
@@ -285,8 +285,8 @@ describe('filterNodesByCondition', () => {
 
   it('所有节点无条件时全部保留', () => {
     const noConditionNodes: WorkflowNodeDef[] = [
-      { order: 1, name: '节点1', type: 'role', roleCode: 'admin' },
-      { order: 2, name: '节点2', type: 'role', roleCode: 'admin' },
+      { order: 1, name: '节点1', type: 'approval', handler: { roleCode: 'admin' } },
+      { order: 2, name: '节点2', type: 'approval', handler: { roleCode: 'admin' } },
     ];
     const result = filterNodesByCondition(noConditionNodes, {});
     expect(result).toHaveLength(2);

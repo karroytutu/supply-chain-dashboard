@@ -434,10 +434,11 @@ describe('generateCollectionOaInstances - 营销师分配', () => {
     // managerName='未知营销师' → 精确匹配失败，fallback 到营销经理
     (batchClient.query as jest.Mock)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // SAVEPOINT
       .mockResolvedValueOnce({ rows: [{ id: 100 }], rowCount: 1 }) // INSERT instance
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // resolveMarketer exact match → 无此用户
       .mockResolvedValueOnce({ rows: [{ id: 20, name: '王经理' }], rowCount: 1 }); // resolveMarketer fallback → marketing_manager
-    // 后续 INSERT node/action 使用默认值
+    // 后续 INSERT node/action/RELEASE SAVEPOINT/COMMIT 使用默认值
     (batchClient.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 1 });
     mockGetAppClient.mockResolvedValueOnce(lockClient).mockResolvedValueOnce(batchClient);
 
@@ -570,6 +571,7 @@ describe('generateCollectionOaInstances - 钉钉集成', () => {
     // managerName=null → resolveMarketer 跳过精确匹配，fallback 查询也需返回空
     (batchClient.query as jest.Mock)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // SAVEPOINT
       .mockResolvedValueOnce({ rows: [{ id: 100 }], rowCount: 1 }) // INSERT instance
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // resolveMarketer fallback → null
       .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT node 1

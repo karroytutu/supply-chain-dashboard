@@ -28,7 +28,6 @@ export function useUsers() {
     handleToggleStatus,
     handleBatchEnable,
     handleBatchDisable,
-    handleBatchAssignRoles,
   } = useUserActions({ selectedRowKeys, setSelectedRowKeys, fetchUsers });
 
   const handleSearch = useCallback(() => {
@@ -56,7 +55,6 @@ export function useUsers() {
       batch: {
         enable: handleBatchEnable,
         disable: handleBatchDisable,
-        assignRoles: handleBatchAssignRoles,
       },
     },
   };

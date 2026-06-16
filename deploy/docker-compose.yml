@@ -52,6 +52,8 @@ services:
       - /data/uploads:/app/uploads:rw
       # 挂载日志目录到宿主机，winston 文件日志持久化
       - /data/logs:/app/logs:rw
+      # 挂载更新日志数据目录，部署后可直接更新 changelog.json
+      - /data/changelog:/app/data:rw
     env_file:
       - ../prod/backend/.env
     healthcheck:

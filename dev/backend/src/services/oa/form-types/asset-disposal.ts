@@ -86,7 +86,7 @@ export const assetDisposalFormType: FormTypeDefinition = {
   },
 
   workflowDef: {
-    nodes: [{ order: 1, name: '总经理审批', type: 'role', roleCode: 'admin' }],
+    nodes: [{ order: 1, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' }],
   },
 
   /** 提交前校验：确保选择了资产且条件字段合法 */

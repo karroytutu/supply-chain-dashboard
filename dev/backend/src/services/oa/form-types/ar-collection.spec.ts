@@ -102,7 +102,9 @@ describe('arCollectionFormType', () => {
     const firstNode = arCollectionFormType.workflowDef.nodes[0];
     expect(firstNode.name).toBe('营销师催收');
     expect(firstNode.interactionType).toBe('operation');
-    expect(firstNode.roleCode).toBe('marketer');
+    expect(firstNode.handler?.roleCode).toBe('marketer');
+    expect(firstNode.type).toBe('approval');
+    expect(firstNode.signMode).toBe('or');
   });
 
   it('第二个节点为 auto 类型', () => {

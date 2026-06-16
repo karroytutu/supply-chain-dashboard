@@ -186,17 +186,19 @@ export const customerCreditFormType: FormTypeDefinition = {
       {
         order: 1,
         name: '营销经理审批',
-        type: 'role',
-        roleCode: 'marketing_manager',
+        type: 'approval',
+        handler: { roleCode: 'marketing_manager' },
         interactionType: 'approval' as const,
+        signMode: 'or',
       },
       // 节点2：往来会计审批（授信场景为审批型，非催收操作型）
       {
         order: 2,
         name: '往来会计审批',
-        type: 'role',
-        roleCode: 'current_accountant',
+        type: 'approval',
+        handler: { roleCode: 'current_accountant' },
         interactionType: 'approval' as const,
+        signMode: 'or',
       },
       // 节点3：自动更新ERP客户授信
       {

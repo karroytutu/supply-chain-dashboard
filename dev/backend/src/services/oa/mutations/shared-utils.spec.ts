@@ -62,13 +62,13 @@ describe('insertNodeAfter', () => {
     expect(client.query).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('INSERT INTO oa_approval_nodes'),
-      [1, 3, '加签', 'countersign', null, 200, '李四', null, null, null]
+      [1, 3, '加签', 'countersign', null, 200, '李四', null, null, null, null]
     );
 
     expect(result).toEqual(expectedRow);
   });
 
-  it('roleCode 不传时 SQL 参数为 null', async () => {
+  it('handler 不传时 SQL 参数 role_code 为 null', async () => {
     const client = createMockPoolClient();
     (client.query as jest.Mock)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 })
@@ -76,11 +76,11 @@ describe('insertNodeAfter', () => {
 
     await insertNodeAfter(client, 1, 0, {
       name: '节点',
-      type: 'role' as const,
+      type: 'approval' as const,
     });
 
     const insertCall = (client.query as jest.Mock).mock.calls[1];
-    expect(insertCall[1][4]).toBeNull(); // roleCode
+    expect(insertCall[1][4]).toBeNull(); // role_code
   });
 
   it('inputSchema 为对象时 JSON 序列化', async () => {
@@ -108,7 +108,7 @@ describe('insertNodeAfter', () => {
 
     await insertNodeAfter(client, 1, 0, {
       name: '节点',
-      type: 'role' as const,
+      type: 'approval' as const,
     });
 
     const insertCall = (client.query as jest.Mock).mock.calls[1];
@@ -123,7 +123,7 @@ describe('insertNodeAfter', () => {
 
     await insertNodeAfter(client, 5, 0, {
       name: '首节点前插入',
-      type: 'role' as const,
+      type: 'approval' as const,
     });
 
     // UPDATE 参数: [instanceId, newOrder] = [5, 1]
@@ -139,7 +139,7 @@ describe('insertNodeAfter', () => {
       instance_id: 1,
       node_order: 2,
       node_name: '测试节点',
-      node_type: 'role',
+      node_type: 'approval',
       status: 'pending',
     };
     (client.query as jest.Mock)
@@ -148,7 +148,7 @@ describe('insertNodeAfter', () => {
 
     const result = await insertNodeAfter(client, 1, 1, {
       name: '测试节点',
-      type: 'role' as const,
+      type: 'approval' as const,
     });
 
     expect(result).toEqual(mockRow);

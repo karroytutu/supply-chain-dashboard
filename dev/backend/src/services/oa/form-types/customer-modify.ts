@@ -193,9 +193,10 @@ export const customerModifyFormType: FormTypeDefinition = {
       {
         order: 1,
         name: '营销经理审批',
-        type: 'role',
-        roleCode: 'marketing_manager',
+        type: 'approval',
+        handler: { roleCode: 'marketing_manager' },
         interactionType: 'approval' as const,
+        signMode: 'or',
       },
       // 节点2：自动更新ERP客户档案
       {

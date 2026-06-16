@@ -189,15 +189,32 @@ export type NodeInteractionType = 'approval' | 'operation';
 // =====================================================
 
 /**
- * 审批节点类型
+ * 环节类型 — 描述环节做什么
+ * - approval: 审批环节（通过/驳回）
+ * - data_input: 数据录入环节（审批 + 录入表单数据）
+ * - auto: 自动执行环节（系统回调，无处理人）
+ * - countersign: 运行时加签环节（由当前处理人手动添加）
  */
-export type NodeType =
-  | 'role'
-  | 'dynamic_supervisor'
-  | 'specific_user'
-  | 'countersign'
-  | 'data_input'
-  | 'auto';
+export type NodeType = 'approval' | 'data_input' | 'auto' | 'countersign';
+
+/**
+ * 处理人规则 — 描述如何确定环节的处理人
+ */
+export interface HandlerRule {
+  /** 按角色：查找拥有该角色的用户 */
+  roleCode?: string;
+  /** 按主管：查找申请人同部门的管理角色用户 */
+  useSupervisor?: boolean;
+  /** 指定人：直接指定用户 ID */
+  userId?: number;
+}
+
+/**
+ * 签署模式
+ * - or: 或签（任一人通过即可）
+ * - and: 会签（所有人都要通过）
+ */
+export type SignMode = 'or' | 'and';
 
 /**
  * 数据录入节点 - 录入字段定义
@@ -333,12 +350,12 @@ export interface WorkflowNodeDef {
   order: number;
   /** 节点显示名称 */
   name: string;
-  /** 节点类型 */
+  /** 环节类型（做什么） */
   type: NodeType;
-  /** 角色编码（type=role 时必填） */
-  roleCode?: string;
-  /** 指定用户ID（type=specific_user 时必填） */
-  userId?: number;
+  /** 处理人规则（找谁做，approval / data_input 类型必填） */
+  handler?: HandlerRule;
+  /** 签署模式（多人时怎么协同），默认 'or' */
+  signMode?: SignMode;
   /** 条件定义（条件节点），支持单个条件或 AND 条件数组 */
   condition?: ConditionDef | ConditionDef[];
   /** 数据录入表单 schema（仅 data_input 类型） */
@@ -558,6 +575,8 @@ export interface OaNodeRow {
   /** 审批人头像URL（LEFT JOIN users 表获取） */
   assigned_user_avatar?: string | null;
   status: ApprovalNodeStatus;
+  /** 签署模式：or=或签，and=会签，NULL=单人环节 */
+  sign_mode: SignMode | null;
   comment: string | null;
   acted_at: Date | null;
   is_countersign: boolean;

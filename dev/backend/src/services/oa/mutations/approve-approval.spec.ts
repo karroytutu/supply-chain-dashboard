@@ -8,7 +8,7 @@ jest.mock('../../../utils/logger', () => ({
 
 jest.mock('../oa-utils', () => ({
   isCurrentApprover: jest.fn(),
-  getCurrentApproverNode: jest.fn().mockResolvedValue({ id: 10, node_order: 1, node_type: 'role' }),
+  getCurrentApproverNode: jest.fn().mockResolvedValue({ id: 10, node_order: 1, node_type: 'approval', sign_mode: null }),
   validateInputData: jest.fn().mockReturnValue([]),
 }));
 
@@ -46,7 +46,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.resetAllMocks();
   // 恢复默认 mock 行为
-  mockGetCurrentNode.mockResolvedValue({ id: 10, node_order: 1, node_type: 'role' } as any);
+  mockGetCurrentNode.mockResolvedValue({ id: 10, node_order: 1, node_type: 'approval', sign_mode: null } as any);
 });
 
 afterEach(() => {
@@ -72,12 +72,12 @@ describe('approveApproval', () => {
           .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] }) // SELECT form type code
           // getCurrentApproverNode is MOCKED, does not consume client.query
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (approve)
+          .mockResolvedValueOnce({ rows: [] }) // INSERT comment (comment='同意')
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
           .mockResolvedValueOnce({ rows: [] }) // failedAutoCheck (empty = no failed auto nodes)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance status
-          .mockResolvedValueOnce({ rows: [] }) // INSERT action
-          .mockResolvedValueOnce({ rows: [] }), // INSERT comment - 统一评论模型新增
         };
       return fn(mockClient);
     });
@@ -100,10 +100,11 @@ describe('approveApproval', () => {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
           .mockResolvedValueOnce({ rows: [{ code: 'test_form' }] })
-          .mockResolvedValueOnce({ rows: [{ id: 10, node_order: 1, node_type: 'role' }] })
-          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
-          .mockResolvedValueOnce({ rows: [{ id: 11, node_order: 2, node_type: 'role', status: 'pending' }] }) // next node exists
-          .mockResolvedValueOnce({ rows: [] }), // UPDATE
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (approve)
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
+          .mockResolvedValueOnce({ rows: [{ id: 11, node_order: 2, node_type: 'approval', status: 'pending' }] }) // next node exists
+          .mockResolvedValueOnce({ rows: [] }), // UPDATE current_node_order
       };
       return fn(mockClient);
     });
@@ -124,8 +125,9 @@ describe('approveApproval', () => {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
           .mockResolvedValueOnce({ rows: [{ code: 'auto_form' }] })
-          .mockResolvedValueOnce({ rows: [{ id: 10, node_order: 1, node_type: 'role' }] })
-          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (approve)
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [{ id: 11, node_order: 2, node_type: 'auto', status: 'pending' }] }) // auto node
           .mockResolvedValueOnce({ rows: [] }), // UPDATE erp_meta
       };
@@ -151,12 +153,12 @@ describe('approveApproval', () => {
           // getCurrentApproverNode is MOCKED, does not consume client.query
           .mockResolvedValueOnce({ rows: [] }) // UPDATE form_data (inputData merge)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (approve)
+          .mockResolvedValueOnce({ rows: [] }) // INSERT comment (comment='完成')
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: { action: 'verify' }, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
           .mockResolvedValueOnce({ rows: [] }) // failedAutoCheck (empty = no failed auto nodes)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance status
-          .mockResolvedValueOnce({ rows: [] }) // INSERT action
-          .mockResolvedValueOnce({ rows: [] }), // INSERT comment
       };
       return fn(mockClient);
     });
@@ -186,12 +188,11 @@ describe('approveApproval', () => {
           .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] })
           // 无 inputData → 不调用 UPDATE form_data
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
-          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (approve)
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node
           .mockResolvedValueOnce({ rows: [] }) // failedAutoCheck (empty = no failed auto nodes)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance
-          .mockResolvedValueOnce({ rows: [] }) // INSERT action
-          .mockResolvedValueOnce({ rows: [] }),
       };
       return fn(mockClient);
     });
@@ -229,12 +230,11 @@ describe('approveApproval', () => {
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // SELECT instance0
           .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] }) // SELECT form type code
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (approve)
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
           .mockResolvedValueOnce({ rows: [{ id: 99, node_name: '自动处理', comment: 'ERP执行失败' }] }) // failedAutoCheck - 有失败节点
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance → erp_failed
-          .mockResolvedValueOnce({ rows: [] }) // INSERT action
-          .mockResolvedValueOnce({ rows: [] }), // INSERT comment
       };
       return fn(mockClient);
     });

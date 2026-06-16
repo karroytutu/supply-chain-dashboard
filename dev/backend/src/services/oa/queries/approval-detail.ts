@@ -181,6 +181,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       nodeName: n.node_name,
       nodeType: n.node_type,
       roleCode: n.role_code || null,
+      signMode: n.sign_mode || null,
       assignedUserId: n.assigned_user_id,
       assignedUserName: n.assigned_user_name,
       assignedUserAvatar: n.assigned_user_avatar || null,

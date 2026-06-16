@@ -55,12 +55,13 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
 
   workflowDef: {
     nodes: [
-      { order: 1, name: '需求提报', type: 'role', roleCode: 'admin' },
+      { order: 1, name: '需求提报', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
       {
         order: 2,
         name: '行政询价',
         type: 'data_input',
-        roleCode: 'admin_staff',
+        handler: { roleCode: 'admin_staff' },
+        signMode: 'or',
         condition: { field: 'estimatedCost', operator: '>=', value: 500 },
         inputSchema: {
           fields: [
@@ -78,12 +79,13 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
           ],
         },
       },
-      { order: 3, name: '总经理审批', type: 'role', roleCode: 'admin' },
+      { order: 3, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
       {
         order: 4,
         name: '财务支付',
         type: 'data_input',
-        roleCode: 'cashier',
+        handler: { roleCode: 'cashier' },
+        signMode: 'or',
         inputSchema: {
           fields: [
             { name: 'paymentAmount', label: '支付金额', type: 'amount', required: true },
