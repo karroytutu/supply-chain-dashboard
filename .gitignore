@@ -46,6 +46,10 @@ __MACOSX/
 
 # Docker 构建缓存 key（自动生成）
 deploy/.build-cache-key
+deploy/.dockerfile-cache-key
+
+# Playwright 浏览器预置目录（构建前自动生成，构建后自动清理）
+deploy/playwright-browsers/
 
 # 测试覆盖率
 coverage/

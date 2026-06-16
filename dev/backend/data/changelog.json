@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "v2.3.1",
+      "date": "2026-06-16 23:30",
+      "types": ["optimization"],
+      "changes": [
+        "Docker 构建优化：启用 BuildKit 缓存挂载，npm 包和 apt 缓存持久化，加速重复构建",
+        "Playwright 浏览器预置：构建前从宿主机缓存复制浏览器，避免容器内 CDN 下载超时",
+        "部署脚本增强：新增 Dockerfile 缓存 key 追踪，Playwright 浏览器自动预置与清理",
+        "首页最近更新卡片调整：展示条数从3条改为1条，变更列表支持展开/收起，日期时间格式化显示"
+      ]
+    },
+    {
       "version": "v2.3.0",
       "date": "2026-06-16 22:27",
       "types": ["feature", "optimization"],
