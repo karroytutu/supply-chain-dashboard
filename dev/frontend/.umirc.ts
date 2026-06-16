@@ -126,10 +126,24 @@ export default defineConfig({
           access: PERMISSIONS.OA.WRITE,
         },
         {
-          path: 'data',
-          component: '@/pages/Oa/Data',
-          name: '数据管理',
-          access: PERMISSIONS.OA.DATA.READ,
+          path: '',
+          name: 'OA管理',
+          icon: 'SettingOutlined',
+          flatMenu: true,
+          routes: [
+            {
+              path: 'data',
+              component: '@/pages/Oa/Data',
+              name: '数据管理',
+              access: PERMISSIONS.OA.DATA.READ,
+            },
+            {
+              path: 'handover',
+              component: '@/pages/Oa/Handover',
+              name: '流程交接',
+              access: PERMISSIONS.OA.WORKFLOW.HANDOVER,
+            },
+          ],
         },
       ],
     },

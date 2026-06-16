@@ -465,3 +465,61 @@ export type OaNode = ApprovalNode;
 
 /** @deprecated 使用 ApprovalAction */
 export type OaAction = ApprovalAction;
+
+// =====================================================
+// 流程交接相关类型
+// =====================================================
+
+export interface AffectedFormType {
+  code: string;
+  name: string;
+  category: string;
+  affectedNodes: Array<{ order: number; name: string }>;
+}
+
+export interface AffectedInstance {
+  nodeId: number;
+  instanceId: number;
+  instanceNo: string;
+  title: string;
+  formTypeName: string;
+  formTypeCode: string;
+  nodeOrder: number;
+  nodeName: string;
+}
+
+export interface HandoverScanResult {
+  formTypes: AffectedFormType[];
+  instances: AffectedInstance[];
+  summary: {
+    formTypeCount: number;
+    instanceCount: number;
+    nodeCount: number;
+  };
+}
+
+export interface HandoverExecuteRequest {
+  sourceUserId: number;
+  targetUserId: number;
+  formTypeCodes?: string[];
+  includeInFlightInstances?: boolean;
+}
+
+export interface HandoverExecuteResult {
+  handoverId: number;
+  formTypesUpdated: number;
+  instancesUpdated: number;
+  nodesReassigned: number;
+}
+
+export interface HandoverHistoryItem {
+  id: number;
+  sourceUserName: string;
+  targetUserName: string;
+  operatorName: string;
+  formTypesUpdated: number;
+  instancesUpdated: number;
+  nodesReassigned: number;
+  affectedFormTypeCodes: string[];
+  createdAt: string;
+}
