@@ -5,7 +5,7 @@
 
 import { appQuery as query, getAppClient } from '../../../db/appPool';
 import { PoolClient } from 'pg';
-import { OaInstanceRow, OaNodeRow, NodeType, NodeInputSchema, TimeoutConfig } from '../oa.types';
+import { OaInstanceRow, OaNodeRow, NodeType, NodeInputSchema, TimeoutConfig, SignMode } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 
 /**
@@ -85,10 +85,13 @@ export async function insertNodeAfter(
   newNode: {
     name: string;
     type: NodeType;
-    roleCode?: string;
+    /** 处理人规则（可选，转交/加签时由调用方解析后传入） */
+    handler?: { roleCode?: string };
     assignedUserId?: number;
     assignedUserName?: string;
     inputSchema?: NodeInputSchema;
+    /** 签署模式（可选） */
+    signMode?: SignMode;
     /** 时限配置（可选，转交/加签时继承原节点配置） */
     timeout?: TimeoutConfig;
   }
@@ -116,20 +119,21 @@ export async function insertNodeAfter(
     `INSERT INTO oa_approval_nodes
        (instance_id, node_order, node_name, node_type, role_code,
         assigned_user_id, assigned_user_name, input_schema, status,
-        deadline_at, timeout_config, reminder_count)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, 0)
+        deadline_at, timeout_config, reminder_count, sign_mode)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, 0, $11)
      RETURNING *`,
     [
       instanceId,
       newOrder,
       newNode.name,
       newNode.type,
-      newNode.roleCode || null,
+      newNode.handler?.roleCode || null,
       newNode.assignedUserId || null,
       newNode.assignedUserName || null,
       newNode.inputSchema ? JSON.stringify(newNode.inputSchema) : null,
       deadlineAt,
       timeoutConfigJson,
+      newNode.signMode || null,
     ]
   );
 

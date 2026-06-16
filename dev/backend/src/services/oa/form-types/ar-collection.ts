@@ -226,8 +226,9 @@ const arCollectionWorkflowDef = {
     {
       order: 1,
       name: '营销师催收',
-      type: 'role' as const,
-      roleCode: 'marketer',
+      type: 'approval' as const,
+      handler: { roleCode: 'marketer' },
+      signMode: 'or' as const,
       interactionType: 'operation' as NodeInteractionType,
       fieldPermissions: buildFieldPermissions(0),
       fieldOptionFilter: { action: LEVEL_ACTION_OPTIONS[0] },

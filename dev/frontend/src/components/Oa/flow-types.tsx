@@ -22,6 +22,7 @@ export type ApprovalFlowMode = 'preview' | 'actual';
 // =====================================================
 
 export const NODE_TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
+  approval: { icon: <TeamOutlined />, color: '#722ed1' },
   dynamic_supervisor: { icon: <UserOutlined />, color: '#1890ff' },
   role: { icon: <TeamOutlined />, color: '#722ed1' },
   specific_user: { icon: <UserOutlined />, color: '#52c41a' },

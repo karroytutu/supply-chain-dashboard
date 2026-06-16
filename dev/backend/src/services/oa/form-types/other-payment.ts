@@ -83,20 +83,24 @@ export const otherPaymentFormType: FormTypeDefinition = {
       {
         order: 1,
         name: '直属主管审批',
-        type: 'dynamic_supervisor',
+        type: 'approval',
+        handler: { useSupervisor: true },
+        signMode: 'or',
       },
       {
         order: 2,
         name: '财务审核',
-        type: 'role',
-        roleCode: 'finance_staff',
+        type: 'approval',
+        handler: { roleCode: 'finance_staff' },
+        signMode: 'or',
       },
       {
         // 条件节点：金额超过 50000 元才需要总经理审批
         order: 3,
         name: '总经理审批',
-        type: 'role',
-        roleCode: 'admin',
+        type: 'approval',
+        handler: { roleCode: 'admin' },
+        signMode: 'or',
         condition: {
           field: 'amount',
           operator: '>',

@@ -19,7 +19,7 @@ import { mockQueryResult } from '../../__tests__/helpers/mockDb';
 import { checkCondition } from './oa-form-utils';
 import {
   filterNodesByCondition,
-  resolveApproverId,
+  resolveHandlerRule,
   findUserIdsByRoleCodes,
 } from './oa-workflow-utils';
 import type { WorkflowNodeDef } from './oa.types';
@@ -35,8 +35,8 @@ describe('oa-workflow-utils', () => {
   describe('filterNodesByCondition', () => {
     it('无条件的节点全部保留', () => {
       const nodes: WorkflowNodeDef[] = [
-        { order: 1, name: '主管', type: 'role', roleCode: 'manager' },
-        { order: 2, name: '总经理', type: 'role', roleCode: 'ceo' },
+        { order: 1, name: '主管', type: 'approval', handler: { roleCode: 'manager' } },
+        { order: 2, name: '总经理', type: 'approval', handler: { roleCode: 'ceo' } },
       ];
 
       const result = filterNodesByCondition(nodes, { amount: 1000 });
@@ -46,12 +46,12 @@ describe('oa-workflow-utils', () => {
 
     it('有条件节点根据 checkCondition 结果过滤', () => {
       const nodes: WorkflowNodeDef[] = [
-        { order: 1, name: '主管', type: 'role', roleCode: 'manager' },
+        { order: 1, name: '主管', type: 'approval', handler: { roleCode: 'manager' } },
         {
           order: 2,
           name: '总经理',
-          type: 'role',
-          roleCode: 'ceo',
+          type: 'approval',
+          handler: { roleCode: 'ceo' },
           condition: { field: 'amount', operator: '>', value: 50000 },
         },
       ];
@@ -68,8 +68,8 @@ describe('oa-workflow-utils', () => {
         {
           order: 1,
           name: '总经理',
-          type: 'role',
-          roleCode: 'ceo',
+          type: 'approval',
+          handler: { roleCode: 'ceo' },
           condition: { field: 'amount', operator: '>', value: 50000 },
         },
       ];
@@ -81,81 +81,133 @@ describe('oa-workflow-utils', () => {
     });
   });
 
-  describe('resolveApproverId', () => {
-    it('specific_user 类型直接返回 userId', async () => {
+  describe('resolveHandlerRule', () => {
+    it('handler.userId 直接返回指定用户', async () => {
       const node: WorkflowNodeDef = {
         order: 1,
         name: '指定人',
-        type: 'specific_user',
-        userId: 42,
+        type: 'approval',
+        handler: { userId: 42 },
       };
 
-      const result = await resolveApproverId(node, 1);
+      const result = await resolveHandlerRule(node, 1);
 
-      expect(result).toBe(42);
+      expect(result.userIds).toEqual([42]);
+      expect(result.signMode).toBe('or');
       expect(mockAppQuery).not.toHaveBeenCalled();
     });
 
-    it('role 类型查询角色用户', async () => {
+    it('handler.roleCode 查询角色下所有用户', async () => {
       const node: WorkflowNodeDef = {
         order: 1,
         name: '管理员',
-        type: 'role',
-        roleCode: 'admin',
+        type: 'approval',
+        handler: { roleCode: 'admin' },
+        signMode: 'or',
       };
-      mockAppQuery.mockResolvedValueOnce(mockQueryResult([{ user_id: 10 }]));
+      mockAppQuery.mockResolvedValueOnce(mockQueryResult([{ user_id: 10 }, { user_id: 20 }]));
 
-      const result = await resolveApproverId(node, 1);
+      const result = await resolveHandlerRule(node, 1);
 
-      expect(result).toBe(10);
+      expect(result.userIds).toEqual([10, 20]);
+      expect(result.signMode).toBe('or');
     });
 
-    it('role 类型无匹配用户时返回 null', async () => {
+    it('handler.roleCode 无匹配用户时返回空数组', async () => {
       const node: WorkflowNodeDef = {
         order: 1,
         name: '不存在的角色',
-        type: 'role',
-        roleCode: 'nonexistent',
+        type: 'approval',
+        handler: { roleCode: 'nonexistent' },
       };
       mockAppQuery.mockResolvedValueOnce(mockQueryResult([]));
 
-      const result = await resolveApproverId(node, 1);
+      const result = await resolveHandlerRule(node, 1);
 
-      expect(result).toBeNull();
+      expect(result.userIds).toEqual([]);
     });
 
-    it('dynamic_supervisor 类型查询同部门主管', async () => {
+    it('handler.useSupervisor 查询同部门主管', async () => {
       const node: WorkflowNodeDef = {
         order: 1,
         name: '直属主管',
-        type: 'dynamic_supervisor',
+        type: 'approval',
+        handler: { useSupervisor: true },
       };
-      mockAppQuery.mockResolvedValueOnce(mockQueryResult([{ manager_id: 5 }]));
+      mockAppQuery.mockResolvedValueOnce(mockQueryResult([{ id: 5 }]));
 
-      const result = await resolveApproverId(node, 10);
+      const result = await resolveHandlerRule(node, 10);
 
-      expect(result).toBe(5);
+      expect(result.userIds).toEqual([5]);
     });
 
-    it('dynamic_supervisor 无主管时返回 null', async () => {
+    it('handler.useSupervisor 无主管时返回空数组', async () => {
       const node: WorkflowNodeDef = {
         order: 1,
         name: '直属主管',
-        type: 'dynamic_supervisor',
+        type: 'approval',
+        handler: { useSupervisor: true },
       };
       mockAppQuery.mockResolvedValueOnce(mockQueryResult([]));
 
-      const result = await resolveApproverId(node, 10);
+      const result = await resolveHandlerRule(node, 10);
 
-      expect(result).toBeNull();
+      expect(result.userIds).toEqual([]);
     });
 
-    it('未知类型返回 null', async () => {
-      const node = { order: 1, name: '未知', type: 'unknown' } as any;
+    it('无 handler 时返回空数组', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '自动环节',
+        type: 'auto',
+      };
 
-      const result = await resolveApproverId(node, 1);
+      const result = await resolveHandlerRule(node, 1);
 
-      expect(result).toBeNull();
+      expect(result.userIds).toEqual([]);
+      expect(result.signMode).toBe('or');
+    });
+
+    it('多人时去重', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '组合找人',
+        type: 'approval',
+        handler: { roleCode: 'admin', userId: 10 },
+      };
+      // roleCode 查询返回 [10, 20]，userId 再加 10 → 去重后 [10, 20]
+      mockAppQuery.mockResolvedValueOnce(mockQueryResult([{ user_id: 10 }, { user_id: 20 }]));
+
+      const result = await resolveHandlerRule(node, 1);
+
+      expect(result.userIds).toEqual([10, 20]);
+    });
+
+    it('signMode 默认 or', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '测试',
+        type: 'approval',
+        handler: { userId: 1 },
+      };
+
+      const result = await resolveHandlerRule(node, 1);
+
+      expect(result.signMode).toBe('or');
+    });
+
+    it('signMode 可设为 and', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '会签测试',
+        type: 'approval',
+        handler: { userId: 1 },
+        signMode: 'and',
+      };
+
+      const result = await resolveHandlerRule(node, 1);
+
+      expect(result.signMode).toBe('and');
     });
   });
 

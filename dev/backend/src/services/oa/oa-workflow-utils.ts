@@ -4,7 +4,7 @@
  */
 
 import { appQuery as query } from '../../db/appPool';
-import type { WorkflowNodeDef } from './oa.types';
+import type { WorkflowNodeDef, SignMode } from './oa.types';
 import { checkCondition } from './oa-form-utils';
 
 // =====================================================
@@ -25,46 +25,61 @@ export function filterNodesByCondition(
 }
 
 // =====================================================
-// 审批人解析
+// 处理人解析
 // =====================================================
 
 /**
- * 解析审批节点的审批人
+ * 解析环节的处理人规则，返回所有匹配用户 + 签署模式
  */
-export async function resolveApproverId(
+export async function resolveHandlerRule(
   node: WorkflowNodeDef,
   applicantId: number
-): Promise<number | null> {
-  if (node.type === 'specific_user' && node.userId) {
-    return node.userId;
+): Promise<{ userIds: number[]; signMode: SignMode }> {
+  const signMode = node.signMode || 'or';
+  const userIds: number[] = [];
+  const handler = node.handler;
+
+  if (!handler) return { userIds: [], signMode };
+
+  if (handler.roleCode) {
+    userIds.push(...await getUsersByRoleCode(handler.roleCode));
+  }
+  if (handler.useSupervisor) {
+    userIds.push(...await getSupervisors(applicantId));
+  }
+  if (handler.userId) {
+    userIds.push(handler.userId);
   }
 
-  if (node.type === 'role' && node.roleCode) {
-    const result = await query<{ user_id: number }>(
-      `SELECT ur.user_id FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE r.code = $1 AND r.status = 1
-       LIMIT 1`,
-      [node.roleCode]
-    );
-    return result.rows[0]?.user_id || null;
-  }
+  return { userIds: [...new Set(userIds)], signMode };
+}
 
-  if (node.type === 'dynamic_supervisor') {
-    const result = await query<{ manager_id: number }>(
-      `SELECT u2.id as manager_id
-       FROM users u1
-       JOIN users u2 ON u2.department_id = u1.department_id
-       JOIN user_roles ur ON ur.user_id = u2.id
-       JOIN roles r ON r.id = ur.role_id
-       WHERE u1.id = $1 AND r.code = 'manager' AND r.status = 1
-       LIMIT 1`,
-      [applicantId]
-    );
-    return result.rows[0]?.manager_id || null;
-  }
+/**
+ * 查询角色下所有用户（不再 LIMIT 1）
+ */
+async function getUsersByRoleCode(roleCode: string): Promise<number[]> {
+  const result = await query<{ user_id: number }>(
+    `SELECT DISTINCT ur.user_id FROM user_roles ur
+     JOIN roles r ON r.id = ur.role_id
+     WHERE r.code = $1 AND r.status = 1`,
+    [roleCode]
+  );
+  return result.rows.map(r => r.user_id);
+}
 
-  return null;
+/**
+ * 查询申请人的所有直属主管（不再 LIMIT 1）
+ */
+async function getSupervisors(applicantId: number): Promise<number[]> {
+  const result = await query<{ id: number }>(
+    `SELECT u2.id FROM users u1
+     JOIN users u2 ON u2.department_id = u1.department_id
+     JOIN user_roles ur ON ur.user_id = u2.id
+     JOIN roles r ON r.id = ur.role_id
+     WHERE u1.id = $1 AND r.code = 'manager' AND r.status = 1`,
+    [applicantId]
+  );
+  return result.rows.map(r => r.id);
 }
 
 /**

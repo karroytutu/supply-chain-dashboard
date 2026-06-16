@@ -7,7 +7,6 @@ import { message } from 'antd';
 import {
   updateUserStatus,
   batchUpdateUserStatus,
-  batchAssignUserRoles,
 } from '@/services/api/auth';
 import type { UserItem } from '../types';
 
@@ -69,28 +68,10 @@ export function useUserActions({
     }
   }, [selectedRowKeys, fetchUsers, setSelectedRowKeys]);
 
-  const handleBatchAssignRoles = useCallback(async (roleIds: number[]): Promise<boolean> => {
-    if (selectedRowKeys.length === 0) return false;
-    setBatchLoading(true);
-    try {
-      await batchAssignUserRoles(selectedRowKeys, roleIds);
-      message.success(`成功为 ${selectedRowKeys.length} 个用户分配角色`);
-      setSelectedRowKeys([]);
-      fetchUsers();
-      return true;
-    } catch (error) {
-      message.error('批量分配角色失败');
-      return false;
-    } finally {
-      setBatchLoading(false);
-    }
-  }, [selectedRowKeys, fetchUsers, setSelectedRowKeys]);
-
   return {
     batchLoading,
     handleToggleStatus,
     handleBatchEnable,
     handleBatchDisable,
-    handleBatchAssignRoles,
   };
 }

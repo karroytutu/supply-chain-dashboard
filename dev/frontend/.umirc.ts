@@ -191,6 +191,12 @@ export default defineConfig({
           component: '@/pages/System/TokenManager',
           access: PERMISSIONS.SYSTEM.TOKEN.READ,
         },
+        {
+          path: 'changelog',
+          name: '更新日志',
+          component: '@/pages/System/Changelog',
+          // 更新日志对所有已认证用户开放，无需细粒度权限
+        },
       ],
     },
   ],

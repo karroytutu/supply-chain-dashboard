@@ -108,8 +108,9 @@ export const assessmentAppealFormType: FormTypeDefinition = {
       {
         order: 1,
         name: '总经理审批',
-        type: 'role',
-        roleCode: 'general_manager',
+        type: 'approval',
+        handler: { roleCode: 'general_manager' },
+        signMode: 'or',
       },
     ],
   },

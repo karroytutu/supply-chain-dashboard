@@ -246,8 +246,8 @@ async function createBatchOaInstances(
 
         await client.query(
           `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, comment, status, deadline_at, timeout_config)
-           VALUES ($1, 1, '营销师催收', 'role', 'marketer', $2, $3, $4, 'pending', $5, $6)`,
+            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, comment, status, deadline_at, timeout_config, sign_mode)
+           VALUES ($1, 1, '营销师催收', 'approval', 'marketer', $2, $3, $4, 'pending', $5, $6, 'or')`,
           [
             instanceId,
             marketer?.userId ?? null,
@@ -261,8 +261,8 @@ async function createBatchOaInstances(
         // 节点 2：更新催收状态（auto 类型，无时限）
         await client.query(
           `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, status)
-           VALUES ($1, 2, '更新催收状态', 'auto', NULL, NULL, '系统', 'pending')`,
+            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, status, sign_mode)
+           VALUES ($1, 2, '更新催收状态', 'auto', NULL, NULL, '系统', 'pending', NULL)`,
           [instanceId]
         );
 

@@ -127,7 +127,7 @@ describe('executeAutoNodeCallback', () => {
   });
 
   it('成功执行 - 下一节点为人工审批时更新实例状态并清理 erp_meta', async () => {
-    const nextNode = mkNode({ id: 200, node_order: 2, node_type: 'role', assigned_user_id: 20 });
+    const nextNode = mkNode({ id: 200, node_order: 2, node_type: 'approval', assigned_user_id: 20 });
     mockQuery
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck (无阻塞)

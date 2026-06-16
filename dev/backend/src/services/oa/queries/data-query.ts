@@ -109,39 +109,47 @@ export interface PreviewApprover {
 }
 
 /**
- * 为指定的节点列表解析审批人
+ * 为指定的节点列表解析审批人（支持多人）
  */
 export async function resolvePreviewApproversForNodes(
   nodes: WorkflowNodeDef[],
   userId: number
 ): Promise<PreviewApprover[]> {
-  const { resolveApproverId } = await import('../oa-utils');
+  const { resolveHandlerRule } = await import('../oa-utils');
   const results: PreviewApprover[] = [];
 
   for (const node of nodes) {
     if (node.type === 'auto') continue;
 
-    const approverId = await resolveApproverId(node, userId);
-    let approverName: string | null = null;
-    let approverAvatar: string | null = null;
+    const { userIds } = await resolveHandlerRule(node, userId);
 
-    if (approverId) {
-      const userResult = await query<{ name: string; avatar: string | null }>(
-        'SELECT name, avatar FROM users WHERE id = $1',
-        [approverId]
-      );
-      if (userResult.rows.length > 0) {
-        approverName = userResult.rows[0].name;
-        approverAvatar = userResult.rows[0].avatar;
+    if (userIds.length === 0) {
+      results.push({
+        nodeOrder: node.order,
+        approverId: null,
+        approverName: null,
+        approverAvatar: null,
+      });
+    } else {
+      for (const uid of userIds) {
+        let approverName: string | null = null;
+        let approverAvatar: string | null = null;
+        const userResult = await query<{ name: string; avatar: string | null }>(
+          'SELECT name, avatar FROM users WHERE id = $1',
+          [uid]
+        );
+        if (userResult.rows.length > 0) {
+          approverName = userResult.rows[0].name;
+          approverAvatar = userResult.rows[0].avatar;
+        }
+        results.push({
+          nodeOrder: node.order,
+          approverId: uid,
+          approverName,
+          approverAvatar,
+        });
       }
     }
-
-    results.push({
-      nodeOrder: node.order,
-      approverId,
-      approverName,
-      approverAvatar,
-    });
   }
 
   return results;

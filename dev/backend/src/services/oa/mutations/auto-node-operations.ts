@@ -369,31 +369,39 @@ export async function sendApprovalNotifications(
     }>(
       `SELECT assigned_user_id, node_name, node_order FROM oa_approval_nodes
        WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
-       ORDER BY node_order LIMIT 1`,
+         AND node_order = (
+           SELECT MIN(node_order) FROM oa_approval_nodes
+           WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
+         )`,
       [instanceId]
     );
 
-    if (nextNodeResult.rows.length > 0 && nextNodeResult.rows[0].assigned_user_id) {
-      const latestInst = await query<OaInstanceRow>(
-        `SELECT * FROM oa_approval_instances WHERE id = $1`,
-        [instanceId]
-      );
-      const formData = latestInst.rows[0]?.form_data || callbackInstance.form_data;
+    if (nextNodeResult.rows.length > 0) {
+      const approverIds = nextNodeResult.rows
+        .filter(r => r.assigned_user_id)
+        .map(r => r.assigned_user_id);
+      if (approverIds.length > 0) {
+        const latestInst = await query<OaInstanceRow>(
+          `SELECT * FROM oa_approval_instances WHERE id = $1`,
+          [instanceId]
+        );
+        const formData = latestInst.rows[0]?.form_data || callbackInstance.form_data;
 
-      await notifyPendingApproval(
-        {
-          instanceId,
-          instanceNo: callbackInstance.instance_no,
-          title: callbackInstance.title,
-          formTypeName: data.formTypeName,
-          applicantName: callbackInstance.applicant_name,
-          nodeName: nextNodeResult.rows[0].node_name,
-          nodeOrder: nextNodeResult.rows[0].node_order,
-          formSchema: data.formType?.formSchema,
-          formData: formData as Record<string, unknown>,
-        },
-        [nextNodeResult.rows[0].assigned_user_id]
-      );
+        await notifyPendingApproval(
+          {
+            instanceId,
+            instanceNo: callbackInstance.instance_no,
+            title: callbackInstance.title,
+            formTypeName: data.formTypeName,
+            applicantName: callbackInstance.applicant_name,
+            nodeName: nextNodeResult.rows[0].node_name,
+            nodeOrder: nextNodeResult.rows[0].node_order,
+            formSchema: data.formType?.formSchema,
+            formData: formData as Record<string, unknown>,
+          },
+          approverIds
+        );
+      }
     }
   }
 }

@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Checkbox, Button, Space, Modal } from 'antd';
-import { CheckOutlined, StopOutlined, UserSwitchOutlined } from '@ant-design/icons';
+import { CheckOutlined, StopOutlined } from '@ant-design/icons';
 import styles from '../index.less';
 
 interface BatchActionBarProps {
@@ -13,7 +13,6 @@ interface BatchActionBarProps {
   onCheckChange: (checked: boolean) => void;
   onBatchEnable: () => void;
   onBatchDisable: () => void;
-  onBatchAssignRoles: () => void;
   loading: boolean;
 }
 
@@ -24,7 +23,6 @@ const BatchActionBar: React.FC<BatchActionBarProps> = ({
   onCheckChange,
   onBatchEnable,
   onBatchDisable,
-  onBatchAssignRoles,
   loading,
 }) => {
   const handleBatchDisable = () => {
@@ -72,14 +70,7 @@ const BatchActionBar: React.FC<BatchActionBarProps> = ({
         >
           批量禁用
         </Button>
-        <Button
-          icon={<UserSwitchOutlined />}
-          disabled={selectedCount === 0}
-          loading={loading}
-          onClick={onBatchAssignRoles}
-        >
-          批量分配角色
-        </Button>
+
       </Space>
     </div>
   );

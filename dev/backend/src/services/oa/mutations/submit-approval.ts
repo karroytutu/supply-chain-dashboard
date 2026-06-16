@@ -11,7 +11,7 @@ import {
   generateInstanceNo,
   validateFormData,
   filterNodesByCondition,
-  resolveApproverId,
+  resolveHandlerRule,
 } from '../oa-utils';
 
 import { initErpMeta } from '../../fixed-asset/erp-meta-utils';
@@ -82,21 +82,8 @@ export async function submitApproval(
 
     const instance = instanceResult.rows[0];
 
-    // 插入审批节点
+    // 插入审批节点（支持多人展开）
     for (const node of filteredNodes) {
-      const approverId = await resolveApproverId(node, userId);
-
-      let approverName: string | null = null;
-      if (node.type === 'auto') {
-        approverName = '系统';
-      } else if (approverId) {
-        const userResult = await client.query<{ name: string }>(
-          `SELECT name FROM users WHERE id = $1`,
-          [approverId]
-        );
-        approverName = userResult.rows[0]?.name || null;
-      }
-
       // 计算 deadline_at（如果配置了 timeout）
       const deadlineAt = node.timeout
         ? new Date(Date.now() + node.timeout.durationMinutes * 60000)
@@ -105,23 +92,61 @@ export async function submitApproval(
         ? JSON.stringify(node.timeout)
         : null;
 
-      await client.query(
-        `INSERT INTO oa_approval_nodes
-          (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10)`,
-        [
-          instance.id,
-          node.order,
-          node.name,
-          node.type,
-          node.roleCode || null,
-          approverId,
-          approverName,
-          node.inputSchema ? JSON.stringify(node.inputSchema) : null,
-          deadlineAt,
-          timeoutConfigJson,
-        ]
-      );
+      if (node.type === 'auto') {
+        // 自动环节：无处理人
+        await client.query(
+          `INSERT INTO oa_approval_nodes
+            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config, sign_mode)
+           VALUES ($1, $2, $3, $4, NULL, NULL, '系统', NULL, 'pending', $5, $6, NULL)`,
+          [instance.id, node.order, node.name, node.type, deadlineAt, timeoutConfigJson]
+        );
+        continue;
+      }
+
+      // 解析处理人规则
+      const { userIds, signMode } = await resolveHandlerRule(node, userId);
+
+      if (userIds.length <= 1) {
+        // 单人或无人：sign_mode = NULL（向后兼容）
+        const uid = userIds[0] ?? null;
+        let approverName: string | null = null;
+        if (uid) {
+          const userResult = await client.query<{ name: string }>(
+            `SELECT name FROM users WHERE id = $1`, [uid]
+          );
+          approverName = userResult.rows[0]?.name || null;
+        }
+        await client.query(
+          `INSERT INTO oa_approval_nodes
+            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config, sign_mode)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, NULL)`,
+          [
+            instance.id, node.order, node.name, node.type,
+            node.handler?.roleCode || null, uid, approverName,
+            node.inputSchema ? JSON.stringify(node.inputSchema) : null,
+            deadlineAt, timeoutConfigJson,
+          ]
+        );
+      } else {
+        // 多人展开：同 node_order，多条记录，共享 sign_mode
+        for (const uid of userIds) {
+          const userResult = await client.query<{ name: string }>(
+            `SELECT name FROM users WHERE id = $1`, [uid]
+          );
+          const approverName = userResult.rows[0]?.name || null;
+          await client.query(
+            `INSERT INTO oa_approval_nodes
+              (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config, sign_mode)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, $11)`,
+            [
+              instance.id, node.order, node.name, node.type,
+              node.handler?.roleCode || null, uid, approverName,
+              node.inputSchema ? JSON.stringify(node.inputSchema) : null,
+              deadlineAt, timeoutConfigJson, signMode,
+            ]
+          );
+        }
+      }
     }
 
     // 记录操作日志（submit 不关联具体审批节点，node_order 为 NULL）
@@ -215,25 +240,32 @@ async function sendSubmitNotifications(
   }>(
     `SELECT assigned_user_id, node_name, node_order FROM oa_approval_nodes
      WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
-     ORDER BY node_order LIMIT 1`,
+       AND node_order = (
+         SELECT MIN(node_order) FROM oa_approval_nodes
+         WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
+       )`,
     [instance.id]
   );
 
-  if (nodeResult.rows.length > 0 && nodeResult.rows[0].assigned_user_id) {
-    const approverIds = [nodeResult.rows[0].assigned_user_id];
-    await notifyPendingApproval(
-      {
-        instanceId: instance.id,
-        instanceNo: instance.instance_no,
-        title: instance.title,
-        formTypeName: data.formTypeName,
-        applicantName: instance.applicant_name,
-        nodeName: nodeResult.rows[0].node_name,
-        nodeOrder: nodeResult.rows[0].node_order,
-        formSchema: data.formType?.formSchema,
-        formData: instance.form_data as Record<string, unknown>,
-      },
-      approverIds
-    );
+  if (nodeResult.rows.length > 0) {
+    const approverIds = nodeResult.rows
+      .filter(r => r.assigned_user_id)
+      .map(r => r.assigned_user_id);
+    if (approverIds.length > 0) {
+      await notifyPendingApproval(
+        {
+          instanceId: instance.id,
+          instanceNo: instance.instance_no,
+          title: instance.title,
+          formTypeName: data.formTypeName,
+          applicantName: instance.applicant_name,
+          nodeName: nodeResult.rows[0].node_name,
+          nodeOrder: nodeResult.rows[0].node_order,
+          formSchema: data.formType?.formSchema,
+          formData: instance.form_data as Record<string, unknown>,
+        },
+        approverIds
+      );
+    }
   }
 }

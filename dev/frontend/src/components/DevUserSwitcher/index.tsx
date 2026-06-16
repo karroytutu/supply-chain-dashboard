@@ -21,17 +21,19 @@ interface DevUserSwitcherProps {
   isDev?: boolean;
 }
 
-function getUserGroup(user: DevUserItem): string {
-  if (!user.roles || user.roles.length === 0) return '未分组';
-  return user.roles[0].name;
-}
-
 function groupUsers(users: DevUserItem[]): { group: string; users: DevUserItem[] }[] {
   const map = new Map<string, DevUserItem[]>();
   users.forEach((u) => {
-    const group = getUserGroup(u);
-    if (!map.has(group)) map.set(group, []);
-    (map.get(group) as DevUserItem[]).push(u);
+    if (!u.roles || u.roles.length === 0) {
+      const group = '未分组';
+      if (!map.has(group)) map.set(group, []);
+      (map.get(group) as DevUserItem[]).push(u);
+    } else {
+      u.roles.forEach(r => {
+        if (!map.has(r.name)) map.set(r.name, []);
+        (map.get(r.name) as DevUserItem[]).push(u);
+      });
+    }
   });
 
   const order = ['管理员', '系统管理', '运营', '财务', '采购', '仓储', '营销'];
@@ -42,7 +44,7 @@ function groupUsers(users: DevUserItem[]): { group: string; users: DevUserItem[]
       map.delete(g);
     }
   });
-  map.forEach((users, group) => result.push({ group, users }));
+  map.forEach((groupUsers, group) => result.push({ group, users: groupUsers }));
   return result;
 }
 

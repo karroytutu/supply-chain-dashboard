@@ -103,7 +103,7 @@ async function queryPendingOaNodes(): Promise<PendingOaNode[]> {
      JOIN oa_form_types ft ON i.form_type_id = ft.id
      WHERE ft.code = 'ar_collection'
        AND n.status = 'pending'
-       AND n.node_type = 'role'
+       AND n.node_type = 'approval'
        AND n.assigned_user_id IS NOT NULL
        AND n.created_at IS NOT NULL`
   );

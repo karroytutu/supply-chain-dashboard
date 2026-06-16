@@ -163,7 +163,15 @@ export interface AssessmentTier {
 // 审批流程相关类型
 // =====================================================
 
-export type NodeType = 'role' | 'dynamic_supervisor' | 'specific_user' | 'countersign' | 'data_input' | 'auto';
+export type NodeType = 'approval' | 'data_input' | 'auto' | 'countersign' | 'role' | 'dynamic_supervisor' | 'specific_user';
+
+export type SignMode = 'or' | 'and';
+
+export interface HandlerRule {
+  roleCode?: string;
+  useSupervisor?: boolean;
+  userId?: number;
+}
 
 export interface ConditionDef {
   field: string;
@@ -200,8 +208,12 @@ export interface WorkflowNodeDef {
   order: number;
   name: string;
   type: NodeType;
+  /** @deprecated 使用 handler.roleCode 代替 */
   roleCode?: string;
+  /** @deprecated 使用 handler.userId 代替 */
   userId?: number;
+  handler?: HandlerRule;
+  signMode?: SignMode;
   condition?: ConditionDef;
   /** 数据录入表单 schema（仅 data_input 类型） */
   inputSchema?: NodeInputSchema;
@@ -289,6 +301,8 @@ export interface ApprovalNode {
   actedAt: string | null;
   actionAt?: string | null;  // Alias for actedAt
   isCountersign: boolean;
+  /** 签署模式：or=或签, and=会签 */
+  signMode?: SignMode | null;
   /** 节点截止时间 */
   deadlineAt: string | null;
   /** 时限配置快照 */
