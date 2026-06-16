@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "v2.3.2",
+      "date": "2026-06-17 22:46",
+      "types": ["optimization"],
+      "changes": [
+        "容器启动脚本新增 /app/data 目录权限修复，确保 changelog 等数据文件可写",
+        "部署脚本新增 changelog.json 自动同步，构建后自动将更新日志复制到生产数据目录"
+      ]
+    },
+    {
       "version": "v2.3.1",
       "date": "2026-06-16 23:30",
       "types": ["optimization"],
