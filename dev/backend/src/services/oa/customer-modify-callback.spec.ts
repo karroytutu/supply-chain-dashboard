@@ -63,6 +63,7 @@ import { erpUploadImageToErp } from '../erp-client/erp-image-upload';
 import { getErpGrades, getErpGroups, getErpAreas } from '../erp-client/erp-customer-reference.service';
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import { getErpStaff } from '../fixed-asset/fixed-asset.query';
+import { existsSync } from 'fs';
 import {
   beforeSubmitCustomerModify,
   onApprovedCustomerModify,
@@ -222,8 +223,7 @@ describe('onApprovedCustomerModify', () => {
   });
 
   it('门头照上传 - 文件存在时上传', async () => {
-    const fsMod = require('fs');
-    fsMod.existsSync.mockReturnValueOnce(true);
+    (existsSync as jest.Mock).mockReturnValueOnce(true);
     (erpUploadImageToErp as jest.Mock).mockResolvedValueOnce('img-456');
     const formData = { customer: 100, storefrontPhoto: [{ url: 'store.jpg' }] };
     await onApprovedCustomerModify(mkInstance(), formData);

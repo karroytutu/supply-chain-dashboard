@@ -511,7 +511,7 @@ function buildWhereClause(
   }
 
   if (params.end_date) {
-    clauses.push(`created_at < $${paramIndex++}`);
+    clauses.push(`created_at < $${paramIndex}`);
     values.push(params.end_date);
   }
 

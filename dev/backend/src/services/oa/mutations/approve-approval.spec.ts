@@ -23,7 +23,6 @@ jest.mock('./shared-utils', () => ({
 
 jest.mock('./auto-node-operations', () => ({
   executeAutoNodeCallback: jest.fn(),
-  sendApprovalNotifications: jest.fn(),
   triggerCcIfApplicable: jest.fn(),
 }));
 
@@ -32,10 +31,28 @@ jest.mock('../oa-process-centre', () => ({
   finalizeProcessInstance: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../oa-async-task.service', () => {
+  const mockFn = () => jest.fn(() => Promise.resolve(undefined));
+  return {
+    enqueueCompleteApprovalTodo: mockFn(),
+    enqueueSendApprovalNotification: mockFn(),
+    enqueueFinalizeProcessInstance: mockFn(),
+    enqueueExecuteAutoNode: mockFn(),
+    enqueueTriggerCc: mockFn(),
+  };
+});
+
 import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
 import { transaction, mergeFormData } from './shared-utils';
 import { approveApproval } from './approve-approval';
+import {
+  enqueueExecuteAutoNode,
+  enqueueCompleteApprovalTodo,
+  enqueueSendApprovalNotification,
+  enqueueFinalizeProcessInstance,
+  enqueueTriggerCc,
+} from '../oa-async-task.service';
 
 const mockIsCurrentApprover = isCurrentApprover as jest.MockedFunction<typeof isCurrentApprover>;
 const mockGetCurrentNode = getCurrentApproverNode as jest.MockedFunction<typeof getCurrentApproverNode>;
@@ -47,6 +64,13 @@ beforeEach(() => {
   jest.resetAllMocks();
   // 恢复默认 mock 行为
   mockGetCurrentNode.mockResolvedValue({ id: 10, node_order: 1, node_type: 'approval', sign_mode: null } as any);
+  // resetAllMocks 会清除 mock 实现，需重新设置异步任务 mock 的返回值
+  const resolveUndefined = () => Promise.resolve(undefined);
+  (enqueueExecuteAutoNode as jest.Mock).mockImplementation(resolveUndefined);
+  (enqueueCompleteApprovalTodo as jest.Mock).mockImplementation(resolveUndefined);
+  (enqueueSendApprovalNotification as jest.Mock).mockImplementation(resolveUndefined);
+  (enqueueFinalizeProcessInstance as jest.Mock).mockImplementation(resolveUndefined);
+  (enqueueTriggerCc as jest.Mock).mockImplementation(resolveUndefined);
 });
 
 afterEach(() => {
@@ -68,6 +92,7 @@ describe('approveApproval', () => {
       // Simulate the transaction callback with a mock client
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // SELECT instance0
           .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] }) // SELECT form type code
           // getCurrentApproverNode is MOCKED, does not consume client.query
@@ -98,6 +123,7 @@ describe('approveApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
           .mockResolvedValueOnce({ rows: [{ code: 'test_form' }] })
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
@@ -123,6 +149,7 @@ describe('approveApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
           .mockResolvedValueOnce({ rows: [{ code: 'auto_form' }] })
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
@@ -148,6 +175,7 @@ describe('approveApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: { action: null }, status: 'pending' }] }) // SELECT instance0 FOR UPDATE
           .mockResolvedValueOnce({ rows: [{ code: 'ar_collection' }] }) // SELECT form type code
           // getCurrentApproverNode is MOCKED, does not consume client.query
@@ -184,6 +212,7 @@ describe('approveApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] })
           .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] })
           // 无 inputData → 不调用 UPDATE form_data
@@ -213,6 +242,7 @@ describe('approveApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'processing' }] }),
       };
       return fn(mockClient);
@@ -227,6 +257,7 @@ describe('approveApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // SELECT instance0
           .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] }) // SELECT form type code
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved

@@ -707,8 +707,12 @@ export interface ApprovalListParams {
  * 审批统计数据
  */
 export interface ApprovalStats {
+  total: number;
   pending: number;
   processed: number;
+  approved: number;
+  rejected: number;
+  /** @deprecated 与 total 值相同，请使用 total，下个版本移除 */
   my: number;
   cc: number;
 }

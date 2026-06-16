@@ -44,6 +44,31 @@ const mockIsCurrentApprover = isCurrentApprover as jest.MockedFunction<typeof is
 const mockGetCurrentNode = getCurrentApproverNode as jest.MockedFunction<typeof getCurrentApproverNode>;
 const mockTransaction = transaction as jest.MockedFunction<typeof transaction>;
 
+/** 为加锁后的 transaction 创建 mock client，默认返回 pending 实例行 */
+function createMockClient(instanceOverrides: any = {}) {
+  return {
+    query: jest.fn().mockImplementation((sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (sql.includes('oa_approval_instances') && sql.includes('FOR UPDATE')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 1,
+              status: 'pending',
+              applicant_id: 5,
+              current_node_order: 1,
+              ...instanceOverrides,
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ rows: [] });
+    }),
+  };
+}
+
 beforeEach(() => {
   jest.useFakeTimers();
   jest.resetAllMocks();
@@ -70,6 +95,8 @@ describe('rejectApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
+          .mockResolvedValueOnce({ rows: [{ id: 1, status: 'pending' }] }) // SELECT instance FOR UPDATE
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node rejected
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance rejected
           .mockResolvedValueOnce({ rows: [] }) // CANCEL pending nodes
@@ -89,12 +116,7 @@ describe('rejectApproval', () => {
     mockIsCurrentApprover.mockResolvedValueOnce(true);
     mockGetCurrentNode.mockResolvedValueOnce(null as any);
 
-    mockTransaction.mockImplementationOnce(async (fn: any) => {
-      const mockClient = {
-        query: jest.fn(),
-      };
-      return fn(mockClient);
-    });
+    mockTransaction.mockImplementationOnce(async (fn: any) => fn(createMockClient()));
 
     await expect(rejectApproval(1, 5, '张三', '拒绝')).rejects.toThrow('未找到待审批节点');
   });
@@ -123,6 +145,8 @@ describe('transferApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // advisory lock
+          .mockResolvedValueOnce({ rows: [{ id: 1, status: 'pending' }] }) // SELECT instance FOR UPDATE
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node
           .mockResolvedValueOnce({ rows: [] }) // INSERT action (transfer)
           .mockResolvedValueOnce({ rows: [] }), // INSERT action (comment) - 统一评论模型新增
@@ -139,12 +163,7 @@ describe('transferApproval', () => {
     mockAppQuery.mockResolvedValueOnce({ rows: [{ name: '李四' }], rowCount: 1 } as any);
     mockGetCurrentNode.mockResolvedValueOnce(null as any);
 
-    mockTransaction.mockImplementationOnce(async (fn: any) => {
-      const mockClient = {
-        query: jest.fn(),
-      };
-      return fn(mockClient);
-    });
+    mockTransaction.mockImplementationOnce(async (fn: any) => fn(createMockClient()));
 
     await expect(transferApproval(1, 5, '张三', 10)).rejects.toThrow('未找到待审批节点');
   });

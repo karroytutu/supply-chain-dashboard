@@ -40,12 +40,9 @@ jest.mock('./oa-utils', () => ({
   generateInstanceNo: jest.fn().mockResolvedValue('OA-TEST-001'),
 }));
 
-jest.mock('./oa-process-centre', () => ({
-  createProcessInstance: jest.fn().mockResolvedValue(undefined),
-}));
-
-jest.mock('./oa-notify', () => ({
-  notifyPendingApproval: jest.fn().mockResolvedValue(undefined),
+jest.mock('./oa-async-task.service', () => ({
+  enqueueCreateProcessInstance: jest.fn().mockResolvedValue(undefined),
+  enqueueSendApprovalNotification: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../fixed-asset/erp-meta-utils', () => ({
@@ -58,8 +55,7 @@ import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrich
 import { evaluateEntryRules, extractEntryMetadata } from '../ar-collection/ar-collection-entry-rules';
 import { getFormTypeByCode } from './form-types';
 import { generateInstanceNo } from './oa-utils';
-import { createProcessInstance } from './oa-process-centre';
-import { notifyPendingApproval } from './oa-notify';
+import { enqueueCreateProcessInstance, enqueueSendApprovalNotification } from './oa-async-task.service';
 import { initErpMeta } from '../fixed-asset/erp-meta-utils';
 import { createMockPoolClient, mockQueryResult } from '../../__tests__/helpers/mockDb';
 import { generateCollectionOaInstances } from './ar-collection-creator';
@@ -72,8 +68,8 @@ const mockFilterHoardDebts = filterHoardDebts as jest.MockedFunction<typeof filt
 const mockEvaluateEntryRules = evaluateEntryRules as jest.MockedFunction<typeof evaluateEntryRules>;
 const mockExtractEntryMetadata = extractEntryMetadata as jest.MockedFunction<typeof extractEntryMetadata>;
 const mockGetFormTypeByCode = getFormTypeByCode as jest.MockedFunction<typeof getFormTypeByCode>;
-const mockCreateProcessInstance = createProcessInstance as jest.MockedFunction<typeof createProcessInstance>;
-const mockNotifyPendingApproval = notifyPendingApproval as jest.MockedFunction<typeof notifyPendingApproval>;
+const mockEnqueueCreateProcessInstance = enqueueCreateProcessInstance as jest.MockedFunction<typeof enqueueCreateProcessInstance>;
+const mockEnqueueSendApprovalNotification = enqueueSendApprovalNotification as jest.MockedFunction<typeof enqueueSendApprovalNotification>;
 const mockInitErpMeta = initErpMeta as jest.MockedFunction<typeof initErpMeta>;
 
 /** 构造一个可复用的 mock lock client */
@@ -529,21 +525,20 @@ describe('generateCollectionOaInstances - 钉钉集成', () => {
     // 验证 initErpMeta 被调用
     expect(mockInitErpMeta).toHaveBeenCalledWith(100, '');
 
-    // 验证 createProcessInstance 被调用（壳实例）
-    expect(mockCreateProcessInstance).toHaveBeenCalledWith(
+    // 验证 enqueueCreateProcessInstance 被调用（壳实例任务入队）
+    expect(mockEnqueueCreateProcessInstance).toHaveBeenCalledWith(
       100, 'ar_collection', '逾期催收', 92, expect.any(String), expect.any(Object), expect.any(Object)
     );
 
-    // 验证 notifyPendingApproval 被调用（待办，assigned_user_id 来自 batchClient mock）
-    expect(mockNotifyPendingApproval).toHaveBeenCalledWith(
+    // 验证 enqueueSendApprovalNotification 被调用（钉钉待办任务入队）
+    expect(mockEnqueueSendApprovalNotification).toHaveBeenCalledWith(
+      'pending',
+      100,
       expect.objectContaining({
-        instanceId: 100,
-        formTypeName: '逾期催收',
-        applicantName: '鑫小财(AI员工)',
+        approverIds: [100],
         nodeName: '营销师催收',
         nodeOrder: 1,
-      }),
-      [100] // marketerUserId（batchClient 默认 mock 返回 id=100）
+      })
     );
   });
 
@@ -581,9 +576,9 @@ describe('generateCollectionOaInstances - 钉钉集成', () => {
 
     await generateCollectionOaInstances();
 
-    // createProcessInstance 仍被调用
-    expect(mockCreateProcessInstance).toHaveBeenCalled();
-    // notifyPendingApproval 不被调用（无 marketerUserId，resolveMarketer 返回空）
-    expect(mockNotifyPendingApproval).not.toHaveBeenCalled();
+    // enqueueCreateProcessInstance 仍被调用
+    expect(mockEnqueueCreateProcessInstance).toHaveBeenCalled();
+    // enqueueSendApprovalNotification 不被调用（无 marketerUserId，resolveMarketer 返回空）
+    expect(mockEnqueueSendApprovalNotification).not.toHaveBeenCalled();
   });
 });

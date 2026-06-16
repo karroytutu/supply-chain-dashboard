@@ -8,6 +8,7 @@ import { escapeLikePattern } from '../../../utils/sqlHelpers';
 import { ApprovalListParams, WorkflowNodeDef } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { formatInstanceListItem, InstanceListItem } from '../oa.query';
+import { getStatusLabel } from '../oa-utils';
 
 /**
  * 获取所有审批数据列表（数据管理用）
@@ -166,4 +167,127 @@ export async function previewApprovers(
   if (!formType) return [];
 
   return resolvePreviewApproversForNodes(formType.workflowDef.nodes, userId);
+}
+
+/**
+ * 获取用于导出的全量审批数据（忽略分页）
+ */
+export async function getDataListForExport(
+  params: ApprovalListParams
+): Promise<InstanceListItem[]> {
+  const result = await getDataListAll({ ...params, page: 1, pageSize: 10000 });
+  return result.list;
+}
+
+/** 转义 HTML 特殊字符（空值守卫：避免 null/undefined 导致 TypeError） */
+function escapeHtml(input: string | null | undefined): string {
+  if (!input) return '';
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** 生成导出用 HTML 表格 */
+export function generateExportHtml(data: InstanceListItem[]): string {
+  const rows = data
+    .map(
+      item => `
+    <tr>
+      <td>${escapeHtml(item.instanceNo)}</td>
+      <td>${escapeHtml(item.title)}</td>
+      <td>${escapeHtml(item.formTypeName)}</td>
+      <td>${escapeHtml(item.applicantName)}</td>
+      <td>${escapeHtml(getStatusLabel(item.status))}</td>
+      <td>${escapeHtml(item.currentNodeName || '-')}</td>
+      <td>${item.submittedAt ? escapeHtml(new Date(item.submittedAt).toLocaleString()) : '-'}</td>
+      <td>${item.completedAt ? escapeHtml(new Date(item.completedAt).toLocaleString()) : '-'}</td>
+    </tr>
+  `
+    )
+    .join('');
+
+  return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>审批数据导出</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; font-size: 13px; }
+    th { background: #fafafa; font-weight: 600; }
+    tr:nth-child(even) { background: #fafafa; }
+  </style>
+</head>
+<body>
+  <h2>审批数据导出</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>审批编号</th>
+        <th>标题</th>
+        <th>表单类型</th>
+        <th>申请人</th>
+        <th>状态</th>
+        <th>当前节点</th>
+        <th>提交时间</th>
+        <th>完成时间</th>
+      </tr>
+    </thead>
+    <tbody>${rows || '<tr><td colspan="8" style="text-align:center">无数据</td></tr>'}</tbody>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * 清洗 Excel 单元格值，防止公式注入（CSV Injection）
+ * 以 =+@-\t\r\n 开头的字符串会被 Excel 解释为公式，加前缀单引号强制视为纯文本
+ */
+function sanitizeExcelValue(value: string): string {
+  if (/^[=+\-@\t\r\n]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+/** 生成 Excel 文件 */
+export async function generateExportExcel(
+  data: InstanceListItem[],
+  filePath: string
+): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
+
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('审批数据');
+  worksheet.columns = [
+    { header: '审批编号', key: 'instanceNo', width: 20 },
+    { header: '标题', key: 'title', width: 40 },
+    { header: '表单类型', key: 'formTypeName', width: 20 },
+    { header: '申请人', key: 'applicantName', width: 15 },
+    { header: '状态', key: 'status', width: 12 },
+    { header: '当前节点', key: 'currentNodeName', width: 20 },
+    { header: '提交时间', key: 'submittedAt', width: 20 },
+    { header: '完成时间', key: 'completedAt', width: 20 },
+  ];
+
+  data.forEach(item => {
+    worksheet.addRow({
+      instanceNo: sanitizeExcelValue(item.instanceNo),
+      title: sanitizeExcelValue(item.title),
+      formTypeName: sanitizeExcelValue(item.formTypeName),
+      applicantName: sanitizeExcelValue(item.applicantName),
+      status: sanitizeExcelValue(getStatusLabel(item.status)),
+      currentNodeName: sanitizeExcelValue(item.currentNodeName || '-'),
+      submittedAt: item.submittedAt ? sanitizeExcelValue(new Date(item.submittedAt).toLocaleString()) : '-',
+      completedAt: item.completedAt ? sanitizeExcelValue(new Date(item.completedAt).toLocaleString()) : '-',
+    });
+  });
+
+  await workbook.xlsx.writeFile(filePath);
 }

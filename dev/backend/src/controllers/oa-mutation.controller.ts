@@ -19,6 +19,15 @@ import {
 } from '../services/oa/oa.mutation';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
+/** 解析并校验审批实例 ID */
+function parseInstanceId(id: string): number {
+  const instanceId = parseInt(id, 10);
+  if (Number.isNaN(instanceId) || instanceId <= 0) {
+    throw new Error('无效的审批ID');
+  }
+  return instanceId;
+}
+
 /** 提交审批 */
 export async function submit(req: Request, res: Response): Promise<void> {
   try {
@@ -65,13 +74,19 @@ export async function approve(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const instanceId = parseInt(req.params.id);
+    const instanceId = parseInstanceId(req.params.id);
     const { comment, inputData } = req.body;
     const result = await approveApproval(instanceId, user.userId, user.name, comment, inputData);
     if (result.status === 'processing') {
       res
         .status(202)
         .json(buildSuccessResponse({ status: 'processing' }, '审批已通过，系统处理中'));
+    } else if (result.status === 'pending') {
+      res.json(buildSuccessResponse({ status: 'pending' }, '审批已提交，等待其他会签人完成'));
+    } else if (result.status === 'erp_failed') {
+      res
+        .status(207)
+        .json(buildSuccessResponse({ status: 'erp_failed' }, '审批已通过，但 ERP 系统同步失败，系统将自动重试'));
     } else {
       res.json(buildSuccessResponse(null, '审批通过'));
     }
@@ -91,7 +106,7 @@ export async function reject(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const instanceId = parseInt(req.params.id);
+    const instanceId = parseInstanceId(req.params.id);
     const { comment } = req.body;
     if (!comment) {
       res.status(400).json(buildErrorResponse(400, '请填写拒绝原因'));
@@ -116,7 +131,7 @@ export async function transfer(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const instanceId = parseInt(req.params.id);
+    const instanceId = parseInstanceId(req.params.id);
     const { transferToUserId, comment } = req.body;
     if (!transferToUserId) {
       res.status(400).json(buildErrorResponse(400, '请选择转交对象'));
@@ -141,7 +156,7 @@ export async function countersign(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const instanceId = parseInt(req.params.id);
+    const instanceId = parseInstanceId(req.params.id);
     const { countersignType, countersignUserIds, comment } = req.body;
     if (!countersignType || !countersignUserIds || countersignUserIds.length === 0) {
       res.status(400).json(buildErrorResponse(400, '请选择加签类型和加签人'));
@@ -173,7 +188,7 @@ export async function withdraw(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const instanceId = parseInt(req.params.id);
+    const instanceId = parseInstanceId(req.params.id);
     await withdrawApproval(instanceId, user.userId, user.name);
     res.json(buildSuccessResponse(null, '撤回成功'));
   } catch (error) {
@@ -192,7 +207,7 @@ export async function markCcAsRead(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const instanceId = parseInt(req.params.id);
+    const instanceId = parseInstanceId(req.params.id);
     await markCcRead(instanceId, user.userId);
     res.json(buildSuccessResponse(null, '已标记已读'));
   } catch (error) {
@@ -211,7 +226,7 @@ export async function updateInstance(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const instanceId = parseInt(req.params.id);
+    const instanceId = parseInstanceId(req.params.id);
     const { formData, comment } = req.body;
     if (!formData || typeof formData !== 'object') {
       res.status(400).json(buildErrorResponse(400, '缺少 formData 参数'));
@@ -237,7 +252,7 @@ export async function addComment(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const instanceId = parseInt(req.params.id);
+    const instanceId = parseInstanceId(req.params.id);
     const { comment } = req.body;
     if (!comment || !comment.trim()) {
       res.status(400).json(buildErrorResponse(400, '请输入评论内容'));

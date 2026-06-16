@@ -36,7 +36,7 @@ RUN npx playwright install-deps chromium && \
 COPY --chown=nodejs:nodejs prod/backend/dist ./dist
 COPY --chown=nodejs:nodejs deploy/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh && \
-    mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/uploads/credit-license /app/logs && \
+    mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/uploads/credit-license /app/uploads/oa-exports /app/logs && \
     chown -R nodejs:nodejs /app/uploads /app/logs
 
 ENTRYPOINT ["/app/entrypoint.sh"]

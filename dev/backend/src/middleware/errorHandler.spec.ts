@@ -15,7 +15,7 @@ describe('errorHandler middleware', () => {
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
-      on: jest.fn((event: string, cb: Function) => {
+      on: jest.fn((event: string, cb: (...args: unknown[]) => void) => {
         if (event === 'finish') cb();
       }) as any,
       statusCode: 200,

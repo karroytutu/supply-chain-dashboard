@@ -155,7 +155,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   }, [width, height, onChange]);
 
   // 使用历史签名
-  const useHistorySignature = useCallback((signature: string) => {
+  const applyHistorySignature = useCallback((signature: string) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -274,7 +274,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
                     key="use"
                     type="primary"
                     size="small"
-                    onClick={() => useHistorySignature(sig)}
+                    onClick={() => applyHistorySignature(sig)}
                   >
                     使用此签名
                   </Button>,

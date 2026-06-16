@@ -7,7 +7,6 @@ import React, { createRef } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { FormField, FormSchema, FieldPermission } from '@/types/oa';
-import type { EditableFormSectionRef } from './EditableFormSection';
 
 // ==================== Mocks ====================
 
@@ -51,7 +50,7 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-import EditableFormSection from './EditableFormSection';
+import EditableFormSection, { type EditableFormSectionRef } from './EditableFormSection';
 
 // ==================== 测试数据工厂 ====================
 

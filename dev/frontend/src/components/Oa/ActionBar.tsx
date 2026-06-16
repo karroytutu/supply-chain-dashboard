@@ -5,13 +5,12 @@
  * 所有屏幕尺寸使用 position: sticky 固定底部
  */
 import React from 'react';
-import { Tooltip, Dropdown, Popconfirm, Button } from 'antd';
+import { Tooltip, Dropdown, Popconfirm, Button, type MenuProps } from 'antd';
 import {
   SwapOutlined, TeamOutlined, MessageOutlined,
   RollbackOutlined, SaveOutlined,
   CheckOutlined, CloseOutlined, EllipsisOutlined,
 } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
 import { useMobileDetect } from '@/hooks/useMobileDetect';
 import styles from './ActionBar.less';
 

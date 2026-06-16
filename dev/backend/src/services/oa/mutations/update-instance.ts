@@ -7,6 +7,8 @@
  */
 
 import { mergeFormData, transaction } from './shared-utils';
+import { lockInstanceById } from '../repositories/approval-instance.repository';
+import { getCurrentPendingNodeByUser } from '../repositories/approval-node.repository';
 
 /**
  * 更新 OA 实例的表单数据（不推进流程）
@@ -26,18 +28,25 @@ export async function updateInstanceFormData(
 ): Promise<void> {
   // 所有操作在事务内完成，防止并发竞态 + 保证审计记录与数据一致
   await transaction(async client => {
-    // 1. SELECT FOR UPDATE 加行锁
-    const result = await client.query<{ form_data: Record<string, unknown>; current_node_order: number }>(
-      `SELECT form_data, current_node_order FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
-      [instanceId]
-    );
+    // 实例级分布式锁 + 行锁，防止多实例并发状态覆盖
+    await client.query('SELECT pg_advisory_xact_lock($1)', [instanceId]);
 
-    if (result.rows.length === 0) {
+    // 1. SELECT FOR UPDATE 加行锁
+    const instance = await lockInstanceById(client, instanceId);
+    if (!instance) {
       throw new Error('审批实例不存在');
     }
 
-    const existingFormData = result.rows[0].form_data || {};
-    const currentNodeOrder = result.rows[0].current_node_order ?? null;
+    const existingFormData = (instance.form_data as Record<string, unknown>) || {};
+    const currentNodeOrder = instance.current_node_order ?? null;
+
+    // 1.5 权限校验：当前处理人或申请人
+    const currentNode = currentNodeOrder
+      ? await getCurrentPendingNodeByUser(client, instanceId, userId)
+      : undefined;
+    if (!currentNode && instance.applicant_id !== userId) {
+      throw new Error('您不是当前处理人或申请人，无法更新数据');
+    }
 
     // 2. 合并数据
     const mergedFormData = mergeFormData(existingFormData, newFormData);

@@ -1,8 +1,15 @@
 import { Request, Response } from 'express';
 import { getDataList, exportData } from './oa-data.controller';
 import * as oaQuery from '../services/oa/oa.query';
+import * as dataQuery from '../services/oa/queries/data-query';
 
 jest.mock('../services/oa/oa.query');
+jest.mock('../services/oa/queries/data-query', () => ({
+  getDataListAll: jest.fn().mockResolvedValue({ list: [], total: 0 }),
+  getDataListForExport: jest.fn().mockResolvedValue([]),
+  generateExportHtml: jest.fn().mockReturnValue('<html></html>'),
+  generateExportExcel: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../utils/logger', () => ({
   createLogger: () => ({ warn: jest.fn(), info: jest.fn(), error: jest.fn() }),
 }));
@@ -59,8 +66,10 @@ describe('OA Data Controller', () => {
     });
 
     it('should return export message', async () => {
+      req.query = { export_type: 'print' };
       await exportData(req as Request, res as Response);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 200 }));
+      expect(dataQuery.getDataListForExport).toHaveBeenCalled();
     });
   });
 });

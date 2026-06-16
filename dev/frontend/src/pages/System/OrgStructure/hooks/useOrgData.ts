@@ -1,6 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getDeptTree, getDeptUsers, getSupervisor, getSubordinates } from '@/services/api/org';
-import type { DeptTreeNode, DeptUserItem, UserBrief } from '@/services/api/org';
+import {
+  getDeptTree,
+  getDeptUsers,
+  getSupervisor,
+  getSubordinates,
+  type DeptTreeNode,
+  type DeptUserItem,
+  type UserBrief,
+} from '@/services/api/org';
 import type { SelectedInfo } from '../types';
 
 export function useOrgData() {

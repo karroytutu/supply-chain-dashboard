@@ -38,6 +38,7 @@ export function useApprovalCenterData(filters: FiltersState) {
         viewMode: filters.viewMode,
         page: filters.page,
         pageSize: 20,
+        keyword: filters.searchText,
       });
       setList(result.data);
       setTotal(result.total);
@@ -54,7 +55,7 @@ export function useApprovalCenterData(filters: FiltersState) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   useEffect(() => { loadStats(); }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
-  useEffect(() => { loadList(); }, [filters.viewMode, filters.page]);
+  useEffect(() => { loadList(); }, [filters.viewMode, filters.page, filters.searchText]);
 
   return { loading, stats, list, total, loadList, loadStats };
 }

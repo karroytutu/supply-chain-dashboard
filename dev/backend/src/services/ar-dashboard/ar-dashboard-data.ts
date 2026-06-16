@@ -8,11 +8,10 @@ const log = createLogger('ArDashboard');
 
 import { appQuery } from '../../db/appPool';
 import { getEnrichedNonHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
-import { getUpcomingWarnings } from '../ar-collection/ar-warning.query';
+import { getUpcomingWarnings, type UpcomingWarningDetail } from '../ar-collection/ar-warning.query';
 import { fetchSalesDetails } from '../erp-client/erp-sales-detail.service';
 import type { DashboardContext, OaCollectionInstanceRow } from './ar-dashboard.types';
 import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
-import type { UpcomingWarningDetail } from '../ar-collection/ar-warning.query';
 
 // ============================================
 // 主入口

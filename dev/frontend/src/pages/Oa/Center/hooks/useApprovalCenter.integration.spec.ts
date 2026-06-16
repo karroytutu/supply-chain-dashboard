@@ -80,7 +80,7 @@ const {
 vi.mock('umi', () => ({
   useModel: vi.fn(),
   useSearchParams: () => [
-    { get: () => null, forEach: () => {} },
+    { get: () => null, forEach: vi.fn() },
     vi.fn(),
   ],
 }));

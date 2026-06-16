@@ -84,7 +84,7 @@ const mockReject = rejectApproval as jest.MockedFunction<typeof rejectApproval>;
 // 构建最小 Express 应用（仅挂载 OA 路由）
 // =====================================================
 
-function createTestApp() {
+async function createTestApp() {
   const app = express();
   app.use(express.json());
 
@@ -92,7 +92,7 @@ function createTestApp() {
   // 通过 mock jwt.verifyToken 和 permission-cache 来控制认证/授权结果
 
   // 延迟导入以确保 mock 生效
-  const oaRoutes = require('../../routes/oa.routes').default;
+  const { default: oaRoutes } = await import('../../routes/oa.routes');
   app.use('/api/oa', oaRoutes);
 
   return app;
@@ -100,8 +100,8 @@ function createTestApp() {
 
 let app: express.Express;
 
-beforeAll(() => {
-  app = createTestApp();
+beforeAll(async () => {
+  app = await createTestApp();
 });
 
 beforeEach(() => {

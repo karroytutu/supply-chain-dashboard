@@ -13,6 +13,7 @@ const log = createLogger('OA');
 
 import { appQuery as query } from '../../db/appPool';
 import { config } from '../../config';
+import type { PoolClient } from 'pg';
 import {
   saveProcessTemplate,
   createWorkrecordInstance,
@@ -28,33 +29,51 @@ import type { FormSchema } from './oa.types';
 import {
   OA_PC_ACTIVITY_ID_SEPARATOR,
   DINGTALK_PROCESS_TEMPLATE_PREFIX,
+  CACHE_TTL_OA_PROCESS_CODE,
 } from '../../utils/constants';
+import { withAdvisoryLock } from '../../utils/distributed-lock';
 
 // =====================================================
 // 模板管理（Lazy Init + 内存缓存）
 // =====================================================
 
-/** processCode 内存缓存：formTypeCode → processCode */
-const processCodeCache = new Map<string, string>();
+/** processCode 内存缓存：formTypeCode → { processCode, expiredAt } */
+const processCodeCache = new Map<string, { code: string; expiredAt: number }>();
 
 /** 清空模板缓存（仅供测试使用） */
 export function _clearProcessCodeCache(): void {
   processCodeCache.clear();
 }
 
-/** 模板创建锁：防止并发创建同一类型模板 */
-const templateCreating = new Map<string, Promise<string>>();
+/** 获取缓存的 processCode（带 TTL 校验） */
+function getCachedProcessCode(formTypeCode: string): string | undefined {
+  const cached = processCodeCache.get(formTypeCode);
+  if (!cached) return undefined;
+  if (Date.now() > cached.expiredAt) {
+    processCodeCache.delete(formTypeCode);
+    return undefined;
+  }
+  return cached.code;
+}
+
+/** 设置缓存的 processCode */
+function setProcessCodeCache(formTypeCode: string, processCode: string): void {
+  processCodeCache.set(formTypeCode, {
+    code: processCode,
+    expiredAt: Date.now() + CACHE_TTL_OA_PROCESS_CODE,
+  });
+}
 
 /**
  * 获取或创建钉钉流程中心模板 processCode
  * 优先从内存缓存 → 数据库 → 钉钉API 依次获取
  */
 async function getOrCreateProcessCode(formTypeCode: string, formTypeName: string): Promise<string> {
-  // L1: 内存缓存
-  const cached = processCodeCache.get(formTypeCode);
+  // L1: 内存缓存（TTL 5 分钟）
+  const cached = getCachedProcessCode(formTypeCode);
   if (cached) return cached;
 
-  // L2: 数据库
+  // L2: 数据库（唯一可信源）
   const dbResult = await query<{ dingtalk_process_code: string }>(
     `SELECT dingtalk_process_code FROM oa_process_template_mapping
      WHERE form_type_code = $1`,
@@ -62,29 +81,36 @@ async function getOrCreateProcessCode(formTypeCode: string, formTypeName: string
   );
   if (dbResult.rows.length > 0) {
     const code = dbResult.rows[0].dingtalk_process_code;
-    processCodeCache.set(formTypeCode, code);
+    setProcessCodeCache(formTypeCode, code);
     return code;
   }
 
-  // L3: 钉钉API创建（带锁防止并发）
-  const existing = templateCreating.get(formTypeCode);
-  if (existing) return existing;
-
-  const createPromise = createAndSaveTemplate(formTypeCode, formTypeName);
-  templateCreating.set(formTypeCode, createPromise);
-
-  try {
-    const code = await createPromise;
-    return code;
-  } finally {
-    templateCreating.delete(formTypeCode);
-  }
+  // L3: 钉钉API创建（使用 PostgreSQL advisory lock 防止多实例并发）
+  return withAdvisoryLock(`oa:template:${formTypeCode}`, async (client) => {
+    // 锁内再次检查数据库（其他进程可能已创建），使用锁所在事务的 client
+    const dbResult2 = await client.query<{ dingtalk_process_code: string }>(
+      `SELECT dingtalk_process_code FROM oa_process_template_mapping
+       WHERE form_type_code = $1`,
+      [formTypeCode]
+    );
+    if (dbResult2.rows.length > 0) {
+      const code = dbResult2.rows[0].dingtalk_process_code;
+      setProcessCodeCache(formTypeCode, code);
+      return code;
+    }
+    return createAndSaveTemplate(formTypeCode, formTypeName, client);
+  });
 }
 
 /**
  * 调用钉钉API创建模板并保存到数据库
+ * @param client - advisory lock 事务的 client，确保 DB 写入在锁事务内完成
  */
-async function createAndSaveTemplate(formTypeCode: string, formTypeName: string): Promise<string> {
+async function createAndSaveTemplate(
+  formTypeCode: string,
+  formTypeName: string,
+  client: PoolClient
+): Promise<string> {
   // 构建简单的模板组件（仅用于钉钉展示摘要，不需要还原完整表单）
   const formComponents: ProcessFormComponent[] = [
     {
@@ -109,8 +135,8 @@ async function createAndSaveTemplate(formTypeCode: string, formTypeName: string)
 
   const processCode = await saveProcessTemplate(templateName, formComponents, detailUrl);
 
-  // 保存到数据库（ON CONFLICT 处理并发场景）
-  await query(
+  // 保存到数据库（使用锁事务的 client，确保 INSERT 在 advisory lock 事务内提交）
+  await client.query(
     `INSERT INTO oa_process_template_mapping (form_type_code, dingtalk_process_code, template_name)
      VALUES ($1, $2, $3)
      ON CONFLICT (form_type_code) DO UPDATE SET
@@ -119,7 +145,7 @@ async function createAndSaveTemplate(formTypeCode: string, formTypeName: string)
     [formTypeCode, processCode, templateName]
   );
 
-  processCodeCache.set(formTypeCode, processCode);
+  setProcessCodeCache(formTypeCode, processCode);
   return processCode;
 }
 
@@ -275,7 +301,11 @@ export async function finalizeProcessInstance(
     const mapping = await getActiveInstanceMapping(instanceId);
     if (!mapping) return;
 
-    // 幂等保护：仅当壳实例仍为 active 时才更新状态
+    // 先调钉钉 API，成功后再更新本地状态：
+    // 若钉钉失败，本地仍保持 active，异步任务/对账可再次补偿
+    const pcStatus: 'COMPLETED' | 'TERMINATED' = result === 'agree' ? 'COMPLETED' : 'TERMINATED';
+    await updateWorkrecordStatus(mapping.dingtalk_process_instance_id, pcStatus, result);
+
     const localStatus = result === 'agree' ? 'completed' : 'terminated';
     const updateResult = await query(
       `UPDATE oa_process_instance_mapping SET status = $1, updated_at = NOW()
@@ -284,13 +314,10 @@ export async function finalizeProcessInstance(
     );
     if (updateResult.rowCount === 0) {
       log.info('壳实例已被其他路径终结，跳过', { instanceId });
-      return;
     }
-
-    const pcStatus: 'COMPLETED' | 'TERMINATED' = result === 'agree' ? 'COMPLETED' : 'TERMINATED';
-    await updateWorkrecordStatus(mapping.dingtalk_process_instance_id, pcStatus, result);
   } catch (error: any) {
     log.error('更新壳实例状态失败:', { instanceId, result, error: error?.message });
+    // 不更新本地状态，保持 active，等待重试/对账补偿
   }
 }
 
@@ -432,18 +459,9 @@ export async function completeAllPendingTodos(
       [instanceId]
     );
 
-    // 同时更新壳实例状态
+    // 同时更新壳实例状态：先调钉钉 API，成功后再更新本地
     if (instanceResult) {
-      // 幂等保护：先检查并更新本地状态，再调钉钉 API
-      const localStatus = instanceResult === 'agree' ? 'completed' : 'terminated';
-      const updateResult = await query(
-        `UPDATE oa_process_instance_mapping SET status = $1, updated_at = NOW()
-         WHERE instance_id = $2 AND status = 'active'`,
-        [localStatus, instanceId]
-      );
-      if (updateResult.rowCount === 0) {
-        log.info('壳实例已被其他路径终结，跳过', { instanceId });
-      } else {
+      try {
         const pcStatus: 'COMPLETED' | 'TERMINATED' =
           instanceResult === 'agree' ? 'COMPLETED' : 'TERMINATED';
         await updateWorkrecordStatus(
@@ -451,9 +469,72 @@ export async function completeAllPendingTodos(
           pcStatus,
           instanceResult
         );
+
+        const localStatus = instanceResult === 'agree' ? 'completed' : 'terminated';
+        const updateResult = await query(
+          `UPDATE oa_process_instance_mapping SET status = $1, updated_at = NOW()
+           WHERE instance_id = $2 AND status = 'active'`,
+          [localStatus, instanceId]
+        );
+        if (updateResult.rowCount === 0) {
+          log.info('壳实例已被其他路径终结，跳过', { instanceId });
+        }
+      } catch (err: any) {
+        log.error('批量取消待办时更新壳实例状态失败:', {
+          instanceId,
+          instanceResult,
+          error: err?.message,
+        });
+        // 保持本地 active，等待重试/对账补偿
       }
     }
   } catch (error: any) {
     log.error('批量取消待办失败:', { instanceId, error: error?.message });
+  }
+}
+
+/**
+ * 对账：扫描本地仍为 active 但审批实例已终态的记录，补偿完成壳实例
+ * 每 30 分钟执行一次，兜底钉钉 API 失败导致的状态不一致
+ */
+export async function reconcileProcessInstanceStatus(): Promise<{ processed: number; failed: number }> {
+  try {
+    const result = await query<{
+      instance_id: number;
+      status: string;
+    }>(
+      `SELECT m.instance_id, i.status
+       FROM oa_process_instance_mapping m
+       JOIN oa_approval_instances i ON i.id = m.instance_id
+       WHERE m.status = 'active'
+         AND i.status IN ('approved', 'rejected', 'withdrawn', 'cancelled')
+         AND m.updated_at < NOW() - interval '30 minutes'
+       LIMIT 100`
+    );
+
+    let processed = 0;
+    let failed = 0;
+    for (const row of result.rows) {
+      try {
+        const resultType = row.status === 'approved' ? 'agree' : 'refuse';
+        await finalizeProcessInstance(row.instance_id, resultType);
+        processed++;
+      } catch (err: any) {
+        failed++;
+        log.error('壳实例对账补偿失败:', {
+          instanceId: row.instance_id,
+          error: err?.message,
+        });
+      }
+    }
+
+    if (processed > 0 || failed > 0) {
+      log.info('壳实例状态对账完成:', { processed, failed });
+    }
+    return { processed, failed };
+  } catch (error: any) {
+    log.error('壳实例状态对账异常:', { error: error?.message });
+    // 向上抛出异常，让 scheduler 感知并记录错误，避免静默失败
+    throw error;
   }
 }

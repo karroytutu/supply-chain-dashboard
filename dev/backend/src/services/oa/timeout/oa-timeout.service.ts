@@ -22,25 +22,18 @@ import * as repository from './oa-timeout.repository';
 import { sendReminder, sendSupervisorCc } from './oa-timeout-reminder';
 import type { OverdueNode, ScanResult, ResolvedReminderConfig, TimeoutLogEntry } from './oa-timeout.types';
 import type { ReminderConfig } from '../oa.types';
-
-// =====================================================
-// 并发保护
-// =====================================================
-
-let scanRunning = false;
+import { withAdvisoryLock } from '../../../utils/distributed-lock';
 
 /**
- * 执行催办扫描（带并发保护）
+ * 执行催办扫描（使用 PostgreSQL advisory lock 防止多实例并发）
  */
 export async function runOaTimeoutScan(): Promise<void> {
-  if (scanRunning) return;
-  scanRunning = true;
   try {
-    await scanAndRemind();
+    await withAdvisoryLock('oa:timeout:scan', async () => {
+      await scanAndRemind();
+    });
   } catch (error) {
     log.error('催办扫描异常:', error);
-  } finally {
-    scanRunning = false;
   }
 }
 

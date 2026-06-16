@@ -9,9 +9,12 @@ import { appQuery as query } from '../../../db/appPool';
 import { OaInstanceRow } from '../oa.types';
 import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
-import { notifyRejected, notifyTransferred } from '../oa-notify';
-import { completeApprovalTodo, completeAllPendingTodos } from '../oa-process-centre';
-import { transaction, getInstanceNotifyData } from './shared-utils';
+import {
+  enqueueCompleteApprovalTodo,
+  enqueueCompleteAllPendingTodos,
+  enqueueSendApprovalNotification,
+} from '../oa-async-task.service';
+import { transaction } from './shared-utils';
 
 /**
  * 拒绝审批
@@ -28,6 +31,20 @@ export async function rejectApproval(
   }
 
   await transaction(async client => {
+    // 实例级分布式锁 + 行锁，防止多实例并发状态覆盖
+    await client.query('SELECT pg_advisory_xact_lock($1)', [instanceId]);
+
+    const instanceResult = await client.query<OaInstanceRow>(
+      `SELECT * FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
+      [instanceId]
+    );
+    if (instanceResult.rows.length === 0) {
+      throw new Error('审批实例不存在');
+    }
+    if (instanceResult.rows[0].status !== 'pending') {
+      throw new Error('审批实例不在处理中，无法执行此操作');
+    }
+
     const currentNode = await getCurrentApproverNode(client, instanceId, userId);
     if (!currentNode) {
       throw new Error('未找到待审批节点');
@@ -88,12 +105,15 @@ export async function rejectApproval(
   });
 
   setImmediate(() => {
-    // 拒绝审批后取消所有待处理人的钉钉待办 + 完成壳实例
-    completeAllPendingTodos(instanceId, 'refuse').catch(err => {
-      log.error('批量取消钉钉待办失败:', err);
+    // 拒绝审批后取消所有待处理人的钉钉待办 + 完成壳实例（completeAllPendingTodos 内部已包含壳实例终结）
+    enqueueCompleteAllPendingTodos(instanceId, 'refuse').catch(err => {
+      log.error('批量取消钉钉待办任务入队失败:', err);
     });
-    sendRejectNotification(instanceId, userId, userName, comment).catch(err => {
-      log.error('拒绝通知发送失败:', err);
+    enqueueSendApprovalNotification('rejected', instanceId, {
+      rejectUserName: userName,
+      reason: comment,
+    }).catch(err => {
+      log.error('拒绝通知任务入队失败:', err);
     });
   });
 }
@@ -124,6 +144,20 @@ export async function transferApproval(
   const targetUserName = targetUserResult.rows[0].name;
 
   await transaction(async client => {
+    // 实例级分布式锁 + 行锁，防止多实例并发状态覆盖
+    await client.query('SELECT pg_advisory_xact_lock($1)', [instanceId]);
+
+    const instanceResult = await client.query<OaInstanceRow>(
+      `SELECT * FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
+      [instanceId]
+    );
+    if (instanceResult.rows.length === 0) {
+      throw new Error('审批实例不存在');
+    }
+    if (instanceResult.rows[0].status !== 'pending') {
+      throw new Error('审批实例不在处理中，无法执行此操作');
+    }
+
     const currentNode = await getCurrentApproverNode(client, instanceId, userId);
     if (!currentNode) {
       throw new Error('未找到待审批节点');
@@ -164,74 +198,17 @@ export async function transferApproval(
   });
 
   setImmediate(() => {
-    // 新增：完成转交人的钉钉待办
-    completeApprovalTodo(instanceId, userId, 'AGREE').catch(err => {
-      log.error('完成转交人钉钉待办失败:', err);
+    // 新增：完成转交人的钉钉待办（异步任务，支持失败重试）
+    enqueueCompleteApprovalTodo(instanceId, userId, 'AGREE').catch(err => {
+      log.error('完成转交人钉钉待办任务入队失败:', err);
     });
-    sendTransferNotification(instanceId, userId, userName, transferToUserId).catch(err => {
-      log.error('转交通知发送失败:', err);
+    enqueueSendApprovalNotification('transferred', instanceId, {
+      transferToUserId,
+      fromUserName: userName,
+    }).catch(err => {
+      log.error('转交通知任务入队失败:', err);
     });
   });
 }
 
-/** 拒绝审批后发送通知 */
-async function sendRejectNotification(
-  instanceId: number,
-  rejectUserId: number,
-  rejectUserName: string,
-  reason: string
-): Promise<void> {
-  const data = await getInstanceNotifyData(instanceId);
-  if (!data) return;
 
-  await notifyRejected(
-    {
-      instanceId,
-      instanceNo: data.instance.instance_no,
-      title: data.instance.title,
-      formTypeName: data.formTypeName,
-      applicantName: data.instance.applicant_name,
-      reason,
-      rejectUserName,
-      formSchema: data.formType?.formSchema,
-      formData: data.instance.form_data as Record<string, unknown>,
-    },
-    data.instance.applicant_id,
-    reason,
-    rejectUserName
-  );
-}
-
-/** 转交审批后发送通知 */
-async function sendTransferNotification(
-  instanceId: number,
-  fromUserId: number,
-  fromUserName: string,
-  transferToUserId: number
-): Promise<void> {
-  const data = await getInstanceNotifyData(instanceId);
-  if (!data) return;
-
-  const nodeResult = await query<{ node_name: string; node_order: number }>(
-    `SELECT node_name, node_order FROM oa_approval_nodes
-     WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
-     ORDER BY node_order LIMIT 1`,
-    [instanceId, transferToUserId]
-  );
-
-  await notifyTransferred(
-    {
-      instanceId,
-      instanceNo: data.instance.instance_no,
-      title: data.instance.title,
-      formTypeName: data.formTypeName,
-      applicantName: data.instance.applicant_name,
-      fromUserName,
-      nodeName: nodeResult.rows[0]?.node_name,
-      nodeOrder: nodeResult.rows[0]?.node_order,
-      formSchema: data.formType?.formSchema,
-      formData: data.instance.form_data as Record<string, unknown>,
-    },
-    transferToUserId
-  );
-}

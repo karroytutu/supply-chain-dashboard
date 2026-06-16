@@ -14,7 +14,22 @@
 
 jest.mock('../../db/appPool', () => ({
   appQuery: jest.fn(),
+  getAppClient: jest.fn().mockResolvedValue({
+    query: jest.fn().mockResolvedValue({ rows: [] }),
+    release: jest.fn(),
+  }),
 }));
+
+// withAdvisoryLock 直接执行回调，跳过事务/锁逻辑（单元测试不关注锁机制）
+// client.query 委托到 appQuery，确保 mock 队列正常工作
+jest.mock('../../utils/distributed-lock', () => {
+  const { appQuery } = jest.requireMock('../../db/appPool');
+  return {
+    withAdvisoryLock: jest.fn(async (_key: unknown, cb: Function) =>
+      cb({ query: (...args: unknown[]) => appQuery(...args) })
+    ),
+  };
+});
 
 jest.mock('../../config', () => ({
   config: {
@@ -103,6 +118,8 @@ describe('createProcessInstance', () => {
 
   it('首次创建：自动创建模板 + 壳实例 + 存储映射', async () => {
     // L2 DB 查询：无缓存
+    mockQueryOnce([]);
+    // advisory lock 内再次检查：无缓存
     mockQueryOnce([]);
     // 模板创建 + DB 保存
     mockSaveTemplate.mockResolvedValueOnce('PROC-TEST-001');
@@ -297,17 +314,18 @@ describe('completeAllPendingTodos', () => {
     expect(mockUpdateWorkrecordStatus).toHaveBeenCalledWith('pi_001', 'TERMINATED', 'refuse');
   });
 
-  it('壳实例已被其他路径终结：不调用钉钉 API', async () => {
+  it('壳实例已被其他路径终结：仍先同步钉钉，本地更新幂等跳过', async () => {
     mockQueryOnce([{ dingtalk_process_instance_id: 'pi_001' }]);
     mockQueryOnce([{ activity_id: '100:node1' }]);
     mockCancelPcTasks.mockResolvedValueOnce(undefined);
     mockQueryOnce([]); // UPDATE oa_process_task_mapping
+    mockUpdateWorkrecordStatus.mockResolvedValueOnce(undefined);
     // UPDATE oa_process_instance_mapping 返回 rowCount=0（已被终结）
     mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
 
     await completeAllPendingTodos(100, 'refuse');
 
-    expect(mockUpdateWorkrecordStatus).not.toHaveBeenCalled();
+    expect(mockUpdateWorkrecordStatus).toHaveBeenCalledWith('pi_001', 'TERMINATED', 'refuse');
   });
 
   it('无壳实例：跳过', async () => {
@@ -345,14 +363,15 @@ describe('finalizeProcessInstance', () => {
     expect(mockUpdateWorkrecordStatus).toHaveBeenCalledWith('pi_001', 'TERMINATED', 'refuse');
   });
 
-  it('壳实例已被其他路径终结：不调用钉钉 API', async () => {
+  it('壳实例已被其他路径终结：仍先同步钉钉，本地更新幂等跳过', async () => {
     mockQueryOnce([{ dingtalk_process_instance_id: 'pi_001' }]);
+    mockUpdateWorkrecordStatus.mockResolvedValueOnce(undefined);
     // UPDATE 返回 rowCount=0（已被终结）
     mockAppQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
 
     await finalizeProcessInstance(100, 'agree');
 
-    expect(mockUpdateWorkrecordStatus).not.toHaveBeenCalled();
+    expect(mockUpdateWorkrecordStatus).toHaveBeenCalledWith('pi_001', 'COMPLETED', 'agree');
   });
 
   it('无壳实例：跳过', async () => {

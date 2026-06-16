@@ -69,9 +69,9 @@ export function useApprovalActions({
 
   const canOperate = useMemo(() => {
     if (!detail || detail.status !== 'pending') return false;
-    const currentNode = nodes.find((n) => n.status === 'pending');
-    if (!currentNode) return false;
-    return currentNode.assignedUserId === currentUser?.id;
+    return nodes.some(
+      (n) => n.status === 'pending' && n.assignedUserId === currentUser?.id
+    );
   }, [detail, nodes, currentUser?.id]);
 
   const canWithdraw = useMemo(() => {
@@ -83,9 +83,8 @@ export function useApprovalActions({
     if (!detail) return false;
     // 终态不允许评论
     if (!['pending', 'processing'].includes(detail.status)) return false;
-    // 当前节点审批人/处理人
-    const currentNode = nodes.find((n) => n.status === 'pending');
-    if (currentNode?.assignedUserId === currentUser?.id) return true;
+    // 当前节点审批人/处理人（会签场景需检查所有 pending 节点）
+    if (nodes.some((n) => n.status === 'pending' && n.assignedUserId === currentUser?.id)) return true;
     // 申请人
     if (detail.applicantId === currentUser?.id) return true;
     return false;

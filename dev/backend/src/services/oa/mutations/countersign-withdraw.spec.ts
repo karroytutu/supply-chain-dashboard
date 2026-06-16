@@ -35,6 +35,31 @@ const mockGetCurrentApproverNode = getCurrentApproverNode as jest.MockedFunction
 const mockInsertNodeAfter = insertNodeAfter as jest.MockedFunction<typeof insertNodeAfter>;
 const mockTransaction = transaction as jest.MockedFunction<typeof transaction>;
 
+/** 为加锁后的 transaction 创建 mock client，默认返回 pending 实例行 */
+function createMockClient(instanceOverrides: any = {}) {
+  return {
+    query: jest.fn().mockImplementation((sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (sql.includes('oa_approval_instances') && sql.includes('FOR UPDATE')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 1,
+              status: 'pending',
+              applicant_id: 100,
+              current_node_order: 2,
+              ...instanceOverrides,
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ rows: [] });
+    }),
+  };
+}
+
 describe('countersignApproval', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -63,7 +88,7 @@ describe('countersignApproval', () => {
     mockInsertNodeAfter.mockResolvedValue({ id: 11 } as any);
 
     // Mock transaction 的 client.query
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await countersignApproval(1, 100, '张三', 'after', [200]);
@@ -87,7 +112,7 @@ describe('countersignApproval', () => {
     mockGetCurrentApproverNode.mockResolvedValue({ id: 10, node_order: 2 } as any);
     mockInsertNodeAfter.mockResolvedValue({ id: 11 } as any);
 
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await countersignApproval(1, 100, '张三', 'before', [200]);
@@ -109,7 +134,7 @@ describe('countersignApproval', () => {
     mockGetCurrentApproverNode.mockResolvedValue({ id: 10, node_order: 2 } as any);
     mockInsertNodeAfter.mockResolvedValue({ id: 11 } as any);
 
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await countersignApproval(1, 100, '张三', 'after', [200, 300]);
@@ -133,7 +158,12 @@ describe('withdrawApproval', () => {
 
   it('审批实例不存在时抛出错误', async () => {
     mockIsApplicant.mockResolvedValue(true);
-    mockAppQuery.mockResolvedValueOnce({ rows: [] } as any);
+    const mockClient = {
+      query: jest.fn()
+        .mockResolvedValueOnce({ rows: [] } as any) // advisory lock
+        .mockResolvedValueOnce({ rows: [] } as any), // SELECT instance
+    };
+    mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await expect(
       withdrawApproval(1, 100, '张三')
@@ -142,9 +172,8 @@ describe('withdrawApproval', () => {
 
   it('审批状态非 pending 时抛出错误', async () => {
     mockIsApplicant.mockResolvedValue(true);
-    mockAppQuery.mockResolvedValueOnce({
-      rows: [{ id: 1, status: 'approved' }],
-    } as any);
+    const mockClient = createMockClient({ status: 'approved' });
+    mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await expect(
       withdrawApproval(1, 100, '张三')
@@ -153,13 +182,7 @@ describe('withdrawApproval', () => {
 
   it('成功撤回审批', async () => {
     mockIsApplicant.mockResolvedValue(true);
-    mockAppQuery
-      .mockResolvedValueOnce({
-        rows: [{ id: 1, status: 'pending', instance_no: 'OA001', title: '测试' }],
-      } as any)
-      .mockResolvedValueOnce({ rows: [] } as any);
-
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await withdrawApproval(1, 100, '张三');
@@ -185,7 +208,7 @@ describe('countersignApproval - 补充', () => {
     mockAppQuery.mockResolvedValue({ rows: [{ id: 200, name: '李四' }] } as any);
     mockGetCurrentApproverNode.mockResolvedValue(null);
 
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await expect(
@@ -199,14 +222,14 @@ describe('countersignApproval - 补充', () => {
     mockGetCurrentApproverNode.mockResolvedValue({ id: 10, node_order: 3 } as any);
     mockInsertNodeAfter.mockResolvedValue({ id: 11 } as any);
 
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await countersignApproval(1, 100, '张三', 'before', [200]);
 
     expect(mockClient.query).toHaveBeenCalledWith(
-      expect.stringContaining('UPDATE oa_approval_instances SET current_node_order = current_node_order + $1'),
-      expect.arrayContaining([1]) // instanceId 在参数中
+      expect.stringContaining('UPDATE oa_approval_instances SET current_node_order = $1'),
+      [3, 1]
     );
   });
 
@@ -216,7 +239,7 @@ describe('countersignApproval - 补充', () => {
     mockGetCurrentApproverNode.mockResolvedValue({ id: 10, node_order: 2 } as any);
     mockInsertNodeAfter.mockResolvedValue({ id: 11 } as any);
 
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await countersignApproval(1, 100, '张三', 'after', [200]);
@@ -233,7 +256,7 @@ describe('countersignApproval - 补充', () => {
     mockGetCurrentApproverNode.mockResolvedValue({ id: 10, node_order: 2 } as any);
     mockInsertNodeAfter.mockResolvedValue({ id: 11 } as any);
 
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await countersignApproval(1, 100, '张三', 'after', [200], '加签原因');
@@ -256,13 +279,13 @@ describe('countersignApproval - 补充', () => {
     mockGetCurrentApproverNode.mockResolvedValue({ id: 10, node_order: 2 } as any);
     mockInsertNodeAfter.mockResolvedValue({ id: 11 } as any);
 
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await countersignApproval(1, 100, '张三', 'after', [200]);
 
     const updateCall = mockClient.query.mock.calls.find(
-      (c: any) => typeof c[0] === 'string' && c[0].includes('current_node_order = current_node_order')
+      (c: any) => typeof c[0] === 'string' && c[0].includes('SET current_node_order')
     );
     expect(updateCall).toBeUndefined();
   });
@@ -273,7 +296,7 @@ describe('countersignApproval - 补充', () => {
     mockGetCurrentApproverNode.mockResolvedValue({ id: 10, node_order: 2 } as any);
     mockInsertNodeAfter.mockResolvedValue({ id: 11 } as any);
 
-    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    const mockClient = createMockClient();
     mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
 
     await countersignApproval(1, 100, '张三', 'after', [200, 300]);
