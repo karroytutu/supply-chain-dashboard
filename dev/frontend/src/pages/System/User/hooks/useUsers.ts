@@ -10,16 +10,16 @@ import { useUserActions } from './useUserActions';
 
 export function useUsers() {
   const {
-    page, pageSize, filters, activeStatus,
-    setFilters, setActiveStatus, setPage,
+    page, pageSize, filters, searchVersion,
+    setFilters, setPage,
     handleSearch: searchFilter,
     handleReset: resetFilter,
     handlePageChange,
   } = useUserFilters();
 
   const {
-    loading, dataSource, total, stats, roles, fetchUsers,
-  } = useUserData(page, pageSize, filters, activeStatus);
+    loading, dataSource, total, roles, fetchUsers,
+  } = useUserData(page, pageSize, filters, searchVersion);
 
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
 
@@ -42,9 +42,9 @@ export function useUsers() {
 
   // 按逻辑分组返回（规范要求：超过10个属性必须分组）
   return {
-    data: { loading, dataSource, total, stats, roles },
+    data: { loading, dataSource, total, roles },
     pagination: { page, pageSize },
-    filters: { filters, activeStatus, setFilters, setActiveStatus },
+    filters: { filters, setFilters },
     selection: { selectedRowKeys, setSelectedRowKeys, batchLoading },
     actions: {
       reload: fetchUsers,
