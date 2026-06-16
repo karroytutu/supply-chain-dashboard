@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Card, Button, Space, Tabs, Table, Statistic, Row, Col, Modal, Tag, Collapse, message } from 'antd';
-import { SwapOutlined, SearchOutlined, ExclamationCircleOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, SearchOutlined, ExclamationCircleOutlined, HistoryOutlined } from '@ant-design/icons';
 import UserSearchSelect from './components/UserSearchSelect';
 import { scanHandoverImpact, executeHandover, getHandoverHistory } from '@/services/api/oa';
 import type { HandoverScanResult, HandoverHistoryItem } from '@/types/oa';
@@ -12,6 +12,7 @@ const HandoverPage: React.FC = () => {
   const [targetUserId, setTargetUserId] = useState<number | undefined>();
   const [scanResult, setScanResult] = useState<HandoverScanResult | null>(null);
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
+  const [selectedInstanceIds, setSelectedInstanceIds] = useState<number[]>([]);
   const [scanning, setScanning] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [history, setHistory] = useState<{ list: HandoverHistoryItem[]; total: number }>({ list: [], total: 0 });
@@ -29,6 +30,7 @@ const HandoverPage: React.FC = () => {
       const result = await scanHandoverImpact(sourceUserId);
       setScanResult(result);
       setSelectedCodes(result.formTypes.map(ft => ft.code));
+      setSelectedInstanceIds(result.instances.map(inst => inst.nodeId));
       if (result.summary.formTypeCount === 0 && result.summary.instanceCount === 0) {
         message.info('该用户未被指定为任何流程的审批人，也没有在途审批单');
       }
@@ -67,7 +69,7 @@ const HandoverPage: React.FC = () => {
       icon: <ExclamationCircleOutlined />,
       content: (
         <div>
-          <p>将交接 <strong>{scanResult?.summary.formTypeCount || 0}</strong> 个流程定义和 <strong>{scanResult?.summary.instanceCount || 0}</strong> 个在途审批单。</p>
+          <p>将交接 <strong>{selectedCodes.length}</strong> 个流程定义和 <strong>{selectedInstanceIds.length}</strong> 个在途审批单节点。</p>
           <p>此操作不可撤销，请确认。</p>
         </div>
       ),
@@ -81,12 +83,15 @@ const HandoverPage: React.FC = () => {
             sourceUserId,
             targetUserId,
             formTypeCodes: selectedCodes,
+            instanceIds: selectedInstanceIds,
+            includeInFlightInstances: selectedInstanceIds.length > 0,
           });
           message.success(
             `交接完成！更新了 ${result.formTypesUpdated} 个流程定义、${result.instancesUpdated} 个在途审批单、${result.nodesReassigned} 个节点`
           );
           setScanResult(null);
           setSelectedCodes([]);
+          setSelectedInstanceIds([]);
           loadHistory();
         } catch (error) {
           message.error(error instanceof Error ? error.message : '交接失败');
@@ -95,7 +100,7 @@ const HandoverPage: React.FC = () => {
         }
       },
     });
-  }, [sourceUserId, targetUserId, scanResult, selectedCodes, loadHistory]);
+  }, [sourceUserId, targetUserId, scanResult, selectedCodes, selectedInstanceIds, loadHistory]);
 
   // 流程定义表格列
   const formTypeColumns = [
@@ -136,12 +141,14 @@ const HandoverPage: React.FC = () => {
     {
       title: '影响范围',
       key: 'scope',
-      render: (_: unknown, record: HandoverHistoryItem) =>
-        `${record.formTypesUpdated}个表单 ${record.instancesUpdated}个审批单 ${record.nodesReassigned}个节点`,
+      render: (_: unknown, record: HandoverHistoryItem) => {
+        const instanceCount = record.affectedInstanceIds?.length ?? 0;
+        return `${record.formTypesUpdated}个表单 ${record.instancesUpdated}个审批单 ${record.nodesReassigned}个节点${instanceCount > 0 ? `（含${instanceCount}个实例）` : ''}`;
+      },
     },
   ];
 
-  const canExecute = scanResult && scanResult.summary.formTypeCount > 0 && targetUserId && sourceUserId !== targetUserId;
+  const canExecute = scanResult && (selectedCodes.length > 0 || selectedInstanceIds.length > 0) && targetUserId && sourceUserId !== targetUserId;
 
   return (
     <div className={styles.handoverPage}>
@@ -156,12 +163,13 @@ const HandoverPage: React.FC = () => {
                 setSourceUserId(id);
                 setScanResult(null);
                 setSelectedCodes([]);
+                setSelectedInstanceIds([]);
               }}
               placeholder="搜索被交接人"
               style={{ width: 200 }}
             />
           </div>
-          <SwapOutlined style={{ fontSize: 20, color: '#999', marginBottom: 8 }} />
+          <ArrowRightOutlined style={{ fontSize: 20, color: '#999', marginBottom: 8 }} />
           <div>
             <div className={styles.fieldLabel}>交接人</div>
             <UserSearchSelect
@@ -226,6 +234,10 @@ const HandoverPage: React.FC = () => {
                     dataSource={scanResult.instances}
                     columns={instanceColumns}
                     pagination={false}
+                    rowSelection={{
+                      selectedRowKeys: selectedInstanceIds,
+                      onChange: keys => setSelectedInstanceIds(keys as number[]),
+                    }}
                     size="small"
                   />
                 ),

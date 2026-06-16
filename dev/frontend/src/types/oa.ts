@@ -502,6 +502,8 @@ export interface HandoverExecuteRequest {
   sourceUserId: number;
   targetUserId: number;
   formTypeCodes?: string[];
+  /** 选定的在途审批单节点 ID（不传则交接所有在途节点） */
+  instanceIds?: number[];
   includeInFlightInstances?: boolean;
 }
 
@@ -521,5 +523,6 @@ export interface HandoverHistoryItem {
   instancesUpdated: number;
   nodesReassigned: number;
   affectedFormTypeCodes: string[];
+  affectedInstanceIds: number[];
   createdAt: string;
 }

@@ -14,6 +14,26 @@ interface TimelineApprovalGroupProps {
 /** 渲染单条操作记录 */
 export function ActionEntry({ action }: { action: ApprovalAction }) {
   const config = ACTION_TYPE_CONFIG[action.actionType];
+
+  // 交接类型：从 details 中提取结构化交接信息展示
+  if (action.actionType === 'handover' && action.details) {
+    const { sourceUserName, targetUserName, operatorName } = action.details as {
+      sourceUserName?: string;
+      targetUserName?: string;
+      operatorName?: string;
+    };
+    return (
+      <div key={action.id} className={styles.timelineActionEntry}>
+        <span className={config?.cls || styles.actionTagSubmit}>
+          {config?.label || action.actionType}
+        </span>
+        <span className={styles.timelineHandoverDetail}>
+          管理员{operatorName}将审批人从{sourceUserName}交接给{targetUserName}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div key={action.id} className={styles.timelineActionEntry}>
       <span className={config?.cls || styles.actionTagSubmit}>
