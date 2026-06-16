@@ -624,7 +624,8 @@ export type ApprovalActionType =
   | 'cancel'
   | 'resubmit'
   | 'update' // 操作型节点的"更新"操作（保存数据，不触发流转）
-  | 'comment'; // 独立评论（不执行审批动作，仅留言）
+  | 'comment' // 独立评论（不执行审批动作，仅留言）
+  | 'handover'; // 管理员流程交接（批量转移在途审批单）
 
 /**
  * oa_approval_actions 表行

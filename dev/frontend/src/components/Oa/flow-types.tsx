@@ -57,6 +57,7 @@ export const ACTION_TYPE_CONFIG: Record<string, { label: string; cls: string }> 
   transfer: { label: '转交', cls: styles.actionTagTransfer },
   countersign: { label: '加签', cls: styles.actionTagCountersign },
   withdraw: { label: '撤回', cls: styles.actionTagWithdraw },
+  handover: { label: '交接', cls: styles.actionTagHandover },
 };
 
 // =====================================================

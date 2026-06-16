@@ -140,10 +140,19 @@ async function scanInFlightInstances(sourceUserId: number): Promise<AffectedInst
 
 /**
  * 搜索用户（用于交接人员选择器）
+ * 空关键词时返回全部启用用户（支持下拉浏览），有关键词时模糊搜索
  */
 export async function searchUsers(keyword: string): Promise<Array<{ id: number; name: string }>> {
-  if (!keyword || keyword.length < 1) return [];
+  if (!keyword || keyword.trim().length < 1) {
+    // 无关键词：返回全部启用用户，支持下拉浏览
+    const result = await query<{ id: number; name: string }>(
+      `SELECT id, name FROM users WHERE status = 1 ORDER BY name LIMIT 100`,
+      []
+    );
+    return result.rows;
+  }
 
+  // 有关键词：模糊搜索
   const result = await query<{ id: number; name: string }>(
     `SELECT id, name FROM users
      WHERE status = 1
@@ -156,7 +165,7 @@ export async function searchUsers(keyword: string): Promise<Array<{ id: number; 
   return result.rows;
 }
 
-/** 交接历史日志行类型 */
+/** 交接历史日志行类型（handover_log） */
 interface HandoverLogRow {
   id: number;
   source_user_name: string;
@@ -166,6 +175,7 @@ interface HandoverLogRow {
   instances_updated: number;
   nodes_reassigned: number;
   affected_form_type_codes: string[];
+  affected_instance_ids: number[] | null;
   created_at: string;
 }
 
@@ -182,7 +192,7 @@ export async function getHandoverHistory(
     query<HandoverLogRow>(
       `SELECT id, source_user_name, target_user_name, operator_name,
               form_types_updated, instances_updated, nodes_reassigned,
-              affected_form_type_codes, created_at
+              affected_form_type_codes, affected_instance_ids, created_at
        FROM oa_workflow_handovers
        ORDER BY created_at DESC
        LIMIT $1 OFFSET $2`,
@@ -201,6 +211,7 @@ export async function getHandoverHistory(
       instancesUpdated: row.instances_updated,
       nodesReassigned: row.nodes_reassigned,
       affectedFormTypeCodes: row.affected_form_type_codes,
+      affectedInstanceIds: row.affected_instance_ids ?? [],
       createdAt: row.created_at,
     })),
     total: parseInt(countResult.rows[0].total),

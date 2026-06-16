@@ -20,35 +20,51 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = ({ value, onChange, pl
   const [options, setOptions] = useState<UserOption[]>([]);
   const [fetching, setFetching] = useState(false);
   const fetchRef = useRef(0);
-
   const debounceTimeout = useRef<ReturnType<typeof setTimeout>>();
+  // 标记是否已加载过初始列表，避免重复请求
+  const initialLoadedRef = useRef(false);
 
+  // 公共加载函数：复用于初始加载和搜索
+  const fetchUsers = useCallback(async (keyword: string) => {
+    fetchRef.current += 1;
+    const fetchId = fetchRef.current;
+    setFetching(true);
+
+    try {
+      const users = await searchHandoverUsers(keyword);
+      if (fetchId !== fetchRef.current) return; // 过期请求
+      setOptions(users);
+    } catch {
+      setOptions([]);
+    } finally {
+      if (fetchId === fetchRef.current) setFetching(false);
+    }
+  }, []);
+
+  // 搜索处理（带 debounce）
   const handleSearch = useCallback((keyword: string) => {
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
     }
 
-    if (!keyword || keyword.length < 1) {
-      setOptions([]);
+    if (!keyword || keyword.trim().length < 1) {
+      // 清除搜索词后，重新加载全部列表（而非清空）
+      fetchUsers('');
       return;
     }
 
-    fetchRef.current += 1;
-    const fetchId = fetchRef.current;
-    setFetching(true);
-
-    debounceTimeout.current = setTimeout(async () => {
-      try {
-        const users = await searchHandoverUsers(keyword);
-        if (fetchId !== fetchRef.current) return; // 过期请求
-        setOptions(users);
-      } catch {
-        setOptions([]);
-      } finally {
-        setFetching(false);
-      }
+    debounceTimeout.current = setTimeout(() => {
+      fetchUsers(keyword);
     }, 300);
-  }, []);
+  }, [fetchUsers]);
+
+  // 下拉展开时加载初始列表（仅首次）
+  const handleDropdownVisibleChange = useCallback((open: boolean) => {
+    if (open && !initialLoadedRef.current) {
+      initialLoadedRef.current = true;
+      fetchUsers('');
+    }
+  }, [fetchUsers]);
 
   const handleChange = useCallback(
     (val: number | undefined) => {
@@ -67,6 +83,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = ({ value, onChange, pl
       filterOption={false}
       onSearch={handleSearch}
       onChange={handleChange}
+      onDropdownVisibleChange={handleDropdownVisibleChange}
       notFoundContent={fetching ? <Spin size="small" /> : '无匹配用户'}
       style={style}
     >

@@ -44,6 +44,7 @@ export async function executeHandoverHandler(req: Request, res: Response): Promi
     }
 
     const { sourceUserId, targetUserId, formTypeCodes, includeInFlightInstances } = req.body;
+    let { instanceIds } = req.body;
     const srcId = Number(sourceUserId);
     const tgtId = Number(targetUserId);
 
@@ -52,8 +53,17 @@ export async function executeHandoverHandler(req: Request, res: Response): Promi
       return;
     }
 
+    // 校验 instanceIds 必须为数字数组或 undefined
+    if (instanceIds !== undefined && instanceIds !== null) {
+      if (!Array.isArray(instanceIds)) {
+        res.status(400).json(buildErrorResponse(400, 'instanceIds 必须为数组'));
+        return;
+      }
+      instanceIds = instanceIds.map(Number).filter((n: number) => !isNaN(n) && n > 0);
+    }
+
     const result = await executeHandover(
-      { sourceUserId: srcId, targetUserId: tgtId, formTypeCodes, includeInFlightInstances },
+      { sourceUserId: srcId, targetUserId: tgtId, formTypeCodes, instanceIds, includeInFlightInstances },
       userId,
       userName
     );
