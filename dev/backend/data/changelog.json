@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "v2.2.2",
+      "date": "2026-06-16 14:08",
+      "types": ["optimization"],
+      "changes": [
+        "更新日志日期显示优化，各版本记录增加发布时间，日期时间分开展示"
+      ]
+    },
+    {
       "version": "v2.2.1",
       "date": "2026-06-16 13:48",
       "types": ["optimization"],
