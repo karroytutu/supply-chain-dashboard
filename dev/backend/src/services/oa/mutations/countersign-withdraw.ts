@@ -8,9 +8,11 @@ const log = createLogger('OA');
 import { appQuery as query } from '../../../db/appPool';
 import { OaInstanceRow, OaNodeRow } from '../oa.types';
 import { isCurrentApprover, isApplicant, getCurrentApproverNode } from '../oa-utils';
-import { notifyCountersign, notifyWithdrawn } from '../oa-notify';
-import { completeAllPendingTodos } from '../oa-process-centre';
-import { transaction, getInstanceNotifyData, insertNodeAfter } from './shared-utils';
+import {
+  enqueueCompleteAllPendingTodos,
+  enqueueSendApprovalNotification,
+} from '../oa-async-task.service';
+import { transaction, insertNodeAfter } from './shared-utils';
 
 /**
  * 加签审批
@@ -41,6 +43,20 @@ export async function countersignApproval(
   const countersignUsers = countersignUsersResult.rows;
 
   await transaction(async client => {
+    // 实例级分布式锁 + 行锁，防止多实例并发状态覆盖
+    await client.query('SELECT pg_advisory_xact_lock($1)', [instanceId]);
+
+    const instanceResult = await client.query<OaInstanceRow>(
+      `SELECT * FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
+      [instanceId]
+    );
+    if (instanceResult.rows.length === 0) {
+      throw new Error('审批实例不存在');
+    }
+    if (instanceResult.rows[0].status !== 'pending') {
+      throw new Error('审批实例不在处理中，无法加签');
+    }
+
     const currentNode = await getCurrentApproverNode(client, instanceId, userId);
     if (!currentNode) {
       throw new Error('未找到待审批节点');
@@ -52,7 +68,7 @@ export async function countersignApproval(
       : currentNode.node_order;
 
     // 使用通用的 insertNodeAfter 函数逐个插入加签节点
-    // 后加签时每次递增 insertAfterOrder，确保节点顺序与 countersignUsers 数组一致
+    // 前/后加签均每次递增 insertAfterOrder，确保节点顺序与 countersignUsers 数组一致
     let currentInsertAfter = insertAfterOrder;
     for (const csUser of countersignUsers) {
       const insertedNode = await insertNodeAfter(client, instanceId, currentInsertAfter, {
@@ -71,17 +87,14 @@ export async function countersignApproval(
         [currentNode.id, insertedNode.id]
       );
 
-      // 后加签时递增插入位置，保证顺序正确
-      if (countersignType === 'after') {
-        currentInsertAfter++;
-      }
+      currentInsertAfter++;
     }
 
-    // 前加签时需要更新当前节点顺序（因为 insertNodeAfter 会在 insertAfterOrder 之后插入）
+    // 前加签时需要更新当前节点顺序指向第一个新插入的加签节点
     if (countersignType === 'before') {
       await client.query(
-        `UPDATE oa_approval_instances SET current_node_order = current_node_order + $1, updated_at = NOW() WHERE id = $2`,
-        [countersignUsers.length, instanceId]
+        `UPDATE oa_approval_instances SET current_node_order = $1, updated_at = NOW() WHERE id = $2`,
+        [insertAfterOrder + 1, instanceId]
       );
     }
 
@@ -115,8 +128,11 @@ export async function countersignApproval(
   });
 
   setImmediate(() => {
-    sendCountersignNotification(instanceId, userId, userName, countersignUserIds).catch(err => {
-      log.error('加签通知发送失败:', err);
+    enqueueSendApprovalNotification('countersign', instanceId, {
+      countersignUserIds,
+      fromUserName: userName,
+    }).catch(err => {
+      log.error('加签通知任务入队失败:', err);
     });
   });
 }
@@ -134,22 +150,29 @@ export async function withdrawApproval(
     throw new Error('只有申请人可以撤回审批');
   }
 
-  const instanceResult = await query<OaInstanceRow>(
-    `SELECT * FROM oa_approval_instances WHERE id = $1`,
-    [instanceId]
-  );
-
-  if (instanceResult.rows.length === 0) {
-    throw new Error('审批实例不存在');
-  }
-
-  const instance = instanceResult.rows[0];
-
-  if (instance.status !== 'pending') {
-    throw new Error('只有审批中的申请可以撤回');
-  }
-
   await transaction(async client => {
+    // 实例级分布式锁 + 行锁，防止多实例并发状态覆盖
+    await client.query('SELECT pg_advisory_xact_lock($1)', [instanceId]);
+
+    const instanceResult = await client.query<OaInstanceRow>(
+      `SELECT * FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
+      [instanceId]
+    );
+
+    if (instanceResult.rows.length === 0) {
+      throw new Error('审批实例不存在');
+    }
+
+    const instance = instanceResult.rows[0];
+
+    if (instance.status !== 'pending') {
+      throw new Error('只有审批中的申请可以撤回');
+    }
+
+    if (instance.applicant_id !== userId) {
+      throw new Error('只有申请人可以撤回审批');
+    }
+
     await client.query(
       `UPDATE oa_approval_instances SET status = 'withdrawn', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [instanceId]
@@ -168,69 +191,16 @@ export async function withdrawApproval(
   });
 
   setImmediate(() => {
-    // 新增：取消所有被取消节点审批人的钉钉待办 + 完成壳实例
-    completeAllPendingTodos(instanceId, 'refuse').catch(err => {
-      log.error('批量取消钉钉待办失败:', err);
+    // 取消所有被取消节点审批人的钉钉待办 + 完成壳实例（completeAllPendingTodos 内部已包含壳实例终结）
+    enqueueCompleteAllPendingTodos(instanceId, 'refuse').catch(err => {
+      log.error('批量取消钉钉待办任务入队失败:', err);
     });
-    sendWithdrawNotification(instanceId, userId, userName).catch(err => {
-      log.error('撤回通知发送失败:', err);
+    enqueueSendApprovalNotification('withdrawn', instanceId, {
+      applicantName: userName,
+    }).catch(err => {
+      log.error('撤回通知任务入队失败:', err);
     });
   });
 }
 
-/** 加签审批后发送通知 */
-async function sendCountersignNotification(
-  instanceId: number,
-  fromUserId: number,
-  fromUserName: string,
-  countersignUserIds: number[]
-): Promise<void> {
-  const data = await getInstanceNotifyData(instanceId);
-  if (!data) return;
 
-  await notifyCountersign(
-    {
-      instanceId,
-      instanceNo: data.instance.instance_no,
-      title: data.instance.title,
-      formTypeName: data.formTypeName,
-      applicantName: data.instance.applicant_name,
-      fromUserName,
-      formSchema: data.formType?.formSchema,
-      formData: data.instance.form_data as Record<string, unknown>,
-    },
-    countersignUserIds
-  );
-}
-
-/** 撤回审批后发送通知 */
-async function sendWithdrawNotification(
-  instanceId: number,
-  applicantId: number,
-  applicantName: string
-): Promise<void> {
-  const data = await getInstanceNotifyData(instanceId);
-  if (!data) return;
-
-  const nodeResult = await query<{ assigned_user_id: number }>(
-    `SELECT DISTINCT assigned_user_id FROM oa_approval_nodes
-     WHERE instance_id = $1 AND status = 'cancelled' AND assigned_user_id IS NOT NULL`,
-    [instanceId]
-  );
-  const approverIds = nodeResult.rows.map(r => r.assigned_user_id);
-
-  if (approverIds.length > 0) {
-    await notifyWithdrawn(
-      {
-        instanceId,
-        instanceNo: data.instance.instance_no,
-        title: data.instance.title,
-        formTypeName: data.formTypeName,
-        applicantName,
-        formSchema: data.formType?.formSchema,
-        formData: data.instance.form_data as Record<string, unknown>,
-      },
-      approverIds
-    );
-  }
-}

@@ -111,7 +111,12 @@ export function useDataList(): UseDataListReturn {
   const loadStats = async () => {
     try {
       const res = await oaApi.getStats();
-      setStats(res.data);
+      setStats({
+        total: res.data.total || 0,
+        pending: res.data.pending || 0,
+        approved: res.data.approved || 0,
+        rejected: res.data.rejected || 0,
+      });
     } catch (error) {
       log.error('加载统计失败', error);
     }

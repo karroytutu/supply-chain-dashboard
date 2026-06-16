@@ -160,6 +160,9 @@ export const CACHE_TTL_STRATEGIC_PRODUCT = 5 * 60 * 1000;
 /** 权限缓存过期时间 @usedBy permission-cache.service.ts (权限缓存) */
 export const CACHE_TTL_PERMISSION = 30 * 1000;
 
+/** OA 钉钉流程模板 processCode 缓存过期时间 @usedBy oa-process-centre.ts (模板缓存) */
+export const CACHE_TTL_OA_PROCESS_CODE = 5 * 60 * 1000;
+
 // ==================== 客户授信审批阈值 ====================
 
 /**

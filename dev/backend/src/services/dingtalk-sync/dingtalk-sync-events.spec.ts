@@ -1,9 +1,10 @@
+import { EventEmitter } from 'events';
+
 jest.mock('../../utils/logger', () => ({
   createLogger: () => ({ warn: jest.fn(), info: jest.fn(), error: jest.fn() }),
 }));
 
 jest.mock('../dingtalk-stream.service', () => {
-  const EventEmitter = require('events');
   return { dingtalkEvents: new EventEmitter() };
 });
 

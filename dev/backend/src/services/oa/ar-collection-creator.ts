@@ -17,8 +17,7 @@ import { evaluateEntryRules, extractEntryMetadata, COLLECTION_ENTRY_RULES } from
 import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
 import { getFormTypeByCode } from './form-types';
 import { generateInstanceNo } from './oa-utils';
-import { createProcessInstance } from './oa-process-centre';
-import { notifyPendingApproval } from './oa-notify';
+import { enqueueCreateProcessInstance, enqueueSendApprovalNotification } from './oa-async-task.service';
 import { initErpMeta } from '../fixed-asset/erp-meta-utils';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 
@@ -129,8 +128,8 @@ async function generateCollectionOaInstancesInner(): Promise<void> {
       log.error(`erp_meta 初始化失败 [instanceId=${instance.instanceId}]:`, err);
     });
 
-    // 11b. 创建钉钉壳实例（必须先于待办，因为 createApprovalTodo 内部检查壳实例存在）
-    await createProcessInstance(
+    // 11b. 创建钉钉壳实例（异步任务，支持失败重试）
+    await enqueueCreateProcessInstance(
       instance.instanceId,
       'ar_collection',
       formType.name,
@@ -139,32 +138,18 @@ async function generateCollectionOaInstancesInner(): Promise<void> {
       formType.formSchema,
       instance.formData
     ).catch(err => {
-      log.error(`创建壳实例失败 [instanceId=${instance.instanceId}]:`, err);
+      log.error(`壳实例任务入队失败 [instanceId=${instance.instanceId}]:`, err);
     });
 
-    // 11c. 为营销师创建钉钉待办
+    // 11c. 为营销师创建钉钉待办（异步任务，支持失败重试）
     if (instance.marketerUserId) {
-      await notifyPendingApproval(
-        {
-          instanceId: instance.instanceId,
-          instanceNo: instance.instanceNo,
-          title: instance.title,
-          formTypeName: formType.name,
-          applicantName: systemUser.name,
-          nodeName: '营销师催收',
-          nodeOrder: 1,
-          formSchema: formType.formSchema,
-          formData: instance.formData,
-        },
-        [instance.marketerUserId]
-      ).catch(err => {
-        log.error(`创建钉钉待办失败 [instanceId=${instance.instanceId}]:`, err);
+      await enqueueSendApprovalNotification('pending', instance.instanceId, {
+        approverIds: [instance.marketerUserId],
+        nodeName: '营销师催收',
+        nodeOrder: 1,
+      }).catch(err => {
+        log.error(`钉钉待办通知任务入队失败 [instanceId=${instance.instanceId}]:`, err);
       });
-    }
-
-    // 限流：避免批量场景触发钉钉 API 限流（参照 fix-ar-collection-dingtalk.ts）
-    if (allCreatedInstances.length > 1) {
-      await new Promise(resolve => setTimeout(resolve, 200));
     }
   }
 

@@ -23,6 +23,7 @@ jest.mock('../erp-client/erp-settlement.service', () => ({
 
 import { enrichDebtRecords, filterHoardDebts } from './erp-debt-enrichment.service';
 import { cache } from '../../utils/cache';
+import { appQuery } from '../../db/appPool';
 import { searchErpCustomers } from '../erp-client/erp-customer.service';
 import { searchErpSettlementOrders } from '../erp-client/erp-settlement.service';
 import { AR_HOARD_TAG_HOARD, AR_HOARD_TAG_NORMAL } from '../../utils/constants';
@@ -66,8 +67,7 @@ beforeEach(() => {
   // 结算单查询默认返回空（无压单标记）
   mockSearchSettlement.mockResolvedValue([]);
   // appQuery 默认返回空（无本地 hold 记录）
-  const { appQuery } = require('../../db/appPool');
-  appQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+  (appQuery as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
 });
 
 // ==================== filterHoardDebts（纯函数） ====================

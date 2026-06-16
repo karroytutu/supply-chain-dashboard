@@ -15,8 +15,6 @@ import {
   SubmitApprovalRequest,
   ApprovalActionRequest,
   ViewMode,
-  ApprovalNode,
-  ApprovalAction,
   WorkflowNodeDef,
 } from '@/types/oa';
 
@@ -115,6 +113,8 @@ export async function getApprovalList(
       viewMode: params.viewMode,
       formTypeCode: params.formTypeCode,
       status: params.status,
+      keyword: params.keyword,
+      applicantName: params.applicantName,
       startDate: params.startDate,
       endDate: params.endDate,
       page: params.page,
@@ -140,26 +140,6 @@ export async function getStats(): Promise<{ data: ApprovalStats }> {
 export async function getDetail(id: number): Promise<{ data: ApprovalDetail }> {
   const res = await request<ApprovalDetail>(
     `/oa/instances/${id}`
-  );
-  return { data: res };
-}
-
-/**
- * 获取审批节点
- */
-export async function getNodes(instanceId: number): Promise<{ data: ApprovalNode[] }> {
-  const res = await request<ApprovalNode[]>(
-    `/oa/instances/${instanceId}/nodes`
-  );
-  return { data: res };
-}
-
-/**
- * 获取审批操作记录
- */
-export async function getActions(instanceId: number): Promise<{ data: ApprovalAction[] }> {
-  const res = await request<ApprovalAction[]>(
-    `/oa/instances/${instanceId}/actions`
   );
   return { data: res };
 }
@@ -601,8 +581,6 @@ export const oaApi = {
   getApprovalList,
   getStats,
   getDetail,
-  getNodes,
-  getActions,
   submitApproval,
   approve,
   reject,

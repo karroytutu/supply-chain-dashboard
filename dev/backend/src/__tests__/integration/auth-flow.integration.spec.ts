@@ -30,16 +30,16 @@ jest.mock('../../services/permission-cache.service', () => ({
 import express from 'express';
 import request from 'supertest';
 import { appQuery } from '../../db/appPool';
-import { getUserRolesAndPermissions } from '../../services/auth.service';
+import { getUserRolesAndPermissions, getCurrentUser, devLogin } from '../../services/auth.service';
 import { getUserPermissionCache } from '../../services/permission-cache.service';
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 const mockGetRoles = getUserRolesAndPermissions as jest.MockedFunction<typeof getUserRolesAndPermissions>;
-const mockGetCurrentUser = require('../../services/auth.service').getCurrentUser as jest.MockedFunction<any>;
+const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<any>;
 const mockGetCache = getUserPermissionCache as jest.MockedFunction<typeof getUserPermissionCache>;
 
 // 构建最小 Express 应用（仅挂载认证路由）
-function createTestApp() {
+async function createTestApp() {
   const app = express();
   app.use(express.json());
 
@@ -58,7 +58,7 @@ function createTestApp() {
   }));
 
   // 延迟导入以确保 mock 生效
-  const authRoutes = require('../../routes/auth.routes').default;
+  const { default: authRoutes } = await import('../../routes/auth.routes');
   app.use('/api/auth', authRoutes);
 
   return app;
@@ -66,10 +66,10 @@ function createTestApp() {
 
 let app: express.Express;
 
-beforeAll(() => {
+beforeAll(async () => {
   // 设置开发环境以启用 dev-login
   process.env.NODE_ENV = 'development';
-  app = createTestApp();
+  app = await createTestApp();
 });
 
 beforeEach(() => {
@@ -140,12 +140,11 @@ describe('GET /api/auth/me', () => {
 describe('POST /api/auth/dev-login', () => {
   it('开发环境端点已注册（非 404）', async () => {
     // mock devLogin 返回成功结果，避免控制器内部抛出未处理异常
-    const { devLogin } = require('../../services/auth.service');
-    devLogin.mockResolvedValueOnce({
+    (devLogin as jest.MockedFunction<any>).mockResolvedValueOnce({
       success: true,
       token: 'mock-token',
       user: { id: 1, username: 'admin' },
-    });
+    } as any);
 
     const res = await request(app)
       .post('/api/auth/dev-login')

@@ -70,6 +70,8 @@ import { getCustomerLicenseInfo, getErpCustomerProfile } from '../erp-client/erp
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import { cache } from '../../utils/cache';
 import { detectHoardChangesByCustomer } from '../erp-debt/erp-hoard-detect';
+import { existsSync } from 'fs';
+import { createDeferredUploadAfterApproval } from '../credit-license';
 import {
   getCustomerCreditCCRoles,
   resolveCustomerCreditPreviewContext,
@@ -208,8 +210,7 @@ describe('onApprovedCustomerCredit', () => {
   });
 
   it('有营业执照上传时调用 erpUploadBusinessLicense', async () => {
-    const fsMod = require('fs');
-    fsMod.existsSync.mockReturnValueOnce(true);
+    (existsSync as jest.Mock).mockReturnValueOnce(true);
     const formData = {
       creditType: 'payment_period',
       customer: 100,
@@ -229,7 +230,6 @@ describe('onApprovedCustomerCredit', () => {
       _customerName: '客户B',
     };
     await onApprovedCustomerCredit(mkInstance(), formData);
-    const deferredModule = require('../credit-license');
-    expect(deferredModule.createDeferredUploadAfterApproval).toHaveBeenCalled();
+    expect(createDeferredUploadAfterApproval).toHaveBeenCalled();
   });
 });

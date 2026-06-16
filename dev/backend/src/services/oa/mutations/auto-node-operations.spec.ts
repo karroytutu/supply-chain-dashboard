@@ -16,8 +16,6 @@ jest.mock('../form-types', () => ({
 }));
 
 jest.mock('../oa-notify', () => ({
-  notifyPendingApproval: jest.fn().mockResolvedValue(undefined),
-  notifyApproved: jest.fn().mockResolvedValue(undefined),
   notifyCc: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -31,24 +29,29 @@ jest.mock('../oa-utils', () => ({
 
 jest.mock('./shared-utils', () => ({
   transaction: jest.fn(),
-  getInstanceNotifyData: jest.fn(),
 }));
 
 jest.mock('../../fixed-asset/erp-meta-utils', () => ({
   markErpFailed: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../oa-async-task.service', () => ({
+  enqueueExecuteAutoNode: jest.fn().mockResolvedValue(undefined),
+  enqueueFinalizeProcessInstance: jest.fn().mockResolvedValue(undefined),
+  enqueueSendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { appQuery } from '../../../db/appPool';
 import { getFormTypeByCode } from '../form-types';
-import { notifyPendingApproval, notifyApproved, notifyCc } from '../oa-notify';
+import { notifyCc } from '../oa-notify';
 import { finalizeProcessInstance } from '../oa-process-centre';
 import { findUserIdsByRoleCodes } from '../oa-utils';
-import { transaction, getInstanceNotifyData } from './shared-utils';
+import { transaction } from './shared-utils';
+import { enqueueExecuteAutoNode, enqueueFinalizeProcessInstance, enqueueSendApprovalNotification } from '../oa-async-task.service';
 import {
   executeAutoNodeCallback,
   retryAutoNode,
   triggerCcIfApplicable,
-  sendApprovalNotifications,
 } from './auto-node-operations';
 
 const mockQuery = appQuery as jest.MockedFunction<typeof appQuery>;
@@ -117,7 +120,7 @@ describe('executeAutoNodeCallback', () => {
     const ft = mkFormType();
     await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), { key: 'v' });
     expect(ft.onApproved).toHaveBeenCalledTimes(1);
-    expect(finalizeProcessInstance).toHaveBeenCalledWith(1, 'agree');
+    expect(enqueueFinalizeProcessInstance).toHaveBeenCalledWith(1, 'agree');
     // 验证 erp_meta 被清理
     const erpMetaCall = mockQuery.mock.calls.find(
       c => typeof c[0] === 'string' && (c[0] as string).includes('erp_meta')
@@ -143,7 +146,7 @@ describe('executeAutoNodeCallback', () => {
     expect(jsonbCalls.length).toBeGreaterThan(0);
   });
 
-  it('成功执行 - 下一节点仍为 auto（递归）', async () => {
+  it('成功执行 - 下一节点仍为 auto 时改为入队异步任务', async () => {
     const autoNode2 = mkNode({ id: 200, node_order: 2, node_type: 'auto' });
     mockQuery
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim node1
@@ -151,16 +154,11 @@ describe('executeAutoNodeCallback', () => {
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node1 → approved
       .mockResolvedValueOnce({ rows: [{ max_order: 2 }] } as any) // cc
       .mockResolvedValueOnce({ rows: [autoNode2] } as any)        // next = auto
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // update current_node
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim node2
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck node2 (无阻塞)
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node2 → approved
-      .mockResolvedValueOnce({ rows: [{ max_order: 2 }] } as any) // cc node2
-      .mockResolvedValueOnce({ rows: [] } as any)                 // no next
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → approved
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // update current_node
     const ft = mkFormType();
     await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), {});
-    expect(ft.onApproved).toHaveBeenCalledTimes(2);
+    expect(ft.onApproved).toHaveBeenCalledTimes(1);
+    expect(enqueueExecuteAutoNode).toHaveBeenCalledWith(1, autoNode2.id);
   });
 
   it('执行失败 → 节点标记为failed，实例标记为erp_failed', async () => {
@@ -224,7 +222,11 @@ describe('executeAutoNodeCallback', () => {
 describe('retryAutoNode', () => {
   it('实例不存在时抛出异常', async () => {
     mockTransaction.mockImplementation(async (fn: any) => {
-      const client = { query: jest.fn().mockResolvedValueOnce({ rows: [] } as any) };
+      const client = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] } as any) // advisory lock
+          .mockResolvedValueOnce({ rows: [] } as any), // SELECT instance
+      };
       return fn(client);
     });
     await expect(retryAutoNode(999)).rejects.toThrow('审批实例不存在');
@@ -233,7 +235,9 @@ describe('retryAutoNode', () => {
   it('审批已处于终态时抛出异常', async () => {
     mockTransaction.mockImplementation(async (fn: any) => {
       const client = {
-        query: jest.fn().mockResolvedValueOnce({ rows: [mkInstance({ status: 'approved' })] } as any),
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] } as any) // advisory lock
+          .mockResolvedValueOnce({ rows: [mkInstance({ status: 'approved' })] } as any), // SELECT instance
       };
       return fn(client);
     });
@@ -244,8 +248,9 @@ describe('retryAutoNode', () => {
     mockTransaction.mockImplementation(async (fn: any) => {
       const client = {
         query: jest.fn()
-          .mockResolvedValueOnce({ rows: [mkInstance()] } as any)
-          // 第二个查询：auto 节点查询返回空（没有找到 pending/failed 的 auto 节点）
+          .mockResolvedValueOnce({ rows: [] } as any) // advisory lock
+          .mockResolvedValueOnce({ rows: [mkInstance()] } as any) // SELECT instance
+          // 第三个查询：auto 节点查询返回空（没有找到 pending/failed 的 auto 节点）
           .mockResolvedValueOnce({ rows: [] } as any),
       };
       return fn(client);
@@ -259,6 +264,7 @@ describe('retryAutoNode', () => {
     mockTransaction.mockImplementation(async (fn: any) => {
       const client = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] } as any)   // advisory lock
           .mockResolvedValueOnce({ rows: [inst] } as any)   // SELECT instance
           .mockResolvedValueOnce({ rows: [node] } as any)   // SELECT auto node
           .mockResolvedValueOnce({ rows: [{ id: 1, node_name: '营销师催收', status: 'pending' }] } as any), // pendingBeforeCheck
@@ -274,6 +280,7 @@ describe('retryAutoNode', () => {
     mockTransaction.mockImplementation(async (fn: any) => {
       const client = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] } as any)       // advisory lock
           .mockResolvedValueOnce({ rows: [inst] } as any)   // SELECT instance
           .mockResolvedValueOnce({ rows: [node] } as any)   // SELECT auto node
           .mockResolvedValueOnce({ rows: [] } as any)       // pendingBeforeCheck (无阻塞节点)
@@ -330,48 +337,5 @@ describe('triggerCcIfApplicable', () => {
     (findUserIdsByRoleCodes as jest.Mock).mockResolvedValue([inst.applicant_id]);
     await triggerCcIfApplicable(1, 1, ft as any, inst);
     expect(notifyCc).not.toHaveBeenCalled();
-  });
-});
-
-describe('sendApprovalNotifications', () => {
-  it('通知数据不存在时静默返回', async () => {
-    (getInstanceNotifyData as jest.Mock).mockResolvedValue(null);
-    await sendApprovalNotifications(1, 5, '审批人', mkInstance(), mkFormType() as any, true);
-    expect(notifyApproved).not.toHaveBeenCalled();
-  });
-
-  it('末位节点 → 通知申请人', async () => {
-    const inst = mkInstance();
-    (getInstanceNotifyData as jest.Mock).mockResolvedValue({
-      formTypeName: '测试', formType: mkFormType(),
-    });
-    await sendApprovalNotifications(1, 5, '审批人', inst, mkFormType() as any, true);
-    expect(notifyApproved).toHaveBeenCalledWith(
-      expect.objectContaining({ instanceId: 1 }),
-      inst.applicant_id,
-    );
-  });
-
-  it('非末位节点 → 通知下一审批人', async () => {
-    (getInstanceNotifyData as jest.Mock).mockResolvedValue({
-      formTypeName: '测试', formType: mkFormType(),
-    });
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ assigned_user_id: 20, node_name: '二审', node_order: 2 }] } as any)
-      .mockResolvedValueOnce({ rows: [mkInstance()] } as any);
-    await sendApprovalNotifications(1, 5, '审批人', mkInstance(), mkFormType() as any, false);
-    expect(notifyPendingApproval).toHaveBeenCalledWith(
-      expect.objectContaining({ instanceId: 1, nodeName: '二审' }),
-      [20],
-    );
-  });
-
-  it('下一节点无 assigned_user_id 时不通知', async () => {
-    (getInstanceNotifyData as jest.Mock).mockResolvedValue({
-      formTypeName: '测试', formType: mkFormType(),
-    });
-    mockQuery.mockResolvedValueOnce({ rows: [{ assigned_user_id: null, node_name: '空', node_order: 2 }] } as any);
-    await sendApprovalNotifications(1, 5, '审批人', mkInstance(), mkFormType() as any, false);
-    expect(notifyPendingApproval).not.toHaveBeenCalled();
   });
 });

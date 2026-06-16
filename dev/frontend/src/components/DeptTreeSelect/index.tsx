@@ -4,8 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { TreeSelect, Spin } from 'antd';
-import { getDeptTree } from '@/services/api/org';
-import type { DeptTreeNode } from '@/services/api/org';
+import { getDeptTree, type DeptTreeNode } from '@/services/api/org';
 
 interface DeptTreeSelectProps {
   value?: string;

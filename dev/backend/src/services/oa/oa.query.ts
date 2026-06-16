@@ -283,7 +283,7 @@ export async function getApprovalList(
  * 获取审批统计数据
  */
 export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
-  const [pendingResult, processedResult, myResult, ccResult] = await Promise.all([
+  const [pendingResult, processedResult, myStatsResult, ccResult] = await Promise.all([
     query<{ count: number }>(
       `
       SELECT COUNT(DISTINCT i.id) as count
@@ -309,9 +309,14 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
       [userId]
     ),
 
-    query<{ count: number }>(
+    query<{ total: number; approved: number; rejected: number }>(
       `
-      SELECT COUNT(*) as count FROM oa_approval_instances WHERE applicant_id = $1
+      SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
+        COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected
+      FROM oa_approval_instances
+      WHERE applicant_id = $1
     `,
       [userId]
     ),
@@ -327,10 +332,15 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
     ),
   ]);
 
+  const myStats = myStatsResult.rows[0];
+
   return {
+    total: myStats?.total || 0,
     pending: pendingResult.rows[0]?.count || 0,
     processed: processedResult.rows[0]?.count || 0,
-    my: myResult.rows[0]?.count || 0,
+    approved: myStats?.approved || 0,
+    rejected: myStats?.rejected || 0,
+    my: myStats?.total || 0,
     cc: ccResult.rows[0]?.count || 0,
   };
 }
@@ -350,17 +360,15 @@ export async function getCollectionOaStats(
   // 角色过滤：通过 OA 节点的 assigned_user_id 过滤
   let roleFilter = '';
   const params: (number | string)[] = [];
-  let paramIdx = 1;
 
   if (role === 'marketer') {
     roleFilter = `AND EXISTS (
       SELECT 1 FROM oa_approval_nodes n2
-      WHERE n2.instance_id = i.id AND n2.assigned_user_id = $${paramIdx}
+      WHERE n2.instance_id = i.id AND n2.assigned_user_id = $1
         AND n2.role_code = 'marketer' AND n2.status = 'pending'
         AND n2.node_order = i.current_node_order
     )`;
     params.push(userId);
-    paramIdx++;
   } else if (role === 'current_accountant' || role === 'finance_staff') {
     roleFilter = `AND EXISTS (
       SELECT 1 FROM oa_approval_nodes n2

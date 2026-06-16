@@ -15,10 +15,12 @@ import {
 } from '../oa-utils';
 
 import { initErpMeta } from '../../fixed-asset/erp-meta-utils';
-import { notifyPendingApproval } from '../oa-notify';
-import { createProcessInstance } from '../oa-process-centre';
+import {
+  enqueueCreateProcessInstance,
+  enqueueSendApprovalNotification,
+  enqueueExecuteAutoNode,
+} from '../oa-async-task.service';
 import { transaction, getInstanceNotifyData } from './shared-utils';
-import { executeAutoNodeCallback } from './approve-approval';
 
 /**
  * 提交审批请求
@@ -60,7 +62,7 @@ export async function submitApproval(
   const result = await transaction(async client => {
     // 插入审批实例
     const initialStatus = firstNodeIsAuto ? 'processing' : 'pending';
-    const initialNodeOrder = firstNodeIsAuto ? filteredNodes[0].order : 1;
+    const initialNodeOrder = filteredNodes[0].order;
     const instanceResult = await client.query<OaInstanceRow>(
       `INSERT INTO oa_approval_instances
         (instance_no, form_type_id, title, form_data, status, applicant_id, applicant_name, applicant_dept, current_node_order)
@@ -190,10 +192,9 @@ export async function submitApproval(
     );
   }
 
-  // 异步操作（不阻塞提交响应）
-  // 必须先创建壳实例，再执行通知和 auto 节点回调（两者均依赖壳实例存在）
+  // 异步操作（不阻塞提交响应）：写入任务表，由 worker 消费实现失败补偿
   setImmediate(async () => {
-    await createProcessInstance(
+    await enqueueCreateProcessInstance(
       result.id,
       req.formTypeCode,
       formType.name,
@@ -201,19 +202,16 @@ export async function submitApproval(
       req.title,
       formType.formSchema,
       req.formData as Record<string, unknown>
-    ).catch(err => {
-      log.error('创建壳实例失败:', err);
-    });
+    ).catch(err => log.error('创建壳实例任务入队失败:', err));
 
     if (firstNodeIsAuto && autoNodeToExecute && formType.onApproved) {
       // auto 节点回调内部会自行通知下一个审批人，无需再发提交通知
-      const formData = req.formData as Record<string, unknown>;
-      executeAutoNodeCallback(result.id, autoNodeToExecute!, formType!, result, formData).catch(
-        err => log.error(`submitApproval auto节点异步执行错误:`, err)
+      await enqueueExecuteAutoNode(result.id, autoNodeToExecute.id).catch(err =>
+        log.error(`submitApproval auto节点任务入队失败:`, err)
       );
     } else {
-      sendSubmitNotifications(result, formType, userId).catch(err => {
-        log.error('提交通知发送失败:', err);
+      sendSubmitNotifications(result, formType).catch(err => {
+        log.error('提交通知任务入队失败:', err);
       });
     }
   });
@@ -227,8 +225,7 @@ export async function submitApproval(
 /** 提交审批后发送通知（仅通知首个审批人，抄送在节点通过后触发） */
 async function sendSubmitNotifications(
   instance: OaInstanceRow,
-  formType: FormTypeDefinition,
-  applicantId: number
+  formType: FormTypeDefinition
 ): Promise<void> {
   const data = await getInstanceNotifyData(instance.id);
   if (!data) return;
@@ -252,20 +249,11 @@ async function sendSubmitNotifications(
       .filter(r => r.assigned_user_id)
       .map(r => r.assigned_user_id);
     if (approverIds.length > 0) {
-      await notifyPendingApproval(
-        {
-          instanceId: instance.id,
-          instanceNo: instance.instance_no,
-          title: instance.title,
-          formTypeName: data.formTypeName,
-          applicantName: instance.applicant_name,
-          nodeName: nodeResult.rows[0].node_name,
-          nodeOrder: nodeResult.rows[0].node_order,
-          formSchema: data.formType?.formSchema,
-          formData: instance.form_data as Record<string, unknown>,
-        },
-        approverIds
-      );
+      await enqueueSendApprovalNotification('pending', instance.id, {
+        approverIds,
+        nodeName: nodeResult.rows[0].node_name,
+        nodeOrder: nodeResult.rows[0].node_order,
+      });
     }
   }
 }

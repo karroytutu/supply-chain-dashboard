@@ -163,7 +163,7 @@ export interface AssessmentTier {
 // 审批流程相关类型
 // =====================================================
 
-export type NodeType = 'approval' | 'data_input' | 'auto' | 'countersign' | 'role' | 'dynamic_supervisor' | 'specific_user';
+export type NodeType = 'approval' | 'data_input' | 'auto' | 'countersign';
 
 export type SignMode = 'or' | 'and';
 
@@ -214,7 +214,7 @@ export interface WorkflowNodeDef {
   userId?: number;
   handler?: HandlerRule;
   signMode?: SignMode;
-  condition?: ConditionDef;
+  condition?: ConditionDef | ConditionDef[];
   /** 数据录入表单 schema（仅 data_input 类型） */
   inputSchema?: NodeInputSchema;
   /** 字段权限配置：控制每个字段在该节点下的可见/可编辑状态 */
@@ -230,6 +230,8 @@ export interface WorkflowNodeDef {
 export interface WorkflowDef {
   nodes: WorkflowNodeDef[];
   ccRoles?: string[];
+  /** 节点结束后自动抄送：指定节点 order，该节点处理完成后抄送给 ccRoles */
+  ccAfterNode?: number;
 }
 
 // =====================================================
@@ -378,6 +380,8 @@ export interface ApprovalListParams {
   viewMode: ViewMode;
   formTypeCode?: string;
   status?: ApprovalStatus;
+  keyword?: string;
+  applicantName?: string;
   startDate?: string;
   endDate?: string;
   page?: number;

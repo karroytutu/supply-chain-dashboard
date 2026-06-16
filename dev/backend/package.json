@@ -26,6 +26,7 @@
     "cors": "^2.8.5",
     "dingtalk-stream-sdk-nodejs": "^2.0.4",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.0",
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^8.3.2",

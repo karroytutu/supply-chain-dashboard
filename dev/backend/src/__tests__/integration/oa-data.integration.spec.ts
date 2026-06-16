@@ -52,6 +52,12 @@ jest.mock('../../services/oa/oa.query', () => ({
   getDataListAll: jest.fn(),
 }));
 
+jest.mock('../../services/oa/queries/data-query', () => ({
+  getDataListForExport: jest.fn().mockResolvedValue([]),
+  generateExportHtml: jest.fn().mockReturnValue('<html></html>'),
+  generateExportExcel: jest.fn().mockResolvedValue(undefined),
+}));
+
 // =====================================================
 // Import（mock 之后）
 // =====================================================
@@ -70,11 +76,11 @@ const mockGetDataListAll = getDataListAll as jest.MockedFunction<typeof getDataL
 // 构建最小 Express 应用（仅挂载 OA 路由）
 // =====================================================
 
-function createTestApp() {
+async function createTestApp() {
   const app = express();
   app.use(express.json());
 
-  const oaRoutes = require('../../routes/oa.routes').default;
+  const { default: oaRoutes } = await import('../../routes/oa.routes');
   app.use('/api/oa', oaRoutes);
 
   return app;
@@ -82,8 +88,8 @@ function createTestApp() {
 
 let app: express.Express;
 
-beforeAll(() => {
-  app = createTestApp();
+beforeAll(async () => {
+  app = await createTestApp();
 });
 
 beforeEach(() => {
@@ -228,7 +234,7 @@ describe('GET /api/oa/data', () => {
 describe('GET /api/oa/data/export', () => {
   it('有 oa:data:export 权限 → 200', async () => {
     const res = await request(app)
-      .get('/api/oa/data/export')
+      .get('/api/oa/data/export?export_type=print')
       .set('Authorization', 'Bearer valid-admin');
 
     expect(res.status).toBe(200);

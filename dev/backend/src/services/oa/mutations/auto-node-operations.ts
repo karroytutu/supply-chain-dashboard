@@ -8,10 +8,10 @@ const log = createLogger('OA');
 import { appQuery as query } from '../../../db/appPool';
 import { FormTypeDefinition, OaInstanceRow, OaNodeRow, ApprovalStatus } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
-import { notifyPendingApproval, notifyApproved, notifyCc } from '../oa-notify';
+import { notifyCc } from '../oa-notify';
 import { finalizeProcessInstance } from '../oa-process-centre';
 import { findUserIdsByRoleCodes } from '../oa-utils';
-import { transaction, getInstanceNotifyData } from './shared-utils';
+import { transaction } from './shared-utils';
 
 /**
  * 通用 auto 节点异步执行器
@@ -94,7 +94,9 @@ export async function executeAutoNodeCallback(
            WHERE id = $2`,
           [nextNode.node_order, instanceId]
         );
-        await executeAutoNodeCallback(instanceId, nextNode, formType, instance, formData);
+        // 连续 auto 节点改为异步任务，避免递归过深并支持失败重试
+        const { enqueueExecuteAutoNode } = await import('../oa-async-task.service');
+        await enqueueExecuteAutoNode(instanceId, nextNode.id);
       } else {
         await query(
           `UPDATE oa_approval_instances
@@ -104,24 +106,13 @@ export async function executeAutoNodeCallback(
           [nextNode.node_order, instanceId]
         );
         if (nextNode.assigned_user_id) {
-          const _ftCode = formType.code;
-          const ftName = formType.name;
-          setImmediate(() => {
-            notifyPendingApproval(
-              {
-                instanceId,
-                instanceNo: instance.instance_no,
-                title: instance.title,
-                formTypeName: ftName,
-                applicantName: instance.applicant_name,
-                nodeName: nextNode.node_name,
-                nodeOrder: nextNode.node_order,
-                formSchema: formType.formSchema,
-                formData,
-              },
-              [nextNode.assigned_user_id!]
-            ).catch(err => log.error('auto节点流转通知失败:', err));
-          });
+          // 流转通知入队异步任务，支持失败重试
+          const { enqueueSendApprovalNotification } = await import('../oa-async-task.service');
+          enqueueSendApprovalNotification('pending', instanceId, {
+            approverIds: [nextNode.assigned_user_id],
+            nodeName: nextNode.node_name,
+            nodeOrder: nextNode.node_order,
+          }).catch(err => log.error('auto节点流转通知入队失败:', err));
         }
       }
     } else {
@@ -132,24 +123,14 @@ export async function executeAutoNodeCallback(
          WHERE id = $1`,
         [instanceId]
       );
-      // 完成钉钉流程中心壳实例（auto 节点为最后一个节点时）
-      finalizeProcessInstance(instanceId, 'agree').catch(err => {
-        log.error('auto节点末位完成壳实例失败:', err);
+      // 完成钉钉流程中心壳实例 + 审批通过通知（均入队异步任务，支持失败重试）
+      const { enqueueFinalizeProcessInstance, enqueueSendApprovalNotification } = await import('../oa-async-task.service');
+      enqueueFinalizeProcessInstance(instanceId, 'agree').catch(err => {
+        log.error('auto节点末位完成壳实例入队失败:', err);
       });
-      setImmediate(() => {
-        notifyApproved(
-          {
-            instanceId,
-            instanceNo: instance.instance_no,
-            title: instance.title,
-            formTypeName: formType.name,
-            applicantName: instance.applicant_name,
-            formSchema: formType.formSchema,
-            formData,
-          },
-          instance.applicant_id
-        ).catch(err => log.error('auto节点审批通过通知失败:', err));
-      });
+      enqueueSendApprovalNotification('approved', instanceId, {}).catch(err =>
+        log.error('auto节点审批通过通知入队失败:', err)
+      );
     }
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
@@ -178,6 +159,9 @@ export async function executeAutoNodeCallback(
  */
 export async function retryAutoNode(instanceId: number): Promise<void> {
   const { instance: lockedInstance, autoNode } = await transaction(async client => {
+    // 实例级分布式锁 + 行锁，防止多实例并发状态覆盖
+    await client.query('SELECT pg_advisory_xact_lock($1)', [instanceId]);
+
     const instResult = await client.query<OaInstanceRow>(
       `SELECT * FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
       [instanceId]
@@ -219,19 +203,13 @@ export async function retryAutoNode(instanceId: number): Promise<void> {
       );
     }
 
-    const erpMeta = inst.erp_meta || {
-      status: 'pending',
-      responseData: {},
-      requestLog: null,
-      applicationNo: '',
-      retries: 0,
-    };
-    erpMeta.status = 'processing';
-    erpMeta.requestLog = null;
-
     await client.query(
-      `UPDATE oa_approval_instances SET status = 'processing', erp_meta = $1, updated_at = NOW() WHERE id = $2`,
-      [JSON.stringify(erpMeta), instanceId]
+      `UPDATE oa_approval_instances
+       SET status = 'processing',
+           erp_meta = COALESCE(erp_meta, '{}') || '{"status":"processing","requestLog":null,"retries":0}'::jsonb,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [instanceId]
     );
 
     await client.query(
@@ -334,74 +312,4 @@ export async function triggerCcIfApplicable(
     },
     filteredCcUserIds
   );
-}
-
-/** 审批通过后发送通知（流转到下一节点或最终通过） */
-export async function sendApprovalNotifications(
-  instanceId: number,
-  approverUserId: number,
-  approverUserName: string,
-  callbackInstance: OaInstanceRow,
-  formType: FormTypeDefinition,
-  isLastNode: boolean
-): Promise<void> {
-  const data = await getInstanceNotifyData(instanceId);
-  if (!data) return;
-
-  if (isLastNode) {
-    await notifyApproved(
-      {
-        instanceId,
-        instanceNo: callbackInstance.instance_no,
-        title: callbackInstance.title,
-        formTypeName: data.formTypeName,
-        applicantName: callbackInstance.applicant_name,
-        formSchema: data.formType?.formSchema,
-        formData: callbackInstance.form_data as Record<string, unknown>,
-      },
-      callbackInstance.applicant_id
-    );
-  } else {
-    const nextNodeResult = await query<{
-      assigned_user_id: number;
-      node_name: string;
-      node_order: number;
-    }>(
-      `SELECT assigned_user_id, node_name, node_order FROM oa_approval_nodes
-       WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
-         AND node_order = (
-           SELECT MIN(node_order) FROM oa_approval_nodes
-           WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
-         )`,
-      [instanceId]
-    );
-
-    if (nextNodeResult.rows.length > 0) {
-      const approverIds = nextNodeResult.rows
-        .filter(r => r.assigned_user_id)
-        .map(r => r.assigned_user_id);
-      if (approverIds.length > 0) {
-        const latestInst = await query<OaInstanceRow>(
-          `SELECT * FROM oa_approval_instances WHERE id = $1`,
-          [instanceId]
-        );
-        const formData = latestInst.rows[0]?.form_data || callbackInstance.form_data;
-
-        await notifyPendingApproval(
-          {
-            instanceId,
-            instanceNo: callbackInstance.instance_no,
-            title: callbackInstance.title,
-            formTypeName: data.formTypeName,
-            applicantName: callbackInstance.applicant_name,
-            nodeName: nextNodeResult.rows[0].node_name,
-            nodeOrder: nextNodeResult.rows[0].node_order,
-            formSchema: data.formType?.formSchema,
-            formData: formData as Record<string, unknown>,
-          },
-          approverIds
-        );
-      }
-    }
-  }
 }

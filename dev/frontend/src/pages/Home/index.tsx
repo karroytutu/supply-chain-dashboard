@@ -8,6 +8,7 @@ import { Spin, Result, Button } from 'antd';
 import { history } from 'umi';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
 import GreetingBanner from './components/GreetingBanner';
+import RecentUpdates from './components/RecentUpdates';
 import SummaryBar from './components/SummaryBar';
 import ModuleCard from './components/ModuleCard';
 import QuickActions from './components/QuickActions';
@@ -51,6 +52,7 @@ const Home: React.FC = () => {
   return (
     <div className={styles.page}>
       <GreetingBanner pendingCount={summary?.totalPending || 0} />
+      <RecentUpdates />
       <SummaryBar summary={summary} />
 
       <div className={styles.sectionTitle}>待办事项</div>

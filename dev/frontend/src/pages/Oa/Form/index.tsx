@@ -104,18 +104,16 @@ const FormPage: React.FC = () => {
       for (const field of photoFields) {
         const photoValue = values[field.key];
         if (Array.isArray(photoValue) && photoValue.length > 0) {
-          const filesToUpload = photoValue
-            .filter((item: any) => item.originFileObj instanceof File)
-            .map((item: any) => item.originFileObj as File);
+          const newUploadItems = photoValue.filter((item: any) => item.originFileObj instanceof File);
+          const keptItems = photoValue.filter((item: any) => !(item.originFileObj instanceof File));
 
-          if (filesToUpload.length > 0) {
+          if (newUploadItems.length > 0) {
+            const filesToUpload = newUploadItems.map((item: any) => item.originFileObj as File);
             const urls = await oaApi.uploadLicenseFiles(filesToUpload);
-            // 替换为包含服务器 URL 的对象数组
-            values[field.key] = urls.map((url: string) => ({ url }));
-          } else {
-            // 无新上传文件（可能只有已存在的 ERP 执照，不需要上传）
-            values[field.key] = [];
+            // 仅替换新上传项为 {url}，保留已有图片对象
+            values[field.key] = [...keptItems, ...urls.map((url: string) => ({ url }))];
           }
+          // 无新上传文件时保留原值（已有 ERP 执照等）
         }
       }
 

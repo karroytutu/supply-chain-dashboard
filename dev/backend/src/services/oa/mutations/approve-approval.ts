@@ -10,11 +10,12 @@ import { validateInputData, isCurrentApprover, getCurrentApproverNode } from '..
 import { getFormTypeByCode } from '../form-types';
 import { transaction, mergeFormData } from './shared-utils';
 import {
-  executeAutoNodeCallback,
-  sendApprovalNotifications,
-  triggerCcIfApplicable,
-} from './auto-node-operations';
-import { completeApprovalTodo, finalizeProcessInstance } from '../oa-process-centre';
+  enqueueCompleteApprovalTodo,
+  enqueueSendApprovalNotification,
+  enqueueFinalizeProcessInstance,
+  enqueueExecuteAutoNode,
+  enqueueTriggerCc,
+} from '../oa-async-task.service';
 
 // Re-export for backward compatibility
 export { executeAutoNodeCallback, retryAutoNode } from './auto-node-operations';
@@ -42,8 +43,13 @@ export async function approveApproval(
   let isLastNode = false;
   let autoNodeToExecute: OaNodeRow | null = null;
   let hasErpFailed = false;
+  let isCountersignWaiting = false;
+  let nextHumanNode: { approverIds: number[]; nodeName: string; nodeOrder: number } | null = null;
 
-  await transaction(async client => {
+  const txResult = await transaction(async client => {
+    // 实例级分布式锁，防止多实例并发状态覆盖
+    await client.query('SELECT pg_advisory_xact_lock($1)', [instanceId]);
+
     const instanceResult0 = await client.query<OaInstanceRow>(
       `SELECT * FROM oa_approval_instances WHERE id = $1 FOR UPDATE`,
       [instanceId]
@@ -139,7 +145,8 @@ export async function approveApproval(
         );
         if (parseInt(remaining.rows[0].count) > 0) {
           // 还有人未通过 → 操作日志已记录，事务正常提交，但不流转到下一环节
-          return;
+          isCountersignWaiting = true;
+          return { countersignWaiting: true };
         }
       }
     }
@@ -162,19 +169,10 @@ export async function approveApproval(
       if (nextNode.node_type === 'auto') {
         await client.query(
           `UPDATE oa_approval_instances
-           SET erp_meta = $1, current_node_order = $2, status = 'processing', updated_at = NOW()
-           WHERE id = $3`,
-          [
-            JSON.stringify({
-              status: 'processing',
-              responseData: {},
-              requestLog: null,
-              applicationNo: '',
-              retries: 0,
-            }),
-            nextNode.node_order,
-            instanceId,
-          ]
+           SET current_node_order = $1, status = 'processing', updated_at = NOW(),
+               erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"processing"')
+           WHERE id = $2`,
+          [nextNode.node_order, instanceId]
         );
         autoNodeToExecute = nextNode;
       } else {
@@ -182,6 +180,9 @@ export async function approveApproval(
           `UPDATE oa_approval_instances SET current_node_order = $1, updated_at = NOW() WHERE id = $2`,
           [nextNode.node_order, instanceId]
         );
+        // 记录下一人工节点信息，用于事务后发送待审批通知
+        const approverIds = nextNode.assigned_user_id ? [nextNode.assigned_user_id] : [];
+        nextHumanNode = { approverIds, nodeName: nextNode.node_name, nodeOrder: nextNode.node_order };
       }
     } else {
       // 无后续 pending 节点，准备标记实例完成
@@ -222,7 +223,7 @@ export async function approveApproval(
     isLastNode = nextNodeResult.rows.length === 0;
   });
 
-  // 事务提交后触发回调
+  // 事务提交后触发业务回调（保持同步执行，错误不阻塞流程）
   if (callbackInstance && formType) {
     const ftCode = formType.code;
     if (callbackInputData && formType.onNodeCompleted) {
@@ -239,16 +240,10 @@ export async function approveApproval(
     }
 
     if (autoNodeToExecute && formType.onApproved) {
-      const autoNode = autoNodeToExecute as OaNodeRow;
-      setImmediate(() => {
-        executeAutoNodeCallback(
-          instanceId,
-          autoNode,
-          formType!,
-          callbackInstance!,
-          callbackFormData || {}
-        ).catch(err => log.error(`executeAutoNodeCallback 顶层错误:`, err));
-      });
+      // auto 节点回调改为异步任务，支持失败重试
+      enqueueExecuteAutoNode(instanceId, (autoNodeToExecute as OaNodeRow).id).catch(err =>
+        log.error(`auto节点任务入队失败 [instanceId=${instanceId}]:`, err)
+      );
     } else if (isLastNode && formType.onApproved && !hasErpFailed) {
       formType.onApproved(callbackInstance, callbackFormData || {}).catch(err => {
         log.error(`审批通过回调执行失败 [${ftCode}]:`, err);
@@ -256,37 +251,44 @@ export async function approveApproval(
     }
   }
 
-  // 异步发送通知和检查抄送
+  // 异步操作写入任务表：完成钉钉待办、发送通知、完成壳实例
   if (callbackInstance && formType) {
     setImmediate(() => {
-      // 新增：完成当前审批人的钉钉待办
-      completeApprovalTodo(instanceId, userId, 'AGREE').catch(err => {
-        log.error('完成钉钉待办失败:', err);
+      enqueueCompleteApprovalTodo(instanceId, userId, 'AGREE').catch(err => {
+        log.error('完成钉钉待办任务入队失败:', err);
       });
-      sendApprovalNotifications(
-        instanceId,
-        userId,
-        userName,
-        callbackInstance!,
-        formType!,
-        isLastNode
-      ).catch(err => {
-        log.error('审批通知发送失败:', err);
+
+      // 区分通知类型：末节点通过 → 通知申请人；非末节点 → 通知下一审批人
+      if (isLastNode && !hasErpFailed) {
+        enqueueSendApprovalNotification('approved', instanceId, {
+          operatorId: userId, operatorName: userName, nodeOrder: callbackNodeOrder,
+        }).catch(err => {
+          log.error('审批通过通知任务入队失败:', err);
+        });
+      } else if (nextHumanNode && nextHumanNode.approverIds.length > 0) {
+        enqueueSendApprovalNotification('pending', instanceId, {
+          approverIds: nextHumanNode.approverIds,
+          nodeName: nextHumanNode.nodeName,
+          nodeOrder: nextHumanNode.nodeOrder,
+        }).catch(err => {
+          log.error('待审批通知任务入队失败:', err);
+        });
+      }
+      enqueueTriggerCc(instanceId, callbackNodeOrder).catch(err => {
+        log.error('抄送任务入队失败:', err);
       });
-      triggerCcIfApplicable(instanceId, callbackNodeOrder, formType!, callbackInstance!).catch(
-        err => {
-          log.error('CC 触发失败:', err);
-        }
-      );
       // 最后一个节点通过时，完成壳实例（仅在审批真正通过时执行）
       if (isLastNode && !hasErpFailed) {
-        finalizeProcessInstance(instanceId, 'agree').catch(err => {
-          log.error('完成壳实例失败:', err);
+        enqueueFinalizeProcessInstance(instanceId, 'agree').catch(err => {
+          log.error('完成壳实例任务入队失败:', err);
         });
       }
     });
   }
 
+  if (isCountersignWaiting) {
+    return { status: 'pending' };
+  }
   if (autoNodeToExecute) {
     return { status: 'processing' };
   }

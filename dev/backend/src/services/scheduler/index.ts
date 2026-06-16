@@ -36,6 +36,8 @@ import {
   incrementalSyncDingtalkUsers,
 } from '../dingtalk-sync';
 import { runOaTimeoutTask, runOaTimeoutAssessmentTask } from '../oa/timeout';
+import { processOaAsyncTasks } from '../oa/oa-async-task.service';
+import { reconcileProcessInstanceStatus } from '../oa/oa-process-centre';
 
 /**
  * 启动所有定时任务
@@ -316,6 +318,46 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // OA 异步任务消费 - 每1分钟（带上叠保护：上一次未完成则跳过本次触发）
+  let isOaTaskProcessing = false;
+  cron.schedule(
+    '* * * * *',
+    async () => {
+      if (isOaTaskProcessing) return;
+      isOaTaskProcessing = true;
+      try {
+        const result = await processOaAsyncTasks();
+        if (result.processed > 0 || result.failed > 0) {
+          log.info('OA 异步任务消费完成:', result);
+        }
+        if (result.deadLetter > 0) {
+          log.error(`OA 异步任务: ${result.deadLetter} 个任务进入 dead_letter 状态，需要人工介入`);
+        }
+      } catch (error) {
+        log.error('OA 异步任务消费异常:', error);
+      } finally {
+        isOaTaskProcessing = false;
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  // OA 钉钉流程中心壳实例状态对账 - 每30分钟
+  cron.schedule(
+    '*/30 * * * *',
+    async () => {
+      try {
+        const result = await reconcileProcessInstanceStatus();
+        if (result.processed > 0 || result.failed > 0) {
+          log.info('OA 壳实例状态对账完成:', result);
+        }
+      } catch (error) {
+        log.error('OA 壳实例状态对账异常:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
   } // end if (isProduction) — 写入型任务到此结束
 
   // ==================== Token 管理（所有环境） ====================
@@ -399,6 +441,8 @@ export function startScheduler(): void {
     log.info('  - 采购绩效月度存档: 每月1号 01:00 (Asia/Shanghai)');
     log.info('  - OA节点超时催办扫描: 每5分钟 (Asia/Shanghai)');
     log.info('  - OA节点超时考核计算: 每天 09:00 (Asia/Shanghai)');
+    log.info('  - OA 异步任务消费: 每1分钟 (Asia/Shanghai)');
+    log.info('  - OA 壳实例状态对账: 每30分钟 (Asia/Shanghai)');
     log.info('  - 钉钉部门同步: 每天 06:00 (Asia/Shanghai)');
     log.info('  - 钉钉全量用户同步: 每天 07:00 (Asia/Shanghai)');
     log.info('  - 钉钉增量用户同步: 每4小时 (Asia/Shanghai)');

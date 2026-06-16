@@ -152,7 +152,7 @@ describe('getInteractionType', () => {
   it('当前节点不存在时返回 approval', () => {
     const detail = makeDetail({
       nodes: [{ nodeOrder: 2, status: 'pending' } as any],
-      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'role' as const, interactionType: 'operation' as const }] },
+      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'approval' as const, interactionType: 'operation' as const }] },
       currentNodeOrder: 1, // 无 nodeOrder=1 的节点
     });
     expect(getInteractionType(detail)).toBe('approval');
@@ -161,7 +161,7 @@ describe('getInteractionType', () => {
   it('workflowDef 中无对应节点时返回 approval', () => {
     const detail = makeDetail({
       nodes: [{ nodeOrder: 1, status: 'pending' } as any],
-      workflowDef: { nodes: [{ order: 2, name: '节点2', type: 'role' as const, interactionType: 'operation' as const }] },
+      workflowDef: { nodes: [{ order: 2, name: '节点2', type: 'approval' as const, interactionType: 'operation' as const }] },
       currentNodeOrder: 1,
     });
     expect(getInteractionType(detail)).toBe('approval');
@@ -170,7 +170,7 @@ describe('getInteractionType', () => {
   it('节点配置 interactionType=operation 时返回 operation', () => {
     const detail = makeDetail({
       nodes: [{ nodeOrder: 1, status: 'pending' } as any],
-      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'role' as const, interactionType: 'operation' as const }] },
+      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'approval' as const, interactionType: 'operation' as const }] },
       currentNodeOrder: 1,
     });
     expect(getInteractionType(detail)).toBe('operation');
@@ -179,7 +179,7 @@ describe('getInteractionType', () => {
   it('节点未配置 interactionType 时返回 approval（默认）', () => {
     const detail = makeDetail({
       nodes: [{ nodeOrder: 1, status: 'pending' } as any],
-      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'role' as const }] },
+      workflowDef: { nodes: [{ order: 1, name: '节点1', type: 'approval' as const }] },
       currentNodeOrder: 1,
     });
     expect(getInteractionType(detail)).toBe('approval');
@@ -193,8 +193,8 @@ describe('getInteractionType', () => {
       ],
       workflowDef: {
         nodes: [
-          { order: 1, name: '节点1', type: 'role' as const, interactionType: 'approval' as const },
-          { order: 2, name: '节点2', type: 'role' as const, interactionType: 'operation' as const },
+          { order: 1, name: '节点1', type: 'approval' as const, interactionType: 'approval' as const },
+          { order: 2, name: '节点2', type: 'approval' as const, interactionType: 'operation' as const },
         ],
       },
       currentNodeOrder: 2,
@@ -207,7 +207,7 @@ describe('getInteractionType', () => {
       nodes: [{ nodeOrder: 3, status: 'pending', roleCode: 'marketer' } as any],
       workflowDef: {
         nodes: [
-          { order: 1, name: '营销师催收', type: 'role' as const, interactionType: 'operation' as const },
+          { order: 1, name: '营销师催收', type: 'approval' as const, interactionType: 'operation' as const },
           { order: 2, name: '更新催收状态', type: 'auto' as const },
         ],
       },
@@ -220,7 +220,7 @@ describe('getInteractionType', () => {
     const detail = makeDetail({
       nodes: [{ nodeOrder: 4, status: 'pending', roleCode: 'marketing_manager' } as any],
       workflowDef: {
-        nodes: [{ order: 1, name: '营销师催收', type: 'role' as const, interactionType: 'operation' as const }],
+        nodes: [{ order: 1, name: '营销师催收', type: 'approval' as const, interactionType: 'operation' as const }],
       },
       currentNodeOrder: 4,
     });

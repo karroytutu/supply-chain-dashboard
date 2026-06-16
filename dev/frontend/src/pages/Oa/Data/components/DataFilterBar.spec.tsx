@@ -6,6 +6,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import dayjs from 'dayjs';
 import type { FormTypeDefinition } from '@/types/oa';
 
 // ==================== Mocks ====================
@@ -197,16 +198,13 @@ describe('DataFilterBar 交互', () => {
 
 describe('DataFilterBar 工具栏', () => {
   it('有筛选值时显示 Tag（formTypeCode + status + dateRange）', () => {
-    const dayjs = require('dayjs');
-    const d = dayjs.default || dayjs;
-
     const { container } = render(
       <DataFilterBar
         {...defaultProps}
         formTypeCode="other_payment"
         status="approved"
-        dateRange={[d('2026-01-01'), d('2026-06-30')]}
-      />,
+        dateRange={[dayjs('2026-01-01'), dayjs('2026-06-30')]}
+      />
     );
 
     // 工具栏区域（toolbar）内的 Tag 元素

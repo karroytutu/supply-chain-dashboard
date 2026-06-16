@@ -36,6 +36,7 @@ import {
   // 数据管理
   getDataList,
   exportData,
+  downloadExport,
 } from '../controllers/oa-data.controller';
 import {
   // ERP参考数据
@@ -231,7 +232,7 @@ router.post(
 
       // 查找当前 pending 节点
       const nodeResult = await appQuery(
-        `SELECT n.*, i.instance_no, i.title, ft.name AS form_type_name
+        `SELECT n.*, i.instance_no, i.title, i.applicant_id, ft.name AS form_type_name
          FROM oa_approval_nodes n
          JOIN oa_approval_instances i ON i.id = n.instance_id
          JOIN oa_form_types ft ON ft.id = i.form_type_id
@@ -247,6 +248,16 @@ router.post(
       }
 
       const node = nodeResult.rows[0];
+
+      // 权限校验：仅申请人、当前审批人或管理员可手动催办
+      const userId = req.user?.userId;
+      const isAdmin = req.user?.roles?.includes('admin');
+      const isApplicant = node.applicant_id === userId;
+      const isCurrentApprover = node.assigned_user_id === userId;
+      if (!isAdmin && !isApplicant && !isCurrentApprover) {
+        res.status(403).json({ code: 403, message: '只有申请人、当前审批人或管理员可以催办' });
+        return;
+      }
 
       // S2: 检查是否已达最大催办次数
       const maxReminders = node.timeout_config?.reminder?.maxReminders;
@@ -383,5 +394,8 @@ router.get('/data', requirePermission('oa:data:read'), getDataList);
 
 // 导出数据
 router.get('/data/export', requirePermission('oa:data:export'), exportData);
+
+// 下载导出文件（带鉴权）
+router.get('/data/export/download/:fileName', requirePermission('oa:data:export'), downloadExport);
 
 export default router;
