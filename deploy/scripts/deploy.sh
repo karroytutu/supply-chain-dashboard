@@ -60,12 +60,13 @@ log_info "部署配置目录: $DEPLOY_DIR"
 
 BUILD_CACHE_KEY_FILE="$DEPLOY_DIR/.build-cache-key"
 
-# 计算构建缓存 key（对 Dockerfile、compose、package.json 计算联合 md5）
+# 计算构建缓存 key（仅对影响 Docker 镜像内容的文件计算联合 md5）
+# 注意：docker-compose.yml 仅控制运行时配置（端口、volume、环境变量），
+# 不影响镜像内容，不纳入缓存检测
 compute_build_cache_key() {
     local files=(
         "$PROJECT_ROOT/deploy/Dockerfile.backend"
         "$PROJECT_ROOT/deploy/Dockerfile.frontend"
-        "$PROJECT_ROOT/deploy/docker-compose.yml"
         "$PROJECT_ROOT/dev/backend/package.json"
         "$PROJECT_ROOT/dev/frontend/package.json"
     )
@@ -88,6 +89,7 @@ auto_detect_rebuild() {
 
     if [ "$current_key" != "$saved_key" ]; then
         log_info "检测到 Dockerfile/package.json 变更，自动启用 --no-cache"
+        log_info "（仅镜像内容变更才需要，compose 运行时配置变更不影响缓存）"
         NO_CACHE="--no-cache"
     else
         log_info "Dockerfile/package.json 未变更，复用 Docker 构建缓存"
