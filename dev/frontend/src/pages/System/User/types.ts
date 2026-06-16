@@ -40,13 +40,6 @@ export interface Department {
   name: string;
 }
 
-/** 用户统计 */
-export interface UserStats {
-  total: number;
-  active: number;
-  disabled: number;
-}
-
 /** 筛选参数 */
 export interface UserFilters {
   keyword: string;

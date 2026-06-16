@@ -7,7 +7,6 @@ import { Card, Tabs } from 'antd';
 import { TeamOutlined, SyncOutlined } from '@ant-design/icons';
 import { useUsers } from './hooks/useUsers';
 import { useDingtalkSync } from './hooks/useDingtalkSync';
-import { UserStats } from './components/UserStats';
 import { UserFilters } from './components/UserFilters';
 import { BatchActionBar } from './components/BatchActionBar';
 import { UserTable } from './components/UserTable';
@@ -23,9 +22,9 @@ export default function UserManage() {
 
   // 用户列表数据（分组返回值）
   const {
-    data: { loading, dataSource, total, stats, roles },
+    data: { loading, dataSource, total, roles },
     pagination: { page, pageSize },
-    filters: { filters, activeStatus, setFilters, setActiveStatus },
+    filters: { filters, setFilters },
     selection: { selectedRowKeys, setSelectedRowKeys, batchLoading },
     actions,
   } = useUsers();
@@ -88,43 +87,36 @@ export default function UserManage() {
         </span>
       ),
       children: (
-        <>
-          <UserStats
-            stats={stats}
-            activeStatus={activeStatus}
-            onStatusClick={setActiveStatus}
+        <Card>
+          <UserFilters
+            filters={filters}
+            roles={roles}
+            onFilterChange={setFilters}
+            onSearch={actions.search}
+            onReset={actions.reset}
           />
-          <Card>
-            <UserFilters
-              filters={filters}
-              roles={roles}
-              onFilterChange={setFilters}
-              onSearch={actions.search}
-              onReset={actions.reset}
-            />
-            <BatchActionBar
-              selectedCount={selectedRowKeys.length}
-              totalCount={dataSource.length}
-              checked={allChecked}
-              onCheckChange={handleCheckAll}
-              onBatchEnable={actions.batch.enable}
-              onBatchDisable={actions.batch.disable}
-              loading={batchLoading}
-            />
-            <UserTable
-              dataSource={dataSource}
-              loading={loading}
-              total={total}
-              page={page}
-              pageSize={pageSize}
-              selectedRowKeys={selectedRowKeys}
-              onPageChange={actions.pageChange}
-              onSelectedRowKeysChange={setSelectedRowKeys}
-              onAssignRoles={openAssignModal}
-              onToggleStatus={actions.toggleStatus}
-            />
-          </Card>
-        </>
+          <BatchActionBar
+            selectedCount={selectedRowKeys.length}
+            totalCount={dataSource.length}
+            checked={allChecked}
+            onCheckChange={handleCheckAll}
+            onBatchEnable={actions.batch.enable}
+            onBatchDisable={actions.batch.disable}
+            loading={batchLoading}
+          />
+          <UserTable
+            dataSource={dataSource}
+            loading={loading}
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            selectedRowKeys={selectedRowKeys}
+            onPageChange={actions.pageChange}
+            onSelectedRowKeysChange={setSelectedRowKeys}
+            onAssignRoles={openAssignModal}
+            onToggleStatus={actions.toggleStatus}
+          />
+        </Card>
       ),
     },
     {
