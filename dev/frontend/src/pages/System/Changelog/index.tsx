@@ -108,9 +108,12 @@ export default function Changelog() {
               color: getPrimaryColor(entry.types),
               children: (
                 <div>
-                  {/* 日期 + 版本号 */}
+                  {/* 日期时间 + 版本号 */}
                   <div style={{ marginBottom: 4 }}>
-                    <Text strong>{entry.date}</Text>
+                    <Text strong>{entry.date.split(' ')[0]}</Text>
+                    <Text type="secondary" style={{ marginLeft: 6, fontSize: 12 }}>
+                      {entry.date.split(' ')[1] || ''}
+                    </Text>
                     <Tag
                       style={{ marginLeft: 8, color: '#8c8c8c', borderColor: '#d9d9d9' }}
                     >

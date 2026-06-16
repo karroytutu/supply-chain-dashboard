@@ -2,7 +2,7 @@
   "entries": [
     {
       "version": "v2.2.1",
-      "date": "2026-06-16",
+      "date": "2026-06-16 13:48",
       "types": ["optimization"],
       "changes": [
         "更新日志组件改用统一请求工具，自动携带认证Token，提高安全性"
@@ -10,7 +10,7 @@
     },
     {
       "version": "v2.2.0",
-      "date": "2026-06-16",
+      "date": "2026-06-16 13:25",
       "types": ["feature", "optimization"],
       "changes": [
         "OA审批支持多人协同审批，新增或签（任一人通过）和会签（全员通过）两种模式",
@@ -24,7 +24,7 @@
     },
     {
       "version": "v2.1.0",
-      "date": "2026-06-15",
+      "date": "2026-06-15 12:46",
       "types": ["feature", "fix", "optimization"],
       "changes": [
         "新增应收账款全景看板页面，集中展示应收总览与逾期分布",
@@ -37,7 +37,7 @@
     },
     {
       "version": "v2.0.0",
-      "date": "2026-06-06",
+      "date": "2026-06-06 00:59",
       "types": ["feature", "breaking", "optimization"],
       "changes": [
         "新增工作台首页，聚合各模块核心指标与快捷入口",
@@ -53,7 +53,7 @@
     },
     {
       "version": "v1.7.0",
-      "date": "2026-05-28",
+      "date": "2026-05-28 17:37",
       "types": ["feature", "fix"],
       "changes": [
         "考核申诉审批流程简化为总经理单环节审批",
@@ -66,7 +66,7 @@
     },
     {
       "version": "v1.6.0",
-      "date": "2026-05-12",
+      "date": "2026-05-12 12:52",
       "types": ["feature", "fix", "optimization"],
       "changes": [
         "数据库迁移改为启动时自动执行，无需手动操作",
@@ -79,7 +79,7 @@
     },
     {
       "version": "v1.5.0",
-      "date": "2026-04-30",
+      "date": "2026-04-30 18:43",
       "types": ["feature", "breaking", "optimization"],
       "changes": [
         "新增统一考核中心，整合退货考核与催收考核到同一平台",
@@ -93,7 +93,7 @@
     },
     {
       "version": "v1.4.0",
-      "date": "2026-04-23",
+      "date": "2026-04-23 21:17",
       "types": ["feature", "breaking", "optimization"],
       "changes": [
         "新增OA审批功能模块，支持多类型表单和审批流程",
@@ -106,7 +106,7 @@
     },
     {
       "version": "v1.3.0",
-      "date": "2026-04-18",
+      "date": "2026-04-18 23:45",
       "types": ["feature", "fix"],
       "changes": [
         "新增钉钉用户与组织架构自动同步系统",
@@ -119,7 +119,7 @@
     },
     {
       "version": "v1.2.0",
-      "date": "2026-04-10",
+      "date": "2026-04-10 21:09",
       "types": ["feature", "fix"],
       "changes": [
         "新增逾期催收管理功能，支持逾期分级和催收任务分配",
@@ -132,7 +132,7 @@
     },
     {
       "version": "v1.1.0",
-      "date": "2026-04-01",
+      "date": "2026-04-01 12:41",
       "types": ["feature", "fix", "optimization"],
       "changes": [
         "新增临期退货管理功能，含退货单列表、退货规则和定时同步",
@@ -147,7 +147,7 @@
     },
     {
       "version": "v1.0.0",
-      "date": "2026-03-25",
+      "date": "2026-03-25 23:45",
       "types": ["feature", "breaking"],
       "changes": [
         "项目初始化，采用前后端分离的开发架构",
