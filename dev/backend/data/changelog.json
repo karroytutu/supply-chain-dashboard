@@ -2,7 +2,7 @@
   "entries": [
     {
       "version": "v2.6.0",
-      "date": "2026-06-18 16:00",
+      "date": "2026-06-18 02:45"
       "types": ["breaking", "optimization"],
       "changes": [
         "旧催收系统退役：移除 ar_collection_tasks/details/actions/extension_records 四张旧表依赖，数据归档保留",
