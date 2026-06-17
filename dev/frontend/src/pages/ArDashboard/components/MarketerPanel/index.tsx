@@ -12,6 +12,7 @@ import styles from './index.less';
 
 interface MarketerPanelProps {
   data: MarketerStats[];
+  onCollectingClick?: (marketer: MarketerStats) => void;
 }
 
 /** DSO 健康度颜色 */
@@ -94,16 +95,32 @@ const ALL_COLUMNS: ColumnsType<MarketerStats> = [
   },
 ];
 
-const MarketerPanel: React.FC<MarketerPanelProps> = ({ data }) => {
+const MarketerPanel: React.FC<MarketerPanelProps> = ({ data, onCollectingClick }) => {
   const isMobile = useMobileDetect();
 
-  /** 移动端过滤掉带 responsive 标记的列 */
+  /** 移动端过滤掉带 responsive 标记的列，并为催收中列添加点击事件 */
   const columns = useMemo(() => {
-    if (isMobile) {
-      return ALL_COLUMNS.filter((col) => !('responsive' in col));
+    let cols = isMobile
+      ? ALL_COLUMNS.filter((col) => !('responsive' in col))
+      : ALL_COLUMNS;
+    if (onCollectingClick) {
+      cols = cols.map((col) => {
+        if (!('dataIndex' in col) || col.dataIndex !== 'collectingCount') return col;
+        return {
+          ...col,
+          render: (v: number, record: MarketerStats) => (
+            <a
+              onClick={() => v > 0 && onCollectingClick(record)}
+              style={{ color: v > 0 ? '#1890ff' : 'rgba(0,0,0,0.25)', cursor: v > 0 ? 'pointer' : 'default' }}
+            >
+              {v}
+            </a>
+          ),
+        };
+      });
     }
-    return ALL_COLUMNS;
-  }, [isMobile]);
+    return cols;
+  }, [isMobile, onCollectingClick]);
 
   return (
     <Card

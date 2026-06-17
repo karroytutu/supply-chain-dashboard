@@ -5,4 +5,6 @@ export {
   getArDashboardOverview,
   getUpcomingExpiryCustomers,
   getPipelineExpiryDetails,
+  getLegalProgressDetails,
+  getPipelineTimeoutDetails,
 } from './ar-dashboard.service';

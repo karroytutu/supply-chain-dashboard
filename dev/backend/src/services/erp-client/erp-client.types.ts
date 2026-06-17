@@ -10,7 +10,12 @@ export interface ErpApiConfig {
   uid: string;
   timeout: number;
   retryMax: number;
+  /** 【弃用】最小请求间隔(ms)，已被分组并发模型取代，保留仅为向后兼容 */
   rateLimitMs: number;
+  /** 单个 API 端点最大并发数，默认 4 */
+  maxGroupConcurrency?: number;
+  /** 全局(跨所有端点)最大并发数，默认 12，作为 ERP 服务器保护阀 */
+  maxGlobalConcurrency?: number;
   /** 默认付款科目 ID */
   defaultPaymentSubjectId: number;
   /** 默认业务员 ID */
@@ -70,6 +75,8 @@ export interface ErpRequestOptions {
   skipLog?: boolean;
   /** 自定义请求头 */
   headers?: Record<string, string>;
+  /** 限流分组键；不传时按完整端点路径自动分组 */
+  rateLimitGroup?: string;
 }
 
 /** ERP API 响应基础结构 */

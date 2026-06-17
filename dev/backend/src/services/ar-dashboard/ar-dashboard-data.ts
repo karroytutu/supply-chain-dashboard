@@ -7,8 +7,8 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ArDashboard');
 
 import { appQuery } from '../../db/appPool';
-import { getEnrichedNonHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
-import { getUpcomingWarnings, type UpcomingWarningDetail } from '../ar-collection/ar-warning.query';
+import { getEnrichedNonHoardDebts, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
+import { computeUpcomingWarnings, type UpcomingWarningDetail } from '../ar-collection/ar-warning.query';
 import { fetchSalesDetails } from '../erp-client/erp-sales-detail.service';
 import type { DashboardContext, OaCollectionInstanceRow } from './ar-dashboard.types';
 import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
@@ -19,25 +19,37 @@ import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
 
 /**
  * 构建看板共享数据上下文
- * 并行获取数据源，任一失败不影响其他
- * DSO 复用已获取的 enrichedDebts，避免重复 ERP 调用
+ * 欠款数据只拉一遍，预警计算复用同一批结果，避免重复 ERP 调用
+ * 使用 Promise.allSettled 各数据源独立容错
  */
 export async function buildDashboardContext(): Promise<DashboardContext> {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-  const [debtsResult, oaResult, warningsResult, salesResult] = await Promise.allSettled([
+  // 第一阶段：并行获取欠款、OA实例、销售数据（欠款和销售互不依赖）
+  const [debtsResult, oaResult, salesResult] = await Promise.allSettled([
     getEnrichedNonHoardDebts(now),
     fetchCollectionOaInstances(),
-    getUpcomingWarnings({ pageSize: 9999 }).then(r => r.details),
     fetchSalesDetails(thirtyDaysAgo.toISOString().slice(0, 10), now.toISOString().slice(0, 10)),
   ]);
 
   const enrichedDebts = settleOrEmpty<EnrichedDebtRecord[]>(debtsResult, 'ERP欠款数据');
   const oaInstances = settleOrEmpty<OaCollectionInstanceRow[]>(oaResult, 'OA催收实例');
-  const upcomingWarnings = settleOrEmpty<UpcomingWarningDetail[]>(warningsResult, '即将逾期预警');
 
-  // DSO 复用已获取的 enrichedDebts，不再重复调用 getEnrichedNonHoardDebts
+  // 第二阶段：用已获取的欠款数据计算预警（不再单独调 ERP）
+  // 注意：getEnrichedNonHoardDebts 内部已过滤压单，这里额外调用 filterHoardDebts 确保安全
+  const nonHoardDebts = filterHoardDebts(enrichedDebts);
+  let upcomingWarnings: UpcomingWarningDetail[] = [];
+  if (nonHoardDebts.length > 0) {
+    try {
+      const warningData = await computeUpcomingWarnings(nonHoardDebts, { pageSize: 9999 });
+      upcomingWarnings = warningData.details;
+    } catch (err) {
+      log.warn('计算即将逾期预警失败，降级为空:', err);
+    }
+  }
+
+  // DSO 复用已获取的 enrichedDebts
   const dsoValue = (debtsResult.status === 'fulfilled' && salesResult.status === 'fulfilled')
     ? computeDso(enrichedDebts, salesResult.value)
     : null;
@@ -55,8 +67,8 @@ export async function buildDashboardContext(): Promise<DashboardContext> {
  */
 export async function fetchCollectionOaInstances(): Promise<OaCollectionInstanceRow[]> {
   const result = await appQuery<OaCollectionInstanceRow>(
-    `SELECT i.id, i.status, i.form_data, i.current_node_order,
-            n.role_code, n.node_name, n.status as node_status
+    `SELECT i.id, i.instance_no, i.submitted_at, i.status, i.form_data, i.current_node_order,
+            n.role_code, n.node_name, n.status as node_status, n.deadline_at
      FROM oa_approval_instances i
      JOIN oa_form_types ft ON i.form_type_id = ft.id
      LEFT JOIN oa_approval_nodes n ON n.instance_id = i.id

@@ -100,6 +100,12 @@ export const CACHE_KEY = {
   /** 应收看板管道即将逾期弹窗 */
   AR_DASHBOARD_PIPELINE_EXPIRY: (s: string, l?: number) =>
     `ar:dashboard:pipeline-expiry:${s}:${l ?? 0}` as const,
+  /** 应收看板诉讼进度明细 */
+  AR_DASHBOARD_LEGAL_PROGRESS: (category: string) =>
+    `ar:dashboard:legal-progress:${category}` as const,
+  /** 应收看板管道超时明细 */
+  AR_DASHBOARD_PIPELINE_TIMEOUT: (s: string, l?: number) =>
+    `ar:dashboard:pipeline-timeout:${s}:${l ?? 0}` as const,
 
   // ==================== 工作台相关 ====================
   /** 工作台聚合数据（按用户） */

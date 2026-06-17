@@ -7,31 +7,31 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ERP');
 
 import axios, { AxiosRequestConfig } from 'axios';
+import http from 'http';
+import https from 'https';
 import { getErpConfig, ERP_API_VERSION } from './erp-config';
 import { getErpAccessToken } from './erp-auth';
 import { createLogEntry, writeErpLog } from './erp-logger';
 import { ErpApiError, type ErpRequestOptions } from './erp-client.types';
 import { getErrorMessage } from '../../utils/errorUtils';
+import { acquireRateSlot, defaultRateLimitGroup } from './erp-rate-limiter';
 
-/** 请求限流队列 */
-let _lastRequestTime = 0;
+/** keepAlive 连接池：复用 TCP/TLS 连接，消除每次握手开销 */
+const erpHttpAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000,
+});
+const erpHttpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000,
+});
 
-/**
- * 请求限流 — 保证两次请求间至少间隔 rateLimitMs
- * 先标记时间戳再延迟，避免并发请求绕过限速
- */
-async function waitForRateLimit(): Promise<void> {
-  const config = getErpConfig();
-  const now = Date.now();
-  const elapsed = now - _lastRequestTime;
-  if (elapsed < config.rateLimitMs) {
-    const waitTime = config.rateLimitMs - elapsed;
-    _lastRequestTime = now + waitTime; // 先标记预期完成时间
-    await new Promise(resolve => setTimeout(resolve, waitTime));
-  } else {
-    _lastRequestTime = now;
-  }
-}
+/** 共享 axios 实例（复用连接池） */
+const erpAxios = axios.create({ httpAgent: erpHttpAgent, httpsAgent: erpHttpsAgent });
 
 /**
  * 构造公共请求头
@@ -81,15 +81,19 @@ export async function erpRequest<T = any>(
   delete sanitizedHeaders.authorization;
 
   while (retryCount <= config.retryMax) {
+    let releaseSlot: (() => void) | null = null;
     try {
-      // 请求限流
-      await waitForRateLimit();
+      // 限流：按分组并发控制（仅持有 HTTP 期间的槽位，退避期间释放）
+      const rateGroup = options?.rateLimitGroup ?? defaultRateLimitGroup(pathPrefix, path);
+      releaseSlot = await acquireRateSlot(rateGroup);
 
       const axiosConfig: AxiosRequestConfig = {
         method: method.toUpperCase() as any,
         url,
         headers,
         timeout: config.timeout,
+        httpAgent: erpHttpAgent,
+        httpsAgent: erpHttpsAgent,
       };
 
       if (method.toUpperCase() === 'GET') {
@@ -98,7 +102,11 @@ export async function erpRequest<T = any>(
         axiosConfig.data = data;
       }
 
-      const response = await axios(axiosConfig);
+      const response = await erpAxios(axiosConfig);
+      // HTTP 完成，立即释放限流槽位
+      releaseSlot();
+      releaseSlot = null;
+
       const responseData = response.data;
 
       // 写入日志（fire-and-forget，不阻塞响应）
@@ -135,6 +143,9 @@ export async function erpRequest<T = any>(
 
       return responseData as T;
     } catch (error: any) {
+      // 确保 HTTP 失败后立即释放限流槽位
+      releaseSlot?.();
+
       lastError = error;
 
       // ErpApiError（舟谱业务错误）不重试

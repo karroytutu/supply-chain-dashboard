@@ -41,6 +41,7 @@ interface CollectionPipelineProps {
   activeFilter: PipelineFilter;
   onNodeClick: (node: PipelineNode) => void;
   onExpiryClick: (node: PipelineNode) => void;
+  onLegalClick: (category: string) => void;
 }
 
 /** 格式化金额 */
@@ -52,6 +53,7 @@ const CollectionPipeline: React.FC<CollectionPipelineProps> = ({
   activeFilter,
   onNodeClick,
   onExpiryClick,
+  onLegalClick,
 }) => {
   const isMobile = useMobileDetect();
 
@@ -80,7 +82,7 @@ const CollectionPipeline: React.FC<CollectionPipelineProps> = ({
           {node.count}
         </div>
         <div className={styles.nodeAmount}>¥{fmtAmount(node.amount)}</div>
-        {node.upcomingExpiryCount !== undefined && node.upcomingExpiryCount > 0 && (
+        {node.upcomingTimeoutCount !== undefined && node.upcomingTimeoutCount > 0 && (
           <div
             className={styles.expiryBadge}
             onClick={(e) => {
@@ -88,7 +90,18 @@ const CollectionPipeline: React.FC<CollectionPipelineProps> = ({
               onExpiryClick(node);
             }}
           >
-            <WarningOutlined /> {node.upcomingExpiryCount}笔即将逾期
+            <WarningOutlined /> {node.upcomingTimeoutCount}笔即将超时
+          </div>
+        )}
+        {node.overdueTimeoutCount !== undefined && node.overdueTimeoutCount > 0 && (
+          <div
+            className={styles.overdueBadge}
+            onClick={(e) => {
+              e.stopPropagation();
+              onExpiryClick(node);
+            }}
+          >
+            <WarningOutlined /> {node.overdueTimeoutCount}笔已超时
           </div>
         )}
       </div>
@@ -102,7 +115,7 @@ const CollectionPipeline: React.FC<CollectionPipelineProps> = ({
       className={styles.card}
       extra={
         !isMobile && (
-          <Text type="secondary">点击节点筛选明细 · 点击橙色标记查看即将逾期</Text>
+          <Text type="secondary">点击节点查看明细 · 点击橙色标记查看即将逾期</Text>
         )
       }
     >
@@ -144,25 +157,25 @@ const CollectionPipeline: React.FC<CollectionPipelineProps> = ({
           <Tag>{legalTotal} 件</Tag>
         </div>
         <div className={styles.legalSteps}>
-          <div className={styles.legalStep}>
+          <div className={styles.legalStep} style={{ cursor: 'pointer' }} onClick={() => onLegalClick('noticeSent')}>
             <div className={styles.legalIcon}><FileTextOutlined /></div>
             <div className={styles.legalCount}>{legalProgress.noticeSent}</div>
             <div className={styles.legalLabel}>催收函</div>
           </div>
           {!isMobile && <div className={styles.legalArrow}><RightOutlined /></div>}
-          <div className={styles.legalStep}>
+          <div className={styles.legalStep} style={{ cursor: 'pointer' }} onClick={() => onLegalClick('lawsuitFiled')}>
             <div className={styles.legalIcon}><ThunderboltOutlined /></div>
             <div className={styles.legalCount}>{legalProgress.lawsuitFiled}</div>
             <div className={styles.legalLabel}>已起诉</div>
           </div>
           {!isMobile && <div className={styles.legalArrow}><RightOutlined /></div>}
-          <div className={styles.legalStep}>
+          <div className={styles.legalStep} style={{ cursor: 'pointer' }} onClick={() => onLegalClick('lawsuitInProgress')}>
             <div className={styles.legalIcon}><AuditOutlined /></div>
             <div className={styles.legalCount}>{legalProgress.lawsuitInProgress}</div>
             <div className={styles.legalLabel}>诉讼中</div>
           </div>
           {!isMobile && <div className={styles.legalArrow}><RightOutlined /></div>}
-          <div className={styles.legalStep}>
+          <div className={styles.legalStep} style={{ cursor: 'pointer' }} onClick={() => onLegalClick('lawsuitCompleted')}>
             <div className={styles.legalIcon}><CheckCircleOutlined /></div>
             <div className={styles.legalCount}>{legalProgress.lawsuitCompleted}</div>
             <div className={styles.legalLabel}>已判决</div>

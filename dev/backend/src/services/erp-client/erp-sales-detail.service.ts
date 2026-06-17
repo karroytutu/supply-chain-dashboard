@@ -10,6 +10,7 @@ import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 import { LAST_SALE_LOOKBACK_DAYS } from '../../utils/constants';
 import { aggregateSum, lastBy } from '../../utils/arrayAggregation';
+import { fetchAllPagesParallel } from './erp-pagination';
 
 /** API 返回的销售明细记录 */
 export interface ErpSalesDetail {
@@ -65,10 +66,8 @@ export async function fetchSalesDetails(
 
   const doFetch = async (): Promise<ErpSalesDetail[]> => {
     const { cid, uid } = getErpDefaults();
-    const allRecords: ErpSalesDetail[] = [];
-    let current = 1;
 
-    while (true) {
+    const fetchPage = async (current: number) => {
       const result = await erpPost<ApiSalesResponse>(
         '/funds-sale/list-sale-detail',
         {
@@ -120,18 +119,13 @@ export async function fetchSalesDetails(
           businessType: 'sales_detail_fetch',
         }
       );
+      return {
+        records: result?.data?.records || [],
+        total: result?.data?.total || 0,
+      };
+    };
 
-      const records = result?.data?.records || [];
-      allRecords.push(...records);
-
-      const total = result?.data?.total || 0;
-      if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
-        break;
-      }
-      current++;
-    }
-
-    return allRecords;
+    return fetchAllPagesParallel<ErpSalesDetail>(fetchPage, DEFAULT_PAGE_SIZE);
   };
 
   const promise = doFetch();

@@ -11,6 +11,8 @@ import {
   getArDashboardOverview,
   getUpcomingExpiryCustomers,
   getPipelineExpiryDetails,
+  getLegalProgressDetails,
+  getPipelineTimeoutDetails,
 } from '../services/ar-dashboard';
 
 /**
@@ -71,5 +73,61 @@ export async function handlePipelineExpiry(req: Request, res: Response): Promise
   } catch (error) {
     log.error('获取管道即将逾期数据失败:', error);
     res.status(500).json({ code: 500, message: '获取管道逾期数据失败', data: null });
+  }
+}
+
+/**
+ * GET /api/ar-dashboard/legal-progress?category=xxx
+ * 诉讼进度明细弹窗数据
+ */
+const VALID_LEGAL_CATEGORIES = ['noticeSent', 'lawsuitFiled', 'lawsuitInProgress', 'lawsuitCompleted'];
+
+export async function handleLegalProgress(req: Request, res: Response): Promise<void> {
+  try {
+    const category = (req.query.category as string) || '';
+
+    if (!category || !VALID_LEGAL_CATEGORIES.includes(category)) {
+      res.status(400).json({
+        code: 400,
+        message: `无效的 category 参数，可选值: ${VALID_LEGAL_CATEGORIES.join(', ')}`,
+        data: null,
+      });
+      return;
+    }
+
+    const data = await getLegalProgressDetails(category);
+    res.json(buildSuccessResponse(data));
+  } catch (error) {
+    log.error('获取诉讼进度明细失败:', error);
+    res.status(500).json({ code: 500, message: '获取诉讼进度明细失败', data: null });
+  }
+}
+
+/**
+ * GET /api/ar-dashboard/pipeline-timeout?status=xxx&escalationLevel=1
+ * 管道节点超时明细（催收进度弹窗 — 时限维度）
+ */
+export async function handlePipelineTimeout(req: Request, res: Response): Promise<void> {
+  try {
+    const status = (req.query.status as string) || '';
+
+    if (!status || !VALID_STATUSES.includes(status)) {
+      res.status(400).json({ code: 400, message: `无效的 status 参数，可选值: ${VALID_STATUSES.join(', ')}`, data: null });
+      return;
+    }
+
+    let escalationLevel: number | undefined;
+    if (req.query.escalationLevel) {
+      const parsed = parseInt(req.query.escalationLevel as string, 10);
+      if ([1, 2].includes(parsed)) {
+        escalationLevel = parsed;
+      }
+    }
+
+    const data = await getPipelineTimeoutDetails(status, escalationLevel);
+    res.json(buildSuccessResponse(data));
+  } catch (error) {
+    log.error('获取管道超时明细失败:', error);
+    res.status(500).json({ code: 500, message: '获取管道超时明细失败', data: null });
   }
 }

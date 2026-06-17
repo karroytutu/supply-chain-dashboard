@@ -8,10 +8,13 @@ const log = createLogger('ArDashboard');
 
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
+import { AR_TIMEOUT_WARNING_HOURS } from '../../utils/constants';
+import { formatDateOnly } from '../../utils/dateFormat';
 import { getUpcomingWarnings } from '../ar-collection/ar-warning.query';
-import { buildDashboardContext } from './ar-dashboard-data';
+import { buildDashboardContext, fetchCollectionOaInstances } from './ar-dashboard-data';
 import type {
   ArDashboardOverview,
+  ArDashboardPopupData,
   KpiCardDTO,
   PipelineNodeDTO,
   LegalProgressDTO,
@@ -19,6 +22,8 @@ import type {
   ArDetailRowDTO,
   UpcomingExpiryCustomerDTO,
   PipelineExpiryDetailDTO,
+  PipelineTimeoutDetailDTO,
+  LegalProgressDetailDTO,
   CollectionTaskStatus,
   DashboardContext,
   OaCollectionInstanceRow,
@@ -61,6 +66,7 @@ export async function getArDashboardOverview(): Promise<ArDashboardOverview> {
         marketerOptions: marketers
           .filter(m => m.marketerName)
           .map(m => ({ value: m.marketerName, label: m.marketerName })),
+        popupData: buildPopupData(ctx),
         updatedAt: new Date().toISOString(),
       };
       cache.set(cacheKey, result, CACHE_TTL.DASHBOARD);
@@ -156,13 +162,9 @@ const PIPELINE_CONFIG: Array<{
 ];
 
 function buildPipelineNodes(ctx: DashboardContext): PipelineNodeDTO[] {
-  const { oaInstances, upcomingWarnings } = ctx;
-
-  // 构建即将逾期按 OA 实例的匹配（通过 billNo/consumerName 关联）
-  const upcomingByConsumer = new Map<string, number>();
-  for (const w of upcomingWarnings) {
-    upcomingByConsumer.set(w.consumerName, (upcomingByConsumer.get(w.consumerName) ?? 0) + 1);
-  }
+  const { oaInstances } = ctx;
+  const now = Date.now();
+  const warningMs = AR_TIMEOUT_WARNING_HOURS * 3600000;
 
   return PIPELINE_CONFIG.map(cfg => {
     const matched = oaInstances.filter(cfg.match);
@@ -171,11 +173,17 @@ function buildPipelineNodes(ctx: DashboardContext): PipelineNodeDTO[] {
       return s + (Number(fd(r).totalAmount) || 0);
     }, 0);
 
-    // 即将逾期笔数：匹配实例的消费者在 upcomingByConsumer 中的计数
-    let upcomingExpiryCount = 0;
+    // 即将超时 / 已超时笔数（OA 节点 deadline_at 维度）
+    let upcomingTimeoutCount = 0;
+    let overdueTimeoutCount = 0;
     for (const inst of matched) {
-      const consumer = fd(inst).consumerName;
-      if (consumer) upcomingExpiryCount += upcomingByConsumer.get(consumer) ?? 0;
+      if (!inst.deadline_at) continue;
+      const remaining = new Date(inst.deadline_at).getTime() - now;
+      if (remaining < 0) {
+        overdueTimeoutCount++;
+      } else if (remaining <= warningMs) {
+        upcomingTimeoutCount++;
+      }
     }
 
     const node: PipelineNodeDTO = {
@@ -186,7 +194,8 @@ function buildPipelineNodes(ctx: DashboardContext): PipelineNodeDTO[] {
       pendingRole: cfg.pendingRole,
     };
     if (cfg.escalationLevel) node.escalationLevel = cfg.escalationLevel;
-    if (upcomingExpiryCount > 0) node.upcomingExpiryCount = upcomingExpiryCount;
+    if (upcomingTimeoutCount > 0) node.upcomingTimeoutCount = upcomingTimeoutCount;
+    if (overdueTimeoutCount > 0) node.overdueTimeoutCount = overdueTimeoutCount;
     return node;
   });
 }
@@ -279,12 +288,22 @@ function buildDetailRows(ctx: DashboardContext): ArDetailRowDTO[] {
   const { enrichedDebts, oaInstances } = ctx;
 
   // 构建 OA 实例按 consumerName 的状态映射（取最新/活跃的）
-  const oaStatusByConsumer = new Map<string, { status: CollectionTaskStatus; escalationLevel?: 1 | 2 }>();
+  const oaStatusByConsumer = new Map<string, {
+    status: CollectionTaskStatus; escalationLevel?: 1 | 2;
+    oaInstanceId: number; oaInstanceNo: string;
+    collectionStartDate: string; deadlineAt: string | null;
+  }>();
   for (const inst of oaInstances) {
     const consumer = fd(inst).consumerName;
     if (!consumer) continue;
     const mapped = mapInstanceToStatus(inst);
-    oaStatusByConsumer.set(consumer, mapped);
+    oaStatusByConsumer.set(consumer, {
+      ...mapped,
+      oaInstanceId: inst.id,
+      oaInstanceNo: inst.instance_no,
+      collectionStartDate: formatDateOnly(inst.submitted_at),
+      deadlineAt: inst.deadline_at ? formatDateOnly(inst.deadline_at) : null,
+    });
   }
 
   return enrichedDebts.map(d => {
@@ -303,6 +322,10 @@ function buildDetailRows(ctx: DashboardContext): ArDetailRowDTO[] {
       status: oaInfo?.status ?? null,
       escalationLevel: oaInfo?.escalationLevel,
       managerUserName: d.managerUsers || '',
+      oaInstanceId: oaInfo?.oaInstanceId,
+      oaInstanceNo: oaInfo?.oaInstanceNo,
+      collectionStartDate: oaInfo?.collectionStartDate,
+      deadlineAt: oaInfo?.deadlineAt ?? undefined,
     };
   });
 }
@@ -327,6 +350,117 @@ function mapInstanceToStatus(inst: OaCollectionInstanceRow): { status: Collectio
   if (nodeName.includes('差异')) return { status: 'difference_processing' };
   if (['current_accountant', 'finance_staff'].includes(roleCode)) return { status: 'escalated', escalationLevel: 2 };
   return { status: 'collecting' };
+}
+
+// ============================================
+// 弹窗预计算（纯内存操作，不增加任何 ERP 调用）
+// ============================================
+
+/** 生成管道状态 key，与前端保持一致 */
+function pipelineKey(status: CollectionTaskStatus, escalationLevel?: 1 | 2): string {
+  return escalationLevel ? `${status}:L${escalationLevel}` : status;
+}
+
+/** 从 ctx 构建所有弹窗预计算数据 */
+function buildPopupData(ctx: DashboardContext): ArDashboardPopupData {
+  return {
+    upcomingExpiryCustomers: computeUpcomingExpiryCustomers(ctx.upcomingWarnings),
+    pipelineTimeoutDetails: computeAllPipelineTimeoutDetails(ctx),
+    legalProgressDetails: computeAllLegalProgressDetails(ctx),
+  };
+}
+
+/** 即将逾期客户聚合：从 upcomingWarnings 按客户聚合 */
+function computeUpcomingExpiryCustomers(
+  warnings: DashboardContext['upcomingWarnings']
+): UpcomingExpiryCustomerDTO[] {
+  const byConsumer = new Map<string, UpcomingExpiryCustomerDTO>();
+  for (const w of warnings) {
+    const existing = byConsumer.get(w.consumerName);
+    if (existing) {
+      existing.billCount++;
+      existing.totalAmount += w.leftAmount;
+      if (w.expireDate < existing.nearestExpireDate) existing.nearestExpireDate = w.expireDate;
+    } else {
+      byConsumer.set(w.consumerName, {
+        consumerName: w.consumerName,
+        billCount: 1,
+        totalAmount: w.leftAmount,
+        nearestExpireDate: w.expireDate,
+        managerUserName: w.managerUserName,
+      });
+    }
+  }
+  return Array.from(byConsumer.values());
+}
+
+/** 所有管道状态的超时明细 */
+function computeAllPipelineTimeoutDetails(ctx: DashboardContext): Record<string, PipelineTimeoutDetailDTO[]> {
+  const result: Record<string, PipelineTimeoutDetailDTO[]> = {};
+  const now = Date.now();
+  const warningMs = AR_TIMEOUT_WARNING_HOURS * 3600000;
+
+  for (const cfg of PIPELINE_CONFIG) {
+    const key = pipelineKey(cfg.status, cfg.escalationLevel);
+    const matched = ctx.oaInstances.filter(cfg.match);
+    const details: PipelineTimeoutDetailDTO[] = matched
+      .filter(inst => inst.deadline_at)
+      .map(inst => {
+        const deadlineMs = new Date(inst.deadline_at!).getTime();
+        const remainingMs = deadlineMs - now;
+        const remainingHours = Math.round(remainingMs / 3600000 * 10) / 10;
+        return {
+          instanceId: inst.id,
+          instanceNo: inst.instance_no,
+          consumerName: fd(inst).consumerName || '',
+          totalAmount: Number(fd(inst).totalAmount) || 0,
+          collectionStartDate: formatDateOnly(inst.submitted_at),
+          deadlineAt: formatDateOnly(inst.deadline_at!),
+          remainingHours,
+          managerUserName: fd(inst).managerName || '',
+          isOverdue: remainingMs < 0,
+        };
+      });
+    details.sort((a, b) => a.remainingHours - b.remainingHours);
+    result[key] = details;
+  }
+  return result;
+}
+
+/** 所有诉讼进度分类的明细 */
+function computeAllLegalProgressDetails(ctx: DashboardContext): Record<string, LegalProgressDetailDTO[]> {
+  const instances = ctx.oaInstances;
+  const categories = ['noticeSent', 'lawsuitFiled', 'lawsuitInProgress', 'lawsuitCompleted'] as const;
+  const result: Record<string, LegalProgressDetailDTO[]> = {};
+
+  for (const category of categories) {
+    let filtered: OaCollectionInstanceRow[];
+    switch (category) {
+      case 'noticeSent':
+        filtered = instances.filter(i => fd(i).action === 'send_letter');
+        break;
+      case 'lawsuitFiled':
+        filtered = instances.filter(i => fd(i).action === 'lawsuit');
+        break;
+      case 'lawsuitInProgress':
+        filtered = instances.filter(i => fd(i).action === 'lawsuit' && i.status === 'pending');
+        break;
+      case 'lawsuitCompleted':
+        filtered = instances.filter(i => fd(i).action === 'lawsuit' && i.status === 'approved');
+        break;
+    }
+    result[category] = filtered.map(inst => ({
+      instanceId: inst.id,
+      instanceNo: inst.instance_no,
+      action: fd(inst).action || '',
+      status: inst.status,
+      consumerName: fd(inst).consumerName || '',
+      totalAmount: Number(fd(inst).totalAmount) || 0,
+      submittedAt: formatDateOnly(inst.submitted_at),
+      currentApprover: inst.node_name || '',
+    }));
+  }
+  return result;
 }
 
 // ============================================
@@ -413,6 +547,101 @@ export async function getPipelineExpiryDetails(
   }
 
   result.sort((a, b) => a.daysToExpire - b.daysToExpire);
+  cache.set(cacheKey, result, CACHE_TTL.HIGH_FREQUENCY);
+  return result;
+}
+
+/**
+ * 获取诉讼进度明细（诉讼进度弹窗）
+ * 从 OA 实例中筛选 send_letter / lawsuit 类型
+ */
+export async function getLegalProgressDetails(category: string): Promise<LegalProgressDetailDTO[]> {
+  const cacheKey = CACHE_KEY.AR_DASHBOARD_LEGAL_PROGRESS(category);
+  const cached = cache.get<LegalProgressDetailDTO[]>(cacheKey);
+  if (cached) return cached;
+
+  // 诉讼进度只用 OA 实例数据，不需要 ERP 欠款数据
+  const instances = await fetchCollectionOaInstances();
+
+  // 根据 category 筛选不同阶段的实例
+  let filtered: OaCollectionInstanceRow[];
+  switch (category) {
+    case 'noticeSent':
+      filtered = instances.filter(i => fd(i).action === 'send_letter');
+      break;
+    case 'lawsuitFiled':
+      // 已起诉：所有 lawsuit 类型（包含在途和已完成的）
+      filtered = instances.filter(i => fd(i).action === 'lawsuit');
+      break;
+    case 'lawsuitInProgress':
+      filtered = instances.filter(i => fd(i).action === 'lawsuit' && i.status === 'pending');
+      break;
+    case 'lawsuitCompleted':
+      filtered = instances.filter(i => fd(i).action === 'lawsuit' && i.status === 'approved');
+      break;
+    default:
+      filtered = [];
+  }
+
+  const result: LegalProgressDetailDTO[] = filtered.map(inst => ({
+    instanceId: inst.id,
+    instanceNo: inst.instance_no,
+    action: fd(inst).action || '',
+    status: inst.status,
+    consumerName: fd(inst).consumerName || '',
+    totalAmount: Number(fd(inst).totalAmount) || 0,
+    submittedAt: formatDateOnly(inst.submitted_at),
+    currentApprover: inst.node_name || '',
+  }));
+
+  cache.set(cacheKey, result, CACHE_TTL.HIGH_FREQUENCY);
+  return result;
+}
+
+/**
+ * 获取管道节点超时明细（催收进度弹窗 — 时限维度）
+ * 从 OA 实例中筛选匹配管道状态的实例，计算剩余处理时限
+ */
+export async function getPipelineTimeoutDetails(
+  status: string,
+  escalationLevel?: number
+): Promise<PipelineTimeoutDetailDTO[]> {
+  const cacheKey = CACHE_KEY.AR_DASHBOARD_PIPELINE_TIMEOUT(status, escalationLevel);
+  const cached = cache.get<PipelineTimeoutDetailDTO[]>(cacheKey);
+  if (cached) return cached;
+
+  // 催收超时只用 OA 实例数据，不需要 ERP 欠款数据
+  const oaInstances = await fetchCollectionOaInstances();
+  const now = Date.now();
+  const warningMs = AR_TIMEOUT_WARNING_HOURS * 3600000;
+
+  const matched = oaInstances.filter(inst => {
+    const mapped = mapInstanceToStatus(inst);
+    if (mapped.status !== status) return false;
+    if (escalationLevel && mapped.escalationLevel !== escalationLevel) return false;
+    return true;
+  });
+
+  const result: PipelineTimeoutDetailDTO[] = matched
+    .filter(inst => inst.deadline_at)
+    .map(inst => {
+      const deadlineMs = new Date(inst.deadline_at!).getTime();
+      const remainingMs = deadlineMs - now;
+      const remainingHours = Math.round(remainingMs / 3600000 * 10) / 10;
+      return {
+        instanceId: inst.id,
+        instanceNo: inst.instance_no,
+        consumerName: fd(inst).consumerName || '',
+        totalAmount: Number(fd(inst).totalAmount) || 0,
+        collectionStartDate: formatDateOnly(inst.submitted_at),
+        deadlineAt: formatDateOnly(inst.deadline_at!),
+        remainingHours,
+        managerUserName: fd(inst).managerName || '',
+        isOverdue: remainingMs < 0,
+      };
+    });
+
+  result.sort((a, b) => a.remainingHours - b.remainingHours);
   cache.set(cacheKey, result, CACHE_TTL.HIGH_FREQUENCY);
   return result;
 }

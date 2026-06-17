@@ -7,9 +7,10 @@ jest.mock('../../db/appPool', () => ({
 }));
 jest.mock('../erp-debt/erp-debt-enrichment.service', () => ({
   getEnrichedNonHoardDebts: jest.fn(),
+  filterHoardDebts: jest.fn((debts: any[]) => debts.filter((d: any) => d.hoardTag !== 'HOARD')),
 }));
 jest.mock('../ar-collection/ar-warning.query', () => ({
-  getUpcomingWarnings: jest.fn(),
+  computeUpcomingWarnings: jest.fn(),
 }));
 jest.mock('../erp-client/erp-sales-detail.service', () => ({
   fetchSalesDetails: jest.fn(),
@@ -18,12 +19,12 @@ jest.mock('../erp-client/erp-sales-detail.service', () => ({
 import { buildDashboardContext, fetchCollectionOaInstances } from './ar-dashboard-data';
 import { appQuery } from '../../db/appPool';
 import { getEnrichedNonHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
-import { getUpcomingWarnings } from '../ar-collection/ar-warning.query';
+import { computeUpcomingWarnings } from '../ar-collection/ar-warning.query';
 import { fetchSalesDetails } from '../erp-client/erp-sales-detail.service';
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 const mockGetEnrichedNonHoardDebts = getEnrichedNonHoardDebts as jest.MockedFunction<typeof getEnrichedNonHoardDebts>;
-const mockGetUpcomingWarnings = getUpcomingWarnings as jest.MockedFunction<typeof getUpcomingWarnings>;
+const mockComputeUpcomingWarnings = computeUpcomingWarnings as jest.MockedFunction<typeof computeUpcomingWarnings>;
 const mockFetchSalesDetails = fetchSalesDetails as jest.MockedFunction<typeof fetchSalesDetails>;
 
 describe('buildDashboardContext', () => {
@@ -48,7 +49,11 @@ describe('buildDashboardContext', () => {
 
     mockGetEnrichedNonHoardDebts.mockResolvedValue(debts);
     mockAppQuery.mockResolvedValue({ rows: oaInstances } as any);
-    mockGetUpcomingWarnings.mockResolvedValue(warnings);
+    mockComputeUpcomingWarnings.mockResolvedValue({
+      details: warnings.details,
+      summary: warnings.summary,
+      pagination: warnings.pagination,
+    });
     mockFetchSalesDetails.mockResolvedValue([
       { financeSalesAmount: '10000' },
       { financeSalesAmount: '20000' },
@@ -60,32 +65,31 @@ describe('buildDashboardContext', () => {
     expect(ctx.oaInstances).toHaveLength(1);
     expect(ctx.upcomingWarnings).toHaveLength(1);
     expect(ctx.dsoValue).toBeGreaterThan(0);
+    // 验证预警计算用的是已获取的欠款数据，而非重新调 ERP
+    expect(mockComputeUpcomingWarnings).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ billId: '1' })]),
+      { pageSize: 9999 }
+    );
   });
 
   it('单个数据源失败时降级为空数组（Promise.allSettled）', async () => {
     mockGetEnrichedNonHoardDebts.mockRejectedValue(new Error('ERP API 超时'));
     mockAppQuery.mockResolvedValue({ rows: [] } as any);
-    mockGetUpcomingWarnings.mockResolvedValue({
-      details: [],
-      summary: { today: { count: 0, amount: 0 }, within2Days: { count: 0, amount: 0 }, within5Days: { count: 0, amount: 0 }, totalCount: 0, totalAmount: 0 },
-      pagination: { page: 1, pageSize: 9999, total: 0 },
-    });
     mockFetchSalesDetails.mockResolvedValue([]);
 
     const ctx = await buildDashboardContext();
 
-    // ERP 欠款失败 → 空数组
+    // ERP 欠款失败 → 空数组，预警计算也被跳过
     expect(ctx.enrichedDebts).toEqual([]);
-    // 其他数据源正常
     expect(ctx.oaInstances).toEqual([]);
     expect(ctx.upcomingWarnings).toEqual([]);
     expect(ctx.dsoValue).toBeNull();
+    expect(mockComputeUpcomingWarnings).not.toHaveBeenCalled();
   });
 
   it('所有数据源失败时不抛异常，返回全空上下文', async () => {
     mockGetEnrichedNonHoardDebts.mockRejectedValue(new Error('fail'));
     mockAppQuery.mockRejectedValue(new Error('fail'));
-    mockGetUpcomingWarnings.mockRejectedValue(new Error('fail'));
     mockFetchSalesDetails.mockRejectedValue(new Error('fail'));
 
     const ctx = await buildDashboardContext();
@@ -98,12 +102,11 @@ describe('buildDashboardContext', () => {
 
   it('DSO 计算：无销售数据时返回 null', async () => {
     mockGetEnrichedNonHoardDebts.mockResolvedValue([
-      { leftAmount: 50000 } as any,
+      { leftAmount: 50000, hoardTag: 'NORMAL' } as any,
     ]);
     mockAppQuery.mockResolvedValue({ rows: [] } as any);
-    mockGetUpcomingWarnings.mockResolvedValue({
-      details: [],
-      summary: { today: { count: 0, amount: 0 }, within2Days: { count: 0, amount: 0 }, within5Days: { count: 0, amount: 0 }, totalCount: 0, totalAmount: 0 },
+    mockComputeUpcomingWarnings.mockResolvedValue({
+      details: [], summary: { today: { count: 0, amount: 0 }, within2Days: { count: 0, amount: 0 }, within5Days: { count: 0, amount: 0 }, totalCount: 0, totalAmount: 0 },
       pagination: { page: 1, pageSize: 9999, total: 0 },
     });
     mockFetchSalesDetails.mockResolvedValue([]);
@@ -114,14 +117,13 @@ describe('buildDashboardContext', () => {
 
   it('DSO 计算：有销售数据时正确计算', async () => {
     const debts = [
-      { leftAmount: 300000 },
-      { leftAmount: 200000 },
+      { leftAmount: 300000, hoardTag: 'NORMAL' },
+      { leftAmount: 200000, hoardTag: 'NORMAL' },
     ] as any[];
     mockGetEnrichedNonHoardDebts.mockResolvedValue(debts);
     mockAppQuery.mockResolvedValue({ rows: [] } as any);
-    mockGetUpcomingWarnings.mockResolvedValue({
-      details: [],
-      summary: { today: { count: 0, amount: 0 }, within2Days: { count: 0, amount: 0 }, within5Days: { count: 0, amount: 0 }, totalCount: 0, totalAmount: 0 },
+    mockComputeUpcomingWarnings.mockResolvedValue({
+      details: [], summary: { today: { count: 0, amount: 0 }, within2Days: { count: 0, amount: 0 }, within5Days: { count: 0, amount: 0 }, totalCount: 0, totalAmount: 0 },
       pagination: { page: 1, pageSize: 9999, total: 0 },
     });
     // 30天销售总额 300000 → 日均 10000

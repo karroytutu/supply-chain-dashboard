@@ -8,17 +8,17 @@ export function getArDashboardOverview(): Promise<ArDashboardData> {
   return request.get<ArDashboardData>('/ar-dashboard/overview');
 }
 
-/** 即将逾期客户弹窗数据 */
-export function getUpcomingExpiryCustomers(): Promise<UpcomingExpiryCustomer[]> {
-  return request.get<UpcomingExpiryCustomer[]>('/ar-dashboard/upcoming-expiry');
+/** 诉讼进度明细弹窗数据 */
+export function getLegalProgressDetails(category: string): Promise<LegalProgressDetail[]> {
+  return request.get<LegalProgressDetail[]>('/ar-dashboard/legal-progress', { params: { category } });
 }
 
-/** 管道节点即将逾期弹窗数据 */
-export function getPipelineExpiryDetails(
+/** 管道节点超时明细弹窗数据（时限维度） */
+export function getPipelineTimeoutDetails(
   status: string,
   escalationLevel?: number
-): Promise<PipelineExpiryDetail[]> {
+): Promise<PipelineTimeoutDetail[]> {
   const params: Record<string, unknown> = { status };
   if (escalationLevel !== undefined) params.escalationLevel = escalationLevel;
-  return request.get<PipelineExpiryDetail[]>('/ar-dashboard/pipeline-expiry', { params });
+  return request.get<PipelineTimeoutDetail[]>('/ar-dashboard/pipeline-timeout', { params });
 }

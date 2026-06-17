@@ -1,6 +1,6 @@
 /**
  * 应收看板路由
- * 3 个只读 GET 接口，权限 ar:collection:read
+ * 5 个只读 GET 接口，权限 ar:collection:read
  */
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
@@ -9,6 +9,8 @@ import {
   handleOverview,
   handleUpcomingExpiry,
   handlePipelineExpiry,
+  handleLegalProgress,
+  handlePipelineTimeout,
 } from '../controllers/ar-dashboard.controller';
 
 const router = Router();
@@ -24,5 +26,11 @@ router.get('/upcoming-expiry', handleUpcomingExpiry);
 
 /** 管道节点即将逾期弹窗 */
 router.get('/pipeline-expiry', handlePipelineExpiry);
+
+/** 诉讼进度明细弹窗 */
+router.get('/legal-progress', handleLegalProgress);
+
+/** 管道节点超时明细弹窗 */
+router.get('/pipeline-timeout', handlePipelineTimeout);
 
 export default router;
