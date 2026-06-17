@@ -18,7 +18,7 @@ import { getCustomerLicenseInfo, getErpCustomerProfile } from '../erp-client/erp
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import { resolveLicenseFilePath } from '../../middleware/credit-upload';
 import { cache } from '../../utils/cache';
-import { detectHoardChangesByCustomer } from '../erp-debt/erp-hoard-detect';
+import { upsertHoldMeta } from '../erp-debt/ar-hold-meta.service';
 import fs from 'fs';
 import {
   CREDIT_SETTLE_METHOD_ON_ACCOUNT,
@@ -185,7 +185,7 @@ export async function onApprovedCustomerCredit(
       cache.invalidate('erp:customer:limits');
       cache.invalidate('erp:customer:debt-name-map');
 
-      // 提取压单类型和天数，传递给检测函数
+      // 提取压单类型和天数
       const rawHoardType = formData.hoardType as string;
       const hoardType =
         rawHoardType === AR_HOLD_TYPE_TIME_LIMITED
@@ -193,12 +193,13 @@ export async function onApprovedCustomerCredit(
           : AR_HOLD_TYPE_LONG_TERM;
       const holdDays =
         hoardType === AR_HOLD_TYPE_TIME_LIMITED ? Number(formData.holdDays) || null : null;
-
-      const consumerName = (formData._customerName || formData.customerName) as string;
-      if (consumerName) {
-        await detectHoardChangesByCustomer(consumerName, { holdType: hoardType, holdDays }).catch(
+      
+      // 将压单记录写入 ar_hold_meta 表（替代旧 ar_collection_details 的 hold 字段）
+      const holdOrderIds = ((formData.holdSettlementOrders as number[]) || []).map(String);
+      if (holdOrderIds.length > 0) {
+        await upsertHoldMeta(holdOrderIds, hoardType, holdDays, instanceId).catch(
           err => {
-            log.error('压单即时检测失败（兜底会在06:00执行）:', err);
+            log.error('压单元数据写入失败（催收时仍可通过ERP hoardTag识别压单）:', err);
           }
         );
       }

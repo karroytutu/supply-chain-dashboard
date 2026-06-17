@@ -14,13 +14,6 @@ import { getPendingErpOrders } from '../return-order/return-order.query';
 import { runCalculation } from '../assessment/assessment-calculate';
 import { sendAssessmentNotifications } from '../assessment/assessment-notify';
 import * as assessmentRepository from '../assessment/assessment.repository';
-import {
-  // syncERPDebts, // [催收流水线合并] 已迁移至 collection-pipeline.task
-  // generateCollectionTasks, // [催收OA集成] 已由 generateCollectionOaInstances 替代
-  checkExtensionExpiry,
-  checkHoldExpiry,
-} from '../erp-debt/erp-debt-sync.task';
-import { checkExtensionExpiryReminders } from '../ar-collection/ar-collection-reminder.task';
 import { checkUpcomingOverdueReminders } from '../ar-collection/ar-warning.task';
 // [统一考核迁移] 旧模块已停用，由统一考核模块替代
 // import { calculateArAssessments, notifyAssessmentCreated } from '../ar-assessment';
@@ -146,47 +139,11 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
-  // 延期到期检查 - 每2小时
-  cron.schedule(
-    '0 */2 * * *',
-    async () => {
-      log.info('执行延期到期检查...');
-      try {
-        await checkExtensionExpiry();
-        log.info('延期到期检查完成');
-      } catch (error) {
-        log.error('延期到期检查失败:', error);
-      }
-    },
-    { timezone: 'Asia/Shanghai' }
-  );
-
-  // 期限压单到期检查 - 每2小时
-  cron.schedule(
-    '0 */2 * * *',
-    async () => {
-      log.info('执行期限压单到期检查...');
-      try {
-        await checkHoldExpiry();
-        log.info('期限压单到期检查完成');
-      } catch (error) {
-        log.error('期限压单到期检查失败:', error);
-      }
-    },
-    { timezone: 'Asia/Shanghai' }
-  );
-
   // 催收预警提醒 - 每天晚上 20:00
   cron.schedule(
     '0 20 * * *',
     async () => {
       log.info('执行催收预警提醒检查...');
-      try {
-        await checkExtensionExpiryReminders();
-        log.info('延期到期提醒检查完成');
-      } catch (error) {
-        log.error('延期到期提醒检查失败:', error);
-      }
       try {
         await checkUpcomingOverdueReminders();
         log.info('逾期前预警提醒检查完成');
@@ -430,10 +387,8 @@ export function startScheduler(): void {
     log.info('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
     log.info('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
     log.info('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');
-    log.info('  - 催收统一流水线: 每天 20:00 (Asia/Shanghai) [ERP同步→OA实例生成→考核计算]');
-    log.info('  - 延期到期检查: 每2小时 (Asia/Shanghai)');
-    log.info('  - 期限压单到期检查: 每2小时 (Asia/Shanghai)');
-    log.info('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [延期到期+逾期前预警]');
+    log.info('  - 催收统一流水线: 每天 20:00 (Asia/Shanghai) [压单到期清理→OA实例生成→考核计算]');
+    log.info('  - 催收预警提醒: 每天 20:00 (Asia/Shanghai) [逾期前预警]');
     log.info('  - 钉钉通知重试: 每5分钟 (Asia/Shanghai)');
     log.info('  - auto节点卡住恢复: 每5分钟 (Asia/Shanghai)');
     log.info('  - 营业执照补交提醒: 每天 09:00 (Asia/Shanghai)');

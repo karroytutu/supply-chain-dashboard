@@ -3,7 +3,7 @@
  * @module services/oa/ar-collection-creator
  *
  * 直接检测 ERP 逾期欠款并创建 OA 催收实例，替代旧的 ar-collection-task-generator。
- * 流程：拉取ERP欠款 → 富化 → 压单排除 → 准入规则 → 按客户+逾期日聚合 → 创建OA实例
+ * 流程：拉取ERP欠款 → 富化 → 压单排除 → 准入规则 → 单据级去重 → 按客户聚合 → 创建OA实例
  */
 
 import { createLogger } from '../../utils/logger';
@@ -86,34 +86,42 @@ async function generateCollectionOaInstancesInner(): Promise<void> {
   }
   log.info(`准入规则评估: ${enteringDebts.length} 笔欠款需要入催, 原因: ${entryReasons.join(', ')}`);
 
-  // 6. 按客户聚合（同一客户仅允许一个活跃催收实例）
-  const groups = groupByConsumer(enteringDebts);
+  // 6. 查询已有活跃OA实例中的单据ID（单据级去重：已在催收中的单据不重复创建）
+  const existingBillIds = await queryExistingBillIds();
 
-  // 7. 查询已有未完成的OA催收实例（防重复）
-  const existingInstances = await queryExistingOaInstances();
+  // 7. 过滤已在活跃实例中的单据，仅保留新单据
+  const newDebts = enteringDebts.filter(d => !existingBillIds.has(d.billId));
+  if (newDebts.length === 0) {
+    log.info('所有入催单据已在活跃OA实例中，无需创建新实例');
+    return;
+  }
+  log.info(`单据级去重: ${enteringDebts.length} → ${newDebts.length} 笔新单据（排除 ${enteringDebts.length - newDebts.length} 笔已有单据）`);
 
-  // 8. 获取系统用户（鑫小财 AI员工，用于 submitApproval 的提交人）
+  // 8. 按客户聚合（同一客户的新单据创建一个实例，不同到期日分开催收）
+  const groups = groupByConsumer(newDebts);
+
+  // 9. 获取系统用户（鑫小财 AI员工，用于 submitApproval 的提交人）
   const systemUser = await getSystemApplicant();
   if (!systemUser) {
     log.error('未找到系统用户「鑫小财」，无法创建OA实例');
     return;
   }
 
-  // 9. 获取表单类型定义
+  // 10. 获取表单类型定义
   const formType = getFormTypeByCode('ar_collection');
   if (!formType) {
     log.error('未找到 ar_collection 表单类型定义');
     return;
   }
 
-  // 10. 为每组创建OA实例（支持批量优化）
+  // 11. 为每组创建OA实例（支持批量优化）
   const groupsArray = Array.from(groups.entries());
   const batchSize = 20; // 每批处理20个实例
   const allCreatedInstances: CreatedInstance[] = [];
 
   for (let i = 0; i < groupsArray.length; i += batchSize) {
     const batch = groupsArray.slice(i, i + batchSize);
-    const batchInstances = await createBatchOaInstances(batch, formType, systemUser, existingInstances);
+    const batchInstances = await createBatchOaInstances(batch, formType, systemUser, existingBillIds);
     allCreatedInstances.push(...batchInstances);
 
     if (groupsArray.length > batchSize) {
@@ -121,7 +129,7 @@ async function generateCollectionOaInstancesInner(): Promise<void> {
     }
   }
 
-  // 11. 事务提交后，为每个实例调用钉钉集成（壳实例 + 待办 + erp_meta）
+  // 12. 事务提交后，为每个实例调用钉钉集成（壳实例 + 待办 + erp_meta）
   for (const instance of allCreatedInstances) {
     // 11a. 初始化 erp_meta（参照 submit-approval.ts hasAutoNode 逻辑）
     await initErpMeta(instance.instanceId, '').catch(err => {
@@ -174,14 +182,14 @@ interface CreatedInstance {
  * @param batch 批次的 [key, debts] 数组
  * @param formType 表单类型定义
  * @param systemUser 系统用户（鑫小财）
- * @param existingInstances 已有实例的 key 集合
+ * @param existingBillIds 已有活跃实例中的单据ID集合（单据级去重）
  * @returns 成功创建的实例详情数组
  */
 async function createBatchOaInstances(
   batch: [string, EnrichedDebtRecord[]][],
   formType: ReturnType<typeof getFormTypeByCode>,
   systemUser: { id: number; name: string; dept: string | null },
-  existingInstances: Set<string>
+  existingBillIds: Set<string>
 ): Promise<CreatedInstance[]> {
   if (!formType) return [];
 
@@ -192,12 +200,7 @@ async function createBatchOaInstances(
     await client.query('BEGIN');
 
     for (const [consumerName, debts] of batch) {
-      // 检查是否已有未完成的OA实例（按客户名去重，同一客户仅允许一个活跃催收实例）
-      if (existingInstances.has(consumerName)) {
-        log.debug(`跳过已有实例: ${consumerName}`);
-        continue;
-      }
-
+      // 单据已在主流程预过滤（existingBillIds），此处直接创建
       try {
         await client.query('SAVEPOINT sp_consumer');
         const overdueDateStr = getOverdueDateStr(debts[0]);
@@ -266,9 +269,10 @@ async function createBatchOaInstances(
           formData,
           marketerUserId: marketer?.userId ?? null,
         });
-        existingInstances.add(consumerName); // 防止同批次重复
         log.info(`创建催收OA实例: ${title}`);
         await client.query('RELEASE SAVEPOINT sp_consumer');
+        // 必须在 RELEASE SAVEPOINT 之后，确保事务成功后才标记单据（防止回滚后 JS Set 不一致）
+        for (const d of debts) existingBillIds.add(d.billId);
       } catch (err) {
         await client.query('ROLLBACK TO SAVEPOINT sp_consumer');
         log.error(`创建催收OA实例失败 [${consumerName}]:`, err);
@@ -311,19 +315,22 @@ function getOverdueDateStr(debt: EnrichedDebtRecord): string {
   return overdueDate.toISOString().split('T')[0];
 }
 
-async function queryExistingOaInstances(): Promise<Set<string>> {
-  const result = await query<{ form_data: Record<string, unknown> }>(
-    `SELECT form_data FROM oa_approval_instances i
-     JOIN oa_form_types ft ON i.form_type_id = ft.id
-     WHERE ft.code = 'ar_collection' AND i.status IN ('pending', 'processing')`
+/**
+ * 查询已有活跃OA实例中的单据ID集合（单据级去重）
+ * 使用 SQL jsonb_array_elements 在数据库层提取 billNo，避免传输完整 form_data
+ */
+async function queryExistingBillIds(): Promise<Set<string>> {
+  const result = await query<{ bill_no: string }>(
+    `SELECT DISTINCT elem->>'billNo' AS bill_no
+     FROM oa_approval_instances i
+     JOIN oa_form_types ft ON i.form_type_id = ft.id,
+     LATERAL jsonb_array_elements(i.form_data->'billDetails') AS elem
+     WHERE ft.code = 'ar_collection'
+       AND i.status IN ('pending', 'processing')
+       AND jsonb_typeof(i.form_data->'billDetails') = 'array'
+       AND elem->>'billNo' IS NOT NULL`
   );
-  // 从 form_data 中提取 consumerName 作为去重 key（同一客户仅允许一个活跃催收实例）
-  const keys = new Set<string>();
-  for (const row of result.rows) {
-    const fd = row.form_data;
-    if (fd?.consumerName) keys.add(fd.consumerName as string);
-  }
-  return keys;
+  return new Set(result.rows.map(r => r.bill_no));
 }
 
 async function getSystemApplicant(): Promise<{ id: number; name: string; dept: string | null } | null> {

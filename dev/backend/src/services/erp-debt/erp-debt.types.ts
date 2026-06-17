@@ -48,7 +48,7 @@ export interface CustomerLimits {
 export interface EnrichedDebtRecord extends ERPDebtRecord {
   // 压单标记（来自 ERP 结算单 API，null 表示获取失败或不可用）
   hoardTag: typeof AR_HOARD_TAG_NORMAL | typeof AR_HOARD_TAG_HOARD | null;
-  // 压单类型（来自本地 ar_collection_details，null 表示非压单或未对账）
+  // 压单类型（来自 ar_hold_meta 表，null 表示非压单或未对账）
   holdType: ArHoldType | null;
   // 期限压单到期日（ISO 日期字符串，仅 time_limited 有效）
   holdUntil: string | null;

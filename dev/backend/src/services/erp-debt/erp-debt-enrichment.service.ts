@@ -157,7 +157,7 @@ export function filterHoardDebts(debts: EnrichedDebtRecord[]): EnrichedDebtRecor
 /**
  * 获取客户名称 → traderId 映射和客户限额数据
  * 使用缓存避免重复 API 调用
- * @usedBy erp-hoard-detect.ts (压单检测获取客户映射)
+ * @usedBy enrichDebtRecords (内部调用，获取客户映射)
  */
 export async function fetchCustomerData(_consumerNames: string[]): Promise<{
   nameToTraderId: Map<string, number>;
@@ -213,7 +213,7 @@ export async function fetchCustomerData(_consumerNames: string[]): Promise<{
  * 获取 billId → hoardTag 映射
  * 策略：先检查原始记录是否已含 hoardTag（PG 视图可能已包含）
  * 若不含，则按客户从 ERP API 获取结算单的 hoardTag
- * @usedBy erp-hoard-detect.ts (压单检测获取最新 hoardTag)
+ * @usedBy enrichDebtRecords (内部调用，获取最新 hoardTag)
  */
 export async function fetchHoardTags(
   debts: ERPDebtRecord[],
@@ -332,7 +332,7 @@ function resolveHoardTag(
 // Hold 元数据获取
 // ============================================
 
-/** hold 元数据（来自本地 ar_collection_details） */
+/** hold 元数据（来自 ar_hold_meta 表） */
 interface HoldMeta {
   holdType: ArHoldType;
   holdUntil: string | null;
@@ -340,7 +340,7 @@ interface HoldMeta {
 
 /**
  * 获取 billId → hold 元数据映射
- * 从本地 ar_collection_details 查询 hold_type 和 hold_until
+ * 从 ar_hold_meta 表查询压单记录（替代旧 ar_collection_details）
  * 用于判断期限压单是否已到期
  */
 async function fetchHoldExpiryState(debts: ERPDebtRecord[]): Promise<Map<string, HoldMeta>> {
@@ -355,9 +355,8 @@ async function fetchHoldExpiryState(debts: ERPDebtRecord[]): Promise<Map<string,
       hold_until: string | null;
     }>(
       `SELECT erp_bill_id, hold_type, hold_until::text
-       FROM ar_collection_details
-       WHERE erp_bill_id = ANY($1)
-         AND hold_type IS NOT NULL`,
+       FROM ar_hold_meta
+       WHERE erp_bill_id = ANY($1)`,
       [billIds]
     );
 

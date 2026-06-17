@@ -1,8 +1,9 @@
 /**
  * 催收管理模块类型定义
- * 对应数据库表: ar_collection_tasks, ar_collection_details, ar_extension_records,
- *              ar_collection_actions
- * 注: ar_legal_progress 和 ar_evidence_files 已废弃（迁移 091 删除）
+ * 对应数据库表（已于迁移 103 归档）:
+ *   _archived_ar_collection_tasks, _archived_ar_collection_details,
+ *   _archived_ar_extension_records, _archived_ar_collection_actions
+ * 注：新催收流程使用 OA 实例，这些类型仅供历史数据查询
  */
 
 // ============================================
