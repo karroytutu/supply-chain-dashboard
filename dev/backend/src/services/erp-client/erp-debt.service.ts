@@ -8,6 +8,7 @@ import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
+import { fetchAllPagesParallel } from './erp-pagination';
 import type { ERPDebtRecord } from '../erp-debt/erp-debt.types';
 
 /** API 返回的原始欠款记录 */
@@ -89,15 +90,14 @@ export async function fetchAllErpDebts(skipCache = false): Promise<ERPDebtRecord
   }
 
   const { cid, uid } = getErpDefaults();
-  const allRecords: ApiDebtRecord[] = [];
-  let current = 1;
+  const workEndDate = new Date().toISOString().slice(0, 10);
 
-  while (true) {
+  const fetchPage = async (current: number) => {
     const result = await erpPost<ApiDebtResponse>(
       '/consumer-collect/detail',
       {
         workStartDate: '2020-01-01',
-        workEndDate: new Date().toISOString().slice(0, 10),
+        workEndDate,
         size: DEFAULT_PAGE_SIZE,
         total: 0,
         current,
@@ -113,17 +113,13 @@ export async function fetchAllErpDebts(skipCache = false): Promise<ERPDebtRecord
         businessType: 'debt_fetch',
       }
     );
+    return {
+      records: result?.data?.records || [],
+      total: result?.data?.total || 0,
+    };
+  };
 
-    const records = result?.data?.records || [];
-    allRecords.push(...records);
-
-    // 判断是否还有下一页
-    const total = result?.data?.total || 0;
-    if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
-      break;
-    }
-    current++;
-  }
+  const allRecords = await fetchAllPagesParallel<ApiDebtRecord>(fetchPage, DEFAULT_PAGE_SIZE);
 
   // 过滤 leftAmount > 0 并转换类型
   const debts = allRecords.filter(r => parseFloat(r.leftAmount) > 0).map(toERPDebtRecord);

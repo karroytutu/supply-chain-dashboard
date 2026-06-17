@@ -185,8 +185,8 @@ const ArDetailTable: React.FC<ArDetailTableProps> = ({
           return false;
         if (filters.overdueRange === '60+' && row.overdueDays <= 60) return false;
       }
-      if (filters.managerName) {
-        if (row.managerUserName !== filters.managerName) return false;
+      if (filters.managerNames && filters.managerNames.length > 0) {
+        if (!filters.managerNames.includes(row.managerUserName)) return false;
       }
       if (filters.keyword) {
         const kw = filters.keyword.toLowerCase();
@@ -227,11 +227,14 @@ const ArDetailTable: React.FC<ArDetailTableProps> = ({
             style={{ width: '100%' }}
           />
           <Select
-            value={filters.managerName || ''}
-            options={[{ value: '', label: '全部营销师' }, ...marketerOptions]}
-            onChange={(v) => setFilters((p) => ({ ...p, managerName: v as string }))}
+            mode="multiple"
+            maxTagCount="responsive"
+            value={filters.managerNames || []}
+            options={marketerOptions}
+            onChange={(v) => setFilters((p) => ({ ...p, managerNames: v as string[] }))}
             style={{ width: '100%' }}
             placeholder="营销师"
+            allowClear
           />
           <Input
             value={filters.keyword}

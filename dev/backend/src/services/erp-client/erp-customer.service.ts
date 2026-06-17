@@ -8,6 +8,9 @@ import { erpPost, erpGet } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('ErpCustomer');
 import type {} from './erp-client.types';
 
 // =====================================================
@@ -104,17 +107,10 @@ export async function searchErpCustomers(
   options?: { includeAllStates?: boolean }
 ): Promise<ErpCustomer[]> {
   const { cid, uid } = getErpDefaults();
-  const allCustomers: ErpCustomer[] = [];
-  let current = 1;
   const size = 200;
 
-  while (true) {
-    const body: Record<string, unknown> = {
-      current,
-      size,
-      cid,
-      uid,
-    };
+  const fetchPage = async (current: number) => {
+    const body: Record<string, unknown> = { current, size, cid, uid };
     // 默认仅查启用客户（docState=1），客户档案修改场景需传 includeAllStates=true
     if (!options?.includeAllStates) {
       body.docState = 1;
@@ -127,8 +123,38 @@ export async function searchErpCustomers(
       businessType: 'customer_search',
     })) as any;
     const records: ErpCustomer[] = result?.data?.records || result?.records || [];
-    allCustomers.push(...records);
-    if (records.length < size) break;
+    // 客户 API 可能不返回 total，尝试两个位置
+    const total: number = result?.data?.total ?? result?.total ?? 0;
+    return { records, total };
+  };
+
+  // 先拉第一页，检查 ERP 是否返回 total
+  const first = await fetchPage(1);
+
+  // 有 total 且有多页 → 并行拉取剩余页（allSettled 容错，单页失败不丢全量）
+  if (first.total > 0 && first.records.length < first.total) {
+    const totalPages = Math.ceil(first.total / size);
+    const restNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+    const settled = await Promise.allSettled(restNums.map(p => fetchPage(p)));
+    const restRecords: ErpCustomer[] = [];
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        restRecords.push(...result.value.records);
+      } else {
+        log.warn('客户搜索并行分页某页失败，已跳过:', result.reason);
+      }
+    }
+    return [...first.records, ...restRecords];
+  }
+
+  // 无 total 或只有一页 → 串行兜底（保守策略，确保数据完整性）
+  if (first.records.length < size) return first.records;
+  const allCustomers = [...first.records];
+  let current = 2;
+  while (true) {
+    const page = await fetchPage(current);
+    allCustomers.push(...page.records);
+    if (page.records.length < size) break;
     current++;
   }
   return allCustomers;

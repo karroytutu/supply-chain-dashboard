@@ -7,6 +7,16 @@
 // 看板聚合响应
 // ============================================
 
+/** 弹窗预计算数据（随主接口一并返回，前端弹窗直接使用，无需额外请求） */
+export interface ArDashboardPopupData {
+  /** 即将逾期客户聚合（KPI 卡片弹窗） */
+  upcomingExpiryCustomers: UpcomingExpiryCustomerDTO[];
+  /** 管道超时明细，key = "status" 或 "status:L1"/"status:L2" */
+  pipelineTimeoutDetails: Record<string, PipelineTimeoutDetailDTO[]>;
+  /** 诉讼进度明细，key = category (noticeSent/lawsuitFiled/lawsuitInProgress/lawsuitCompleted) */
+  legalProgressDetails: Record<string, LegalProgressDetailDTO[]>;
+}
+
 /** 看板完整数据（overview 接口响应） */
 export interface ArDashboardOverview {
   kpiCards: KpiCardDTO[];
@@ -17,6 +27,8 @@ export interface ArDashboardOverview {
   marketers: MarketerStatsDTO[];
   details: ArDetailRowDTO[];
   marketerOptions: { value: string; label: string }[];
+  /** 弹窗预计算数据 */
+  popupData: ArDashboardPopupData;
   updatedAt: string;
 }
 
@@ -54,8 +66,10 @@ export interface PipelineNodeDTO {
   pendingRole: PendingRole;
   /** 升级层级（仅 escalated 状态使用） */
   escalationLevel?: 1 | 2;
-  /** 即将逾期笔数 */
-  upcomingExpiryCount?: number;
+  /** 即将超时笔数（OA 节点 deadline_at 维度，剩余 ≤24h） */
+  upcomingTimeoutCount?: number;
+  /** 已超时笔数（OA 节点 deadline_at 已过期） */
+  overdueTimeoutCount?: number;
 }
 
 // ============================================
@@ -115,6 +129,14 @@ export interface ArDetailRowDTO {
   status: CollectionTaskStatus | null;
   escalationLevel?: 1 | 2;
   managerUserName: string;
+  /** OA 审批实例 ID，用于跳转详情页 */
+  oaInstanceId?: number;
+  /** OA 单号，显示用 */
+  oaInstanceNo?: string;
+  /** 入催日期（OA 实例提交时间） */
+  collectionStartDate?: string;
+  /** 当前节点截止时间（OA 节点 deadline_at） */
+  deadlineAt?: string;
 }
 
 // ============================================
@@ -140,6 +162,37 @@ export interface PipelineExpiryDetailDTO {
   managerUserName: string;
 }
 
+/** 管道节点超时明细（催收进度弹窗 — 时限维度） */
+export interface PipelineTimeoutDetailDTO {
+  instanceId: number;
+  instanceNo: string;
+  consumerName: string;
+  /** 涉及金额（OA 表单 totalAmount） */
+  totalAmount: number;
+  collectionStartDate: string;
+  deadlineAt: string;
+  /** 剩余小时数（正=剩余，负=已超时） */
+  remainingHours: number;
+  managerUserName: string;
+  isOverdue: boolean;
+}
+
+/** 诉讼进度明细（诉讼进度弹窗） */
+export interface LegalProgressDetailDTO {
+  /** OA 实例 ID，用于跳转详情页 */
+  instanceId: number;
+  /** OA 单号，显示用 */
+  instanceNo: string;
+  /** 操作类型：send_letter / lawsuit */
+  action: string;
+  /** OA 审批状态 */
+  status: string;
+  consumerName: string;
+  totalAmount: number;
+  submittedAt: string;
+  currentApprover: string;
+}
+
 // ============================================
 // 内部中间类型（共享数据上下文）
 // ============================================
@@ -147,12 +200,15 @@ export interface PipelineExpiryDetailDTO {
 /** OA 催收实例行（SQL 查询结果） */
 export interface OaCollectionInstanceRow {
   id: number;
+  instance_no: string;
+  submitted_at: Date;
   status: string;
   form_data: Record<string, unknown> | null;
   current_node_order: number;
   role_code: string | null;
   node_name: string | null;
   node_status: string | null;
+  deadline_at: Date | null;
 }
 
 /** OA 催收表单数据结构（form_data 的类型化断言） */

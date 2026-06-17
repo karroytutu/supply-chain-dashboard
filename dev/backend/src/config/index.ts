@@ -74,6 +74,8 @@ export const config = {
     timeout: parseInt(process.env.ERP_API_TIMEOUT || '10000', 10),
     retryMax: parseInt(process.env.ERP_API_RETRY_MAX || '3', 10),
     rateLimitMs: parseInt(process.env.ERP_API_RATE_LIMIT_MS || '200', 10),
+    maxGroupConcurrency: parseInt(process.env.ERP_API_MAX_GROUP_CONCURRENCY || '4', 10),
+    maxGlobalConcurrency: parseInt(process.env.ERP_API_MAX_GLOBAL_CONCURRENCY || '12', 10),
   },
 
   // Token 管理模块（内置 Token 获取，替代外部 API）

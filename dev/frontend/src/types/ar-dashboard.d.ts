@@ -49,7 +49,10 @@ interface PipelineNode {
   color?: string;
   pendingRole: PendingRole;
   escalationLevel?: EscalationLevel;
-  upcomingExpiryCount?: number;
+  /** 即将超时笔数（OA 节点 deadline_at ≤ 24h） */
+  upcomingTimeoutCount?: number;
+  /** 已超时笔数（OA 节点 deadline_at 已过期） */
+  overdueTimeoutCount?: number;
 }
 
 /** 诉讼进度统计 */
@@ -96,6 +99,14 @@ interface ArDetailRow {
   status: CollectionTaskStatus | null;
   escalationLevel?: EscalationLevel;
   managerUserName: string;
+  /** OA 审批实例 ID，用于跳转详情页 */
+  oaInstanceId?: number;
+  /** OA 单号，显示用 */
+  oaInstanceNo?: string;
+  /** 入催日期（OA 实例提交时间） */
+  collectionStartDate?: string;
+  /** 当前节点截止时间 */
+  deadlineAt?: string;
 }
 
 // ============================================
@@ -121,6 +132,32 @@ interface PipelineExpiryDetail {
   managerUserName: string;
 }
 
+/** 管道节点超时明细（时限维度） */
+interface PipelineTimeoutDetail {
+  instanceId: number;
+  instanceNo: string;
+  consumerName: string;
+  /** 涉及金额（OA 表单 totalAmount） */
+  totalAmount: number;
+  collectionStartDate: string;
+  deadlineAt: string;
+  remainingHours: number;
+  managerUserName: string;
+  isOverdue: boolean;
+}
+
+/** 诉讼进度明细（诉讼进度弹窗） */
+interface LegalProgressDetail {
+  instanceId: number;
+  instanceNo: string;
+  action: string;
+  status: string;
+  consumerName: string;
+  totalAmount: number;
+  submittedAt: string;
+  currentApprover: string;
+}
+
 /** 管道联动筛选参数 */
 interface PipelineFilter {
   status: CollectionTaskStatus | '';
@@ -132,13 +169,23 @@ interface ArDetailFilters {
   status?: CollectionTaskStatus | '';
   escalationLevel?: EscalationLevel;
   overdueRange: string;
-  managerName?: string;
+  managerNames?: string[];
   keyword: string;
 }
 
 // ============================================
 // 看板聚合数据（API 响应类型）
 // ============================================
+
+/** 弹窗预计算数据（随主接口一并返回） */
+interface ArDashboardPopupData {
+  /** 即将逾期客户聚合（KPI 卡片弹窗） */
+  upcomingExpiryCustomers: UpcomingExpiryCustomer[];
+  /** 管道超时明细，key = "status" 或 "status:L1"/"status:L2" */
+  pipelineTimeoutDetails: Record<string, PipelineTimeoutDetail[]>;
+  /** 诉讼进度明细，key = category */
+  legalProgressDetails: Record<string, LegalProgressDetail[]>;
+}
 
 /** 看板完整数据（后端 API 响应） */
 interface ArDashboardData {
@@ -150,5 +197,7 @@ interface ArDashboardData {
   marketers: MarketerStats[];
   details: ArDetailRow[];
   marketerOptions: { value: string; label: string }[];
+  /** 弹窗预计算数据 */
+  popupData: ArDashboardPopupData;
   updatedAt: string;
 }

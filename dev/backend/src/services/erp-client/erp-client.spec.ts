@@ -11,7 +11,11 @@ describe('erp-client', () => {
     jest.useRealTimers();
 
     // 每次测试前重新设置 mocks（因为 resetModules 会清除）
-    jest.mock('axios');
+    jest.mock('axios', () => {
+      const mock: any = jest.fn();
+      mock.create = jest.fn(() => mock);
+      return mock;
+    });
     jest.mock('./erp-auth', () => ({
       getErpAccessToken: jest.fn().mockResolvedValue('test-token'),
     }));
@@ -27,8 +31,14 @@ describe('erp-client', () => {
         timeout: 10000,
         retryMax: 2,
         rateLimitMs: 50,
+        maxGroupConcurrency: 4,
+        maxGlobalConcurrency: 12,
       }),
       ERP_API_VERSION: '51',
+    }));
+    jest.mock('./erp-rate-limiter', () => ({
+      acquireRateSlot: jest.fn().mockResolvedValue(jest.fn()),
+      defaultRateLimitGroup: jest.fn((prefix: string, path: string) => `${prefix}${path}`),
     }));
     jest.mock('../../utils/logger', () => ({
       default: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
@@ -136,8 +146,9 @@ describe('erp-client', () => {
     expect(axios).toHaveBeenCalledTimes(2);
   });
 
-  it('限流间隔 — 两次快速调用之间有延迟', async () => {
+  it('并发限流 — 两次调用都成功，限流器被调用', async () => {
     const axios = require('axios') as jest.MockedFunction<any>;
+    const { acquireRateSlot } = require('./erp-rate-limiter');
     const { erpRequest } = require('./erp-client');
 
     axios.mockResolvedValue({
@@ -145,18 +156,13 @@ describe('erp-client', () => {
       status: 200,
     });
 
-    const start = Date.now();
-
     // 两次连续请求
     await erpRequest('GET', 'rate/1', undefined, { skipLog: true });
     await erpRequest('GET', 'rate/2', undefined, { skipLog: true });
 
-    const elapsed = Date.now() - start;
-
     // 两次请求都成功
     expect(axios).toHaveBeenCalledTimes(2);
-    // 第二次请求应该等待了 rateLimitMs（50ms），总耗时应 >= 50ms
-    // 给一些误差容忍
-    expect(elapsed).toBeGreaterThanOrEqual(40);
+    // 限流器 acquireRateSlot 被调用两次
+    expect(acquireRateSlot).toHaveBeenCalledTimes(2);
   });
 });

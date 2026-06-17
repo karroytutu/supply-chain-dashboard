@@ -320,3 +320,8 @@ export const OA_TIMEOUT_REMINDER_BATCH_SIZE = 50;
 
 /** 催办批量处理间隔（毫秒） @usedBy oa-timeout.service.ts */
 export const OA_TIMEOUT_REMINDER_BATCH_INTERVAL_MS = 2000;
+
+// ==================== 应收看板超时预警 ====================
+
+/** 催收节点即将超时阈值（小时） @usedBy ar-dashboard.service.ts */
+export const AR_TIMEOUT_WARNING_HOURS = 24;

@@ -11,6 +11,7 @@ import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery } from '../../db/appPool';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
+import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
 
 // ============================================
 // 类型定义
@@ -96,8 +97,6 @@ export interface ReminderQueryParams {
 export async function getUpcomingWarnings(
   params: WarningQueryParams = {}
 ): Promise<UpcomingWarningData> {
-  const { page = 1, pageSize = 20, warningLevel, managerUserId } = params;
-
   // 1. 从ERP API查询所有未收款的欠款
   const allDebts = await fetchAllErpDebts();
   const now = new Date();
@@ -106,7 +105,24 @@ export async function getUpcomingWarnings(
   const enrichedDebts = await enrichDebtRecords(allDebts, now);
   const nonHoardDebts = filterHoardDebts(enrichedDebts);
 
-  // 3. 计算每条记录的到期日期和剩余天数
+  // 3. 委托给纯计算函数
+  return computeUpcomingWarnings(nonHoardDebts, params);
+}
+
+/**
+ * 从已有的非压单欠款数据中计算即将逾期预警
+ * 纯计算函数，不调用 ERP API，可被看板和预警任务共用
+ * @param nonHoardDebts 已过滤压单的富化欠款记录
+ * @param params 查询参数（分页、筛选）
+ */
+export async function computeUpcomingWarnings(
+  nonHoardDebts: EnrichedDebtRecord[],
+  params: WarningQueryParams = {}
+): Promise<UpcomingWarningData> {
+  const { page = 1, pageSize = 20, warningLevel, managerUserId } = params;
+  const now = new Date();
+
+  // 1. 计算每条记录的到期日期和剩余天数
   const upcomingDebts: ((typeof nonHoardDebts)[number] & {
     expireDate: Date;
     daysToExpire: number;

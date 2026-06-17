@@ -10,11 +10,11 @@ import CollectionPipeline from './components/CollectionPipeline';
 import MarketerPanel from './components/MarketerPanel';
 import ArDetailTable from './components/ArDetailTable';
 import UpcomingExpiryModal from './components/UpcomingExpiryModal';
-import PipelineExpiryModal from './components/PipelineExpiryModal';
+import PipelineNodeModal from './components/PipelineNodeModal';
+import LegalProgressModal from './components/LegalProgressModal';
+import MarketerDetailModal from './components/MarketerDetailModal';
 import {
   getArDashboardOverview,
-  getUpcomingExpiryCustomers,
-  getPipelineExpiryDetails,
 } from '@/services/api/ar-dashboard';
 import { KPI_COLOR_MAP, NODE_COLOR_MAP } from '@/constants/arDashboard';
 import styles from './index.less';
@@ -48,14 +48,34 @@ const ArDashboard: React.FC = () => {
     error: string | null;
   }>({ visible: false, loading: false, data: [], error: null });
 
-  /** 管道节点即将逾期弹窗 */
-  const [pipelineExpiryModal, setPipelineExpiryModal] = useState<{
+  /** 管道节点明细弹窗 */
+  const [pipelineNodeModal, setPipelineNodeModal] = useState<{
     visible: boolean;
+    node: PipelineNode | null;
+    nodeDetails: ArDetailRow[];
+    timeoutDetails: PipelineTimeoutDetail[];
     loading: boolean;
-    nodeLabel: string;
-    data: PipelineExpiryDetail[];
     error: string | null;
-  }>({ visible: false, loading: false, nodeLabel: '', data: [], error: null });
+  }>({ visible: false, node: null, nodeDetails: [], timeoutDetails: [], loading: false, error: null });
+
+  /** 诉讼进度明细弹窗 */
+  const [legalProgressModal, setLegalProgressModal] = useState<{
+    visible: boolean;
+    category: string;
+    data: LegalProgressDetail[];
+    loading: boolean;
+    error: string | null;
+  }>({ visible: false, category: '', data: [], loading: false, error: null });
+
+  /** 营销师催收明细弹窗 */
+  const [marketerDetailModal, setMarketerDetailModal] = useState<{
+    visible: boolean;
+    marketer: MarketerStats | null;
+    details: ArDetailRow[];
+    timeoutInstanceNos: Set<string>;
+    loading: boolean;
+    error: string | null;
+  }>({ visible: false, marketer: null, details: [], timeoutInstanceNos: new Set(), loading: false, error: null });
 
   // 加载看板数据
   useEffect(() => {
@@ -70,29 +90,72 @@ const ArDashboard: React.FC = () => {
   }, []);
 
   const handlePipelineNodeClick = useCallback((node: PipelineNode) => {
+    // 联动筛选明细表
     setPipelineFilter((prev) => {
       if (prev.status === node.status && prev.escalationLevel === node.escalationLevel) {
         return { status: '' };
       }
       return { status: node.status, escalationLevel: node.escalationLevel };
     });
-  }, []);
+    // 打开节点明细弹窗
+    if (!data) return;
+    const nodeDetails = data.details.filter((row) => {
+      if (row.status !== node.status) return false;
+      if (node.escalationLevel && row.escalationLevel !== node.escalationLevel) return false;
+      return true;
+    });
+    // 从预计算数据中获取超时明细
+    const timeoutKey = node.escalationLevel ? `${node.status}:L${node.escalationLevel}` : node.status;
+    const timeoutDetails = data.popupData?.pipelineTimeoutDetails?.[timeoutKey] ?? [];
+    setPipelineNodeModal({
+      visible: true,
+      node,
+      nodeDetails,
+      timeoutDetails,
+      loading: false,
+      error: null,
+    });
+  }, [data]);
 
-  /** 即将逾期弹窗（KPI 卡片点击）：lazy fetch */
+  /** 即将逾期弹窗（KPI 卡片点击）：直接使用预计算数据 */
   const handleExpiryModalOpen = useCallback(() => {
-    setExpiryModal({ visible: true, loading: true, data: [], error: null });
-    getUpcomingExpiryCustomers()
-      .then(d => setExpiryModal({ visible: true, loading: false, data: d, error: null }))
-      .catch(e => setExpiryModal({ visible: true, loading: false, data: [], error: e.message || '加载失败' }));
-  }, []);
+    if (!data) return;
+    const customers = data.popupData?.upcomingExpiryCustomers ?? [];
+    setExpiryModal({ visible: true, loading: false, data: customers, error: null });
+  }, [data]);
 
-  /** 管道节点即将逾期标记点击：lazy fetch */
+  /** 管道节点即将逾期标记点击：打开同一弹窗（与节点点击行为一致） */
   const handlePipelineExpiryClick = useCallback((node: PipelineNode) => {
-    setPipelineExpiryModal({ visible: true, loading: true, nodeLabel: node.label, data: [], error: null });
-    getPipelineExpiryDetails(node.status, node.escalationLevel)
-      .then(d => setPipelineExpiryModal({ visible: true, loading: false, nodeLabel: node.label, data: d, error: null }))
-      .catch(e => setPipelineExpiryModal({ visible: true, loading: false, nodeLabel: node.label, data: [], error: e.message || '加载失败' }));
-  }, []);
+    handlePipelineNodeClick(node);
+  }, [handlePipelineNodeClick]);
+
+  /** 诉讼进度明细弹窗：直接使用预计算数据 */
+  const handleLegalProgressOpen = useCallback((category: string) => {
+    if (!data) return;
+    const details = data.popupData?.legalProgressDetails?.[category] ?? [];
+    setLegalProgressModal({ visible: true, category, data: details, loading: false, error: null });
+  }, [data]);
+
+  /** 营销师催收明细弹窗：使用超时维度数据（OA deadline_at） */
+  const handleMarketerDetailOpen = useCallback((marketer: MarketerStats) => {
+    if (!data) return;
+    const details = data.details.filter((row) => row.managerUserName === marketer.marketerName);
+    // 聚合所有管道状态的超时明细（通过 instanceNo 匹配）
+    const timeoutNos = new Set<string>();
+    for (const items of Object.values(data.popupData?.pipelineTimeoutDetails ?? {})) {
+      for (const item of items) {
+        timeoutNos.add(item.instanceNo);
+      }
+    }
+    setMarketerDetailModal({
+      visible: true,
+      marketer,
+      details,
+      timeoutInstanceNos: timeoutNos,
+      loading: false,
+      error: null,
+    });
+  }, [data]);
 
   // Loading 状态：200ms 后显示骨架屏，缓存命中时不会闪烁
   if (loading && showSkeleton) {
@@ -200,12 +263,16 @@ const ArDashboard: React.FC = () => {
           activeFilter={pipelineFilter}
           onNodeClick={handlePipelineNodeClick}
           onExpiryClick={handlePipelineExpiryClick}
+          onLegalClick={handleLegalProgressOpen}
         />
       </section>
 
       {/* 第三区：营销师维度 */}
       <section className={styles.section}>
-        <MarketerPanel data={data.marketers} />
+        <MarketerPanel
+          data={data.marketers}
+          onCollectingClick={handleMarketerDetailOpen}
+        />
       </section>
 
       {/* 第四区：应收账款明细表 */}
@@ -225,13 +292,30 @@ const ArDashboard: React.FC = () => {
         loading={expiryModal.loading}
         error={expiryModal.error}
       />
-      <PipelineExpiryModal
-        visible={pipelineExpiryModal.visible}
-        onClose={() => setPipelineExpiryModal(p => ({ ...p, visible: false }))}
-        nodeLabel={pipelineExpiryModal.nodeLabel}
-        data={pipelineExpiryModal.data}
-        loading={pipelineExpiryModal.loading}
-        error={pipelineExpiryModal.error}
+      <PipelineNodeModal
+        visible={pipelineNodeModal.visible}
+        onClose={() => setPipelineNodeModal(p => ({ ...p, visible: false }))}
+        node={pipelineNodeModal.node}
+        allDetails={pipelineNodeModal.nodeDetails}
+        timeoutDetails={pipelineNodeModal.timeoutDetails}
+        timeoutLoading={pipelineNodeModal.loading}
+        error={pipelineNodeModal.error}
+      />
+      <LegalProgressModal
+        visible={legalProgressModal.visible}
+        onClose={() => setLegalProgressModal(p => ({ ...p, visible: false }))}
+        category={legalProgressModal.category}
+        data={legalProgressModal.data}
+        loading={legalProgressModal.loading}
+        error={legalProgressModal.error}
+      />
+      <MarketerDetailModal
+        visible={marketerDetailModal.visible}
+        onClose={() => setMarketerDetailModal(p => ({ ...p, visible: false }))}
+        marketer={marketerDetailModal.marketer}
+        details={marketerDetailModal.details}
+        timeoutInstanceNos={marketerDetailModal.timeoutInstanceNos}
+        error={marketerDetailModal.error}
       />
     </div>
   );

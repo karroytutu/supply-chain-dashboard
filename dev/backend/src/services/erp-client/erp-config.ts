@@ -23,6 +23,8 @@ export function getErpConfig(): ErpApiConfig {
       timeout: erpApi?.timeout || 10000,
       retryMax: erpApi?.retryMax || 3,
       rateLimitMs: erpApi?.rateLimitMs || 200,
+      maxGroupConcurrency: erpApi?.maxGroupConcurrency ?? 4,
+      maxGlobalConcurrency: erpApi?.maxGlobalConcurrency ?? 12,
       // 业务默认值
       defaultPaymentSubjectId: erpApi?.defaultPaymentSubjectId || 16,
       defaultSalesmanId: erpApi?.defaultSalesmanId || 1,

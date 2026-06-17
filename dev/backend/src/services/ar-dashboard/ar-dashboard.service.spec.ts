@@ -11,16 +11,18 @@ jest.mock('../../utils/cache-keys', () => ({
     AR_DASHBOARD_OVERVIEW: 'ar:dashboard:overview',
     AR_DASHBOARD_UPCOMING_EXPIRY: 'ar:dashboard:upcoming-expiry',
     AR_DASHBOARD_PIPELINE_EXPIRY: (s: string, l?: number) => `ar:dashboard:pipeline-expiry:${s}:${l ?? 0}`,
+    AR_DASHBOARD_LEGAL_PROGRESS: (c: string) => `ar:dashboard:legal-progress:${c}`,
+    AR_DASHBOARD_PIPELINE_TIMEOUT: (s: string, l?: number) => `ar:dashboard:pipeline-timeout:${s}:${l ?? 0}`,
   },
 }));
 jest.mock('../../db/appPool', () => ({ appQuery: jest.fn() }));
 jest.mock('../ar-collection/ar-warning.query', () => ({ getUpcomingWarnings: jest.fn() }));
 jest.mock('../erp-debt/erp-debt-enrichment.service', () => ({ fetchCustomerData: jest.fn() }));
-jest.mock('./ar-dashboard-data', () => ({ buildDashboardContext: jest.fn() }));
+jest.mock('./ar-dashboard-data', () => ({ buildDashboardContext: jest.fn(), fetchCollectionOaInstances: jest.fn() }));
 
-import { getArDashboardOverview, getUpcomingExpiryCustomers, getPipelineExpiryDetails } from './ar-dashboard.service';
+import { getArDashboardOverview, getUpcomingExpiryCustomers, getPipelineExpiryDetails, getLegalProgressDetails, getPipelineTimeoutDetails } from './ar-dashboard.service';
 import { cache } from '../../utils/cache';
-import { buildDashboardContext } from './ar-dashboard-data';
+import { buildDashboardContext, fetchCollectionOaInstances } from './ar-dashboard-data';
 import { getUpcomingWarnings } from '../ar-collection/ar-warning.query';
 import type { DashboardContext } from './ar-dashboard.types';
 
@@ -28,6 +30,7 @@ const mockCacheGetStale = cache.getStale as jest.MockedFunction<typeof cache.get
 const mockCacheIsFresh = cache.isFresh as jest.MockedFunction<typeof cache.isFresh>;
 const mockCacheSet = cache.set as jest.MockedFunction<typeof cache.set>;
 const mockBuildContext = buildDashboardContext as jest.MockedFunction<typeof buildDashboardContext>;
+const mockFetchOaInstances = fetchCollectionOaInstances as jest.MockedFunction<typeof fetchCollectionOaInstances>;
 const mockGetUpcomingWarnings = getUpcomingWarnings as jest.MockedFunction<typeof getUpcomingWarnings>;
 
 /** 构建测试用的 DashboardContext */
@@ -39,9 +42,9 @@ function makeCtx(overrides: Partial<DashboardContext> = {}): DashboardContext {
       { consumerName: 'A客户', managerUsers: '张三', leftAmount: 20000, totalAmount: 40000, isOverdue: false, overdueDays: 0, overdueDateStr: '2026-07-10', billTypeName: '销售订单', workTime: '2026-06-10', bizOrderStr: 'XS003', billId: '3', customerMaxDebtAmount: 100000, settleMethod: 1, consumerExpireDay: 30, hoardTag: 'NORMAL', holdType: null, holdUntil: null, traderId: 1, maxAllowedDays: 30, writeOffAmount: 0, billNote: '' },
     ] as any[],
     oaInstances: [
-      { id: 1, status: 'pending', form_data: { consumerName: 'A客户', totalAmount: 50000, managerName: '张三' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending' },
-      { id: 2, status: 'pending', form_data: { consumerName: 'C客户', totalAmount: 80000, managerName: '张三', action: 'extension' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending' },
-      { id: 3, status: 'processing', form_data: { consumerName: 'D客户', totalAmount: 120000, managerName: '李四' }, current_node_order: 2, role_code: 'marketing_manager', node_name: '营销经理催收', node_status: 'pending' },
+      { id: 1, instance_no: 'OA-001', status: 'pending', submitted_at: new Date('2026-06-01T10:00:00Z'), form_data: { consumerName: 'A客户', totalAmount: 50000, managerName: '张三' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: new Date('2026-06-20T18:00:00Z') },
+      { id: 2, instance_no: 'OA-002', status: 'pending', submitted_at: new Date('2026-06-02T10:00:00Z'), form_data: { consumerName: 'C客户', totalAmount: 80000, managerName: '张三', action: 'extension' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: null },
+      { id: 3, instance_no: 'OA-003', status: 'processing', submitted_at: new Date('2026-06-03T10:00:00Z'), form_data: { consumerName: 'D客户', totalAmount: 120000, managerName: '李四' }, current_node_order: 2, role_code: 'marketing_manager', node_name: '营销经理催收', node_status: 'pending', deadline_at: new Date('2026-06-25T18:00:00Z') },
     ],
     upcomingWarnings: [
       { consumerName: 'A客户', leftAmount: 20000, expireDate: '2026-06-12', daysToExpire: 2, managerUserName: '张三' },
@@ -69,6 +72,10 @@ describe('getArDashboardOverview', () => {
     expect(result.pipeline.legalProgress).toBeDefined();
     expect(result.marketers.length).toBeGreaterThan(0);
     expect(result.details.length).toBeGreaterThan(0);
+    expect(result.popupData).toBeDefined();
+    expect(result.popupData.upcomingExpiryCustomers).toBeDefined();
+    expect(result.popupData.pipelineTimeoutDetails).toBeDefined();
+    expect(result.popupData.legalProgressDetails).toBeDefined();
     expect(result.updatedAt).toBeDefined();
     expect(mockCacheSet).toHaveBeenCalled();
   });
@@ -159,6 +166,9 @@ describe('getArDashboardOverview', () => {
     expect(result.details).toHaveLength(3);
     // 账龄区间已计算
     expect(result.details.every(d => d.agingBucket.length > 0)).toBe(true);
+    // 日期字段为 YYYY-MM-DD 格式（来自 Date 对象安全转换）
+    expect(result.details[0].collectionStartDate).toBe('2026-06-01');
+    expect(result.details[0].deadlineAt).toBe('2026-06-20');
   });
 
   it('营销师统计数据正确聚合', async () => {
@@ -171,6 +181,28 @@ describe('getArDashboardOverview', () => {
     expect(zhangsan?.debtCustomerCount).toBe(1); // A客户
     expect(zhangsan?.debtAmount).toBe(70000);
     expect(zhangsan?.collectingCount).toBe(2); // 2 个 OA 实例 managerName='张三'
+  });
+
+  it('popupData 包含预计算的弹窗数据', async () => {
+    mockBuildContext.mockResolvedValue(makeCtx());
+
+    const result = await getArDashboardOverview();
+    const { popupData } = result;
+
+    // 即将逾期客户聚合：从 upcomingWarnings 按客户聚合
+    expect(popupData.upcomingExpiryCustomers.length).toBeGreaterThan(0);
+    const aCustomer = popupData.upcomingExpiryCustomers.find(c => c.consumerName === 'A客户');
+    expect(aCustomer?.billCount).toBe(1);
+    expect(aCustomer?.totalAmount).toBe(20000);
+
+    // 管道超时明细：OA 实例有 deadline_at 的会被包含
+    expect(Object.keys(popupData.pipelineTimeoutDetails)).toContain('collecting');
+
+    // 诉讼进度明细：4 种分类都有 key
+    expect(Object.keys(popupData.legalProgressDetails)).toContain('noticeSent');
+    expect(Object.keys(popupData.legalProgressDetails)).toContain('lawsuitFiled');
+    expect(Object.keys(popupData.legalProgressDetails)).toContain('lawsuitInProgress');
+    expect(Object.keys(popupData.legalProgressDetails)).toContain('lawsuitCompleted');
   });
 });
 
@@ -219,9 +251,9 @@ describe('getPipelineExpiryDetails', () => {
         { consumerName: 'C客户', leftAmount: 5000, isOverdue: true, overdueDateStr: in3Days, bizOrderStr: 'XS003', billId: '3', managerUsers: '张三' }, // 已逾期，应被排除
       ] as any[],
       oaInstances: [
-        { id: 1, status: 'pending', form_data: { consumerName: 'A客户', action: 'extension' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending' },
-        { id: 2, status: 'pending', form_data: { consumerName: 'B客户', action: 'extension' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending' },
-        { id: 3, status: 'pending', form_data: { consumerName: 'C客户', action: 'extension' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending' },
+        { id: 1, instance_no: 'OA-101', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { consumerName: 'A客户', action: 'extension' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: null },
+        { id: 2, instance_no: 'OA-102', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { consumerName: 'B客户', action: 'extension' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: null },
+        { id: 3, instance_no: 'OA-103', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { consumerName: 'C客户', action: 'extension' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: null },
       ],
       upcomingWarnings: [],
       dsoValue: null,
@@ -254,7 +286,7 @@ describe('getPipelineExpiryDetails', () => {
         { consumerName: 'A客户', leftAmount: 10000, isOverdue: false, overdueDateStr: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), bizOrderStr: 'XS001', billId: '1', managerUsers: '张三' },
       ] as any[],
       oaInstances: [
-        { id: 1, status: 'pending', form_data: { consumerName: 'A客户' }, current_node_order: 2, role_code: 'marketing_manager', node_name: '营销经理催收', node_status: 'pending' },
+        { id: 1, instance_no: 'OA-201', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { consumerName: 'A客户' }, current_node_order: 2, role_code: 'marketing_manager', node_name: '营销经理催收', node_status: 'pending', deadline_at: null },
       ],
       upcomingWarnings: [],
       dsoValue: null,
@@ -268,5 +300,70 @@ describe('getPipelineExpiryDetails', () => {
     (cache.get as any).mockReturnValue(null);
     const l2 = await getPipelineExpiryDetails('escalated', 2);
     expect(l2).toHaveLength(0);
+  });
+});
+
+describe('getLegalProgressDetails', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (cache.get as any) = jest.fn().mockReturnValue(null);
+  });
+
+  it('只查 OA 实例，不调用 buildDashboardContext', async () => {
+    mockFetchOaInstances.mockResolvedValue([
+      { id: 1, instance_no: 'OA-001', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { action: 'send_letter', consumerName: 'A客户', totalAmount: 50000 }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: null },
+      { id: 2, instance_no: 'OA-002', status: 'approved', submitted_at: new Date('2026-06-02'), form_data: { action: 'lawsuit', consumerName: 'B客户', totalAmount: 80000 }, current_node_order: 2, role_code: 'finance_staff', node_name: '财务审核', node_status: 'approved', deadline_at: null },
+    ] as any[]);
+
+    const result = await getLegalProgressDetails('noticeSent');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].action).toBe('send_letter');
+    // 验证没有调用 buildDashboardContext（不需要 ERP 数据）
+    expect(mockBuildContext).not.toHaveBeenCalled();
+    expect(mockFetchOaInstances).toHaveBeenCalledTimes(1);
+  });
+
+  it('lawsuitFiled 返回所有 lawsuit 类型', async () => {
+    mockFetchOaInstances.mockResolvedValue([
+      { id: 1, instance_no: 'OA-001', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { action: 'lawsuit', consumerName: 'A客户', totalAmount: 50000 }, current_node_order: 1, role_code: 'marketer', node_name: '催收', node_status: 'pending', deadline_at: null },
+      { id: 2, instance_no: 'OA-002', status: 'approved', submitted_at: new Date('2026-06-02'), form_data: { action: 'lawsuit', consumerName: 'B客户', totalAmount: 80000 }, current_node_order: 2, role_code: 'finance_staff', node_name: '财务', node_status: 'approved', deadline_at: null },
+      { id: 3, instance_no: 'OA-003', status: 'pending', submitted_at: new Date('2026-06-03'), form_data: { action: 'send_letter', consumerName: 'C客户', totalAmount: 30000 }, current_node_order: 1, role_code: 'marketer', node_name: '催收', node_status: 'pending', deadline_at: null },
+    ] as any[]);
+
+    const result = await getLegalProgressDetails('lawsuitFiled');
+    expect(result).toHaveLength(2);
+  });
+});
+
+describe('getPipelineTimeoutDetails', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (cache.get as any) = jest.fn().mockReturnValue(null);
+  });
+
+  it('只查 OA 实例，不调用 buildDashboardContext', async () => {
+    const now = new Date();
+    const deadline = new Date(now.getTime() + 12 * 3600000);
+    mockFetchOaInstances.mockResolvedValue([
+      { id: 1, instance_no: 'OA-001', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { consumerName: 'A客户', totalAmount: 50000, managerName: '张三' }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: deadline },
+    ] as any[]);
+
+    const result = await getPipelineTimeoutDetails('collecting');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].consumerName).toBe('A客户');
+    expect(result[0].remainingHours).toBeGreaterThan(0);
+    expect(mockBuildContext).not.toHaveBeenCalled();
+    expect(mockFetchOaInstances).toHaveBeenCalledTimes(1);
+  });
+
+  it('无 deadline_at 的实例被过滤', async () => {
+    mockFetchOaInstances.mockResolvedValue([
+      { id: 1, instance_no: 'OA-001', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { consumerName: 'A客户', totalAmount: 50000 }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: null },
+    ] as any[]);
+
+    const result = await getPipelineTimeoutDetails('collecting');
+    expect(result).toHaveLength(0);
   });
 });
