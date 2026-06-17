@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "v2.6.0",
+      "date": "2026-06-18 16:00",
+      "types": ["breaking", "optimization"],
+      "changes": [
+        "旧催收系统退役：移除 ar_collection_tasks/details/actions/extension_records 四张旧表依赖，数据归档保留",
+        "新增压单元数据表 ar_hold_meta，从旧催收明细表迁移活跃压单记录，独立管理压单生命周期",
+        "压单服务重构：新增 ar-hold-meta.service，统一管理压单写入、查询与到期清理",
+        "催收流水线简化：移除独立的 ERP 欠款同步任务和囤货检测任务，逻辑内聚到 pipeline",
+        "移除催收提醒定时任务和旧催收 Repository，相关职责已由 OA 审批系统承接",
+        "授信审批回调和催收创建器适配新架构，消除对旧催收表的依赖"
+      ]
+    },
+    {
       "version": "v2.5.0",
       "date": "2026-06-17 15:13",
       "types": ["feature", "optimization"],

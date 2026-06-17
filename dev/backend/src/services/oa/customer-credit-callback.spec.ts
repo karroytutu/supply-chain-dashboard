@@ -43,8 +43,8 @@ jest.mock('../../utils/constants', () => ({
   AR_HOLD_TYPE_TIME_LIMITED: 'time_limited',
 }));
 
-jest.mock('../erp-debt/erp-hoard-detect', () => ({
-  detectHoardChangesByCustomer: jest.fn().mockResolvedValue(undefined),
+jest.mock('../erp-debt/ar-hold-meta.service', () => ({
+  upsertHoldMeta: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../credit-license', () => ({
@@ -69,7 +69,7 @@ import { erpMarkHoldOrders } from '../erp-client/erp-settlement.service';
 import { getCustomerLicenseInfo, getErpCustomerProfile } from '../erp-client/erp-customer.service';
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import { cache } from '../../utils/cache';
-import { detectHoardChangesByCustomer } from '../erp-debt/erp-hoard-detect';
+import { upsertHoldMeta } from '../erp-debt/ar-hold-meta.service';
 import { existsSync } from 'fs';
 import { createDeferredUploadAfterApproval } from '../credit-license';
 import {

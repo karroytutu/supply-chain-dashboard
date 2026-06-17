@@ -130,13 +130,10 @@ export const AR_HOARD_TAG_NORMAL = 'NORMAL';
 /** 催收压单标记-压单 @usedBy erp-debt/erp-debt-enrichment.service.ts */
 export const AR_HOARD_TAG_HOARD = 'HOARD';
 
-/** 催收明细压单排除状态 @usedBy erp-debt/erp-hoard-detect.ts (标记压单排除明细) */
-export const AR_DETAIL_STATUS_HOARD_EXCLUDED = 'hoard_excluded';
-
-/** 压单类型-长期压单 @usedBy erp-debt/erp-hoard-detect.ts, erp-debt/erp-debt-enrichment.service.ts, oa/customer-credit-callback.ts */
+/** 压单类型-长期压单 @usedBy erp-debt/erp-debt-enrichment.service.ts, oa/customer-credit-callback.ts */
 export const AR_HOLD_TYPE_LONG_TERM = 'long_term';
 
-/** 压单类型-期限压单 @usedBy erp-debt/erp-hoard-detect.ts, erp-debt/erp-debt-enrichment.service.ts, erp-debt/erp-debt-sync.task.ts, oa/customer-credit-callback.ts */
+/** 压单类型-期限压单 @usedBy erp-debt/erp-debt-enrichment.service.ts, oa/customer-credit-callback.ts, erp-debt/ar-hold-meta.service.ts */
 export const AR_HOLD_TYPE_TIME_LIMITED = 'time_limited';
 
 /** 压单类型联合 @usedBy erp-debt/erp-debt.types.ts, erp-debt/erp-debt-enrichment.service.ts */

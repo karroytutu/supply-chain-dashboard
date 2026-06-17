@@ -18,9 +18,6 @@ export {
   ESCALATION_LEVEL_NAMES,
 } from './ar-collection-notify';
 
-// 定时提醒任务
-export { checkExtensionExpiryReminders } from './ar-collection-reminder.task';
-
 // 预警查询服务
 export {
   getUpcomingWarnings,

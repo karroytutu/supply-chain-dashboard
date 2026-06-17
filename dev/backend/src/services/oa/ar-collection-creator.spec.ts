@@ -298,27 +298,70 @@ describe('generateCollectionOaInstances - 核心流水线', () => {
 });
 
 // =====================================================
-// 去重逻辑
+// 去重逻辑（单据级）
 // =====================================================
 
-describe('generateCollectionOaInstances - 去重', () => {
-  it('已有未完成实例时去重查询被调用', async () => {
+describe('generateCollectionOaInstances - 单据级去重', () => {
+  function setupLockAndUnlock() {
     const lockClient = createMockPoolClient();
     (lockClient.query as jest.Mock)
       .mockResolvedValueOnce({ rows: [{ locked: true }], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
-    mockGetAppClient.mockResolvedValue(lockClient);
-    setupFullPipeline();
-    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收' } as any);
+    return lockClient;
+  }
 
-    // queryExistingOaInstances 返回空（无已有实例）
+  it('所有单据已在活跃实例中时提前返回（不创建实例）', async () => {
+    const lockClient = setupLockAndUnlock();
+    mockGetAppClient.mockResolvedValue(lockClient);
+
+    const debt = { consumerName: '张三', leftAmount: 1000, overdueDays: 10, workTime: '2026-05-01', settleMethod: 1, billId: 'B1', billTypeName: '销售单', totalAmount: 2000 };
+    mockFetchAllErpDebts.mockResolvedValue([debt] as any);
+    mockEnrichDebtRecords.mockResolvedValue([debt] as any);
+    mockFilterHoardDebts.mockReturnValue([debt] as any);
+    mockEvaluateEntryRules.mockReturnValue([] as any);
+    mockExtractEntryMetadata.mockReturnValue({
+      enteringDebts: [debt] as any,
+      entryReasons: ['overdue_days'] as any,
+      entryRuleSnapshot: {} as any,
+    } as any);
+
+    // queryExistingBillIds 返回 B1（已在活跃实例中）
     mockAppQuery
-      .mockResolvedValueOnce(mockQueryResult([])) // queryExistingOaInstances
+      .mockResolvedValueOnce(mockQueryResult([{ bill_no: 'B1' }])) // queryExistingBillIds
+      .mockResolvedValueOnce(mockQueryResult([{ id: 92, name: '鑫小财(AI员工)', department_name: null }])); // getSystemApplicant
+
+    await generateCollectionOaInstances();
+
+    // 不应创建实例（generateInstanceNo 不被调用）
+    expect(generateInstanceNo).not.toHaveBeenCalled();
+  });
+
+  it('同客户新单据（billId 不同）正常入催', async () => {
+    const lockClient = setupLockAndUnlock();
+    mockGetAppClient.mockResolvedValue(lockClient);
+
+    // B1 已在活跃实例中，B2 是新单据
+    const debt1 = { consumerName: '张三', leftAmount: 500, overdueDays: 10, workTime: '2026-05-01', settleMethod: 1, billId: 'B1', billTypeName: '销售单', totalAmount: 1000, managerUsers: '李营销' };
+    const debt2 = { consumerName: '张三', leftAmount: 300, overdueDays: 5, workTime: '2026-06-01', settleMethod: 1, billId: 'B2', billTypeName: '销售单', totalAmount: 800, managerUsers: '李营销' };
+
+    mockFetchAllErpDebts.mockResolvedValue([debt1, debt2] as any);
+    mockEnrichDebtRecords.mockResolvedValue([debt1, debt2] as any);
+    mockFilterHoardDebts.mockReturnValue([debt1, debt2] as any);
+    mockEvaluateEntryRules.mockReturnValue([] as any);
+    mockExtractEntryMetadata.mockReturnValue({
+      enteringDebts: [debt1, debt2] as any,
+      entryReasons: ['overdue_days'] as any,
+      entryRuleSnapshot: {} as any,
+    } as any);
+    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收', formSchema: { fields: [] } } as any);
+
+    // queryExistingBillIds 返回 B1（B2 是新单据，不在活跃实例中）
+    mockAppQuery
+      .mockResolvedValueOnce(mockQueryResult([{ bill_no: 'B1' }])) // queryExistingBillIds
       .mockResolvedValueOnce(mockQueryResult([{ id: 92, name: '鑫小财(AI员工)', department_name: null }])); // getSystemApplicant
 
     const batchClient = createMockPoolClient();
     (batchClient.query as jest.Mock).mockResolvedValue({ rows: [{ id: 100 }], rowCount: 1 });
-    // 先重置再设置 once 序列
     mockGetAppClient.mockReset();
     mockGetAppClient
       .mockResolvedValueOnce(lockClient)
@@ -326,8 +369,91 @@ describe('generateCollectionOaInstances - 去重', () => {
 
     await generateCollectionOaInstances();
 
-    // 查询去重数据的 SQL 被调用
-    expect(mockAppQuery).toHaveBeenCalled();
+    // 应为 B2 创建 1 个实例
+    const insertCalls = (batchClient.query as jest.Mock).mock.calls.filter(
+      (c: any) => typeof c[0] === 'string' && c[0].includes('INSERT INTO oa_approval_instances')
+    );
+    expect(insertCalls.length).toBe(1);
+    expect(generateInstanceNo).toHaveBeenCalled();
+  });
+
+  it('去重查询使用 jsonb_array_elements 提取 billNo', async () => {
+    const lockClient = setupLockAndUnlock();
+    mockGetAppClient.mockResolvedValue(lockClient);
+    setupFullPipeline();
+    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收' } as any);
+
+    mockAppQuery
+      .mockResolvedValueOnce(mockQueryResult([])) // queryExistingBillIds（无已有实例）
+      .mockResolvedValueOnce(mockQueryResult([{ id: 92, name: '鑫小财(AI员工)', department_name: null }])); // getSystemApplicant
+
+    const batchClient = createMockPoolClient();
+    (batchClient.query as jest.Mock).mockResolvedValue({ rows: [{ id: 100 }], rowCount: 1 });
+    mockGetAppClient.mockReset();
+    mockGetAppClient
+      .mockResolvedValueOnce(lockClient)
+      .mockResolvedValueOnce(batchClient);
+
+    await generateCollectionOaInstances();
+
+    // 验证去重 SQL 使用了 jsonb_array_elements
+    const dedupQueryCall = mockAppQuery.mock.calls.find(
+      (c: any) => typeof c[0] === 'string' && c[0].includes('jsonb_array_elements')
+    );
+    expect(dedupQueryCall).toBeTruthy();
+  });
+
+  it('新实例的 formData.billDetails 仅含新单据（不含已入催的旧单据）', async () => {
+    const lockClient = setupLockAndUnlock();
+    mockGetAppClient.mockResolvedValue(lockClient);
+
+    // B1 已在活跃实例中，B2/B3 是新单据
+    const debt1 = { consumerName: '李四', leftAmount: 500, overdueDays: 10, workTime: '2026-05-01', settleMethod: 1, billId: 'B1', billTypeName: '销售单', totalAmount: 1000, managerUsers: '王营销' };
+    const debt2 = { consumerName: '李四', leftAmount: 300, overdueDays: 5, workTime: '2026-06-01', settleMethod: 1, billId: 'B2', billTypeName: '销售单', totalAmount: 800, managerUsers: '王营销' };
+    const debt3 = { consumerName: '李四', leftAmount: 200, overdueDays: 3, workTime: '2026-06-10', settleMethod: 1, billId: 'B3', billTypeName: '销售单', totalAmount: 600, managerUsers: '王营销' };
+
+    mockFetchAllErpDebts.mockResolvedValue([debt1, debt2, debt3] as any);
+    mockEnrichDebtRecords.mockResolvedValue([debt1, debt2, debt3] as any);
+    mockFilterHoardDebts.mockReturnValue([debt1, debt2, debt3] as any);
+    mockEvaluateEntryRules.mockReturnValue([] as any);
+    mockExtractEntryMetadata.mockReturnValue({
+      enteringDebts: [debt1, debt2, debt3] as any,
+      entryReasons: ['overdue_days'] as any,
+      entryRuleSnapshot: {} as any,
+    } as any);
+    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收', formSchema: { fields: [] } } as any);
+
+    // queryExistingBillIds 返回 B1（B2/B3 是新单据）
+    mockAppQuery
+      .mockResolvedValueOnce(mockQueryResult([{ bill_no: 'B1' }])) // queryExistingBillIds
+      .mockResolvedValueOnce(mockQueryResult([{ id: 92, name: '鑫小财(AI员工)', department_name: null }])); // getSystemApplicant
+
+    const batchClient = createMockPoolClient();
+    (batchClient.query as jest.Mock).mockResolvedValue({ rows: [{ id: 200 }], rowCount: 1 });
+    mockGetAppClient.mockReset();
+    mockGetAppClient
+      .mockResolvedValueOnce(lockClient)
+      .mockResolvedValueOnce(batchClient);
+
+    await generateCollectionOaInstances();
+
+    // 找到 INSERT 调用，验证 billDetails 参数仅含 B2/B3
+    const insertCall = (batchClient.query as jest.Mock).mock.calls.find(
+      (c: any) => typeof c[0] === 'string' && c[0].includes('INSERT INTO oa_approval_instances')
+    );
+    expect(insertCall).toBeTruthy();
+
+    // INSERT 的第二个参数是 formData JSON 字符串
+    const formDataParam = insertCall[1]?.find((p: any) => typeof p === 'string' && p.includes('billDetails'));
+    if (formDataParam) {
+      const formData = JSON.parse(formDataParam);
+      const billNos = formData.billDetails?.map((d: any) => d.billNo) || [];
+      // 不应包含 B1（已在催收中）
+      expect(billNos).not.toContain('B1');
+      // 应包含 B2 和 B3
+      expect(billNos).toContain('B2');
+      expect(billNos).toContain('B3');
+    }
   });
 });
 
