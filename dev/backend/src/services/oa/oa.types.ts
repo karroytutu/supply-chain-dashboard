@@ -66,7 +66,8 @@ export type FormFieldType =
   // ERP 参考数据字段类型（客户档案修改使用）
   | 'erp_grade' // 选择ERP客户等级
   | 'erp_group' // 选择ERP客户渠道（分组）
-  | 'erp_area'; // 选择ERP客户片区（区域）
+  | 'erp_area' // 选择ERP客户片区（区域）
+  | 'formula'; // 公式计算字段（自动根据表达式求值，不可手动编辑）
 
 /**
  * 表单字段定义
@@ -154,6 +155,10 @@ export interface FormField {
   displayFields?: string[];
   /** photo 类型用途：storefront=门头照，license=营业执照（默认 license） */
   photoPurpose?: 'license' | 'storefront';
+  /** 公式表达式（formula 类型使用），如 "quantity * unitPrice" 或 "sum(lines.amount)" */
+  formula?: string;
+  /** 公式结果精度（小数位数），默认 2 */
+  formulaPrecision?: number;
 }
 
 /**

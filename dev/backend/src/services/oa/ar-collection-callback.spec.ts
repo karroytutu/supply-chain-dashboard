@@ -341,6 +341,12 @@ describe('onApprovedArCollection - insertResultComment', () => {
 
   it('核销标记-全部核销：评论包含“全部核销”', async () => {
     mockCheckExistingBillIds.mockResolvedValue(new Set());
+    // UPDATE form_data (verifyStatus) 在 insertResultComment 之前调用
+    mockAppQuery.mockReset();
+    mockAppQuery
+      .mockResolvedValueOnce({ rows: [] } as any)                   // UPDATE form_data
+      .mockResolvedValueOnce({ rows: [{ node_order: 2 }] } as any)  // SELECT auto node (insertResultComment)
+      .mockResolvedValueOnce({ rows: [] } as any);                   // INSERT comment
     const instance = createMockInstance();
     await onApprovedArCollection(instance, {
       action: 'verify',
@@ -352,6 +358,12 @@ describe('onApprovedArCollection - insertResultComment', () => {
   it('核销标记-部分核销：评论包含正确的数量比例', async () => {
     // mock insertResultComment + insertCollectionNode(transaction)
     mockCheckExistingBillIds.mockResolvedValue(new Set(['B1']));
+    // UPDATE form_data (verifyStatus) 在 insertResultComment 之前调用
+    mockAppQuery.mockReset();
+    mockAppQuery
+      .mockResolvedValueOnce({ rows: [] } as any)                   // UPDATE form_data
+      .mockResolvedValueOnce({ rows: [{ node_order: 2 }] } as any)  // SELECT auto node (insertResultComment)
+      .mockResolvedValueOnce({ rows: [] } as any);                   // INSERT comment
     // insertResultComment 已在 beforeEach 中 mock，但 insertCollectionNode 的 transaction 需要额外 mock
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
@@ -490,9 +502,11 @@ describe('onApprovedArCollection - insertResultComment', () => {
   });
 
   it('评论插入失败不影响主流程', async () => {
-    // 让 appQuery 抛出异常
+    // 让 appQuery 抛出异常（但 UPDATE form_data 成功）
     mockAppQuery.mockReset();
-    mockAppQuery.mockRejectedValue(new Error('DB connection lost'));
+    mockAppQuery
+      .mockResolvedValueOnce({ rows: [] } as any)               // UPDATE form_data (成功)
+      .mockRejectedValueOnce(new Error('DB connection lost'));  // SELECT auto node (失败)
     mockCheckExistingBillIds.mockResolvedValue(new Set());
     const instance = createMockInstance();
     // 不应抛出异常

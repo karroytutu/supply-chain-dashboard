@@ -12,6 +12,7 @@ import { useCustomerDebt } from './hooks/useCustomerDebt';
 import FormFieldConfig from './components/FormFieldConfig';
 import ConditionalFieldWrapper, { checkCondition } from './components/ConditionalFieldWrapper';
 import { ApprovalFlow } from '@/components/Oa';
+import { evaluateFormula, detectCycles, topologicalSort } from '@/utils/formula-evaluator';
 import { initDingtalkViewportHeight } from '@/utils/dingtalk/utils';
 import styles from './index.less';
 import { getErrorMessage } from '../../../utils/errorUtils';
@@ -58,10 +59,11 @@ const FormPage: React.FC = () => {
     return map;
   }, [formType]);
 
-  // 监听表单值变化
+  // 监听表单值变化，同时自动重算公式字段
   // allValues 不包含没有 Form.Item 注册的隐藏字段（如 _customerName、_storefrontPhotoUrl），
   // 因此必须保留 formData 中已有的 _ 前缀隐藏字段，避免用户编辑可见字段时将其覆盖丢失
   const handleValuesChange = (changedValues: any, allValues: any) => {
+    // updater 只做隐藏字段合并（纯函数），公式计算在外部执行
     setFormData(prev => {
       // 保留 autoFill 产生的隐藏字段（_ 前缀，onValuesChange 不返回）
       const hiddenFields: Record<string, unknown> = {};
@@ -70,6 +72,36 @@ const FormPage: React.FC = () => {
       }
       return { ...hiddenFields, ...allValues };
     });
+
+    // 自动重算公式字段（按拓扑序，确保公式间依赖正确处理）
+    // 放在 updater 外部避免违反 React 纯函数规则
+    if (formType) {
+      const formulaFields = formType.formSchema.fields.filter(
+        f => f.type === 'formula' && f.formula && !f.key.startsWith('_')
+      );
+      if (formulaFields.length > 0) {
+        const cycles = detectCycles(formulaFields.map(f => ({ key: f.key, expression: f.formula! })));
+        if (cycles) {
+          console.warn('公式字段存在循环依赖，跳过自动计算:', cycles);
+        } else {
+          const sorted = topologicalSort(
+            formulaFields.map(f => ({ key: f.key, expression: f.formula!, field: f }))
+          );
+          // 使用当前表单值 + 隐藏字段作为计算上下文
+          const currentValues = form.getFieldsValue();
+          const merged: Record<string, unknown> = { ...formData, ...currentValues };
+          const formulaUpdates: Record<string, unknown> = {};
+          for (const item of sorted) {
+            const result = evaluateFormula(item.expression, merged);
+            const precision = item.field.formulaPrecision ?? 2;
+            const rounded = Number(result.toFixed(precision));
+            formulaUpdates[item.key] = rounded;
+            merged[item.key] = rounded; // 更新上下文，供后续依赖此公式的字段使用
+          }
+          form.setFieldsValue(formulaUpdates);
+        }
+      }
+    }
   };
 
   // ===== 客户档案修改：欠款与状态选项 =====

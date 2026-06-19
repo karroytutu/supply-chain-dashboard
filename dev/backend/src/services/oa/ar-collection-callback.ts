@@ -128,7 +128,7 @@ async function insertResultComment(
 // =====================================================
 
 /**
- * 核销标记：检查ERP中账单是否已核销消失
+ * 核销标记：检查ERP中账单是否已核销消失，同步更新 verifyStatus 字段
  */
 async function handleVerify(
   instance: OaInstanceRow,
@@ -145,6 +145,21 @@ async function handleVerify(
 
   const existingIds = await checkExistingBillIds(billIds);
   const disappearedIds = billIds.filter(id => !existingIds.has(id));
+
+  // 同步更新 billDetails 中的 verifyStatus 字段
+  if (disappearedIds.length > 0) {
+    const disappearedSet = new Set(disappearedIds);
+    for (const bill of billDetails) {
+      if (disappearedSet.has(bill.billNo as string)) {
+        bill.verifyStatus = '已核销';
+      }
+    }
+    // 将更新后的 billDetails 写回 form_data
+    await query(
+      `UPDATE oa_approval_instances SET form_data = jsonb_set(form_data, '{billDetails}', $1), updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify(billDetails), instance.id]
+    );
+  }
 
   if (disappearedIds.length === billIds.length) {
     // 全部消失：实例完成（由 auto 节点后续处理）
@@ -288,7 +303,7 @@ async function handleLawsuit(instance: OaInstanceRow): Promise<void> {
  * 在事务内查询实际 auto 节点位置，确保新节点插在正确位置（auto 节点之前）
  * 根据 roleCode 自动解析处理人，确保新建环节有明确的负责人
  */
-async function insertCollectionNode(
+export async function insertCollectionNode(
   instanceId: number,
   nodeName: string,
   roleCode: string,

@@ -46,11 +46,11 @@ export interface EditableFormSectionProps {
 
 const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSectionProps>(
   ({ formSchema, formData, fieldPermissions, fieldOptionFilter, resolvedMap, erpLicenseUrls, layout }, ref) => {
-    // 内部编辑状态：仅跟踪可编辑字段的值
+    // 内部编辑状态：仅跟踪可编辑字段的值（formula 字段不参与编辑状态跟踪）
     const [editedValues, setEditedValues] = useState<Record<string, unknown>>(() => {
       const init: Record<string, unknown> = {};
       formSchema.fields.forEach(f => {
-        if (fieldPermissions[f.key] === 'editable') {
+        if (fieldPermissions[f.key] === 'editable' && f.type !== 'formula') {
           init[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
         }
       });
@@ -64,7 +64,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
     useEffect(() => {
       const reset: Record<string, unknown> = {};
       formSchema.fields.forEach(f => {
-        if (fieldPermissions[f.key] === 'editable') {
+        if (fieldPermissions[f.key] === 'editable' && f.type !== 'formula') {
           reset[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
         }
       });
@@ -105,6 +105,8 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
         formSchema.fields.forEach(field => {
           const perm = fieldPermissions[field.key];
           if (perm !== 'editable') return;
+          // 公式字段由系统计算，跳过校验
+          if (field.type === 'formula') return;
           // 跳过当前不可见字段
           if (field.visibleWhen && !checkCondition(field.visibleWhen, mergedValues)) return;
           const val = editedValues[field.key];

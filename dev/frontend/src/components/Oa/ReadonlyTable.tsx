@@ -22,6 +22,15 @@ const ReadonlyTable: React.FC<ReadonlyTableProps> = ({ field, rows, resolvedMap 
   const fixFirstCol = children.length >= 4;
   const [containerRef, containerWidth] = useContainerWidth();
 
+  // 检查是否需要汇总行：存在 formula 子字段或 statField 配置
+  const formulaChildren = children.filter(c => c.type === 'formula' && c.formula);
+  const statFieldKeys = (field.statField || []).map(s => s.componentId);
+  const summaryKeys = new Set([
+    ...formulaChildren.map(c => c.key),
+    ...statFieldKeys,
+  ]);
+  const hasSummary = summaryKeys.size > 0 && rows.length > 0;
+
   const tableColumns = children.map((col, idx) => {
     const isNumeric = NUMERIC_ALIGN_TYPES.has(col.type);
     const isEllipsis = col.type === 'text' || col.type === 'textarea';
@@ -51,6 +60,23 @@ const ReadonlyTable: React.FC<ReadonlyTableProps> = ({ field, rows, resolvedMap 
         pagination={false}
         bordered
         scroll={{ x: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum }}
+        summary={hasSummary ? () => (
+          <Table.Summary.Row>
+            {children.map((col, idx) => {
+              if (!summaryKeys.has(col.key)) {
+                return <Table.Summary.Cell key={col.key} index={idx}>-</Table.Summary.Cell>;
+              }
+              const values = rows.map(r => Number(r[col.key]) || 0);
+              const total = values.reduce((a, b) => a + b, 0);
+              const precision = col.formulaPrecision ?? 2;
+              return (
+                <Table.Summary.Cell key={col.key} index={idx} align="right">
+                  <strong>{total.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}</strong>
+                </Table.Summary.Cell>
+              );
+            })}
+          </Table.Summary.Row>
+        ) : undefined}
       />
     </div>
   );

@@ -414,6 +414,7 @@ function buildFormData(
     workTime: d.workTime,                        // 业务日期
     writeOffAmount: d.writeOffAmount || 0,        // 已结金额
     billNote: d.billNote || '',                  // 单据备注
+    verifyStatus: '',                            // 核销情况（自动核销/手动核销时由系统更新）
   }));
 
   return {

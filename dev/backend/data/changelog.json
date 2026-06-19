@@ -1,8 +1,22 @@
 {
   "entries": [
     {
+      "version": "v2.7.0",
+      "date": "2026-06-19 14:05",
+      "types": ["feature", "optimization"],
+      "changes": [
+        "OA表单新增公式字段类型（formula），支持四则运算、变量引用、聚合函数（sum/count/avg/min/max），自建轻量求值器避免第三方库CVE风险",
+        "表格明细控件支持行内公式自动计算，新增汇总行展示，公式字段在只读视图中格式化显示",
+        "公式字段服务端校验：提交时后端重算并与客户端值做容差比较，防止篡改",
+        "催收流水线新增自动核销检查（Step 2/3），批量检查pending催收实例的ERP单据还款状态",
+        "自动核销支持三种处理：全部核销→关闭实例、部分核销→标记状态续催、无核销→跳过",
+        "核销回调同步更新billDetails.verifyStatus字段，新增数据库迁移104添加核销情况列",
+        "部署健康检查改用Node.js原生fetch，移除wget依赖，优化启动等待时间"
+      ]
+    },
+    {
       "version": "v2.6.0",
-      "date": "2026-06-18 02:45"
+      "date": "2026-06-18 02:45",
       "types": ["breaking", "optimization"],
       "changes": [
         "旧催收系统退役：移除 ar_collection_tasks/details/actions/extension_records 四张旧表依赖，数据归档保留",
