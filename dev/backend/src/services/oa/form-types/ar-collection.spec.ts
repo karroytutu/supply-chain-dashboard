@@ -148,9 +148,9 @@ describe('formSchema 字段结构', () => {
     const field = findField('billDetails');
     expect(field).toBeDefined();
     expect(field!.type).toBe('table');
-    expect(field!.children).toHaveLength(8);
+    expect(field!.children).toHaveLength(9);
     const childKeys = field!.children!.map((c) => c.key);
-    expect(childKeys).toEqual(['orderNo', 'workTime', 'billType', 'totalAmount', 'writeOffAmount', 'leftAmount', 'overdueDays', 'billNote']);
+    expect(childKeys).toEqual(['orderNo', 'workTime', 'billType', 'totalAmount', 'writeOffAmount', 'leftAmount', 'overdueDays', 'billNote', 'verifyStatus']);
     // billNo 不应出现在展示列中（保留在 formData 中用于核销校验）
     expect(childKeys).not.toContain('billNo');
   });

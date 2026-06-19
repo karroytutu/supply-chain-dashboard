@@ -115,6 +115,7 @@ const arCollectionFormSchema: { fields: FormField[] } = {
         { key: 'leftAmount', label: '剩余未收', type: 'money' as const, required: false },
         { key: 'overdueDays', label: '逾期天数', type: 'number' as const, required: false, suffix: '天' },
         { key: 'billNote', label: '单据备注', type: 'text' as const, required: false },
+        { key: 'verifyStatus', label: '核销情况', type: 'text' as const, required: false },
       ],
     },
     // === 隐藏字段 ===

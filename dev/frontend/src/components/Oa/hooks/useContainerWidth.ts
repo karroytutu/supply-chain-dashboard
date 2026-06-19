@@ -23,7 +23,7 @@ export const TABLE_ERP_TYPES = new Set([
 // =====================================================
 
 /** 数字/金额类型列右对齐 */
-export const NUMERIC_ALIGN_TYPES = new Set(['money', 'number']);
+export const NUMERIC_ALIGN_TYPES = new Set(['money', 'number', 'formula']);
 
 // =====================================================
 // Hook: 容器宽度监听
@@ -79,6 +79,7 @@ export function getColumnWidth(col: FormField): number {
     case 'datetime': return 180;
     case 'money': return 130;
     case 'number': return 100;
+    case 'formula': return 120;
     case 'text': return 150;
     case 'textarea': return 200;
     case 'select':

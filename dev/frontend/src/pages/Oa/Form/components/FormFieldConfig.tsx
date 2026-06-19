@@ -214,6 +214,19 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
         />
       );
 
+    case 'formula':
+      // 公式字段：只读展示计算结果，由 formula-evaluator 自动填充值
+      return (
+        <InputNumber
+          value={value != null ? Number(value) : undefined}
+          style={{ width: '100%' }}
+          precision={field.formulaPrecision ?? 2}
+          disabled
+          addonAfter={field.suffix || field.unit}
+          formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+        />
+      );
+
     default:
       return <Input value={value as string | undefined} onChange={onChange as React.ChangeEventHandler<HTMLInputElement> | undefined} placeholder={placeholder || `请输入${field.label}`} disabled={field.disabled} />;
   }

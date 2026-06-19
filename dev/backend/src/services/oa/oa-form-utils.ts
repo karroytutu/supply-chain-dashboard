@@ -10,6 +10,7 @@ import type {
   NodeInputField,
   ConditionDef,
 } from './oa.types';
+import { evaluateFormula } from './formula-evaluator';
 
 // =====================================================
 // 金额大写转换
@@ -169,6 +170,23 @@ export function validateFormData(
           }
         }
         break;
+
+      case 'formula': {
+        if (!field.formula) break;
+        try {
+          // 服务端重算公式，与提交值做容差比较，防止客户端篡改
+          const expected = evaluateFormula(field.formula, formData);
+          const submitted = Number(value);
+          const precision = field.formulaPrecision ?? 2;
+          const tolerance = Math.pow(10, -precision);
+          if (isNaN(submitted) || Math.abs(submitted - expected) > tolerance) {
+            errors.push(`${field.label}的计算结果不正确`);
+          }
+        } catch {
+          errors.push(`${field.label}公式计算失败`);
+        }
+        break;
+      }
     }
   }
 

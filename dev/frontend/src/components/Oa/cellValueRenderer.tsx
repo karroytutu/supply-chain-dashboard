@@ -51,6 +51,16 @@ export function renderCellValue(
       }
       return String(cellValue);
     }
+    case 'erp_settlement_order': {
+      // 结算单类型不在表格子字段中使用，降级为文本
+      return String(cellValue);
+    }
+    case 'formula': {
+      // 快照语义：显示提交时存储的计算结果
+      const num = Number(cellValue);
+      const precision = childField.formulaPrecision ?? 2;
+      return num.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision });
+    }
     default:
       return String(cellValue);
   }

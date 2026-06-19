@@ -7,6 +7,7 @@ import { Button, Input, InputNumber, Select, DatePicker, Table, Popconfirm } fro
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { FormField } from '@/types/oa';
+import { evaluateFormula } from '@/utils/formula-evaluator';
 import { TABLE_ERP_TYPES, useContainerWidth, getColumnWidth } from '@/components/Oa/hooks/useContainerWidth';
 import ErpFieldRenderer from './ErpFieldRenderer';
 import styles from '../index.less';
@@ -15,6 +16,22 @@ interface TableFieldRendererProps {
   field: FormField;
   value?: Record<string, unknown>[];
   onChange?: (value: Record<string, unknown>[]) => void;
+}
+
+/** 重算行内公式字段，返回更新后的行数据 */
+function recalcRowFormulas(
+  row: Record<string, unknown>,
+  columns: FormField[],
+): Record<string, unknown> {
+  const formulaChildren = columns.filter(c => c.type === 'formula' && c.formula);
+  if (formulaChildren.length === 0) return row;
+  const updated = { ...row };
+  for (const fc of formulaChildren) {
+    const result = evaluateFormula(fc.formula!, updated);
+    const precision = fc.formulaPrecision ?? 2;
+    updated[fc.key] = Number(result.toFixed(precision));
+  }
+  return updated;
 }
 
 /** 渲染单个单元格输入组件 */
@@ -93,6 +110,17 @@ const CellInput: React.FC<{
           size="small"
         />
       );
+    case 'formula':
+      // 公式字段：只读展示，值由行内公式重算逻辑自动填充
+      return (
+        <InputNumber
+          style={{ width: '100%' }}
+          precision={childField.formulaPrecision ?? 2}
+          value={value != null ? Number(value) : undefined}
+          disabled
+          size="small"
+        />
+      );
     case 'text':
     default:
       return (
@@ -117,7 +145,9 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
     columns.forEach((col) => {
       newRow[col.key] = col.defaultValue ?? undefined;
     });
-    onChange?.([...value, newRow]);
+    // 初始化行内公式字段（对默认值求值）
+    const rowWithFormulas = recalcRowFormulas(newRow, columns);
+    onChange?.([...value, rowWithFormulas]);
   }, [value, columns, onChange]);
 
   const handleRemove = useCallback((index: number) => {
@@ -128,16 +158,18 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
 
   const handleCellChange = useCallback((rowIndex: number, key: string, cellValue: unknown) => {
     const newValue = [...value];
-    newValue[rowIndex] = { ...newValue[rowIndex], [key]: cellValue };
+    const updatedRow = { ...newValue[rowIndex], [key]: cellValue };
+    newValue[rowIndex] = recalcRowFormulas(updatedRow, columns);
     onChange?.(newValue);
-  }, [value, onChange]);
+  }, [value, onChange, columns]);
 
-  /** 更新同行多个字段（ERP 字段 nameField + autoFill 写入） */
+  /** 更新同行多个字段（ERP 字段 nameField + autoFill 写入），同时重算行内公式 */
   const handleRowUpdate = useCallback((rowIndex: number, updates: Record<string, unknown>) => {
     const newValue = [...value];
-    newValue[rowIndex] = { ...newValue[rowIndex], ...updates };
+    const updatedRow = { ...newValue[rowIndex], ...updates };
+    newValue[rowIndex] = recalcRowFormulas(updatedRow, columns);
     onChange?.(newValue);
-  }, [value, onChange]);
+  }, [value, onChange, columns]);
 
   const tableColumns = [
     ...columns.map((col, idx) => ({

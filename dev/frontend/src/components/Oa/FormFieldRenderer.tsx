@@ -208,6 +208,15 @@ const FieldRenderer: React.FC<{
         />
       );
     }
+    case 'formula': {
+      // 快照语义：直接显示提交时存储的计算结果，不重算
+      const num = Number(value);
+      const precision = field.formulaPrecision ?? 2;
+      if (precision === 2) {
+        return <Text strong>{formatCurrency(num)}</Text>;
+      }
+      return <Text>{num.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}</Text>;
+    }
     default:
       return <Text>{String(value)}</Text>;
   }
