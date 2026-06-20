@@ -7,11 +7,14 @@ import { appQuery as query } from '../../../db/appPool';
 import { OaActionRow, FormSchema, WorkflowDef, TimeoutConfig } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { InstanceListItem } from '../oa.query';
+import { resolveFormSchema } from '../oa-utils';
 
 /**
  * 合并 DB workflowDef 与 code 级 workflowDef 的字段权限元数据
- * DB 中的 workflow_def JSON 可能只有节点结构（order/name/type/roleCode/interactionType），
- * 缺少 fieldPermissions 和 fieldOptionFilter，需要从 code 定义中补充。
+ *
+ * 架构策略：workflow_def 结构（nodes/handler/signMode 等）以 DB 为主源（支持管理后台运行时编辑），
+ * 但 fieldPermissions 和 fieldOptionFilter 是应用设计级元数据，始终以代码定义为准（仅在 DB 缺失时补充，
+ * 因为管理后台不编辑这些字段，DB 中的值来自代码初始定义或旧版本代码）。
  */
 function mergeWorkflowDefMeta(
   dbWorkflowDef: WorkflowDef | null,
@@ -30,8 +33,6 @@ function mergeWorkflowDefMeta(
       // 用 code 定义补充 DB 中缺失的字段权限和选项过滤
       fieldPermissions: dbNode.fieldPermissions ?? codeNode.fieldPermissions,
       fieldOptionFilter: dbNode.fieldOptionFilter ?? codeNode.fieldOptionFilter,
-      // interactionType 也补充（兼容旧迁移数据）
-      interactionType: dbNode.interactionType ?? codeNode.interactionType,
     };
   });
 
@@ -105,7 +106,6 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       ft.code as form_type_code,
       ft.name as form_type_name,
       ft.icon as form_type_icon,
-      ft.form_schema as form_schema,
       ft.workflow_def as workflow_def,
       u.avatar AS applicant_avatar
     FROM oa_approval_instances i
@@ -169,7 +169,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     completedAt: instance.completed_at,
     previewFields: [],  // 详情页展示完整表单，无需字段预览
     formData: instance.form_data,
-    formSchema: instance.form_schema || codeFallback?.formSchema || { fields: [] },
+    formSchema: resolveFormSchema(instance.form_type_code, null),
     workflowDef: mergeWorkflowDefMeta(
       instance.workflow_def as WorkflowDef | null,
       codeFallback?.workflowDef

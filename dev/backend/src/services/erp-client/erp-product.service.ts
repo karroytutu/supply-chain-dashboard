@@ -162,7 +162,7 @@ export async function getAllProductNames(): Promise<Set<string>> {
  * 清除商品缓存（供缓存失效使用）
  */
 export function invalidateProductCache(): void {
-  cache.invalidate('erp:products:');
+  cache.invalidate(CACHE_KEY.ERP_PRODUCTS_PREFIX);
   _productByNameMap = null;
   _productByIdMap = null;
   invalidateFacadeCache();

@@ -1,6 +1,6 @@
 /**
  * DataFilterBar 组件单元测试
- * 覆盖：筛选控件渲染、重置交互、导出权限控制、筛选标签显示
+ * 覆盖：筛选控件渲染、重置交互、筛选标签显示
  */
 
 import React from 'react';
@@ -8,21 +8,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import dayjs from 'dayjs';
 import type { FormTypeDefinition } from '@/types/oa';
-
-// ==================== Mocks ====================
-
-// Authorized mock: 默认 pass-through（有权限），可通过 vi.mocked 切换行为
-const mockAuthorized = vi.fn(({ children }: any): React.ReactElement | null => <>{children}</>);
-
-vi.mock('@/components/Authorized', () => ({
-  Authorized: (props: any) => mockAuthorized(props),
-}));
-
-vi.mock('@/constants/permissions', () => ({
-  PERMISSIONS: {
-    OA: { DATA: { READ: 'oa:data:read', EXPORT: 'oa:data:export' } },
-  },
-}));
 
 // ==================== jsdom 补丁 ====================
 
@@ -99,8 +84,6 @@ function getInputPlaceholders(doc: HTMLElement): string[] {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // 默认：Authorized 渲染 children（有权限）
-  mockAuthorized.mockImplementation(({ children }: any) => <>{children}</>);
 });
 
 describe('DataFilterBar 筛选控件', () => {
@@ -218,20 +201,5 @@ describe('DataFilterBar 工具栏', () => {
     expect(tagTexts).toContain('已通过');
     // dateRange 有值时应显示日期范围 Tag
     expect(tagTexts).toContain('2026-01-01 ~ 2026-06-30');
-  });
-});
-
-describe('DataFilterBar 权限', () => {
-  it('无 oa:data:export 权限时导出按钮隐藏', () => {
-    // 模拟无权限：Authorized 不渲染 children
-    mockAuthorized.mockImplementation(({ children, permission }: any) => {
-      if (permission === 'oa:data:export') return null;
-      return <>{children}</>;
-    });
-
-    render(<DataFilterBar {...defaultProps} />);
-
-    // 导出按钮应被隐藏（Authorized 不渲染 children）
-    expect(screen.queryByTestId('export-menu-btn')).toBeNull();
   });
 });

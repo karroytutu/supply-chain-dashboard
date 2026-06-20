@@ -61,8 +61,8 @@ describe('permission-cache.service', () => {
   describe('invalidateRolePermissionCache', () => {
     it('清除角色下所有用户的权限缓存', async () => {
       // 设置两个用户的缓存
-      setUserPermissionCache(10, { roles: ['manager'], permissions: [] });
-      setUserPermissionCache(20, { roles: ['manager'], permissions: [] });
+      setUserPermissionCache(10, { roles: ['department_manager'], permissions: [] });
+      setUserPermissionCache(20, { roles: ['department_manager'], permissions: [] });
 
       mockAppQuery.mockResolvedValueOnce(
         mockQueryResult([{ user_id: 10 }, { user_id: 20 }])

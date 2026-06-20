@@ -19,7 +19,8 @@ import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
  */
 export async function listFormTypes(req: Request, res: Response): Promise<void> {
   try {
-    const formTypes = await getActiveFormTypes();
+    const userRoles = req.user?.roles;
+    const formTypes = await getActiveFormTypes(userRoles);
     res.json(buildSuccessResponse(formTypes));
   } catch (error) {
     log.error('获取表单类型失败:', error);
@@ -33,7 +34,8 @@ export async function listFormTypes(req: Request, res: Response): Promise<void> 
  */
 export async function listFormTypesGrouped(req: Request, res: Response): Promise<void> {
   try {
-    const grouped = await getFormTypesGroupedByCategory();
+    const userRoles = req.user?.roles;
+    const grouped = await getFormTypesGroupedByCategory(userRoles);
     res.json(buildSuccessResponse(grouped));
   } catch (error) {
     log.error('获取表单类型分组失败:', error);

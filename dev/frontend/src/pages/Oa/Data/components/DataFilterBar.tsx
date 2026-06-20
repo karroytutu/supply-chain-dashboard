@@ -2,8 +2,6 @@ import React from 'react';
 import { Row, Col, Select, DatePicker, Input, Space, Button, Tooltip, Tag } from 'antd';
 import { SearchOutlined, ReloadOutlined, FilterOutlined } from '@ant-design/icons';
 import type { FormTypeDefinition } from '@/types/oa';
-import { Authorized } from '@/components/Authorized';
-import { PERMISSIONS } from '@/constants/permissions';
 import styles from '../index.less';
 
 const { RangePicker } = DatePicker;
@@ -96,9 +94,7 @@ const DataFilterBar: React.FC<DataFilterBarProps> = ({
             )}
           </span>
         </Space>
-        <Authorized permission={PERMISSIONS.OA.DATA.EXPORT}>
-          {exportMenu}
-        </Authorized>
+        {exportMenu}
       </div>
     </>
   );

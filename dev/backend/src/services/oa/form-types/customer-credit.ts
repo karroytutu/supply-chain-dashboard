@@ -4,6 +4,7 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
+import { OA_ROLE } from '../oa-role-codes';
 import {
   beforeSubmitCustomerCredit,
   getCustomerCreditCCRoles,
@@ -187,8 +188,7 @@ export const customerCreditFormType: FormTypeDefinition = {
         order: 1,
         name: '营销经理审批',
         type: 'approval',
-        handler: { roleCode: 'marketing_manager' },
-        interactionType: 'approval' as const,
+        handler: { roleCode: OA_ROLE.MARKETING_MGR },
         signMode: 'or',
       },
       // 节点2：往来会计审批（授信场景为审批型，非催收操作型）
@@ -196,8 +196,7 @@ export const customerCreditFormType: FormTypeDefinition = {
         order: 2,
         name: '往来会计审批',
         type: 'approval',
-        handler: { roleCode: 'current_accountant' },
-        interactionType: 'approval' as const,
+        handler: { roleCode: OA_ROLE.ACCOUNTANT },
         signMode: 'or',
       },
       // 节点3：自动更新ERP客户授信

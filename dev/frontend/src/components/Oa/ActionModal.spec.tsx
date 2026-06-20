@@ -30,8 +30,8 @@ describe('ActionModal', () => {
     expect(screen.getByText('已通过')).toBeTruthy();
   });
 
-  it('approve 类型（操作型）标题为"确认完成"', () => {
-    render(<ActionModal {...defaultProps} actionType="approve" interactionType="operation" />);
+  it('approve 类型（处理型）标题为"确认完成"', () => {
+    render(<ActionModal {...defaultProps} actionType="approve" nodeType="handle" />);
     expect(screen.getByText('确认完成')).toBeTruthy();
   });
 
@@ -40,8 +40,8 @@ describe('ActionModal', () => {
     expect(screen.getByText('已拒绝')).toBeTruthy();
   });
 
-  it('reject 类型（操作型）标题为"拒绝"', () => {
-    render(<ActionModal {...defaultProps} actionType="reject" interactionType="operation" />);
+  it('reject 类型（处理型）标题为"拒绝"', () => {
+    render(<ActionModal {...defaultProps} actionType="reject" nodeType="handle" />);
     expect(screen.getByText('拒绝')).toBeTruthy();
   });
 
@@ -55,9 +55,9 @@ describe('ActionModal', () => {
     expect(screen.getByText('加签处理')).toBeTruthy();
   });
 
-  it('update 类型（操作型）标题为"更新数据"', () => {
-    render(<ActionModal {...defaultProps} actionType="update" interactionType="operation" />);
-    expect(screen.getByText('更新数据')).toBeTruthy();
+  it('update 类型（处理型）标题为"保存草稿"', () => {
+    render(<ActionModal {...defaultProps} actionType="update" nodeType="handle" />);
+    expect(screen.getByText('保存草稿')).toBeTruthy();
   });
 
   it('actionLoading=true 时确认按钮 loading', () => {

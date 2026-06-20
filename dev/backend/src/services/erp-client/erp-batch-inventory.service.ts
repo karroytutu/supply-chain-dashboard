@@ -124,5 +124,5 @@ export async function getDefectiveBatchInventory(): Promise<ErpBatchInventory[]>
  * 清除批次库存缓存
  */
 export function invalidateBatchInventoryCache(): void {
-  cache.invalidate('erp:batch:');
+  cache.invalidate(CACHE_KEY.ERP_BATCH_PREFIX);
 }

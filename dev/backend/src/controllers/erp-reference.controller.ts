@@ -30,6 +30,14 @@ import {
   searchErpSettlementOrders,
   searchErpSettlementOrdersPaged,
 } from '../services/erp-client/erp-settlement.service';
+import {
+  searchSuppliers,
+  listTraderPrepayments,
+  searchSupplierIncomes,
+  searchPurchaseOrders,
+} from '../services/erp-client/erp-purchase.service';
+import { analyzePurchaseOrder, buildPurchaseLines } from '../services/procurement-order/procurement-analysis';
+import type { PurchaseOrderListItem } from '../services/erp-client/erp-purchase.types';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
 import { retryAutoNode as retryAutoNodeService } from '../services/oa/oa.mutation';
 
@@ -63,6 +71,9 @@ const LABEL_FIELDS: Record<string, string> = {
   grades: 'name',
   groups: 'name',
   areas: 'name',
+  suppliers: 'name',
+  prepayments: 'paidBillStr',
+  'supplier-incomes': 'billStr',
 };
 
 /**
@@ -147,6 +158,52 @@ export async function getErpReference(
         break;
       }
 
+      case 'suppliers':
+        data = await searchSuppliers();
+        break;
+
+      case 'prepayments': {
+        const traderId = req.query.traderId as string;
+        if (!traderId) {
+          res.status(400).json({ code: 400, message: '预付款查询需要 traderId 参数' });
+          return;
+        }
+        const parsedTraderId = parseInt(traderId, 10);
+        if (isNaN(parsedTraderId)) {
+          res.status(400).json({ code: 400, message: 'traderId 必须为数字' });
+          return;
+        }
+        data = await listTraderPrepayments(parsedTraderId);
+        break;
+      }
+
+      case 'supplier-incomes': {
+        const incomeTraderId = req.query.traderId as string;
+        if (!incomeTraderId) {
+          res.status(400).json({ code: 400, message: '收入单查询需要 traderId 参数' });
+          return;
+        }
+        const parsedIncomeId = parseInt(incomeTraderId, 10);
+        if (isNaN(parsedIncomeId)) {
+          res.status(400).json({ code: 400, message: 'traderId 必须为数字' });
+          return;
+        }
+        data = await searchSupplierIncomes(parsedIncomeId);
+        break;
+      }
+
+      case 'purchase-orders': {
+        const supplierIdsParam = req.query.supplierIds as string;
+        if (!supplierIdsParam) {
+          res.status(400).json({ code: 400, message: '采购订单查询需要 supplierIds 参数' });
+          return;
+        }
+        const supplierIds = supplierIdsParam.split(',').map(Number).filter(n => !isNaN(n));
+        const result = await searchPurchaseOrders({ supplierIds, states: ['UN_APPROVED'], size: 50 });
+        data = result.records;
+        break;
+      }
+
       default:
         res.status(400).json({ code: 400, message: `不支持的参考数据类型: ${type}` });
         return;
@@ -154,6 +211,47 @@ export async function getErpReference(
 
     res.json({ code: 200, data });
   } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 获取采购订单分析结果（含行项明细）
+ * GET /oa/erp-reference/purchase-orders/:billId/analysis
+ * 在表单选中采购订单后调用，返回行项明细供前端预填充表格
+ */
+export async function getPurchaseOrderAnalysis(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const billId = Number(req.params.billId);
+    if (isNaN(billId) || billId <= 0) {
+      res.status(400).json({ code: 400, message: '无效的采购订单ID' });
+      return;
+    }
+
+    const analysis = await analyzePurchaseOrder(billId);
+    const purchaseLines = buildPurchaseLines(analysis.lines);
+
+    res.json({
+      code: 200,
+      data: {
+        billId: analysis.billId,
+        billStr: analysis.billStr,
+        supplierId: analysis.supplierId,
+        supplierName: analysis.supplierName,
+        warehouseName: analysis.warehouseName,
+        totalAmount: analysis.totalAmount,
+        purchaseLines,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('超时')) {
+      res.status(504).json({ code: 504, message: error.message });
+      return;
+    }
     next(error);
   }
 }
@@ -340,6 +438,21 @@ export async function resolveErpReference(
         const all = await getErpAreas();
         const map = new Map(all.map(a => [a.id, a.name]));
         resolved = ids.map(id => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
+        break;
+      }
+
+      case 'purchase-orders': {
+        // 解析采购订单 ID → 富标签（单号 | 日期 | ¥金额）
+        const buildPOLabel = (o: PurchaseOrderListItem) => {
+          const amount = parseFloat(o.totalAmount);
+          const amountStr = isNaN(amount) ? '' : `¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const date = String(o.operDateTime || '').slice(0, 10);
+          return [o.billStr, date, amountStr].filter(Boolean).join(' | ');
+        };
+        // 查询所有供应商的待审核订单（resolve 时可能不知道具体供应商，全量拉取后按 ID 匹配）
+        const poResult = await searchPurchaseOrders({ states: ['UN_APPROVED'], size: 200 });
+        const poMap = new Map(poResult.records.map(o => [o.billId, buildPOLabel(o)]));
+        resolved = ids.map(id => ({ id, label: String(poMap.get(id) ?? id) }));
         break;
       }
 

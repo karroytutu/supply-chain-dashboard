@@ -235,5 +235,5 @@ export async function getSalesDetailByOriginStr(originStr: string): Promise<ErpS
  * 清除销售明细缓存
  */
 export function invalidateSalesCache(): void {
-  cache.invalidate('erp:sales:');
+  cache.invalidate(CACHE_KEY.ERP_SALES_PREFIX);
 }

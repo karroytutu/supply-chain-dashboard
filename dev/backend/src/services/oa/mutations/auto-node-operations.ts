@@ -45,7 +45,7 @@ export async function executeAutoNodeCallback(
     // 仅检查 node_order < autoNode.node_order 的节点，auto 节点之后的人工节点属于正常 pending
     const finalCheck = await query(
       `SELECT id, node_name, status FROM oa_approval_nodes
-       WHERE instance_id = $1 AND node_type != 'auto'
+       WHERE instance_id = $1 AND node_type IN ('approval', 'handle')
          AND node_order < $2
          AND status IN ('pending', 'processing') LIMIT 1`,
       [instanceId, autoNode.node_order]

@@ -2,7 +2,7 @@
  * OA 实例表单数据更新
  * @module services/oa/mutations/update-instance
  *
- * 操作型节点（interactionType='operation'）的"更新"操作：
+ * 办理环节（node_type='handle'）的"更新"操作：
  * 将用户编辑的表单数据合并到实例中，插入操作记录，但不推进流程。
  */
 
@@ -44,6 +44,9 @@ export async function updateInstanceFormData(
     const currentNode = currentNodeOrder
       ? await getCurrentPendingNodeByUser(client, instanceId, userId)
       : undefined;
+    if (currentNode && currentNode.node_type !== 'handle') {
+      throw new Error('只有办理环节可以保存数据');
+    }
     if (!currentNode && instance.applicant_id !== userId) {
       throw new Error('您不是当前处理人或申请人，无法更新数据');
     }

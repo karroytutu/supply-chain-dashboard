@@ -4,6 +4,7 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
+import { OA_ROLE } from '../oa-role-codes';
 import { handleAssetTransferApproved } from '../../fixed-asset/transfer-callback';
 
 export const assetTransferFormType: FormTypeDefinition = {
@@ -13,7 +14,7 @@ export const assetTransferFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 20,
   description: '固定资产领用/调拨审批（支持多资产）',
-  version: 2,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -81,8 +82,8 @@ export const assetTransferFormType: FormTypeDefinition = {
   },
 
   workflowDef: {
-    nodes: [{ order: 1, name: '行政专员审批', type: 'approval', handler: { roleCode: 'admin_staff' }, signMode: 'or' }],
-    ccRoles: ['admin'],
+    nodes: [{ order: 1, name: '行政专员审批', type: 'approval', handler: { roleCode: OA_ROLE.ADMIN_STAFF }, signMode: 'or' }],
+    ccRoles: [OA_ROLE.GM],
   },
 
   /** 提交前校验：确保每行都选择了资产 */

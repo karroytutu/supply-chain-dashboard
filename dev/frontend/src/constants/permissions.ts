@@ -115,11 +115,7 @@ export const PERMISSIONS = {
   // OA系统模块
   OA: {
     READ: 'oa:read',
-    WRITE: 'oa:write',
-    DATA: {
-      READ: 'oa:data:read',
-      EXPORT: 'oa:data:export',
-    },
+    FORM_MANAGE: 'oa:form:manage',
     WORKFLOW: {
       HANDOVER: 'oa:workflow:handover',
     },
@@ -127,25 +123,26 @@ export const PERMISSIONS = {
 } as const;
 
 /**
- * 角色编码常量
+ * 角色编码常量（与后端 ROLE_CODES 保持一致）
  */
 export const ROLES = {
+  // 管理层
   ADMIN: 'admin',
-  MANAGER: 'manager',
-  OPERATOR: 'operator',
-  VIEWER: 'viewer',
-  PROCUREMENT_MANAGER: 'procurement_manager',
-  WAREHOUSE_MANAGER: 'warehouse_manager',
-  FINANCE_STAFF: 'finance_staff',
+  GENERAL_MANAGER: 'general_manager',
+  DEPARTMENT_MANAGER: 'department_manager',
+  OPERATIONS_MANAGER: 'operations_manager',
+  // 财务
   CURRENT_ACCOUNTANT: 'current_accountant',
   CASHIER: 'cashier',
+  // 营销
   MARKETING_MANAGER: 'marketing_manager',
-  /** @deprecated 历史遗留角色编码，兼容读取时按 MARKETING_MANAGER 处理 */
-  MARKETING_SUPERVISOR: 'marketing_supervisor',
   MARKETER: 'marketer',
+  // 供应链
+  PROCUREMENT_MANAGER: 'procurement_manager',
+  WAREHOUSE_MANAGER: 'warehouse_manager',
+  WAREHOUSE_OPERATOR: 'warehouse_operator',
+  // 行政
   ADMIN_STAFF: 'admin_staff',
-  OPERATIONS_MANAGER: 'operations_manager',
-  GENERAL_MANAGER: 'general_manager',
 } as const;
 
 /**

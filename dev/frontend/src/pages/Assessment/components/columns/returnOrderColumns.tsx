@@ -13,7 +13,7 @@ const ROLE_LABELS: Record<string, string> = {
   procurement_manager: '采购主管',
   marketing_manager: '营销经理',
   warehouse_manager: '仓储主管',
-  warehouse_keeper: '仓储员',
+  warehouse_operator: '库管员',
   logistics_manager: '物流经理',
   marketer: '营销师',
   marketing_supervisor: '营销经理',

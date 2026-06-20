@@ -39,7 +39,7 @@ describe('insertNodeAfter', () => {
     const client = createMockPoolClient();
     const newNode = {
       name: '加签',
-      type: 'countersign' as const,
+      type: 'approval' as const,
       assignedUserId: 200,
       assignedUserName: '李四',
     };
@@ -62,7 +62,7 @@ describe('insertNodeAfter', () => {
     expect(client.query).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('INSERT INTO oa_approval_nodes'),
-      [1, 3, '加签', 'countersign', null, 200, '李四', null, null, null, null]
+      [1, 3, '加签', 'approval', null, 200, '李四', null, null, null, null]
     );
 
     expect(result).toEqual(expectedRow);
@@ -92,7 +92,7 @@ describe('insertNodeAfter', () => {
     const schema = { fields: [{ key: 'test', type: 'text' }] };
     await insertNodeAfter(client, 1, 0, {
       name: '数据录入',
-      type: 'data_input' as any,
+      type: 'handle' as any,
       inputSchema: schema as any,
     });
 

@@ -18,6 +18,10 @@ export const ERP_SEARCH_API_MAP: Record<string, ErpReferenceType> = {
   erp_grades: 'grades',
   erp_groups: 'groups',
   erp_areas: 'areas',
+  erp_suppliers: 'suppliers',
+  erp_prepayments: 'prepayments',
+  erp_supplier_incomes: 'supplier-incomes',
+  erp_purchase_orders: 'purchase-orders',
 };
 
 /** ERP 类型到标签字段名的映射 */
@@ -32,6 +36,10 @@ export const ERP_LABEL_FIELDS: Record<string, string> = {
   grades: 'name',
   groups: 'name',
   areas: 'name',
+  suppliers: 'name',
+  prepayments: 'paidBillStr',
+  'supplier-incomes': 'billStr',
+  'purchase-orders': 'billStr',
 };
 
 /** ERP 类型到值字段名的映射 */
@@ -46,4 +54,8 @@ export const ERP_VALUE_FIELDS: Record<string, string> = {
   grades: 'id',
   groups: 'id',
   areas: 'id',
+  suppliers: 'originId',
+  prepayments: 'id',
+  'supplier-incomes': 'id',
+  'purchase-orders': 'billId',
 };

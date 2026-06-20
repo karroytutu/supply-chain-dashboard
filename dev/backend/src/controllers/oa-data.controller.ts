@@ -9,6 +9,7 @@ import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { getDataListAll } from '../services/oa/oa.query';
+import { appQuery } from '../db/appPool';
 import {
   getDataListForExport,
   generateExportHtml,
@@ -16,6 +17,30 @@ import {
 } from '../services/oa/queries/data-query';
 import { ApprovalListParams } from '../services/oa/oa.types';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
+
+/**
+ * 根据用户岗位查询其有权查看/导出的表单类型编码列表
+ * @param userRoles 用户角色编码列表
+ * @param column 'data_read_roles' | 'data_export_roles'
+ */
+async function getAccessibleFormTypeCodes(
+  userRoles: string[],
+  column: 'data_read_roles' | 'data_export_roles'
+): Promise<string[]> {
+  if (!userRoles || userRoles.length === 0) return [];
+
+  // 查询哪些表单的 data_read_roles/data_export_roles 与用户角色有交集
+  // NULL 表示不限制（所有人可访问），需包含在结果中
+  const result = await appQuery<{ code: string }>(
+    `SELECT code FROM oa_form_types
+     WHERE is_active = true
+       AND (${column} IS NULL OR ${column} && $1::text[])
+     ORDER BY code`,
+    [userRoles]
+  );
+
+  return result.rows.map(r => r.code);
+}
 
 /**
  * 获取数据列表
@@ -29,10 +54,15 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // 根据用户岗位查询其有权查看的表单类型
+    const userRoles = req.user?.roles || [];
+    const accessibleCodes = await getAccessibleFormTypeCodes(userRoles, 'data_read_roles');
+
     // 前端请求拦截器自动将 camelCase 参数转为 snake_case，后端统一按 snake_case 读取
     const params: ApprovalListParams = {
       viewMode: 'my', // 数据管理默认查看所有
       formTypeCode: req.query.form_type_code as string,
+      allowedFormTypeCodes: accessibleCodes,
       status: req.query.status as ApprovalListParams['status'],
       startDate: req.query.start_date as string,
       endDate: req.query.end_date as string,
@@ -69,10 +99,15 @@ export async function exportData(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // 根据用户岗位查询其有权导出的表单类型
+    const userRoles = req.user?.roles || [];
+    const accessibleCodes = await getAccessibleFormTypeCodes(userRoles, 'data_export_roles');
+
     const exportType = req.query.export_type as string;
     const params: ApprovalListParams = {
       viewMode: 'my',
       formTypeCode: req.query.form_type_code as string,
+      allowedFormTypeCodes: accessibleCodes,
       status: req.query.status as ApprovalListParams['status'],
       startDate: req.query.start_date as string,
       endDate: req.query.end_date as string,

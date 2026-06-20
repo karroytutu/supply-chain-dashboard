@@ -16,7 +16,7 @@ export type PenaltyType =
   | 'warehouse_execute_timeout';
 
 /** 考核对象角色 */
-export type PenaltyRole = 'procurement_manager' | 'marketing_manager' | 'warehouse_manager' | 'warehouse_keeper' | 'logistics_manager';
+export type PenaltyRole = 'procurement_manager' | 'marketing_manager' | 'warehouse_manager' | 'warehouse_operator' | 'warehouse_keeper' | 'logistics_manager';
 
 /** 考核记录状态 */
 export type PenaltyStatus = 'pending' | 'confirmed' | 'appealed' | 'cancelled';
@@ -83,10 +83,11 @@ export const PENALTY_TYPE_NAMES: Record<PenaltyType, string> = {
 };
 
 /** 考核角色名称映射 */
-export const PENALTY_ROLE_NAMES: Record<PenaltyRole, string> = {
+export const PENALTY_ROLE_NAMES: Record<string, string> = {
   procurement_manager: '采购主管',
   marketing_manager: '营销师',
   warehouse_manager: '仓储主管',
+  warehouse_operator: '库管员',
   warehouse_keeper: '库管员',
   logistics_manager: '物流主管',
 };

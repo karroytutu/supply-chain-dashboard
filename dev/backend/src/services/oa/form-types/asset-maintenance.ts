@@ -5,6 +5,7 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
+import { OA_ROLE } from '../oa-role-codes';
 import { handleAssetMaintenanceNodeCallback } from '../../fixed-asset/maintenance-callback';
 
 export const assetMaintenanceFormType: FormTypeDefinition = {
@@ -14,7 +15,7 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 30,
   description: '固定资产维修审批（含条件询价和财务支付）',
-  version: 2,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -59,8 +60,8 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
       {
         order: 2,
         name: '行政询价',
-        type: 'data_input',
-        handler: { roleCode: 'admin_staff' },
+        type: 'handle',
+        handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
         condition: { field: 'estimatedCost', operator: '>=', value: 500 },
         inputSchema: {
@@ -79,12 +80,12 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
           ],
         },
       },
-      { order: 3, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
+      { order: 3, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' },
       {
         order: 4,
         name: '财务支付',
-        type: 'data_input',
-        handler: { roleCode: 'cashier' },
+        type: 'handle',
+        handler: { roleCode: OA_ROLE.CASHIER },
         signMode: 'or',
         inputSchema: {
           fields: [
@@ -103,7 +104,7 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
         },
       },
     ],
-    ccRoles: ['current_accountant'],
+    ccRoles: [OA_ROLE.ACCOUNTANT],
   },
 
   /** 提交前校验：确保选择了资产且费用合法 */

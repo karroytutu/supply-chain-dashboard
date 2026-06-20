@@ -9,7 +9,7 @@
 
 import { appQuery } from '../src/db/appPool';
 import { notifyPendingApproval } from '../src/services/oa/oa-notify';
-import { getFormTypeByCode } from '../src/services/oa/form-types';
+import { resolveFormSchema } from '../src/services/oa/oa-utils';
 
 async function main() {
   console.log('=== 补发钉钉待办：已修复处理人的活跃环节 ===\n');
@@ -19,7 +19,7 @@ async function main() {
     `SELECT n.id AS node_id, i.id AS instance_id, i.instance_no, i.title,
             i.applicant_name, i.form_data, i.form_type_id,
             n.node_name, n.node_order, n.assigned_user_id, n.assigned_user_name,
-            ft.code AS form_code, ft.name AS form_type_name, ft.form_schema
+            ft.code AS form_code, ft.name AS form_type_name
      FROM oa_approval_nodes n
      JOIN oa_approval_instances i ON i.id = n.instance_id
      JOIN oa_form_types ft ON ft.id = i.form_type_id
@@ -44,8 +44,7 @@ async function main() {
   let failed = 0;
 
   for (const row of result.rows) {
-    const formType = getFormTypeByCode(row.form_code);
-    const formSchema = formType?.formSchema || (row.form_schema as any);
+    const formSchema = resolveFormSchema(row.form_code, null);
 
     try {
       await notifyPendingApproval(

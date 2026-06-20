@@ -24,7 +24,7 @@ router.use(authMiddleware);
 /** 补交营业执照（营销员操作） */
 router.post(
   '/:instanceId/supplement-license',
-  requirePermission('oa:write'),
+  requirePermission('oa:read'),
   uploadCreditLicense.array('files', 3),
   supplementLicenseController
 );

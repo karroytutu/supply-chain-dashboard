@@ -35,7 +35,7 @@ describe('oa-workflow-utils', () => {
   describe('filterNodesByCondition', () => {
     it('无条件的节点全部保留', () => {
       const nodes: WorkflowNodeDef[] = [
-        { order: 1, name: '主管', type: 'approval', handler: { roleCode: 'manager' } },
+        { order: 1, name: '主管', type: 'approval', handler: { roleCode: 'department_manager' } },
         { order: 2, name: '总经理', type: 'approval', handler: { roleCode: 'ceo' } },
       ];
 
@@ -46,7 +46,7 @@ describe('oa-workflow-utils', () => {
 
     it('有条件节点根据 checkCondition 结果过滤', () => {
       const nodes: WorkflowNodeDef[] = [
-        { order: 1, name: '主管', type: 'approval', handler: { roleCode: 'manager' } },
+        { order: 1, name: '主管', type: 'approval', handler: { roleCode: 'department_manager' } },
         {
           order: 2,
           name: '总经理',
@@ -215,7 +215,7 @@ describe('oa-workflow-utils', () => {
     it('返回匹配角色的用户ID列表', async () => {
       mockAppQuery.mockResolvedValueOnce(mockQueryResult([{ user_id: 1 }, { user_id: 2 }]));
 
-      const result = await findUserIdsByRoleCodes(['admin', 'manager']);
+      const result = await findUserIdsByRoleCodes(['admin', 'department_manager']);
 
       expect(result).toEqual([1, 2]);
     });

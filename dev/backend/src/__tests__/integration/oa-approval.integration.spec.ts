@@ -20,7 +20,7 @@ jest.mock('../../db/appPool', () => ({
 
 jest.mock('../../utils/jwt', () => ({
   verifyToken: jest.fn((token: string) => {
-    if (token === 'valid-admin') return { userId: 1, username: 'admin', permissions: ['oa:read', 'oa:write'] };
+    if (token === 'valid-admin') return { userId: 1, username: 'admin', permissions: ['oa:read'] };
     if (token === 'readonly-user') return { userId: 2, username: 'reader', permissions: ['oa:read'] };
     if (token === 'no-perm') return { userId: 3, username: 'noperm', permissions: [] };
     return null;
@@ -110,7 +110,7 @@ beforeEach(() => {
   mockAppQuery.mockResolvedValue({ rows: [{ status: 1 }] } as any);
   mockGetCache.mockReturnValue({
     roles: ['admin'],
-    permissions: ['oa:read', 'oa:write'],
+    permissions: ['oa:read'],
   });
 });
 
@@ -155,19 +155,19 @@ describe('POST /api/oa/instances/:id/update', () => {
     expect(res.status).toBe(401);
   });
 
-  it('仅有 oa:read 权限 → 403', async () => {
-    // readonly-user (userId=2) 仅有 oa:read
-    mockGetCache.mockReturnValue({ roles: ['viewer'], permissions: ['oa:read'] });
+  it('无 oa:read 权限 → 403', async () => {
+    // no-perm 用户无任何权限
+    mockGetCache.mockReturnValue({ roles: [], permissions: [] });
 
     const res = await request(app)
       .post('/api/oa/instances/1/update')
-      .set('Authorization', 'Bearer readonly-user')
+      .set('Authorization', 'Bearer no-perm')
       .send({ formData: { x: 1 } });
 
     expect(res.status).toBe(403);
   });
 
-  it('有 oa:write 权限 + 正常 formData → 200', async () => {
+  it('有 oa:read 权限 + 正常 formData → 200', async () => {
     mockUpdateInstance.mockResolvedValueOnce(undefined);
 
     const res = await request(app)
@@ -303,8 +303,8 @@ describe('GET /api/oa/form-types', () => {
     expect(res.status).not.toBe(404);
   });
 
-  it('仅有 oa:write 权限但无 oa:read → 403', async () => {
-    mockGetCache.mockReturnValue({ roles: [], permissions: ['oa:write'] });
+  it('无 oa:read 权限 → 403', async () => {
+    mockGetCache.mockReturnValue({ roles: [], permissions: [] });
 
     const res = await request(app)
       .get('/api/oa/form-types')

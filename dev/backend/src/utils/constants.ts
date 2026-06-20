@@ -87,28 +87,29 @@ export const EXPIRING_RATE_ATTENTION = 1;
 
 // ==================== 角色编码 ====================
 
-/** 管理角色编码（用于权限判断和角色映射）
- * @usedBy oa/ar-collection-callback.ts, assessment/rules/oa-collection-node-rules.ts
+/** 系统所有活跃岗位编码（唯一的"岗位花名册"）
+ * @usedBy oa/ar-collection-callback.ts, assessment/rules/oa-collection-node-rules.ts,
+ *          oa-workflow-utils.ts, oa.routes.ts, workspace.service.ts
  */
 export const ROLE_CODES = {
+  // 管理层
   ADMIN: 'admin',
-  MANAGER: 'manager',
-  MARKETER: 'marketer',
-  MARKETING_MANAGER: 'marketing_manager',
-  /** @deprecated 历史遗留角色编码，兼容读取时按 MARKETING_MANAGER 处理 */
-  MARKETING_SUPERVISOR: 'marketing_supervisor',
+  GENERAL_MANAGER: 'general_manager',
+  DEPARTMENT_MANAGER: 'department_manager',
+  OPERATIONS_MANAGER: 'operations_manager',
+  // 财务
   CURRENT_ACCOUNTANT: 'current_accountant',
-  FINANCE_STAFF: 'finance_staff',
   CASHIER: 'cashier',
+  // 营销
+  MARKETING_MANAGER: 'marketing_manager',
+  MARKETER: 'marketer',
+  // 供应链
+  PROCUREMENT_MANAGER: 'procurement_manager',
+  WAREHOUSE_MANAGER: 'warehouse_manager',
+  WAREHOUSE_OPERATOR: 'warehouse_operator',
+  // 行政
+  ADMIN_STAFF: 'admin_staff',
 } as const;
-
-/** 可查看催收全量数据的角色列表 */
-export const MANAGER_ROLES = [
-  ROLE_CODES.ADMIN,
-  ROLE_CODES.MANAGER,
-  ROLE_CODES.MARKETING_MANAGER,
-  ROLE_CODES.MARKETING_SUPERVISOR,
-] as const;
 
 // ==================== 催收相关阈值 ====================
 
@@ -205,11 +206,6 @@ export const CREDIT_LICENSE_REMINDER_DAY_OFFSET_2 = 6;
 export const CREDIT_LICENSE_PENALTY_PER_DAY = 10;
 
 // ==================== 客户档案修改 ====================
-
-/** 允许提交客户档案修改申请的角色
- * @usedBy customer-modify-callback.ts (beforeSubmit 角色校验)
- */
-export const CUSTOMER_MODIFY_ALLOWED_ROLES = ['admin', 'marketer', 'marketing_manager'];
 
 /** 客户状态：启用
  * @usedBy customer-modify-callback.ts (状态判断)
@@ -322,3 +318,17 @@ export const OA_TIMEOUT_REMINDER_BATCH_INTERVAL_MS = 2000;
 
 /** 催收节点即将超时阈值（小时） @usedBy ar-dashboard.service.ts */
 export const AR_TIMEOUT_WARNING_HOURS = 24;
+
+// ==================== 采购审批阈值 ====================
+
+/** 营销审批触发：可售天数>此值时触发营销审批 @usedBy procurement-analysis.ts */
+export const PROCUREMENT_MARKETING_APPROVAL_DAYS = 45;
+
+/** 总经理审批触发：订单总金额>此值时触发总经理审批 @usedBy procurement-analysis.ts */
+export const PROCUREMENT_MANAGER_APPROVAL_AMOUNT = 5000;
+
+/** 日均销量计算周期（天） @usedBy procurement-analysis.ts */
+export const PROCUREMENT_DAILY_SALES_PERIOD = 60;
+
+/** beforeSubmit ERP数据获取超时（毫秒） @usedBy procurement-analysis.ts */
+export const PROCUREMENT_ANALYSIS_TIMEOUT_MS = 8000;

@@ -8,6 +8,7 @@ import { appQuery as query } from '../../db/appPool';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
 import { ApprovalListParams, ApprovalStats, ApprovalStatus } from './oa.types';
 import { extractFormSummary } from './oa-form-summary';
+import { resolveFormSchema } from './oa-utils';
 
 // Re-export from extracted modules
 export { getApprovalDetail } from './queries/approval-detail';
@@ -53,12 +54,12 @@ export interface InstanceListItem {
 
 export function formatInstanceListItem(
   row: any,
-  viewMode?: string,
-  formSchema?: any
+  viewMode?: string
 ): InstanceListItem {
-  // 优先使用显式传入的 formSchema；回退到 row.form_schema（向后兼容）；
-  // 两者都无值时跳过 extractFormSummary，避免无效计算
-  const resolvedSchema = formSchema ?? row.form_schema ?? null;
+  // formSchema 统一从代码注册表获取（代码唯一来源）
+  const resolvedSchema = row.form_type_code
+    ? resolveFormSchema(row.form_type_code, null)
+    : null;
   const formData = row.form_data || null;
   const previewFields = resolvedSchema && formData
     ? extractFormSummary(resolvedSchema, formData).map(r => ({ label: r.key, value: r.value }))
@@ -256,21 +257,9 @@ export async function getApprovalList(
     [...queryParams, pageSize, offset]
   );
 
-  // 批量查询 form_schema（同一 form_type_id 只查一次，避免逐行重复传输 JSONB）
-  const uniqueFormTypeIds = [...new Set(listResult.rows.map(r => r.form_type_id))];
-  const schemaMap = new Map<number, any>();
-  if (uniqueFormTypeIds.length > 0) {
-    const schemaResult = await query<{ id: number; form_schema: any }>(
-      `SELECT id, form_schema FROM oa_form_types WHERE id = ANY($1)`,
-      [uniqueFormTypeIds]
-    );
-    for (const r of schemaResult.rows) schemaMap.set(r.id, r.form_schema);
-  }
-
+  // formSchema 已由 formatInstanceListItem 内部从代码注册表获取，无需额外 DB 查询
   return {
-    list: listResult.rows.map(row =>
-      formatInstanceListItem(row, params.viewMode, schemaMap.get(row.form_type_id))
-    ),
+    list: listResult.rows.map(row => formatInstanceListItem(row, params.viewMode)),
     total,
   };
 }
@@ -369,11 +358,11 @@ export async function getCollectionOaStats(
         AND n2.node_order = i.current_node_order
     )`;
     params.push(userId);
-  } else if (role === 'current_accountant' || role === 'finance_staff') {
+  } else if (role === 'current_accountant') {
     roleFilter = `AND EXISTS (
       SELECT 1 FROM oa_approval_nodes n2
       WHERE n2.instance_id = i.id AND n2.assigned_user_id IS NOT NULL
-        AND n2.role_code IN ('current_accountant', 'finance_staff') AND n2.status = 'pending'
+        AND n2.role_code = 'current_accountant' AND n2.status = 'pending'
         AND n2.node_order = i.current_node_order
     )`;
   } else if (role === 'cashier') {

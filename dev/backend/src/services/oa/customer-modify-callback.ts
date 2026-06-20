@@ -7,7 +7,6 @@
 import { createLogger } from '../../utils/logger';
 const log = createLogger('OA');
 
-import { getUserRolesAndPermissions } from '../auth.service';
 import { getErpCustomerProfile, getCustomerDebtTotal } from '../erp-client/erp-customer.service';
 import {
   erpUpdateCustomerFields,
@@ -22,7 +21,7 @@ import {
 import { updateErpMetaStatus, markErpFailed } from '../fixed-asset/erp-meta-utils';
 import { getErpStaff } from '../fixed-asset/fixed-asset.query';
 import { resolveLicenseFilePath } from '../../middleware/credit-upload';
-import { CUSTOMER_MODIFY_ALLOWED_ROLES, CUSTOMER_STATE_DISABLED } from '../../utils/constants';
+import { CUSTOMER_STATE_DISABLED } from '../../utils/constants';
 import fs from 'fs';
 import type { OaInstanceRow } from './oa.types';
 
@@ -106,13 +105,6 @@ export async function beforeSubmitCustomerModify(
   formData: Record<string, unknown>,
   userId: number
 ): Promise<Record<string, unknown>> {
-  // 校验提交者角色
-  const { roles } = await getUserRolesAndPermissions(userId);
-  const hasAllowedRole = roles.some(r => CUSTOMER_MODIFY_ALLOWED_ROLES.includes(r.code));
-  if (!hasAllowedRole) {
-    throw new Error('当前用户无权提交客户档案修改申请');
-  }
-
   const extraData: Record<string, unknown> = {};
   const customerId = Number(formData.customer);
 

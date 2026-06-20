@@ -132,6 +132,8 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
       if (fieldPermissions[field.key] === 'hidden') return false;
       // 跳过 _ 前缀内部字段
       if (field.key.startsWith('_')) return false;
+      // 跳过 hidden 字段（如自动填充的供应商名称、采购单号等）
+      if (field.hidden) return false;
       // visibleWhen 联动
       if (field.visibleWhen && !checkCondition(field.visibleWhen, mergedValues)) return false;
       return true;

@@ -7,8 +7,9 @@ import {
   setCachedOptions,
   ERP_SEARCH_CACHE_MAX,
   ERP_SEARCH_CACHE_TTL,
-  DEBOUNCED_SEARCH_TYPES,
+  SERVER_KEYWORD_TYPES,
   MIN_SEARCH_LENGTH,
+  buildCacheKey,
 } from './erpSearchCache';
 
 describe('erpSearchCache', () => {
@@ -64,9 +65,25 @@ describe('erpSearchCache', () => {
 });
 
 describe('常量', () => {
-  it('DEBOUNCED_SEARCH_TYPES 包含 assets 和 customers', () => {
-    expect(DEBOUNCED_SEARCH_TYPES.has('assets')).toBe(true);
-    expect(DEBOUNCED_SEARCH_TYPES.has('customers')).toBe(true);
+  it('SERVER_KEYWORD_TYPES 包含 assets、customers、settlement-orders', () => {
+    expect(SERVER_KEYWORD_TYPES.has('assets')).toBe(true);
+    expect(SERVER_KEYWORD_TYPES.has('customers')).toBe(true);
+    expect(SERVER_KEYWORD_TYPES.has('settlement-orders')).toBe(true);
+    expect(SERVER_KEYWORD_TYPES.has('suppliers')).toBe(false);
+    expect(SERVER_KEYWORD_TYPES.has('departments')).toBe(false);
+  });
+
+  it('buildCacheKey 服务端类型包含 keyword，客户端类型不包含', () => {
+    // 服务端类型：keyword 写入缓存键
+    expect(buildCacheKey('assets', 'abc')).toBe('assets:abc');
+    expect(buildCacheKey('customers', 'abc')).toBe('customers:abc');
+    // 客户端类型：keyword 不写入缓存键（只缓存全量）
+    expect(buildCacheKey('suppliers', 'abc')).toBe('suppliers:');
+    expect(buildCacheKey('suppliers')).toBe('suppliers:');
+    // 级联和状态参数
+    expect(buildCacheKey('settlement-orders', 'test', ':cid=123')).toBe('settlement-orders:test:cid=123');
+    expect(buildCacheKey('customers', '', '', ':all')).toBe('customers::all');
+    expect(buildCacheKey('suppliers', 'abc', '', ':all')).toBe('suppliers::all');
   });
 
   it('MIN_SEARCH_LENGTH 为 2', () => {

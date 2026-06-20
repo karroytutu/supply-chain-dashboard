@@ -3,26 +3,26 @@
  * @module utils/oa
  */
 
-import type { ConditionDef, FormField, ApprovalDetail, NodeInteractionType } from '@/types/oa';
+import type { ConditionDef, FormField } from '@/types/oa';
 
 /** 角色 roleCode → 中文显示名映射 */
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
   admin: '系统管理员',
-  manager: '供应链经理',
-  operator: '运营人员',
-  viewer: '只读用户',
+  general_manager: '总经理',
+  department_manager: '部门经理',
+  operations_manager: '运营支持中心经理',
   procurement_manager: '采购主管',
   warehouse_manager: '仓储主管',
-  finance_staff: '财务人员',
+  warehouse_operator: '库管员',
   cashier: '结算会计',
-  marketing_supervisor: '营销经理',
-  warehouse_keeper: '库管员',
-  logistics_manager: '物流主管',
-  operations_manager: '运营支持中心经理',
   current_accountant: '往来会计',
   marketing_manager: '营销经理',
   marketer: '营销师',
   admin_staff: '行政专员',
+  // 历史岗位（仅用于显示历史数据）
+  manager: '供应链经理',
+  marketing_supervisor: '营销经理',
+  warehouse_keeper: '库管员',
 };
 
 /** 获取角色显示名称 */
@@ -76,22 +76,4 @@ export function getFieldLinkUrl(
   const url = formData[`_${field.key}Url`];
   if (typeof url === 'string' && url && isSafeUrl(url)) return url;
   return null;
-}
-
-/**
- * 获取当前审批节点的交互类型
- * 根据 workflowDef 中当前节点的 interactionType 配置，返回 'operation' 或 'approval'（默认）
- * 对于动态插入的节点（升级/差异解决），当 workflowDef 匹配不到时，
- * 根据节点 roleCode 推断交互类型（催收相关角色默认为 operation）
- */
-export function getInteractionType(detail: ApprovalDetail): NodeInteractionType {
-  const currentNode = detail.nodes.find(n => n.nodeOrder === detail.currentNodeOrder);
-  if (!currentNode || !detail.workflowDef) return 'approval';
-  // 先尝试 workflowDef 静态匹配
-  const workflowNode = detail.workflowDef.nodes.find(n => n.order === currentNode.nodeOrder);
-  if (workflowNode?.interactionType) return workflowNode.interactionType;
-  // fallback：根据 roleCode 推断（催收相关节点默认 operation）
-  const OPERATION_ROLES = ['marketer', 'marketing_manager', 'marketing_supervisor', 'current_accountant'];
-  if (currentNode.roleCode && OPERATION_ROLES.includes(currentNode.roleCode)) return 'operation';
-  return 'approval';
 }

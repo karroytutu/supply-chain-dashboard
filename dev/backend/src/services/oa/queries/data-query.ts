@@ -26,6 +26,16 @@ export async function getDataListAll(
     paramIndex++;
   }
 
+  // 表单级权限过滤：只查询用户有权查看的表单类型
+  if (params.allowedFormTypeCodes && params.allowedFormTypeCodes.length > 0) {
+    conditions.push(`ft.code = ANY($${paramIndex})`);
+    queryParams.push(params.allowedFormTypeCodes);
+    paramIndex++;
+  } else if (params.allowedFormTypeCodes && params.allowedFormTypeCodes.length === 0) {
+    // 用户无任何表单数据权限，返回空结果
+    return { list: [], total: 0 };
+  }
+
   if (params.status) {
     conditions.push(`i.status = $${paramIndex}`);
     queryParams.push(params.status);

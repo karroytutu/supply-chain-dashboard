@@ -4,6 +4,7 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
+import { OA_ROLE } from '../oa-role-codes';
 import { handleAssetPurchaseNodeCallback } from '../../fixed-asset/purchase-callback';
 import { generateApplicationNo } from '../../fixed-asset/erp-meta-utils';
 
@@ -14,7 +15,7 @@ export const assetPurchaseFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 10,
   description: '固定资产采购审批流程（含询价、支付、入库）',
-  version: 2,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -38,12 +39,12 @@ export const assetPurchaseFormType: FormTypeDefinition = {
   workflowDef: {
     nodes: [
       { order: 1, name: '需求提报', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
-      { order: 2, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
+      { order: 2, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' },
       {
         order: 3,
         name: '行政询价',
-        type: 'data_input',
-        handler: { roleCode: 'admin_staff' },
+        type: 'handle',
+        handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
         inputSchema: {
           fields: [
@@ -102,12 +103,12 @@ export const assetPurchaseFormType: FormTypeDefinition = {
           ],
         },
       },
-      { order: 4, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' },
+      { order: 4, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' },
       {
         order: 5,
         name: '出纳支付',
-        type: 'data_input',
-        handler: { roleCode: 'cashier' },
+        type: 'handle',
+        handler: { roleCode: OA_ROLE.CASHIER },
         signMode: 'or',
         inputSchema: {
           fields: [
@@ -128,8 +129,8 @@ export const assetPurchaseFormType: FormTypeDefinition = {
       {
         order: 6,
         name: '行政采购',
-        type: 'data_input',
-        handler: { roleCode: 'admin_staff' },
+        type: 'handle',
+        handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
         inputSchema: {
           fields: [
@@ -141,8 +142,8 @@ export const assetPurchaseFormType: FormTypeDefinition = {
       {
         order: 7,
         name: '资产入库',
-        type: 'data_input',
-        handler: { roleCode: 'admin_staff' },
+        type: 'handle',
+        handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
         inputSchema: {
           fields: [
@@ -161,7 +162,7 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         },
       },
     ],
-    ccRoles: ['current_accountant'],
+    ccRoles: [OA_ROLE.ACCOUNTANT],
   },
 
   /** 提交前生成采购申请编号 */

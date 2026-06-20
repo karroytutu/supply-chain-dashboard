@@ -39,6 +39,14 @@ export const CACHE_KEY = {
   ERP_CUSTOMER_SEARCH_PREFIX: 'erp:customer:search' as const,
   /** 客户详情缓存前缀（用于 invalidate 批量清除） */
   ERP_CUSTOMER_PROFILE_PREFIX: 'erp:customer:profile:' as const,
+  /** 客户等级列表 */
+  ERP_CUSTOMER_GRADES: 'erp:customer:grades' as const,
+  /** 客户渠道列表 */
+  ERP_CUSTOMER_GROUPS: 'erp:customer:groups' as const,
+  /** 客户片区列表 */
+  ERP_CUSTOMER_AREAS: 'erp:customer:areas' as const,
+  /** 客户欠款总额（按客户ID） */
+  ERP_CUSTOMER_DEBT_TOTAL: (customerId: number) => `erp:customer:debt-total:${customerId}` as const,
   /** 客户名称映射 */
   CUSTOMER_NAME_MAP: 'erp:customer:debt-name-map' as const,
   /** 客户额度映射 */
@@ -110,4 +118,30 @@ export const CACHE_KEY = {
   // ==================== 工作台相关 ====================
   /** 工作台聚合数据（按用户） */
   WORKSPACE_DATA: (userId: number) => `workspace:data:${userId}` as const,
+
+  // ==================== ERP 数据源缓存前缀（用于 invalidate 批量清除） ====================
+  /** 实时库存缓存前缀 */
+  ERP_INVENTORY_PREFIX: 'erp:inventory' as const,
+  /** 销售明细缓存前缀 */
+  ERP_SALES_PREFIX: 'erp:sales' as const,
+  /** 库存快照缓存前缀 */
+  ERP_SNAPSHOT_PREFIX: 'erp:snapshot' as const,
+  /** 批次库存缓存前缀 */
+  ERP_BATCH_PREFIX: 'erp:batch' as const,
+  /** 数据聚合层缓存前缀 */
+  ERP_FACADE_PREFIX: 'erp:facade' as const,
+  /** 商品档案缓存前缀 */
+  ERP_PRODUCTS_PREFIX: 'erp:products' as const,
+
+  // ==================== 采购审批相关 ====================
+  /** 日均销售报表缓存（按商品ID集合哈希） */
+  ERP_PURCHASE_DAILY_SALE: (hash: string) => `erp:purchase:daily-sale:${hash}` as const,
+  /** 供应商列表缓存 */
+  ERP_PURCHASE_SUPPLIERS: 'erp:purchase:suppliers' as const,
+
+  // ==================== OA 表单类型相关 ====================
+  /** OA 表单类型列表（全量） */
+  OA_FORM_TYPES_ACTIVE: 'oa:form-types:active' as const,
+  /** OA 表单类型前缀（用于 invalidate 批量清除） */
+  OA_FORM_TYPES_PREFIX: 'oa:form-types' as const,
 } as const;

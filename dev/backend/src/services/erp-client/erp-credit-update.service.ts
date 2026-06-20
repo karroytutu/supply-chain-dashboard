@@ -8,6 +8,7 @@ import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { getErpCustomerProfile } from './erp-customer.service';
 import { cache } from '../../utils/cache';
+import { CACHE_KEY } from '../../utils/cache-keys';
 import { erpUploadImageToErp } from './erp-image-upload';
 
 // =====================================================
@@ -110,8 +111,9 @@ export async function erpUploadBusinessLicense(
     businessType: 'credit_update_customer_profile',
   });
 
-  // 写入后失效客户资料缓存，确保后续读取最新数据
-  cache.invalidate('erp:customer:profile:');
+  // 写入后失效客户资料 + 搜索缓存，确保后续读取最新数据
+  cache.invalidate(CACHE_KEY.ERP_CUSTOMER_PROFILE_PREFIX);
+  cache.invalidate(CACHE_KEY.ERP_CUSTOMER_SEARCH_PREFIX);
 }
 
 /**
@@ -144,6 +146,7 @@ export async function erpUpdateCustomerProfile(
     businessType: 'credit_update_customer_profile',
   });
 
-  // 写入后失效客户资料缓存
-  cache.invalidate('erp:customer:profile:');
+  // 写入后失效客户资料 + 搜索缓存
+  cache.invalidate(CACHE_KEY.ERP_CUSTOMER_PROFILE_PREFIX);
+  cache.invalidate(CACHE_KEY.ERP_CUSTOMER_SEARCH_PREFIX);
 }

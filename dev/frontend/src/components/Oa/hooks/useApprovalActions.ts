@@ -167,7 +167,7 @@ export function useApprovalActions({
             formData: { ...(detail?.formData || {}), ...editedDiff },
             comment: actionComment || undefined,
           });
-          message.success('数据已更新');
+          message.success('数据已保存');
           break;
         }
         case 'comment':

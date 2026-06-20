@@ -182,12 +182,12 @@ describe('权限中间件集成', () => {
   it('GET /api/auth/me 返回用户角色和权限信息', async () => {
     mockAppQuery.mockResolvedValueOnce({ rows: [{ status: 1 }], rowCount: 1 } as any);
     mockGetCache.mockReturnValue({
-      roles: ['admin', 'manager'],
+      roles: ['admin', 'department_manager'],
       permissions: ['system:user:read', 'system:user:write'],
     });
     mockGetCurrentUser.mockResolvedValueOnce({
       id: 1, username: 'admin', name: '管理员',
-      roles: [{ code: 'admin' }, { code: 'manager' }],
+      roles: [{ code: 'admin' }, { code: 'department_manager' }],
       permissions: ['system:user:read', 'system:user:write'],
     });
 

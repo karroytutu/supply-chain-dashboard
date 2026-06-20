@@ -67,6 +67,9 @@ export type FormFieldType =
   | 'erp_grade' // 选择ERP客户等级
   | 'erp_group' // 选择ERP客户渠道（分组）
   | 'erp_area' // 选择ERP客户片区（区域）
+  // ERP 参考数据字段类型（采购审批使用）
+  | 'erp_supplier' // 搜索选择ERP供应商
+  | 'erp_purchase_order' // 搜索选择ERP采购订单（级联供应商）
   | 'formula'; // 公式计算字段（自动根据表达式求值，不可手动编辑）
 
 /**
@@ -142,7 +145,9 @@ export interface FormField {
     | 'erp_settlement_orders'
     | 'erp_grades'
     | 'erp_groups'
-    | 'erp_areas';
+    | 'erp_areas'
+    | 'erp_suppliers'
+    | 'erp_purchase_orders';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
@@ -159,6 +164,8 @@ export interface FormField {
   formula?: string;
   /** 公式结果精度（小数位数），默认 2 */
   formulaPrecision?: number;
+  /** 是否在表单中隐藏（值仍存储在 formData 中，供 autoFill 等机制使用） */
+  hidden?: boolean;
 }
 
 /**
@@ -181,11 +188,9 @@ export interface FormSchema {
 export type FieldPermission = 'editable' | 'readonly' | 'hidden';
 
 /**
- * 节点交互类型（固化类型，不允许自由组合）
- * - approval: 审批型（同意/拒绝为主按钮，退回/转交/加签折叠到更多）
- * - operation: 操作型（完成/更新为主按钮，退回/转交折叠到更多）
- *
- * 未配置时默认为 'approval'，与现有表单行为一致
+ * @deprecated 节点交互类型已废弃，节点类型（NodeType）本身决定按钮样式。
+ * 保留类型定义仅为兼容旧数据和旧代码，新代码不应使用。
+ * 待所有引用清理后可完全删除。
  */
 export type NodeInteractionType = 'approval' | 'operation';
 
@@ -194,13 +199,14 @@ export type NodeInteractionType = 'approval' | 'operation';
 // =====================================================
 
 /**
- * 环节类型 — 描述环节做什么
- * - approval: 审批环节（通过/驳回）
- * - data_input: 数据录入环节（审批 + 录入表单数据）
+ * 环节类型 — 描述环节做什么（参考钉钉 OA：审批人/办理人）
+ * - approval: 审批环节（通过/驳回的决策）
+ * - handle: 办理环节（执行业务动作后确认完成，可编辑表单字段）
  * - auto: 自动执行环节（系统回调，无处理人）
- * - countersign: 运行时加签环节（由当前处理人手动添加）
+ *
+ * 注意：countersign（加签）不作为环节类型，而是通过 `is_countersign` 布尔字段标记来源
  */
-export type NodeType = 'approval' | 'data_input' | 'auto' | 'countersign';
+export type NodeType = 'approval' | 'handle' | 'auto';
 
 /**
  * 处理人规则 — 描述如何确定环节的处理人
@@ -357,19 +363,21 @@ export interface WorkflowNodeDef {
   name: string;
   /** 环节类型（做什么） */
   type: NodeType;
-  /** 处理人规则（找谁做，approval / data_input 类型必填） */
+  /** 处理人规则（找谁做，approval / handle 类型必填） */
   handler?: HandlerRule;
   /** 签署模式（多人时怎么协同），默认 'or' */
   signMode?: SignMode;
   /** 条件定义（条件节点），支持单个条件或 AND 条件数组 */
   condition?: ConditionDef | ConditionDef[];
-  /** 数据录入表单 schema（仅 data_input 类型） */
+  /** 数据录入表单 schema（仅 handle 类型可选） */
   inputSchema?: NodeInputSchema;
   /** 字段权限配置：控制每个字段在该节点下的可见/可编辑状态 */
   fieldPermissions?: Record<string, FieldPermission>;
   /** 下拉选项过滤：控制 select 类型字段的可选选项（独立于权限） */
   fieldOptionFilter?: Record<string, string[]>;
-  /** 节点交互类型：决定显示哪些操作按钮（默认 'approval'） */
+  /** 节点交互类型：决定显示哪些操作按钮（默认 'approval'）
+   *  @deprecated 已废弃，节点类型（NodeType）本身决定按钮样式。保留字段仅为兼容旧数据，新代码不应使用。
+   */
   interactionType?: NodeInteractionType;
   /** 节点时限配置（不配置表示无时限约束） */
   timeout?: TimeoutConfig;
@@ -426,6 +434,12 @@ export interface FormTypeDefinition {
   formSchema: FormSchema;
   /** 审批流程定义 */
   workflowDef: WorkflowDef;
+  /** 允许发起此表单的角色编码列表。null/undefined 表示不限制 */
+  allowedRoles?: string[];
+  /** 可查看该表单数据的角色编码列表。null/undefined 表示不限制 */
+  dataReadRoles?: string[];
+  /** 可导出该表单数据的角色编码列表。null/undefined 表示不限制 */
+  dataExportRoles?: string[];
   /** 提交前回调：业务校验和数据增强，返回值合并到 formData */
   beforeSubmit?: (
     formData: Record<string, unknown>,
@@ -475,10 +489,14 @@ export interface OaFormTypeRow {
   category: FormCategory;
   sort_order: number;
   description: string | null;
+  /** @deprecated form_schema 已改为代码唯一来源，DB 列保留但不再读取 */
   form_schema: FormSchema;
   workflow_def: WorkflowDef;
   is_active: boolean;
   version: number;
+  allowed_roles: string[] | null;
+  data_read_roles: string[] | null;
+  data_export_roles: string[] | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -698,6 +716,8 @@ export type ViewMode = 'pending' | 'processed' | 'my' | 'cc';
 export interface ApprovalListParams {
   viewMode: ViewMode;
   formTypeCode?: string;
+  /** 限定可见的表单类型编码列表（用于数据管理按岗位过滤） */
+  allowedFormTypeCodes?: string[];
   status?: ApprovalStatus;
   startDate?: string;
   endDate?: string;

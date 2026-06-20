@@ -405,10 +405,10 @@ registerAssessmentRule({
 
     // 仓储执行涉及的角色
     const warehouseRoles = ['warehouse_manager', 'warehouse_operator'] as const;
-    // 角色表编码 → 统一考核枚举值映射（warehouse_operator 在角色表中的编码，对应统一枚举 warehouse_keeper）
+    // 角色表编码 → 统一考核枚举值映射
     const ROLE_CODE_TO_ASSESSMENT_ROLE: Record<string, AssessmentRole> = {
       warehouse_manager: 'warehouse_manager',
-      warehouse_operator: 'warehouse_keeper',
+      warehouse_operator: 'warehouse_operator',
     };
     const roleUsersMap = new Map<string, Array<{ id: number; name: string }>>();
 

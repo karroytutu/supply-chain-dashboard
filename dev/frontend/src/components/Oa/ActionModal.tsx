@@ -3,8 +3,6 @@ import { Modal, Input, Select, Segmented } from 'antd';
 
 const { TextArea } = Input;
 
-import type { NodeInteractionType } from '@/types/oa';
-
 interface TransferUser {
   id: number;
   name: string;
@@ -17,8 +15,8 @@ interface ActionModalProps {
   actionLoading: boolean;
   /** 转交候选人列表（从后端获取） */
   transferUsers?: TransferUser[];
-  /** 节点交互类型，影响弹窗标题文案 */
-  interactionType?: NodeInteractionType;
+  /** 节点类型，影响弹窗标题文案 */
+  nodeType?: 'approval' | 'handle' | 'auto';
   onOk: () => Promise<void>;
   onCancel: () => void;
   onCommentChange: (comment: string) => void;
@@ -34,13 +32,13 @@ interface ActionModalProps {
 }
 
 /** 获取操作弹窗标题 */
-const getActionModalTitle = (actionType: string | null, interactionType?: NodeInteractionType) => {
+const getActionModalTitle = (actionType: string | null, nodeType?: 'approval' | 'handle' | 'auto') => {
   if (actionType === 'comment') return '添加评论';
-  if (interactionType === 'operation') {
+  if (nodeType === 'handle') {
     switch (actionType) {
       case 'approve': return '确认完成';
       case 'reject': return '拒绝';
-      case 'update': return '更新数据';
+      case 'update': return '保存草稿';
       default: return actionType === 'transfer' ? '转交' : '操作';
     }
   }
@@ -55,13 +53,13 @@ const getActionModalTitle = (actionType: string | null, interactionType?: NodeIn
 };
 
 const ActionModal: React.FC<ActionModalProps> = ({
-  visible, actionType, actionComment, actionLoading, transferUsers = [], interactionType,
+  visible, actionType, actionComment, actionLoading, transferUsers = [], nodeType,
   countersignUserIds = [], countersignType = 'after', onCountersignUserIdsChange, onCountersignTypeChange,
   onOk, onCancel, onCommentChange, onTransferUserChange,
 }) => {
   return (
     <Modal
-      title={getActionModalTitle(actionType, interactionType)}
+      title={getActionModalTitle(actionType, nodeType)}
       open={visible}
       onOk={onOk}
       onCancel={onCancel}

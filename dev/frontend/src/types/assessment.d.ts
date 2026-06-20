@@ -12,6 +12,7 @@ declare type AssessmentRole =
   | 'marketing_manager'
   | 'marketing_supervisor'
   | 'warehouse_manager'
+  | 'warehouse_operator'
   | 'warehouse_keeper'
   | 'logistics_manager';
 

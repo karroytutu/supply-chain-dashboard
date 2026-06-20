@@ -46,6 +46,7 @@ import {
   getCustomerDebt,
   retryErpOperation,
   retryAutoNode,
+  getPurchaseOrderAnalysis,
 } from '../controllers/erp-reference.controller';
 import {
   // 流程交接
@@ -54,6 +55,13 @@ import {
   searchUsersHandler,
   getHistoryHandler,
 } from '../controllers/oa-handover.controller';
+import {
+  // 表单管理（管理员专用）
+  listFormTypesForAdmin,
+  updateFormTypeBasic,
+  updateFormTypeWorkflow,
+  listRolesForAdmin,
+} from '../controllers/oa-form-type-admin.controller';
 import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
 
 const router = Router();
@@ -167,31 +175,31 @@ router.get('/instances', requirePermission('oa:read'), listApprovals);
 router.get('/instances/:id', requirePermission('oa:read'), getDetail);
 
 // 提交审批
-router.post('/instances', requirePermission('oa:write'), submit);
+router.post('/instances', requirePermission('oa:read'), submit);
 
 // 同意审批
-router.post('/instances/:id/approve', requirePermission('oa:write'), approve);
+router.post('/instances/:id/approve', requirePermission('oa:read'), approve);
 
 // 拒绝审批
-router.post('/instances/:id/reject', requirePermission('oa:write'), reject);
+router.post('/instances/:id/reject', requirePermission('oa:read'), reject);
 
 // 转交审批
-router.post('/instances/:id/transfer', requirePermission('oa:write'), transfer);
+router.post('/instances/:id/transfer', requirePermission('oa:read'), transfer);
 
 // 加签
-router.post('/instances/:id/countersign', requirePermission('oa:write'), countersign);
+router.post('/instances/:id/countersign', requirePermission('oa:read'), countersign);
 
 // 撤回审批
-router.post('/instances/:id/withdraw', requirePermission('oa:write'), withdraw);
+router.post('/instances/:id/withdraw', requirePermission('oa:read'), withdraw);
 
 // 标记抄送已读
 router.post('/instances/:id/cc-read', requirePermission('oa:read'), markCcAsRead);
 
 // 更新实例表单数据（操作型节点，不推进流程）
-router.post('/instances/:id/update', requirePermission('oa:write'), updateInstance);
+router.post('/instances/:id/update', requirePermission('oa:read'), updateInstance);
 
 // 添加评论（独立评论，不执行审批动作）
-router.post('/instances/:id/comment', requirePermission('oa:write'), addComment);
+router.post('/instances/:id/comment', requirePermission('oa:read'), addComment);
 
 // =====================================================
 // 节点时限接口
@@ -223,7 +231,7 @@ router.get(
 // 手动催办当前节点
 router.post(
   '/instances/:id/remind',
-  requirePermission('oa:write'),
+  requirePermission('oa:read'),
   async (req: Request, res: Response) => {
     try {
       const instanceId = parseInt(req.params.id, 10);
@@ -306,7 +314,7 @@ router.post(
 // 获取转交候选人列表
 router.get(
   '/transfer-candidates',
-  requirePermission('oa:write'),
+  requirePermission('oa:read'),
   async (req: Request, res: Response) => {
     try {
       const { appQuery } = await import('../db/appPool');
@@ -317,7 +325,7 @@ router.get(
          AND u.id IN (
            SELECT ur.user_id FROM user_roles ur
            INNER JOIN roles r ON ur.role_id = r.id
-           WHERE r.code IN ('admin', 'manager', 'current_accountant', 'marketing_manager', 'general_manager', 'admin_staff', 'warehouse_manager')
+           WHERE r.code IN ('admin', 'department_manager', 'current_accountant', 'marketing_manager', 'general_manager', 'admin_staff', 'warehouse_manager')
          )
        ORDER BY u.name
        LIMIT 100`
@@ -336,35 +344,42 @@ router.get(
 // ERP参考数据接口（供表单控件使用）
 // =====================================================
 
+// 获取采购订单分析结果（含行项明细，供表单选中后预填充明细表）
+router.get(
+  '/erp-reference/purchase-orders/:billId/analysis',
+  requirePermission('oa:read'),
+  getPurchaseOrderAnalysis
+);
+
 // 获取ERP参考数据（审批只读用户也需要查看参考数据，read 或 write 任一即可）
-router.get('/erp-reference/:type', requirePermission(['oa:read', 'oa:write']), getErpReference);
+router.get('/erp-reference/:type', requirePermission('oa:read'), getErpReference);
 
 // 解析ERP ID→名称（供详情页展示使用）
 router.get(
   '/erp-reference/:type/resolve',
-  requirePermission(['oa:read', 'oa:write']),
+  requirePermission('oa:read'),
   resolveErpReference
 );
 
 // 获取客户营业执照信息（供表单展示已有执照）
 router.get(
   '/erp-reference/customers/:id/license-info',
-  requirePermission(['oa:read', 'oa:write']),
+  requirePermission('oa:read'),
   getCustomerLicense
 );
 
 // 获取客户欠款总额（供表单展示欠款，用于停用校验）
 router.get(
   '/erp-reference/customers/:id/debt',
-  requirePermission(['oa:read', 'oa:write']),
+  requirePermission('oa:read'),
   getCustomerDebt
 );
 
 // 重试失败的ERP操作
-router.post('/instances/:id/retry-erp', requirePermission('oa:write'), retryErpOperation);
+router.post('/instances/:id/retry-erp', requirePermission('oa:read'), retryErpOperation);
 
 // 重试卡住的auto节点
-router.post('/instances/:id/retry-auto-node', requirePermission('oa:write'), retryAutoNode);
+router.post('/instances/:id/retry-auto-node', requirePermission('oa:read'), retryAutoNode);
 
 // =====================================================
 // 客户授信 - 营业执照上传
@@ -372,8 +387,8 @@ router.post('/instances/:id/retry-auto-node', requirePermission('oa:write'), ret
 
 router.post(
   '/upload-license',
-  // 权限：finance:credit:write（授信专有）或 oa:write（审批通用）均可上传
-  requirePermission(['finance:credit:write', 'oa:write']),
+  // 权限：finance:credit:write（授信专有）或 oa:read（审批通用）均可上传
+  requirePermission(['finance:credit:write', 'oa:read']),
   uploadCreditLicense.array('files', 3),
   async (req: Request, res: Response) => {
     try {
@@ -396,14 +411,14 @@ router.post(
 // 数据管理接口
 // =====================================================
 
-// 获取数据列表
-router.get('/data', requirePermission('oa:data:read'), getDataList);
+// 获取数据列表（表单级权限过滤在 Controller 内完成）
+router.get('/data', requirePermission('oa:read'), getDataList);
 
-// 导出数据
-router.get('/data/export', requirePermission('oa:data:export'), exportData);
+// 导出数据（表单级权限过滤在 Controller 内完成）
+router.get('/data/export', requirePermission('oa:read'), exportData);
 
 // 下载导出文件（带鉴权）
-router.get('/data/export/download/:fileName', requirePermission('oa:data:export'), downloadExport);
+router.get('/data/export/download/:fileName', requirePermission('oa:read'), downloadExport);
 
 // =====================================================
 // 流程交接接口
@@ -420,5 +435,21 @@ router.get('/workflow-handover/user-search', requirePermission('oa:workflow:hand
 
 // 交接历史
 router.get('/workflow-handover/history', requirePermission('oa:workflow:handover'), getHistoryHandler);
+
+// =====================================================
+// 表单管理接口（管理员专用）
+// =====================================================
+
+// 获取所有表单类型（含完整 workflow_def 和 allowed_roles）
+router.get('/admin/form-types', requirePermission('oa:form:manage'), listFormTypesForAdmin);
+
+// 更新表单基本信息和可发起岗位
+router.patch('/admin/form-types/:code', requirePermission('oa:form:manage'), updateFormTypeBasic);
+
+// 更新表单审批流程配置（含乐观锁）
+router.put('/admin/form-types/:code/workflow', requirePermission('oa:form:manage'), updateFormTypeWorkflow);
+
+// 获取系统所有岗位列表（供配置审批人时使用）
+router.get('/admin/roles', requirePermission('oa:form:manage'), listRolesForAdmin);
 
 export default router;

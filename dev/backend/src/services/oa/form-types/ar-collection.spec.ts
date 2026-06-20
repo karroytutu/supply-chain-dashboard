@@ -98,12 +98,11 @@ describe('arCollectionFormType', () => {
     expect(arCollectionFormType.workflowDef.nodes).toHaveLength(2);
   });
 
-  it('第一个节点为 operation 类型', () => {
+  it('第一个节点为 handle 类型', () => {
     const firstNode = arCollectionFormType.workflowDef.nodes[0];
     expect(firstNode.name).toBe('营销师催收');
-    expect(firstNode.interactionType).toBe('operation');
     expect(firstNode.handler?.roleCode).toBe('marketer');
-    expect(firstNode.type).toBe('approval');
+    expect(firstNode.type).toBe('handle');
     expect(firstNode.signMode).toBe('or');
   });
 

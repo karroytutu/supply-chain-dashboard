@@ -59,6 +59,9 @@ export type FormFieldType =
   | 'erp_grade'
   | 'erp_group'
   | 'erp_area'
+  // ERP 参考数据字段类型（采购审批使用）
+  | 'erp_supplier'
+  | 'erp_purchase_order'
   | 'formula'; // 公式计算字段（自动根据表达式求值，不可手动编辑）
 
 export interface FormField {
@@ -93,7 +96,7 @@ export interface FormField {
   /** 条件必填（满足条件时字段变为必填） */
   requiredWhen?: ConditionDef | ConditionDef[];
   /** ERP参考数据API标识 */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
@@ -110,6 +113,8 @@ export interface FormField {
   formula?: string;
   /** 公式结果精度（小数位数），默认 2 */
   formulaPrecision?: number;
+  /** 是否在表单中隐藏（值仍存储在 formData 中，供 autoFill 等机制使用） */
+  hidden?: boolean;
 }
 
 export interface FormSchema {
@@ -123,7 +128,10 @@ export interface FormSchema {
 /** 字段权限类型 */
 export type FieldPermission = 'editable' | 'readonly' | 'hidden';
 
-/** 节点交互类型（固化类型） */
+/**
+ * @deprecated 已废弃，后端不再使用 interactionType 字段，改为根据 NodeType 决定按钮布局。
+ * 保留类型定义以兼容旧代码，请勿在新代码中使用。
+ */
 export type NodeInteractionType = 'approval' | 'operation';
 
 // =====================================================
@@ -168,7 +176,7 @@ export interface AssessmentTier {
 // 审批流程相关类型
 // =====================================================
 
-export type NodeType = 'approval' | 'data_input' | 'auto' | 'countersign';
+export type NodeType = 'approval' | 'handle' | 'auto';
 
 export type SignMode = 'or' | 'and';
 
@@ -197,7 +205,7 @@ export interface NodeInputField {
   defaultValue?: unknown;
   readonly?: boolean;
   columns?: NodeInputField[];
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders';
   autoFill?: Record<string, string>;
   cascadeFrom?: string;
   visibleWhen?: ConditionDef | ConditionDef[];
@@ -226,7 +234,10 @@ export interface WorkflowNodeDef {
   fieldPermissions?: Record<string, FieldPermission>;
   /** 下拉选项过滤：控制 select 类型字段的可选选项 */
   fieldOptionFilter?: Record<string, string[]>;
-  /** 节点交互类型：决定显示哪些操作按钮（默认 'approval'） */
+  /**
+   * @deprecated 已废弃，后端不再使用 interactionType 字段，改为根据 nodeType 决定按钮布局。
+   * 保留字段以兼容旧代码，请勿在新代码中使用。
+   */
   interactionType?: NodeInteractionType;
   /** 节点时限配置（不配置表示无时限约束） */
   timeout?: TimeoutConfig;

@@ -4,6 +4,7 @@ import {
   packageToBaseUnit,
   parseUnitFactor,
   parseQuantity,
+  formatMixedUnit,
 } from './unitConverter';
 
 describe('convertStockUnits', () => {
@@ -140,5 +141,155 @@ describe('parseQuantity', () => {
 
   it('handles negative values', () => {
     expect(parseQuantity(-10)).toBe(-10);
+  });
+});
+
+describe('formatMixedUnit', () => {
+  // === 三级单位场景（箱/包/瓶） ===
+
+  it('三级单位混合显示：150瓶 → 1箱2包6瓶（1箱=120瓶，1包=12瓶）', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 150,
+      pkgUnitName: '箱',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 120,
+      midUnitName: '包',
+      midUnitFactor: 12,
+    })).toBe('1箱2包6瓶');
+  });
+
+  it('三级单位整除：144瓶 → 1箱2包（无余数瓶）', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 144,
+      pkgUnitName: '箱',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 120,
+      midUnitName: '包',
+      midUnitFactor: 12,
+    })).toBe('1箱2包');
+  });
+
+  it('三级单位只显示大单位：120瓶 → 1箱', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 120,
+      pkgUnitName: '箱',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 120,
+      midUnitName: '包',
+      midUnitFactor: 12,
+    })).toBe('1箱');
+  });
+
+  it('三级单位中间零跳过：123瓶 → 1箱3瓶（跳过0包）', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 123,
+      pkgUnitName: '箱',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 120,
+      midUnitName: '包',
+      midUnitFactor: 12,
+    })).toBe('1箱3瓶');
+  });
+
+  it('三级单位不足一箱：15瓶 → 1包3瓶', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 15,
+      pkgUnitName: '箱',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 120,
+      midUnitName: '包',
+      midUnitFactor: 12,
+    })).toBe('1包3瓶');
+  });
+
+  it('三级单位不足一包：5瓶 → 5瓶', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 5,
+      pkgUnitName: '箱',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 120,
+      midUnitName: '包',
+      midUnitFactor: 12,
+    })).toBe('5瓶');
+  });
+
+  it('三级单位大数量：100000瓶 → 833箱3包4瓶', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 100000,
+      pkgUnitName: '箱',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 120,
+      midUnitName: '包',
+      midUnitFactor: 12,
+    })).toBe('833箱3包4瓶');
+  });
+
+  // === 两级单位场景（件/瓶） ===
+
+  it('两级单位混合显示：8832瓶 → 80件32瓶（1件=110瓶）', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 8832,
+      pkgUnitName: '件',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 110,
+    })).toBe('80件32瓶');
+  });
+
+  it('两级单位整除：8800瓶 → 80件', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 8800,
+      pkgUnitName: '件',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 110,
+    })).toBe('80件');
+  });
+
+  it('两级单位不足一件：50瓶 → 50瓶', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 50,
+      pkgUnitName: '件',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 110,
+    })).toBe('50瓶');
+  });
+
+  // === 边界场景 ===
+
+  it('零库存：0瓶 → 0瓶', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 0,
+      pkgUnitName: '件',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 110,
+    })).toBe('0瓶');
+  });
+
+  it('无换算关系（factor<=1）：100瓶 → 100瓶', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 100,
+      pkgUnitName: '件',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 1,
+    })).toBe('100瓶');
+  });
+
+  it('包装单位和基本单位同名：100个 → 100个', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 100,
+      pkgUnitName: '个',
+      baseUnitName: '个',
+      pkgUnitFactor: 10,
+    })).toBe('100个');
+  });
+
+  it('中单位与基本单位同名时降级为两级：100瓶 → 10件', () => {
+    expect(formatMixedUnit({
+      baseQuantity: 100,
+      pkgUnitName: '件',
+      baseUnitName: '瓶',
+      pkgUnitFactor: 10,
+      midUnitName: '瓶',
+      midUnitFactor: 1,
+    })).toBe('10件');
   });
 });

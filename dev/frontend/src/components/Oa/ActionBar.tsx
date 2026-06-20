@@ -1,7 +1,7 @@
 /**
  * OA 审批操作栏组件
- * 审批型节点：左侧垂直图标文字项（转交/退回/加签/评论/更多）+ 右侧拒绝/同意按钮
- * 操作型节点：左侧垂直图标文字项（评论/退回/转交/更多）+ 右侧更新/完成按钮
+ * 审批型节点 (approval)：左侧垂直图标文字项（转交/退回/加签/评论）+ 右侧拒绝/同意按钮
+ * 处理型节点 (handle)：左侧垂直图标文字项（评论/退回/转交）+ 右侧保存/完成按钮
  * 所有屏幕尺寸使用 position: sticky 固定底部
  */
 import React from 'react';
@@ -74,7 +74,7 @@ interface LeftItemData {
 // ==================== ActionBar 主组件 ====================
 
 export interface ActionBarProps {
-  interactionType: 'approval' | 'operation';
+  nodeType: 'approval' | 'handle' | 'auto';
   canOperate: boolean;
   canWithdraw: boolean;
   canComment: boolean;
@@ -125,13 +125,13 @@ const renderLeftItems = (items: LeftItemData[], isMobile: boolean) => {
 };
 
 const ActionBar: React.FC<ActionBarProps> = ({
-  interactionType, canOperate, canWithdraw, canComment, onOpenAction, onWithdraw,
+  nodeType, canOperate, canWithdraw, canComment, onOpenAction, onWithdraw,
 }) => {
   const isMobile = useMobileDetect();
 
   if (canOperate) {
-    // ── 操作型节点 ──
-    if (interactionType === 'operation') {
+    // ── 处理型节点 (handle) ──
+    if (nodeType === 'handle') {
       const leftItems: LeftItemData[] = [
         ...(canComment ? [{ icon: <MessageOutlined />, label: '评论', onClick: () => onOpenAction('comment') }] : []),
         { icon: <RollbackOutlined />, label: '退回', onClick: () => onOpenAction('reject') },
@@ -145,7 +145,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
           </div>
           <div className={styles.actionRight}>
             <button type="button" className={styles.secondaryBtn} onClick={() => onOpenAction('update')}>
-              <SaveOutlined /> <span>更新</span>
+              <SaveOutlined /> <span>保存</span>
             </button>
             <button type="button" className={styles.primaryBtn} onClick={() => onOpenAction('approve')}>
               <CheckOutlined /> <span>完成</span>
@@ -155,7 +155,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
       );
     }
 
-    // ── 审批型节点 ──
+    // ── 审批型节点 (approval) ──
     const leftItems: LeftItemData[] = [
       { icon: <SwapOutlined />, label: '转交', onClick: () => onOpenAction('transfer') },
       { icon: <RollbackOutlined />, label: '退回', onClick: () => onOpenAction('reject') },

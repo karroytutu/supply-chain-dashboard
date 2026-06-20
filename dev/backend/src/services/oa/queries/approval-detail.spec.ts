@@ -41,7 +41,6 @@ describe('getApprovalDetail', () => {
       form_type_code: 'other_payment',
       form_type_name: '其他付款',
       form_type_icon: 'PayCircleOutlined',
-      form_schema: { fields: [{ key: 'amount', label: '金额', type: 'money' }] },
       title: '付款申请',
       status: 'pending',
       applicant_id: 5,
@@ -54,6 +53,11 @@ describe('getApprovalDetail', () => {
       form_data: { amount: 5000 },
       erp_meta: null,
     };
+
+    (mockGetFormTypeByCode as jest.Mock).mockReturnValue({
+      code: 'other_payment', name: '其他付款', icon: 'PayCircleOutlined',
+      formSchema: { fields: [{ key: 'amount', label: '金额', type: 'money' }] },
+    });
 
     const nodes = [
       {
@@ -104,7 +108,7 @@ describe('getApprovalDetail', () => {
   it('当前节点名称从 nodes 中匹配', async () => {
     const instance = {
       id: 2, instance_no: 'OA-002', form_type_code: 'test',
-      form_type_name: '测试', form_type_icon: null, form_schema: null,
+      form_type_name: '测试', form_type_icon: null,
       title: '测试', status: 'pending', applicant_id: 1,
       applicant_name: 'A', applicant_dept: null, applicant_avatar: null,
       current_node_order: 2, submitted_at: new Date(), completed_at: null,
@@ -125,16 +129,20 @@ describe('getApprovalDetail', () => {
     expect(result!.currentNodeName).toBe('节点2');
   });
 
-  it('form_schema 从 form_types 表获取', async () => {
+  it('formSchema 始终从代码定义获取', async () => {
     const instance = {
-      id: 3, instance_no: 'OA-003', form_type_code: 'custom',
-      form_type_name: '自定义', form_type_icon: null,
-      form_schema: { fields: [{ key: 'name', type: 'text' }] },
+      id: 3, instance_no: 'OA-003', form_type_code: 'custom_form',
+      form_type_name: '自定义表单', form_type_icon: null,
       title: '自定义', status: 'pending', applicant_id: 1,
       applicant_name: 'A', applicant_dept: null, applicant_avatar: null,
       current_node_order: 1, submitted_at: new Date(), completed_at: null,
       form_data: {}, erp_meta: null,
     };
+
+    (mockGetFormTypeByCode as jest.Mock).mockReturnValue({
+      code: 'custom_form', name: '自定义表单', icon: 'FileTextOutlined',
+      formSchema: { fields: [{ key: 'name', type: 'text' }] },
+    });
 
     mockQuerySequence(mockAppQuery, [[instance], [], [], []]);
 
@@ -142,36 +150,28 @@ describe('getApprovalDetail', () => {
     expect(result!.formSchema).toEqual({ fields: [{ key: 'name', type: 'text' }] });
   });
 
-  it('form_schema 回退到 formType 定义', async () => {
+  it('代码定义缺失时 formSchema 返回空 fields', async () => {
     const instance = {
-      id: 4, instance_no: 'OA-004', form_type_code: 'fallback_form',
+      id: 4, instance_no: 'OA-004', form_type_code: 'unknown_type',
       form_type_name: null, form_type_icon: null,
-      form_schema: null, // no form_schema from DB
-      title: '回退测试', status: 'pending', applicant_id: 1,
+      title: '未知类型', status: 'pending', applicant_id: 1,
       applicant_name: 'A', applicant_dept: null, applicant_avatar: null,
       current_node_order: 1, submitted_at: new Date(), completed_at: null,
       form_data: {}, erp_meta: null,
     };
 
-    (getFormTypeByCode as jest.Mock).mockReturnValue({
-      code: 'fallback_form',
-      name: '回退表单',
-      icon: 'FileTextOutlined',
-      formSchema: { fields: [{ key: 'fallback', type: 'text' }] },
-    });
+    (mockGetFormTypeByCode as jest.Mock).mockReturnValue(undefined);
 
     mockQuerySequence(mockAppQuery, [[instance], [], [], []]);
 
     const result = await getApprovalDetail(4);
-    expect(result!.formSchema).toEqual({ fields: [{ key: 'fallback', type: 'text' }] });
-    expect(result!.formTypeName).toBe('回退表单');
-    expect(result!.formTypeIcon).toBe('FileTextOutlined');
+    expect(result!.formSchema).toEqual({ fields: [] });
   });
 
   it('nodes 包含 isCountersign 字段', async () => {
     mockQuerySequence(mockAppQuery, [
       [{ id: 5, instance_no: 'OA-005', form_type_code: 'test', form_type_name: 'T',
-         form_type_icon: null, form_schema: null, title: 'T', status: 'pending',
+         form_type_icon: null, title: 'T', status: 'pending',
          applicant_id: 1, applicant_name: 'A', applicant_dept: null, applicant_avatar: null,
          current_node_order: 1, submitted_at: new Date(), completed_at: null,
          form_data: {}, erp_meta: null }],
@@ -189,7 +189,7 @@ describe('getApprovalDetail', () => {
   it('actions 包含完整字段', async () => {
     mockQuerySequence(mockAppQuery, [
       [{ id: 6, instance_no: 'OA-006', form_type_code: 'test', form_type_name: 'T',
-         form_type_icon: null, form_schema: null, title: 'T', status: 'pending',
+         form_type_icon: null, title: 'T', status: 'pending',
          applicant_id: 1, applicant_name: 'A', applicant_dept: null, applicant_avatar: null,
          current_node_order: 1, submitted_at: new Date(), completed_at: null,
          form_data: {}, erp_meta: null }],
@@ -209,7 +209,7 @@ describe('getApprovalDetail', () => {
     const workflowDef = { nodes: [{ order: 1, name: '节点1', type: 'role' }] };
     const instance = {
       id: 7, instance_no: 'OA-007', form_type_code: 'test', form_type_name: 'T',
-      form_type_icon: null, form_schema: null, workflow_def: workflowDef,
+      form_type_icon: null, workflow_def: workflowDef,
       title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
       applicant_dept: null, applicant_avatar: null, current_node_order: 1,
       submitted_at: new Date(), completed_at: null, form_data: {}, erp_meta: null,
@@ -222,7 +222,7 @@ describe('getApprovalDetail', () => {
   it('workflowDef 回退到 formType 定义', async () => {
     const instance = {
       id: 8, instance_no: 'OA-008', form_type_code: 'fallback_wf',
-      form_type_name: null, form_type_icon: null, form_schema: null,
+      form_type_name: null, form_type_icon: null,
       workflow_def: null,
       title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
       applicant_dept: null, applicant_avatar: null, current_node_order: 1,
@@ -242,7 +242,7 @@ describe('getApprovalDetail', () => {
   it('workflowDef 两者都为 null 时返回 null', async () => {
     const instance = {
       id: 9, instance_no: 'OA-009', form_type_code: 'no_wf',
-      form_type_name: null, form_type_icon: null, form_schema: null,
+      form_type_name: null, form_type_icon: null,
       workflow_def: null,
       title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
       applicant_dept: null, applicant_avatar: null, current_node_order: 1,
@@ -258,18 +258,17 @@ describe('getApprovalDetail', () => {
   });
 
   it('workflowDef 合并：DB 无 fieldPermissions 时从 code 补充', async () => {
-    const dbWf = { nodes: [{ order: 1, name: '营销师催收', type: 'role', roleCode: 'marketer', interactionType: 'operation' }] };
+    const dbWf = { nodes: [{ order: 1, name: '营销师催收', type: 'role', roleCode: 'marketer' }] };
     const codeWf = {
       nodes: [{
         order: 1, name: '营销师催收', type: 'role' as const, roleCode: 'marketer',
-        interactionType: 'operation' as const,
         fieldPermissions: { consumerName: 'readonly', action: 'editable' },
         fieldOptionFilter: { action: ['verify', 'extension'] },
       }],
     };
     const instance = {
       id: 20, instance_no: 'OA-020', form_type_code: 'ar_collection',
-      form_type_name: 'T', form_type_icon: null, form_schema: null,
+      form_type_name: 'T', form_type_icon: null,
       workflow_def: dbWf,
       title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
       applicant_dept: null, applicant_avatar: null, current_node_order: 1,
@@ -282,8 +281,7 @@ describe('getApprovalDetail', () => {
     });
     mockQuerySequence(mockAppQuery, [[instance], [], [], []]);
     const result = await getApprovalDetail(20);
-    // DB 的 interactionType 保留，fieldPermissions 和 fieldOptionFilter 从 code 补充
-    expect(result!.workflowDef!.nodes[0].interactionType).toBe('operation');
+    // DB 的 fieldPermissions 和 fieldOptionFilter 从 code 补充
     expect(result!.workflowDef!.nodes[0].fieldPermissions).toEqual({ consumerName: 'readonly', action: 'editable' });
     expect(result!.workflowDef!.nodes[0].fieldOptionFilter).toEqual({ action: ['verify', 'extension'] });
   });
@@ -292,20 +290,18 @@ describe('getApprovalDetail', () => {
     const dbWf = {
       nodes: [{
         order: 1, name: '营销师催收', type: 'role', roleCode: 'marketer',
-        interactionType: 'operation',
         fieldPermissions: { consumerName: 'editable' }, // DB 已有
       }],
     };
     const codeWf = {
       nodes: [{
         order: 1, name: '营销师催收', type: 'role' as const, roleCode: 'marketer',
-        interactionType: 'operation' as const,
         fieldPermissions: { consumerName: 'readonly', action: 'editable' }, // code 有但不应覆盖
       }],
     };
     const instance = {
       id: 21, instance_no: 'OA-021', form_type_code: 'ar_collection',
-      form_type_name: 'T', form_type_icon: null, form_schema: null,
+      form_type_name: 'T', form_type_icon: null,
       workflow_def: dbWf,
       title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
       applicant_dept: null, applicant_avatar: null, current_node_order: 1,
@@ -325,7 +321,7 @@ describe('getApprovalDetail', () => {
   it('nodes 包含 roleCode 字段', async () => {
     const instance = {
       id: 10, instance_no: 'OA-010', form_type_code: 'test',
-      form_type_name: 'T', form_type_icon: null, form_schema: null,
+      form_type_name: 'T', form_type_icon: null,
       workflow_def: null,
       title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
       applicant_dept: null, applicant_avatar: null, current_node_order: 1,
@@ -345,7 +341,7 @@ describe('getApprovalDetail', () => {
   it('roleCode 为 null 时返回 null', async () => {
     const instance = {
       id: 11, instance_no: 'OA-011', form_type_code: 'test',
-      form_type_name: 'T', form_type_icon: null, form_schema: null,
+      form_type_name: 'T', form_type_icon: null,
       workflow_def: null,
       title: 'T', status: 'pending', applicant_id: 1, applicant_name: 'A',
       applicant_dept: null, applicant_avatar: null, current_node_order: 1,
