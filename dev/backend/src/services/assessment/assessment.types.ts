@@ -37,6 +37,7 @@ export type AssessmentRole =
   | 'marketing_supervisor'
   | 'procurement_manager'
   | 'warehouse_manager'
+  | 'warehouse_operator'
   | 'warehouse_keeper'
   | 'logistics_manager'
   | 'operator';
@@ -44,10 +45,14 @@ export type AssessmentRole =
 /**
  * 规范化被考核角色值
  * 将废弃的 marketing_supervisor 映射为 marketing_manager
+ * 将废弃的 warehouse_keeper 映射为 warehouse_operator
  */
 export function normalizeAssessmentRole(role: string): string {
   if (role === 'marketing_supervisor') {
     return 'marketing_manager';
+  }
+  if (role === 'warehouse_keeper') {
+    return 'warehouse_operator';
   }
   return role;
 }
@@ -206,7 +211,8 @@ export const ASSESSMENT_ROLE_LABELS: Record<AssessmentRole, string> = {
   marketing_manager: '营销经理',
   marketing_supervisor: '营销经理',
   warehouse_manager: '仓储主管',
-  warehouse_keeper: '仓储人员',
+  warehouse_operator: '库管员',
+  warehouse_keeper: '库管员',
   logistics_manager: '物流经理',
   operator: '审批操作人',
 };

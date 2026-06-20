@@ -54,7 +54,7 @@ const baseFormType: any = {
   code: 'other_payment',
   name: '其他付款',
   formSchema: { fields: [] },
-  workflowDef: { nodes: [{ order: 1, name: '主管', type: 'approval', handler: { roleCode: 'manager' }, signMode: 'or' }] },
+  workflowDef: { nodes: [{ order: 1, name: '主管', type: 'approval', handler: { roleCode: 'department_manager' }, signMode: 'or' }] },
 };
 
 const baseReq: any = {
@@ -67,7 +67,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.resetAllMocks();
   (validateFormData as jest.Mock).mockReturnValue([]);
-  mockFilterNodes.mockReturnValue([{ order: 1, name: '主管', type: 'approval', handler: { roleCode: 'manager' }, signMode: 'or' }]);
+  mockFilterNodes.mockReturnValue([{ order: 1, name: '主管', type: 'approval', handler: { roleCode: 'department_manager' }, signMode: 'or' }]);
   mockResolveHandler.mockResolvedValue({ userIds: [10], signMode: 'or' });
   mockInitErpMeta.mockResolvedValue(undefined as any);
   mockAppQuery.mockResolvedValue({ rows: [], rowCount: 0 } as any);
@@ -167,7 +167,7 @@ describe('submitApproval', () => {
 
   it('多人环节展开为多条记录', async () => {
     mockFilterNodes.mockReturnValueOnce([
-      { order: 1, name: '财务审核', type: 'approval', handler: { roleCode: 'finance_staff' }, signMode: 'or' },
+      { order: 1, name: '财务审核', type: 'approval', handler: { roleCode: 'current_accountant' }, signMode: 'or' },
     ]);
     mockResolveHandler.mockResolvedValueOnce({ userIds: [10, 20], signMode: 'or' });
 

@@ -43,7 +43,6 @@ jest.mock('../../middleware/credit-upload', () => ({
 }));
 
 jest.mock('../../utils/constants', () => ({
-  CUSTOMER_MODIFY_ALLOWED_ROLES: ['admin', 'marketer', 'marketing_manager'],
   CUSTOMER_STATE_DISABLED: 0,
 }));
 
@@ -93,11 +92,6 @@ beforeEach(() => {
 });
 
 describe('beforeSubmitCustomerModify', () => {
-  it('无权限角色时抛出异常', async () => {
-    mockGetRoles.mockResolvedValueOnce({ roles: [{ code: 'viewer' }] } as any);
-    await expect(beforeSubmitCustomerModify({ customer: 100 }, 1)).rejects.toThrow('当前用户无权提交客户档案修改申请');
-  });
-
   it('admin 角色可以提交', async () => {
     mockGetRoles.mockResolvedValueOnce({ roles: [{ code: 'admin' }] } as any);
     const result = await beforeSubmitCustomerModify({ customer: 100 }, 1);

@@ -30,8 +30,9 @@ router.get('/dingtalk/qrcode-config', getQrcodeConfig);
 router.post('/dingtalk/callback', authLimiter, dingtalkCallback);
 
 // 开发环境管理员免认证登录（仅开发环境可用，绕过钉钉认证，安全级别与切换用户不同）
+// 开发端点不限流：仅内网可用，E2E 测试需要高频调用 dev-login/dev-switch
 if (process.env.NODE_ENV === 'development') {
-  router.post('/dev-login', authLimiter, developmentLogin);
+  router.post('/dev-login', developmentLogin);
 } else {
   router.post('/dev-login', authLimiter, (_req, res) => {
     res.status(403).json({
@@ -43,15 +44,15 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // 用户切换：始终注册，环境感知权限
-// 开发环境：仅需登录（authMiddleware）
-// 生产环境：需登录 + system:user:switch 权限
+// 开发环境：仅需登录（authMiddleware），不限流（E2E 测试高频调用）
+// 生产环境：需登录 + system:user:switch 权限 + 限流
 const switchAuth =
   process.env.NODE_ENV === 'development'
     ? [authMiddleware]
-    : [authMiddleware, requirePermission('system:user:switch')];
+    : [authLimiter, authMiddleware, requirePermission('system:user:switch')];
 
-router.post('/dev-switch', authLimiter, ...switchAuth, developmentSwitchUser);
-router.get('/dev-users', authLimiter, ...switchAuth, developmentGetUsers);
+router.post('/dev-switch', ...switchAuth, developmentSwitchUser);
+router.get('/dev-users', ...switchAuth, developmentGetUsers);
 
 // 需要认证的路由
 router.get('/me', authMiddleware, getMe);

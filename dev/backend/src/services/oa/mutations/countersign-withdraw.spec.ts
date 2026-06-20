@@ -99,7 +99,7 @@ describe('countersignApproval', () => {
       2, // currentNode.node_order (后加签)
       expect.objectContaining({
         name: '加签',
-        type: 'countersign',
+        type: 'approval',
         assignedUserId: 200,
         assignedUserName: '李四',
       })
@@ -123,7 +123,7 @@ describe('countersignApproval', () => {
       1, // currentNode.node_order - 1 (前加签)
       expect.objectContaining({
         name: '加签',
-        type: 'countersign',
+        type: 'approval',
       })
     );
   });

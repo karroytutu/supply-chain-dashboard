@@ -157,7 +157,7 @@ const PIPELINE_CONFIG: Array<{
   },
   {
     status: 'escalated', label: '已升级·财务', pendingRole: 'finance', escalationLevel: 2,
-    match: r => ['current_accountant', 'finance_staff'].includes(r.role_code ?? ''),
+    match: r => ['current_accountant'].includes(r.role_code ?? ''),
   },
 ];
 
@@ -348,7 +348,7 @@ function mapInstanceToStatus(inst: OaCollectionInstanceRow): { status: Collectio
   if (action === 'extension') return { status: 'extension' };
   if (roleCode === 'marketing_manager') return { status: 'escalated', escalationLevel: 1 };
   if (nodeName.includes('差异')) return { status: 'difference_processing' };
-  if (['current_accountant', 'finance_staff'].includes(roleCode)) return { status: 'escalated', escalationLevel: 2 };
+  if (['current_accountant'].includes(roleCode)) return { status: 'escalated', escalationLevel: 2 };
   return { status: 'collecting' };
 }
 

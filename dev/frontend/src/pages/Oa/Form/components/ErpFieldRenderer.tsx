@@ -2,17 +2,20 @@
  * ERP 参考数据字段渲染组件
  * 处理 asset_search、erp_department、erp_staff、erp_payment_account、erp_asset_category 类型字段
  *
+ * 搜索策略：
+ * - 服务端关键词类型（SERVER_KEYWORD_TYPES）：防抖 300ms 向后端发请求过滤，最小关键词 2 字符
+ * - 客户端过滤类型（其他类型）：Ant Design 原生 filterOption 即时本地过滤，零额外 API 调用
+ *
  * 性能优化：
  * - 模块级搜索结果缓存（5分钟 TTL），避免重复请求同一关键词
  * - 取消前一次进行中请求（AbortController），防止旧响应覆盖新结果
- * - 客户/资产搜索最小关键词长度 2 字符，避免无效请求
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Select, Spin } from 'antd';
 import { oaApi } from '@/services/api/oa';
 import type { FormField } from '@/types/oa';
 import { ERP_SEARCH_API_MAP, ERP_LABEL_FIELDS, ERP_VALUE_FIELDS } from '@/constants/oa-erp';
-import { getCachedOptions, setCachedOptions, DEBOUNCED_SEARCH_TYPES, MIN_SEARCH_LENGTH } from './erpSearchCache';
+import { getCachedOptions, setCachedOptions, SERVER_KEYWORD_TYPES, MIN_SEARCH_LENGTH, buildCacheKey } from './erpSearchCache';
 import SettlementOrderPicker from './SettlementOrderPicker';
 
 /** 客户执照信息（从 ERP 搜索结果提取） */
@@ -51,6 +54,15 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     if (field.type === 'asset_search' && field.displayFields?.length) {
       return field.displayFields.map((f) => item[f]).filter(Boolean).join(' | ');
     }
+    // 采购订单富标签：单号 | 日期 | ¥金额
+    if (type === 'purchase-orders') {
+      const billStr = item.billStr || '';
+      const date = String(item.operDateTime || '').slice(0, 10);
+      const amount = Number(item.totalAmount);
+      const amountStr = isNaN(amount) ? ''
+        : `¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      return [billStr, date, amountStr].filter(Boolean).join(' | ');
+    }
     return String(item[labelField] ?? '');
   }, [field.type, field.displayFields]);
 
@@ -63,10 +75,12 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     if (!erpType) return;
     if (field.cascadeFrom && cascadeValue === undefined) { setOptions([]); return; }
 
-    const cascadeKeyPart = (erpType === 'settlement-orders' && cascadeValue) ? `:cid=${cascadeValue}` : '';
+    const cascadeKeyPart = (erpType === 'settlement-orders' && cascadeValue) ? `:cid=${cascadeValue}`
+      : (erpType === 'purchase-orders' && cascadeValue) ? `:sid=${cascadeValue}`
+      : '';
     // 缓存键需区分 includeAllStates 模式，避免同关键词返回错误模式的缓存
     const stateKeyPart = (erpType === 'customers' && includeAllStates) ? ':all' : '';
-    const cacheKey = `${erpType}:${searchKeyword || ''}${cascadeKeyPart}${stateKeyPart}`;
+    const cacheKey = buildCacheKey(erpType, searchKeyword, cascadeKeyPart, stateKeyPart);
     const cached = getCachedOptions(cacheKey);
     if (cached) { setOptions(cached); return; }
 
@@ -79,6 +93,10 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
       const extraParams: Record<string, string> = {};
       if (erpType === 'settlement-orders' && cascadeValue) {
         extraParams.consumerId = String(cascadeValue);
+      }
+      // 采购订单级联：传递供应商 ID
+      if (erpType === 'purchase-orders' && cascadeValue) {
+        extraParams.supplierIds = String(cascadeValue);
       }
       // 客户档案修改场景：搜索包含所有状态的客户（含停用/待确认）
       if (erpType === 'customers' && includeAllStates) {
@@ -109,23 +127,18 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
 
   const handleSearch = useCallback(
     (newKeyword: string) => {
-      if (DEBOUNCED_SEARCH_TYPES.has(erpType || '')) {
-        if (newKeyword.length === 0) {
-          if (searchTimer.current) clearTimeout(searchTimer.current);
-          fetchOptions();
-          return;
-        }
-        if (newKeyword.length < MIN_SEARCH_LENGTH) return;
-        if (searchTimer.current) clearTimeout(searchTimer.current);
-        searchTimer.current = setTimeout(() => fetchOptions(newKeyword), 300);
-      }
+      if (!SERVER_KEYWORD_TYPES.has(erpType || '')) return; // 客户端类型：不处理，由 filterOption 过滤
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+      if (newKeyword.length === 0) { fetchOptions(); return; }
+      if (newKeyword.length < MIN_SEARCH_LENGTH) return;
+      searchTimer.current = setTimeout(() => fetchOptions(newKeyword), 300);
     },
     [erpType, fetchOptions]
   );
 
   useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
 
-  /** 选中后处理 autoFill + nameField + 执照信息提取 */
+  /** 选中后处理 autoFill + nameField + 执照信息提取 + 采购明细拉取 */
   const handleChange = useCallback(
     (selectedValue: unknown) => {
       onChange?.(selectedValue);
@@ -135,12 +148,33 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
         if (field.autoFill && form) {
           const fillValues: Record<string, unknown> = {};
           for (const [targetField, sourceField] of Object.entries(field.autoFill)) {
-            fillValues[targetField] = raw[sourceField];
+            const rawVal = raw[sourceField];
+            // 纯数字字符串自动转为 number，确保 money 类型字段精度正确
+            if (typeof rawVal === 'string') {
+              const parsed = parseFloat(rawVal);
+              fillValues[targetField] = !isNaN(parsed) && String(parsed) === rawVal.trim()
+                ? parsed : rawVal;
+            } else {
+              fillValues[targetField] = rawVal;
+            }
           }
           form.setFieldsValue(fillValues);
         }
         if (field.nameField && form) {
           form.setFieldsValue({ [field.nameField]: selectedOption.label });
+        }
+        // 采购订单选中后异步拉取行项明细，填充 purchaseLines 表格
+        if (erpType === 'purchase-orders' && form && selectedValue) {
+          const billId = Number(selectedValue);
+          if (billId > 0) {
+            oaApi.getPurchaseOrderAnalysis(billId)
+              .then(analysis => {
+                if (analysis.purchaseLines?.length > 0) {
+                  form.setFieldsValue({ purchaseLines: analysis.purchaseLines });
+                }
+              })
+              .catch(err => console.warn('获取采购订单明细失败:', err));
+          }
         }
         if (field.type === 'erp_customer' && onCustomerSelect) {
           const ext = (raw.ext as Record<string, unknown>) || {};
@@ -153,11 +187,15 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
         if (field.nameField && form) form.setFieldsValue({ [field.nameField]: '' });
       }
     },
-    [onChange, field.autoFill, field.nameField, field.type, form, options, onCustomerSelect]
+    [onChange, field.autoFill, field.nameField, field.type, form, options, onCustomerSelect, erpType]
   );
 
   const isDisabled = !!(field.cascadeFrom && cascadeValue === undefined);
   const notFound = loading ? <Spin size="small" /> : '无数据';
+  // 级联禁用态占位符：根据级联父字段类型显示不同提示
+  const disabledPlaceholder = field.cascadeFrom
+    ? (erpType === 'purchase-orders' ? '请先选择供应商' : '请先选择客户')
+    : `请选择${field.label}`;
 
   if (field.type === 'erp_asset_category') {
     return (
@@ -204,8 +242,10 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     <Select showSearch mode={field.multiple ? 'multiple' : undefined}
       value={value as (string | number | (string | number)[]) | undefined}
       onChange={handleChange} onSearch={handleSearch} loading={loading}
-      placeholder={isDisabled ? '请先选择客户' : `请选择${field.label}`}
-      filterOption={false} disabled={isDisabled} notFoundContent={notFound}
+      placeholder={isDisabled ? disabledPlaceholder : `请选择${field.label}`}
+      filterOption={SERVER_KEYWORD_TYPES.has(erpType || '') ? false : (input, option) =>
+        (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
+      } disabled={isDisabled} notFoundContent={notFound}
       options={options.map((opt) => ({ label: opt.label, value: opt.value as string | number }))}
     />
   );

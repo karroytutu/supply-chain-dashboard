@@ -6,6 +6,7 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
+import { OA_ROLE } from '../oa-role-codes';
 import {
   onApprovedAssessmentAppeal,
   onRejectedAssessmentAppeal,
@@ -109,7 +110,7 @@ export const assessmentAppealFormType: FormTypeDefinition = {
         order: 1,
         name: '总经理审批',
         type: 'approval',
-        handler: { roleCode: 'general_manager' },
+        handler: { roleCode: OA_ROLE.GM },
         signMode: 'or',
       },
     ],

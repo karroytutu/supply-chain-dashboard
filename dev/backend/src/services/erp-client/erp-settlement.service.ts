@@ -6,7 +6,7 @@
 import { createLogger } from '../../utils/logger';
 const log = createLogger('ERP');
 
-import { erpGet, erpPost } from './erp-client';
+import { erpGet, erpPost, extractErpData } from './erp-client';
 import { getErpDefaults } from './erp-config';
 
 // =====================================================
@@ -76,7 +76,7 @@ export async function searchErpSettlementOrders(params: {
   const pageSize = 100;
 
   while (allOrders.length < maxRecords) {
-    const result = (await erpGet(
+    const response = await erpGet<unknown>(
       '/invoice/list-debt-list',
       {
         size: pageSize,
@@ -88,8 +88,9 @@ export async function searchErpSettlementOrders(params: {
         uid,
       },
       { pathPrefix: '/saas/pro/', businessType: 'settlement_order_search' }
-    )) as any;
-    const records: ErpSettlementOrder[] = result?.data?.records || result?.records || [];
+    );
+    const data = extractErpData<{ records?: ErpSettlementOrder[] }>(response);
+    const records: ErpSettlementOrder[] = data?.records ?? [];
     allOrders.push(...records);
     if (records.length < pageSize) break;
     current++;
@@ -138,7 +139,7 @@ export async function searchErpSettlementOrdersPaged(params: {
   }
 
   // 无关键词：直接利用 ERP API 分页
-  const result = (await erpGet(
+  const response = await erpGet<unknown>(
     '/invoice/list-debt-list',
     {
       size: pageSize,
@@ -150,10 +151,11 @@ export async function searchErpSettlementOrdersPaged(params: {
       uid,
     },
     { pathPrefix: '/saas/pro/', businessType: 'settlement_order_search' }
-  )) as any;
+  );
 
-  const records: ErpSettlementOrder[] = result?.data?.records || result?.records || [];
-  const total: number = result?.data?.total || result?.total || 0;
+  const data = extractErpData<{ records?: ErpSettlementOrder[]; total?: number }>(response);
+  const records: ErpSettlementOrder[] = data?.records ?? [];
+  const total: number = data?.total ?? 0;
 
   return { records, total, page, pageSize };
 }

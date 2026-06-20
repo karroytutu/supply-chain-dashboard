@@ -49,6 +49,16 @@ export async function submit(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // 表单级别角色校验：检查用户是否有权发起此表单类型
+    if (formType.allowedRoles && formType.allowedRoles.length > 0) {
+      const userRoles = user.roles || [];
+      const hasAccess = formType.allowedRoles.some(role => userRoles.includes(role));
+      if (!hasAccess) {
+        res.status(403).json(buildErrorResponse(403, '您没有发起此表单的权限'));
+        return;
+      }
+    }
+
     const result = await submitApproval(
       { formTypeCode, formData, title },
       formType,

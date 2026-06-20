@@ -7,7 +7,6 @@
 import { createLogger } from '../../utils/logger';
 const log = createLogger('OA');
 
-import { getUserRolesAndPermissions } from '../auth.service';
 import {
   erpUploadBusinessLicense,
   erpUpdateCustomerProfile,
@@ -24,18 +23,16 @@ import {
   CREDIT_SETTLE_METHOD_ON_ACCOUNT,
   AR_HOLD_TYPE_LONG_TERM,
   AR_HOLD_TYPE_TIME_LIMITED,
+  ROLE_CODES,
 } from '../../utils/constants';
 import type { OaInstanceRow, PreviewContextResult } from './oa.types';
-
-/** 允许提交客户授信申请的角色（admin 可提交所有表单） */
-const ALLOWED_ROLES = ['admin', 'marketer', 'marketing_manager', 'current_accountant'];
 
 /**
  * 获取客户授信审批的抄送角色（固定抄送总经理）
  * 供 FormTypeDefinition.getCCRoles 回调使用
  */
 export function getCustomerCreditCCRoles(_formData: Record<string, unknown>): string[] {
-  return ['general_manager'];
+  return [ROLE_CODES.GENERAL_MANAGER];
 }
 
 /**
@@ -55,13 +52,6 @@ export async function beforeSubmitCustomerCredit(
   formData: Record<string, unknown>,
   userId: number
 ): Promise<Record<string, unknown>> {
-  // 校验提交者角色
-  const { roles } = await getUserRolesAndPermissions(userId);
-  const hasAllowedRole = roles.some(r => ALLOWED_ROLES.includes(r.code));
-  if (!hasAllowedRole) {
-    throw new Error('当前用户无权提交客户授信申请');
-  }
-
   const extraData: Record<string, unknown> = {};
 
   // 安全校验：检测营业执照状态，标记是否需要后补上传

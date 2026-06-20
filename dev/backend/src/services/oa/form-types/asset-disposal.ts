@@ -4,6 +4,7 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
+import { OA_ROLE } from '../oa-role-codes';
 import { handleAssetDisposalApproved } from '../../fixed-asset/disposal-callback';
 
 export const assetDisposalFormType: FormTypeDefinition = {
@@ -13,7 +14,7 @@ export const assetDisposalFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 40,
   description: '固定资产清理审批（支持出售/盘亏，有收入时自动创建收入单）',
-  version: 2,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -86,7 +87,7 @@ export const assetDisposalFormType: FormTypeDefinition = {
   },
 
   workflowDef: {
-    nodes: [{ order: 1, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or' }],
+    nodes: [{ order: 1, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' }],
   },
 
   /** 提交前校验：确保选择了资产且条件字段合法 */

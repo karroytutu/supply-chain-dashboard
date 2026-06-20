@@ -21,9 +21,9 @@ jest.mock('../../db/appPool', () => ({
 jest.mock('../../utils/jwt', () => ({
   verifyToken: jest.fn((token: string) => {
     if (token === 'valid-admin')
-      return { userId: 1, username: 'admin', permissions: ['oa:data:read', 'oa:data:export'] };
+      return { userId: 1, username: 'admin', permissions: ['oa:read'] };
     if (token === 'readonly-user')
-      return { userId: 2, username: 'reader', permissions: ['oa:data:read'] };
+      return { userId: 2, username: 'reader', permissions: ['oa:read'] };
     if (token === 'no-perm')
       return { userId: 3, username: 'noperm', permissions: [] };
     return null;
@@ -98,7 +98,7 @@ beforeEach(() => {
   mockAppQuery.mockResolvedValue({ rows: [{ status: 1 }] } as any);
   mockGetCache.mockReturnValue({
     roles: ['admin'],
-    permissions: ['oa:data:read', 'oa:data:export'],
+    permissions: ['oa:read'],
   });
 });
 
@@ -119,22 +119,12 @@ describe('OA 数据管理 - 认证授权', () => {
     expect(res.status).toBe(401);
   });
 
-  it('GET /api/oa/data 有效 token 但无 oa:data:read 权限 → 403', async () => {
+  it('GET /api/oa/data 有效 token 但无 oa:read 权限 → 403', async () => {
     mockGetCache.mockReturnValue({ roles: [], permissions: [] });
 
     const res = await request(app)
       .get('/api/oa/data')
       .set('Authorization', 'Bearer no-perm');
-
-    expect(res.status).toBe(403);
-  });
-
-  it('GET /api/oa/data/export 无 oa:data:export 权限 → 403', async () => {
-    mockGetCache.mockReturnValue({ roles: ['viewer'], permissions: ['oa:data:read'] });
-
-    const res = await request(app)
-      .get('/api/oa/data/export')
-      .set('Authorization', 'Bearer readonly-user');
 
     expect(res.status).toBe(403);
   });
@@ -232,7 +222,7 @@ describe('GET /api/oa/data', () => {
 // =====================================================
 
 describe('GET /api/oa/data/export', () => {
-  it('有 oa:data:export 权限 → 200', async () => {
+  it('有 oa:read 权限 → 200', async () => {
     const res = await request(app)
       .get('/api/oa/data/export?export_type=print')
       .set('Authorization', 'Bearer valid-admin');

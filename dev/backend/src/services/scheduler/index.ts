@@ -275,7 +275,27 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
-  // OA 异步任务消费 - 每1分钟（带上叠保护：上一次未完成则跳过本次触发）
+  // OA 钉钉流程中心壳实例状态对账 - 每30分钟
+  cron.schedule(
+    '*/30 * * * *',
+    async () => {
+      try {
+        const result = await reconcileProcessInstanceStatus();
+        if (result.processed > 0 || result.failed > 0) {
+          log.info('OA 壳实例状态对账完成:', result);
+        }
+      } catch (error) {
+        log.error('OA 壳实例状态对账异常:', error);
+      }
+    },
+    { timezone: 'Asia/Shanghai' }
+  );
+
+  } // end if (isProduction) — 写入型任务到此结束
+
+  // ==================== OA 异步任务消费（所有环境） ====================
+  // auto 节点回调、通知重试等通过异步任务表实现，必须在所有环境中消费
+  // 否则开发/测试环境中 auto 节点会永远停留在 pending 状态
   let isOaTaskProcessing = false;
   cron.schedule(
     '* * * * *',
@@ -298,24 +318,6 @@ export function startScheduler(): void {
     },
     { timezone: 'Asia/Shanghai' }
   );
-
-  // OA 钉钉流程中心壳实例状态对账 - 每30分钟
-  cron.schedule(
-    '*/30 * * * *',
-    async () => {
-      try {
-        const result = await reconcileProcessInstanceStatus();
-        if (result.processed > 0 || result.failed > 0) {
-          log.info('OA 壳实例状态对账完成:', result);
-        }
-      } catch (error) {
-        log.error('OA 壳实例状态对账异常:', error);
-      }
-    },
-    { timezone: 'Asia/Shanghai' }
-  );
-
-  } // end if (isProduction) — 写入型任务到此结束
 
   // ==================== Token 管理（所有环境） ====================
   // Token 检查与刷新 - 每5分钟

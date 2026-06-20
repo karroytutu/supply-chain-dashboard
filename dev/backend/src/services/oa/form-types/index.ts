@@ -15,6 +15,7 @@ import { customerCreditFormType } from './customer-credit';
 import { assessmentAppealFormType } from './assessment-appeal';
 import { customerModifyFormType } from './customer-modify';
 import { arCollectionFormType } from './ar-collection';
+import { procurementOrderFormType } from './procurement-order';
 
 /**
  * 所有已注册的表单类型
@@ -31,13 +32,22 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   assessmentAppealFormType,
   customerModifyFormType,
   arCollectionFormType,
+  procurementOrderFormType,
 ];
 
 /**
- * 根据编码获取表单类型定义
+ * 表单类型索引（按 code 快速查找）
+ * 在模块加载时构建一次，O(1) 查找替代 Array.find() 的 O(n)
+ */
+const FORM_TYPE_MAP = new Map<string, FormTypeDefinition>(
+  ALL_FORM_TYPES.map(ft => [ft.code, ft])
+);
+
+/**
+ * 根据编码获取表单类型定义（O(1) 查找）
  */
 export function getFormTypeByCode(code: string): FormTypeDefinition | undefined {
-  return ALL_FORM_TYPES.find(ft => ft.code === code);
+  return FORM_TYPE_MAP.get(code);
 }
 
 /**
@@ -71,3 +81,4 @@ export { customerCreditFormType } from './customer-credit';
 export { assessmentAppealFormType } from './assessment-appeal';
 export { customerModifyFormType } from './customer-modify';
 export { arCollectionFormType } from './ar-collection';
+export { procurementOrderFormType } from './procurement-order';

@@ -167,7 +167,7 @@ export async function getCategoryAggregation(): Promise<CategoryAggregation[]> {
  * 当商品或库存原始数据变更时，需同步清除此处的聚合结果缓存
  */
 export function invalidateFacadeCache(): void {
-  cache.invalidate('erp:facade:');
+  cache.invalidate(CACHE_KEY.ERP_FACADE_PREFIX);
 }
 
 // ============================================

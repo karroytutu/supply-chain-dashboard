@@ -88,7 +88,7 @@ describe('requirePermission', () => {
 
 describe('requireRole', () => {
   it('单角色匹配 → 放行', () => {
-    const req = createReq({ roles: ['admin', 'manager'] });
+    const req = createReq({ roles: ['admin', 'department_manager'] });
     const middleware = requireRole('admin');
     middleware(req, createRes(), next);
     expect(next).toHaveBeenCalled();
@@ -103,8 +103,8 @@ describe('requireRole', () => {
   });
 
   it('多角色数组 — 任一匹配即放行', () => {
-    const req = createReq({ roles: ['manager'] });
-    const middleware = requireRole(['admin', 'manager']);
+    const req = createReq({ roles: ['department_manager'] });
+    const middleware = requireRole(['admin', 'department_manager']);
     middleware(req, createRes(), next);
     expect(next).toHaveBeenCalled();
   });
@@ -112,7 +112,7 @@ describe('requireRole', () => {
   it('多角色数组 — 全不匹配 → 403', () => {
     const res = createRes();
     const req = createReq({ roles: ['viewer'] });
-    const middleware = requireRole(['admin', 'manager']);
+    const middleware = requireRole(['admin', 'department_manager']);
     middleware(req, res, next);
     expect(res.status).toHaveBeenCalledWith(403);
   });
@@ -144,7 +144,7 @@ describe('requireAdmin', () => {
 
   it('非 admin 角色 → 403', () => {
     const res = createRes();
-    const req = createReq({ roles: ['manager'] });
+    const req = createReq({ roles: ['department_manager'] });
     requireAdmin(req, res, next);
     expect(res.status).toHaveBeenCalledWith(403);
   });

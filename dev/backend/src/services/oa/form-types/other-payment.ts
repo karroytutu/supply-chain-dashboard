@@ -7,6 +7,7 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
+import { OA_ROLE } from '../oa-role-codes';
 
 /**
  * 其他付款申请单表单类型定义
@@ -31,7 +32,7 @@ export const otherPaymentFormType: FormTypeDefinition = {
   description: '用于其他付款事项的审批申请',
 
   // 版本号（修改表单结构时递增）
-  version: 1,
+  version: 2,
 
   // 表单字段定义
   formSchema: {
@@ -91,7 +92,7 @@ export const otherPaymentFormType: FormTypeDefinition = {
         order: 2,
         name: '财务审核',
         type: 'approval',
-        handler: { roleCode: 'finance_staff' },
+        handler: { roleCode: OA_ROLE.ACCOUNTANT },
         signMode: 'or',
       },
       {
@@ -99,7 +100,7 @@ export const otherPaymentFormType: FormTypeDefinition = {
         order: 3,
         name: '总经理审批',
         type: 'approval',
-        handler: { roleCode: 'admin' },
+        handler: { roleCode: OA_ROLE.GM },
         signMode: 'or',
         condition: {
           field: 'amount',
@@ -109,7 +110,7 @@ export const otherPaymentFormType: FormTypeDefinition = {
       },
     ],
     // 抄送角色
-    ccRoles: ['cashier'],
+    ccRoles: [OA_ROLE.CASHIER],
   },
 };
 

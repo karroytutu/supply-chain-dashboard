@@ -5,7 +5,6 @@ import React from 'react';
 import {
   UserOutlined,
   TeamOutlined,
-  FormOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import type { WorkflowNodeDef, ApprovalNode, ApprovalAction, ApprovalStatus, CcUser, ErpMeta } from '@/types/oa';
@@ -23,11 +22,7 @@ export type ApprovalFlowMode = 'preview' | 'actual';
 
 export const NODE_TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
   approval: { icon: <TeamOutlined />, color: '#722ed1' },
-  dynamic_supervisor: { icon: <UserOutlined />, color: '#1890ff' },
-  role: { icon: <TeamOutlined />, color: '#722ed1' },
-  specific_user: { icon: <UserOutlined />, color: '#52c41a' },
-  countersign: { icon: <TeamOutlined />, color: '#fa8c16' },
-  data_input: { icon: <FormOutlined />, color: '#13c2c2' },
+  handle: { icon: <UserOutlined />, color: '#1890ff' },
   auto: { icon: <SettingOutlined />, color: '#722ed1' },
 };
 
@@ -41,6 +36,7 @@ export const NODE_STATUS_TEXT: Record<string, string> = {
   approved: '已通过',
   rejected: '已拒绝',
   transferred: '已转交',
+  sent_back: '已退回',
   failed: '执行失败',
   skipped: '已跳过',
   cancelled: '已取消',
@@ -55,6 +51,7 @@ export const ACTION_TYPE_CONFIG: Record<string, { label: string; cls: string }> 
   approve: { label: '通过', cls: styles.actionTagApprove },
   reject: { label: '拒绝', cls: styles.actionTagReject },
   transfer: { label: '转交', cls: styles.actionTagTransfer },
+  send_back: { label: '退回', cls: styles.actionTagTransfer },
   countersign: { label: '加签', cls: styles.actionTagCountersign },
   withdraw: { label: '撤回', cls: styles.actionTagWithdraw },
   handover: { label: '交接', cls: styles.actionTagHandover },

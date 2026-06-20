@@ -41,6 +41,14 @@ jest.mock('../../utils/constants', () => ({
   CREDIT_SETTLE_METHOD_ON_ACCOUNT: 'on_account',
   AR_HOLD_TYPE_LONG_TERM: 'long_term',
   AR_HOLD_TYPE_TIME_LIMITED: 'time_limited',
+  ROLE_CODES: {
+    ADMIN: 'admin',
+    GENERAL_MANAGER: 'general_manager',
+    MARKETING_MANAGER: 'marketing_manager',
+    MARKETER: 'marketer',
+    CURRENT_ACCOUNTANT: 'current_accountant',
+    PROCUREMENT_MANAGER: 'procurement_manager',
+  },
 }));
 
 jest.mock('../erp-debt/ar-hold-meta.service', () => ({
@@ -118,11 +126,6 @@ describe('resolveCustomerCreditPreviewContext', () => {
 });
 
 describe('beforeSubmitCustomerCredit', () => {
-  it('无权限角色时抛出异常', async () => {
-    mockGetUserRoles.mockResolvedValueOnce({ roles: [{ code: 'viewer' }] } as any);
-    await expect(beforeSubmitCustomerCredit({ customer: 100 }, 1)).rejects.toThrow('当前用户无权提交客户授信申请');
-  });
-
   it('admin 角色可以提交', async () => {
     mockGetUserRoles.mockResolvedValueOnce({ roles: [{ code: 'admin' }] } as any);
     const result = await beforeSubmitCustomerCredit({ customer: 100 }, 1);

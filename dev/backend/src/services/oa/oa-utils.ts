@@ -10,6 +10,7 @@ import { getFormTypeByCode as getCodeFormTypeByCode } from './form-types';
 import type {
   OaFormTypeRow,
   FormTypeDefinition,
+  FormSchema,
   ApprovalStatus,
   ApprovalNodeStatus,
   OaNodeRow,
@@ -46,6 +47,14 @@ export async function generateInstanceNo(): Promise<string> {
 // =====================================================
 
 /**
+ * 从代码注册表解析 formSchema（代码唯一来源）。
+ * dbFallback 仅用于未注册的历史表单类型兼容。
+ */
+export function resolveFormSchema(code: string, dbFallback?: FormSchema | null): FormSchema {
+  return getCodeFormTypeByCode(code)?.formSchema ?? dbFallback ?? { fields: [] };
+}
+
+/**
  * 将数据库行映射为表单类型对象
  */
 export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
@@ -59,14 +68,13 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     sortOrder: row.sort_order,
     description: row.description || '',
     version: row.version,
-    formSchema: codeDefinition?.formSchema || row.form_schema,
-    // 版本比对：代码版本高于 DB 时用代码定义（新开发安全优先），否则 DB 优先（支持流程交接等运行时修改）
-    workflowDef: (() => {
-      const codeVersion = codeDefinition?.version || 0;
-      const dbVersion = row.version || 0;
-      if (codeDefinition && codeVersion > dbVersion) return codeDefinition.workflowDef;
-      return row.workflow_def || codeDefinition?.workflowDef;
-    })(),
+    // formSchema: 代码为唯一来源，DB 列已废弃
+    formSchema: resolveFormSchema(row.code, row.form_schema),
+    // workflowDef: DB 为运行时主源（支持管理后台编辑），代码作为回退
+    workflowDef: row.workflow_def || codeDefinition?.workflowDef || { nodes: [] },
+    ...(row.allowed_roles && { allowedRoles: row.allowed_roles }),
+    ...(row.data_read_roles && { dataReadRoles: row.data_read_roles }),
+    ...(row.data_export_roles && { dataExportRoles: row.data_export_roles }),
     ...(codeDefinition?.beforeSubmit && { beforeSubmit: codeDefinition.beforeSubmit }),
     ...(codeDefinition?.onNodeCompleted && { onNodeCompleted: codeDefinition.onNodeCompleted }),
     ...(codeDefinition?.onApproved && { onApproved: codeDefinition.onApproved }),

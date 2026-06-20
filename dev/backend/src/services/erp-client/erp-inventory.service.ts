@@ -214,7 +214,7 @@ export async function getCostPriceByNameMap(): Promise<Map<string, number>> {
  * 清除库存缓存（供缓存失效使用）
  */
 export function invalidateInventoryCache(): void {
-  cache.invalidate('erp:inventory:');
+  cache.invalidate(CACHE_KEY.ERP_INVENTORY_PREFIX);
   _stockSummaryMap = null;
   _stockByNameMap = null;
   _costPriceByNameMap = null;

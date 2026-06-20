@@ -52,6 +52,8 @@ const FormFieldsDiff: React.FC<FormFieldsDiffProps> = ({
     for (const field of fields) {
       // 跳过 _ 前缀字段（隐藏字段，不在详情页展示）
       if (field.key.startsWith('_')) continue;
+      // 跳过 hidden 字段（如自动填充的供应商名称、采购单号等）
+      if (field.hidden) continue;
 
       // 条件隐藏
       if (field.visibleWhen && !checkCondition(field.visibleWhen, formData)) {

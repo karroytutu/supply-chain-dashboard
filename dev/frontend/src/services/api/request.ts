@@ -11,7 +11,7 @@ const TOKEN_KEY = 'auth_token';
 const DEFAULT_TIMEOUT = 30000;
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
   body?: any;
   params?: Record<string, any>;
@@ -211,6 +211,10 @@ request.put = <T>(url: string, body?: any, options?: Omit<RequestOptions, 'metho
 
 request.delete = <T>(url: string, options?: Omit<RequestOptions, 'method'>): Promise<T> => {
   return request<T>(url, { ...options, method: 'DELETE' });
+};
+
+request.patch = <T>(url: string, body?: any, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> => {
+  return request<T>(url, { ...options, method: 'PATCH', body });
 };
 
 /**

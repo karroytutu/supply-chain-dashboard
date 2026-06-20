@@ -306,7 +306,7 @@ export async function exportData(
 // ERP 参考数据接口
 // =====================================================
 
-export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas';
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders';
 
 /** ERP ID 解析结果项 */
 export interface ErpResolvedItem {
@@ -576,6 +576,30 @@ export async function getMyLicenseDeferredUploads(params: {
   return { list: (res as any).data ?? [], total: (res as any).total ?? 0 };
 }
 
+/**
+ * 获取采购订单分析结果（含行项明细）
+ * 在表单选中采购订单后调用，预填充 purchaseLines 表格
+ */
+export interface PurchaseOrderAnalysisResult {
+  billId: number;
+  billStr: string;
+  supplierId: number;
+  supplierName: string;
+  warehouseName: string;
+  totalAmount: number;
+  purchaseLines: Array<Record<string, unknown>>;
+}
+
+export async function getPurchaseOrderAnalysis(
+  billId: number,
+  signal?: AbortSignal
+): Promise<PurchaseOrderAnalysisResult> {
+  return request<PurchaseOrderAnalysisResult>(
+    `/oa/erp-reference/purchase-orders/${billId}/analysis`,
+    { signal }
+  );
+}
+
 export const oaApi = {
   getFormTypes,
   getFormTypesGrouped,
@@ -608,6 +632,7 @@ export const oaApi = {
   updateInstance,
   getTimeoutLogs,
   remindNode,
+  getPurchaseOrderAnalysis,
   // 流程交接
   scanHandoverImpact,
   executeHandover,
@@ -643,4 +668,48 @@ export async function getHandoverHistory(
   pageSize: number = 20
 ): Promise<{ list: HandoverHistoryItem[]; total: number }> {
   return request(`/oa/workflow-handover/history?page=${page}&page_size=${pageSize}`);
+}
+
+// =====================================================
+// 表单管理接口（管理员专用）
+// =====================================================
+
+/** 获取所有表单类型（含完整 workflowDef 和 allowedRoles） */
+export async function getAdminFormTypes(): Promise<FormTypeDefinition[]> {
+  return request<FormTypeDefinition[]>('/oa/admin/form-types');
+}
+
+/** 更新表单基本信息和可发起岗位 */
+export async function updateAdminFormType(
+  code: string,
+  data: {
+    name?: string;
+    description?: string;
+    icon?: string;
+    allowedRoles?: string[];
+    dataReadRoles?: string[];
+    dataExportRoles?: string[];
+  }
+): Promise<void> {
+  return request<void>(`/oa/admin/form-types/${code}`, {
+    method: 'PATCH',
+    body: data,
+  });
+}
+
+/** 更新表单审批流程配置（含乐观锁） */
+export async function updateAdminFormTypeWorkflow(
+  code: string,
+  workflowDef: unknown,
+  version: number
+): Promise<void> {
+  return request<void>(`/oa/admin/form-types/${code}/workflow`, {
+    method: 'PUT',
+    body: { workflowDef, version },
+  });
+}
+
+/** 获取系统所有岗位列表 */
+export async function getAdminRoles(): Promise<Array<{ code: string; name: string; description: string }>> {
+  return request('/oa/admin/roles');
 }

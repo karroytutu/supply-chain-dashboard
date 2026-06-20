@@ -14,6 +14,7 @@ const ERP_FIELD_TYPES = new Set([
   'erp_customer', 'erp_department', 'erp_staff',
   'erp_payment_account', 'erp_asset_category', 'asset_search', 'erp_settlement_order',
   'erp_grade', 'erp_group', 'erp_area',
+  'erp_supplier', 'erp_purchase_order',
 ]);
 
 export interface ErpResolvedMap {
@@ -116,6 +117,13 @@ export function useErpFieldResolve(
             if (!pendingByType[erpType]) pendingByType[erpType] = { ids: [], extraParams };
             pendingByType[erpType].ids.push(...ids.map(Number));
             pendingByType[erpType].extraParams = extraParams;
+          }
+        } else if (field.type === 'erp_purchase_order') {
+          const id = Number(rawValue);
+          if (!isNaN(id)) {
+            const extraParams = formData.supplierId ? { supplierIds: String(formData.supplierId) } : undefined;
+            if (!pendingByType[erpType]) pendingByType[erpType] = { ids: [], extraParams };
+            pendingByType[erpType].ids.push(id);
           }
         } else {
           const id = Number(rawValue);

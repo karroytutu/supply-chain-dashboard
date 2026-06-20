@@ -257,7 +257,7 @@ describe('filterNodesByCondition', () => {
     {
       order: 2,
       name: '行政询价',
-      type: 'data_input',
+      type: 'handle',
       handler: { roleCode: 'admin_staff' },
       condition: { field: 'estimatedCost', operator: '>=', value: 500 },
     },

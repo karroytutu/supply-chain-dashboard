@@ -75,7 +75,7 @@ export async function approveApproval(
     // inputData 合并到 form_data（所有节点类型通用）
     if (inputData && Object.keys(inputData).length > 0) {
       // data_input 节点额外执行 input_schema 校验和 input_data 存储
-      if (currentNode.node_type === 'data_input') {
+      if (currentNode.node_type === 'handle') {
         if (currentNode.input_schema) {
           const inputErrors = validateInputData(currentNode.input_schema, inputData);
           if (inputErrors.length > 0) {

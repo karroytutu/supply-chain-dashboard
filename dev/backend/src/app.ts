@@ -25,6 +25,7 @@ import tokenAdminRoutes from './routes/token-admin.routes';
 import arDashboardRoutes from './routes/ar-dashboard.routes';
 import orgRoutes from './routes/org.routes';
 import changelogRoutes from './routes/changelog.routes';
+import devErpCleanupRoutes from './routes/dev-erp-cleanup.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 import { startDingtalkStream, stopDingtalkStream } from './services/dingtalk-stream.service';
@@ -162,6 +163,11 @@ app.use('/api/ar-dashboard', arDashboardRoutes);
 app.use('/api/org', orgRoutes);
 app.use('/api/changelog', changelogRoutes);
 
+// 开发环境专用 ERP 清理端点（供 E2E 测试清理生产数据）
+if (process.env.NODE_ENV === 'development') {
+  app.use('/api/dev/erp', devErpCleanupRoutes);
+}
+
 // 错误处理
 app.use(errorHandler);
 
@@ -194,6 +200,9 @@ app.listen(config.port, async () => {
 
   // 启动定时任务调度器
   startScheduler();
+
+  // 校验审批流程岗位编码合法性（仅日志告警，不阻断启动）
+  import('./services/oa/oa-form-type.query').then(m => m.validateFormTypeRoleCodes()).catch(() => {});
 
   // 启动钉钉 Stream 事件总线（WebSocket 长连接）
   startDingtalkStream();

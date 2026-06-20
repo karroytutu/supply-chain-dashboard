@@ -4,6 +4,7 @@
  */
 
 import { FormTypeDefinition } from '../oa.types';
+import { OA_ROLE } from '../oa-role-codes';
 import { beforeSubmitCustomerModify, onApprovedCustomerModify } from '../customer-modify-callback';
 
 /**
@@ -194,8 +195,7 @@ export const customerModifyFormType: FormTypeDefinition = {
         order: 1,
         name: '营销经理审批',
         type: 'approval',
-        handler: { roleCode: 'marketing_manager' },
-        interactionType: 'approval' as const,
+        handler: { roleCode: OA_ROLE.MARKETING_MGR },
         signMode: 'or',
       },
       // 节点2：自动更新ERP客户档案

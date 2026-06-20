@@ -236,3 +236,28 @@ export async function erpPut<T = any>(
 ): Promise<T> {
   return erpRequest<T>('PUT', path, data, options);
 }
+
+/**
+ * 从 ERP 响应中安全提取 data 字段
+ *
+ * 舟谱 API 响应格式不统一：
+ * - 有的返回 `{ code: 0, data: { records: [...], total: 100 } }`
+ * - 有的直接返回 `{ records: [...], total: 100 }`
+ *
+ * 此函数统一处理两种格式，避免各服务文件中重复 `as any` 断言。
+ *
+ * @example
+ * ```ts
+ * const response = await erpPost<unknown>('/store-query/search', body, opts);
+ * const data = extractErpData<{ records?: ErpCustomer[]; total?: number }>(response);
+ * const records = data?.records ?? [];
+ * ```
+ */
+export function extractErpData<T>(response: unknown): T {
+  if (response && typeof response === 'object') {
+    const r = response as Record<string, unknown>;
+    // 优先取 response.data，若不存在则取 response 本身
+    return (r.data !== undefined ? r.data : response) as T;
+  }
+  return response as T;
+}

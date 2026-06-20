@@ -236,10 +236,10 @@ async function sendSubmitNotifications(
     node_order: number;
   }>(
     `SELECT assigned_user_id, node_name, node_order FROM oa_approval_nodes
-     WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
+     WHERE instance_id = $1 AND status = 'pending' AND node_type IN ('approval', 'handle')
        AND node_order = (
          SELECT MIN(node_order) FROM oa_approval_nodes
-         WHERE instance_id = $1 AND status = 'pending' AND node_type NOT IN ('auto')
+         WHERE instance_id = $1 AND status = 'pending' AND node_type IN ('approval', 'handle')
        )`,
     [instance.id]
   );

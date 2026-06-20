@@ -11,6 +11,7 @@ const log = createLogger('ERP');
 import { appQuery } from '../../db/appPool';
 import { fetchAllInventory } from './erp-inventory.service';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { CACHE_KEY } from '../../utils/cache-keys';
 import { formatDateOnly } from '../../utils/dateFormat';
 
 /** 快照记录 */
@@ -75,7 +76,7 @@ export async function takeDailyInventorySnapshot(): Promise<{
   await appQuery(insertSql, params);
 
   // 清除快照缓存
-  cache.invalidate('erp:snapshot:');
+  cache.invalidate(CACHE_KEY.ERP_SNAPSHOT_PREFIX);
 
   log.info(`快照完成: ${snapshotDate}, 共 ${allInventory.length} 条记录`);
 

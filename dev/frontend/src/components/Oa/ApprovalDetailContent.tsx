@@ -13,7 +13,6 @@ import { useErpFieldResolve } from './hooks/useErpFieldResolve';
 import { useErpLicenseResolve } from './hooks/useErpLicenseResolve';
 import ActionBar from './ActionBar';
 import ActionModal from './ActionModal';
-import { getInteractionType } from '@/utils/oa';
 import { checkCondition } from '@/pages/Oa/Form/components/ConditionalFieldWrapper';
 import type { UseApprovalActionsReturn } from './hooks/useApprovalActions';
 import styles from './ApprovalDetailContent.less';
@@ -65,6 +64,7 @@ const FormFieldsSection: React.FC<{
   const filteredFields = detail.formSchema?.fields?.filter((field: any) => {
     if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return false;
     if (field.key.startsWith('_')) return false;
+    if (field.hidden) return false;
     return true;
   }) || [];
 
@@ -128,7 +128,6 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
 }) => {
   const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
   const { erpLicenseUrls } = useErpLicenseResolve(detail.formSchema, detail.formData);
-  const interactionType = getInteractionType(detail);
 
   // 计算当前节点是否可操作（与 ActionBar 保持一致的逻辑）
   const canOperate = canOperateOverride !== undefined ? canOperateOverride : actionState.canOperate;
@@ -138,9 +137,10 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   const workflowNode = detail.workflowDef?.nodes.find(n => n.order === currentNode?.nodeOrder);
   const fieldPermissions = workflowNode?.fieldPermissions;
   const fieldOptionFilter = workflowNode?.fieldOptionFilter;
+  const nodeType = workflowNode?.type ?? 'approval';
 
-  // 操作型节点 + 可操作时渲染可编辑表单，否则只读渲染
-  const isEditable = interactionType === 'operation' && canOperate && !!fieldPermissions;
+  // 处理型节点 + 可操作时渲染可编辑表单，否则只读渲染
+  const isEditable = nodeType === 'handle' && canOperate && !!fieldPermissions;
 
   return (
     <div className={`${styles.content} ${className || ''}`}>
@@ -170,7 +170,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
         />
       </div>
       <ActionBar
-        interactionType={interactionType}
+        nodeType={nodeType}
         canOperate={canOperate}
         canWithdraw={canWithdrawOverride !== undefined ? canWithdrawOverride : actionState.canWithdraw}
         canComment={actionState.canComment}
@@ -179,7 +179,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
       <ActionModal
         visible={actionState.actionModalVisible} actionType={actionState.actionType}
         actionComment={actionState.actionComment} actionLoading={actionState.actionLoading}
-        transferUsers={actionState.transferUsers} interactionType={interactionType}
+        transferUsers={actionState.transferUsers} nodeType={nodeType}
         countersignUserIds={actionState.countersignUserIds}
         countersignType={actionState.countersignType}
         onCountersignUserIdsChange={actionState.setCountersignUserIds}

@@ -41,12 +41,6 @@ vi.mock('@/components/Oa', () => ({
   FormFieldRenderer: (props: any) => <span data-testid={`field-${props.field?.key}`}>{String(props.value ?? '')}</span>,
 }));
 
-const mockGetInteractionType = vi.fn((_detail?: any) => 'approval' as 'approval' | 'operation');
-
-vi.mock('@/utils/oa', () => ({
-  getInteractionType: (...args: any[]) => mockGetInteractionType(...args),
-}));
-
 vi.mock('@/pages/Oa/Form/components/ConditionalFieldWrapper', () => ({
   checkCondition: () => true,
 }));
@@ -135,7 +129,6 @@ Object.defineProperty(window, 'matchMedia', {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetInteractionType.mockReturnValue('approval');
   vi.mocked(hasOriginalFields).mockReturnValue(false);
 });
 
@@ -197,7 +190,6 @@ describe('ApprovalDetailContent - ActionBar 权限', () => {
   it('canOperate=true + approval 类型 → 显示"同意""拒绝""转交"', () => {
     const detail = makeDetail();
     const actionState = makeActionState({ canOperate: true });
-    mockGetInteractionType.mockReturnValue('approval');
 
     render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
 
@@ -206,15 +198,16 @@ describe('ApprovalDetailContent - ActionBar 权限', () => {
     expect(screen.getByText(/转\s*交/)).toBeTruthy();
   });
 
-  it('canOperate=true + operation 类型 → 显示"完成""更新""退回""转交"', () => {
-    const detail = makeDetail();
+  it('canOperate=true + handle 类型 → 显示"完成""保存""退回""转交"', () => {
+    const detail = makeDetail({
+      workflowDef: { nodes: [{ order: 1, name: '处理节点', type: 'handle' as const }] },
+    });
     const actionState = makeActionState({ canOperate: true });
-    mockGetInteractionType.mockReturnValue('operation');
 
     render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
 
     expect(screen.getByText(/完\s*成/)).toBeTruthy();
-    expect(screen.getByText(/更\s*新/)).toBeTruthy();
+    expect(screen.getByText(/保\s*存/)).toBeTruthy();
     expect(screen.getByText(/退\s*回/)).toBeTruthy();
     expect(screen.getByText(/转\s*交/)).toBeTruthy();
   });
@@ -285,7 +278,6 @@ describe('ApprovalDetailContent - ActionModal 集成', () => {
     const detail = makeDetail();
     const openActionModal = vi.fn();
     const actionState = makeActionState({ canOperate: true, openActionModal });
-    mockGetInteractionType.mockReturnValue('approval');
 
     render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
 
@@ -300,7 +292,6 @@ describe('ApprovalDetailContent - canOperateOverride / canWithdrawOverride 覆�
   it('canOperateOverride=true + actionState.canOperate=false → 显示操作按钮', () => {
     const detail = makeDetail();
     const actionState = makeActionState({ canOperate: false });
-    mockGetInteractionType.mockReturnValue('approval');
 
     render(
       <ApprovalDetailContent
@@ -347,7 +338,6 @@ describe('ApprovalDetailContent - canOperateOverride / canWithdrawOverride 覆�
   it('两个 override 均为 undefined → 使用 actionState 的值', () => {
     const detail = makeDetail();
     const actionState = makeActionState({ canOperate: true, canWithdraw: false });
-    mockGetInteractionType.mockReturnValue('approval');
 
     render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
 

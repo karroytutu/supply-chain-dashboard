@@ -4,7 +4,7 @@
  * @module services/erp-client/erp-customer.service
  */
 
-import { erpPost, erpGet } from './erp-client';
+import { erpPost, erpGet, extractErpData } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
@@ -118,13 +118,13 @@ export async function searchErpCustomers(
     if (keyword) {
       body.queryText = keyword;
     }
-    const result = (await erpPost('/store-query/search', body, {
+    const response = await erpPost<unknown>('/store-query/search', body, {
       pathPrefix: '/redcoast/',
       businessType: 'customer_search',
-    })) as any;
-    const records: ErpCustomer[] = result?.data?.records || result?.records || [];
-    // 客户 API 可能不返回 total，尝试两个位置
-    const total: number = result?.data?.total ?? result?.total ?? 0;
+    });
+    const data = extractErpData<{ records?: ErpCustomer[]; total?: number }>(response);
+    const records: ErpCustomer[] = data?.records ?? [];
+    const total: number = data?.total ?? 0;
     return { records, total };
   };
 
@@ -185,11 +185,12 @@ export async function searchErpCustomersByKeyword(
   if (!options?.includeAllStates) {
     body.docState = 1;
   }
-  const result = (await erpPost('/store-query/search', body, {
+  const response = await erpPost<unknown>('/store-query/search', body, {
     pathPrefix: '/redcoast/',
     businessType: 'customer_search',
-  })) as any;
-  const records: ErpCustomer[] = result?.data?.records || result?.records || [];
+  });
+  const data = extractErpData<{ records?: ErpCustomer[] }>(response);
+  const records: ErpCustomer[] = data?.records ?? [];
   cache.set(cacheKey, records, CACHE_TTL.LOW_FREQUENCY);
   return records;
 }
@@ -223,12 +224,12 @@ export async function getErpCustomerProfile(customerId: number): Promise<ErpCust
   if (cached) return cached;
 
   const { cid, uid } = getErpDefaults();
-  const result = (await erpGet(
+  const response = await erpGet<unknown>(
     '/store-query/query-store-web',
     { id: customerId, cid, uid },
     { pathPrefix: '/redcoast/', businessType: 'customer_profile' }
-  )) as any;
-  const profile = (result?.data ?? result) as ErpCustomerProfile;
+  );
+  const profile = extractErpData<ErpCustomerProfile>(response);
   cache.set(cacheKey, profile, CACHE_TTL.LOW_FREQUENCY);
   return profile;
 }
@@ -280,7 +281,7 @@ export async function getCustomerLicenseInfo(customerId: number): Promise<Custom
  * @usedBy erp-reference.controller.ts (前端展示)
  */
 export async function getCustomerDebtTotal(customerId: number): Promise<number> {
-  const cacheKey = `erp:customer:debt-total:${customerId}`;
+  const cacheKey = CACHE_KEY.ERP_CUSTOMER_DEBT_TOTAL(customerId);
   const cached = cache.get<number>(cacheKey);
   if (cached !== null) return cached;
 

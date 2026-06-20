@@ -321,7 +321,7 @@ describe('triggerCcIfApplicable', () => {
   });
 
   it('有 CC 角色时创建抄送记录并通知', async () => {
-    const ft = mkFormType({ workflowDef: { ccAfterNode: 1, ccRoles: ['manager'] } });
+    const ft = mkFormType({ workflowDef: { ccAfterNode: 1, ccRoles: ['department_manager'] } });
     mockQuery
       .mockResolvedValueOnce({ rows: [inst] } as any)              // fresh instance
       .mockResolvedValueOnce({ rows: [{ id: 30, name: '经理' }] } as any) // users
@@ -332,7 +332,7 @@ describe('triggerCcIfApplicable', () => {
   });
 
   it('过滤申请人不接收抄送', async () => {
-    const ft = mkFormType({ workflowDef: { ccAfterNode: 1, ccRoles: ['manager'] } });
+    const ft = mkFormType({ workflowDef: { ccAfterNode: 1, ccRoles: ['department_manager'] } });
     mockQuery.mockResolvedValueOnce({ rows: [inst] } as any);
     (findUserIdsByRoleCodes as jest.Mock).mockResolvedValue([inst.applicant_id]);
     await triggerCcIfApplicable(1, 1, ft as any, inst);

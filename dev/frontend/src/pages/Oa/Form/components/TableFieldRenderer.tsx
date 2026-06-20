@@ -43,7 +43,31 @@ const CellInput: React.FC<{
   rowData: Record<string, unknown>;
   /** 更新同行多个字段（nameField + autoFill 写入用） */
   onRowUpdate: (updates: Record<string, unknown>) => void;
-}> = ({ childField, value, onChange, rowData, onRowUpdate }) => {
+  /** 表格是否处于只读模式 */
+  disabled?: boolean;
+}> = ({ childField, value, onChange, rowData, onRowUpdate, disabled }) => {
+  // disabled 模式下渲染为只读文本
+  if (disabled) {
+    if (value == null || value === '') {
+      return <span style={{ fontSize: 13, color: '#999' }}>-</span>;
+    }
+    // 金额字段：保留两位小数 + 千位分隔
+    let displayValue: string;
+    if (childField.type === 'money') {
+      const num = Number(value);
+      displayValue = !isNaN(num)
+        ? num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : String(value);
+    } else {
+      displayValue = String(value);
+    }
+    // 附加单位后缀（如库存的“件”、可售天数的“天”）
+    if (childField.suffix) {
+      displayValue += childField.suffix;
+    }
+    return <span style={{ fontSize: 13 }}>{displayValue}</span>;
+  }
+
   // ERP 字段类型：使用 ErpFieldRenderer
   if (TABLE_ERP_TYPES.has(childField.type)) {
     const cascadeValue = childField.cascadeFrom ? rowData[childField.cascadeFrom] : undefined;
@@ -139,6 +163,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   const columns = field.children || [];
   const [containerRef, containerWidth] = useContainerWidth();
   const fixFirstCol = columns.length >= 4; // 与 ReadonlyTable 统一：列数≥4时固定首列
+  const isDisabled = !!field.disabled;
 
   const handleAdd = useCallback(() => {
     const newRow: Record<string, unknown> = {};
@@ -176,8 +201,9 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
       title: col.label + (col.required ? ' *' : ''),
       dataIndex: col.key,
       key: col.key,
-      width: getColumnWidth(col),
-      ...(fixFirstCol && idx === 0 ? { fixed: 'left' as const } : {}),
+      // disabled 模式下不设固定宽度，让列宽自适应填充容器
+      ...(!isDisabled ? { width: getColumnWidth(col) } : {}),
+      ...(fixFirstCol && idx === 0 && !isDisabled ? { fixed: 'left' as const } : {}),
       render: (_: unknown, record: Record<string, unknown>, rowIndex: number) => (
         <CellInput
           childField={col}
@@ -185,10 +211,12 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
           onChange={(v) => handleCellChange(rowIndex, col.key, v)}
           rowData={record}
           onRowUpdate={(updates) => handleRowUpdate(rowIndex, updates)}
+          disabled={isDisabled}
         />
       ),
     })),
-    {
+    // 仅在非 disabled 状态下显示删除操作列
+    ...(isDisabled ? [] : [{
       title: '',
       key: '_action',
       width: 50,
@@ -197,10 +225,10 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
           <Button type="text" danger size="small" icon={<DeleteOutlined />} />
         </Popconfirm>
       ),
-    },
+    }]),
   ];
 
-  const columnWidthsSum = tableColumns.reduce((sum, c) => sum + (c.width as number), 0);
+  const columnWidthsSum = tableColumns.reduce((sum, c) => sum + ((c.width as number) || 0), 0);
 
   return (
     <div ref={containerRef} className={styles.tableFieldWrapper}>
@@ -211,11 +239,16 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
         size="small"
         pagination={false}
         bordered
-        scroll={{ x: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum }}
+        scroll={isDisabled
+          ? { x: 'max-content' as const }
+          : { x: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum }
+        }
       />
-      <Button type="dashed" onClick={handleAdd} icon={<PlusOutlined />} style={{ width: '100%', marginTop: 8 }}>
-        添加一行
-      </Button>
+      {!isDisabled && (
+        <Button type="dashed" onClick={handleAdd} icon={<PlusOutlined />} style={{ width: '100%', marginTop: 8 }}>
+          添加一行
+        </Button>
+      )}
     </div>
   );
 };

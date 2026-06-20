@@ -312,7 +312,7 @@ describe('getLegalProgressDetails', () => {
   it('只查 OA 实例，不调用 buildDashboardContext', async () => {
     mockFetchOaInstances.mockResolvedValue([
       { id: 1, instance_no: 'OA-001', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { action: 'send_letter', consumerName: 'A客户', totalAmount: 50000 }, current_node_order: 1, role_code: 'marketer', node_name: '营销师催收', node_status: 'pending', deadline_at: null },
-      { id: 2, instance_no: 'OA-002', status: 'approved', submitted_at: new Date('2026-06-02'), form_data: { action: 'lawsuit', consumerName: 'B客户', totalAmount: 80000 }, current_node_order: 2, role_code: 'finance_staff', node_name: '财务审核', node_status: 'approved', deadline_at: null },
+      { id: 2, instance_no: 'OA-002', status: 'approved', submitted_at: new Date('2026-06-02'), form_data: { action: 'lawsuit', consumerName: 'B客户', totalAmount: 80000 }, current_node_order: 2, role_code: 'current_accountant', node_name: '财务审核', node_status: 'approved', deadline_at: null },
     ] as any[]);
 
     const result = await getLegalProgressDetails('noticeSent');
@@ -327,7 +327,7 @@ describe('getLegalProgressDetails', () => {
   it('lawsuitFiled 返回所有 lawsuit 类型', async () => {
     mockFetchOaInstances.mockResolvedValue([
       { id: 1, instance_no: 'OA-001', status: 'pending', submitted_at: new Date('2026-06-01'), form_data: { action: 'lawsuit', consumerName: 'A客户', totalAmount: 50000 }, current_node_order: 1, role_code: 'marketer', node_name: '催收', node_status: 'pending', deadline_at: null },
-      { id: 2, instance_no: 'OA-002', status: 'approved', submitted_at: new Date('2026-06-02'), form_data: { action: 'lawsuit', consumerName: 'B客户', totalAmount: 80000 }, current_node_order: 2, role_code: 'finance_staff', node_name: '财务', node_status: 'approved', deadline_at: null },
+      { id: 2, instance_no: 'OA-002', status: 'approved', submitted_at: new Date('2026-06-02'), form_data: { action: 'lawsuit', consumerName: 'B客户', totalAmount: 80000 }, current_node_order: 2, role_code: 'current_accountant', node_name: '财务', node_status: 'approved', deadline_at: null },
       { id: 3, instance_no: 'OA-003', status: 'pending', submitted_at: new Date('2026-06-03'), form_data: { action: 'send_letter', consumerName: 'C客户', totalAmount: 30000 }, current_node_order: 1, role_code: 'marketer', node_name: '催收', node_status: 'pending', deadline_at: null },
     ] as any[]);
 

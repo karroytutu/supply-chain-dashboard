@@ -91,9 +91,8 @@ export type SignModeValue = (typeof SIGN_MODE)[keyof typeof SIGN_MODE];
 
 export const NODE_TYPE = {
   APPROVAL: 'approval',
-  DATA_INPUT: 'data_input',
+  HANDLE: 'handle',
   AUTO: 'auto',
-  COUNTERSIGN: 'countersign',
 } as const;
 
 export type NodeTypeValue = (typeof NODE_TYPE)[keyof typeof NODE_TYPE];

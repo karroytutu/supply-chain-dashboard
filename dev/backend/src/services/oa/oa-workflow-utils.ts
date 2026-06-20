@@ -4,8 +4,12 @@
  */
 
 import { appQuery as query } from '../../db/appPool';
+import { ROLE_CODES } from '../../utils/constants';
+import { createLogger } from '../../utils/logger';
 import type { WorkflowNodeDef, SignMode } from './oa.types';
 import { checkCondition } from './oa-form-utils';
+
+const log = createLogger('OA-Workflow');
 
 // =====================================================
 // 节点条件过滤
@@ -64,6 +68,9 @@ async function getUsersByRoleCode(roleCode: string): Promise<number[]> {
      WHERE r.code = $1 AND r.status = 1`,
     [roleCode]
   );
+  if (result.rows.length === 0) {
+    log.warn(`岗位 '${roleCode}' 下无活跃用户，审批节点可能无人处理`);
+  }
   return result.rows.map(r => r.user_id);
 }
 
@@ -76,7 +83,7 @@ async function getSupervisors(applicantId: number): Promise<number[]> {
      JOIN users u2 ON u2.department_id = u1.department_id
      JOIN user_roles ur ON ur.user_id = u2.id
      JOIN roles r ON r.id = ur.role_id
-     WHERE u1.id = $1 AND r.code = 'manager' AND r.status = 1`,
+     WHERE u1.id = $1 AND r.code = '${ROLE_CODES.DEPARTMENT_MANAGER}' AND r.status = 1`,
     [applicantId]
   );
   return result.rows.map(r => r.id);

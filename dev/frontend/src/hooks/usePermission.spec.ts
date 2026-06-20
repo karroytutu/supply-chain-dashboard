@@ -47,10 +47,10 @@ describe('usePermission - 数据提取', () => {
   });
 
   it('正确提取 roles 的 code 列表', () => {
-    setupUser({ roles: [{ code: 'admin' }, { code: 'manager' }] });
+    setupUser({ roles: [{ code: 'admin' }, { code: 'department_manager' }] });
     const { result } = renderHook(() => usePermission());
 
-    expect(result.current.roles).toEqual(['admin', 'manager']);
+    expect(result.current.roles).toEqual(['admin', 'department_manager']);
   });
 });
 
@@ -137,17 +137,17 @@ describe('usePermission - hasRole', () => {
 
 describe('usePermission - hasAnyRole', () => {
   it('任一匹配 → true', () => {
-    setupUser({ roles: [{ code: 'manager' }] });
+    setupUser({ roles: [{ code: 'department_manager' }] });
     const { result } = renderHook(() => usePermission());
 
-    expect(result.current.hasAnyRole(['admin', 'manager'])).toBe(true);
+    expect(result.current.hasAnyRole(['admin', 'department_manager'])).toBe(true);
   });
 
   it('全不匹配 → false', () => {
     setupUser({ roles: [{ code: 'viewer' }] });
     const { result } = renderHook(() => usePermission());
 
-    expect(result.current.hasAnyRole(['admin', 'manager'])).toBe(false);
+    expect(result.current.hasAnyRole(['admin', 'department_manager'])).toBe(false);
   });
 });
 
@@ -155,16 +155,16 @@ describe('usePermission - hasAnyRole', () => {
 
 describe('usePermission - hasAllRoles', () => {
   it('全部匹配 → true', () => {
-    setupUser({ roles: [{ code: 'admin' }, { code: 'manager' }] });
+    setupUser({ roles: [{ code: 'admin' }, { code: 'department_manager' }] });
     const { result } = renderHook(() => usePermission());
 
-    expect(result.current.hasAllRoles(['admin', 'manager'])).toBe(true);
+    expect(result.current.hasAllRoles(['admin', 'department_manager'])).toBe(true);
   });
 
   it('部分匹配 → false', () => {
     setupUser({ roles: [{ code: 'admin' }] });
     const { result } = renderHook(() => usePermission());
 
-    expect(result.current.hasAllRoles(['admin', 'manager'])).toBe(false);
+    expect(result.current.hasAllRoles(['admin', 'department_manager'])).toBe(false);
   });
 });

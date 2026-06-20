@@ -223,13 +223,12 @@ function hasPermission(permissions: string[], roles: string[], code: string): bo
 
 /**
  * 从用户角色列表中选取催收查询角色
- * 优先级：marketer > current_accountant > finance_staff > cashier > 默认（admin/manager 看全量）
+ * 优先级：marketer > current_accountant > cashier > 默认（admin/manager 看全量）
  */
 function pickCollectionRole(roles: string[]): string {
   if (!roles || roles.length === 0) return 'viewer';
   if (roles.includes('marketer')) return 'marketer';
   if (roles.includes('current_accountant')) return 'current_accountant';
-  if (roles.includes('finance_staff')) return 'finance_staff';
   if (roles.includes('cashier')) return 'cashier';
   // admin / manager / marketing_manager 等角色使用默认全量视图
   return 'admin';

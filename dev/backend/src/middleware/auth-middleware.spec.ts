@@ -132,7 +132,7 @@ describe('authMiddleware', () => {
     mockAppQuery.mockResolvedValueOnce({ rows: [{ status: 1 }], rowCount: 1 } as any);
     mockGetCache.mockReturnValue(null); // 缓存未命中
     mockGetRoles.mockResolvedValueOnce({
-      roles: [{ code: 'manager' }],
+      roles: [{ code: 'department_manager' }],
       permissions: ['finance:ar:read'],
     } as any);
     const req = createMockReq();
@@ -142,7 +142,7 @@ describe('authMiddleware', () => {
 
     expect(mockGetRoles).toHaveBeenCalledWith(1);
     expect(mockNext).toHaveBeenCalled();
-    expect(req.user!.roles).toEqual(['manager']);
+    expect(req.user!.roles).toEqual(['department_manager']);
   });
 
   it('数据库查询失败 → 500', async () => {

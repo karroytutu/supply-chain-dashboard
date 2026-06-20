@@ -34,7 +34,7 @@ const RETURN_ROLE_OPTIONS = [
   { value: 'procurement_manager', label: '采购主管' },
   { value: 'marketing_manager', label: '营销经理' },
   { value: 'warehouse_manager', label: '仓储主管' },
-  { value: 'warehouse_keeper', label: '仓储员' },
+  { value: 'warehouse_operator', label: '库管员' },
   { value: 'logistics_manager', label: '物流经理' },
 ];
 

@@ -7,7 +7,6 @@
  * - 处理人通过填写表单完成催收操作
  * - 升级/退回通过动态插入节点在同一实例内流转
  *
- * 节点交互类型: operation（操作型）
  * 按钮布局: [完成] [更新] [更多▼: 退回/转交]
  */
 
@@ -15,13 +14,13 @@ import {
   FormTypeDefinition,
   FormField,
   FieldPermission,
-  NodeInteractionType,
   ConditionDef,
 } from '../oa.types';
 import {
   beforeSubmitArCollection,
   onApprovedArCollection,
 } from '../ar-collection-callback';
+import { OA_ROLE } from '../oa-role-codes';
 
 // =====================================================
 // 常量
@@ -47,8 +46,8 @@ export const LEVEL_ACTION_OPTIONS: Record<number, string[]> = {
 
 /** 升级角色映射 */
 export const ESCALATION_ROLES: Record<number, string> = {
-  1: 'marketing_manager',
-  2: 'current_accountant',
+  1: OA_ROLE.MARKETING_MGR,
+  2: OA_ROLE.ACCOUNTANT,
 };
 
 // =====================================================
@@ -227,10 +226,9 @@ const arCollectionWorkflowDef = {
     {
       order: 1,
       name: '营销师催收',
-      type: 'approval' as const,
-      handler: { roleCode: 'marketer' },
+      type: 'handle' as const,
+      handler: { roleCode: OA_ROLE.MARKETER },
       signMode: 'or' as const,
-      interactionType: 'operation' as NodeInteractionType,
       fieldPermissions: buildFieldPermissions(0),
       fieldOptionFilter: { action: LEVEL_ACTION_OPTIONS[0] },
       timeout: {

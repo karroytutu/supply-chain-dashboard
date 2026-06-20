@@ -216,7 +216,7 @@ async function handleExtension(
     await insertCollectionNode(
       instance.id,
       '总经理审批延期',
-      ROLE_CODES.ADMIN,
+      ROLE_CODES.GENERAL_MANAGER,
       1, // approval type for GM
     );
   } else {
@@ -226,7 +226,7 @@ async function handleExtension(
     await insertCollectionNode(
       instance.id,
       '总经理审批延期',
-      ROLE_CODES.ADMIN,
+      ROLE_CODES.GENERAL_MANAGER,
       currentLevel,
     );
   }

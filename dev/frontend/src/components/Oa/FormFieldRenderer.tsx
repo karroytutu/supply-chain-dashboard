@@ -94,6 +94,8 @@ const FieldRenderer: React.FC<{
     case 'dept':
       return <Text>{(value as { name?: string })?.name || String(value)}</Text>;
     case 'erp_customer':
+    case 'erp_supplier':
+    case 'erp_purchase_order':
     case 'erp_department':
     case 'erp_staff':
     case 'erp_payment_account':

@@ -141,8 +141,8 @@ describe('Authorized - 角色检查', () => {
   });
 
   it('多角色数组 — 任一匹配', () => {
-    setupPermission({ roles: ['manager'] });
-    render(<Authorized role={['admin', 'manager']}><span>管理内容</span></Authorized>);
+    setupPermission({ roles: ['department_manager'] });
+    render(<Authorized role={['admin', 'department_manager']}><span>管理内容</span></Authorized>);
 
     expect(screen.getByText('管理内容')).toBeInTheDocument();
   });

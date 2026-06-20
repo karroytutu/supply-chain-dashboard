@@ -205,7 +205,7 @@ const FormPage: React.FC = () => {
         <div className={styles.formSection}>
           <Form form={form} layout="vertical" onValuesChange={handleValuesChange} className={styles.form}>
             {formType.formSchema.fields
-              .filter((field) => !field.key.startsWith('_'))
+              .filter((field) => !field.key.startsWith('_') && !field.hidden)
               .map((field) => {
               // 客户档案修改：为状态字段注入动态选项（有欠款时禁用停用）
               const fieldWithOptions = (field.key === 'customerState' && customerStateOptions)
