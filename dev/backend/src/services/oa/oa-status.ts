@@ -93,6 +93,7 @@ export const NODE_TYPE = {
   APPROVAL: 'approval',
   HANDLE: 'handle',
   AUTO: 'auto',
+  CC: 'cc',
 } as const;
 
 export type NodeTypeValue = (typeof NODE_TYPE)[keyof typeof NODE_TYPE];

@@ -8,7 +8,7 @@ import { Table } from 'antd';
 import type { FormField } from '@/types/oa';
 import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
 import { renderCellValue } from './cellValueRenderer';
-import { NUMERIC_ALIGN_TYPES, useContainerWidth, getColumnWidth } from './hooks/useContainerWidth';
+import { NUMERIC_ALIGN_TYPES } from './hooks/useContainerWidth';
 import styles from './FormFieldRenderer.less';
 
 interface ReadonlyTableProps {
@@ -20,7 +20,6 @@ interface ReadonlyTableProps {
 const ReadonlyTable: React.FC<ReadonlyTableProps> = ({ field, rows, resolvedMap }) => {
   const children = field.children || [];
   const fixFirstCol = children.length >= 4;
-  const [containerRef, containerWidth] = useContainerWidth();
 
   // 检查是否需要汇总行：存在 formula 子字段或 statField 配置
   const formulaChildren = children.filter(c => c.type === 'formula' && c.formula);
@@ -33,25 +32,20 @@ const ReadonlyTable: React.FC<ReadonlyTableProps> = ({ field, rows, resolvedMap 
 
   const tableColumns = children.map((col, idx) => {
     const isNumeric = NUMERIC_ALIGN_TYPES.has(col.type);
-    const isEllipsis = col.type === 'text' || col.type === 'textarea';
     return {
       title: col.label,
       dataIndex: col.key,
       key: col.key,
-      width: getColumnWidth(col),
-      ...(fixFirstCol && idx === 0 ? { fixed: 'left' as const } : {}),
+      ...(fixFirstCol && idx === 0 ? { fixed: 'left' as const, width: 120 } : {}),
       ...(isNumeric ? { align: 'right' as const } : {}),
-      ...(isEllipsis ? { ellipsis: true } : {}),
       render: (cellVal: unknown, row: Record<string, unknown>) => {
         return renderCellValue(col, cellVal, row, resolvedMap);
       },
     };
   });
 
-  const columnWidthsSum = tableColumns.reduce((sum, c) => sum + (c.width as number), 0);
-
   return (
-    <div ref={containerRef} className={styles.readonlyTableWrapper}>
+    <div className={styles.readonlyTableWrapper}>
       <Table
         columns={tableColumns}
         dataSource={rows.map((row, idx) => ({ ...row, _key: idx }))}
@@ -59,7 +53,7 @@ const ReadonlyTable: React.FC<ReadonlyTableProps> = ({ field, rows, resolvedMap 
         size="small"
         pagination={false}
         bordered
-        scroll={{ x: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum }}
+        scroll={{ x: 'max-content' as const }}
         summary={hasSummary ? () => (
           <Table.Summary.Row>
             {children.map((col, idx) => {

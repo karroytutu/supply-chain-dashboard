@@ -23,7 +23,6 @@ jest.mock('./shared-utils', () => ({
 
 jest.mock('./auto-node-operations', () => ({
   executeAutoNodeCallback: jest.fn(),
-  triggerCcIfApplicable: jest.fn(),
 }));
 
 jest.mock('../oa-process-centre', () => ({
@@ -38,7 +37,6 @@ jest.mock('../oa-async-task.service', () => {
     enqueueSendApprovalNotification: mockFn(),
     enqueueFinalizeProcessInstance: mockFn(),
     enqueueExecuteAutoNode: mockFn(),
-    enqueueTriggerCc: mockFn(),
   };
 });
 
@@ -51,7 +49,6 @@ import {
   enqueueCompleteApprovalTodo,
   enqueueSendApprovalNotification,
   enqueueFinalizeProcessInstance,
-  enqueueTriggerCc,
 } from '../oa-async-task.service';
 
 const mockIsCurrentApprover = isCurrentApprover as jest.MockedFunction<typeof isCurrentApprover>;
@@ -70,7 +67,6 @@ beforeEach(() => {
   (enqueueCompleteApprovalTodo as jest.Mock).mockImplementation(resolveUndefined);
   (enqueueSendApprovalNotification as jest.Mock).mockImplementation(resolveUndefined);
   (enqueueFinalizeProcessInstance as jest.Mock).mockImplementation(resolveUndefined);
-  (enqueueTriggerCc as jest.Mock).mockImplementation(resolveUndefined);
 });
 
 afterEach(() => {

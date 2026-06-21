@@ -108,9 +108,8 @@ export const otherPaymentFormType: FormTypeDefinition = {
           value: 50000,
         },
       },
+      { order: 4, name: '抄送出纳', type: 'cc' as const, ccRoles: [OA_ROLE.CASHIER] },
     ],
-    // 抄送角色
-    ccRoles: [OA_ROLE.CASHIER],
   },
 };
 

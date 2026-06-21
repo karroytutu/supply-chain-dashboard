@@ -42,7 +42,7 @@ export async function validateFormTypeRoleCodes(): Promise<void> {
 
 /**
  * 获取所有可用的表单类型
- * DB 存储运行时配置（workflow_def/roles），formSchema 由代码提供
+ * formSchema 和 workflowDef 均由代码提供，DB 仅存储元数据和角色配置
  * @param userRoles 当前用户的角色编码列表，传入时按 allowed_roles 过滤
  */
 export async function getActiveFormTypes(userRoles?: string[]): Promise<FormTypeDefinition[]> {
@@ -58,7 +58,10 @@ export async function getActiveFormTypes(userRoles?: string[]): Promise<FormType
 
   try {
     const result = await query<OaFormTypeRow>(
-      `SELECT * FROM oa_form_types WHERE is_active = true ORDER BY category, sort_order`
+      `SELECT id, code, name, icon, category, sort_order, description,
+              is_active, version, allowed_roles, data_read_roles, data_export_roles,
+              created_at, updated_at
+       FROM oa_form_types WHERE is_active = true ORDER BY category, sort_order`
     );
 
     if (result.rows.length > 0) {

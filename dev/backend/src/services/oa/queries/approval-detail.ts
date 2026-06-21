@@ -10,36 +10,6 @@ import { InstanceListItem } from '../oa.query';
 import { resolveFormSchema } from '../oa-utils';
 
 /**
- * 合并 DB workflowDef 与 code 级 workflowDef 的字段权限元数据
- *
- * 架构策略：workflow_def 结构（nodes/handler/signMode 等）以 DB 为主源（支持管理后台运行时编辑），
- * 但 fieldPermissions 和 fieldOptionFilter 是应用设计级元数据，始终以代码定义为准（仅在 DB 缺失时补充，
- * 因为管理后台不编辑这些字段，DB 中的值来自代码初始定义或旧版本代码）。
- */
-function mergeWorkflowDefMeta(
-  dbWorkflowDef: WorkflowDef | null,
-  codeWorkflowDef: WorkflowDef | undefined
-): WorkflowDef | null {
-  if (!dbWorkflowDef) return codeWorkflowDef || null;
-  if (!codeWorkflowDef) return dbWorkflowDef;
-
-  const codeNodeMap = new Map(codeWorkflowDef.nodes.map(n => [n.order, n]));
-
-  const mergedNodes = dbWorkflowDef.nodes.map(dbNode => {
-    const codeNode = codeNodeMap.get(dbNode.order);
-    if (!codeNode) return dbNode;
-    return {
-      ...dbNode,
-      // 用 code 定义补充 DB 中缺失的字段权限和选项过滤
-      fieldPermissions: dbNode.fieldPermissions ?? codeNode.fieldPermissions,
-      fieldOptionFilter: dbNode.fieldOptionFilter ?? codeNode.fieldOptionFilter,
-    };
-  });
-
-  return { ...dbWorkflowDef, nodes: mergedNodes };
-}
-
-/**
  * 审批详情返回类型
  */
 export interface ApprovalDetail extends InstanceListItem {
@@ -106,7 +76,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       ft.code as form_type_code,
       ft.name as form_type_name,
       ft.icon as form_type_icon,
-      ft.workflow_def as workflow_def,
+      ft.field_permissions as field_permissions,
       u.avatar AS applicant_avatar
     FROM oa_approval_instances i
     LEFT JOIN oa_form_types ft ON i.form_type_id = ft.id
@@ -170,10 +140,9 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     previewFields: [],  // 详情页展示完整表单，无需字段预览
     formData: instance.form_data,
     formSchema: resolveFormSchema(instance.form_type_code, null),
-    workflowDef: mergeWorkflowDefMeta(
-      instance.workflow_def as WorkflowDef | null,
-      codeFallback?.workflowDef
-    ),
+    workflowDef: codeFallback?.workflowDef || null,
+    // fieldPermissions: DB 覆盖值（管理员配置的字段权限）
+    ...(instance.field_permissions && { fieldPermissions: instance.field_permissions }),
     erpMeta: instance.erp_meta,
     nodes: nodesResult.rows.map((n: any) => ({
       id: n.id,
@@ -210,6 +179,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       userName: c.user_name,
       avatar: c.avatar || null,
       readAt: c.read_at,
+      sourceNodeOrder: c.source_node_order ?? null,
     })),
   };
 }

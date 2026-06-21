@@ -16,7 +16,7 @@ interface ActionModalProps {
   /** 转交候选人列表（从后端获取） */
   transferUsers?: TransferUser[];
   /** 节点类型，影响弹窗标题文案 */
-  nodeType?: 'approval' | 'handle' | 'auto';
+  nodeType?: 'approval' | 'handle' | 'auto' | 'cc';
   onOk: () => Promise<void>;
   onCancel: () => void;
   onCommentChange: (comment: string) => void;
@@ -32,7 +32,7 @@ interface ActionModalProps {
 }
 
 /** 获取操作弹窗标题 */
-const getActionModalTitle = (actionType: string | null, nodeType?: 'approval' | 'handle' | 'auto') => {
+const getActionModalTitle = (actionType: string | null, nodeType?: 'approval' | 'handle' | 'auto' | 'cc') => {
   if (actionType === 'comment') return '添加评论';
   if (nodeType === 'handle') {
     switch (actionType) {

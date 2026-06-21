@@ -7,7 +7,6 @@ import { FormTypeDefinition } from '../oa.types';
 import { OA_ROLE } from '../oa-role-codes';
 import {
   beforeSubmitCustomerCredit,
-  getCustomerCreditCCRoles,
   onApprovedCustomerCredit,
   resolveCustomerCreditPreviewContext,
 } from '../customer-credit-callback';
@@ -205,14 +204,18 @@ export const customerCreditFormType: FormTypeDefinition = {
         name: '更新ERP客户授信',
         type: 'auto',
       },
+      // 节点4：抄送总经理
+      {
+        order: 4,
+        name: '抄送总经理',
+        type: 'cc' as const,
+        ccRoles: [OA_ROLE.GM],
+      },
     ],
   },
 
   // beforeSubmit: 校验提交者角色、检测营业执照状态、补全客户名称
   beforeSubmit: beforeSubmitCustomerCredit,
-
-  // getCCRoles: 固定抄送总经理
-  getCCRoles: getCustomerCreditCCRoles,
 
   // resolvePreviewContext: 流程预览上下文（当前无需注入额外字段）
   resolvePreviewContext: resolveCustomerCreditPreviewContext,

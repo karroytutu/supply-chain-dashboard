@@ -72,17 +72,19 @@ export async function submitTestProcurement(
   apiClient: { post: (path: string, body?: any) => Promise<any> },
   options: {
     erpBillId: number;
-    paymentMethod: string;
+    needPrepayment: string;
+    prepaymentAmount?: string;
     title?: string;
   }
 ): Promise<{ instanceId: number; nodes: any[] } | null> {
   try {
     const submitResult = await apiClient.post('/api/oa/instances', {
       formTypeCode: 'procurement_order',
-      title: options.title || `[E2E测试] 采购审批 ${options.paymentMethod}`,
+      title: options.title || `[E2E测试] 采购审批 ${options.needPrepayment === 'yes' ? '需预付' : '不需预付'}`,
       formData: {
         erpBillId: options.erpBillId,
-        paymentMethod: options.paymentMethod,
+        needPrepayment: options.needPrepayment,
+        ...(options.prepaymentAmount ? { prepaymentAmount: options.prepaymentAmount } : {}),
       },
     });
 

@@ -131,58 +131,105 @@ export async function updateFormTypeBasic(req: Request, res: Response): Promise<
 }
 
 /**
- * 更新表单审批流程配置（含乐观锁并发保护）
+ * 更新表单审批流程配置（管理员调整处理人/条件/签署模式等可编辑配置）
  * PUT /api/oa/admin/form-types/:code/workflow
  *
- * 请求体必须包含：workflowDef（完整流程定义）和 version（当前版本号）
- * 使用 version 作为乐观锁：UPDATE ... WHERE code = $1 AND version = $2
- * 若 affected rows = 0，返回 409 Conflict
+ * 架构：代码骨架 + DB配置分层
+ * - 代码（form-types/*.ts）定义流程骨架：节点顺序、类型、回调
+ * - 本接口保存管理员通过 UI 调整的配置：处理人、签署模式、条件、抄送角色
+ * - 运行时由 mergeWorkflowDef() 合并两层定义
  */
 export async function updateFormTypeWorkflow(req: Request, res: Response): Promise<void> {
   try {
     const { code } = req.params;
     const { workflowDef, version } = req.body;
 
-    if (!workflowDef || version === undefined) {
-      res.status(400).json(buildErrorResponse(400, '缺少 workflowDef 或 version 参数'));
+    if (!workflowDef || typeof workflowDef !== 'object' || !Array.isArray(workflowDef.nodes)) {
+      res.status(400).json(buildErrorResponse(400, 'workflowDef 必须包含 nodes 数组'));
       return;
     }
 
-    // 乐观锁：仅当版本号匹配时才更新
+    // 乐观锁：校验 version 未过期
+    if (version !== undefined) {
+      const current = await query<{ version: number }>(
+        `SELECT version FROM oa_form_types WHERE code = $1`, [code]
+      );
+      if (current.rows.length > 0 && current.rows[0].version !== version) {
+        res.status(409).json(buildErrorResponse(409, '数据已被其他用户修改，请刷新后重试'));
+        return;
+      }
+    }
+
     const result = await query(
-      `UPDATE oa_form_types
-       SET workflow_def = $1::jsonb, version = version + 1
-       WHERE code = $2 AND version = $3`,
-      [JSON.stringify(workflowDef), code, version]
+      `UPDATE oa_form_types SET workflow_def = $1, version = version + 1 WHERE code = $2`,
+      [JSON.stringify(workflowDef), code]
     );
 
     if (result.rowCount === 0) {
-      // 检查表单是否存在
-      const checkResult = await query(
-        `SELECT version FROM oa_form_types WHERE code = $1`,
-        [code]
-      );
-
-      if (checkResult.rowCount === 0) {
-        res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
-        return;
-      }
-
-      // 版本号不匹配，并发冲突
-      const currentVersion = checkResult.rows[0].version;
-      res.status(409).json({
-        code: 409,
-        message: '数据已被其他用户修改，请刷新后重试',
-        data: { currentVersion },
-      });
+      res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
       return;
     }
 
     invalidateFormTypesCache();
-    res.json(buildSuccessResponse(null, '流程配置更新成功'));
+    res.json(buildSuccessResponse(null, '流程配置已保存'));
   } catch (error) {
     log.error('管理接口-更新流程配置失败:', error);
     res.status(500).json(buildErrorResponse(500, '更新流程配置失败'));
+  }
+}
+
+/**
+ * 更新表单字段权限配置（管理员配置每个环节的字段可见/可编辑/隐藏）
+ * PATCH /api/oa/admin/form-types/:code/field-permissions
+ *
+ * 请求体：{ fieldPermissions: { initiation?: {...}, nodes?: {...} } }
+ */
+export async function updateFieldPermissions(req: Request, res: Response): Promise<void> {
+  try {
+    const { code } = req.params;
+    const { fieldPermissions } = req.body;
+
+    // 校验输入
+    if (fieldPermissions !== null && typeof fieldPermissions !== 'object') {
+      res.status(400).json(buildErrorResponse(400, 'fieldPermissions 必须为对象或 null'));
+      return;
+    }
+
+    // 校验权限值合法性
+    const validPerms = new Set(['editable', 'readonly', 'hidden']);
+    if (fieldPermissions) {
+      for (const [section, perms] of Object.entries(fieldPermissions)) {
+        if (section !== 'initiation' && section !== 'nodes') {
+          res.status(400).json(buildErrorResponse(400, `不支持的配置节: ${section}，仅允许 initiation 和 nodes`));
+          return;
+        }
+        const entries = section === 'initiation'
+          ? Object.entries(perms as Record<string, string>)
+          : Object.values(perms as Record<string, Record<string, string>>).flatMap(obj => Object.entries(obj));
+        for (const [field, perm] of entries) {
+          if (!validPerms.has(perm)) {
+            res.status(400).json(buildErrorResponse(400, `字段 ${field} 的权限值 ${perm} 不合法，仅允许 editable/readonly/hidden`));
+            return;
+          }
+        }
+      }
+    }
+
+    const result = await query(
+      `UPDATE oa_form_types SET field_permissions = $1 WHERE code = $2`,
+      [fieldPermissions ? JSON.stringify(fieldPermissions) : null, code]
+    );
+
+    if (result.rowCount === 0) {
+      res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
+      return;
+    }
+
+    invalidateFormTypesCache();
+    res.json(buildSuccessResponse(null, '字段权限已保存'));
+  } catch (error) {
+    log.error('管理接口-更新字段权限失败:', error);
+    res.status(500).json(buildErrorResponse(500, '更新字段权限失败'));
   }
 }
 

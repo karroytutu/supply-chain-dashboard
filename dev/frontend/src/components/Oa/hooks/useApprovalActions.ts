@@ -81,12 +81,14 @@ export function useApprovalActions({
 
   const canComment = useMemo(() => {
     if (!detail) return false;
-    // 终态不允许评论
-    if (!['pending', 'processing'].includes(detail.status)) return false;
-    // 当前节点审批人/处理人（会签场景需检查所有 pending 节点）
-    if (nodes.some((n) => n.status === 'pending' && n.assignedUserId === currentUser?.id)) return true;
-    // 申请人
-    if (detail.applicantId === currentUser?.id) return true;
+    const uid = currentUser?.id;
+    if (!uid) return false;
+    // 参与者：任意节点分配人（含历史已审批、当前待审批、未来节点）
+    if (nodes.some((n) => n.assignedUserId === uid)) return true;
+    // 参与者：抄送人
+    if (detail.ccUsers?.some((cc) => cc.userId === uid)) return true;
+    // 参与者：申请人
+    if (detail.applicantId === uid) return true;
     return false;
   }, [detail, nodes, currentUser?.id]);
 

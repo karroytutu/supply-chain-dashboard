@@ -105,11 +105,11 @@ export async function getErpReference(
         break;
 
       case 'staff':
-        data = await getErpStaff();
+        data = await getErpStaff(keyword || undefined);
         break;
 
       case 'payment-accounts':
-        data = await getErpPaymentAccounts();
+        data = flattenTree(await getErpPaymentAccounts());
         break;
 
       case 'asset-categories':
@@ -159,7 +159,7 @@ export async function getErpReference(
       }
 
       case 'suppliers':
-        data = await searchSuppliers();
+        data = await searchSuppliers(keyword || undefined);
         break;
 
       case 'prepayments': {
@@ -173,7 +173,7 @@ export async function getErpReference(
           res.status(400).json({ code: 400, message: 'traderId 必须为数字' });
           return;
         }
-        data = await listTraderPrepayments(parsedTraderId);
+        data = await listTraderPrepayments(parsedTraderId, keyword || undefined);
         break;
       }
 
@@ -188,7 +188,7 @@ export async function getErpReference(
           res.status(400).json({ code: 400, message: 'traderId 必须为数字' });
           return;
         }
-        data = await searchSupplierIncomes(parsedIncomeId);
+        data = await searchSupplierIncomes(parsedIncomeId, undefined, undefined, keyword || undefined);
         break;
       }
 
@@ -199,7 +199,7 @@ export async function getErpReference(
           return;
         }
         const supplierIds = supplierIdsParam.split(',').map(Number).filter(n => !isNaN(n));
-        const result = await searchPurchaseOrders({ supplierIds, states: ['UN_APPROVED'], size: 50 });
+        const result = await searchPurchaseOrders({ supplierIds, states: ['UN_APPROVED'], size: 500, keyword: keyword || undefined });
         data = result.records;
         break;
       }
@@ -450,9 +450,24 @@ export async function resolveErpReference(
           return [o.billStr, date, amountStr].filter(Boolean).join(' | ');
         };
         // 查询所有供应商的待审核订单（resolve 时可能不知道具体供应商，全量拉取后按 ID 匹配）
-        const poResult = await searchPurchaseOrders({ states: ['UN_APPROVED'], size: 200 });
+        const poResult = await searchPurchaseOrders({ states: ['UN_APPROVED'], size: 1000 });
         const poMap = new Map(poResult.records.map(o => [o.billId, buildPOLabel(o)]));
         resolved = ids.map(id => ({ id, label: String(poMap.get(id) ?? id) }));
+        break;
+      }
+
+      case 'suppliers': {
+        // 供应商 ID → 名称解析（分页循环拉取全量供应商，避免截断）
+        const allSuppliers: Awaited<ReturnType<typeof searchSuppliers>> = [];
+        let page = 1;
+        while (true) {
+          const batch = await searchSuppliers(undefined, page, 200);
+          allSuppliers.push(...batch);
+          if (batch.length < 200) break;
+          page++;
+        }
+        const supplierMap = new Map(allSuppliers.map(s => [s.originId, s.name]));
+        resolved = ids.map(id => ({ id, label: String(supplierMap.get(id) ?? id) }));
         break;
       }
 

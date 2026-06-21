@@ -43,7 +43,7 @@ export async function executeHandoverHandler(req: Request, res: Response): Promi
       return;
     }
 
-    const { sourceUserId, targetUserId, formTypeCodes, includeInFlightInstances } = req.body;
+    const { sourceUserId, targetUserId, includeInFlightInstances } = req.body;
     let { instanceIds } = req.body;
     const srcId = Number(sourceUserId);
     const tgtId = Number(targetUserId);
@@ -63,7 +63,7 @@ export async function executeHandoverHandler(req: Request, res: Response): Promi
     }
 
     const result = await executeHandover(
-      { sourceUserId: srcId, targetUserId: tgtId, formTypeCodes, instanceIds, includeInFlightInstances },
+      { sourceUserId: srcId, targetUserId: tgtId, instanceIds, includeInFlightInstances },
       userId,
       userName
     );

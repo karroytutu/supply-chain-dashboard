@@ -35,14 +35,10 @@ import type {
  * 确定性：相同操作生成相同键，支持重试幂等
  */
 export function buildProcurementIdemKey(
-  type: 'PREPAY' | 'PAID' | 'OVR',
+  type: 'PREPAY' | 'PAID',
   instanceId: number,
-  nodeOrder: number,
-  overageIndex?: number
+  nodeOrder: number
 ): string {
-  if (type === 'OVR' && overageIndex !== undefined) {
-    return `PROC-OVR-${instanceId}-${overageIndex}-${nodeOrder}`;
-  }
   return `PROC-${type}-${instanceId}-${nodeOrder}`;
 }
 
@@ -61,46 +57,51 @@ export async function searchPurchaseOrders(params: {
   endDate?: string;
   current?: number;
   size?: number;
+  keyword?: string;
 }): Promise<{ records: PurchaseOrderListItem[]; total: number }> {
   const { cid, uid } = getErpDefaults();
 
+  const body: Record<string, unknown> = {
+    billType: 'PURCHASE_ORDER',
+    filterCancelBill: false,
+    current: params.current || 1,
+    size: params.size || 100,
+    total: 0,
+    consumerIds: [],
+    supplierIds: params.supplierIds || [],
+    operIds: [],
+    warehouseIds: [],
+    deptIds: [],
+    categoryIds: [],
+    areaIds: [],
+    groupIds: [],
+    workOperIds: [],
+    signOperIds: [],
+    approveOperIds: [],
+    preDeliverIds: [],
+    preTruckIds: [],
+    routeIds: [],
+    deliveryRouteIds: [],
+    goodsIdList: [],
+    loadingStrList: [],
+    pickStrList: [],
+    cwmSourceCidList: [],
+    inDeptIdList: [],
+    outDeptIdList: [],
+    fundsSettleStates: [],
+    states: params.states || [],
+    createStartDate: params.startDate || '',
+    createEndDate: params.endDate || '',
+    customExtraFields: [],
+    cid,
+    uid,
+  };
+  // ERP 原生搜索：按单据号模糊匹配
+  if (params.keyword) body.billStr = params.keyword;
+
   const result = (await erpPost(
     '/web/purchase-order-bill/bill-list',
-    {
-      billType: 'PURCHASE_ORDER',
-      filterCancelBill: false,
-      current: params.current || 1,
-      size: params.size || 100,
-      total: 0,
-      consumerIds: [],
-      supplierIds: params.supplierIds || [],
-      operIds: [],
-      warehouseIds: [],
-      deptIds: [],
-      categoryIds: [],
-      areaIds: [],
-      groupIds: [],
-      workOperIds: [],
-      signOperIds: [],
-      approveOperIds: [],
-      preDeliverIds: [],
-      preTruckIds: [],
-      routeIds: [],
-      deliveryRouteIds: [],
-      goodsIdList: [],
-      loadingStrList: [],
-      pickStrList: [],
-      cwmSourceCidList: [],
-      inDeptIdList: [],
-      outDeptIdList: [],
-      fundsSettleStates: [],
-      states: params.states || [],
-      createStartDate: params.startDate || '',
-      createEndDate: params.endDate || '',
-      customExtraFields: [],
-      cid,
-      uid,
-    },
+    body,
     { pathPrefix: '/saas/pro/', businessType: 'purchase_order_search' }
   )) as any;
 
@@ -280,28 +281,36 @@ export async function cancelPrepayment(id: number): Promise<void> {
 /**
  * 查询可用普通预付款 (API#10)
  * GET /saas/pro/prepay/list-trader-prepay
- * 返回供应商可用的普通预付余额（不缓存，实时余额）
+ * 循环分页拉取全量 + 可选关键词内存过滤（根治截断+搜索）
  */
 export async function listTraderPrepayments(
-  traderId: number
+  traderId: number, keyword?: string
 ): Promise<AvailablePrepayment[]> {
   const { cid, uid } = getErpDefaults();
+  const allRecords: AvailablePrepayment[] = [];
+  let current = 1;
+  const pageSize = 100;
 
-  const result = (await erpGet(
-    '/prepay/list-trader-prepay',
-    {
-      current: 1,
-      size: 100,
-      type: 'PRE_PAID',
-      traderId,
-      prePayType: 'NORMAL',
-      cid,
-      uid,
-    },
-    { pathPrefix: '/saas/pro/', businessType: 'trader_prepayment_list' }
-  )) as any;
+  while (true) {
+    const result = (await erpGet(
+      '/prepay/list-trader-prepay',
+      { current, size: pageSize, type: 'PRE_PAID', traderId, prePayType: 'NORMAL', cid, uid },
+      { pathPrefix: '/saas/pro/', businessType: 'trader_prepayment_list' }
+    )) as any;
+    const records = (result?.data?.records || []) as AvailablePrepayment[];
+    allRecords.push(...records);
+    if (records.length < pageSize) break;
+    current++;
+  }
 
-  return (result?.data?.records || []) as AvailablePrepayment[];
+  if (keyword) {
+    const kw = keyword.toLowerCase();
+    return allRecords.filter(r =>
+      r.paidBillStr?.toLowerCase().includes(kw) ||
+      String(r.id).includes(keyword)
+    );
+  }
+  return allRecords;
 }
 
 // =====================================================
@@ -379,34 +388,51 @@ export async function cancelPaidBill(id: number): Promise<void> {
 /**
  * 查询供应商收入单列表 (API#12)
  * POST /saas/pro/income/new/list
- * 不缓存，实时余额
+ * 循环分页拉取全量 + 可选关键词内存过滤（根治截断+搜索）
  */
 export async function searchSupplierIncomes(
   traderId: number,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  keyword?: string
 ): Promise<SupplierIncomeRecord[]> {
   const { cid, uid } = getErpDefaults();
+  const allRecords: SupplierIncomeRecord[] = [];
+  let current = 1;
+  const pageSize = 100;
 
-  const result = (await erpPost(
-    '/income/new/list',
-    {
-      timeType: 'WORK',
-      current: 1,
-      size: 100,
-      total: 0,
-      startDate: startDate || '',
-      endDate: endDate || '',
-      states: ['NORMAL', 'APPROVED'],
-      traderType: 'SUPPLIER',
-      traderId,
-      cid,
-      uid,
-    },
-    { pathPrefix: '/saas/pro/', businessType: 'supplier_income_list' }
-  )) as any;
+  while (true) {
+    const result = (await erpPost(
+      '/income/new/list',
+      {
+        timeType: 'WORK',
+        current,
+        size: pageSize,
+        total: 0,
+        startDate: startDate || '',
+        endDate: endDate || '',
+        states: ['NORMAL', 'APPROVED'],
+        traderType: 'SUPPLIER',
+        traderId,
+        cid,
+        uid,
+      },
+      { pathPrefix: '/saas/pro/', businessType: 'supplier_income_list' }
+    )) as any;
+    const records = (result?.data?.records || []) as SupplierIncomeRecord[];
+    allRecords.push(...records);
+    if (records.length < pageSize) break;
+    current++;
+  }
 
-  return (result?.data?.records || []) as SupplierIncomeRecord[];
+  if (keyword) {
+    const kw = keyword.toLowerCase();
+    return allRecords.filter(r =>
+      r.billStr?.toLowerCase().includes(kw) ||
+      String(r.id).includes(keyword)
+    );
+  }
+  return allRecords;
 }
 
 // =====================================================
@@ -470,28 +496,37 @@ export async function getDailySalesData(
 /**
  * 查询供应商欠款列表 (API#14)
  * GET /saas/pro/invoice/list-debt-list?traderType=SUPPLIER
- * 不缓存，实时应付
+ * 循环分页拉取全量 + 不缓存，实时应付
  */
 export async function searchSupplierDebts(
   traderId: number
 ): Promise<SupplierDebtRecord[]> {
   const { cid, uid } = getErpDefaults();
+  const allRecords: SupplierDebtRecord[] = [];
+  let current = 1;
+  const pageSize = 100;
 
-  const result = (await erpGet(
-    '/invoice/list-debt-list',
-    {
-      size: 100,
-      total: 0,
-      current: 1,
-      traderId,
-      traderType: 'SUPPLIER',
-      cid,
-      uid,
-    },
-    { pathPrefix: '/saas/pro/', businessType: 'supplier_debt_list' }
-  )) as any;
+  while (true) {
+    const result = (await erpGet(
+      '/invoice/list-debt-list',
+      {
+        size: pageSize,
+        total: 0,
+        current,
+        traderId,
+        traderType: 'SUPPLIER',
+        cid,
+        uid,
+      },
+      { pathPrefix: '/saas/pro/', businessType: 'supplier_debt_list' }
+    )) as any;
+    const records = (result?.data?.records || []) as SupplierDebtRecord[];
+    allRecords.push(...records);
+    if (records.length < pageSize) break;
+    current++;
+  }
 
-  return (result?.data?.records || []) as SupplierDebtRecord[];
+  return allRecords;
 }
 
 // =====================================================
@@ -501,18 +536,20 @@ export async function searchSupplierDebts(
 /**
  * 查询供应商列表 (API#15)
  * POST /redcoast/supplier/search
- * 缓存 5 分钟（LOW_FREQUENCY）
+ * 支持关键词搜索（queryText），缓存 5 分钟（LOW_FREQUENCY）
  */
-export async function searchSuppliers(): Promise<ErpSupplier[]> {
-  const cacheKey = CACHE_KEY.ERP_PURCHASE_SUPPLIERS;
+export async function searchSuppliers(keyword?: string, page: number = 1, size: number = 50): Promise<ErpSupplier[]> {
+  const cacheKey = CACHE_KEY.ERP_PURCHASE_SUPPLIERS(`${keyword || ''}:${page}:${size}`);
   const cached = cache.get<ErpSupplier[]>(cacheKey);
   if (cached) return cached;
 
   const { cid, uid } = getErpDefaults();
+  const body: Record<string, unknown> = { current: page, size, state: 0, cid, uid };
+  if (keyword) body.queryText = keyword;
 
   const result = (await erpPost(
     '/supplier/search',
-    { current: 1, size: 200, state: 0, cid, uid },
+    body,
     { pathPrefix: '/redcoast/', businessType: 'supplier_search' }
   )) as any;
 

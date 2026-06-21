@@ -3,7 +3,7 @@
  * 处理 asset_search、erp_department、erp_staff、erp_payment_account、erp_asset_category 类型字段
  *
  * 搜索策略：
- * - 服务端关键词类型（SERVER_KEYWORD_TYPES）：防抖 300ms 向后端发请求过滤，最小关键词 2 字符
+ * - 服务端关键词类型（SERVER_KEYWORD_TYPES）：防抖 300ms 向后端发请求过滤，最小关键词 1 字符
  * - 客户端过滤类型（其他类型）：Ant Design 原生 filterOption 即时本地过滤，零额外 API 调用
  *
  * 性能优化：
@@ -63,6 +63,22 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
         : `¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       return [billStr, date, amountStr].filter(Boolean).join(' | ');
     }
+    // 预付款单富标签：单号 | ¥可用金额
+    if (type === 'prepayments') {
+      const billStr = item.paidBillStr || '';
+      const amount = Number(item.availableAmount);
+      const amountStr = isNaN(amount) ? ''
+        : `¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      return [billStr, amountStr].filter(Boolean).join(' | ');
+    }
+    // 供应商收入单富标签：单号 | ¥剩余金额
+    if (type === 'supplier-incomes') {
+      const billStr = item.billStr || '';
+      const amount = Number(item.leftAmount);
+      const amountStr = isNaN(amount) ? ''
+        : `¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      return [billStr, amountStr].filter(Boolean).join(' | ');
+    }
     return String(item[labelField] ?? '');
   }, [field.type, field.displayFields]);
 
@@ -77,6 +93,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
 
     const cascadeKeyPart = (erpType === 'settlement-orders' && cascadeValue) ? `:cid=${cascadeValue}`
       : (erpType === 'purchase-orders' && cascadeValue) ? `:sid=${cascadeValue}`
+      : ((erpType === 'prepayments' || erpType === 'supplier-incomes') && cascadeValue) ? `:tid=${cascadeValue}`
       : '';
     // 缓存键需区分 includeAllStates 模式，避免同关键词返回错误模式的缓存
     const stateKeyPart = (erpType === 'customers' && includeAllStates) ? ':all' : '';
@@ -97,6 +114,10 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
       // 采购订单级联：传递供应商 ID
       if (erpType === 'purchase-orders' && cascadeValue) {
         extraParams.supplierIds = String(cascadeValue);
+      }
+      // 预付款/供应商收入单级联：传递供应商 ID 作为 traderId
+      if ((erpType === 'prepayments' || erpType === 'supplier-incomes') && cascadeValue) {
+        extraParams.traderId = String(cascadeValue);
       }
       // 客户档案修改场景：搜索包含所有状态的客户（含停用/待确认）
       if (erpType === 'customers' && includeAllStates) {
@@ -194,7 +215,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
   const notFound = loading ? <Spin size="small" /> : '无数据';
   // 级联禁用态占位符：根据级联父字段类型显示不同提示
   const disabledPlaceholder = field.cascadeFrom
-    ? (erpType === 'purchase-orders' ? '请先选择供应商' : '请先选择客户')
+    ? (erpType === 'purchase-orders' || erpType === 'prepayments' || erpType === 'supplier-incomes' ? '请先选择供应商' : '请先选择客户')
     : `请选择${field.label}`;
 
   if (field.type === 'erp_asset_category') {
@@ -202,6 +223,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
       <Select showSearch value={value as number | undefined} onChange={handleChange}
         onSearch={handleSearch} loading={loading} placeholder={`请选择${field.label}`}
         filterOption={false} notFoundContent={notFound}
+        style={{ width: '100%' }}
         options={options.map((opt) => ({ label: opt.label, value: opt.value as number }))}
       />
     );
@@ -246,6 +268,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
       filterOption={SERVER_KEYWORD_TYPES.has(erpType || '') ? false : (input, option) =>
         (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
       } disabled={isDisabled} notFoundContent={notFound}
+      style={{ width: '100%' }}
       options={options.map((opt) => ({ label: opt.label, value: opt.value as string | number }))}
     />
   );

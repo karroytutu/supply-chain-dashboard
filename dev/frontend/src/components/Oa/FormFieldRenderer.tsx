@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Typography } from 'antd';
+import { Tag, Typography, Image } from 'antd';
 import type { FormField } from '@/types/oa';
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import { getFieldLinkUrl } from '@/utils/oa';
@@ -13,6 +13,12 @@ import { resolveStoredName } from './utils/resolveStoredName';
 import styles from './FormFieldRenderer.less';
 
 const { Text } = Typography;
+
+/** 根据文件名后缀判断是否为图片 */
+function isImageFileName(name: string): boolean {
+  const ext = (name || '').split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext || '');
+}
 
 /** 字段渲染器 */
 const FieldRenderer: React.FC<{
@@ -78,15 +84,43 @@ const FieldRenderer: React.FC<{
       );
     }
     case 'upload': {
-      const files = value as Array<{ name: string; url: string }>;
+      const files = value as Array<{ name: string; url: string; thumbUrl?: string }>;
       if (!files || files.length === 0) return <Text type="secondary">-</Text>;
+
+      // 容错：兼容历史脏数据（url 缺失时回退到 thumbUrl base64 预览）
+      const getImageSrc = (f: typeof files[number]) => f.url || f.thumbUrl || '';
+
+      const imageFiles = files.filter(f => isImageFileName(f.name));
+      const otherFiles = files.filter(f => !isImageFileName(f.name));
+
       return (
         <div className={styles.fileList}>
-          {files.map((file, index) => (
-            <a key={index} href={file.url} target="_blank" rel="noopener noreferrer">
-              <FileTextOutlined /> {file.name}
-            </a>
-          ))}
+          {imageFiles.length > 0 && (
+            <Image.PreviewGroup>
+              <div className={styles.imageGroup}>
+                {imageFiles.map((file, index) => (
+                  <Image
+                    key={index}
+                    src={getImageSrc(file)}
+                    alt={file.name}
+                    width={60}
+                    height={60}
+                    style={{ objectFit: 'cover', borderRadius: 4 }}
+                  />
+                ))}
+              </div>
+            </Image.PreviewGroup>
+          )}
+          {otherFiles.map((file, index) => {
+            const href = file.url || file.thumbUrl;
+            return href ? (
+              <a key={`doc-${index}`} href={href} target="_blank" rel="noopener noreferrer">
+                <FileTextOutlined /> {file.name}
+              </a>
+            ) : (
+              <Text key={`doc-${index}`}><FileTextOutlined /> {file.name}</Text>
+            );
+          })}
         </div>
       );
     }
@@ -120,6 +154,31 @@ const FieldRenderer: React.FC<{
         }
       }
       return <Text>{String(value)}</Text>;
+    }
+    case 'erp_prepayment':
+    case 'erp_supplier_income': {
+      // 多选字段：值可能是数组或逗号分隔字符串
+      const ids: unknown[] = Array.isArray(value)
+        ? value
+        : typeof value === 'string' && value
+          ? value.split(',').map(s => s.trim()).filter(Boolean)
+          : [];
+      if (ids.length === 0) return <Text type="secondary">-</Text>;
+      const erpType = field.searchApi ? ERP_SEARCH_API_MAP[field.searchApi] : null;
+      if (erpType) {
+        return (
+          <div>
+            {ids.map((id, i) => {
+              const cacheKey = `${erpType}:${id}`;
+              if (resolvedMap?.[cacheKey]) {
+                return <Tag key={i}>{resolvedMap[cacheKey]}</Tag>;
+              }
+              return <Tag key={i}><ErpNameDisplay erpType={erpType} id={id} /></Tag>;
+            })}
+          </div>
+        );
+      }
+      return <Text>{Array.isArray(value) ? value.join(', ') : String(value)}</Text>;
     }
     case 'erp_settlement_order': {
       const orderIds = value as number[];

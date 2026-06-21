@@ -82,8 +82,10 @@ export const assetTransferFormType: FormTypeDefinition = {
   },
 
   workflowDef: {
-    nodes: [{ order: 1, name: '行政专员审批', type: 'approval', handler: { roleCode: OA_ROLE.ADMIN_STAFF }, signMode: 'or' }],
-    ccRoles: [OA_ROLE.GM],
+    nodes: [
+      { order: 1, name: '行政专员审批', type: 'approval', handler: { roleCode: OA_ROLE.ADMIN_STAFF }, signMode: 'or' },
+      { order: 2, name: '抄送总经理', type: 'cc' as const, ccRoles: [OA_ROLE.GM] },
+    ],
   },
 
   /** 提交前校验：确保每行都选择了资产 */

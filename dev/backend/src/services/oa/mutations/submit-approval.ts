@@ -56,12 +56,12 @@ export async function submitApproval(
 
   // 4. 数据库事务写入
   let autoNodeToExecute: OaNodeRow | null = null;
-  const firstNodeIsAuto = filteredNodes[0].type === 'auto';
+  const firstNodeIsAutoOrCc = ['auto', 'cc'].includes(filteredNodes[0].type);
   const hasAutoNode = filteredNodes.some(n => n.type === 'auto');
 
   const result = await transaction(async client => {
     // 插入审批实例
-    const initialStatus = firstNodeIsAuto ? 'processing' : 'pending';
+    const initialStatus = firstNodeIsAutoOrCc ? 'processing' : 'pending';
     const initialNodeOrder = filteredNodes[0].order;
     const instanceResult = await client.query<OaInstanceRow>(
       `INSERT INTO oa_approval_instances
@@ -105,6 +105,17 @@ export async function submitApproval(
         continue;
       }
 
+      if (node.type === 'cc') {
+        // 抄送环节：无处理人，系统自动执行
+        await client.query(
+          `INSERT INTO oa_approval_nodes
+            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config, sign_mode)
+           VALUES ($1, $2, $3, $4, NULL, NULL, '系统', NULL, 'pending', NULL, NULL, NULL)`,
+          [instance.id, node.order, node.name, node.type]
+        );
+        continue;
+      }
+
       // 解析处理人规则
       const { userIds, signMode } = await resolveHandlerRule(node, userId);
 
@@ -125,7 +136,7 @@ export async function submitApproval(
           [
             instance.id, node.order, node.name, node.type,
             node.handler?.roleCode || null, uid, approverName,
-            node.inputSchema ? JSON.stringify(node.inputSchema) : null,
+            null,  // inputSchema 已废弃，始终为 NULL
             deadlineAt, timeoutConfigJson,
           ]
         );
@@ -143,7 +154,7 @@ export async function submitApproval(
             [
               instance.id, node.order, node.name, node.type,
               node.handler?.roleCode || null, uid, approverName,
-              node.inputSchema ? JSON.stringify(node.inputSchema) : null,
+              null,  // inputSchema 已废弃，始终为 NULL
               deadlineAt, timeoutConfigJson, signMode,
             ]
           );
@@ -159,10 +170,10 @@ export async function submitApproval(
       [instance.id, userId, userName]
     );
 
-    // 如果第一个节点是 auto 类型，获取 auto 节点行用于事务后回调
-    if (firstNodeIsAuto) {
+    // 如果第一个节点是 auto 或 cc 类型，获取该节点行用于事务后回调
+    if (firstNodeIsAutoOrCc) {
       const autoNodeResult = await client.query<OaNodeRow>(
-        `SELECT * FROM oa_approval_nodes WHERE instance_id = $1 AND node_type = 'auto' AND status = 'pending' ORDER BY node_order LIMIT 1`,
+        `SELECT * FROM oa_approval_nodes WHERE instance_id = $1 AND node_type IN ('auto', 'cc') AND status = 'pending' ORDER BY node_order LIMIT 1`,
         [instance.id]
       );
       if (autoNodeResult.rows.length > 0) {
@@ -185,7 +196,7 @@ export async function submitApproval(
   }
 
   // 如果第一个节点是 auto 类型，确保 erp_meta 状态为 processing
-  if (firstNodeIsAuto) {
+  if (firstNodeIsAutoOrCc && filteredNodes[0].type === 'auto') {
     await query(
       `UPDATE oa_approval_instances SET erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"processing"') WHERE id = $1`,
       [result.id]
@@ -204,11 +215,18 @@ export async function submitApproval(
       req.formData as Record<string, unknown>
     ).catch(err => log.error('创建壳实例任务入队失败:', err));
 
-    if (firstNodeIsAuto && autoNodeToExecute && formType.onApproved) {
-      // auto 节点回调内部会自行通知下一个审批人，无需再发提交通知
+    if (firstNodeIsAutoOrCc && autoNodeToExecute) {
+      // auto/cc 节点回调：auto 节点内部会自行通知下一个审批人
+      // cc 节点执行后也会自动流转到下一节点
       await enqueueExecuteAutoNode(result.id, autoNodeToExecute.id).catch(err =>
-        log.error(`submitApproval auto节点任务入队失败:`, err)
+        log.error(`submitApproval auto/cc节点任务入队失败:`, err)
       );
+      // CC 节点首节点时，仍需发提交通知给后续人工审批人（CC 执行后会自动通知）
+      if (filteredNodes[0].type === 'cc') {
+        sendSubmitNotifications(result, formType).catch(err => {
+          log.error('提交通知任务入队失败:', err);
+        });
+      }
     } else {
       sendSubmitNotifications(result, formType).catch(err => {
         log.error('提交通知任务入队失败:', err);

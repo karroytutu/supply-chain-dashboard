@@ -151,17 +151,15 @@ export async function getErpAssetCategories(): Promise<ErpAssetCategory[]> {
  *   phone   - 联系电话
  *   isAdmin - 是否管理员
  */
-export async function getErpStaff(): Promise<ErpStaff[]> {
+export async function getErpStaff(keyword?: string): Promise<ErpStaff[]> {
   const { cid, uid } = getErpDefaults();
+  const body: Record<string, unknown> = { size: 1000, current: 1, cid, uid };
+  // ERP 原生搜索：按姓名/手机号/编码模糊匹配（注意 keyWord 大写W）
+  if (keyword) body.keyWord = keyword;
 
   const result = await erpPost<ErpPageData<ErpStaff>>(
     '/staff/list-staff',
-    {
-      size: 200,
-      current: 1,
-      cid,
-      uid,
-    },
+    body,
     {
       pathPrefix: '/saas/pro/',
       businessType: 'fixed_asset_staff',

@@ -11,6 +11,7 @@ import type {
   OaFormTypeRow,
   FormTypeDefinition,
   FormSchema,
+  WorkflowDef,
   ApprovalStatus,
   ApprovalNodeStatus,
   OaNodeRow,
@@ -55,6 +56,48 @@ export function resolveFormSchema(code: string, dbFallback?: FormSchema | null):
 }
 
 /**
+ * 从代码注册表解析 workflowDef（代码提供骨架，DB 提供可编辑配置）。
+ * 运行时合并：节点顺序/类型取自代码，处理人/条件/签署模式取自 DB 覆盖值。
+ */
+function resolveWorkflowDef(code: string, dbOverride?: WorkflowDef | null): WorkflowDef {
+  const codeDef = getCodeFormTypeByCode(code)?.workflowDef;
+  if (codeDef && dbOverride) {
+    return mergeWorkflowDef(codeDef, dbOverride);
+  }
+  return codeDef ?? dbOverride ?? { nodes: [] };
+}
+
+/**
+ * 合并代码骨架与 DB 配置覆盖
+ * 结构字段（order、type）始终取自代码；配置字段（handler、signMode、condition、ccRoles、name、timeout）取自 DB。
+ * DB 无覆盖时回退到代码默认值。
+ */
+export function mergeWorkflowDef(codeDef: WorkflowDef, dbOverride: WorkflowDef | null): WorkflowDef {
+  if (!dbOverride?.nodes?.length) return codeDef;
+
+  const dbByOrder = new Map(dbOverride.nodes.map(n => [n.order, n]));
+
+  const mergedNodes = codeDef.nodes.map(codeNode => {
+    const dbNode = dbByOrder.get(codeNode.order);
+    if (!dbNode) return codeNode;
+
+    return {
+      ...codeNode,
+      // 配置字段：DB 覆盖优先，未配置时回退代码默认
+      name: dbNode.name ?? codeNode.name,
+      handler: dbNode.handler ?? codeNode.handler,
+      signMode: dbNode.signMode ?? codeNode.signMode,
+      condition: dbNode.condition ?? codeNode.condition,
+      ccRoles: dbNode.ccRoles ?? codeNode.ccRoles,
+      timeout: dbNode.timeout ?? codeNode.timeout,
+      // fieldPermissions / fieldOptionFilter：始终取自代码（开发者配置）
+    };
+  });
+
+  return { nodes: mergedNodes };
+}
+
+/**
  * 将数据库行映射为表单类型对象
  */
 export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
@@ -70,18 +113,19 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     version: row.version,
     // formSchema: 代码为唯一来源，DB 列已废弃
     formSchema: resolveFormSchema(row.code, row.form_schema),
-    // workflowDef: DB 为运行时主源（支持管理后台编辑），代码作为回退
-    workflowDef: row.workflow_def || codeDefinition?.workflowDef || { nodes: [] },
+    // workflowDef: 代码提供骨架（节点顺序/类型），DB 提供可编辑配置（处理人/条件/签署模式）
+    workflowDef: resolveWorkflowDef(row.code, row.workflow_def),
     ...(row.allowed_roles && { allowedRoles: row.allowed_roles }),
     ...(row.data_read_roles && { dataReadRoles: row.data_read_roles }),
     ...(row.data_export_roles && { dataExportRoles: row.data_export_roles }),
     ...(codeDefinition?.beforeSubmit && { beforeSubmit: codeDefinition.beforeSubmit }),
     ...(codeDefinition?.onNodeCompleted && { onNodeCompleted: codeDefinition.onNodeCompleted }),
     ...(codeDefinition?.onApproved && { onApproved: codeDefinition.onApproved }),
-    ...(codeDefinition?.getCCRoles && { getCCRoles: codeDefinition.getCCRoles }),
     ...(codeDefinition?.resolvePreviewContext && {
       resolvePreviewContext: codeDefinition.resolvePreviewContext,
     }),
+    // fieldPermissions: DB 覆盖值（管理员通过表单管理页面配置）
+    ...(row.field_permissions && { fieldPermissions: row.field_permissions }),
   };
 }
 
@@ -135,6 +179,7 @@ export async function getCurrentApproverNode(
      WHERE n.instance_id = $1
        AND n.assigned_user_id = $2
        AND n.status = 'pending'
+       AND n.node_type IN ('approval', 'handle')
        AND n.node_order = i.current_node_order
      LIMIT 1`;
   const result = client
@@ -156,4 +201,22 @@ export async function isApplicant(instanceId: number, userId: number): Promise<b
     [instanceId, userId]
   );
   return result.rows.length > 0;
+}
+
+/**
+ * 检查用户是否为审批流程参与者（申请人 / 任意节点分配人 / 抄送人）
+ * 用于评论权限校验，不影响审批/拒绝/转交等操作权限
+ */
+export async function isApprovalParticipant(
+  instanceId: number, userId: number
+): Promise<boolean> {
+  const result = await query<{ is_participant: boolean }>(
+    `SELECT (
+       EXISTS(SELECT 1 FROM oa_approval_instances WHERE id = $1 AND applicant_id = $2)
+       OR EXISTS(SELECT 1 FROM oa_approval_nodes WHERE instance_id = $1 AND assigned_user_id = $2)
+       OR EXISTS(SELECT 1 FROM oa_approval_cc WHERE instance_id = $1 AND user_id = $2)
+     ) AS is_participant`,
+    [instanceId, userId]
+  );
+  return result.rows[0].is_participant;
 }

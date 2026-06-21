@@ -60,9 +60,11 @@ import {
   listFormTypesForAdmin,
   updateFormTypeBasic,
   updateFormTypeWorkflow,
+  updateFieldPermissions,
   listRolesForAdmin,
 } from '../controllers/oa-form-type-admin.controller';
 import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
+import { uploadOaAttachment, getOaAttachmentUrl } from '../middleware/oa-attachment-upload';
 
 const router = Router();
 
@@ -133,6 +135,16 @@ router.post(
       if (formType.resolvePreviewContext) {
         const { contextFields } = await formType.resolvePreviewContext(enrichedData, userId);
         enrichedData = { ...enrichedData, ...contextFields };
+      }
+
+      // 安全检测：条件节点需要 resolvePreviewContext 才能正确预览
+      const hasConditionNodes = formType.workflowDef.nodes.some(n => n.condition);
+      if (hasConditionNodes && !formType.resolvePreviewContext) {
+        log.warn(
+          `[流程预览] 表单 ${code} 有条件审批环节但未配置 resolvePreviewContext，` +
+          `条件判断可能不准确。如果条件字段来自用户直接输入则无影响，` +
+          `如果来自外部系统计算则需要补充 resolvePreviewContext。`
+        );
       }
 
       // 2. 条件过滤：根据丰富的上下文过滤出可见节点
@@ -408,6 +420,31 @@ router.post(
 );
 
 // =====================================================
+// OA 附件上传（通用，适用于所有表单的 upload 字段）
+// =====================================================
+
+router.post(
+  '/upload-attachment',
+  requirePermission('oa:read'),
+  uploadOaAttachment.array('files', 10),
+  async (req: Request, res: Response) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        res.status(400).json({ code: 400, message: '请上传文件' });
+        return;
+      }
+      const urls = files.map(f => getOaAttachmentUrl(f.filename));
+      res.json({ code: 200, data: { urls } });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ code: 500, message: error instanceof Error ? error.message : '上传失败' });
+    }
+  }
+);
+
+// =====================================================
 // 数据管理接口
 // =====================================================
 
@@ -448,6 +485,9 @@ router.patch('/admin/form-types/:code', requirePermission('oa:form:manage'), upd
 
 // 更新表单审批流程配置（含乐观锁）
 router.put('/admin/form-types/:code/workflow', requirePermission('oa:form:manage'), updateFormTypeWorkflow);
+
+// 更新表单字段权限配置（管理员配置每个环节的字段可见/可编辑/隐藏）
+router.patch('/admin/form-types/:code/field-permissions', requirePermission('oa:form:manage'), updateFieldPermissions);
 
 // 获取系统所有岗位列表（供配置审批人时使用）
 router.get('/admin/roles', requirePermission('oa:form:manage'), listRolesForAdmin);

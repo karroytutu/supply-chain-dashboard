@@ -87,7 +87,7 @@ const HandoverPage: React.FC = () => {
             includeInFlightInstances: selectedInstanceIds.length > 0,
           });
           message.success(
-            `交接完成！更新了 ${result.formTypesUpdated} 个流程定义、${result.instancesUpdated} 个在途审批单、${result.nodesReassigned} 个节点`
+            `交接完成！更新了 ${result.instancesUpdated} 个在途审批单`
           );
           setScanResult(null);
           setSelectedCodes([]);
@@ -143,7 +143,7 @@ const HandoverPage: React.FC = () => {
       key: 'scope',
       render: (_: unknown, record: HandoverHistoryItem) => {
         const instanceCount = record.affectedInstanceIds?.length ?? 0;
-        return `${record.formTypesUpdated}个表单 ${record.instancesUpdated}个审批单 ${record.nodesReassigned}个节点${instanceCount > 0 ? `（含${instanceCount}个实例）` : ''}`;
+        return `${record.instancesUpdated}个审批单${instanceCount > 0 ? `（含${instanceCount}个实例）` : ''}`;
       },
     },
   ];

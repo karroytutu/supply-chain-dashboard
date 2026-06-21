@@ -22,6 +22,7 @@ const { mockMessage, mockOaApi } = vi.hoisted(() => ({
     countersign: vi.fn(),
     withdraw: vi.fn(),
     updateInstance: vi.fn(),
+    addComment: vi.fn(),
     getTransferCandidates: vi.fn(),
   },
 }));
@@ -186,6 +187,99 @@ describe('canWithdraw 权限计算', () => {
     );
 
     expect(result.current.canWithdraw).toBe(false);
+  });
+});
+
+// ==================== B2. 权限计算 — canComment ====================
+
+describe('canComment 权限计算', () => {
+  it('detail=null → false', () => {
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail: null, nodes: [] }),
+    );
+    expect(result.current.canComment).toBe(false);
+  });
+
+  it('终态 status=approved 的参与者 → true', () => {
+    const detail = makeDetail({ status: 'approved', applicantId: 100 });
+    const nodes = [makeNode({ assignedUserId: 100, status: 'approved' })];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+    expect(result.current.canComment).toBe(true);
+  });
+
+  it('终态 status=rejected 的参与者 → true', () => {
+    const detail = makeDetail({ status: 'rejected', applicantId: 100 });
+    const nodes = [makeNode({ assignedUserId: 100, status: 'rejected' })];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+    expect(result.current.canComment).toBe(true);
+  });
+
+  it('当前 pending 节点审批人 → true', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 999 });
+    const nodes = [makeNode({ assignedUserId: 100, status: 'pending' })];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+    expect(result.current.canComment).toBe(true);
+  });
+
+  it('历史已通过节点分配人（status=approved，非当前审批人）→ true', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 999 });
+    const nodes = [
+      makeNode({ id: 1, assignedUserId: 100, status: 'approved' }),
+      makeNode({ id: 2, assignedUserId: 200, status: 'pending' }),
+    ];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+    expect(result.current.canComment).toBe(true);
+  });
+
+  it('未来 pending 节点分配人（非当前节点）→ true', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 999, currentNodeOrder: 1 });
+    const nodes = [
+      makeNode({ id: 1, nodeOrder: 1, assignedUserId: 200, status: 'pending' }),
+      makeNode({ id: 2, nodeOrder: 2, assignedUserId: 100, status: 'pending' }),
+    ];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+    expect(result.current.canComment).toBe(true);
+  });
+
+  it('抄送人（在 ccUsers 中）→ true', () => {
+    const detail = makeDetail({
+      status: 'pending',
+      applicantId: 999,
+      ccUsers: [{ id: 1, userId: 100, userName: '测试用户', readAt: null }],
+    });
+    const nodes = [makeNode({ assignedUserId: 200, status: 'pending' })];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+    expect(result.current.canComment).toBe(true);
+  });
+
+  it('申请人 → true', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    const nodes = [makeNode({ assignedUserId: 200, status: 'pending' })];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+    expect(result.current.canComment).toBe(true);
+  });
+
+  it('非参与者 → false', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 999 });
+    const nodes = [makeNode({ assignedUserId: 200, status: 'pending' })];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+    expect(result.current.canComment).toBe(false);
   });
 });
 

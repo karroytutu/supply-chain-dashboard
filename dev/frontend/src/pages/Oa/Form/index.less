@@ -70,6 +70,88 @@
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  // ========== Disabled 字段可读性优化 ==========
+  // 覆盖 Ant Design 默认 disabled 样式（灰底+浅色文字），
+  // 改为浅底+正常深色文字，保留输入框外观
+  :global {
+    // Input / TextArea
+    .ant-input[disabled],
+    .ant-input-disabled {
+      color: rgba(0, 0, 0, 0.85) !important;
+      background-color: #fafafa !important;
+      cursor: default !important;
+    }
+
+    .ant-input-textarea textarea[disabled] {
+      color: rgba(0, 0, 0, 0.85) !important;
+      background-color: #fafafa !important;
+      cursor: default !important;
+    }
+
+    // InputNumber（含公式字段）
+    .ant-input-number-disabled {
+      color: rgba(0, 0, 0, 0.85) !important;
+      background-color: #fafafa !important;
+      cursor: default !important;
+
+      .ant-input-number-input {
+        color: rgba(0, 0, 0, 0.85) !important;
+        cursor: default !important;
+      }
+
+      .ant-input-number-group-addon {
+        color: rgba(0, 0, 0, 0.65) !important;
+        background-color: #fafafa !important;
+      }
+    }
+
+    // Select / Multi-Select
+    .ant-select-disabled:not(.ant-select-customize-input) .ant-select-selector {
+      color: rgba(0, 0, 0, 0.85) !important;
+      background-color: #fafafa !important;
+      cursor: default !important;
+    }
+
+    .ant-select-disabled .ant-select-selection-item {
+      color: rgba(0, 0, 0, 0.85) !important;
+      border-color: #d9d9d9 !important;
+    }
+
+    // DatePicker / RangePicker
+    .ant-picker-disabled {
+      color: rgba(0, 0, 0, 0.85) !important;
+      background-color: #fafafa !important;
+      cursor: default !important;
+
+      .ant-picker-input > input {
+        color: rgba(0, 0, 0, 0.85) !important;
+        cursor: default !important;
+      }
+
+      .ant-picker-range-separator {
+        color: rgba(0, 0, 0, 0.45) !important;
+      }
+    }
+
+    // 禁用 hover 时边框不变色
+    .ant-input[disabled]:hover,
+    .ant-input-disabled:hover {
+      border-color: #d9d9d9 !important;
+    }
+
+    .ant-input-number-disabled:hover {
+      border-color: #d9d9d9 !important;
+    }
+
+    .ant-select-disabled:hover:not(.ant-select-customize-input) .ant-select-selector {
+      border-color: #d9d9d9 !important;
+    }
+
+    .ant-picker-disabled:hover {
+      border-color: #d9d9d9 !important;
+    }
+  }
 }
 
 .amountUpper {

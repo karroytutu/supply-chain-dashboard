@@ -15,6 +15,7 @@ const ERP_FIELD_TYPES = new Set([
   'erp_payment_account', 'erp_asset_category', 'asset_search', 'erp_settlement_order',
   'erp_grade', 'erp_group', 'erp_area',
   'erp_supplier', 'erp_purchase_order',
+  'erp_prepayment', 'erp_supplier_income',
 ]);
 
 export interface ErpResolvedMap {

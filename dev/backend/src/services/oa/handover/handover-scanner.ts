@@ -8,7 +8,6 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('HandoverScanner');
 
 import { appQuery as query } from '../../../db/appPool';
-import type { WorkflowDef } from '../oa.types';
 
 // =====================================================
 // 类型定义
@@ -47,11 +46,15 @@ export interface HandoverScanResult {
 // =====================================================
 
 /**
- * 扫描指定用户在流程定义和在途审批单中的影响范围
+ * 扫描指定用户在在途审批单中的影响范围
+ *
+ * 注：流程定义交接功能已停用（workflowDef 改为代码唯一来源，
+ * 且所有表单均使用 roleCode 而非 userId，流程定义层无用户级交接需求）。
+ * 交接仅作用于在途审批单的节点重分配。
  */
 export async function scanHandoverImpact(sourceUserId: number): Promise<HandoverScanResult> {
-  // 1. 扫描流程定义：找出 handler.userId 匹配的表单类型
-  const formTypes = await scanAffectedFormTypes(sourceUserId);
+  // 1. 流程定义扫描已停用（workflowDef 改为代码唯一来源，所有表单使用 roleCode）
+  const formTypes: AffectedFormType[] = [];
 
   // 2. 扫描在途实例：找出 assigned_user_id 匹配的 pending 节点
   const instances = await scanInFlightInstances(sourceUserId);
@@ -72,34 +75,12 @@ export async function scanHandoverImpact(sourceUserId: number): Promise<Handover
 
 /**
  * 扫描受影响的流程定义
+ *
+ * @deprecated workflowDef 已改为代码唯一来源，且所有表单均使用 roleCode，
+ * 流程定义层无用户级交接需求。交接仅作用于在途审批单。
  */
-async function scanAffectedFormTypes(sourceUserId: number): Promise<AffectedFormType[]> {
-  const result = await query<{ code: string; name: string; category: string; workflow_def: WorkflowDef }>(
-    `SELECT code, name, category, workflow_def
-     FROM oa_form_types
-     WHERE is_active = true
-     ORDER BY category, sort_order`
-  );
-
-  const affected: AffectedFormType[] = [];
-
-  for (const row of result.rows) {
-    const nodes = row.workflow_def?.nodes || [];
-    const matchedNodes = nodes
-      .filter(node => node.handler?.userId === sourceUserId)
-      .map(node => ({ order: node.order, name: node.name }));
-
-    if (matchedNodes.length > 0) {
-      affected.push({
-        code: row.code,
-        name: row.name,
-        category: row.category,
-        affectedNodes: matchedNodes,
-      });
-    }
-  }
-
-  return affected;
+async function scanAffectedFormTypes(_sourceUserId: number): Promise<AffectedFormType[]> {
+  return [];
 }
 
 /**
@@ -207,9 +188,7 @@ export async function getHandoverHistory(
       sourceUserName: row.source_user_name,
       targetUserName: row.target_user_name,
       operatorName: row.operator_name,
-      formTypesUpdated: row.form_types_updated,
       instancesUpdated: row.instances_updated,
-      nodesReassigned: row.nodes_reassigned,
       affectedFormTypeCodes: row.affected_form_type_codes,
       affectedInstanceIds: row.affected_instance_ids ?? [],
       createdAt: row.created_at,

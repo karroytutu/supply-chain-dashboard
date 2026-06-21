@@ -81,7 +81,6 @@ import { upsertHoldMeta } from '../erp-debt/ar-hold-meta.service';
 import { existsSync } from 'fs';
 import { createDeferredUploadAfterApproval } from '../credit-license';
 import {
-  getCustomerCreditCCRoles,
   resolveCustomerCreditPreviewContext,
   beforeSubmitCustomerCredit,
   onApprovedCustomerCredit,
@@ -110,12 +109,6 @@ const mkInstance = (overrides: any = {}) => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-});
-
-describe('getCustomerCreditCCRoles', () => {
-  it('返回 general_manager 角色', () => {
-    expect(getCustomerCreditCCRoles({})).toEqual(['general_manager']);
-  });
 });
 
 describe('resolveCustomerCreditPreviewContext', () => {

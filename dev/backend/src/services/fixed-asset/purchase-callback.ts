@@ -51,7 +51,7 @@ async function handlePurchasePayment(
   try {
     await updateErpMetaStatus(instance.id, 'paying');
 
-    const lines = (formData.lines as PurchaseLine[]) || [];
+    const lines = (formData.purchaseLines as PurchaseLine[]) || [];
     const paymentAmount = (formData.paymentAmount as string) || '0';
     const paymentSubjectId = formData.paymentSubjectId as number;
     const paymentDate = normalizeDateTime(formData.paymentDate as string);
@@ -136,7 +136,13 @@ async function handlePurchaseAssetCreate(
   try {
     await updateErpMetaStatus(instance.id, 'storing');
 
-    const lines = (formData.lines as PurchaseLine[]) || [];
+    // 采购明细 + 入库信息按行合并：入库时填写的 actualPrice/arrivalDate 覆盖到采购明细对应行上
+    const purchaseLines = (formData.purchaseLines as PurchaseLine[]) || [];
+    const arrivalLines = (formData.arrivalLines as Record<string, unknown>[]) || [];
+    const lines = purchaseLines.map((line, i) => ({
+      ...line,
+      ...arrivalLines[i],
+    }));
     const createdAssets: CreatedAssetRecord[] = [];
     const erpMeta = getErpMeta(instance);
     const existingAssets = (erpMeta?.responseData?.createdAssets || []) as CreatedAssetRecord[];

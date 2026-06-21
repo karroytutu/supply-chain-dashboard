@@ -245,6 +245,8 @@ export interface CreatePurchasePrepaymentRequest {
   wipeOffAmount?: number;
   occupyBizOrderStr?: string;
   occupyPrePaymentRequestList?: unknown[];
+  /** 备注（如 OA 审批编号） */
+  note?: string;
 }
 
 // =====================================================

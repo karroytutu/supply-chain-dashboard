@@ -77,6 +77,23 @@ export async function mergeErpResponseData(
 }
 
 /**
+ * 合并数据到 form_data（供 auto 节点回调回写自动生成字段）
+ * 使用 jsonb || 运算符一次合并多个键，保留 form_data 中已有字段
+ */
+export async function mergeFormData(
+  instanceId: number,
+  data: Record<string, unknown>
+): Promise<void> {
+  await appQuery(
+    `UPDATE oa_approval_instances
+     SET form_data = COALESCE(form_data, '{}'::jsonb) || $1::jsonb,
+         updated_at = NOW()
+     WHERE id = $2`,
+    [JSON.stringify(data), instanceId]
+  );
+}
+
+/**
  * 记录 ERP 请求错误并标记状态为 erp_failed
  */
 export async function markErpFailed(
@@ -271,8 +288,8 @@ export async function recoverStuckAutoNodes(): Promise<number> {
   }
   _recoverAutoNodesRunning = true;
   try {
-  // 检测：实例 status='pending' + 存在 pending 的 auto 节点 + 超过 5 分钟无更新
-  // 关键：排除 auto 节点前仍有未完成人工节点的实例（它们正在正常等待人工审批，不属于"卡住"）
+  // 检测：实例 status='pending' + 存在 pending 的 auto/cc 节点 + 超过 5 分钟无更新
+  // 关键：排除 auto/cc 节点前仍有未完成人工节点的实例（它们正在正常等待人工审批，不属于“卡住”）
   // 例如催收审批：节点1=营销师催收(pending) + 节点2=更新催收状态(auto,pending)
   //   此时 auto 节点尚未轮到执行，不应触发恢复
   const stuck = await appQuery<{ id: number }>(
@@ -282,18 +299,18 @@ export async function recoverStuckAutoNodes(): Promise<number> {
        AND EXISTS (
          SELECT 1 FROM oa_approval_nodes n
          WHERE n.instance_id = i.id
-           AND n.node_type = 'auto'
+           AND n.node_type IN ('auto', 'cc')
            AND n.status = 'pending'
        )
-       -- 排除 auto 节点前仍有 pending/processing 人工节点的实例
+       -- 排除 auto/cc 节点前仍有 pending/processing 人工节点的实例
        AND NOT EXISTS (
          SELECT 1 FROM oa_approval_nodes hn
          WHERE hn.instance_id = i.id
-           AND hn.node_type != 'auto'
+           AND hn.node_type NOT IN ('auto', 'cc')
            AND hn.status IN ('pending', 'processing')
            AND hn.node_order < (
              SELECT MIN(an.node_order) FROM oa_approval_nodes an
-             WHERE an.instance_id = i.id AND an.node_type = 'auto' AND an.status = 'pending'
+             WHERE an.instance_id = i.id AND an.node_type IN ('auto', 'cc') AND an.status = 'pending'
            )
        )`
   );
@@ -311,16 +328,16 @@ export async function recoverStuckAutoNodes(): Promise<number> {
   let recovered = 0;
   for (const row of stuck.rows) {
     try {
-      // 应用层双重验证：SQL 排除可能因时序问题失效，再次确认 auto 节点之前没有未完成的人工环节
-      // 与 SQL 主查询保持一致：仅检查 node_order < MIN(auto.node_order) 的人工节点
+      // 应用层双重验证：SQL 排除可能因时序问题失效，再次确认 auto/cc 节点之前没有未完成的人工环节
+      // 与 SQL 主查询保持一致：仅检查 node_order < MIN(auto/cc.node_order) 的人工节点
       const verify = await appQuery<{ blocked: boolean }>(
         `SELECT EXISTS (
           SELECT 1 FROM oa_approval_nodes hn
-          WHERE hn.instance_id = $1 AND hn.node_type != 'auto'
+          WHERE hn.instance_id = $1 AND hn.node_type NOT IN ('auto', 'cc')
             AND hn.status IN ('pending', 'processing')
             AND hn.node_order < (
               SELECT MIN(an.node_order) FROM oa_approval_nodes an
-              WHERE an.instance_id = $1 AND an.node_type = 'auto' AND an.status = 'pending'
+              WHERE an.instance_id = $1 AND an.node_type IN ('auto', 'cc') AND an.status = 'pending'
             )
         ) AS blocked`,
         [row.id]

@@ -51,7 +51,6 @@ import { enqueueExecuteAutoNode, enqueueFinalizeProcessInstance, enqueueSendAppr
 import {
   executeAutoNodeCallback,
   retryAutoNode,
-  triggerCcIfApplicable,
 } from './auto-node-operations';
 
 const mockQuery = appQuery as jest.MockedFunction<typeof appQuery>;
@@ -114,7 +113,6 @@ describe('executeAutoNodeCallback', () => {
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck (无阻塞)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
-      .mockResolvedValueOnce({ rows: [{ max_order: 1 }] } as any) // ccTriggerOrder
       .mockResolvedValueOnce({ rows: [] } as any)                 // next node
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → approved + erp_meta cleanup
     const ft = mkFormType();
@@ -135,7 +133,6 @@ describe('executeAutoNodeCallback', () => {
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck (无阻塞)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
-      .mockResolvedValueOnce({ rows: [{ max_order: 1 }] } as any) // triggerCcIfApplicable MAX query
       .mockResolvedValueOnce({ rows: [nextNode] } as any)         // next node query
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → pending + erp_meta cleanup
     await executeAutoNodeCallback(1, mkNode(), mkFormType() as any, mkInstance(), {});
@@ -146,19 +143,41 @@ describe('executeAutoNodeCallback', () => {
     expect(jsonbCalls.length).toBeGreaterThan(0);
   });
 
-  it('成功执行 - 下一节点仍为 auto 时改为入队异步任务', async () => {
+  it('成功执行 - 下一节点仍为 auto 时 setImmediate 立即执行 + enqueue 兜底', async () => {
     const autoNode2 = mkNode({ id: 200, node_order: 2, node_type: 'auto' });
     mockQuery
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim node1
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck node1 (无阻塞)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node1 → approved
-      .mockResolvedValueOnce({ rows: [{ max_order: 2 }] } as any) // cc
       .mockResolvedValueOnce({ rows: [autoNode2] } as any)        // next = auto
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // update current_node
+
+    // mock setImmediate 为同步执行，捕获回调
+    const origSetImmediate = global.setImmediate;
+    const mockSetImmediate = jest.fn((fn: Function) => fn()) as any;
+    global.setImmediate = mockSetImmediate;
+
+    // node2 的 executeAutoNodeCallback 需要的 mock
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim node2
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck node2
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node2 → approved
+      .mockResolvedValueOnce({ rows: [] } as any)                 // next node (无后续节点)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → approved
+
     const ft = mkFormType();
     await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), {});
+
+    // 验证第一个 auto 节点的 onApproved 被执行（executeAutoNodeCallback 内部递归不会再调用 onApproved）
     expect(ft.onApproved).toHaveBeenCalledTimes(1);
+
+    // 验证 enqueueExecuteAutoNode 被调用（兜底入队）
     expect(enqueueExecuteAutoNode).toHaveBeenCalledWith(1, autoNode2.id);
+
+    // 验证 setImmediate 被调用（立即执行路径）
+    expect(mockSetImmediate).toHaveBeenCalled();
+
+    global.setImmediate = origSetImmediate;
   });
 
   it('执行失败 → 节点标记为failed，实例标记为erp_failed', async () => {
@@ -205,7 +224,6 @@ describe('executeAutoNodeCallback', () => {
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck (无阻塞，节点2在 auto 之后不算)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
-      .mockResolvedValueOnce({ rows: [{ max_order: 2 }] } as any) // ccTriggerOrder
       .mockResolvedValueOnce({ rows: [] } as any)                 // next node (无人工节点待审批)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → approved
     await executeAutoNodeCallback(1, mkNode({ node_order: 1 }), ft as any, mkInstance(), {});
@@ -303,39 +321,5 @@ describe('retryAutoNode', () => {
     (getFormTypeByCode as jest.Mock).mockReturnValue(mkFormType());
     await retryAutoNode(1);
     expect(getFormTypeByCode).toHaveBeenCalledWith('test_form');
-  });
-});
-
-describe('triggerCcIfApplicable', () => {
-  const inst = mkInstance();
-
-  it('节点非末位时不触发抄送', async () => {
-    await triggerCcIfApplicable(1, 1, mkFormType() as any, inst);
-    expect(notifyCc).not.toHaveBeenCalled();
-  });
-
-  it('无 CC 角色时不触发抄送', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ max_order: 2 }] } as any);
-    await triggerCcIfApplicable(1, 2, mkFormType() as any, inst);
-    expect(notifyCc).not.toHaveBeenCalled();
-  });
-
-  it('有 CC 角色时创建抄送记录并通知', async () => {
-    const ft = mkFormType({ workflowDef: { ccAfterNode: 1, ccRoles: ['department_manager'] } });
-    mockQuery
-      .mockResolvedValueOnce({ rows: [inst] } as any)              // fresh instance
-      .mockResolvedValueOnce({ rows: [{ id: 30, name: '经理' }] } as any) // users
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any);    // INSERT cc
-    (findUserIdsByRoleCodes as jest.Mock).mockResolvedValue([30]);
-    await triggerCcIfApplicable(1, 1, ft as any, inst);
-    expect(notifyCc).toHaveBeenCalledWith(expect.objectContaining({ instanceId: 1 }), [30]);
-  });
-
-  it('过滤申请人不接收抄送', async () => {
-    const ft = mkFormType({ workflowDef: { ccAfterNode: 1, ccRoles: ['department_manager'] } });
-    mockQuery.mockResolvedValueOnce({ rows: [inst] } as any);
-    (findUserIdsByRoleCodes as jest.Mock).mockResolvedValue([inst.applicant_id]);
-    await triggerCcIfApplicable(1, 1, ft as any, inst);
-    expect(notifyCc).not.toHaveBeenCalled();
   });
 });
