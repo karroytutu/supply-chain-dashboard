@@ -709,6 +709,17 @@ export async function updateAdminFormTypeWorkflow(
   });
 }
 
+/** 更新表单字段权限配置（管理员配置每个环节的字段可见/可编辑/隐藏） */
+export async function updateAdminFieldPermissions(
+  code: string,
+  fieldPermissions: Record<string, unknown> | null
+): Promise<void> {
+  return request<void>(`/oa/admin/form-types/${code}/field-permissions`, {
+    method: 'PATCH',
+    body: { fieldPermissions },
+  });
+}
+
 /** 获取系统所有岗位列表 */
 export async function getAdminRoles(): Promise<Array<{ code: string; name: string; description: string }>> {
   return request('/oa/admin/roles');

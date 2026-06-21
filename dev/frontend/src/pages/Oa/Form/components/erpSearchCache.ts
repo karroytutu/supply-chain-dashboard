@@ -17,10 +17,14 @@ export const ERP_SEARCH_CACHE_MAX = 50;
 export const ERP_SEARCH_CACHE_TTL = 5 * 60 * 1000;
 
 /** 后端支持关键词过滤的 ERP 类型（走服务端搜索，防抖 300ms） */
-export const SERVER_KEYWORD_TYPES = new Set(['assets', 'customers', 'settlement-orders']);
+export const SERVER_KEYWORD_TYPES = new Set([
+  'assets', 'customers', 'settlement-orders',
+  'suppliers', 'staff', 'purchase-orders',
+  'prepayments', 'supplier-incomes',
+]);
 
 /** 最小搜索关键词长度（仅适用于服务端关键词类型） */
-export const MIN_SEARCH_LENGTH = 2;
+export const MIN_SEARCH_LENGTH = 1;
 
 /** 从缓存获取数据（未命中返回 null） */
 export function getCachedOptions(cacheKey: string): Array<{ label: string; value: unknown; raw: unknown }> | null {

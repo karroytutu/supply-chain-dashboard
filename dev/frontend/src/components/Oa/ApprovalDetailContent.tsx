@@ -135,12 +135,15 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   // 从 workflowDef 提取当前节点的字段权限和选项过滤
   const currentNode = detail.nodes.find(n => n.nodeOrder === detail.currentNodeOrder);
   const workflowNode = detail.workflowDef?.nodes.find(n => n.order === currentNode?.nodeOrder);
-  const fieldPermissions = workflowNode?.fieldPermissions;
+  // 合并字段权限：代码定义（默认值） + DB 覆盖值（管理员配置优先）
+  const codePermissions = workflowNode?.fieldPermissions || {};
+  const dbOverrides = detail.fieldPermissions?.nodes?.[String(currentNode?.nodeOrder)] || {};
+  const fieldPermissions = { ...codePermissions, ...dbOverrides };
   const fieldOptionFilter = workflowNode?.fieldOptionFilter;
   const nodeType = workflowNode?.type ?? 'approval';
 
-  // 处理型节点 + 可操作时渲染可编辑表单，否则只读渲染
-  const isEditable = nodeType === 'handle' && canOperate && !!fieldPermissions;
+  // 办理型节点 + 可操作时进入编辑模式（fieldPermissions 可选，未配置时所有字段默认为只读）
+  const isEditable = nodeType === 'handle' && canOperate;
 
   return (
     <div className={`${styles.content} ${className || ''}`}>
@@ -151,7 +154,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
           ref={editableFormRef}
           formSchema={detail.formSchema}
           formData={detail.formData}
-          fieldPermissions={fieldPermissions!}
+          fieldPermissions={fieldPermissions}
           fieldOptionFilter={fieldOptionFilter}
           resolvedMap={resolvedMap}
           erpLicenseUrls={erpLicenseUrls}

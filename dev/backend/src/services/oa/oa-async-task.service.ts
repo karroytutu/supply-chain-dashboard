@@ -29,7 +29,7 @@ import {
   notifyWithdrawn,
   notifyCc,
 } from './oa-notify';
-import { executeAutoNodeCallback, triggerCcIfApplicable } from './mutations/auto-node-operations';
+import { executeAutoNodeCallback } from './mutations/auto-node-operations';
 import { getFormTypeByCode } from './form-types';
 import type { FormSchema, OaNodeRow } from './oa.types';
 import { getInstanceNotifyData } from './mutations/shared-utils';
@@ -41,7 +41,6 @@ export type OaAsyncTaskType =
   | 'complete_approval_todo'
   | 'complete_all_pending_todos'
   | 'send_approval_notification'
-  | 'trigger_cc'
   | 'execute_auto_node';
 
 export interface OaAsyncTaskEnqueueOptions {
@@ -162,13 +161,6 @@ export async function enqueueSendApprovalNotification(
 
 export async function enqueueExecuteAutoNode(instanceId: number, nodeId: number): Promise<void> {
   await enqueueOaAsyncTask('execute_auto_node', { instanceId, nodeId });
-}
-
-export async function enqueueTriggerCc(
-  instanceId: number,
-  approvedNodeOrder: number
-): Promise<void> {
-  await enqueueOaAsyncTask('trigger_cc', { instanceId, approvedNodeOrder });
 }
 
 /**
@@ -319,9 +311,6 @@ async function executeOaAsyncTask(
       break;
     case 'execute_auto_node':
       await handleExecuteAutoNode(payload);
-      break;
-    case 'trigger_cc':
-      await handleTriggerCc(payload);
       break;
     default:
       throw new Error(`未知异步任务类型: ${type}`);
@@ -597,31 +586,7 @@ async function handleExecuteAutoNode(payload: Record<string, unknown>): Promise<
     [nodeId, instanceId]
   );
   const node = nodeResult.rows[0];
-  if (!node) throw new Error('auto 节点不存在');
-
-  const ftResult = await appQuery<{ code: string }>(
-    `SELECT code FROM oa_form_types WHERE id = $1`,
-    [instance.form_type_id]
-  );
-  const formType = ftResult.rows[0] ? getFormTypeByCode(ftResult.rows[0].code) : undefined;
-  if (!formType?.onApproved) {
-    throw new Error('未找到表单类型定义或 onApproved 回调');
-  }
-
-  const formData = (instance.form_data || {}) as Record<string, unknown>;
-  await executeAutoNodeCallback(instanceId, node, formType, instance, formData);
-}
-
-async function handleTriggerCc(payload: Record<string, unknown>): Promise<void> {
-  const instanceId = Number(payload.instanceId);
-  const approvedNodeOrder = Number(payload.approvedNodeOrder);
-
-  const instanceResult = await appQuery<import('./oa.types').OaInstanceRow>(
-    `SELECT * FROM oa_approval_instances WHERE id = $1`,
-    [instanceId]
-  );
-  const instance = instanceResult.rows[0];
-  if (!instance) throw new Error('审批实例不存在');
+  if (!node) throw new Error('自动节点不存在');
 
   const ftResult = await appQuery<{ code: string }>(
     `SELECT code FROM oa_form_types WHERE id = $1`,
@@ -632,5 +597,11 @@ async function handleTriggerCc(payload: Record<string, unknown>): Promise<void> 
     throw new Error('未找到表单类型定义');
   }
 
-  await triggerCcIfApplicable(instanceId, approvedNodeOrder, formType, instance);
+  // auto 节点需要 onApproved 回调，cc 节点不需要
+  if (node.node_type === 'auto' && !formType.onApproved) {
+    throw new Error('auto 节点缺少 onApproved 回调');
+  }
+
+  const formData = (instance.form_data || {}) as Record<string, unknown>;
+  await executeAutoNodeCallback(instanceId, node, formType, instance, formData);
 }

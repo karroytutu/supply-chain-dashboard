@@ -195,6 +195,8 @@ export function validateFormData(
 
 /**
  * 校验 inputData 是否符合 inputSchema
+ * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions。
+ * 保留此函数仅为兼容历史数据，新代码不应再调用。
  */
 export function validateInputData(
   inputSchema: NodeInputSchema,

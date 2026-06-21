@@ -33,7 +33,11 @@ export function renderCellValue(
     case 'erp_staff':
     case 'erp_payment_account':
     case 'erp_asset_category':
-    case 'asset_search': {
+    case 'asset_search':
+    case 'erp_supplier':
+    case 'erp_purchase_order':
+    case 'erp_prepayment':
+    case 'erp_supplier_income': {
       // 第一优先级：行数据中已存储的名称（nameField，含 _ 前缀变体兜底）
       const storedName = resolveStoredName(childField.nameField, rowData);
       if (storedName) return storedName;

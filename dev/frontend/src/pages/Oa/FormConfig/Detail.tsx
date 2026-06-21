@@ -20,8 +20,9 @@ import {
 } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, useParams } from 'umi';
-import { useFormDetail, type WorkflowNodeEdit } from './hooks/useFormDetail';
+import { useFormDetail, formatCondition, type WorkflowNodeEdit } from './hooks/useFormDetail';
 import NodeCard from './components/NodeCard';
+import FieldPermissionMatrix from './components/FieldPermissionMatrix';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -49,11 +50,9 @@ const FormDetailPage: React.FC = () => {
   const [basicForm] = Form.useForm();
   // 本地编辑中的流程节点（未保存的修改）
   const [editingNodes, setEditingNodes] = useState<WorkflowNodeEdit[] | null>(null);
-  const [editingCcRoles, setEditingCcRoles] = useState<string[] | undefined>(undefined);
 
   // 当数据加载完成后，初始化本地编辑状态
   const nodes = editingNodes ?? formDetail?.workflowDef?.nodes ?? [];
-  const ccRoles = editingCcRoles ?? formDetail?.workflowDef?.ccRoles ?? [];
 
   const handleNodeChange = useCallback(
     (index: number, updatedNode: WorkflowNodeEdit) => {
@@ -84,12 +83,10 @@ const FormDetailPage: React.FC = () => {
     const workflowDef = {
       ...formDetail.workflowDef,
       nodes: editingNodes || formDetail.workflowDef.nodes,
-      ccRoles: editingCcRoles !== undefined ? editingCcRoles : formDetail.workflowDef.ccRoles,
     };
     await saveWorkflow(workflowDef, formDetail.version);
     // 保存成功后清除本地编辑状态
     setEditingNodes(null);
-    setEditingCcRoles(undefined);
   };
 
   if (loading || !formDetail) {
@@ -182,7 +179,7 @@ const FormDetailPage: React.FC = () => {
                 type="primary"
                 icon={<SaveOutlined />}
                 loading={savingWorkflow}
-                disabled={!editingNodes && editingCcRoles === undefined}
+                disabled={!editingNodes}
                 onClick={handleSaveWorkflow}
               >
                 保存流程配置
@@ -194,28 +191,22 @@ const FormDetailPage: React.FC = () => {
                 key={node.order}
                 node={node}
                 roles={roles}
+                fields={formDetail.formSchema?.fields as any}
                 onChange={(updated) => handleNodeChange(index, updated)}
               />
             ))}
 
             <Divider />
-
-            {/* 抄送配置 */}
-            <Card size="small" title="抄送配置" type="inner">
-              <Form layout="vertical">
-                <Form.Item label="抄送岗位">
-                  <Select
-                    mode="multiple"
-                    value={ccRoles}
-                    placeholder="选择抄送岗位"
-                    options={roles.map((r) => ({ value: r.code, label: r.name }))}
-                    onChange={(val) => setEditingCcRoles(val)}
-                    allowClear
-                  />
-                </Form.Item>
-              </Form>
-            </Card>
           </Card>
+          {/* 字段权限配置矩阵 */}
+          {formDetail.formSchema?.fields && (
+            <FieldPermissionMatrix
+              formCode={formDetail.code}
+              fields={formDetail.formSchema.fields as any}
+              workflowNodes={formDetail.workflowDef.nodes as any}
+              initialPermissions={formDetail.fieldPermissions as any}
+            />
+          )}
         </Col>
 
         {/* 右侧流程预览 40% */}
@@ -230,7 +221,11 @@ const FormDetailPage: React.FC = () => {
                       size="small"
                       style={{
                         borderLeft: `3px solid ${
-                          node.type === 'auto' ? '#d9d9d9' : '#1890ff'
+                          node.type === 'auto'
+                            ? '#d9d9d9'
+                            : node.type === 'cc'
+                            ? '#1890ff'
+                            : '#1890ff'
                         }`,
                         opacity: node.type === 'auto' ? 0.6 : 1,
                       }}
@@ -240,6 +235,8 @@ const FormDetailPage: React.FC = () => {
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {node.type === 'auto'
                           ? '系统自动执行'
+                          : node.type === 'cc'
+                          ? `抄送：${(node as any).ccRoles?.join(', ') || '未配置'}`
                           : `审批人：${
                               node.handler?.roleCode ||
                               (node.handler?.useSupervisor ? '申请人主管' : '未配置')
@@ -247,7 +244,7 @@ const FormDetailPage: React.FC = () => {
                       </Text>
                       {!!node.condition && (
                         <Tag color="orange" style={{ marginTop: 4, display: 'block' }}>
-                          条件：{JSON.stringify(node.condition as Record<string, unknown>)}
+                          条件：当 {node.conditionDescription || formatCondition(node.condition, formDetail.formSchema?.fields as any)} 时触发
                         </Tag>
                       )}
                     </Card>
@@ -256,23 +253,6 @@ const FormDetailPage: React.FC = () => {
                     )}
                   </React.Fragment>
                 ))}
-
-              {/* 抄送 */}
-              {ccRoles.length > 0 && (
-                <>
-                  <div style={{ textAlign: 'center', color: '#bfbfbf' }}>↓</div>
-                  <Card
-                    size="small"
-                    style={{ borderLeft: '3px solid #faad14' }}
-                  >
-                    <Text strong>抄送</Text>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {ccRoles.join(', ')}
-                    </Text>
-                  </Card>
-                </>
-              )}
             </Space>
           </Card>
         </Col>

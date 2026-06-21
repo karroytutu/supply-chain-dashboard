@@ -6,11 +6,11 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
-import { isCurrentApprover, isApplicant } from '../oa-utils';
+import { isApprovalParticipant } from '../oa-utils';
 
 /**
  * 向审批实例添加一条评论
- * 权限：当前节点审批人/处理人 或 申请人
+ * 权限：审批流程参与者（申请人 / 任意节点分配人 / 抄送人）
  * 评论写入 oa_approval_actions 表（action_type='comment'），不修改节点状态
  */
 export async function addCommentToInstance(
@@ -24,23 +24,19 @@ export async function addCommentToInstance(
     throw new Error('评论内容不能为空');
   }
 
-  // 2. 校验实例状态（仅 pending/processing 可评论）
+  // 2. 校验实例存在 + 获取当前节点顺序
   const instResult = await query(
-    `SELECT status, current_node_order FROM oa_approval_instances WHERE id = $1`,
+    `SELECT current_node_order FROM oa_approval_instances WHERE id = $1`,
     [instanceId]
   );
   if (instResult.rows.length === 0) {
     throw new Error('审批实例不存在');
   }
-  const { status, current_node_order } = instResult.rows[0];
-  if (!['pending', 'processing'].includes(status)) {
-    throw new Error('该审批已结束，无法评论');
-  }
+  const { current_node_order } = instResult.rows[0];
 
-  // 3. 权限校验：当前审批人或申请人
-  const isApprover = await isCurrentApprover(instanceId, userId);
-  const isOwner = await isApplicant(instanceId, userId);
-  if (!isApprover && !isOwner) {
+  // 3. 权限校验：审批流程参与者
+  const isParticipant = await isApprovalParticipant(instanceId, userId);
+  if (!isParticipant) {
     throw new Error('您没有权限评论此审批');
   }
 

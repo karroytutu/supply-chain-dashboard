@@ -149,6 +149,16 @@ const FormPage: React.FC = () => {
         }
       }
 
+      // upload 类型字段：检查是否有未完成的上传，避免脏数据入库
+      const uploadFields = formType.formSchema.fields.filter(f => f.type === 'upload');
+      for (const field of uploadFields) {
+        const uploadValue = values[field.key];
+        if (Array.isArray(uploadValue) && uploadValue.some((item: any) => item.status === 'uploading')) {
+          message.warning(`「${field.label}」文件正在上传中，请稍候再提交`);
+          return;
+        }
+      }
+
       const title = formType.name;
 
       setSubmitting(true);
@@ -205,7 +215,13 @@ const FormPage: React.FC = () => {
         <div className={styles.formSection}>
           <Form form={form} layout="vertical" onValuesChange={handleValuesChange} className={styles.form}>
             {formType.formSchema.fields
-              .filter((field) => !field.key.startsWith('_') && !field.hidden)
+              .filter((field) => {
+                if (field.key.startsWith('_') || field.hidden) return false;
+                // 应用管理员配置的发起阶段字段权限覆盖
+                const initiationPerms = formType.fieldPermissions?.initiation;
+                if (initiationPerms?.[field.key] === 'hidden') return false;
+                return true;
+              })
               .map((field) => {
               // 客户档案修改：为状态字段注入动态选项（有欠款时禁用停用）
               const fieldWithOptions = (field.key === 'customerState' && customerStateOptions)

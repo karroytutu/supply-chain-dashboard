@@ -74,7 +74,7 @@ interface LeftItemData {
 // ==================== ActionBar 主组件 ====================
 
 export interface ActionBarProps {
-  nodeType: 'approval' | 'handle' | 'auto';
+  nodeType: 'approval' | 'handle' | 'auto' | 'cc';
   canOperate: boolean;
   canWithdraw: boolean;
   canComment: boolean;

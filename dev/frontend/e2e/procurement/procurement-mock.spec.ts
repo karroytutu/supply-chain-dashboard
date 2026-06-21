@@ -42,7 +42,8 @@ function buildMockProcurementDetail(overrides: Record<string, any> = {}): Record
       supplierName: 'E2E测试供应商',
       warehouseName: '主仓库',
       totalAmount: '6000.00',
-      paymentMethod: 'post_pay',
+      needPrepayment: 'no',
+      prepaymentAmount: '6000.00',
       purchaseLines: [
         {
           goodsName: 'E2E测试商品A',
@@ -78,10 +79,6 @@ function buildMockProcurementDetail(overrides: Record<string, any> = {}): Record
       _needsMarketingApproval: 1,
       _needsFinanceApproval: 1,
       _needsManagerApproval: 1,
-      _paymentMethodCategory: 'post_pay',
-      _subFlowDepth: 0,
-      receivingNote: null,
-      discrepancyLines: [],
     },
     formSchema: {
       fields: [
@@ -92,14 +89,14 @@ function buildMockProcurementDetail(overrides: Record<string, any> = {}): Record
         { key: 'warehouseName', label: '入库仓库', type: 'text', required: false, disabled: true },
         { key: 'totalAmount', label: '订单总金额', type: 'money', required: false, disabled: true, upper: true },
         {
-          key: 'paymentMethod', label: '付款方式', type: 'select', required: true,
+          key: 'needPrepayment', label: '是否需要预付款', type: 'select', required: true,
           options: [
-            { value: 'already_paid_prepay', label: '已付款（关联预付款单）' },
-            { value: 'already_paid_income', label: '已付款（关联收入单）' },
-            { value: 'need_prepay', label: '需预付' },
-            { value: 'post_pay', label: '后付款' },
+            { value: 'yes', label: '是' },
+            { value: 'no', label: '否' },
           ],
         },
+        { key: 'prepaymentAmount', label: '预付金额', type: 'money', required: false, upper: true,
+          visibleWhen: { field: 'needPrepayment', operator: '==', value: 'yes' } },
         {
           key: 'purchaseLines', label: '采购明细', type: 'table', required: false, disabled: true,
           children: [
@@ -121,53 +118,6 @@ function buildMockProcurementDetail(overrides: Record<string, any> = {}): Record
         { key: '_needsMarketingApproval', label: '需营销审批', type: 'number', required: false },
         { key: '_needsFinanceApproval', label: '需财务审批', type: 'number', required: false },
         { key: '_needsManagerApproval', label: '需总经理审批', type: 'number', required: false },
-        { key: '_paymentMethodCategory', label: '付款分类', type: 'text', required: false },
-        { key: '_subFlowDepth', label: '子流程深度', type: 'number', required: false },
-        {
-          key: 'settleSourceType', label: '关联类型', type: 'select', required: false,
-          options: [
-            { value: 'prepay', label: '普通预付款' },
-            { value: 'income', label: '供应商收入单' },
-          ],
-          visibleWhen: { field: '_paymentMethodCategory', operator: '==', value: 'already_paid' },
-        },
-        { key: 'erpPaidBillStr', label: '付款单号', type: 'text', required: false, disabled: true,
-          visibleWhen: { field: '_paymentMethodCategory', operator: '==', value: 'already_paid' } },
-        { key: 'paymentReceiptUrls', label: '付款回单', type: 'upload', required: false, maxCount: 10,
-          visibleWhen: { field: 'paymentMethod', operator: '==', value: 'need_prepay' } },
-        { key: 'paymentSubjectId', label: '付款账户', type: 'erp_payment_account', required: false,
-          searchApi: 'erp_payment_accounts',
-          visibleWhen: { field: 'paymentMethod', operator: '==', value: 'need_prepay' } },
-        { key: 'erpPrepayBillStr', label: '预付款单号', type: 'text', required: false, disabled: true,
-          visibleWhen: { field: 'paymentMethod', operator: '==', value: 'need_prepay' } },
-        { key: 'receivingNote', label: '到货说明', type: 'textarea', required: false, maxLength: 500 },
-        {
-          key: 'discrepancyLines', label: '到货差异明细', type: 'table', required: false,
-          children: [
-            { key: 'goodsName', label: '商品', type: 'text', required: false },
-            { key: 'orderedQty', label: '订单数量', type: 'number', required: false },
-            { key: 'actualQty', label: '实收数量', type: 'number', required: false },
-            { key: 'overQty', label: '多货数量', type: 'number', required: false },
-            { key: 'shortageQty', label: '少货数量', type: 'number', required: false },
-            { key: 'hasDefect', label: '有次品', type: 'select', required: false,
-              options: [{ value: 'Y', label: '是' }, { value: 'N', label: '否' }] },
-            { key: 'defectNote', label: '次品说明', type: 'text', required: false },
-            { key: 'handlingDecision', label: '多货处理', type: 'select', required: false,
-              options: [{ value: 'reject', label: '拒收多货' }, { value: 'accept', label: '验收入库' }] },
-          ],
-        },
-        { key: 'overQtyPaymentMethod', label: '多货付款方式', type: 'select', required: false,
-          options: [
-            { value: 'already_paid_prepay', label: '已付款（关联预付款单）' },
-            { value: 'already_paid_income', label: '已付款（关联收入单）' },
-            { value: 'need_prepay', label: '需预付' },
-            { value: 'post_pay', label: '后付款' },
-          ],
-        },
-        { key: 'overQtyRemark', label: '多货处理备注', type: 'textarea', required: false, maxLength: 500 },
-        { key: 'erpOverQtyBillStr', label: '多货新采购订单号', type: 'text', required: false, disabled: true },
-        { key: 'erpOverQtyPaidBillStr', label: '多货付款单号', type: 'text', required: false, disabled: true },
-        { key: 'completionStatus', label: '办结状态', type: 'text', required: false, disabled: true },
       ],
     },
     workflowDef: {
@@ -178,9 +128,7 @@ function buildMockProcurementDetail(overrides: Record<string, any> = {}): Record
           condition: { field: '_needsFinanceApproval', operator: '==', value: 1 } },
         { order: 3, name: '总经理审批', type: 'approval', handler: { roleCode: 'admin' }, signMode: 'or',
           condition: { field: '_needsManagerApproval', operator: '==', value: 1 } },
-        { order: 8, name: '审核采购订单', type: 'auto' },
-        { order: 9, name: '库管到货确认', type: 'data_input', handler: { roleCode: 'warehouse_manager' }, signMode: 'or', interactionType: 'operation' },
-        { order: 10, name: '办结检查', type: 'auto' },
+        { order: 6, name: '审核采购订单', type: 'auto' },
       ],
     },
     erpMeta: null,
@@ -267,42 +215,35 @@ test.describe('采购审批 - Mock 数据驱动', () => {
     await expect(authenticatedPage.getByRole('cell', { name: 'E2E测试商品B', exact: true })).toBeVisible();
   });
 
-  test('付款方式条件联动：后付款时隐藏关联字段', async ({ authenticatedPage }) => {
+  test('付款方式条件联动：不需要预付时隐藏预付金额', async ({ authenticatedPage }) => {
     await setupProcurementMockRoutes(authenticatedPage, {
       formData: {
         ...buildMockProcurementDetail().formData,
-        paymentMethod: 'post_pay',
-        _paymentMethodCategory: 'post_pay',
+        needPrepayment: 'no',
       },
     });
 
     await authenticatedPage.goto(`/oa/detail/${MOCK_INSTANCE_ID}`);
     await waitForPageLoad(authenticatedPage);
 
-    // 后付款时：关联类型、付款回单、付款账户 均不显示
-    await expect(authenticatedPage.locator('text=关联类型')).not.toBeVisible();
-    await expect(authenticatedPage.locator('text=付款回单')).not.toBeVisible();
-    await expect(authenticatedPage.locator('text=付款账户')).not.toBeVisible();
+    // 不需要预付时：预付金额不显示
+    await expect(authenticatedPage.locator('text=预付金额')).not.toBeVisible();
   });
 
-  test('付款方式条件联动：需预付时显示付款回单和付款账户', async ({ authenticatedPage }) => {
+  test('付款方式条件联动：需要预付时显示预付金额', async ({ authenticatedPage }) => {
     await setupProcurementMockRoutes(authenticatedPage, {
       formData: {
         ...buildMockProcurementDetail().formData,
-        paymentMethod: 'need_prepay',
-        _paymentMethodCategory: 'need_prepay',
+        needPrepayment: 'yes',
+        prepaymentAmount: '6000.00',
       },
     });
 
     await authenticatedPage.goto(`/oa/detail/${MOCK_INSTANCE_ID}`);
     await waitForPageLoad(authenticatedPage);
 
-    // 需预付时：付款回单和付款账户应显示
-    await expect(authenticatedPage.locator('text=付款回单')).toBeVisible();
-    await expect(authenticatedPage.locator('text=付款账户')).toBeVisible();
-
-    // 但关联类型不应显示（仅已付款时显示）
-    await expect(authenticatedPage.locator('text=关联类型')).not.toBeVisible();
+    // 需要预付时：预付金额应显示
+    await expect(authenticatedPage.locator('text=预付金额')).toBeVisible();
   });
 
   test('条件字段隐藏：_needs 前缀字段不在页面可见区域', async ({ authenticatedPage }) => {
@@ -313,7 +254,7 @@ test.describe('采购审批 - Mock 数据驱动', () => {
 
     // _needs 开头的系统字段不应该在表单中显示标签
     // 这些字段是系统计算用的，不面向用户
-    const hiddenLabels = ['需营销审批', '需财务审批', '需总经理审批', '付款分类', '子流程深度'];
+    const hiddenLabels = ['需营销审批', '需财务审批', '需总经理审批'];
     for (const label of hiddenLabels) {
       // 这些字段可能以隐藏 input 形式存在，但不应作为可见标签
       const visibleLabel = authenticatedPage.locator(`.ant-form-item-label:has-text("${label}")`);

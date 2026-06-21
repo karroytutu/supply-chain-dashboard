@@ -22,7 +22,6 @@ export interface AdminFormType {
       name: string;
       type: string;
     }>;
-    ccRoles?: string[];
   };
 }
 

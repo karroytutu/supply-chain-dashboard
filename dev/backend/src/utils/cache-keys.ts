@@ -136,8 +136,8 @@ export const CACHE_KEY = {
   // ==================== 采购审批相关 ====================
   /** 日均销售报表缓存（按商品ID集合哈希） */
   ERP_PURCHASE_DAILY_SALE: (hash: string) => `erp:purchase:daily-sale:${hash}` as const,
-  /** 供应商列表缓存 */
-  ERP_PURCHASE_SUPPLIERS: 'erp:purchase:suppliers' as const,
+  /** 供应商列表缓存（按关键词区分） */
+  ERP_PURCHASE_SUPPLIERS: (keyword: string) => `erp:purchase:suppliers:${keyword}` as const,
 
   // ==================== OA 表单类型相关 ====================
   /** OA 表单类型列表（全量） */

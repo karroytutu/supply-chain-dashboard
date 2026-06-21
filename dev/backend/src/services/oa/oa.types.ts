@@ -70,6 +70,8 @@ export type FormFieldType =
   // ERP 参考数据字段类型（采购审批使用）
   | 'erp_supplier' // 搜索选择ERP供应商
   | 'erp_purchase_order' // 搜索选择ERP采购订单（级联供应商）
+  | 'erp_prepayment' // 搜索选择ERP预付款单（级联供应商）
+  | 'erp_supplier_income' // 搜索选择ERP供应商收入单（级联供应商）
   | 'formula'; // 公式计算字段（自动根据表达式求值，不可手动编辑）
 
 /**
@@ -147,6 +149,8 @@ export interface FormField {
     | 'erp_groups'
     | 'erp_areas'
     | 'erp_suppliers'
+    | 'erp_prepayments'
+    | 'erp_supplier_incomes'
     | 'erp_purchase_orders';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
@@ -188,6 +192,18 @@ export interface FormSchema {
 export type FieldPermission = 'editable' | 'readonly' | 'hidden';
 
 /**
+ * 字段权限 DB 覆盖配置结构
+ * - initiation: 发起阶段字段权限覆盖（申请人视角）
+ * - nodes: 按节点 order 配置的字段权限覆盖（办理/审批人视角）
+ */
+export interface FieldPermissionsOverride {
+  /** 发起阶段：申请人看到的字段权限覆盖。未配置的字段默认为 editable */
+  initiation?: Record<string, FieldPermission>;
+  /** 环节覆盖：按节点 order 配置字段权限覆盖。未配置的字段取代码中 fieldPermissions 默认值 */
+  nodes?: Record<string, Record<string, FieldPermission>>;
+}
+
+/**
  * @deprecated 节点交互类型已废弃，节点类型（NodeType）本身决定按钮样式。
  * 保留类型定义仅为兼容旧数据和旧代码，新代码不应使用。
  * 待所有引用清理后可完全删除。
@@ -203,10 +219,11 @@ export type NodeInteractionType = 'approval' | 'operation';
  * - approval: 审批环节（通过/驳回的决策）
  * - handle: 办理环节（执行业务动作后确认完成，可编辑表单字段）
  * - auto: 自动执行环节（系统回调，无处理人）
+ * - cc: 抄送环节（自动执行：解析角色 → 写入抄送记录 → 发送通知 → 立即通过）
  *
  * 注意：countersign（加签）不作为环节类型，而是通过 `is_countersign` 布尔字段标记来源
  */
-export type NodeType = 'approval' | 'handle' | 'auto';
+export type NodeType = 'approval' | 'handle' | 'auto' | 'cc';
 
 /**
  * 处理人规则 — 描述如何确定环节的处理人
@@ -229,6 +246,8 @@ export type SignMode = 'or' | 'and';
 
 /**
  * 数据录入节点 - 录入字段定义
+ * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions。
+ * 保留仅为兼容历史数据，新代码不应再使用。
  */
 export interface NodeInputField {
   /** 字段名 */
@@ -250,7 +269,11 @@ export interface NodeInputField {
     | 'erp_payment_account'
     | 'erp_asset_category'
     | 'erp_customer'
-    | 'erp_settlement_order';
+    | 'erp_settlement_order'
+    | 'erp_supplier'
+    | 'erp_purchase_order'
+    | 'erp_prepayment'
+    | 'erp_supplier_income';
   /** 是否必填 */
   required?: boolean;
   /** select 类型的选项 */
@@ -272,11 +295,17 @@ export interface NodeInputField {
     | 'erp_settlement_orders'
     | 'erp_grades'
     | 'erp_groups'
-    | 'erp_areas';
+    | 'erp_areas'
+    | 'erp_suppliers'
+    | 'erp_prepayments'
+    | 'erp_supplier_incomes'
+    | 'erp_purchase_orders';
   /** 选择后自动填充其他字段 */
   autoFill?: Record<string, string>;
   /** 级联字段key */
   cascadeFrom?: string;
+  /** 是否多选 */
+  multiple?: boolean;
   /** ERP字段选中后，将显示名称存入 formData 的哪个 key */
   nameField?: string;
   /** 条件显示 */
@@ -287,6 +316,8 @@ export interface NodeInputField {
 
 /**
  * 数据录入节点 - 录入表单 Schema
+ * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions。
+ * 保留仅为兼容历史数据，新代码不应再使用。
  */
 export interface NodeInputSchema {
   /** 录入表单字段定义 */
@@ -369,7 +400,9 @@ export interface WorkflowNodeDef {
   signMode?: SignMode;
   /** 条件定义（条件节点），支持单个条件或 AND 条件数组 */
   condition?: ConditionDef | ConditionDef[];
-  /** 数据录入表单 schema（仅 handle 类型可选） */
+  /** 数据录入表单 schema（仅 handle 类型可选）
+   * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions。
+   */
   inputSchema?: NodeInputSchema;
   /** 字段权限配置：控制每个字段在该节点下的可见/可编辑状态 */
   fieldPermissions?: Record<string, FieldPermission>;
@@ -379,6 +412,10 @@ export interface WorkflowNodeDef {
    *  @deprecated 已废弃，节点类型（NodeType）本身决定按钮样式。保留字段仅为兼容旧数据，新代码不应使用。
    */
   interactionType?: NodeInteractionType;
+  /** 条件业务描述（管理员视角的可读文本，如"任一商品可售天数 > 45天"） */
+  conditionDescription?: string;
+  /** 抄送角色编码列表（仅 cc 类型节点使用） */
+  ccRoles?: string[];
   /** 节点时限配置（不配置表示无时限约束） */
   timeout?: TimeoutConfig;
 }
@@ -389,10 +426,6 @@ export interface WorkflowNodeDef {
 export interface WorkflowDef {
   /** 审批节点列表 */
   nodes: WorkflowNodeDef[];
-  /** 抄送角色列表 */
-  ccRoles?: string[];
-  /** 指定在哪个审批节点（node_order）通过后触发抄送。未配置时默认为最后一个审批节点的 order */
-  ccAfterNode?: number;
 }
 
 // =====================================================
@@ -456,12 +489,7 @@ export interface FormTypeDefinition {
     nodeData: Record<string, unknown>,
     formData: Record<string, unknown>
   ) => Promise<void>;
-  /** 动态抄送角色解析（可选）
-   * 在 beforeSubmit 之后调用，接收已增强的 formData，
-   * 返回角色编码数组。优先级高于 workflowDef.ccRoles。
-   * 不提供此回调的表单类型继续使用 workflowDef.ccRoles 静态配置。
-   */
-  getCCRoles?: (formData: Record<string, unknown>) => string[];
+
   /** 流程预览上下文解析（可选）
    * 在表单填写阶段调用，根据当前表单数据动态注入计算字段，
    * 用于流程预览中的条件节点过滤。
@@ -472,6 +500,8 @@ export interface FormTypeDefinition {
     formData: Record<string, unknown>,
     userId: number
   ) => Promise<PreviewContextResult>;
+  /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖），由 mapFormTypeRow 从 DB 读取 */
+  fieldPermissions?: FieldPermissionsOverride;
 }
 
 // =====================================================
@@ -490,13 +520,16 @@ export interface OaFormTypeRow {
   sort_order: number;
   description: string | null;
   /** @deprecated form_schema 已改为代码唯一来源，DB 列保留但不再读取 */
-  form_schema: FormSchema;
-  workflow_def: WorkflowDef;
+  form_schema?: FormSchema;
+  /** @deprecated workflow_def 已改为代码唯一来源，DB 列保留但不再作为运行时主源 */
+  workflow_def?: WorkflowDef;
   is_active: boolean;
   version: number;
   allowed_roles: string[] | null;
   data_read_roles: string[] | null;
   data_export_roles: string[] | null;
+  /** 字段权限 DB 覆盖配置（管理员通过表单管理页面配置） */
+  field_permissions?: FieldPermissionsOverride | null;
   created_at: Date;
   updated_at: Date;
 }

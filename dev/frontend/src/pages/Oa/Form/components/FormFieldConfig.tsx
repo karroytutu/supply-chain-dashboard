@@ -1,6 +1,5 @@
 import React from 'react';
-import { Input, InputNumber, Select, DatePicker, Upload, Button } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { Input, InputNumber, Select, DatePicker } from 'antd';
 import type { Dayjs } from 'dayjs';
 import type { FormField } from '@/types/oa';
 import { numberToChineseUpper } from '@/utils/number';
@@ -9,7 +8,7 @@ import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
 import PhotoFieldRenderer from './PhotoFieldRenderer';
 import { SignaturePad } from '@/components/Oa/SignaturePad';
-import { createBeforeUpload, validateDocumentFile } from '@/utils/uploadValidation';
+import UploadFieldRenderer from './UploadFieldRenderer';
 import styles from '../index.less';
 
 const { TextArea } = Input;
@@ -37,7 +36,7 @@ interface FormFieldConfigProps {
 
 /** 判断是否为 ERP 字段类型 */
 function isErpFieldType(type: FormField['type']): boolean {
-  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order', 'erp_grade', 'erp_group', 'erp_area', 'erp_supplier', 'erp_purchase_order'].includes(type);
+  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order', 'erp_grade', 'erp_group', 'erp_area', 'erp_supplier', 'erp_purchase_order', 'erp_prepayment', 'erp_supplier_income'].includes(type);
 }
 
 /** 表单字段渲染组件 */
@@ -125,7 +124,10 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
             placeholder={placeholder || `请输入${field.label}`}
             min={0}
             precision={2}
-            formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+            formatter={(v) => {
+              if (v === undefined || v === null) return '';
+              return Number(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }}
             parser={(v) => (v ?? '').replace(/\$\s?|(,*)/g, '') as any}
             disabled={field.disabled}
           />
@@ -146,6 +148,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           placeholder={placeholder || `请选择${field.label}`}
           options={options}
           disabled={field.disabled}
+          style={{ width: '100%' }}
         />
       );
 
@@ -158,6 +161,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           placeholder={placeholder || `请选择${field.label}`}
           options={options}
           disabled={field.disabled}
+          style={{ width: '100%' }}
         />
       );
 
@@ -169,6 +173,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           placeholder={placeholder || `请选择${field.label}`}
           options={options}
           disabled={field.disabled}
+          style={{ width: '100%' }}
         />
       );
 
@@ -180,13 +185,12 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
 
     case 'upload':
       return (
-        <Upload multiple maxCount={maxCount}
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-          beforeUpload={createBeforeUpload(validateDocumentFile)}
-        >
-          <Button icon={<UploadOutlined />} disabled={field.disabled}>上传附件</Button>
-          {maxCount && <span className={styles.uploadTip}>（最多 {maxCount} 个文件）</span>}
-        </Upload>
+        <UploadFieldRenderer
+          value={value}
+          onChange={onChange}
+          maxCount={maxCount}
+          disabled={field.disabled}
+        />
       );
 
     case 'photo':

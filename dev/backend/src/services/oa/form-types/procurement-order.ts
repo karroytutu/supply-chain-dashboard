@@ -2,36 +2,37 @@
  * 采购审批 - 表单类型定义
  * @module services/oa/form-types/procurement-order
  *
- * 采购全生命周期审批流程：
- * - ERP采购草稿关联 → 条件三级审批 → 付款分支 → 到货差异 → 多货子流程
- * - 支持三种付款方式：已付款(关联预付/收入单)、需预付(新建采购预付)、后付款
- * - 多货验收时动态创建新PO，独立审批+付款+入库
+ * 采购审批流程：
+ * - ERP采购草稿关联 → 条件三级审批 → 出纳付款(如需预付) → 审核PO
+ * - 付款方式简化为"是否需要预付款"（是/否），预付金额可编辑
+ * - 库管入库和核销由独立的"入库核销流程"处理（后续开发）
  */
 
 import {
   FormTypeDefinition,
   FormField,
+  PreviewContextResult,
 } from '../oa.types';
 import { analyzePurchaseOrder, buildPurchaseLines } from '../../procurement-order/procurement-analysis';
 import {
   handleProcurementAutoNode,
-  handleProcurementNodeCompleted,
-  handleProcurementRejected,
 } from '../../procurement-order/procurement-callback';
 import { OA_ROLE } from '../oa-role-codes';
 import { appQuery as query } from '../../../db/appPool';
 import { createLogger } from '../../../utils/logger';
+import {
+  PROCUREMENT_MARKETING_APPROVAL_DAYS,
+  PROCUREMENT_MANAGER_APPROVAL_AMOUNT,
+} from '../../../utils/constants';
 const log = createLogger('ProcurementForm');
 
 // =====================================================
-// 付款方式选项
+// 是否需要预付款选项
 // =====================================================
 
-export const PAYMENT_METHODS = {
-  ALREADY_PAID_PREPAY: 'already_paid_prepay',
-  ALREADY_PAID_INCOME: 'already_paid_income',
-  NEED_PREPAY: 'need_prepay',
-  POST_PAY: 'post_pay',
+export const NEED_PREPAYMENT = {
+  YES: 'yes',
+  NO: 'no',
 } as const;
 
 // =====================================================
@@ -48,6 +49,7 @@ const procurementFormSchema: { fields: FormField[] } = {
       required: true,
       searchApi: 'erp_suppliers',
       autoFill: { supplierName: 'name' },
+      nameField: 'supplierName',
     },
     {
       key: 'erpBillId',
@@ -60,7 +62,9 @@ const procurementFormSchema: { fields: FormField[] } = {
         erpBillStr: 'billStr',
         warehouseName: 'warehouseName',
         totalAmount: 'totalAmount',
+        prepaymentAmount: 'totalAmount',
       },
+      nameField: 'erpBillStr',
     },
     { key: 'supplierName', label: '供应商名称', type: 'text', required: false, hidden: true },
     { key: 'erpBillStr', label: '采购单号', type: 'text', required: false, hidden: true },
@@ -74,16 +78,22 @@ const procurementFormSchema: { fields: FormField[] } = {
       upper: true,
     },
     {
-      key: 'paymentMethod',
-      label: '付款方式',
+      key: 'needPrepayment',
+      label: '是否需要预付款',
       type: 'select',
       required: true,
       options: [
-        { value: PAYMENT_METHODS.ALREADY_PAID_PREPAY, label: '已付款（关联预付款单）' },
-        { value: PAYMENT_METHODS.ALREADY_PAID_INCOME, label: '已付款（关联收入单）' },
-        { value: PAYMENT_METHODS.NEED_PREPAY, label: '需预付' },
-        { value: PAYMENT_METHODS.POST_PAY, label: '后付款' },
+        { value: NEED_PREPAYMENT.YES, label: '是' },
+        { value: NEED_PREPAYMENT.NO, label: '否' },
       ],
+    },
+    {
+      key: 'prepaymentAmount',
+      label: '预付金额',
+      type: 'money',
+      required: false,
+      upper: true,
+      visibleWhen: { field: 'needPrepayment', operator: '==', value: NEED_PREPAYMENT.YES },
     },
     {
       key: 'purchaseLines',
@@ -107,153 +117,54 @@ const procurementFormSchema: { fields: FormField[] } = {
         { key: 'sellableDays', label: '可售天数', type: 'number', required: false, suffix: '天' },
       ],
     },
-
-    // ═══ 区域二：审批条件标记（hidden，系统计算，用于条件节点过滤） ═══
-    { key: '_needsMarketingApproval', label: '需营销审批', type: 'number', required: false },
-    { key: '_needsFinanceApproval', label: '需财务审批', type: 'number', required: false },
-    { key: '_needsManagerApproval', label: '需总经理审批', type: 'number', required: false },
-    { key: '_paymentMethodCategory', label: '付款分类', type: 'text', required: false },
-    { key: '_subFlowDepth', label: '子流程深度', type: 'number', required: false },
-
-    // ═══ 区域三：已付款-关联单据（visibleWhen） ═══
     {
-      key: 'settleSourceType',
-      label: '关联类型',
-      type: 'select',
+      key: 'purchaseRemark',
+      label: '采购备注',
+      type: 'textarea',
       required: false,
-      options: [
-        { value: 'prepay', label: '普通预付款' },
-        { value: 'income', label: '供应商收入单' },
-      ],
-      visibleWhen: { field: '_paymentMethodCategory', operator: '==', value: 'already_paid' },
-    },
-    {
-      key: 'selectedPrepayIds',
-      label: '已选预付款',
-      type: 'text',
-      required: false,
-      visibleWhen: [
-        { field: '_paymentMethodCategory', operator: '==', value: 'already_paid' },
-        { field: 'settleSourceType', operator: '==', value: 'prepay' },
-      ],
-    },
-    {
-      key: 'selectedIncomeIds',
-      label: '已选收入单',
-      type: 'text',
-      required: false,
-      visibleWhen: [
-        { field: '_paymentMethodCategory', operator: '==', value: 'already_paid' },
-        { field: 'settleSourceType', operator: '==', value: 'income' },
-      ],
-    },
-    {
-      key: 'erpPaidBillStr',
-      label: '付款单号',
-      type: 'text',
-      required: false,
-      disabled: true,
-      visibleWhen: { field: '_paymentMethodCategory', operator: '==', value: 'already_paid' },
+      placeholder: '请输入采购备注信息（选填）',
+      maxLength: 500,
     },
 
-    // ═══ 区域四：需预付-出纳付款 ═══
+    // ═══ 出纳付款环节字段（条件显示：仅当需要预付款时展示） ═══
     {
-      key: 'paymentReceiptUrls',
-      label: '付款回单',
-      type: 'upload',
+      key: 'paymentAmount',
+      label: '实付金额',
+      type: 'money',
       required: false,
-      maxCount: 10,
-      visibleWhen: { field: 'paymentMethod', operator: '==', value: PAYMENT_METHODS.NEED_PREPAY },
+      upper: true,
+      visibleWhen: { field: 'needPrepayment', operator: '==', value: NEED_PREPAYMENT.YES },
     },
     {
       key: 'paymentSubjectId',
       label: '付款账户',
       type: 'erp_payment_account',
-      required: false,
-      searchApi: 'erp_payment_accounts',
-      visibleWhen: { field: 'paymentMethod', operator: '==', value: PAYMENT_METHODS.NEED_PREPAY },
+      required: true,
+      searchApi: 'erp_payment_accounts' as const,
+      visibleWhen: { field: 'needPrepayment', operator: '==', value: NEED_PREPAYMENT.YES },
     },
     {
-      key: 'erpPrepayBillStr',
+      key: 'paymentReceiptUrls',
+      label: '付款回单',
+      type: 'upload',
+      required: false,
+      maxCount: 5,
+      visibleWhen: { field: 'needPrepayment', operator: '==', value: NEED_PREPAYMENT.YES },
+    },
+    {
+      key: 'prepayBillStr',
       label: '预付款单号',
       type: 'text',
       required: false,
       disabled: true,
-      visibleWhen: { field: 'paymentMethod', operator: '==', value: PAYMENT_METHODS.NEED_PREPAY },
+      visibleWhen: { field: 'needPrepayment', operator: '==', value: NEED_PREPAYMENT.YES },
     },
 
-    // ═══ 区域五：到货差异处理（库管填写，发起时隐藏） ═══
-    {
-      key: 'receivingNote',
-      label: '到货说明',
-      type: 'textarea',
-      required: false,
-      maxLength: 500,
-      visibleWhen: { field: '_nodePhase', operator: '==', value: 'warehouse_input' },
-    },
-    {
-      key: 'discrepancyLines',
-      label: '到货差异明细',
-      type: 'table',
-      required: false,
-      visibleWhen: { field: '_nodePhase', operator: '==', value: 'warehouse_input' },
-      children: [
-        { key: 'goodsName', label: '商品', type: 'text', required: false },
-        { key: 'orderedQty', label: '订单数量', type: 'number', required: false },
-        { key: 'actualQty', label: '实收数量', type: 'number', required: false },
-        { key: 'overQty', label: '多货数量', type: 'number', required: false },
-        { key: 'shortageQty', label: '少货数量', type: 'number', required: false },
-        {
-          key: 'hasDefect',
-          label: '有次品',
-          type: 'select',
-          required: false,
-          options: [
-            { value: 'Y', label: '是' },
-            { value: 'N', label: '否' },
-          ],
-        },
-        { key: 'defectNote', label: '次品说明', type: 'text', required: false },
-        {
-          key: 'handlingDecision',
-          label: '多货处理',
-          type: 'select',
-          required: false,
-          options: [
-            { value: 'reject', label: '拒收多货' },
-            { value: 'accept', label: '验收入库' },
-          ],
-        },
-      ],
-    },
+    // ═══ 区域二：审批条件标记（hidden，系统计算，用于条件节点过滤） ═══
+    { key: '_needsMarketingApproval', label: '需营销审批', type: 'number', required: false },
+    { key: '_needsFinanceApproval', label: '需财务审批', type: 'number', required: false },
+    { key: '_needsManagerApproval', label: '需总经理审批', type: 'number', required: false },
 
-    // ═══ 区域六：多货处理（动态插入节点使用，发起时隐藏） ═══
-    {
-      key: 'overQtyPaymentMethod',
-      label: '多货付款方式',
-      type: 'select',
-      required: false,
-      visibleWhen: { field: '_nodePhase', operator: '==', value: 'warehouse_input' },
-      options: [
-        { value: PAYMENT_METHODS.ALREADY_PAID_PREPAY, label: '已付款（关联预付款单）' },
-        { value: PAYMENT_METHODS.ALREADY_PAID_INCOME, label: '已付款（关联收入单）' },
-        { value: PAYMENT_METHODS.NEED_PREPAY, label: '需预付' },
-        { value: PAYMENT_METHODS.POST_PAY, label: '后付款' },
-      ],
-    },
-    {
-      key: 'overQtyRemark',
-      label: '多货处理备注',
-      type: 'textarea',
-      required: false,
-      maxLength: 500,
-      visibleWhen: { field: '_nodePhase', operator: '==', value: 'warehouse_input' },
-    },
-
-    // ═══ 区域七：ERP单据号留存（系统回填，只读，发起时隐藏） ═══
-    { key: 'erpOverQtyBillStr', label: '多货新采购订单号', type: 'text', required: false, disabled: true, visibleWhen: { field: '_nodePhase', operator: '==', value: 'warehouse_input' } },
-    { key: 'erpOverQtyPaidBillStr', label: '多货付款单号', type: 'text', required: false, disabled: true, visibleWhen: { field: '_nodePhase', operator: '==', value: 'warehouse_input' } },
-    { key: 'completionStatus', label: '办结状态', type: 'text', required: false, disabled: true, visibleWhen: { field: '_nodePhase', operator: '==', value: 'warehouse_input' } },
   ],
 };
 
@@ -271,6 +182,7 @@ const procurementWorkflowDef = {
       handler: { roleCode: OA_ROLE.MARKETING_MGR },
       signMode: 'or' as const,
       condition: { field: '_needsMarketingApproval', operator: '==' as const, value: 1 },
+      conditionDescription: `任一商品可售天数 > ${PROCUREMENT_MARKETING_APPROVAL_DAYS}天`,
     },
     {
       order: 2,
@@ -279,6 +191,7 @@ const procurementWorkflowDef = {
       handler: { roleCode: OA_ROLE.ACCOUNTANT },
       signMode: 'or' as const,
       condition: { field: '_needsFinanceApproval', operator: '==' as const, value: 1 },
+      conditionDescription: '存在价差或首次采购的商品',
     },
     {
       order: 3,
@@ -287,119 +200,56 @@ const procurementWorkflowDef = {
       handler: { roleCode: OA_ROLE.GM },
       signMode: 'or' as const,
       condition: { field: '_needsManagerApproval', operator: '==' as const, value: 1 },
+      conditionDescription: `订单总金额 > ${PROCUREMENT_MANAGER_APPROVAL_AMOUNT}元`,
     },
 
-    // ═══ Phase 2A: 已付款分支 ═══
+    // ═══ Phase 2: 付款分支（需预付时） ═══
     {
       order: 4,
-      name: '选择关联单据',
-      type: 'handle' as const,
-      handler: { roleCode: OA_ROLE.PROCUREMENT_MGR },
-      signMode: 'or' as const,
-      condition: { field: '_paymentMethodCategory', operator: '==' as const, value: 'already_paid' },
-      inputSchema: {
-        fields: [
-          {
-            name: 'settleSourceType',
-            label: '关联类型',
-            type: 'select' as const,
-            required: true,
-            options: [
-              { label: '普通预付款', value: 'prepay' },
-              { label: '供应商收入单', value: 'income' },
-            ],
-          },
-          { name: 'selectedPrepayId', label: '选择预付款单', type: 'text' as const, required: false },
-          { name: 'selectedIncomeId', label: '选择收入单', type: 'text' as const, required: false },
-        ],
-      },
-    },
-    {
-      order: 5,
-      name: '创建付款单核销',
-      type: 'auto' as const,
-      condition: { field: '_paymentMethodCategory', operator: '==' as const, value: 'already_paid' },
-    },
-
-    // ═══ Phase 2B: 需预付分支 ═══
-    {
-      order: 6,
       name: '出纳付款',
       type: 'handle' as const,
       handler: { roleCode: OA_ROLE.CASHIER },
       signMode: 'or' as const,
-      condition: { field: 'paymentMethod', operator: '==' as const, value: PAYMENT_METHODS.NEED_PREPAY },
-      inputSchema: {
-        fields: [
-          { name: 'paymentAmount', label: '付款金额', type: 'amount' as const, required: true },
-          {
-            name: 'paymentSubjectId',
-            label: '付款账户',
-            type: 'erp_payment_account' as const,
-            required: true,
-            searchApi: 'erp_payment_accounts' as const,
-          },
-          { name: 'paymentReceiptUrls', label: '付款回单', type: 'upload' as const, required: true },
-        ],
+      condition: { field: 'needPrepayment', operator: '==' as const, value: NEED_PREPAYMENT.YES },
+      // 字段级编辑权限：出纳只能编辑付款相关字段，其余字段只读
+      fieldPermissions: {
+        supplierId: 'readonly' as const,
+        erpBillId: 'readonly' as const,
+        supplierName: 'hidden' as const,
+        erpBillStr: 'hidden' as const,
+        warehouseName: 'readonly' as const,
+        totalAmount: 'readonly' as const,
+        needPrepayment: 'readonly' as const,
+        prepaymentAmount: 'readonly' as const,
+        purchaseLines: 'readonly' as const,
+        purchaseRemark: 'readonly' as const,
+        paymentAmount: 'editable' as const,
+        paymentSubjectId: 'editable' as const,
+        paymentReceiptUrls: 'editable' as const,
+        prepayBillStr: 'hidden' as const,
       },
     },
     {
-      order: 7,
+      order: 5,
       name: '创建采购预付款',
       type: 'auto' as const,
-      condition: { field: 'paymentMethod', operator: '==' as const, value: PAYMENT_METHODS.NEED_PREPAY },
+      condition: { field: 'needPrepayment', operator: '==' as const, value: NEED_PREPAYMENT.YES },
     },
 
-    // ═══ Phase 2C: 后付款 → 跳过 ═══
-
-    // ═══ Phase 3: ERP审核入库 ═══
+    // ═══ Phase 3: ERP审核 ═══
     {
-      order: 8,
+      order: 6,
       name: '审核采购订单',
       type: 'auto' as const,
     },
+    // ═══ Phase 4: 抄送 ═══
     {
-      order: 9,
-      name: '库管到货确认',
-      type: 'handle' as const,
-      handler: { roleCode: OA_ROLE.WAREHOUSE_MGR },
-      signMode: 'or' as const,
-      inputSchema: {
-        fields: [
-          { name: 'receivingNote', label: '到货说明', type: 'text' as const, required: false },
-          {
-            name: 'discrepancyLines',
-            label: '到货差异',
-            type: 'table' as const,
-            required: false,
-            columns: [
-              { name: 'goodsName', label: '商品', type: 'text' as const, required: true },
-              { name: 'orderedQty', label: '订单数量', type: 'number' as const, required: true, readonly: true },
-              { name: 'actualQty', label: '实收数量', type: 'number' as const, required: true },
-              { name: 'overQty', label: '多货数量', type: 'number' as const, required: false },
-              { name: 'shortageQty', label: '少货数量', type: 'number' as const, required: false },
-              {
-                name: 'hasDefect', label: '有次品', type: 'select' as const,
-                options: [{ label: '是', value: 'Y' }, { label: '否', value: 'N' }],
-              },
-              {
-                name: 'handlingDecision', label: '多货处理', type: 'select' as const,
-                options: [{ label: '拒收多货', value: 'reject' }, { label: '验收入库', value: 'accept' }],
-              },
-            ],
-          },
-        ],
-      },
-    },
-
-    // ═══ Phase 5: 办结 ═══
-    {
-      order: 10,
-      name: '办结检查',
-      type: 'auto' as const,
+      order: 7,
+      name: '抄送往来会计',
+      type: 'cc' as const,
+      ccRoles: [OA_ROLE.ACCOUNTANT],
     },
   ],
-  ccRoles: [OA_ROLE.ACCOUNTANT],
 };
 
 // =====================================================
@@ -447,14 +297,10 @@ async function beforeSubmitProcurement(
   // 构建行项展示数据（复用公共函数）
   const purchaseLines = buildPurchaseLines(analysis.lines);
 
-  // 确定付款方式分类
-  const paymentMethod = formData.paymentMethod as string;
-  let paymentMethodCategory = 'post_pay';
-  if (paymentMethod === PAYMENT_METHODS.ALREADY_PAID_PREPAY || paymentMethod === PAYMENT_METHODS.ALREADY_PAID_INCOME) {
-    paymentMethodCategory = 'already_paid';
-  } else if (paymentMethod === PAYMENT_METHODS.NEED_PREPAY) {
-    paymentMethodCategory = 'need_prepay';
-  }
+  // 预付金额默认取订单总额（用户未手动填写时）
+  const prepaymentAmount = formData.prepaymentAmount
+    ? formData.prepaymentAmount
+    : analysis.totalAmount.toFixed(2);
 
   return {
     erpBillStr: analysis.billStr,
@@ -463,17 +309,50 @@ async function beforeSubmitProcurement(
     warehouseName: analysis.warehouseName,
     totalAmount: analysis.totalAmount.toFixed(2),
     purchaseLines,
+    prepaymentAmount,
     _needsMarketingApproval: analysis.needsMarketingApproval ? 1 : 0,
     _needsFinanceApproval: analysis.needsFinanceApproval ? 1 : 0,
     _needsManagerApproval: analysis.needsManagerApproval ? 1 : 0,
-    _paymentMethodCategory: paymentMethodCategory,
-    _subFlowDepth: 0,
     _analysisResult: JSON.stringify(analysis),
     // 关键 ID 供 auto 节点回调使用
     _originalBillId: erpBillId,
     _originalBillStr: analysis.billStr,
     _supplierId: String(analysis.supplierId),
   };
+}
+
+// =====================================================
+// resolvePreviewContext: 流程预览条件字段注入
+// =====================================================
+
+/**
+ * 流程预览上下文：根据已选采购订单计算审批条件标记
+ * 与 beforeSubmit 的区别：无校验、无副作用、出错时返回空上下文
+ */
+async function resolveProcurementPreviewContext(
+  formData: Record<string, unknown>,
+  _userId: number
+): Promise<PreviewContextResult> {
+  const erpBillId = formData.erpBillId as number;
+  // 用户尚未选择采购订单时，不计算，预览不显示条件审批环节
+  if (!erpBillId) {
+    return { contextFields: {} };
+  }
+  try {
+    // 复用已有的采购订单分析函数（含可售天数>45天→需营销审批等业务规则）
+    const analysis = await analyzePurchaseOrder(erpBillId);
+    return {
+      contextFields: {
+        _needsMarketingApproval: analysis.needsMarketingApproval ? 1 : 0,
+        _needsFinanceApproval: analysis.needsFinanceApproval ? 1 : 0,
+        _needsManagerApproval: analysis.needsManagerApproval ? 1 : 0,
+      },
+    };
+  } catch (error) {
+    // 预览分析失败时不影响用户操作，仅降级为不显示条件审批环节
+    log.warn('采购审批流程预览上下文计算失败:', error instanceof Error ? error.message : error);
+    return { contextFields: {} };
+  }
 }
 
 // =====================================================
@@ -486,8 +365,8 @@ export const procurementOrderFormType: FormTypeDefinition = {
   icon: 'ShoppingOutlined',
   category: 'supply_chain',
   sortOrder: 50,
-  description: '采购全生命周期审批：条件三级审批→付款分支→到货差异→多货子流程',
-  version: 3,
+  description: '采购审批：条件三级审批→出纳付款(如需预付)→审核PO',
+  version: 10,
 
   formSchema: procurementFormSchema,
   workflowDef: procurementWorkflowDef,
@@ -495,12 +374,9 @@ export const procurementOrderFormType: FormTypeDefinition = {
   /** 提交前：从ERP拉取数据+计算审批条件 */
   beforeSubmit: beforeSubmitProcurement,
 
-  /** auto节点回调：创建付款单/预付款/审核PO/办结 */
+  /** 流程预览：根据已选采购订单动态计算需要经过哪些审批环节 */
+  resolvePreviewContext: resolveProcurementPreviewContext,
+
+  /** auto节点回调：创建预付款/审核PO */
   onApproved: handleProcurementAutoNode,
-
-  /** handle节点完成回调：库管到货确认后的多货检查 */
-  onNodeCompleted: handleProcurementNodeCompleted,
-
-  /** 驳回回调：回滚已创建的ERP单据 */
-  onRejected: handleProcurementRejected,
 };

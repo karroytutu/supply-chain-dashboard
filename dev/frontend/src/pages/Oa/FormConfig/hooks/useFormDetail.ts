@@ -4,12 +4,35 @@
  */
 import { useState, useCallback, useEffect } from 'react';
 import { message } from 'antd';
+import type { ConditionDef } from '@/types/oa';
 import {
   getAdminFormTypes,
   getAdminRoles,
   updateAdminFormType,
   updateAdminFormTypeWorkflow,
 } from '@/services/api/oa';
+
+const OPERATOR_LABELS: Record<string, string> = {
+  '>': '大于', '<': '小于', '>=': '大于等于', '<=': '小于等于', '==': '等于',
+};
+
+/**
+ * 将条件定义转为业务可读文本
+ * @param condition 条件（单个或数组）
+ * @param fields 表单字段列表，用于将 field key 映射为中文标签
+ */
+export function formatCondition(
+  condition: ConditionDef | ConditionDef[] | unknown,
+  fields?: Array<{ key: string; label: string }>
+): string {
+  if (!condition) return '';
+  const list = Array.isArray(condition) ? condition : [condition];
+  return list.map((c: ConditionDef) => {
+    const label = fields?.find(f => f.key === c.field)?.label || c.field;
+    const op = OPERATOR_LABELS[c.operator] || c.operator;
+    return `${label} ${op} ${c.value}`;
+  }).join('，且 ');
+}
 
 /** 工作流节点编辑视图 */
 export interface WorkflowNodeEdit {
@@ -23,6 +46,8 @@ export interface WorkflowNodeEdit {
   };
   signMode?: string;
   condition?: unknown;
+  conditionDescription?: string;
+  ccRoles?: string[];
   timeout?: unknown;
   interactionType?: string;
   fieldPermissions?: Record<string, string>;
@@ -39,10 +64,15 @@ export interface FormDetailData {
   allowedRoles: string[] | null;
   dataReadRoles: string[] | null;
   dataExportRoles: string[] | null;
+  /** 表单字段定义（供字段权限矩阵使用） */
+  formSchema?: { fields: Array<{ key: string; label: string; type: string; hidden?: boolean }> };
+  /** 字段权限 DB 覆盖值 */
+  fieldPermissions?: {
+    initiation?: Record<string, string>;
+    nodes?: Record<string, Record<string, string>>;
+  };
   workflowDef: {
     nodes: WorkflowNodeEdit[];
-    ccRoles?: string[];
-    ccAfterNode?: number;
   };
 }
 

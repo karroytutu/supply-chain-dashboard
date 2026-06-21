@@ -28,14 +28,6 @@ import {
 import type { OaInstanceRow, PreviewContextResult } from './oa.types';
 
 /**
- * 获取客户授信审批的抄送角色（固定抄送总经理）
- * 供 FormTypeDefinition.getCCRoles 回调使用
- */
-export function getCustomerCreditCCRoles(_formData: Record<string, unknown>): string[] {
-  return [ROLE_CODES.GENERAL_MANAGER];
-}
-
-/**
  * 流程预览上下文：当前无需注入额外字段，返回空上下文
  */
 export async function resolveCustomerCreditPreviewContext(

@@ -325,7 +325,7 @@ export const AR_TIMEOUT_WARNING_HOURS = 24;
 export const PROCUREMENT_MARKETING_APPROVAL_DAYS = 45;
 
 /** 总经理审批触发：订单总金额>此值时触发总经理审批 @usedBy procurement-analysis.ts */
-export const PROCUREMENT_MANAGER_APPROVAL_AMOUNT = 5000;
+export const PROCUREMENT_MANAGER_APPROVAL_AMOUNT = 50000;
 
 /** 日均销量计算周期（天） @usedBy procurement-analysis.ts */
 export const PROCUREMENT_DAILY_SALES_PERIOD = 60;

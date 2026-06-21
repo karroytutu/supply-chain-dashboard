@@ -62,6 +62,8 @@ export type FormFieldType =
   // ERP 参考数据字段类型（采购审批使用）
   | 'erp_supplier'
   | 'erp_purchase_order'
+  | 'erp_prepayment'
+  | 'erp_supplier_income'
   | 'formula'; // 公式计算字段（自动根据表达式求值，不可手动编辑）
 
 export interface FormField {
@@ -129,6 +131,16 @@ export interface FormSchema {
 export type FieldPermission = 'editable' | 'readonly' | 'hidden';
 
 /**
+ * 字段权限 DB 覆盖配置结构
+ * - initiation: 发起阶段字段权限覆盖（申请人视角）
+ * - nodes: 按节点 order 配置的字段权限覆盖（办理/审批人视角）
+ */
+export interface FieldPermissionsOverride {
+  initiation?: Record<string, FieldPermission>;
+  nodes?: Record<string, Record<string, FieldPermission>>;
+}
+
+/**
  * @deprecated 已废弃，后端不再使用 interactionType 字段，改为根据 NodeType 决定按钮布局。
  * 保留类型定义以兼容旧代码，请勿在新代码中使用。
  */
@@ -176,7 +188,7 @@ export interface AssessmentTier {
 // 审批流程相关类型
 // =====================================================
 
-export type NodeType = 'approval' | 'handle' | 'auto';
+export type NodeType = 'approval' | 'handle' | 'auto' | 'cc';
 
 export type SignMode = 'or' | 'and';
 
@@ -192,14 +204,17 @@ export interface ConditionDef {
   value: number | string;
 }
 
-/** 数据录入节点 - 录入字段定义 */
+/** 数据录入节点 - 录入字段定义
+ * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions
+ */
 export interface NodeInputField {
   name: string;
   label: string;
   type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table'
     | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category'
     | 'erp_customer' | 'erp_settlement_order'
-    | 'erp_grade' | 'erp_group' | 'erp_area';
+    | 'erp_grade' | 'erp_group' | 'erp_area'
+    | 'erp_prepayment' | 'erp_supplier_income';
   required?: boolean;
   options?: Array<{ label: string; value: unknown }>;
   defaultValue?: unknown;
@@ -208,11 +223,14 @@ export interface NodeInputField {
   searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders';
   autoFill?: Record<string, string>;
   cascadeFrom?: string;
+  multiple?: boolean;
   visibleWhen?: ConditionDef | ConditionDef[];
   requiredWhen?: ConditionDef | ConditionDef[];
 }
 
-/** 数据录入节点 - 录入表单 Schema */
+/** 数据录入节点 - 录入表单 Schema
+ * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions
+ */
 export interface NodeInputSchema {
   fields: NodeInputField[];
 }
@@ -228,7 +246,9 @@ export interface WorkflowNodeDef {
   handler?: HandlerRule;
   signMode?: SignMode;
   condition?: ConditionDef | ConditionDef[];
-  /** 数据录入表单 schema（仅 data_input 类型） */
+  /** 数据录入表单 schema（仅 data_input 类型）
+   * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions
+   */
   inputSchema?: NodeInputSchema;
   /** 字段权限配置：控制每个字段在该节点下的可见/可编辑状态 */
   fieldPermissions?: Record<string, FieldPermission>;
@@ -239,15 +259,16 @@ export interface WorkflowNodeDef {
    * 保留字段以兼容旧代码，请勿在新代码中使用。
    */
   interactionType?: NodeInteractionType;
+  /** 条件业务描述（管理员视角的可读文本，如"任一商品可售天数 > 45天"） */
+  conditionDescription?: string;
+  /** 抄送角色编码列表（仅 cc 类型节点使用） */
+  ccRoles?: string[];
   /** 节点时限配置（不配置表示无时限约束） */
   timeout?: TimeoutConfig;
 }
 
 export interface WorkflowDef {
   nodes: WorkflowNodeDef[];
-  ccRoles?: string[];
-  /** 节点结束后自动抄送：指定节点 order，该节点处理完成后抄送给 ccRoles */
-  ccAfterNode?: number;
 }
 
 // =====================================================
@@ -264,6 +285,8 @@ export interface FormTypeDefinition {
   version: number;
   formSchema: FormSchema;
   workflowDef: WorkflowDef;
+  /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖） */
+  fieldPermissions?: FieldPermissionsOverride;
 }
 
 // =====================================================
@@ -351,6 +374,8 @@ export interface CcUser {
   /** 抄送人头像URL */
   avatar?: string | null;
   readAt: string | null;
+  /** 触发抄送的 CC 节点 order，null 表示旧机制数据 */
+  sourceNodeOrder?: number | null;
 }
 
 /** ERP处理元数据 */
@@ -370,6 +395,8 @@ export interface ApprovalDetail extends ApprovalInstance {
   actions: ApprovalAction[];
   ccUsers: CcUser[];
   erpMeta: ErpMeta | null;
+  /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖） */
+  fieldPermissions?: FieldPermissionsOverride;
 }
 
 // =====================================================
@@ -525,9 +552,8 @@ export interface HandoverExecuteRequest {
 
 export interface HandoverExecuteResult {
   handoverId: number;
-  formTypesUpdated: number;
   instancesUpdated: number;
-  nodesReassigned: number;
+  affectedInstanceIds: number[];
 }
 
 export interface HandoverHistoryItem {
@@ -535,9 +561,7 @@ export interface HandoverHistoryItem {
   sourceUserName: string;
   targetUserName: string;
   operatorName: string;
-  formTypesUpdated: number;
   instancesUpdated: number;
-  nodesReassigned: number;
   affectedFormTypeCodes: string[];
   affectedInstanceIds: number[];
   createdAt: string;

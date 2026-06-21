@@ -15,7 +15,7 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 30,
   description: '固定资产维修审批（含条件询价和财务支付）',
-  version: 3,
+  version: 4,
 
   formSchema: {
     fields: [
@@ -51,6 +51,33 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
         ],
       },
       { key: 'attachmentUrls', label: '附件', type: 'upload', required: false, maxCount: 10 },
+
+      // ═══ 办理环节字段（原 inputSchema 迁移至主表单） ═══
+      // 询价结果表格（仅当预估费用≥500元时显示）
+      {
+        key: 'quotations',
+        label: '询价结果',
+        type: 'table',
+        required: false,
+        visibleWhen: { field: 'estimatedCost', operator: '>=', value: 500 },
+        children: [
+          { key: 'supplierName', label: '供应商', type: 'text', required: true },
+          { key: 'quotationPrice', label: '报价', type: 'money', required: true },
+          { key: 'quotationNote', label: '备注', type: 'text', required: false },
+        ],
+      },
+      // 财务支付环节字段
+      { key: 'paymentAmount', label: '支付金额', type: 'money', required: false },
+      { key: 'paymentDate', label: '支付日期', type: 'date', required: false },
+      {
+        key: 'paymentSubjectId',
+        label: '付款账户',
+        type: 'erp_payment_account',
+        required: false,
+        searchApi: 'erp_payment_accounts',
+      },
+      { key: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
+      { key: 'paymentNote', label: '支付备注', type: 'text', required: false },
     ],
   },
 
@@ -64,20 +91,22 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
         handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
         condition: { field: 'estimatedCost', operator: '>=', value: 500 },
-        inputSchema: {
-          fields: [
-            {
-              name: 'quotations',
-              label: '询价结果',
-              type: 'table',
-              required: true,
-              columns: [
-                { name: 'supplierName', label: '供应商', type: 'text', required: true },
-                { name: 'quotationPrice', label: '报价', type: 'amount', required: true },
-                { name: 'quotationNote', label: '备注', type: 'text', required: false },
-              ],
-            },
-          ],
+        // 字段级编辑权限：行政人员只能编辑询价结果，其余字段只读
+        fieldPermissions: {
+          assetSearch: 'readonly' as const,
+          erpAssetId: 'hidden' as const,
+          assetNo: 'readonly' as const,
+          assetName: 'readonly' as const,
+          description: 'readonly' as const,
+          estimatedCost: 'readonly' as const,
+          urgency: 'readonly' as const,
+          attachmentUrls: 'readonly' as const,
+          quotations: 'editable' as const,
+          paymentAmount: 'hidden' as const,
+          paymentDate: 'hidden' as const,
+          paymentSubjectId: 'hidden' as const,
+          receiptUrls: 'hidden' as const,
+          paymentNote: 'hidden' as const,
         },
       },
       { order: 3, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' },
@@ -87,24 +116,26 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
         type: 'handle',
         handler: { roleCode: OA_ROLE.CASHIER },
         signMode: 'or',
-        inputSchema: {
-          fields: [
-            { name: 'paymentAmount', label: '支付金额', type: 'amount', required: true },
-            { name: 'paymentDate', label: '支付日期', type: 'date', required: true },
-            {
-              name: 'paymentSubjectId',
-              label: '付款账户',
-              type: 'erp_payment_account',
-              required: true,
-              searchApi: 'erp_payment_accounts',
-            },
-            { name: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
-            { name: 'paymentNote', label: '支付备注', type: 'text', required: false },
-          ],
+        // 字段级编辑权限：出纳只能编辑支付相关字段，其余字段只读
+        fieldPermissions: {
+          assetSearch: 'readonly' as const,
+          erpAssetId: 'hidden' as const,
+          assetNo: 'readonly' as const,
+          assetName: 'readonly' as const,
+          description: 'readonly' as const,
+          estimatedCost: 'readonly' as const,
+          urgency: 'readonly' as const,
+          attachmentUrls: 'readonly' as const,
+          quotations: 'readonly' as const,
+          paymentAmount: 'editable' as const,
+          paymentDate: 'editable' as const,
+          paymentSubjectId: 'editable' as const,
+          receiptUrls: 'editable' as const,
+          paymentNote: 'editable' as const,
         },
       },
+      { order: 5, name: '抄送往来会计', type: 'cc' as const, ccRoles: [OA_ROLE.ACCOUNTANT] },
     ],
-    ccRoles: [OA_ROLE.ACCOUNTANT],
   },
 
   /** 提交前校验：确保选择了资产且费用合法 */

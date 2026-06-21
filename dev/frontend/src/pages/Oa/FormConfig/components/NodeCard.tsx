@@ -4,8 +4,9 @@
  */
 import React, { useState } from 'react';
 import { Card, Select, Radio, Tag, Collapse, Typography, Space, Input } from 'antd';
-import { SettingOutlined, RobotOutlined } from '@ant-design/icons';
+import { SettingOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons';
 import type { WorkflowNodeEdit } from '../hooks/useFormDetail';
+import { formatCondition } from '../hooks/useFormDetail';
 import TimeoutEditor from './TimeoutEditor';
 
 const { Text } = Typography;
@@ -13,6 +14,7 @@ const { Text } = Typography;
 interface NodeCardProps {
   node: WorkflowNodeEdit;
   roles: Array<{ code: string; name: string }>;
+  fields?: Array<{ key: string; label: string }>;
   onChange: (updatedNode: WorkflowNodeEdit) => void;
 }
 
@@ -20,18 +22,22 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   approval: '审批',
   handle: '办理',
   auto: '自动执行',
+  cc: '抄送',
 };
 
 const NODE_TYPE_COLORS: Record<string, string> = {
   approval: 'blue',
   handle: 'cyan',
   auto: 'default',
+  cc: 'purple',
 };
 
-const NodeCard: React.FC<NodeCardProps> = ({ node, roles, onChange }) => {
+const NodeCard: React.FC<NodeCardProps> = ({ node, roles, fields, onChange }) => {
   const [timeoutExpanded, setTimeoutExpanded] = useState(false);
   const isAuto = node.type === 'auto';
+  const isCc = node.type === 'cc';
   const isHandle = node.type === 'handle';
+  const isSystemNode = isAuto || isCc; // 系统自动处理的节点（auto/cc）均为只读
 
   const updateHandler = (field: string, value: unknown) => {
     onChange({
@@ -51,12 +57,12 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, roles, onChange }) => {
       size="small"
       title={
         <Space>
-          {isAuto ? (
+          {isSystemNode ? (
             <Text strong>{`${node.order}. ${node.name}`}</Text>
           ) : (
             <Text strong>{`${node.order}. `}</Text>
           )}
-          {!isAuto && (
+          {!isSystemNode && (
             <Input
               size="small"
               value={node.name}
@@ -68,6 +74,10 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, roles, onChange }) => {
           {isAuto ? (
             <Tag color={NODE_TYPE_COLORS.auto} icon={<RobotOutlined />}>
               系统自动执行
+            </Tag>
+          ) : isCc ? (
+            <Tag color={NODE_TYPE_COLORS.cc} icon={<SendOutlined />}>
+              抄送{node.ccRoles?.length ? `：${node.ccRoles.join('、')}` : ''}
             </Tag>
           ) : (
             <Radio.Group
@@ -83,16 +93,18 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, roles, onChange }) => {
         </Space>
       }
       extra={
-        !isAuto && (
+        !isSystemNode && (
           <Tag icon={<SettingOutlined />} color="processing">
             可编辑
           </Tag>
         )
       }
-      style={{ marginBottom: 8, opacity: isAuto ? 0.6 : 1, background: isAuto ? '#fafafa' : undefined }}
+      style={{ marginBottom: 8, opacity: isSystemNode ? 0.6 : 1, background: isSystemNode ? '#fafafa' : undefined }}
     >
-      {isAuto ? (
-        <Text type="secondary">自动执行节点，由系统处理，无需配置审批人</Text>
+      {isSystemNode ? (
+        <Text type="secondary">
+          {isAuto ? '自动执行节点，由系统处理，无需配置审批人' : `抄送节点，流程到达时自动通知：${node.ccRoles?.join('、') || '未配置抄送岗位'}`}
+        </Text>
       ) : (
         <Space direction="vertical" style={{ width: '100%' }}>
           {/* 审批人规则 */}
@@ -163,7 +175,7 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, roles, onChange }) => {
             <div>
               <Text type="secondary">触发条件：</Text>
               <Tag style={{ marginTop: 4 }}>
-                {JSON.stringify(node.condition as Record<string, unknown>)}
+                当 {node.conditionDescription || formatCondition(node.condition, fields)} 时触发
               </Tag>
             </div>
           )}

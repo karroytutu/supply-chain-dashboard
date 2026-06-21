@@ -15,12 +15,13 @@ export const assetPurchaseFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 10,
   description: '固定资产采购审批流程（含询价、支付、入库）',
-  version: 3,
+  version: 4,
 
   formSchema: {
     fields: [
+      // ═══ 申请人填写的采购明细 ═══
       {
-        key: 'lines',
+        key: 'purchaseLines',
         label: '采购明细',
         type: 'table',
         required: true,
@@ -33,6 +34,92 @@ export const assetPurchaseFormType: FormTypeDefinition = {
       },
       { key: 'remark', label: '采购备注', type: 'textarea', required: false, maxLength: 500 },
       { key: 'attachmentUrls', label: '附件', type: 'upload', required: false, maxCount: 10 },
+
+      // ═══ 办理环节字段（原 inputSchema 迁移至主表单） ═══
+
+      // 行政询价环节：询价结果表格（9列）
+      {
+        key: 'inquiryLines',
+        label: '询价结果',
+        type: 'table',
+        required: false,
+        children: [
+          { key: 'supplierName', label: '供应商', type: 'text', required: true },
+          { key: 'quotationPrice', label: '询价单价', type: 'money', required: true },
+          {
+            key: 'assetTypeId',
+            label: '资产分类',
+            type: 'erp_asset_category',
+            required: true,
+            searchApi: 'erp_asset_categories',
+          },
+          {
+            key: 'deptId',
+            label: '使用部门',
+            type: 'erp_department',
+            required: false,
+            searchApi: 'erp_departments',
+          },
+          {
+            key: 'userId',
+            label: '使用人',
+            type: 'erp_staff',
+            required: false,
+            searchApi: 'erp_staff',
+            cascadeFrom: 'deptId',
+          },
+          { key: 'depositAddress', label: '存放地点', type: 'text', required: false },
+          {
+            key: 'estimatedResidualValueRate',
+            label: '残值率(%)',
+            type: 'number',
+            required: false,
+          },
+          {
+            key: 'depreciationMethod',
+            label: '折旧方法',
+            type: 'select',
+            required: false,
+            options: [{ label: '年限平均法', value: 'YEARS_AVERAGE_METHOD' }],
+          },
+          {
+            key: 'estimatedServiceMonths',
+            label: '使用月数',
+            type: 'number',
+            required: false,
+          },
+        ],
+      },
+
+      // 出纳支付环节字段
+      { key: 'paymentAmount', label: '支付金额', type: 'money', required: false },
+      { key: 'paymentDate', label: '支付日期', type: 'date', required: false },
+      {
+        key: 'paymentSubjectId',
+        label: '付款账户',
+        type: 'erp_payment_account',
+        required: false,
+        searchApi: 'erp_payment_accounts',
+      },
+      { key: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
+      { key: 'paymentNote', label: '支付备注', type: 'text', required: false },
+
+      // 行政采购环节字段
+      { key: 'purchaseDate', label: '采购日期', type: 'date', required: false },
+      { key: 'purchaseNote', label: '采购备注', type: 'text', required: false },
+
+      // 资产入库环节：入库信息表格（3列）
+      {
+        key: 'arrivalLines',
+        label: '入库信息',
+        type: 'table',
+        required: false,
+        children: [
+          { key: 'actualPrice', label: '实际单价', type: 'money', required: true },
+          { key: 'arrivalDate', label: '到货日期', type: 'date', required: true },
+          { key: 'note', label: '备注', type: 'text', required: false },
+        ],
+      },
     ],
   },
 
@@ -46,61 +133,19 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         type: 'handle',
         handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
-        inputSchema: {
-          fields: [
-            {
-              name: 'lines',
-              label: '询价结果',
-              type: 'table',
-              required: true,
-              columns: [
-                { name: 'supplierName', label: '供应商', type: 'text', required: true },
-                { name: 'quotationPrice', label: '询价单价', type: 'amount', required: true },
-                {
-                  name: 'assetTypeId',
-                  label: '资产分类',
-                  type: 'erp_asset_category',
-                  required: true,
-                  searchApi: 'erp_asset_categories',
-                },
-                {
-                  name: 'deptId',
-                  label: '使用部门',
-                  type: 'erp_department',
-                  required: false,
-                  searchApi: 'erp_departments',
-                },
-                {
-                  name: 'userId',
-                  label: '使用人',
-                  type: 'erp_staff',
-                  required: false,
-                  searchApi: 'erp_staff',
-                  cascadeFrom: 'deptId',
-                },
-                { name: 'depositAddress', label: '存放地点', type: 'text', required: false },
-                {
-                  name: 'estimatedResidualValueRate',
-                  label: '残值率(%)',
-                  type: 'number',
-                  required: false,
-                },
-                {
-                  name: 'depreciationMethod',
-                  label: '折旧方法',
-                  type: 'select',
-                  required: false,
-                  options: [{ label: '年限平均法', value: 'YEARS_AVERAGE_METHOD' }],
-                },
-                {
-                  name: 'estimatedServiceMonths',
-                  label: '使用月数',
-                  type: 'number',
-                  required: false,
-                },
-              ],
-            },
-          ],
+        fieldPermissions: {
+          purchaseLines: 'readonly' as const,
+          remark: 'readonly' as const,
+          attachmentUrls: 'readonly' as const,
+          inquiryLines: 'editable' as const,
+          paymentAmount: 'hidden' as const,
+          paymentDate: 'hidden' as const,
+          paymentSubjectId: 'hidden' as const,
+          receiptUrls: 'hidden' as const,
+          paymentNote: 'hidden' as const,
+          purchaseDate: 'hidden' as const,
+          purchaseNote: 'hidden' as const,
+          arrivalLines: 'hidden' as const,
         },
       },
       { order: 4, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' },
@@ -110,20 +155,19 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         type: 'handle',
         handler: { roleCode: OA_ROLE.CASHIER },
         signMode: 'or',
-        inputSchema: {
-          fields: [
-            { name: 'paymentAmount', label: '支付金额', type: 'amount', required: true },
-            { name: 'paymentDate', label: '支付日期', type: 'date', required: true },
-            {
-              name: 'paymentSubjectId',
-              label: '付款账户',
-              type: 'erp_payment_account',
-              required: true,
-              searchApi: 'erp_payment_accounts',
-            },
-            { name: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
-            { name: 'paymentNote', label: '支付备注', type: 'text', required: false },
-          ],
+        fieldPermissions: {
+          purchaseLines: 'readonly' as const,
+          remark: 'readonly' as const,
+          attachmentUrls: 'readonly' as const,
+          inquiryLines: 'readonly' as const,
+          paymentAmount: 'editable' as const,
+          paymentDate: 'editable' as const,
+          paymentSubjectId: 'editable' as const,
+          receiptUrls: 'editable' as const,
+          paymentNote: 'editable' as const,
+          purchaseDate: 'hidden' as const,
+          purchaseNote: 'hidden' as const,
+          arrivalLines: 'hidden' as const,
         },
       },
       {
@@ -132,11 +176,19 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         type: 'handle',
         handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
-        inputSchema: {
-          fields: [
-            { name: 'purchaseDate', label: '采购日期', type: 'date', required: true },
-            { name: 'purchaseNote', label: '采购备注', type: 'text', required: false },
-          ],
+        fieldPermissions: {
+          purchaseLines: 'readonly' as const,
+          remark: 'readonly' as const,
+          attachmentUrls: 'readonly' as const,
+          inquiryLines: 'readonly' as const,
+          paymentAmount: 'readonly' as const,
+          paymentDate: 'readonly' as const,
+          paymentSubjectId: 'readonly' as const,
+          receiptUrls: 'readonly' as const,
+          paymentNote: 'readonly' as const,
+          purchaseDate: 'editable' as const,
+          purchaseNote: 'editable' as const,
+          arrivalLines: 'hidden' as const,
         },
       },
       {
@@ -145,24 +197,23 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         type: 'handle',
         handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
-        inputSchema: {
-          fields: [
-            {
-              name: 'lines',
-              label: '入库信息',
-              type: 'table',
-              required: true,
-              columns: [
-                { name: 'actualPrice', label: '实际单价', type: 'amount', required: true },
-                { name: 'arrivalDate', label: '到货日期', type: 'date', required: true },
-                { name: 'note', label: '备注', type: 'text', required: false },
-              ],
-            },
-          ],
+        fieldPermissions: {
+          purchaseLines: 'readonly' as const,
+          remark: 'readonly' as const,
+          attachmentUrls: 'readonly' as const,
+          inquiryLines: 'readonly' as const,
+          paymentAmount: 'readonly' as const,
+          paymentDate: 'readonly' as const,
+          paymentSubjectId: 'readonly' as const,
+          receiptUrls: 'readonly' as const,
+          paymentNote: 'readonly' as const,
+          purchaseDate: 'readonly' as const,
+          purchaseNote: 'readonly' as const,
+          arrivalLines: 'editable' as const,
         },
       },
+      { order: 8, name: '抄送往来会计', type: 'cc' as const, ccRoles: [OA_ROLE.ACCOUNTANT] },
     ],
-    ccRoles: [OA_ROLE.ACCOUNTANT],
   },
 
   /** 提交前生成采购申请编号 */

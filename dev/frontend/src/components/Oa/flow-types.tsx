@@ -6,6 +6,7 @@ import {
   UserOutlined,
   TeamOutlined,
   SettingOutlined,
+  SendOutlined,
 } from '@ant-design/icons';
 import type { WorkflowNodeDef, ApprovalNode, ApprovalAction, ApprovalStatus, CcUser, ErpMeta } from '@/types/oa';
 import styles from './ApprovalFlow.less';
@@ -24,6 +25,7 @@ export const NODE_TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: st
   approval: { icon: <TeamOutlined />, color: '#722ed1' },
   handle: { icon: <UserOutlined />, color: '#1890ff' },
   auto: { icon: <SettingOutlined />, color: '#722ed1' },
+  cc: { icon: <SendOutlined />, color: '#1890ff' },
 };
 
 // =====================================================
@@ -109,3 +111,44 @@ export interface ApprovalFlowActualProps {
 
 /** 统一 Props（联合类型） */
 export type ApprovalFlowProps = ApprovalFlowPreviewProps | ApprovalFlowActualProps;
+
+// =====================================================
+// Ant Design Timeline 辅助工具
+// =====================================================
+
+/** 根据节点状态返回 Ant Design Timeline.Item 的 color 值 */
+export function getTimelineColor(status: string): string {
+  const map: Record<string, string> = {
+    approved: 'green',
+    rejected: 'red',
+    failed: 'red',
+    pending: 'gray',
+    processing: 'blue',
+    transferred: '#fa8c16',
+    sent_back: '#fa8c16',
+    skipped: 'gray',
+    cancelled: 'gray',
+  };
+  return map[status] || 'blue';
+}
+
+/** 节点标题行组件（标题 + 副标题 + 状态 + 时间） */
+export function NodeHeader({ title, subtitle, status, statusColor, time }: {
+  title: string;
+  subtitle?: string;
+  status?: string;
+  statusColor?: string;
+  time?: string | null;
+}) {
+  if (!title && !subtitle && !status && !time) return null;
+  return (
+    <div className={styles.timelineHeader}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+        {title && <span className={styles.timelineTitle}>{title}</span>}
+        {subtitle && <span className={styles.timelineSubtitle}>{subtitle}</span>}
+        {status && <span className={styles.timelineStatus} style={{ color: statusColor }}>{status}</span>}
+      </div>
+      {time && <span className={styles.timelineTime}>{time}</span>}
+    </div>
+  );
+}

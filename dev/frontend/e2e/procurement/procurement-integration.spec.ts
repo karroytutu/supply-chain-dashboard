@@ -1,5 +1,5 @@
 /**
- * E2E 测试：采购审批集成测试（10个场景）
+ * E2E 测试：采购审批集成测试（7个场景）
  *
  * 策略：动态适配 — 不预设条件节点触发情况，而是提交后读取实际节点，逐步审批。
  * - approval 节点通过 API 完成（只需 comment）
@@ -13,10 +13,7 @@
  * 4. 需预付全流程
  * 5. 已付款全流程
  * 6. 审批中驳回
- * 7. ERP单据驳回回滚
- * 8. 库管到货确认
- * 9. 多货验收子流程
- * 10. 全流程端到端（含办结）
+ * 7. 全流程端到端
  */
 import { test, expect } from '../fixtures';
 import { waitForPageLoad } from '../helpers/antd';
@@ -70,9 +67,9 @@ async function createPO(token: string, opts: { highAmount?: boolean } = {}) {
   return null;
 }
 
-async function submitOA(token: string, billId: number, paymentMethod: string, title: string) {
+async function submitOA(token: string, billId: number, needPrepayment: string, title: string) {
   const r = await api(token, 'POST', '/api/oa/instances', {
-    formTypeCode: 'procurement_order', title, formData: { erpBillId: billId, paymentMethod },
+    formTypeCode: 'procurement_order', title, formData: { erpBillId: billId, needPrepayment },
   });
   const instanceId = r?.data?.instanceId ?? null;
   if (!instanceId) { console.warn('[E2E] submitOA失败:', r?.message); return null; }
@@ -216,7 +213,7 @@ test.describe('场景1: 基础提交验证', () => {
     const po = await createPO(token);
     if (!po) return;
     billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'post_pay', '[E2E] 基础验证');
+    instanceId = await submitOA(token, po.billId, 'no', '[E2E] 基础验证');
   });
 
   test.afterAll(async () => {
@@ -249,7 +246,7 @@ test.describe('场景2: 条件审批链遍历', () => {
     const po = await createPO(token);
     if (!po) return;
     billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'post_pay', '[E2E] 审批链遍历');
+    instanceId = await submitOA(token, po.billId, 'no', '[E2E] 审批链遍历');
   });
 
   test.afterAll(async () => {
@@ -287,7 +284,7 @@ test.describe('场景3: 高金额审批', () => {
     const po = await createPO(token, { highAmount: true }); // 300 * 18.7 = 5610 > 5000
     if (!po) return;
     billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'post_pay', '[E2E] 高金额审批');
+    instanceId = await submitOA(token, po.billId, 'no', '[E2E] 高金额审批');
   });
 
   test.afterAll(async () => {
@@ -322,7 +319,7 @@ test.describe('场景4: 后付款端到端', () => {
     const po = await createPO(token);
     if (!po) return;
     billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'post_pay', '[E2E] 后付款端到端');
+    instanceId = await submitOA(token, po.billId, 'no', '[E2E] 后付款端到端');
   });
 
   test.afterAll(async () => {
@@ -330,7 +327,7 @@ test.describe('场景4: 后付款端到端', () => {
     await cleanupAll(token, instanceId, billId ? [billId] : []);
   });
 
-  test('审批链→auto审核PO→库管确认→办结', async ({ authenticatedPage }) => {
+  test('审批链→auto审核PO→流程完成', async ({ authenticatedPage }) => {
     if (!instanceId) { test.skip(); return; }
 
     // Step 1: 遍历所有 approval 节点
@@ -340,20 +337,6 @@ test.describe('场景4: 后付款端到端', () => {
     // Step 2: 主动触发 auto 审核 PO
     const autoOk = await triggerAutoNode(token, instanceId);
     expect(autoOk).toBe(true);
-
-    // Step 3: 库管确认 (data_input node 9)
-    const detail = await getDetail(token, instanceId);
-    const whNode = (detail?.nodes ?? []).find((n: any) => n.nodeOrder === 9 && n.status === 'pending');
-    if (whNode?.assignedUserId) {
-      const ok = await completeDataInputViaBrowser(authenticatedPage, whNode.assignedUserId, instanceId, token);
-      if (!ok) {
-        // fallback: API
-        await approveNode(token, instanceId, '[E2E] 库管确认', { receivingNote: '[E2E] 到货确认' });
-      }
-    }
-
-    // Step 4: 主动触发办结
-    await triggerAutoNode(token, instanceId);
 
     const final = await getDetail(token, instanceId);
     expect(['approved', 'completed', 'processing']).toContain(final?.status);
@@ -376,7 +359,7 @@ test.describe('场景5: 需预付端到端', () => {
     const po = await createPO(token);
     if (!po) return;
     billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'need_prepay', '[E2E] 需预付端到端');
+    instanceId = await submitOA(token, po.billId, 'yes', '[E2E] 需预付端到端');
   });
 
   test.afterAll(async () => {
@@ -384,7 +367,7 @@ test.describe('场景5: 需预付端到端', () => {
     await cleanupAll(token, instanceId, billId ? [billId] : []);
   });
 
-  test('审批链→出纳付款→auto预付款+审核PO→库管确认', async ({ authenticatedPage }) => {
+  test('审批链→出纳付款→auto预付款+审核PO→流程完成', async ({ authenticatedPage }) => {
     if (!instanceId) { test.skip(); return; }
 
     // Step 1: 遍历 approval 节点直到遇到 data_input
@@ -429,7 +412,7 @@ test.describe('场景6: 已付款端到端', () => {
     const po = await createPO(token);
     if (!po) return;
     billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'already_paid_prepay', '[E2E] 已付款端到端');
+    instanceId = await submitOA(token, po.billId, 'no', '[E2E] 已付款端到端');
   });
 
   test.afterAll(async () => {
@@ -477,7 +460,7 @@ test.describe('场景7: 审批中驳回', () => {
     const po = await createPO(token);
     if (!po) return;
     billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'post_pay', '[E2E] 驳回测试');
+    instanceId = await submitOA(token, po.billId, 'no', '[E2E] 驳回测试');
   });
 
   test.afterAll(async () => {
@@ -499,194 +482,5 @@ test.describe('场景7: 审批中驳回', () => {
 
     const afterReject = await getDetail(token, instanceId);
     expect(afterReject?.status).toBe('rejected');
-  });
-});
-
-// =====================================================
-// 场景 8: ERP单据驳回回滚
-// =====================================================
-
-test.describe('场景8: ERP单据驳回回滚', () => {
-  test.describe.configure({ mode: 'serial', timeout: SERIAL_TIMEOUT });
-  let token = '';
-  let instanceId: number | null = null;
-  let billId: number | null = null;
-
-  test.beforeAll(async () => {
-    token = await getDevToken();
-    if (!token) return;
-    const po = await createPO(token);
-    if (!po) return;
-    billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'need_prepay', '[E2E] ERP回滚测试');
-  });
-
-  test.afterAll(async () => {
-    if (!token) return;
-    await cleanupAll(token, instanceId, billId ? [billId] : []);
-  });
-
-  test('遍历审批→出纳付款→auto创建ERP单据→驳回→验证回滚', async ({ authenticatedPage }) => {
-    if (!instanceId) { test.skip(); return; }
-
-    // 遍历 approval 节点
-    const result = await approveAllApprovalNodes(token, instanceId);
-    expect(result.nodeType).not.toBe('error');
-
-    // 完成出纳付款 data_input
-    if (result.nodeType === 'data_input') {
-      const detail = await getDetail(token, instanceId);
-      const pendingNode = (detail?.nodes ?? []).find((n: any) => n.status === 'pending' && n.nodeType === 'data_input');
-      if (pendingNode?.assignedUserId) {
-        const ok = await completeDataInputViaBrowser(authenticatedPage, pendingNode.assignedUserId, instanceId, token);
-        if (!ok) {
-          // fallback: 使用出纳的 token 通过 API 完成
-          const cashierToken = await getTokenForUser(pendingNode.assignedUserId);
-          await api(cashierToken, 'POST', `/api/oa/instances/${instanceId}/approve`, {
-            comment: '[E2E] 出纳付款',
-            inputData: { paymentAmount: '187', paymentSubjectId: 378, paymentReceiptUrls: [] },
-          });
-        }
-      }
-    }
-
-    // 主动触发 auto 节点创建预付款+审核PO
-    const autoOk8 = await triggerAutoNode(token, instanceId);
-    expect(autoOk8).toBe(true);
-
-    // 验证 erpMeta 记录了 ERP 单据
-    const beforeReject = await getDetail(token, instanceId);
-    expect(beforeReject?.erpMeta).toBeTruthy();
-
-    // 驳回（需使用库管的 token）
-    const detailForReject = await getDetail(token, instanceId);
-    const pendingNodes9 = (detailForReject?.nodes ?? []).filter((n: any) => n.nodeOrder === 9 && n.status === 'pending');
-    if (pendingNodes9.length === 0) { test.skip(); return; }
-    // 尝试每个 pending 节点的 assignedUserId，直到找到能拒绝的
-    let rejectOk = false;
-    for (const pNode of pendingNodes9) {
-      if (!pNode.assignedUserId) continue;
-      const tryToken = await getTokenForUser(pNode.assignedUserId);
-      const tryResult = await api(tryToken, 'POST', `/api/oa/instances/${instanceId}/reject`, { comment: '[E2E] 库管驳回-验证ERP回滚' });
-      if (tryResult?.code === 200) {
-        rejectOk = true;
-        break;
-      }
-    }
-    expect(rejectOk).toBe(true);
-
-    // 等待 onRejected 异步回滚
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    const afterReject = await getDetail(token, instanceId);
-    expect(afterReject?.status).toBe('rejected');
-  });
-});
-
-// =====================================================
-// 场景 9: 库管到货确认
-// =====================================================
-
-test.describe('场景9: 库管到货确认', () => {
-  test.describe.configure({ mode: 'serial', timeout: SERIAL_TIMEOUT });
-  let token = '';
-  let instanceId: number | null = null;
-  let billId: number | null = null;
-
-  test.beforeAll(async () => {
-    token = await getDevToken();
-    if (!token) return;
-    const po = await createPO(token);
-    if (!po) return;
-    billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'post_pay', '[E2E] 到货确认');
-    if (instanceId) {
-      await approveAllApprovalNodes(token, instanceId);
-      await triggerAutoNode(token, instanceId);
-    }
-  });
-
-  test.afterAll(async () => {
-    if (!token) return;
-    await cleanupAll(token, instanceId, billId ? [billId] : []);
-  });
-
-  test('库管确认到货(data_input) → 节点状态变更', async ({ authenticatedPage }) => {
-    if (!instanceId) { test.skip(); return; }
-
-    const detail = await getDetail(token, instanceId);
-    const whNode = (detail?.nodes ?? []).find((n: any) => n.nodeOrder === 9 && n.status === 'pending');
-    if (!whNode?.assignedUserId) { test.skip(); return; }
-
-    await completeDataInputViaBrowser(authenticatedPage, whNode.assignedUserId, instanceId, token);
-
-    // 检查是否已完成，如果未完成则用 API fallback
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    let after = await getDetail(token, instanceId);
-    let whAfter = (after?.nodes ?? []).find((n: any) => n.nodeOrder === 9);
-
-    if (whAfter?.status === 'pending') {
-      // fallback: 使用库管的 token 通过 API 完成
-      const whToken = await getTokenForUser(whNode.assignedUserId);
-      await api(whToken, 'POST', `/api/oa/instances/${instanceId}/approve`, {
-        comment: '[E2E] 库管确认到货',
-        inputData: { receivingNote: '[E2E] 到货确认-无差异' },
-      });
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      after = await getDetail(token, instanceId);
-      whAfter = (after?.nodes ?? []).find((n: any) => n.nodeOrder === 9);
-    }
-
-    expect(whAfter?.status).not.toBe('pending');
-  });
-});
-
-// =====================================================
-// 场景 10: 多货验收子流程
-// =====================================================
-
-test.describe('场景10: 多货验收子流程', () => {
-  test.describe.configure({ mode: 'serial', timeout: SERIAL_TIMEOUT });
-  let token = '';
-  let instanceId: number | null = null;
-  let billId: number | null = null;
-
-  test.beforeAll(async () => {
-    token = await getDevToken();
-    if (!token) return;
-    const po = await createPO(token);
-    if (!po) return;
-    billId = po.billId;
-    instanceId = await submitOA(token, po.billId, 'post_pay', '[E2E] 多货验收');
-    if (instanceId) {
-      await approveAllApprovalNodes(token, instanceId);
-      await triggerAutoNode(token, instanceId);
-    }
-  });
-
-  test.afterAll(async () => {
-    if (!token) return;
-    await cleanupAll(token, instanceId, billId ? [billId] : []);
-  });
-
-  test('库管标记多货 → onNodeCompleted 触发检查', async ({ authenticatedPage }) => {
-    if (!instanceId) { test.skip(); return; }
-
-    const detail = await getDetail(token, instanceId);
-    const whNode = (detail?.nodes ?? []).find((n: any) => n.nodeOrder === 9 && n.status === 'pending');
-    if (!whNode?.assignedUserId) { test.skip(); return; }
-
-    // 通过 API 提交多货数据
-    const r = await approveNode(token, instanceId, '[E2E] 多货验收', {
-      receivingNote: '[E2E] 多货测试',
-      discrepancyLines: [
-        { goodsName: '测试商品', orderedQty: 10, actualQty: 15, overQty: 5, shortageQty: 0, hasDefect: 'N', handlingDecision: 'accept' },
-      ],
-    });
-
-    // 即使 400 也继续验证（data_input 可能需要特定格式）
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    const afterDetail = await getDetail(token, instanceId);
-    expect((afterDetail?.nodes ?? []).length).toBeGreaterThanOrEqual(4);
   });
 });

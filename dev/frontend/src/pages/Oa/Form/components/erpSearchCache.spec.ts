@@ -65,11 +65,15 @@ describe('erpSearchCache', () => {
 });
 
 describe('常量', () => {
-  it('SERVER_KEYWORD_TYPES 包含 assets、customers、settlement-orders', () => {
+  it('SERVER_KEYWORD_TYPES 包含 assets、customers、settlement-orders、suppliers、staff、purchase-orders、prepayments、supplier-incomes', () => {
     expect(SERVER_KEYWORD_TYPES.has('assets')).toBe(true);
     expect(SERVER_KEYWORD_TYPES.has('customers')).toBe(true);
     expect(SERVER_KEYWORD_TYPES.has('settlement-orders')).toBe(true);
-    expect(SERVER_KEYWORD_TYPES.has('suppliers')).toBe(false);
+    expect(SERVER_KEYWORD_TYPES.has('suppliers')).toBe(true);
+    expect(SERVER_KEYWORD_TYPES.has('staff')).toBe(true);
+    expect(SERVER_KEYWORD_TYPES.has('purchase-orders')).toBe(true);
+    expect(SERVER_KEYWORD_TYPES.has('prepayments')).toBe(true);
+    expect(SERVER_KEYWORD_TYPES.has('supplier-incomes')).toBe(true);
     expect(SERVER_KEYWORD_TYPES.has('departments')).toBe(false);
   });
 
@@ -77,17 +81,22 @@ describe('常量', () => {
     // 服务端类型：keyword 写入缓存键
     expect(buildCacheKey('assets', 'abc')).toBe('assets:abc');
     expect(buildCacheKey('customers', 'abc')).toBe('customers:abc');
+    expect(buildCacheKey('suppliers', 'abc')).toBe('suppliers:abc');
+    expect(buildCacheKey('staff', 'abc')).toBe('staff:abc');
+    expect(buildCacheKey('purchase-orders', 'abc')).toBe('purchase-orders:abc');
+    expect(buildCacheKey('prepayments', 'abc')).toBe('prepayments:abc');
+    expect(buildCacheKey('supplier-incomes', 'abc')).toBe('supplier-incomes:abc');
     // 客户端类型：keyword 不写入缓存键（只缓存全量）
-    expect(buildCacheKey('suppliers', 'abc')).toBe('suppliers:');
+    expect(buildCacheKey('departments', 'abc')).toBe('departments:');
     expect(buildCacheKey('suppliers')).toBe('suppliers:');
     // 级联和状态参数
     expect(buildCacheKey('settlement-orders', 'test', ':cid=123')).toBe('settlement-orders:test:cid=123');
     expect(buildCacheKey('customers', '', '', ':all')).toBe('customers::all');
-    expect(buildCacheKey('suppliers', 'abc', '', ':all')).toBe('suppliers::all');
+    expect(buildCacheKey('suppliers', 'abc', '', ':all')).toBe('suppliers:abc:all');
   });
 
-  it('MIN_SEARCH_LENGTH 为 2', () => {
-    expect(MIN_SEARCH_LENGTH).toBe(2);
+  it('MIN_SEARCH_LENGTH 为 1', () => {
+    expect(MIN_SEARCH_LENGTH).toBe(1);
   });
 
   it('缓存 TTL 为 5 分钟', () => {

@@ -6,7 +6,7 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('OA');
 
 import { FormTypeDefinition, OaInstanceRow, OaNodeRow } from '../oa.types';
-import { validateInputData, isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
+import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
 import { transaction, mergeFormData } from './shared-utils';
 import {
@@ -14,9 +14,9 @@ import {
   enqueueSendApprovalNotification,
   enqueueFinalizeProcessInstance,
   enqueueExecuteAutoNode,
-  enqueueTriggerCc,
 } from '../oa-async-task.service';
 
+import { executeAutoNodeCallback } from './auto-node-operations';
 // Re-export for backward compatibility
 export { executeAutoNodeCallback, retryAutoNode } from './auto-node-operations';
 
@@ -72,22 +72,8 @@ export async function approveApproval(
       throw new Error('未找到待审批节点');
     }
 
-    // inputData 合并到 form_data（所有节点类型通用）
+    // inputData 合并到 form_data（所有节点类型通用，包括办理型节点）
     if (inputData && Object.keys(inputData).length > 0) {
-      // data_input 节点额外执行 input_schema 校验和 input_data 存储
-      if (currentNode.node_type === 'handle') {
-        if (currentNode.input_schema) {
-          const inputErrors = validateInputData(currentNode.input_schema, inputData);
-          if (inputErrors.length > 0) {
-            throw new Error(`录入数据校验失败: ${inputErrors.join('; ')}`);
-          }
-        }
-        await client.query(`UPDATE oa_approval_nodes SET input_data = $1 WHERE id = $2`, [
-          JSON.stringify(inputData),
-          currentNode.id,
-        ]);
-      }
-
       const currentFormData = instance0.form_data;
       const mergedFormData = mergeFormData(currentFormData as Record<string, unknown>, inputData);
 
@@ -166,14 +152,24 @@ export async function approveApproval(
 
     if (nextNodeResult.rows.length > 0) {
       const nextNode = nextNodeResult.rows[0];
-      if (nextNode.node_type === 'auto') {
-        await client.query(
-          `UPDATE oa_approval_instances
-           SET current_node_order = $1, status = 'processing', updated_at = NOW(),
-               erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"processing"')
-           WHERE id = $2`,
-          [nextNode.node_order, instanceId]
-        );
+      if (nextNode.node_type === 'auto' || nextNode.node_type === 'cc') {
+        // auto/cc 节点需设置 erp_meta（仅 auto 节点）
+        if (nextNode.node_type === 'auto') {
+          await client.query(
+            `UPDATE oa_approval_instances
+             SET current_node_order = $1, status = 'processing', updated_at = NOW(),
+                 erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"processing"')
+             WHERE id = $2`,
+            [nextNode.node_order, instanceId]
+          );
+        } else {
+          await client.query(
+            `UPDATE oa_approval_instances
+             SET current_node_order = $1, status = 'processing', updated_at = NOW()
+             WHERE id = $2`,
+            [nextNode.node_order, instanceId]
+          );
+        }
         autoNodeToExecute = nextNode;
       } else {
         await client.query(
@@ -239,10 +235,18 @@ export async function approveApproval(
         });
     }
 
-    if (autoNodeToExecute && formType.onApproved) {
-      // auto 节点回调改为异步任务，支持失败重试
-      enqueueExecuteAutoNode(instanceId, (autoNodeToExecute as OaNodeRow).id).catch(err =>
-        log.error(`auto节点任务入队失败 [instanceId=${instanceId}]:`, err)
+    if (autoNodeToExecute) {
+      const _autoNode = autoNodeToExecute as OaNodeRow;
+    
+      // 路径 A（快）：setImmediate 立即执行，幂等 claim 保证与 Worker 不重复
+      setImmediate(() => {
+        executeAutoNodeCallback(instanceId, _autoNode, formType!, callbackInstance!, (callbackFormData || {}))
+          .catch(err => log.error(`auto/cc节点立即执行失败 [instanceId=${instanceId}]:`, err));
+      });
+    
+      // 路径 B（兗底）：仍入队异步任务，claim 机制保证幂等——立即执行成功则 Worker 跳过
+      enqueueExecuteAutoNode(instanceId, _autoNode.id).catch(err =>
+        log.error(`auto/cc节点任务入队失败 [instanceId=${instanceId}]:`, err)
       );
     } else if (isLastNode && formType.onApproved && !hasErpFailed) {
       formType.onApproved(callbackInstance, callbackFormData || {}).catch(err => {
@@ -274,9 +278,6 @@ export async function approveApproval(
           log.error('待审批通知任务入队失败:', err);
         });
       }
-      enqueueTriggerCc(instanceId, callbackNodeOrder).catch(err => {
-        log.error('抄送任务入队失败:', err);
-      });
       // 最后一个节点通过时，完成壳实例（仅在审批真正通过时执行）
       if (isLastNode && !hasErpFailed) {
         enqueueFinalizeProcessInstance(instanceId, 'agree').catch(err => {

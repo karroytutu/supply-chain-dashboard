@@ -5,6 +5,13 @@
   flex-direction: column;
   gap: 4px;
 
+  .imageGroup {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
   a {
     display: inline-flex;
     align-items: center;
@@ -62,6 +69,13 @@
     .ant-table {
       width: max-content;
       min-width: 100%; // 内容少时仍然填满容器
+
+      // 只读表格：单元格内容不换行，超长内容在最大宽度处自动换行
+      th,
+      td {
+        max-width: 300px;
+        word-break: break-word;
+      }
     }
   }
 
