@@ -473,7 +473,7 @@ async function handleSendApprovalNotification(payload: Record<string, unknown>):
       if (!nodeName) {
         const nodeResult = await appQuery<{ node_name: string; node_order: number }>(
           `SELECT node_name, node_order FROM oa_approval_nodes
-           WHERE instance_id = $1 AND assigned_user_id = $2 AND status = 'pending'
+           WHERE instance_id = $1 AND $2 = ANY(assigned_user_ids) AND status = 'pending'
            ORDER BY node_order LIMIT 1`,
           [instanceId, transferToUserId]
         );
@@ -523,12 +523,12 @@ async function handleSendApprovalNotification(payload: Record<string, unknown>):
       let approverIds = (payload.approverIds as number[]) || [];
       // 若未传入审批人列表，从已取消节点中查询
       if (approverIds.length === 0) {
-        const nodeResult = await appQuery<{ assigned_user_id: number }>(
-          `SELECT DISTINCT assigned_user_id FROM oa_approval_nodes
-           WHERE instance_id = $1 AND status = 'cancelled' AND assigned_user_id IS NOT NULL`,
+        const nodeResult = await appQuery<{ user_id: number }>(
+          `SELECT DISTINCT unnest(assigned_user_ids) AS user_id FROM oa_approval_nodes
+           WHERE instance_id = $1 AND status = 'cancelled' AND assigned_user_ids IS NOT NULL`,
           [instanceId]
         );
-        approverIds = nodeResult.rows.map(r => r.assigned_user_id);
+        approverIds = nodeResult.rows.map(r => r.user_id);
       }
       const applicantName = String(payload.applicantName);
       if (approverIds.length > 0) {

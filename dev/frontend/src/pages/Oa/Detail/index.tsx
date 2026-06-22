@@ -81,11 +81,11 @@ const ApprovalDetailPage: React.FC = () => {
   const {
     loading, detail, errorType, loadDetail,
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
-    countersignUserIds, countersignType,
+    countersignUserIds, countersignType, sendBackTargets, sendBackTargetNodeOrder,
     canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId,
-    setCountersignUserIds, setCountersignType,
+    setCountersignUserIds, setCountersignType, setSendBackTargetNodeOrder,
   } = useApprovalDetail(id, editableFormRef);
 
   // ✅ 所有 Hooks 必须在 early return 之前调用（React Hooks 规则）
@@ -109,11 +109,11 @@ const ApprovalDetailPage: React.FC = () => {
 
   const actionState = {
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
-    countersignUserIds, countersignType,
+    countersignUserIds, countersignType, sendBackTargets, sendBackTargetNodeOrder,
     canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId,
-    setCountersignUserIds, setCountersignType,
+    setCountersignUserIds, setCountersignType, setSendBackTargetNodeOrder,
   };
 
   // 当前节点超时信息

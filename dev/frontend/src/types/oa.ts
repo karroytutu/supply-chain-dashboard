@@ -295,7 +295,7 @@ export interface FormTypeDefinition {
 
 export type ApprovalStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'erp_failed' | 'cancelled' | 'withdrawn';
 
-export type ApprovalNodeStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'transferred' | 'failed' | 'skipped' | 'cancelled';
+export type ApprovalNodeStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'transferred' | 'failed' | 'cancelled' | 'send_back';
 
 // =====================================================
 // 审批实例相关类型
@@ -329,14 +329,17 @@ export interface ApprovalInstance {
 export interface ApprovalNode {
   id: number;
   nodeOrder: number;
+  /** 执行轮次（退回后重新走同一环节时 round + 1） */
+  round: number;
   nodeName: string;
   nodeType: string;
   roleCode?: string | null;
-  assignedUserId: number | null;
-  assignedUserName: string | null;
-  /** 审批人头像URL */
+  /** 候选审批人 ID 数组（或签/会签时存多人） */
+  assignedUserIds: number[] | null;
+  /** 候选审批人姓名数组 */
+  assignedUserNames: string[] | null;
+  /** 审批人头像URL（取第一人） */
   assignedUserAvatar?: string | null;
-  approverName?: string | null;  // Alias for assignedUserName
   status: ApprovalNodeStatus;
   comment: string | null;
   actedAt: string | null;
@@ -481,8 +484,8 @@ export const NODE_STATUS_LABELS: Record<ApprovalNodeStatus, string> = {
   rejected: '已拒绝',
   transferred: '已转交',
   failed: '执行失败',
-  skipped: '已跳过',
   cancelled: '已取消',
+  send_back: '已退回',
 };
 
 export const NODE_STATUS_COLORS: Record<ApprovalNodeStatus, string> = {
@@ -492,8 +495,8 @@ export const NODE_STATUS_COLORS: Record<ApprovalNodeStatus, string> = {
   rejected: 'red',
   transferred: 'orange',
   failed: 'error',
-  skipped: 'default',
   cancelled: 'default',
+  send_back: 'orange',
 };
 
 // =====================================================

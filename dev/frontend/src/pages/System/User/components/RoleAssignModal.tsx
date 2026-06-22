@@ -1,12 +1,13 @@
 /**
  * 角色分配弹窗组件
- * 使用 SelectionCard 公共组件
+ * 使用 Ant Design Transfer 穿梭框，左右分栏清晰区分已分配/未分配角色
  */
-import React, { useState, useEffect } from 'react';
-import { Modal } from 'antd';
-import SelectionCard from '@/components/SelectionCard';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Modal, Transfer } from 'antd';
+import { LockOutlined } from '@ant-design/icons';
 import { usePermission } from '@/hooks/usePermission';
 import type { UserItem, RoleInfo } from '../types';
+import type { TransferProps } from 'antd';
 
 interface RoleAssignModalProps {
   visible: boolean;
@@ -17,6 +18,15 @@ interface RoleAssignModalProps {
   loading: boolean;
 }
 
+/** Transfer 数据项类型（key 必须为 string） */
+interface RoleTransferItem {
+  key: string;
+  title: string;
+  description?: string;
+  disabled: boolean;
+  isSystem?: boolean;
+}
+
 const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   visible,
   user,
@@ -25,52 +35,79 @@ const RoleAssignModal: React.FC<RoleAssignModalProps> = ({
   onCancel,
   loading,
 }) => {
-  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
+  const [targetKeys, setTargetKeys] = useState<string[]>([]);
   const { hasRole } = usePermission();
   const isAdmin = hasRole('admin');
 
-  // 初始化选中角色（取用户的所有角色）
+  // 构建 Transfer 数据源：key 为 string 类型的角色 ID
+  const dataSource: RoleTransferItem[] = useMemo(
+    () =>
+      roles.map(r => ({
+        key: String(r.id),
+        title: r.name,
+        description: r.description,
+        disabled: !isAdmin && r.isSystem === true,
+        isSystem: r.isSystem,
+      })),
+    [roles, isAdmin],
+  );
+
+  // 初始化已分配角色（打开弹窗时从用户当前角色提取）
   useEffect(() => {
     if (visible) {
-      setSelectedRoleIds(user?.roles?.map(r => r.id) || []);
+      setTargetKeys(user?.roles?.map(r => String(r.id)) || []);
     }
   }, [visible, user]);
 
-  const handleConfirm = () => {
-    onConfirm(selectedRoleIds);
+  const handleChange: TransferProps<RoleTransferItem>['onChange'] = (nextTargetKeys) => {
+    setTargetKeys(nextTargetKeys as string[]);
   };
 
-  const getTitle = () => {
-    return `分配角色 - ${user?.name || ''}`;
+  const handleConfirm = () => {
+    // 将 string key 转回 number ID
+    onConfirm(targetKeys.map(Number));
   };
+
+  // 自定义每行渲染：角色名 + 系统角色时显示锁图标
+  const renderItem = (item: RoleTransferItem) => (
+    <span>
+      {item.title}
+      {item.isSystem && (
+        <LockOutlined style={{ marginLeft: 6, color: '#faad14', fontSize: 12 }} />
+      )}
+    </span>
+  );
+
+  // 搜索过滤：按角色名匹配
+  const filterOption = (inputValue: string, option: RoleTransferItem) =>
+    option.title.includes(inputValue);
 
   return (
     <Modal
-      title={getTitle()}
+      title={`分配角色 - ${user?.name || ''}`}
       open={visible}
       onOk={handleConfirm}
       onCancel={onCancel}
       confirmLoading={loading}
-      width={520}
+      width={560}
       okText="确认分配"
       cancelText="取消"
       destroyOnClose
     >
-      <p style={{ marginBottom: 12, color: '#8c8c8c', fontSize: 13 }}>选择用户的角色（可多选）：</p>
-      <SelectionCard
-        dataSource={roles}
-        selectedKeys={selectedRoleIds}
-        onChange={keys => setSelectedRoleIds(keys as number[])}
-        config={{
-          rowKey: 'id',
-          titleKey: 'name',
-          descriptionKey: 'description',
-          codeKey: 'code',
-          tagKey: 'isSystem',
-          mode: 'multiple',
-          disabledKey: item => !isAdmin && item.isSystem === true,
-          disabledTooltip: '系统角色仅管理员可分配',
-          columns: 2,
+      <Transfer
+        dataSource={dataSource}
+        targetKeys={targetKeys}
+        onChange={handleChange}
+        render={renderItem}
+        showSearch
+        filterOption={filterOption}
+        listStyle={{ width: 220, height: 300 }}
+        titles={['可选角色', '已分配']}
+        locale={{
+          itemUnit: '个角色',
+          itemsUnit: '个角色',
+          searchPlaceholder: '搜索角色',
+          notFoundContent: '无角色',
         }}
       />
     </Modal>

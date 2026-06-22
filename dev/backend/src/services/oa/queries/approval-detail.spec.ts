@@ -62,12 +62,12 @@ describe('getApprovalDetail', () => {
     const nodes = [
       {
         id: 10, node_order: 1, node_name: '主管审批', node_type: 'role',
-        assigned_user_id: 10, assigned_user_name: '李主管', assigned_user_avatar: null,
+        assigned_user_ids: [10], assigned_user_avatar: null,
         status: 'pending', comment: null, acted_at: null, is_countersign: false,
       },
       {
         id: 11, node_order: 2, node_name: '总经理审批', node_type: 'role',
-        assigned_user_id: 20, assigned_user_name: '王总', assigned_user_avatar: null,
+        assigned_user_ids: [20], assigned_user_avatar: null,
         status: 'pending', comment: null, acted_at: null, is_countersign: false,
       },
     ];
@@ -86,6 +86,7 @@ describe('getApprovalDetail', () => {
     mockQuerySequence(mockAppQuery, [
       [instance], // instance query
       nodes,      // nodes query
+      [{ id: 10, name: '李主管' }, { id: 20, name: '王总' }], // batch user name query
       actions,    // actions query
       ccUsers,    // cc query
     ]);
@@ -176,8 +177,9 @@ describe('getApprovalDetail', () => {
          current_node_order: 1, submitted_at: new Date(), completed_at: null,
          form_data: {}, erp_meta: null }],
       [{ id: 10, node_order: 1, node_name: '加签节点', node_type: 'role',
-         assigned_user_id: 10, assigned_user_name: 'B', assigned_user_avatar: null,
+         assigned_user_ids: [10], assigned_user_avatar: null,
          status: 'pending', comment: null, acted_at: null, is_countersign: true }],
+      [{ id: 10, name: 'B' }], // batch user name query
       [],
       [],
     ]);
@@ -294,11 +296,11 @@ describe('getApprovalDetail', () => {
     };
     const nodes = [
       { id: 20, node_order: 1, node_name: '营销师', node_type: 'role',
-        role_code: 'marketer', assigned_user_id: 10, assigned_user_name: '张三',
+        role_code: 'marketer', assigned_user_ids: [10],
         assigned_user_avatar: null, status: 'pending', comment: null, acted_at: null,
         is_countersign: false },
     ];
-    mockQuerySequence(mockAppQuery, [[instance], nodes, [], []]);
+    mockQuerySequence(mockAppQuery, [[instance], nodes, [{ id: 10, name: '张三' }], [], []]);
     const result = await getApprovalDetail(10);
     expect(result!.nodes[0].roleCode).toBe('marketer');
   });
@@ -314,7 +316,7 @@ describe('getApprovalDetail', () => {
     };
     const nodes = [
       { id: 30, node_order: 1, node_name: '自动节点', node_type: 'auto',
-        role_code: null, assigned_user_id: null, assigned_user_name: null,
+        role_code: null, assigned_user_ids: null,
         assigned_user_avatar: null, status: 'pending', comment: null, acted_at: null,
         is_countersign: false },
     ];

@@ -194,9 +194,9 @@ export async function fetchCustomerData(_consumerNames: string[]): Promise<{
       }
     }
 
-    // 缓存结果
-    cache.set(CACHE_KEY_CUSTOMER_NAME_MAP, nameToTraderId, CACHE_TTL.LOW_FREQUENCY);
-    cache.set(CACHE_KEY_CUSTOMER_LIMITS, customerLimitsMap, CACHE_TTL.LOW_FREQUENCY);
+    // 缓存结果（客户档案极少变化，使用 10 分钟 TTL）
+    cache.set(CACHE_KEY_CUSTOMER_NAME_MAP, nameToTraderId, CACHE_TTL.ERP_CUSTOMER);
+    cache.set(CACHE_KEY_CUSTOMER_LIMITS, customerLimitsMap, CACHE_TTL.ERP_CUSTOMER);
   } catch (error) {
     log.error('获取ERP客户数据失败:', error);
     // 容错：返回空的映射，不影响后续处理（客户限额将全部为 null）

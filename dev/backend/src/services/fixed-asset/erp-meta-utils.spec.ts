@@ -338,7 +338,7 @@ describe('recoverStuckAutoNodes', () => {
     // 验证 SQL 包含 NOT EXISTS 条件
     const sqlCall = mockAppQuery.mock.calls[0][0] as string;
     expect(sqlCall).toContain('NOT EXISTS');
-    expect(sqlCall).toContain("hn.node_type != 'auto'");
+    expect(sqlCall).toContain("hn.node_type NOT IN ('auto', 'cc')");
   });
 
   it('真正卡住的实例（人工节点已完成 + auto 节点 pending）应被检出并恢复', async () => {

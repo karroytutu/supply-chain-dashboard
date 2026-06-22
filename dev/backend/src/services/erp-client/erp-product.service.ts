@@ -98,7 +98,7 @@ export async function fetchAllProducts(
     }
 
     // 写入缓存（TTL 60s）
-    cache.set(cacheKey, allRecords, CACHE_TTL.DASHBOARD);
+    cache.set(cacheKey, allRecords, CACHE_TTL.ERP_SLOW);
 
     return allRecords;
   };

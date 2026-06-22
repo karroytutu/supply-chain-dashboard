@@ -40,8 +40,8 @@ export const NODE_STATUS = {
   REJECTED: 'rejected',
   TRANSFERRED: 'transferred',
   FAILED: 'failed',
-  SKIPPED: 'skipped',
   CANCELLED: 'cancelled',
+  SEND_BACK: 'send_back',
 } as const;
 
 export type NodeStatusValue = (typeof NODE_STATUS)[keyof typeof NODE_STATUS];
@@ -52,8 +52,8 @@ export const TERMINAL_NODE_STATUSES: readonly NodeStatusValue[] = [
   NODE_STATUS.REJECTED,
   NODE_STATUS.TRANSFERRED,
   NODE_STATUS.FAILED,
-  NODE_STATUS.SKIPPED,
   NODE_STATUS.CANCELLED,
+  NODE_STATUS.SEND_BACK,
 ];
 
 // =====================================================
@@ -70,6 +70,8 @@ export const ACTION_TYPE = {
   COMMENT: 'comment',
   UPDATE: 'update',
   RETRY_AUTO_NODE: 'retry_auto_node',
+  SEND_BACK: 'send_back',
+  HANDOVER: 'handover',
 } as const;
 
 export type ActionTypeValue = (typeof ACTION_TYPE)[keyof typeof ACTION_TYPE];

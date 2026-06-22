@@ -63,8 +63,8 @@ async function scanAndRemind(): Promise<ScanResult> {
         node_id: node.id,
         instance_id: node.instance_id,
         log_type: 'reminder',
-        recipient_user_id: node.assigned_user_id,
-        recipient_user_name: node.assigned_user_name,
+        recipient_user_id: node.assigned_user_ids?.[0] ?? null,
+        recipient_user_name: node.first_assigned_user_name ?? null,
         is_supervisor_cc: false,
         message_content: { reminder_count: node.reminder_count + 1 },
       });

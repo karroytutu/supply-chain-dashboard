@@ -200,4 +200,8 @@ interface ArDashboardData {
   /** 弹窗预计算数据 */
   popupData: ArDashboardPopupData;
   updatedAt: string;
+  /** 数据已存放秒数（定时预热模块填充，用于新鲜度提示） */
+  cacheAge: number;
+  /** 是否超过 5 分钟（预热可能失败，显示警告提示） */
+  isStale: boolean;
 }

@@ -9,13 +9,14 @@ import TimelineApprovalGroup from './TimelineApprovalGroup';
 import TimelineCcNode from './TimelineCcNode';
 import styles from './ApprovalFlow.less';
 
-/** 按 nodeOrder 分组（处理加签节点） */
+/** 按 (nodeOrder, round) 复合键分组（退回后同一环节的不同轮次作为独立条目展示） */
 function groupNodesByOrder(nodes: ApprovalNode[]): ApprovalNode[][] {
-  const groups: Map<number, ApprovalNode[]> = new Map();
+  const groups: Map<string, ApprovalNode[]> = new Map();
   for (const node of nodes) {
-    const list = groups.get(node.nodeOrder) || [];
+    const key = `${node.nodeOrder}-${node.round ?? 1}`;
+    const list = groups.get(key) || [];
     list.push(node);
-    groups.set(node.nodeOrder, list);
+    groups.set(key, list);
   }
   return Array.from(groups.values());
 }
@@ -62,13 +63,13 @@ function getApprovalGroupIcon(nodes: ApprovalNode[]): React.ReactNode {
     );
   }
 
-  // 有分配用户时显示用户头像
-  if (firstNode.assignedUserId) {
+  // 有分配用户时显示第一个用户的头像
+  if (firstNode.assignedUserIds && firstNode.assignedUserIds.length > 0) {
     return (
       <UserAvatar
         size={32}
         src={firstNode.assignedUserAvatar ?? undefined}
-        name={firstNode.assignedUserName ?? undefined}
+        name={firstNode.assignedUserNames?.[0] ?? undefined}
         style={firstNode.assignedUserAvatar ? undefined : { backgroundColor: '#1890ff', color: '#fff' }}
       />
     );
@@ -91,7 +92,6 @@ function getApprovalGroupStatus(nodes: ApprovalNode[]): { status: string; status
   if (firstNode.nodeType === 'cc') {
     if (firstNode.status === 'approved') return { status: '已抄送', statusColor: '#52c41a' };
     if (firstNode.status === 'pending') return { status: '待抄送', statusColor: '#fa8c16' };
-    if (firstNode.status === 'skipped') return { status: '已跳过', statusColor: '#999' };
   }
   const statusMap: Record<string, { text: string; color: string }> = {
     approved: { text: '已同意', color: '#52c41a' },
@@ -99,21 +99,27 @@ function getApprovalGroupStatus(nodes: ApprovalNode[]): { status: string; status
     transferred: { text: '已转交', color: '#fa8c16' },
     pending: { text: '待处理', color: '#fa8c16' },
     processing: { text: '处理中', color: '#1890ff' },
-    skipped: { text: '已跳过', color: '#999' },
     cancelled: { text: '已取消', color: '#999' },
     failed: { text: '执行失败', color: '#f5222d' },
+    send_back: { text: '已退回', color: '#fa8c16' },
   };
   const config = statusMap[firstNode.status];
   if (!config) return null;
   return { status: config.text, statusColor: config.color };
 }
 
-/** 获取审批节点组的审批人姓名（subtitle） */
+/** 获取审批节点组的审批人姓名（subtitle）
+ *  单人：显示姓名
+ *  多人：显示“姓名1、姓名2”
+ */
 function getApprovalGroupSubtitle(nodes: ApprovalNode[]): string | undefined {
   const firstNode = nodes[0];
   if (firstNode.nodeType === 'auto') return undefined;
   if (firstNode.nodeType === 'cc') return `抄送 ${nodes.length} 人`;
-  return firstNode.assignedUserName || undefined;
+  if (firstNode.assignedUserNames && firstNode.assignedUserNames.length > 0) {
+    return firstNode.assignedUserNames.join('、');
+  }
+  return undefined;
 }
 
 /** 从非评论操作中提取审批意见（第一个有 comment 的 approve/reject 操作） */
@@ -257,6 +263,10 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
     const nodeActions = actionsByNodeOrder.get(firstNode.nodeOrder) || [];
     const groupStatus = getApprovalGroupStatus(group);
     const subtitle = getApprovalGroupSubtitle(group);
+    // 退回后重新走同一环节时，在标题中标注轮次
+    const roundLabel = (firstNode.round && firstNode.round > 1)
+      ? `${firstNode.nodeName}（第${firstNode.round}轮）`
+      : firstNode.nodeName;
 
     // 分离 comment 和非 comment 操作
     const commentActions = nodeActions.filter(a => a.actionType === 'comment');
@@ -270,12 +280,12 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
 
     items.push(
       <Timeline.Item
-        key={`approval-${firstNode.nodeOrder}`}
+        key={`approval-${firstNode.nodeOrder}-${firstNode.round ?? 1}`}
         dot={getApprovalGroupIcon(group)}
         color={getTimelineColor(firstNode.status)}
       >
         <NodeHeader
-          title={firstNode.nodeName}
+          title={roundLabel}
           subtitle={subtitle}
           status={groupStatus?.status}
           statusColor={groupStatus?.statusColor}

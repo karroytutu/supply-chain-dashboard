@@ -183,6 +183,9 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
         visible={actionState.actionModalVisible} actionType={actionState.actionType}
         actionComment={actionState.actionComment} actionLoading={actionState.actionLoading}
         transferUsers={actionState.transferUsers} nodeType={nodeType}
+        sendBackTargets={actionState.sendBackTargets}
+        sendBackTargetNodeOrder={actionState.sendBackTargetNodeOrder}
+        onSendBackTargetChange={actionState.setSendBackTargetNodeOrder}
         countersignUserIds={actionState.countersignUserIds}
         countersignType={actionState.countersignType}
         onCountersignUserIdsChange={actionState.setCountersignUserIds}

@@ -30,6 +30,10 @@ export interface ArDashboardOverview {
   /** 弹窗预计算数据 */
   popupData: ArDashboardPopupData;
   updatedAt: string;
+  /** 数据已存放秒数（由定时预热模块填充，用于前端新鲜度提示） */
+  cacheAge: number;
+  /** 是否超过 5 分钟（预热可能失败，前端显示警告提示） */
+  isStale: boolean;
 }
 
 // ============================================

@@ -25,6 +25,9 @@ export { countersignApproval, withdrawApproval } from './mutations/countersign-w
 // 独立评论
 export { addCommentToInstance } from './mutations/add-comment';
 
+// 退回（流转路由）
+export { sendBackApproval } from './mutations/send-back-approval';
+
 /**
  * 标记抄送已读
  */

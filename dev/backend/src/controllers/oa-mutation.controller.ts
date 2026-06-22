@@ -16,6 +16,7 @@ import {
   withdrawApproval,
   markCcRead,
   addCommentToInstance,
+  sendBackApproval,
 } from '../services/oa/oa.mutation';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
@@ -274,6 +275,31 @@ export async function addComment(req: Request, res: Response): Promise<void> {
   } catch (error) {
     log.error('添加评论失败:', error);
     const message = error instanceof Error ? error.message : '添加评论失败';
+    res.status(400).json(buildErrorResponse(400, message));
+  }
+}
+
+/** 退回审批（流转路由） */
+export async function sendBack(req: Request, res: Response): Promise<void> {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json(buildErrorResponse(401, '未登录'));
+      return;
+    }
+
+    const instanceId = parseInstanceId(req.params.id);
+    const { targetNodeOrder, comment } = req.body;
+    if (targetNodeOrder === undefined || targetNodeOrder === null) {
+      res.status(400).json(buildErrorResponse(400, '请选择退回目标环节'));
+      return;
+    }
+
+    await sendBackApproval(instanceId, user.userId, user.name, targetNodeOrder, comment);
+    res.json(buildSuccessResponse(null, '已退回'));
+  } catch (error) {
+    log.error('退回审批失败:', error);
+    const message = error instanceof Error ? error.message : '退回审批失败';
     res.status(400).json(buildErrorResponse(400, message));
   }
 }

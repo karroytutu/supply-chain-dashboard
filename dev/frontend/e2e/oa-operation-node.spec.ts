@@ -143,14 +143,14 @@ function buildMockDetail(overrides: Record<string, any> = {}): Record<string, an
     erpMeta: null,
     nodes: [
       {
-        id: 1, nodeOrder: 1, nodeName: '营销师催收', nodeType: 'role',
-        roleCode: 'marketer', assignedUserId: MOCK_USER_ID,
-        assignedUserName: '开发管理员', assignedUserAvatar: null,
+        id: 1, nodeOrder: 1, round: 1, nodeName: '营销师催收', nodeType: 'role',
+        roleCode: 'marketer', assignedUserIds: [MOCK_USER_ID],
+        assignedUserNames: ['开发管理员'], assignedUserAvatar: null,
         status: 'pending', comment: null, actedAt: null, isCountersign: false,
       },
       {
-        id: 2, nodeOrder: 2, nodeName: '更新催收状态', nodeType: 'auto',
-        roleCode: null, assignedUserId: null, assignedUserName: '系统',
+        id: 2, nodeOrder: 2, round: 1, nodeName: '更新催收状态', nodeType: 'auto',
+        roleCode: null, assignedUserIds: null, assignedUserNames: null,
         assignedUserAvatar: null, status: 'pending', comment: null,
         actedAt: null, isCountersign: false,
       },
@@ -401,14 +401,14 @@ test.describe('催收OA操作型节点 - Mock 数据驱动', () => {
     await setupMockRoutes(authenticatedPage, {
       nodes: [
         {
-          id: 1, nodeOrder: 1, nodeName: '营销师催收', nodeType: 'role',
-          roleCode: 'marketer', assignedUserId: 99999, // 不是当前用户
-          assignedUserName: '其他用户', assignedUserAvatar: null,
+          id: 1, nodeOrder: 1, round: 1, nodeName: '营销师催收', nodeType: 'role',
+          roleCode: 'marketer', assignedUserIds: [99999], // 不是当前用户
+          assignedUserNames: ['其他用户'], assignedUserAvatar: null,
           status: 'pending', comment: null, actedAt: null, isCountersign: false,
         },
         {
-          id: 2, nodeOrder: 2, nodeName: '更新催收状态', nodeType: 'auto',
-          roleCode: null, assignedUserId: null, assignedUserName: '系统',
+          id: 2, nodeOrder: 2, round: 1, nodeName: '更新催收状态', nodeType: 'auto',
+          roleCode: null, assignedUserIds: null, assignedUserNames: null,
           assignedUserAvatar: null, status: 'pending', comment: null,
           actedAt: null, isCountersign: false,
         },
@@ -479,7 +479,7 @@ async function createTestCollectionInstance(
     const marketerNode = (detailData.nodes ?? []).find(
       (n: any) => n.nodeType === 'role' && n.roleCode === 'marketer'
     );
-    const marketerUserId = marketerNode?.assignedUserId;
+    const marketerUserId = marketerNode?.assignedUserIds?.[0] ?? null;
 
     return { instanceId, marketerUserId };
   } catch {
@@ -589,7 +589,7 @@ test.describe('催收OA操作型节点 - 真实实例测试', () => {
         const marketerNode = (detailData.nodes ?? []).find(
           (n: any) => n.nodeType === 'role' && n.roleCode === 'marketer'
         );
-        testMarketerUserId = marketerNode?.assignedUserId ?? null;
+        testMarketerUserId = marketerNode?.assignedUserIds?.[0] ?? null;
       }
     } finally {
       await context.close();

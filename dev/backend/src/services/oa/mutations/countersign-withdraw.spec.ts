@@ -3,19 +3,28 @@
  * @module services/oa/mutations/countersign-withdraw.spec
  */
 
+jest.mock('../../../utils/logger', () => ({
+  createLogger: () => ({ warn: jest.fn(), info: jest.fn(), error: jest.fn() }),
+}));
+
 import { countersignApproval, withdrawApproval } from './countersign-withdraw';
 import { appQuery } from '../../../db/appPool';
 import { isCurrentApprover, isApplicant, getCurrentApproverNode } from '../oa-utils';
-import { notifyCountersign, notifyWithdrawn } from '../oa-notify';
-import { completeAllPendingTodos } from '../oa-process-centre';
 import { insertNodeAfter, transaction } from './shared-utils';
 
 // Mock dependencies
-jest.mock('../../../db/appPool');
-jest.mock('../oa-utils');
-jest.mock('../oa-notify');
-jest.mock('../oa-process-centre', () => ({
-  completeAllPendingTodos: jest.fn().mockResolvedValue(undefined),
+jest.mock('../../../db/appPool', () => ({
+  appQuery: jest.fn(),
+}));
+jest.mock('../oa-utils', () => ({
+  isCurrentApprover: jest.fn(),
+  isApplicant: jest.fn(),
+  getCurrentApproverNode: jest.fn(),
+}));
+jest.mock('../oa-notify', () => ({}));
+jest.mock('../oa-async-task.service', () => ({
+  enqueueCompleteAllPendingTodos: jest.fn().mockResolvedValue(undefined),
+  enqueueSendApprovalNotification: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('./shared-utils', () => ({
   insertNodeAfter: jest.fn(),
@@ -60,6 +69,14 @@ function createMockClient(instanceOverrides: any = {}) {
   };
 }
 
+beforeEach(() => {
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 describe('countersignApproval', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -100,8 +117,7 @@ describe('countersignApproval', () => {
       expect.objectContaining({
         name: '加签',
         type: 'approval',
-        assignedUserId: 200,
-        assignedUserName: '李四',
+        assignedUserIds: [200],
       })
     );
   });
@@ -302,7 +318,7 @@ describe('countersignApproval - 补充', () => {
     await countersignApproval(1, 100, '张三', 'after', [200, 300]);
 
     // 第1次调用 afterOrder=2（currentNode.node_order），第2次 afterOrder=3（递增）
-    expect(mockInsertNodeAfter).toHaveBeenNthCalledWith(1, expect.any(Object), 1, 2, expect.objectContaining({ assignedUserId: 200 }));
-    expect(mockInsertNodeAfter).toHaveBeenNthCalledWith(2, expect.any(Object), 1, 3, expect.objectContaining({ assignedUserId: 300 }));
+    expect(mockInsertNodeAfter).toHaveBeenNthCalledWith(1, expect.any(Object), 1, 2, expect.objectContaining({ assignedUserIds: [200] }));
+    expect(mockInsertNodeAfter).toHaveBeenNthCalledWith(2, expect.any(Object), 1, 3, expect.objectContaining({ assignedUserIds: [300] }));
   });
 });

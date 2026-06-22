@@ -17,6 +17,7 @@ import { evaluateEntryRules, extractEntryMetadata, COLLECTION_ENTRY_RULES } from
 import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
 import { getFormTypeByCode } from './form-types';
 import { generateInstanceNo } from './oa-utils';
+import { evaluateAndTriggerNodes } from './oa-workflow-utils';
 import { enqueueCreateProcessInstance, enqueueSendApprovalNotification } from './oa-async-task.service';
 import { initErpMeta } from '../fixed-asset/erp-meta-utils';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
@@ -208,11 +209,11 @@ async function createBatchOaInstances(
         const title = `逾期催收 - ${consumerName}`;
         const instanceNo = await generateInstanceNo();
 
-        // 插入实例（含 current_node_order）
+        // 插入实例（含 current_node_order = 0，由 evaluateAndTriggerNodes 创建节点后更新）
         const instanceResult = await client.query(
           `INSERT INTO oa_approval_instances
             (instance_no, form_type_id, title, status, applicant_id, applicant_name, applicant_dept, form_data, current_node_order)
-           VALUES ($1, (SELECT id FROM oa_form_types WHERE code = $2), $3, 'pending', $4, $5, $6, $7, 1)
+           VALUES ($1, (SELECT id FROM oa_form_types WHERE code = $2), $3, 'processing', $4, $5, $6, $7, 0)
            RETURNING id`,
           [instanceNo, 'ar_collection', title, systemUser.id, systemUser.name, systemUser.dept, JSON.stringify(formData)]
         );
@@ -224,35 +225,44 @@ async function createBatchOaInstances(
           log.warn(`未找到营销师用户且无 fallback: ${formData.managerName}，节点将不分配审批人 [${consumerName}]`);
         }
 
-        // 节点 1：营销师催收（role 类型）— 从表单类型定义读取 timeout 配置
-        const formType = getFormTypeByCode('ar_collection');
-        const marketerNodeDef = formType?.workflowDef?.nodes.find(n => n.order === 1);
-        const marketerTimeout = marketerNodeDef?.timeout ?? null;
-        const marketerDeadlineAt = marketerTimeout
-          ? new Date(Date.now() + marketerTimeout.durationMinutes * 60000)
-          : null;
+        // 构造覆盖 formType：将营销师节点的 handler 替换为解析到的具体 userId
+        const baseFormType = getFormTypeByCode('ar_collection');
+        if (!baseFormType) throw new Error('ar_collection 表单类型未找到');
+        const overrideFormType = {
+          ...baseFormType,
+          workflowDef: {
+            nodes: baseFormType.workflowDef.nodes.map(n => {
+              if (n.order === 1 && marketer) {
+                return { ...n, handler: { userId: marketer.userId } };
+              }
+              return n;
+            }),
+          },
+        };
 
-        await client.query(
-          `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, comment, status, deadline_at, timeout_config, sign_mode)
-           VALUES ($1, 1, '营销师催收', 'approval', 'marketer', $2, $3, $4, 'pending', $5, $6, 'or')`,
-          [
-            instanceId,
-            marketer?.userId ?? null,
-            marketer?.userName ?? null,
-            marketer?.fallback ? (marketer.fallbackReason ?? null) : null,
-            marketerDeadlineAt,
-            marketerTimeout ? JSON.stringify(marketerTimeout) : null,
-          ]
+        // 按需创建节点（条件评估 + 处理人解析）
+        const newNodes = await evaluateAndTriggerNodes(
+          client, instanceId, overrideFormType, formData, systemUser.id, 0
         );
 
-        // 节点 2：更新催收状态（auto 类型，无时限）
-        await client.query(
-          `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, status, sign_mode)
-           VALUES ($1, 2, '更新催收状态', 'auto', NULL, NULL, '系统', 'pending', NULL)`,
-          [instanceId]
-        );
+        // 更新 current_node_order 为首个节点
+        if (newNodes.length > 0) {
+          const firstNode = newNodes[0];
+          const initialStatus = (firstNode.node_type === 'auto' || firstNode.node_type === 'cc')
+            ? 'processing' : 'pending';
+          await client.query(
+            `UPDATE oa_approval_instances SET status = $1, current_node_order = $2, updated_at = NOW() WHERE id = $3`,
+            [initialStatus, firstNode.node_order, instanceId]
+          );
+        }
+
+        // 营销师节点的 fallback 原因记录到节点 comment
+        if (marketer?.fallback && marketer.fallbackReason) {
+          await client.query(
+            `UPDATE oa_approval_nodes SET comment = $1 WHERE instance_id = $2 AND node_order = 1`,
+            [marketer.fallbackReason, instanceId]
+          );
+        }
 
         // 插入操作记录（submit 不关联具体审批节点，node_order 为 NULL）
         await client.query(
@@ -426,6 +436,5 @@ function buildFormData(
     maxDebtDays: debts[0].customerMaxDebtDays ?? null,
     maxDebtOrderNum: debts[0].customerMaxDebtOrderNum ?? null,
     billDetails,
-    _extensionCount: 0,
   };
 }

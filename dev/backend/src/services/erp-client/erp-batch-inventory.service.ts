@@ -97,7 +97,7 @@ export async function fetchAllBatchInventory(
   }
 
   // 缓存（TTL 30s）
-  cache.set(cacheKey, allRecords, CACHE_TTL.HIGH_FREQUENCY);
+  cache.set(cacheKey, allRecords, CACHE_TTL.ERP_BASE);
 
   return allRecords;
 }

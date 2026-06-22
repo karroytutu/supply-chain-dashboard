@@ -156,7 +156,7 @@ async function approveAllApprovalNodes(token: string, instanceId: number): Promi
     if (pendingNode.nodeType === 'data_input') return { stoppedAt: pendingNode.nodeName, nodeType: 'data_input' };
 
     // 切换到该节点的处理人获取其 token
-    const userId = pendingNode.assignedUserId;
+    const userId = pendingNode.assignedUserIds?.[0];
     if (!userId) return { stoppedAt: pendingNode.nodeName, nodeType: 'error' };
     const userToken = await getTokenForUser(userId);
 
@@ -378,8 +378,8 @@ test.describe('场景5: 需预付端到端', () => {
     if (result.stoppedAt === '出纳付款' || result.nodeType === 'data_input') {
       const detail = await getDetail(token, instanceId);
       const pendingNode = (detail?.nodes ?? []).find((n: any) => n.status === 'pending' && n.nodeType === 'data_input');
-      if (pendingNode?.assignedUserId) {
-        const ok = await completeDataInputViaBrowser(authenticatedPage, pendingNode.assignedUserId, instanceId, token);
+      if (pendingNode?.assignedUserIds?.[0]) {
+        const ok = await completeDataInputViaBrowser(authenticatedPage, pendingNode.assignedUserIds[0], instanceId, token);
         if (!ok) {
           await approveNode(token, instanceId, '[E2E] 出纳付款', { paymentAmount: '187', paymentSubjectId: 378, paymentReceiptUrls: [] });
         }
@@ -430,8 +430,8 @@ test.describe('场景6: 已付款端到端', () => {
     if (result.nodeType === 'data_input') {
       const detail = await getDetail(token, instanceId);
       const pendingNode = (detail?.nodes ?? []).find((n: any) => n.status === 'pending' && n.nodeType === 'data_input');
-      if (pendingNode?.assignedUserId) {
-        const ok = await completeDataInputViaBrowser(authenticatedPage, pendingNode.assignedUserId, instanceId, token);
+      if (pendingNode?.assignedUserIds?.[0]) {
+        const ok = await completeDataInputViaBrowser(authenticatedPage, pendingNode.assignedUserIds[0], instanceId, token);
         if (!ok) {
           await approveNode(token, instanceId, '[E2E] 选择关联单据', { settleSourceType: 'prepay', selectedPrepayIds: '' });
         }
@@ -474,9 +474,9 @@ test.describe('场景7: 审批中驳回', () => {
     // 获取当前审批人的 token 才能驳回
     const detail = await getDetail(token, instanceId);
     const pendingNode = (detail?.nodes ?? []).find((n: any) => n.status === 'pending' && n.nodeType !== 'auto');
-    if (!pendingNode?.assignedUserId) { test.skip(); return; }
+    if (!pendingNode?.assignedUserIds?.[0]) { test.skip(); return; }
 
-    const userToken = await getTokenForUser(pendingNode.assignedUserId);
+    const userToken = await getTokenForUser(pendingNode.assignedUserIds[0]);
     const r = await api(userToken, 'POST', `/api/oa/instances/${instanceId}/reject`, { comment: '[E2E] 审批驳回验证' });
     expect(r?.code).toBe(200);
 

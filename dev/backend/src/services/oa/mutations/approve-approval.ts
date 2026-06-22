@@ -8,6 +8,7 @@ const log = createLogger('OA');
 import { FormTypeDefinition, OaInstanceRow, OaNodeRow } from '../oa.types';
 import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
+import { evaluateAndTriggerNodes } from '../oa-workflow-utils';
 import { transaction, mergeFormData } from './shared-utils';
 import {
   enqueueCompleteApprovalTodo,
@@ -89,10 +90,12 @@ export async function approveApproval(
     );
 
     // 先记录审批操作日志和评论（所有签署模式都需要记录，包括会签等待场景）
+    // round 字段记录当前轮次，用于会签计数时按轮次过滤
+    const currentRound = currentNode.round ?? 1;
     await client.query(
       `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
-       VALUES ($1, 'approve', $2, $3, $4, $5, $6)`,
+        (instance_id, action_type, operator_id, operator_name, node_order, comment, details, round)
+       VALUES ($1, 'approve', $2, $3, $4, $5, $6, $7)`,
       [
         instanceId,
         userId,
@@ -100,6 +103,7 @@ export async function approveApproval(
         currentNode.node_order,
         null,
         inputData ? JSON.stringify({ inputData }) : null,
+        currentRound,
       ]
     );
 
@@ -107,29 +111,27 @@ export async function approveApproval(
     if (comment && comment.trim()) {
       await client.query(
         `INSERT INTO oa_approval_actions
-          (instance_id, action_type, operator_id, operator_name, node_order, comment)
-         VALUES ($1, 'comment', $2, $3, $4, $5)`,
-        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
+          (instance_id, action_type, operator_id, operator_name, node_order, comment, round)
+         VALUES ($1, 'comment', $2, $3, $4, $5, $6)`,
+        [instanceId, userId, userName, currentNode.node_order, comment.trim(), currentRound]
       );
     }
 
     // 多人环节签署模式处理
     if (currentNode.sign_mode !== null) {
       if (currentNode.sign_mode === 'or') {
-        // 或签：任一人通过 → 同 order 其他 pending 标记为 skipped
-        await client.query(
-          `UPDATE oa_approval_nodes SET status = 'skipped', acted_at = NOW()
-           WHERE instance_id = $1 AND node_order = $2 AND id != $3 AND status = 'pending'`,
-          [instanceId, currentNode.node_order, currentNode.id]
-        );
+        // 或签：新模型下节点只有一行（assigned_user_ids 数组），无需标记其他人 skipped
       } else {
-        // 会签：检查同 order 是否全部 approved
-        const remaining = await client.query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM oa_approval_nodes
-           WHERE instance_id = $1 AND node_order = $2 AND id != $3 AND status != 'approved'`,
-          [instanceId, currentNode.node_order, currentNode.id]
+        // 会签：检查 assigned_user_ids 中是否所有人都已 approved
+        // 新模型下或签/会签都是单行，会签需要检查操作记录数
+        // 按 round 过滤：退回后重走同一环节时，只统计当前轮次的 approve 记录
+        const approvedCount = await client.query<{ count: string }>(
+          `SELECT COUNT(*) as count FROM oa_approval_actions
+           WHERE instance_id = $1 AND node_order = $2 AND action_type = 'approve' AND round = $3`,
+          [instanceId, currentNode.node_order, currentRound]
         );
-        if (parseInt(remaining.rows[0].count) > 0) {
+        const totalApprovers = currentNode.assigned_user_ids?.length ?? 1;
+        if (parseInt(approvedCount.rows[0].count) < totalApprovers) {
           // 还有人未通过 → 操作日志已记录，事务正常提交，但不流转到下一环节
           isCountersignWaiting = true;
           return { countersignWaiting: true };
@@ -143,11 +145,20 @@ export async function approveApproval(
     );
     const instance = instanceResult.rows[0];
 
+    // 按需创建后续节点（条件评估 + 处理人解析）
+    if (formType?.workflowDef?.nodes && !isCountersignWaiting) {
+      const updatedFormData = (instance.form_data || {}) as Record<string, unknown>;
+      await evaluateAndTriggerNodes(
+        client, instanceId, formType, updatedFormData, instance.applicant_id, currentNode.node_order
+      );
+    }
+
     const nextNodeResult = await client.query<OaNodeRow>(
-      `SELECT * FROM oa_approval_nodes
-       WHERE instance_id = $1 AND node_order > $2 AND status = 'pending'
-       ORDER BY node_order LIMIT 1`,
-      [instanceId, currentNode.node_order]
+      `SELECT DISTINCT ON (node_order) * FROM oa_approval_nodes
+       WHERE instance_id = $1 AND status = 'pending'
+       ORDER BY node_order, round DESC
+       LIMIT 1`,
+      [instanceId]
     );
 
     if (nextNodeResult.rows.length > 0) {
@@ -177,7 +188,7 @@ export async function approveApproval(
           [nextNode.node_order, instanceId]
         );
         // 记录下一人工节点信息，用于事务后发送待审批通知
-        const approverIds = nextNode.assigned_user_id ? [nextNode.assigned_user_id] : [];
+        const approverIds = Array.isArray(nextNode.assigned_user_ids) ? nextNode.assigned_user_ids : [];
         nextHumanNode = { approverIds, nodeName: nextNode.node_name, nodeOrder: nextNode.node_order };
       }
     } else {

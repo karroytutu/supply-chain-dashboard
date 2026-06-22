@@ -13,20 +13,20 @@ jest.mock('../../../db/appPool', () => ({
 jest.mock('../oa-utils', () => ({
   generateInstanceNo: jest.fn().mockResolvedValue('OA-20260601-001'),
   validateFormData: jest.fn().mockReturnValue([]),
-  filterNodesByCondition: jest.fn(),
-  resolveHandlerRule: jest.fn(),
+}));
+
+jest.mock('../oa-workflow-utils', () => ({
+  evaluateAndTriggerNodes: jest.fn(),
 }));
 
 jest.mock('../../fixed-asset/erp-meta-utils', () => ({
   initErpMeta: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../oa-notify', () => ({
-  notifyPendingApproval: jest.fn().mockResolvedValue(undefined),
-}));
-
-jest.mock('../oa-process-centre', () => ({
-  createProcessInstance: jest.fn().mockResolvedValue(undefined),
+jest.mock('../oa-async-task.service', () => ({
+  enqueueCreateProcessInstance: jest.fn().mockResolvedValue(undefined),
+  enqueueSendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+  enqueueExecuteAutoNode: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('./shared-utils', () => ({
@@ -39,14 +39,14 @@ jest.mock('./approve-approval', () => ({
 }));
 
 import { appQuery } from '../../../db/appPool';
-import { generateInstanceNo, validateFormData, filterNodesByCondition, resolveHandlerRule } from '../oa-utils';
+import { generateInstanceNo, validateFormData } from '../oa-utils';
+import { evaluateAndTriggerNodes } from '../oa-workflow-utils';
 import { initErpMeta } from '../../fixed-asset/erp-meta-utils';
 import { transaction } from './shared-utils';
 import { submitApproval } from './submit-approval';
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
-const mockFilterNodes = filterNodesByCondition as jest.MockedFunction<typeof filterNodesByCondition>;
-const mockResolveHandler = resolveHandlerRule as jest.MockedFunction<typeof resolveHandlerRule>;
+const mockEvaluateNodes = evaluateAndTriggerNodes as jest.MockedFunction<typeof evaluateAndTriggerNodes>;
 const mockTransaction = transaction as jest.MockedFunction<typeof transaction>;
 const mockInitErpMeta = initErpMeta as jest.MockedFunction<typeof initErpMeta>;
 
@@ -67,10 +67,14 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.resetAllMocks();
   (validateFormData as jest.Mock).mockReturnValue([]);
-  mockFilterNodes.mockReturnValue([{ order: 1, name: '主管', type: 'approval', handler: { roleCode: 'department_manager' }, signMode: 'or' }]);
-  mockResolveHandler.mockResolvedValue({ userIds: [10], signMode: 'or' });
+  mockEvaluateNodes.mockResolvedValue([{ id: 100, node_order: 1, node_type: 'approval', name: '主管', assigned_user_ids: [10] } as any]);
   mockInitErpMeta.mockResolvedValue(undefined as any);
   mockAppQuery.mockResolvedValue({ rows: [], rowCount: 0 } as any);
+  // 默认 transaction 实现：执行回调并传入 mock client
+  mockTransaction.mockImplementation(async (fn: any) => {
+    const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+    return fn(mockClient);
+  });
 });
 
 afterEach(() => {
@@ -87,7 +91,14 @@ describe('submitApproval', () => {
   });
 
   it('无审批节点时抛出异常', async () => {
-    mockFilterNodes.mockReturnValueOnce([]);
+    mockEvaluateNodes.mockResolvedValueOnce([]);
+    // transaction 需要提供 instance 行，然后 evaluateAndTriggerNodes 返回空数组触发异常
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn().mockResolvedValueOnce({ rows: [{ id: 1, instance_no: 'OA-001' }] }),
+      };
+      return fn(mockClient);
+    });
 
     await expect(
       submitApproval(baseReq, baseFormType, 1, '张三', '销售部')
@@ -101,8 +112,7 @@ describe('submitApproval', () => {
       const mockClient = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [mockInstance] }) // INSERT instance
-          .mockResolvedValueOnce({ rows: [{ name: '李主管' }] }) // SELECT approver name
-          .mockResolvedValueOnce({ rows: [] }) // INSERT node
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE status
           .mockResolvedValueOnce({ rows: [] }), // INSERT action
       };
       return fn(mockClient);
@@ -124,7 +134,6 @@ describe('submitApproval', () => {
       const mockClient = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [mockInstance] })
-          .mockResolvedValueOnce({ rows: [{ name: '王五' }] })
           .mockResolvedValueOnce({ rows: [] })
           .mockResolvedValueOnce({ rows: [] }),
       };
@@ -139,8 +148,8 @@ describe('submitApproval', () => {
   });
 
   it('auto 类型首节点设置初始状态为 processing', async () => {
-    mockFilterNodes.mockReturnValueOnce([
-      { order: 1, name: '自动处理', type: 'auto' },
+    mockEvaluateNodes.mockResolvedValueOnce([
+      { id: 200, node_order: 1, node_type: 'auto', name: '自动处理' } as any,
     ]);
 
     const mockInstance = { id: 5, instance_no: 'OA-AUTO-001' };
@@ -149,9 +158,8 @@ describe('submitApproval', () => {
       const mockClient = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [mockInstance] }) // INSERT instance
-          .mockResolvedValueOnce({ rows: [] }) // INSERT auto node
-          .mockResolvedValueOnce({ rows: [] }) // INSERT action
-          .mockResolvedValueOnce({ rows: [{ id: 100, node_type: 'auto', status: 'pending' }] }), // auto node
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE status
+          .mockResolvedValueOnce({ rows: [] }), // INSERT action
       };
       return fn(mockClient);
     });
@@ -165,11 +173,11 @@ describe('submitApproval', () => {
     expect(result.instanceId).toBe(5);
   });
 
-  it('多人环节展开为多条记录', async () => {
-    mockFilterNodes.mockReturnValueOnce([
-      { order: 1, name: '财务审核', type: 'approval', handler: { roleCode: 'current_accountant' }, signMode: 'or' },
+  it('多节点时正确执行提交流程', async () => {
+    mockEvaluateNodes.mockResolvedValueOnce([
+      { id: 101, node_order: 1, node_type: 'approval', name: '财务审核', assigned_user_ids: [10, 20] } as any,
+      { id: 102, node_order: 2, node_type: 'approval', name: '主管审核', assigned_user_ids: [30] } as any,
     ]);
-    mockResolveHandler.mockResolvedValueOnce({ userIds: [10, 20], signMode: 'or' });
 
     const mockInstance = { id: 1, instance_no: 'OA-001' };
 
@@ -177,10 +185,7 @@ describe('submitApproval', () => {
       const mockClient = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [mockInstance] }) // INSERT instance
-          .mockResolvedValueOnce({ rows: [{ name: '用户A' }] }) // SELECT name for user 10
-          .mockResolvedValueOnce({ rows: [] }) // INSERT node for user 10
-          .mockResolvedValueOnce({ rows: [{ name: '用户B' }] }) // SELECT name for user 20
-          .mockResolvedValueOnce({ rows: [] }) // INSERT node for user 20
+          .mockResolvedValueOnce({ rows: [] }) // UPDATE status
           .mockResolvedValueOnce({ rows: [] }), // INSERT action
       };
       return fn(mockClient);

@@ -28,6 +28,7 @@ export {
   filterNodesByCondition,
   resolveHandlerRule,
   findUserIdsByRoleCodes,
+  evaluateAndTriggerNodes,
 } from './oa-workflow-utils';
 
 // =====================================================
@@ -156,8 +157,8 @@ export function getNodeStatusLabel(status: ApprovalNodeStatus): string {
     rejected: '已拒绝',
     transferred: '已转交',
     failed: '处理失败',
-    skipped: '已跳过',
     cancelled: '已取消',
+    send_back: '已退回',
   };
   return labels[status];
 }
@@ -177,10 +178,11 @@ export async function getCurrentApproverNode(
   const sql = `SELECT n.* FROM oa_approval_nodes n
      JOIN oa_approval_instances i ON i.id = n.instance_id
      WHERE n.instance_id = $1
-       AND n.assigned_user_id = $2
+       AND $2 = ANY(n.assigned_user_ids)
        AND n.status = 'pending'
        AND n.node_type IN ('approval', 'handle')
        AND n.node_order = i.current_node_order
+     ORDER BY n.round DESC
      LIMIT 1`;
   const result = client
     ? await client.query<OaNodeRow>(sql, [instanceId, userId])
@@ -213,7 +215,7 @@ export async function isApprovalParticipant(
   const result = await query<{ is_participant: boolean }>(
     `SELECT (
        EXISTS(SELECT 1 FROM oa_approval_instances WHERE id = $1 AND applicant_id = $2)
-       OR EXISTS(SELECT 1 FROM oa_approval_nodes WHERE instance_id = $1 AND assigned_user_id = $2)
+       OR EXISTS(SELECT 1 FROM oa_approval_nodes WHERE instance_id = $1 AND $2 = ANY(assigned_user_ids))
        OR EXISTS(SELECT 1 FROM oa_approval_cc WHERE instance_id = $1 AND user_id = $2)
      ) AS is_participant`,
     [instanceId, userId]

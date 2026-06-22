@@ -58,6 +58,13 @@ export async function fetchSalesDetails(
   dateTo: string,
   skipCache = false
 ): Promise<ErpSalesDetail[]> {
+  // 持久缓存检查（5分钟 TTL，按日期范围区分缓存键）
+  const persistKey = `${CACHE_KEY.ERP_SALES_RECENT}:${dateFrom}:${dateTo}`;
+  if (!skipCache) {
+    const cached = cache.get<ErpSalesDetail[]>(persistKey);
+    if (cached) return cached;
+  }
+
   // in-flight 去重
   const inflightKey = `${dateFrom}:${dateTo}`;
   if (!skipCache && _salesInFlight.has(inflightKey)) {
@@ -125,7 +132,12 @@ export async function fetchSalesDetails(
       };
     };
 
-    return fetchAllPagesParallel<ErpSalesDetail>(fetchPage, DEFAULT_PAGE_SIZE);
+    const result = await fetchAllPagesParallel<ErpSalesDetail>(fetchPage, DEFAULT_PAGE_SIZE);
+
+    // 写入持久缓存（5分钟 TTL）
+    cache.set(persistKey, result, CACHE_TTL.ERP_SLOW);
+
+    return result;
   };
 
   const promise = doFetch();
@@ -143,7 +155,7 @@ export async function fetchSalesDetails(
  * @param days - 计算天数，默认 30
  */
 export async function getDailySalesMap(days = 30): Promise<Map<string, number>> {
-  const cacheKey = CACHE_KEY.ERP_SALES_RECENT;
+  const cacheKey = CACHE_KEY.ERP_SALES_DAILY_MAP;
 
   // 检查缓存
   const cached = cache.get<Map<string, number>>(cacheKey);

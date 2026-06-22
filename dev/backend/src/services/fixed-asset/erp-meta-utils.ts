@@ -290,7 +290,7 @@ export async function recoverStuckAutoNodes(): Promise<number> {
   try {
   // 检测：实例 status='pending' + 存在 pending 的 auto/cc 节点 + 超过 5 分钟无更新
   // 关键：排除 auto/cc 节点前仍有未完成人工节点的实例（它们正在正常等待人工审批，不属于“卡住”）
-  // 例如催收审批：节点1=营销师催收(pending) + 节点2=更新催收状态(auto,pending)
+  // 例如催收审批：节点1=营销师催收(pending) + 节点2=核销校验(auto,pending)
   //   此时 auto 节点尚未轮到执行，不应触发恢复
   const stuck = await appQuery<{ id: number }>(
     `SELECT i.id FROM oa_approval_instances i

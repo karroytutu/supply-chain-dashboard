@@ -75,7 +75,7 @@ const mkNode = (overrides: any = {}) => ({
   node_order: 1,
   node_name: '自动节点',
   node_type: 'auto',
-  assigned_user_id: null,
+  assigned_user_ids: null,
   status: 'pending',
   ...overrides,
 });
@@ -128,7 +128,7 @@ describe('executeAutoNodeCallback', () => {
   });
 
   it('成功执行 - 下一节点为人工审批时更新实例状态并清理 erp_meta', async () => {
-    const nextNode = mkNode({ id: 200, node_order: 2, node_type: 'approval', assigned_user_id: 20 });
+    const nextNode = mkNode({ id: 200, node_order: 2, node_type: 'approval', assigned_user_ids: [20] });
     mockQuery
       .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
       .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck (无阻塞)
@@ -234,6 +234,17 @@ describe('executeAutoNodeCallback', () => {
     expect(finalCheckSql).toContain('node_order');
     // 验证 finalCheck 参数包含 autoNode.node_order
     expect(finalCheckCall[1]).toContain(1);
+  });
+
+  it('回调返回 sendBack=true 时跳过后续 mark-approved + advanceToNextNode', async () => {
+    const ft = mkFormType({ onApproved: jest.fn().mockResolvedValue({ sendBack: true }) });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // finalCheck (无阻塞)
+    await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), {});
+    expect(ft.onApproved).toHaveBeenCalledTimes(1);
+    // 仅 claim + finalCheck 两次查询，不应有 mark-approved 或 advanceToNextNode 的查询
+    expect(mockQuery).toHaveBeenCalledTimes(2);
   });
 });
 

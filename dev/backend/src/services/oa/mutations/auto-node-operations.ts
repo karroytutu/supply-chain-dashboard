@@ -80,17 +80,25 @@ export async function executeAutoNodeCallback(
       return;
     }
 
-    await formType.onApproved!(instance, formData);
+    const callbackResult = await formType.onApproved!(instance, formData);
+
+    // 回调已处理退回（如核销校验退回营销师续催），跳过后续 mark-approved + advanceToNextNode
+    if (callbackResult?.sendBack) {
+      log.info(`auto 节点回调已执行退回 [instanceId=${instanceId} nodeId=${autoNode.id}]，跳过后续流转`);
+      return;
+    }
 
     // 成功：auto 节点 → approved
     await query(`UPDATE oa_approval_nodes SET status = 'approved' WHERE id = $1`, [autoNode.id]);
 
     // 检查是否有下一个待审批节点（全局搜索所有 pending 节点，不限于 auto 节点之后的位置）
     // 注意：不排除 auto 类型，因为现有代码在第 61 行有递归处理连续 auto 节点的逻辑
+    // DISTINCT ON + round DESC：退回后同一 node_order 可能有多轮记录，取最新轮次
     const nextNodeResult = await query<OaNodeRow>(
-      `SELECT * FROM oa_approval_nodes
+      `SELECT DISTINCT ON (node_order) * FROM oa_approval_nodes
        WHERE instance_id = $1 AND status = 'pending'
-       ORDER BY node_order LIMIT 1`,
+       ORDER BY node_order, round DESC
+       LIMIT 1`,
       [instanceId]
     );
 
@@ -123,11 +131,12 @@ export async function executeAutoNodeCallback(
            WHERE id = $2`,
           [nextNode.node_order, instanceId]
         );
-        if (nextNode.assigned_user_id) {
+        const approverIds = Array.isArray(nextNode.assigned_user_ids) ? nextNode.assigned_user_ids : [];
+        if (approverIds.length > 0) {
           // 流转通知入队异步任务，支持失败重试
           const { enqueueSendApprovalNotification } = await import('../oa-async-task.service');
           enqueueSendApprovalNotification('pending', instanceId, {
-            approverIds: [nextNode.assigned_user_id],
+            approverIds,
             nodeName: nextNode.node_name,
             nodeOrder: nextNode.node_order,
           }).catch(err => log.error('auto节点流转通知入队失败:', err));
@@ -199,7 +208,7 @@ export async function retryAutoNode(instanceId: number): Promise<void> {
     const nodeResult = await client.query<OaNodeRow>(
       `SELECT * FROM oa_approval_nodes
        WHERE instance_id = $1 AND node_type IN ('auto', 'cc') AND status IN ('pending', 'failed')
-       ORDER BY node_order LIMIT 1`,
+       ORDER BY node_order, round DESC LIMIT 1`,
       [instanceId]
     );
     const node = nodeResult.rows[0];
@@ -373,10 +382,12 @@ async function advanceToNextNode(
 ): Promise<void> {
   const formData = (instance.form_data || {}) as Record<string, unknown>;
 
+  // DISTINCT ON + round DESC：退回后同一 node_order 可能有多轮记录，取最新轮次
   const nextNodeResult = await query<OaNodeRow>(
-    `SELECT * FROM oa_approval_nodes
+    `SELECT DISTINCT ON (node_order) * FROM oa_approval_nodes
      WHERE instance_id = $1 AND status = 'pending'
-     ORDER BY node_order LIMIT 1`,
+     ORDER BY node_order, round DESC
+     LIMIT 1`,
     [instanceId]
   );
 
@@ -407,10 +418,11 @@ async function advanceToNextNode(
          WHERE id = $2`,
         [nextNode.node_order, instanceId]
       );
-      if (nextNode.assigned_user_id) {
+      const approverIds = Array.isArray(nextNode.assigned_user_ids) ? nextNode.assigned_user_ids : [];
+      if (approverIds.length > 0) {
         const { enqueueSendApprovalNotification } = await import('../oa-async-task.service');
         enqueueSendApprovalNotification('pending', instanceId, {
-          approverIds: [nextNode.assigned_user_id],
+          approverIds,
           nodeName: nextNode.node_name,
           nodeOrder: nextNode.node_order,
         }).catch(err => log.error('自动节点流转通知入队失败:', err));

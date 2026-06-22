@@ -336,6 +336,17 @@ export interface ConditionDef {
   value: number | string;
 }
 
+/**
+ * 条件组：支持“任一满足”或“全部满足”两种匹配模式
+ * 用于同一环节可由多个角色触发的场景（如“财务差异处理”可由营销师或会计的差异操作触发）
+ */
+export interface ConditionGroup {
+  /** 匹配模式：'any' 表示任一条件满足即触发，'all' 表示全部条件满足才触发 */
+  match: 'any' | 'all';
+  /** 子条件列表 */
+  conditions: ConditionDef[];
+}
+
 // =====================================================
 // 节点时限配置相关类型
 // =====================================================
@@ -398,8 +409,8 @@ export interface WorkflowNodeDef {
   handler?: HandlerRule;
   /** 签署模式（多人时怎么协同），默认 'or' */
   signMode?: SignMode;
-  /** 条件定义（条件节点），支持单个条件或 AND 条件数组 */
-  condition?: ConditionDef | ConditionDef[];
+  /** 条件定义（条件节点），支持单个条件、AND 条件数组或 OR 条件组 */
+  condition?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** 数据录入表单 schema（仅 handle 类型可选）
    * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions。
    */
@@ -414,6 +425,11 @@ export interface WorkflowNodeDef {
   interactionType?: NodeInteractionType;
   /** 条件业务描述（管理员视角的可读文本，如"任一商品可售天数 > 45天"） */
   conditionDescription?: string;
+  /**
+   * @deprecated 循环退回已由 round 多轮机制 + onApproved 回调直接处理，
+   * 此字段不再被引擎读取。保留仅为兼容历史 workflow 定义，新代码不应使用。
+   */
+  reActivatable?: boolean;
   /** 抄送角色编码列表（仅 cc 类型节点使用） */
   ccRoles?: string[];
   /** 节点时限配置（不配置表示无时限约束） */
@@ -478,8 +494,11 @@ export interface FormTypeDefinition {
     formData: Record<string, unknown>,
     userId: number
   ) => Promise<Record<string, unknown>>;
-  /** 审批通过回调（整个流程完成时触发，可选） */
-  onApproved?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void>;
+  /** 审批通过回调（整个流程完成时触发，可选）
+   * 返回 { sendBack: true } 时，框架跳过后续的 mark-approved + advanceToNextNode
+   * （用于回调内部已执行退回操作的场景）
+   */
+  onApproved?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void | { sendBack: boolean }>;
   /** 审批驳回回调（可选） */
   onRejected?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void>;
   /** data_input 节点完成回调（可选，按节点序号分发） */
@@ -557,6 +576,7 @@ export type ApprovalStatus =
  * 审批节点状态
  * - processing: auto 节点异步执行中
  * - failed: auto 节点执行失败（可重试，区别于人工 rejected）
+ * - send_back: 退回来源标记（当前环节被退回，流转到其他环节）
  */
 export type ApprovalNodeStatus =
   | 'pending'
@@ -565,8 +585,8 @@ export type ApprovalNodeStatus =
   | 'rejected'
   | 'transferred'
   | 'failed'
-  | 'skipped'
-  | 'cancelled';
+  | 'cancelled'
+  | 'send_back';
 
 /**
  * 外部系统交互追踪元数据
@@ -623,12 +643,14 @@ export interface OaNodeRow {
   id: number;
   instance_id: number;
   node_order: number;
+  /** 执行轮次（退回后重新走同一环节时 round + 1） */
+  round: number;
   node_name: string;
   node_type: NodeType;
   role_code: string | null;
-  assigned_user_id: number | null;
-  assigned_user_name: string | null;
-  /** 审批人头像URL（LEFT JOIN users 表获取） */
+  /** 候选审批人 ID 数组（或签/会签时存多人） */
+  assigned_user_ids: number[] | null;
+  /** 审批人头像URL（LEFT JOIN users 表获取，取第一人） */
   assigned_user_avatar?: string | null;
   status: ApprovalNodeStatus;
   /** 签署模式：or=或签，and=会签，NULL=单人环节 */
@@ -681,7 +703,8 @@ export type ApprovalActionType =
   | 'resubmit'
   | 'update' // 操作型节点的"更新"操作（保存数据，不触发流转）
   | 'comment' // 独立评论（不执行审批动作，仅留言）
-  | 'handover'; // 管理员流程交接（批量转移在途审批单）
+  | 'handover' // 管理员流程交接（批量转移在途审批单）
+  | 'send_back'; // 退回操作（流转路由，将流程退回到指定环节）
 
 /**
  * oa_approval_actions 表行

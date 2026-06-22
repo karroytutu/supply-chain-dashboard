@@ -31,6 +31,7 @@ import {
 import { runOaTimeoutTask, runOaTimeoutAssessmentTask } from '../oa/timeout';
 import { processOaAsyncTasks } from '../oa/oa-async-task.service';
 import { reconcileProcessInstanceStatus } from '../oa/oa-process-centre';
+import { runPeriodicWarmup } from '../cache-warmup.service';
 
 /**
  * 启动所有定时任务
@@ -333,6 +334,28 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
+  // ==================== 全局缓存预热（仅生产环境） ====================
+  // 每 2 分钟刷新 ERP 基础数据集缓存，确保用户请求始终命中缓存
+  // 开发环境无 ERP 连接配置，预热会产生无用的请求失败和错误日志
+  if (isProduction) {
+    let isCacheWarming = false;
+    cron.schedule(
+      '*/2 * * * *',
+      async () => {
+        if (isCacheWarming) return;
+        isCacheWarming = true;
+        try {
+          await runPeriodicWarmup();
+        } catch (error) {
+          log.error('全局缓存预热失败:', error);
+        } finally {
+          isCacheWarming = false;
+        }
+      },
+      { timezone: 'Asia/Shanghai' }
+    );
+  } // end 缓存预热
+
   // ==================== 钉钉组织架构同步（仅生产环境） ====================
   if (isProduction) {
 
@@ -386,6 +409,7 @@ export function startScheduler(): void {
   log.info('定时任务已注册:');
   log.info('  - Token 管理检查: 每5分钟 (Asia/Shanghai) [所有环境]');
   if (isProduction) {
+    log.info('  - 全局缓存预热: 每2分钟 (Asia/Shanghai)');
     log.info('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
     log.info('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
     log.info('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');

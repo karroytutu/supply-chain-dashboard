@@ -4,7 +4,7 @@
  */
 
 import { checkCondition, validateFormData, filterNodesByCondition } from './oa-utils';
-import type { FormSchema, WorkflowNodeDef, ConditionDef } from './oa.types';
+import type { FormSchema, WorkflowNodeDef, ConditionDef, ConditionGroup } from './oa.types';
 
 // =====================================================
 // checkCondition 测试
@@ -92,6 +92,47 @@ describe('checkCondition', () => {
 
     it('空数组返回 true（every 的默认行为）', () => {
       expect(checkCondition([], {})).toBe(true);
+    });
+  });
+
+  describe('OR 条件组', () => {
+    it('任一条件满足时返回 true', () => {
+      const condition: ConditionGroup = {
+        match: 'any',
+        conditions: [
+          { field: 'action', operator: '==', value: 'difference' },
+          { field: 'accAction', operator: '==', value: 'difference' },
+        ],
+      };
+      expect(checkCondition(condition, { action: 'difference' })).toBe(true);
+      expect(checkCondition(condition, { accAction: 'difference' })).toBe(true);
+      expect(checkCondition(condition, { action: 'difference', accAction: 'verify' })).toBe(true);
+    });
+
+    it('全部条件不满足时返回 false', () => {
+      const condition: ConditionGroup = {
+        match: 'any',
+        conditions: [
+          { field: 'action', operator: '==', value: 'difference' },
+          { field: 'accAction', operator: '==', value: 'difference' },
+        ],
+      };
+      expect(checkCondition(condition, { action: 'verify' })).toBe(false);
+      expect(checkCondition(condition, {})).toBe(false);
+      expect(checkCondition(condition, { action: 'escalate', accAction: 'lawsuit' })).toBe(false);
+    });
+
+    it('支持不同字段和不同值的 OR 组合', () => {
+      const condition: ConditionGroup = {
+        match: 'any',
+        conditions: [
+          { field: 'mgrAction', operator: '==', value: 'extension' },
+          { field: 'accAction', operator: '==', value: 'extension' },
+        ],
+      };
+      expect(checkCondition(condition, { mgrAction: 'extension' })).toBe(true);
+      expect(checkCondition(condition, { accAction: 'extension' })).toBe(true);
+      expect(checkCondition(condition, { mgrAction: 'escalate' })).toBe(false);
     });
   });
 });

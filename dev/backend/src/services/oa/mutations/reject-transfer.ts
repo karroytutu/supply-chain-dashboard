@@ -165,11 +165,11 @@ export async function transferApproval(
 
     await client.query(
       `UPDATE oa_approval_nodes
-       SET assigned_user_id = $1, assigned_user_name = $2,
-           comment = $3, acted_at = NOW(),
+       SET assigned_user_ids = $1,
+           comment = $2, acted_at = NOW(),
            reminder_count = 0, last_reminder_at = NULL, cc_supervisor_at = NULL
-       WHERE id = $4`,
-      [transferToUserId, targetUserName, `由 ${userName} 转交`, currentNode.id]
+       WHERE id = $3`,
+      [[transferToUserId], `由 ${userName} 转交`, currentNode.id]
     );
 
     await client.query(

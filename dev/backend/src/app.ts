@@ -204,6 +204,11 @@ app.listen(config.port, async () => {
   // 校验审批流程岗位编码合法性（仅日志告警，不阻断启动）
   import('./services/oa/oa-form-type.query').then(m => m.validateFormTypeRoleCodes()).catch(() => {});
 
+  // 非阻塞全局缓存预热（环境变量控制，设为 false 可一键禁用）
+  if (process.env.CACHE_WARMUP_ENABLED !== 'false') {
+    import('./services/cache-warmup.service').then(m => m.runStartupWarmup()).catch(() => {});
+  }
+
   // 启动钉钉 Stream 事件总线（WebSocket 长连接）
   startDingtalkStream();
   registerSyncEventHandlers();

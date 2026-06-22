@@ -106,7 +106,7 @@ export async function fetchAllInventory(skipCache = false): Promise<ErpInventory
     }
 
     // 写入缓存（TTL 30s）
-    cache.set(cacheKey, allRecords, CACHE_TTL.HIGH_FREQUENCY);
+    cache.set(cacheKey, allRecords, CACHE_TTL.ERP_BASE);
 
     // 清除预聚合缓存
     _stockSummaryMap = null;

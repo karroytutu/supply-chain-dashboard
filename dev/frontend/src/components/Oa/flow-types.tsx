@@ -40,7 +40,6 @@ export const NODE_STATUS_TEXT: Record<string, string> = {
   transferred: '已转交',
   sent_back: '已退回',
   failed: '执行失败',
-  skipped: '已跳过',
   cancelled: '已取消',
 };
 
@@ -126,7 +125,6 @@ export function getTimelineColor(status: string): string {
     processing: 'blue',
     transferred: '#fa8c16',
     sent_back: '#fa8c16',
-    skipped: 'gray',
     cancelled: 'gray',
   };
   return map[status] || 'blue';

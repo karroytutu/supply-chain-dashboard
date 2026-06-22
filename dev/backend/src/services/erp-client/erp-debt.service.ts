@@ -48,6 +48,9 @@ interface ApiDebtResponse {
 /** 默认 pageSize（实测 2000 最优） */
 const DEFAULT_PAGE_SIZE = 2000;
 
+/** in-flight 去重：多个并发调用共享同一 Promise，避免重复 ERP 请求 */
+let _debtsInFlight: Promise<ERPDebtRecord[]> | null = null;
+
 /**
  * 将 API 原始记录转换为 ERPDebtRecord
  * API 返回的 totalAmount/leftAmount 是 string，需转为 number
@@ -89,45 +92,57 @@ export async function fetchAllErpDebts(skipCache = false): Promise<ERPDebtRecord
     if (cached) return cached;
   }
 
-  const { cid, uid } = getErpDefaults();
-  const workEndDate = new Date().toISOString().slice(0, 10);
+  // in-flight 去重：多个并发调用共享同一 Promise
+  if (!skipCache && _debtsInFlight) return _debtsInFlight;
 
-  const fetchPage = async (current: number) => {
-    const result = await erpPost<ApiDebtResponse>(
-      '/consumer-collect/detail',
-      {
-        workStartDate: '2020-01-01',
-        workEndDate,
-        size: DEFAULT_PAGE_SIZE,
-        total: 0,
-        current,
-        settlementStateIds: ['NONE', 'PART'],
-        timeType: ['WORK'],
-        ifShowSubtotal: false,
-        groupingDims: ['settlerName'],
-        cid,
-        uid,
-      },
-      {
-        pathPrefix: '/toliman/',
-        businessType: 'debt_fetch',
-      }
-    );
-    return {
-      records: result?.data?.records || [],
-      total: result?.data?.total || 0,
+  const doFetch = async (): Promise<ERPDebtRecord[]> => {
+    const { cid, uid } = getErpDefaults();
+    const workEndDate = new Date().toISOString().slice(0, 10);
+
+    const fetchPage = async (current: number) => {
+      const result = await erpPost<ApiDebtResponse>(
+        '/consumer-collect/detail',
+        {
+          workStartDate: '2020-01-01',
+          workEndDate,
+          size: DEFAULT_PAGE_SIZE,
+          total: 0,
+          current,
+          settlementStateIds: ['NONE', 'PART'],
+          timeType: ['WORK'],
+          ifShowSubtotal: false,
+          groupingDims: ['settlerName'],
+          cid,
+          uid,
+        },
+        {
+          pathPrefix: '/toliman/',
+          businessType: 'debt_fetch',
+        }
+      );
+      return {
+        records: result?.data?.records || [],
+        total: result?.data?.total || 0,
+      };
     };
+
+    const allRecords = await fetchAllPagesParallel<ApiDebtRecord>(fetchPage, DEFAULT_PAGE_SIZE);
+
+    // 过滤 leftAmount > 0 并转换类型
+    const debts = allRecords.filter(r => parseFloat(r.leftAmount) > 0).map(toERPDebtRecord);
+
+    // 写入缓存
+    cache.set(cacheKey, debts, CACHE_TTL.ERP_BASE);
+
+    return debts;
   };
 
-  const allRecords = await fetchAllPagesParallel<ApiDebtRecord>(fetchPage, DEFAULT_PAGE_SIZE);
-
-  // 过滤 leftAmount > 0 并转换类型
-  const debts = allRecords.filter(r => parseFloat(r.leftAmount) > 0).map(toERPDebtRecord);
-
-  // 写入缓存（TTL 30s）
-  cache.set(cacheKey, debts, CACHE_TTL.HIGH_FREQUENCY);
-
-  return debts;
+  _debtsInFlight = doFetch();
+  try {
+    return await _debtsInFlight;
+  } finally {
+    _debtsInFlight = null;
+  }
 }
 
 /**

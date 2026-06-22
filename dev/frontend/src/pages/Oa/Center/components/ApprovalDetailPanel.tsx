@@ -99,7 +99,7 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
 
   // 根据 viewMode 计算 canOperate/canWithdraw 覆盖值
   const currentNode = detail.nodes.find((n) => n.nodeOrder === detail.currentNodeOrder);
-  const isCurrentApprover = currentNode?.assignedUserId === currentUser?.id;
+  const isCurrentApprover = currentUser?.id != null && currentNode?.assignedUserIds?.includes(currentUser.id) === true;
   const isApplicant = detail.applicantId === currentUser?.id;
 
   const canOperate = viewMode === 'pending' && detail.status === 'pending' && isCurrentApprover;
