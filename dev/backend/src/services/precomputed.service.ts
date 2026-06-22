@@ -73,21 +73,10 @@ export async function getStockSummaryMap(): Promise<Map<string, number>> {
 }
 
 /**
- * 预热所有缓存
- * 在服务启动时调用，提前加载热点数据
+ * 预热入口已迁移到 cache-warmup.service.ts（全局预热框架）
+ * 此文件仅保留 getDailySalesMap / getStockSummaryMap / invalidatePrecomputedCache
+ * 供其他模块调用
  */
-export async function warmupCache(): Promise<void> {
-  log.info('[warmupCache] 开始预热缓存...');
-
-  try {
-    // 并行预热多个缓存
-    await Promise.all([getDailySalesMap(), getStockSummaryMap()]);
-
-    log.info('[warmupCache] 缓存预热完成');
-  } catch (error) {
-    log.error('[warmupCache] 缓存预热失败:', error);
-  }
-}
 
 /**
  * 清除预计算缓存

@@ -110,7 +110,7 @@ function buildListWhereClause(
         EXISTS (
           SELECT 1 FROM oa_approval_nodes n
           WHERE n.instance_id = i.id
-            AND n.assigned_user_id = $${paramIndex}
+            AND $${paramIndex} = ANY(n.assigned_user_ids)
             AND n.status = 'pending'
             AND n.node_order = i.current_node_order
         )
@@ -126,7 +126,7 @@ function buildListWhereClause(
         EXISTS (
           SELECT 1 FROM oa_approval_nodes n
           WHERE n.instance_id = i.id
-            AND n.assigned_user_id = $${paramIndex}
+            AND $${paramIndex} = ANY(n.assigned_user_ids)
             AND n.status IN ('approved', 'rejected', 'transferred')
         )
       `);
@@ -247,7 +247,7 @@ export async function getApprovalList(
       SELECT n.node_name, n.deadline_at
       FROM oa_approval_nodes n
       WHERE n.instance_id = i.id AND n.node_order = i.current_node_order
-      ORDER BY CASE WHEN n.status = 'pending' THEN 0 ELSE 1 END
+      ORDER BY CASE WHEN n.status = 'pending' THEN 0 ELSE 1 END, n.round DESC
       LIMIT 1
     ) cn ON true
     ${whereClause}
@@ -278,7 +278,7 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
       SELECT COUNT(DISTINCT i.id) as count
       FROM oa_approval_instances i
       JOIN oa_approval_nodes n ON n.instance_id = i.id
-      WHERE n.assigned_user_id = $1
+      WHERE $1 = ANY(n.assigned_user_ids)
         AND n.status = 'pending'
         AND i.status = 'pending'
         AND n.node_order = i.current_node_order
@@ -291,7 +291,7 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
       SELECT COUNT(DISTINCT i.id) as count
       FROM oa_approval_instances i
       JOIN oa_approval_nodes n ON n.instance_id = i.id
-      WHERE n.assigned_user_id = $1
+      WHERE $1 = ANY(n.assigned_user_ids)
         AND n.status IN ('approved', 'rejected', 'transferred')
         AND i.status NOT IN ('withdrawn', 'cancelled')
     `,
@@ -346,14 +346,14 @@ export async function getCollectionOaStats(
   approved: { count: number; amount: number };
   attention: { count: number; amount: number };
 }> {
-  // 角色过滤：通过 OA 节点的 assigned_user_id 过滤
+  // 角色过滤：通过 OA 节点的 assigned_user_ids 过滤
   let roleFilter = '';
   const params: (number | string)[] = [];
 
   if (role === 'marketer') {
     roleFilter = `AND EXISTS (
       SELECT 1 FROM oa_approval_nodes n2
-      WHERE n2.instance_id = i.id AND n2.assigned_user_id = $1
+      WHERE n2.instance_id = i.id AND $1 = ANY(n2.assigned_user_ids)
         AND n2.role_code = 'marketer' AND n2.status = 'pending'
         AND n2.node_order = i.current_node_order
     )`;
@@ -361,7 +361,7 @@ export async function getCollectionOaStats(
   } else if (role === 'current_accountant') {
     roleFilter = `AND EXISTS (
       SELECT 1 FROM oa_approval_nodes n2
-      WHERE n2.instance_id = i.id AND n2.assigned_user_id IS NOT NULL
+      WHERE n2.instance_id = i.id AND n2.assigned_user_ids IS NOT NULL
         AND n2.role_code = 'current_accountant' AND n2.status = 'pending'
         AND n2.node_order = i.current_node_order
     )`;

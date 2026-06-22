@@ -13,6 +13,8 @@ export interface OverdueNode extends OaNodeRow {
   title: string;
   /** 表单类型名称 */
   form_type_name: string;
+  /** 首个处理人姓名（LEFT JOIN users 获取） */
+  first_assigned_user_name?: string | null;
 }
 
 /** 催办扫描结果 */

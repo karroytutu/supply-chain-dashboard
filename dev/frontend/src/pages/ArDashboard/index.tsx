@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Empty, Typography, Skeleton, Card, Button, Result } from 'antd';
+import { Empty, Typography, Skeleton, Card, Button, Result, Tag } from 'antd';
 import KpiCard from './components/KpiCard';
 import CollectionPipeline from './components/CollectionPipeline';
 import MarketerPanel from './components/MarketerPanel';
@@ -239,7 +239,10 @@ const ArDashboard: React.FC = () => {
     <div className={styles.page}>
       <div className={styles.header}>
         <Title level={3} className={styles.title}>应收账款全景看板</Title>
-        <Text type="secondary">数据更新时间：{data.updatedAt?.replace('T', ' ').slice(0, 19) || '--'}</Text>
+        <Text type="secondary">
+          数据更新时间：{data.updatedAt?.replace('T', ' ').slice(0, 19) || '--'}
+          {data.isStale && <Tag color="orange" style={{ marginLeft: 8 }}>数据正在更新中</Tag>}
+        </Text>
       </div>
 
       {/* 第一区：KPI 指标 */}

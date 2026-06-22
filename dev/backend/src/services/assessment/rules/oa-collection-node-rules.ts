@@ -34,8 +34,9 @@ interface PendingOaNode {
   instance_no: string;
   node_name: string;
   role_code: string;
-  assigned_user_id: number | null;
-  assigned_user_name: string | null;
+  assigned_user_ids: number[] | null;
+  handler_user_id: number;
+  handler_user_name: string;
   created_at: Date;
   form_data_total_amount: string | null;
   consumer_name: string | null;
@@ -80,11 +81,11 @@ const ROLE_TIER_CONFIG: Record<string, TierConfig[]> = {
 };
 
 /** 不考核的节点角色/名称 */
-const EXEMPT_NODE_NAMES = ['起诉立案', '庭审进展', '判决结果', '执行进展', '更新催收状态'];
+const EXEMPT_NODE_NAMES = ['起诉立案', '庭审进展', '判决结果', '执行进展', '核销校验'];
 
 // ==================== 共用查询 ====================
 
-/** 查询未完成的OA催收节点 */
+/** 查询未完成的OA催收节点（每个节点+用户的组合产生一行，多处理人节点会产生多行） */
 async function queryPendingOaNodes(): Promise<PendingOaNode[]> {
   const result = await appQuery<PendingOaNode>(
     `SELECT
@@ -93,18 +94,21 @@ async function queryPendingOaNodes(): Promise<PendingOaNode[]> {
        i.instance_no,
        n.node_name,
        n.role_code,
-       n.assigned_user_id,
-       n.assigned_user_name,
+       n.assigned_user_ids,
+       u.id AS handler_user_id,
+       u.name AS handler_user_name,
        n.created_at,
        i.form_data->>'totalAmount' AS form_data_total_amount,
        i.form_data->>'consumerName' AS consumer_name
      FROM oa_approval_nodes n
      JOIN oa_approval_instances i ON n.instance_id = i.id
      JOIN oa_form_types ft ON i.form_type_id = ft.id
+     JOIN LATERAL unnest(n.assigned_user_ids) AS uid ON true
+     JOIN users u ON u.id = uid
      WHERE ft.code = 'ar_collection'
        AND n.status = 'pending'
        AND n.node_type = 'approval'
-       AND n.assigned_user_id IS NOT NULL
+       AND n.assigned_user_ids IS NOT NULL
        AND n.created_at IS NOT NULL`
   );
   return result.rows;
@@ -199,7 +203,7 @@ registerAssessmentRule({
     for (const node of nodes) {
       // 跳过不考核的节点
       if (EXEMPT_NODE_NAMES.includes(node.node_name)) continue;
-      if (!node.assigned_user_id) continue;
+      if (!node.handler_user_id) continue;
 
       const overdueDays = calculateOverdueDays(node.created_at);
       if (overdueDays < 3) continue; // 3天内不考核
@@ -214,7 +218,7 @@ registerAssessmentRule({
         if (tier.maxDays !== null && overdueDays >= tier.maxDays) continue;
 
         const ruleTypeKey = `oa_node_${tier.name}`;
-        const dedupeKey = `${ruleTypeKey}:${node.node_id}:${node.assigned_user_id}`;
+        const dedupeKey = `${ruleTypeKey}:${node.node_id}:${node.handler_user_id}`;
 
         // 使用预查询的结果去重
         if (existingBatch.has(dedupeKey)) continue;
@@ -235,8 +239,8 @@ registerAssessmentRule({
           source_id: node.node_id,
           source_no: node.instance_no,
           source_name: node.consumer_name || '',
-          assessment_user_id: node.assigned_user_id,
-          assessment_user_name: node.assigned_user_name || '',
+          assessment_user_id: node.handler_user_id,
+          assessment_user_name: node.handler_user_name || '',
           assessment_role: roleCode as any,
           base_amount: totalAmount,
           penalty_rate: tier.ratio || 0,

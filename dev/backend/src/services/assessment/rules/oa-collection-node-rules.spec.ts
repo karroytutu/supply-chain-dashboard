@@ -47,8 +47,8 @@ function mockNode(overrides: Record<string, any> = {}) {
     instance_no: 'OA-001',
     node_name: '营销师催收',
     role_code: 'marketer',
-    assigned_user_id: 10,
-    assigned_user_name: '张三',
+    handler_user_id: 10,
+    handler_user_name: '张三',
     created_at: daysAgo(4),
     form_data_total_amount: '1000',
     consumer_name: '客户A',
@@ -160,8 +160,8 @@ describe('calculate', () => {
     expect(results).toEqual([]);
   });
 
-  it('免考核节点（更新催收状态）被跳过', async () => {
-    mockAppQuery.mockResolvedValueOnce({ rows: [mockNode({ node_name: '更新催收状态', created_at: daysAgo(10) })] } as any);
+  it('免考核节点（核销校验）被跳过', async () => {
+    mockAppQuery.mockResolvedValueOnce({ rows: [mockNode({ node_name: '核销校验', created_at: daysAgo(10) })] } as any);
     mockAppQuery.mockResolvedValueOnce({ rows: [] } as any);
     const results = await getRule().calculate({ triggeredBy: 'scheduled' } as any);
     expect(results).toEqual([]);
@@ -174,8 +174,8 @@ describe('calculate', () => {
     expect(results).toEqual([]);
   });
 
-  it('assigned_user_id 为 null 时跳过', async () => {
-    mockAppQuery.mockResolvedValueOnce({ rows: [mockNode({ assigned_user_id: null, created_at: daysAgo(10) })] } as any);
+  it('handler_user_id 为 null 时跳过', async () => {
+    mockAppQuery.mockResolvedValueOnce({ rows: [mockNode({ handler_user_id: null, created_at: daysAgo(10) })] } as any);
     mockAppQuery.mockResolvedValueOnce({ rows: [] } as any);
     const results = await getRule().calculate({ triggeredBy: 'scheduled' } as any);
     expect(results).toEqual([]);

@@ -54,6 +54,22 @@ export class MemoryCache {
   }
 
   /**
+   * 获取缓存数据及其元数据（时间戳、TTL）
+   * 用于数据新鲜度提示：前端可以显示“数据已存放多久”
+   * @param key 缓存键
+   * @returns { data, timestamp, ttl } 或 null（缓存未命中或已过期）
+   */
+  getWithMeta<T>(key: string): { data: T; timestamp: number; ttl: number } | null {
+    const item = this.cache.get(key);
+    if (!item || Date.now() - item.timestamp > item.ttl) {
+      // 不删除过期条目，保留给 getStale() 实现 stale-while-revalidate
+      // 过期条目由 cleanup() 定时器统一回收
+      return null;
+    }
+    return { data: item.data as T, timestamp: item.timestamp, ttl: item.ttl };
+  }
+
+  /**
    * 检查缓存条目是否存在且未过期（非破坏性，不删除条目）
    * 配合 getStale() 实现 stale-while-revalidate：
    *   getStale() 获取值，isFresh() 判断新鲜度
@@ -145,12 +161,18 @@ export class MemoryCache {
 // 导出单例实例
 export const cache = new MemoryCache();
 
-// 缓存时间常量（毫秒）- 三档分层
+// 缓存时间常量（毫秒）- 分层策略
 export const CACHE_TTL = {
   /** 高频变更数据：权限、预警列表（30秒） */
   HIGH_FREQUENCY: 30 * 1000,
   /** 常规业务数据：仪表盘、概览统计（60秒） */
   DASHBOARD: 60 * 1000,
-  /** 低频变更数据：品类、ERP、战略商品（5分钟） */
+  /** 低频变更数据：品类、战略商品（5分钟） */
   LOW_FREQUENCY: 5 * 60 * 1000,
+  /** ERP 基础数据集：欠款、库存、批次库存（3分钟）—— 配合定时预热使用 */
+  ERP_BASE: 3 * 60 * 1000,
+  /** ERP 低频数据集：商品档案、销售明细（5分钟）—— 变化缓慢，配合定时预热 */
+  ERP_SLOW: 5 * 60 * 1000,
+  /** 客户档案：名称映射、限额配置（10分钟）—— 极少变化 */
+  ERP_CUSTOMER: 10 * 60 * 1000,
 };

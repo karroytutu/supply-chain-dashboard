@@ -6,7 +6,8 @@
 import { appQuery as query } from '../../db/appPool';
 import { ROLE_CODES } from '../../utils/constants';
 import { createLogger } from '../../utils/logger';
-import type { WorkflowNodeDef, SignMode } from './oa.types';
+import type { PoolClient } from 'pg';
+import type { WorkflowNodeDef, SignMode, FormTypeDefinition, OaNodeRow } from './oa.types';
 import { checkCondition } from './oa-form-utils';
 
 const log = createLogger('OA-Workflow');
@@ -83,8 +84,8 @@ async function getSupervisors(applicantId: number): Promise<number[]> {
      JOIN users u2 ON u2.department_id = u1.department_id
      JOIN user_roles ur ON ur.user_id = u2.id
      JOIN roles r ON r.id = ur.role_id
-     WHERE u1.id = $1 AND r.code = '${ROLE_CODES.DEPARTMENT_MANAGER}' AND r.status = 1`,
-    [applicantId]
+     WHERE u1.id = $1 AND r.code = $2 AND r.status = 1`,
+    [applicantId, ROLE_CODES.DEPARTMENT_MANAGER]
   );
   return result.rows.map(r => r.id);
 }
@@ -104,4 +105,111 @@ export async function findUserIdsByRoleCodes(roleCodes: string[]): Promise<numbe
   );
 
   return result.rows.map(row => row.user_id);
+}
+
+// =====================================================
+// 按需节点创建（条件驱动 + 即时写入）
+// =====================================================
+
+/**
+ * 评估后续节点条件并按需创建满足条件的节点
+ *
+ * 核心逻辑：
+ * 1. 查询 DB 中已存在的最大 node_order
+ * 2. 遍历 workflowDef.nodes（按 order 升序）
+ * 3. 跳过 order <= max(已有最大order, afterNodeOrder) 的节点
+ * 4. 评估 node.condition：无 condition = 条件满足
+ * 5. 条件满足 → 创建节点（auto/cc 无处理人，approval/handle 通过 resolveHandlerRule 解析）
+ * 6. 条件不满足 → 不创建
+ * 7. 返回新创建的节点列表
+ */
+export async function evaluateAndTriggerNodes(
+  client: PoolClient,
+  instanceId: number,
+  formType: FormTypeDefinition,
+  formData: Record<string, unknown>,
+  applicantId: number,
+  afterNodeOrder: number
+): Promise<OaNodeRow[]> {
+  // 1. 查询 DB 中已存在的最大 node_order
+  const maxOrderResult = await client.query<{ max_order: number | null }>(
+    `SELECT MAX(node_order) AS max_order FROM oa_approval_nodes WHERE instance_id = $1`,
+    [instanceId]
+  );
+  const dbMaxOrder = maxOrderResult.rows[0]?.max_order ?? 0;
+  const skipBelowOrder = Math.max(dbMaxOrder, afterNodeOrder);
+
+  // 2. 按 order 升序遍历 workflowDef.nodes
+  const sortedNodes = [...formType.workflowDef.nodes].sort((a, b) => a.order - b.order);
+  const createdNodes: OaNodeRow[] = [];
+
+  for (const nodeDef of sortedNodes) {
+    // 3. 跳过已经存在或已经处理过的节点
+    if (nodeDef.order <= skipBelowOrder) continue;
+
+    // 4. 评估条件
+    const conditionMet = nodeDef.condition
+      ? checkCondition(nodeDef.condition, formData)
+      : true;
+
+    // 6. 条件不满足 → 不创建
+    if (!conditionMet) continue;
+
+    // 5. 条件满足 → 创建节点
+    const deadlineAt = nodeDef.timeout
+      ? new Date(Date.now() + nodeDef.timeout.durationMinutes * 60000)
+      : null;
+    const timeoutConfigJson = nodeDef.timeout
+      ? JSON.stringify(nodeDef.timeout)
+      : null;
+
+    if (nodeDef.type === 'auto' || nodeDef.type === 'cc') {
+      // auto/cc 节点：无处理人
+      const insertResult = await client.query<OaNodeRow>(
+        `INSERT INTO oa_approval_nodes
+          (instance_id, node_order, round, node_name, node_type, role_code,
+           assigned_user_ids, status, sign_mode, deadline_at, timeout_config)
+         VALUES ($1, $2, COALESCE((SELECT MAX(round) FROM oa_approval_nodes WHERE instance_id = $1 AND node_order = $2), 0) + 1,
+                 $3, $4, $5, NULL, 'pending', $6, $7, $8)
+         RETURNING *`,
+        [
+          instanceId,
+          nodeDef.order,
+          nodeDef.name,
+          nodeDef.type,
+          nodeDef.handler?.roleCode || null,
+          nodeDef.signMode || null,
+          deadlineAt,
+          timeoutConfigJson,
+        ]
+      );
+      createdNodes.push(insertResult.rows[0]);
+    } else {
+      // approval/handle 节点：解析处理人
+      const { userIds, signMode } = await resolveHandlerRule(nodeDef, applicantId);
+
+      const insertResult = await client.query<OaNodeRow>(
+        `INSERT INTO oa_approval_nodes
+          (instance_id, node_order, round, node_name, node_type, role_code,
+           assigned_user_ids, status, sign_mode, deadline_at, timeout_config)
+         VALUES ($1, $2, COALESCE((SELECT MAX(round) FROM oa_approval_nodes WHERE instance_id = $1 AND node_order = $2), 0) + 1,
+                 $3, $4, $5, $6, 'pending', $7, $8, $9)
+         RETURNING *`,
+        [
+          instanceId,
+          nodeDef.order,
+          nodeDef.name,
+          nodeDef.type,
+          nodeDef.handler?.roleCode || null,
+          userIds.length > 0 ? userIds : null,
+          signMode,
+          deadlineAt,
+          timeoutConfigJson,
+        ]
+      );
+      createdNodes.push(insertResult.rows[0]);
+    }
+  }
+
+  return createdNodes;
 }

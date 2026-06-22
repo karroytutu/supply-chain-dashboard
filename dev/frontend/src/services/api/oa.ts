@@ -195,6 +195,23 @@ export async function reject(
 }
 
 /**
+ * 退回审批（流转路由）
+ * 将流程退回到指定环节，不终止实例
+ */
+export async function sendBack(
+  instanceId: number,
+  data: { targetNodeOrder: number; comment?: string }
+): Promise<void> {
+  await request<{ success: boolean; message: string }>(
+    `/oa/instances/${instanceId}/send-back`,
+    {
+      method: 'POST',
+      body: data,
+    }
+  );
+}
+
+/**
  * 转交审批
  */
 export async function transfer(
@@ -612,6 +629,7 @@ export const oaApi = {
   submitApproval,
   approve,
   reject,
+  sendBack,
   transfer,
   countersign,
   withdraw,

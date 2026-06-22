@@ -31,6 +31,7 @@ import {
   markCcAsRead,
   updateInstance,
   addComment,
+  sendBack,
 } from '../controllers/oa-mutation.controller';
 import {
   // 数据管理
@@ -204,6 +205,9 @@ router.post('/instances/:id/countersign', requirePermission('oa:read'), counters
 // 撤回审批
 router.post('/instances/:id/withdraw', requirePermission('oa:read'), withdraw);
 
+// 退回审批（流转路由）
+router.post('/instances/:id/send-back', requirePermission('oa:read'), sendBack);
+
 // 标记抄送已读
 router.post('/instances/:id/cc-read', requirePermission('oa:read'), markCcAsRead);
 
@@ -259,10 +263,14 @@ router.post(
 
       // 查找当前 pending 节点
       const nodeResult = await appQuery(
-        `SELECT n.*, i.instance_no, i.title, i.applicant_id, ft.name AS form_type_name
+        `SELECT n.*, i.instance_no, i.title, i.applicant_id, ft.name AS form_type_name,
+                u.name AS first_user_name
          FROM oa_approval_nodes n
          JOIN oa_approval_instances i ON i.id = n.instance_id
          JOIN oa_form_types ft ON ft.id = i.form_type_id
+         LEFT JOIN LATERAL (
+           SELECT name FROM users WHERE id = ANY(n.assigned_user_ids) LIMIT 1
+         ) u ON true
          WHERE n.instance_id = $1 AND n.status = 'pending'
            AND n.deadline_at IS NOT NULL AND n.deadline_at < NOW()
          LIMIT 1`,
@@ -280,7 +288,7 @@ router.post(
       const userId = req.user?.userId;
       const isAdmin = req.user?.roles?.includes('admin');
       const isApplicant = node.applicant_id === userId;
-      const isCurrentApprover = node.assigned_user_id === userId;
+      const isCurrentApprover = Array.isArray(node.assigned_user_ids) && node.assigned_user_ids.includes(userId);
       if (!isAdmin && !isApplicant && !isCurrentApprover) {
         res.status(403).json({ code: 403, message: '只有申请人、当前审批人或管理员可以催办' });
         return;
@@ -307,8 +315,8 @@ router.post(
         node_id: node.id,
         instance_id: instanceId,
         log_type: 'manual_remind',
-        recipient_user_id: node.assigned_user_id,
-        recipient_user_name: node.assigned_user_name,
+        recipient_user_id: node.assigned_user_ids?.[0] ?? null,
+        recipient_user_name: node.first_user_name || null,
         is_supervisor_cc: false,
         message_content: { manual: true, reminder_count: node.reminder_count + 1 },
       });

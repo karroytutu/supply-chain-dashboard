@@ -21,23 +21,26 @@ import type { OverdueNode, TimeoutLogEntry } from './oa-timeout.types';
  */
 export async function getOverdueNodesWithReminder(): Promise<OverdueNode[]> {
   const result = await query<OverdueNode>(
-    `SELECT
+    `SELECT DISTINCT ON (n.instance_id, n.node_order)
        n.*,
        i.instance_no,
        i.title,
-       ft.name AS form_type_name
+       ft.name AS form_type_name,
+       u.name AS first_assigned_user_name
      FROM oa_approval_nodes n
      JOIN oa_approval_instances i ON i.id = n.instance_id
      JOIN oa_form_types ft ON ft.id = i.form_type_id
+     LEFT JOIN users u ON u.id = n.assigned_user_ids[1]
      WHERE n.status = 'pending'
        AND n.deadline_at IS NOT NULL
        AND n.deadline_at < NOW()
        AND n.timeout_config IS NOT NULL
        AND n.timeout_config->'reminder' IS NOT NULL
-     ORDER BY n.deadline_at`,
+     ORDER BY n.instance_id, n.node_order, n.round DESC`,
     []
   );
-  return result.rows;
+  // DISTINCT ON 要求 ORDER BY 前置列，此处按 deadline_at 重新排序
+  return result.rows.sort((a, b) => new Date(a.deadline_at!).getTime() - new Date(b.deadline_at!).getTime());
 }
 
 /**
@@ -45,23 +48,25 @@ export async function getOverdueNodesWithReminder(): Promise<OverdueNode[]> {
  */
 export async function getOverdueNodesWithAssessment(): Promise<OverdueNode[]> {
   const result = await query<OverdueNode>(
-    `SELECT
+    `SELECT DISTINCT ON (n.instance_id, n.node_order)
        n.*,
        i.instance_no,
        i.title,
-       ft.name AS form_type_name
+       ft.name AS form_type_name,
+       u.name AS first_assigned_user_name
      FROM oa_approval_nodes n
      JOIN oa_approval_instances i ON i.id = n.instance_id
      JOIN oa_form_types ft ON ft.id = i.form_type_id
+     LEFT JOIN users u ON u.id = n.assigned_user_ids[1]
      WHERE n.status = 'pending'
        AND n.deadline_at IS NOT NULL
        AND n.deadline_at < NOW()
        AND n.timeout_config IS NOT NULL
        AND n.timeout_config->'assessment' IS NOT NULL
-     ORDER BY n.deadline_at`,
+     ORDER BY n.instance_id, n.node_order, n.round DESC`,
     []
   );
-  return result.rows;
+  return result.rows.sort((a, b) => new Date(a.deadline_at!).getTime() - new Date(b.deadline_at!).getTime());
 }
 
 // =====================================================

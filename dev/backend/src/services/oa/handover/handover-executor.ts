@@ -103,7 +103,7 @@ export async function executeHandover(
           node_name: string;
         }>(
           `UPDATE oa_approval_nodes
-           SET assigned_user_id = $1, assigned_user_name = $2,
+           SET assigned_user_ids = ARRAY[$1]::int[],
                reminder_count = 0, last_reminder_at = NULL, cc_supervisor_at = NULL,
                deadline_at = CASE
                  WHEN timeout_config IS NOT NULL
@@ -111,7 +111,7 @@ export async function executeHandover(
                  ELSE NULL
                END,
                updated_at = NOW()
-           WHERE assigned_user_id = $3 AND status = 'pending'
+           WHERE $3 = ANY(assigned_user_ids) AND status = 'pending'
              AND instance_id IN (
                SELECT i.id FROM oa_approval_instances i WHERE i.status = 'pending'
              )

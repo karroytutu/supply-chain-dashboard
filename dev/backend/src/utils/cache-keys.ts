@@ -83,6 +83,8 @@ export const CACHE_KEY = {
   ERP_INVENTORY_ALL: 'erp:inventory:all' as const,
   /** 销售明细-近期（近7天） */
   ERP_SALES_RECENT: 'erp:sales:recent' as const,
+  /** 日均销量汇总 Map（商品名 → 日均数量） */
+  ERP_SALES_DAILY_MAP: 'erp:sales:daily:map' as const,
   /** 销售明细-历史（8-30天前） */
   ERP_SALES_HISTORY: 'erp:sales:history' as const,
   /** 批次库存全量数据 */

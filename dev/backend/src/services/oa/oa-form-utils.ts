@@ -9,6 +9,7 @@ import type {
   NodeInputSchema,
   NodeInputField,
   ConditionDef,
+  ConditionGroup,
 } from './oa.types';
 import { evaluateFormula } from './formula-evaluator';
 
@@ -232,16 +233,29 @@ export function validateInputData(
 // =====================================================
 
 /**
- * 通用条件检查（支持单个条件或 AND 条件数组）
+ * 通用条件检查（支持单个条件、AND 条件数组或 OR 条件组）
  */
 export function checkCondition(
-  condition: ConditionDef | ConditionDef[],
+  condition: ConditionDef | ConditionDef[] | ConditionGroup,
   data: Record<string, unknown>
 ): boolean {
+  // 单条件：通过 field 属性识别
+  if ('field' in condition) {
+    return checkSingleCondition(data[condition.field], condition.operator, condition.value);
+  }
+  // AND 数组：全部子条件满足才触发
   if (Array.isArray(condition)) {
     return condition.every(c => checkSingleCondition(data[c.field], c.operator, c.value));
   }
-  return checkSingleCondition(data[condition.field], condition.operator, condition.value);
+  // OR 条件组：任一子条件满足即触发
+  if (condition.match === 'any') {
+    return condition.conditions.some(c => checkSingleCondition(data[c.field], c.operator, c.value));
+  }
+  // AND 条件组：全部子条件满足才触发
+  if (condition.match === 'all') {
+    return condition.conditions.every(c => checkSingleCondition(data[c.field], c.operator, c.value));
+  }
+  return false;
 }
 
 function checkSingleCondition(

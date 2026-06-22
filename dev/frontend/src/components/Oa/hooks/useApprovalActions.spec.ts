@@ -21,6 +21,7 @@ const { mockMessage, mockOaApi } = vi.hoisted(() => ({
     transfer: vi.fn(),
     countersign: vi.fn(),
     withdraw: vi.fn(),
+    sendBack: vi.fn(),
     updateInstance: vi.fn(),
     addComment: vi.fn(),
     getTransferCandidates: vi.fn(),
@@ -80,10 +81,11 @@ function makeNode(overrides: Partial<ApprovalNode> = {}): ApprovalNode {
   return {
     id: 1,
     nodeOrder: 1,
+    round: 1,
     nodeName: '审批节点',
     nodeType: 'role',
-    assignedUserId: 100,
-    assignedUserName: '审批人',
+    assignedUserIds: [100],
+    assignedUserNames: ['审批人'],
     status: 'pending',
     comment: null,
     actedAt: null,
@@ -110,7 +112,7 @@ beforeEach(() => {
 describe('canOperate 权限计算', () => {
   it('detail.status=pending + pending 节点 assignedUserId === currentUser.id → true', () => {
     const detail = makeDetail({ status: 'pending' });
-    const nodes = [makeNode({ status: 'pending', assignedUserId: 100 })];
+    const nodes = [makeNode({ status: 'pending', assignedUserIds: [100] })];
 
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
@@ -121,7 +123,7 @@ describe('canOperate 权限计算', () => {
 
   it('detail.status=approved（非 pending）→ false', () => {
     const detail = makeDetail({ status: 'approved' });
-    const nodes = [makeNode({ status: 'approved', assignedUserId: 100 })];
+    const nodes = [makeNode({ status: 'approved', assignedUserIds: [100] })];
 
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
@@ -132,7 +134,7 @@ describe('canOperate 权限计算', () => {
 
   it('无 pending 状态节点 → false', () => {
     const detail = makeDetail({ status: 'pending' });
-    const nodes = [makeNode({ status: 'approved', assignedUserId: 100 })];
+    const nodes = [makeNode({ status: 'approved', assignedUserIds: [100] })];
 
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
@@ -143,7 +145,7 @@ describe('canOperate 权限计算', () => {
 
   it('pending 节点 assignedUserId !== currentUser.id → false', () => {
     const detail = makeDetail({ status: 'pending' });
-    const nodes = [makeNode({ status: 'pending', assignedUserId: 999 })];
+    const nodes = [makeNode({ status: 'pending', assignedUserIds: [999] })];
 
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
@@ -202,7 +204,7 @@ describe('canComment 权限计算', () => {
 
   it('终态 status=approved 的参与者 → true', () => {
     const detail = makeDetail({ status: 'approved', applicantId: 100 });
-    const nodes = [makeNode({ assignedUserId: 100, status: 'approved' })];
+    const nodes = [makeNode({ assignedUserIds: [100], status: 'approved' })];
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
     );
@@ -211,7 +213,7 @@ describe('canComment 权限计算', () => {
 
   it('终态 status=rejected 的参与者 → true', () => {
     const detail = makeDetail({ status: 'rejected', applicantId: 100 });
-    const nodes = [makeNode({ assignedUserId: 100, status: 'rejected' })];
+    const nodes = [makeNode({ assignedUserIds: [100], status: 'rejected' })];
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
     );
@@ -220,7 +222,7 @@ describe('canComment 权限计算', () => {
 
   it('当前 pending 节点审批人 → true', () => {
     const detail = makeDetail({ status: 'pending', applicantId: 999 });
-    const nodes = [makeNode({ assignedUserId: 100, status: 'pending' })];
+    const nodes = [makeNode({ assignedUserIds: [100], status: 'pending' })];
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
     );
@@ -230,8 +232,8 @@ describe('canComment 权限计算', () => {
   it('历史已通过节点分配人（status=approved，非当前审批人）→ true', () => {
     const detail = makeDetail({ status: 'pending', applicantId: 999 });
     const nodes = [
-      makeNode({ id: 1, assignedUserId: 100, status: 'approved' }),
-      makeNode({ id: 2, assignedUserId: 200, status: 'pending' }),
+      makeNode({ id: 1, assignedUserIds: [100], status: 'approved' }),
+      makeNode({ id: 2, assignedUserIds: [200], status: 'pending' }),
     ];
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
@@ -242,8 +244,8 @@ describe('canComment 权限计算', () => {
   it('未来 pending 节点分配人（非当前节点）→ true', () => {
     const detail = makeDetail({ status: 'pending', applicantId: 999, currentNodeOrder: 1 });
     const nodes = [
-      makeNode({ id: 1, nodeOrder: 1, assignedUserId: 200, status: 'pending' }),
-      makeNode({ id: 2, nodeOrder: 2, assignedUserId: 100, status: 'pending' }),
+      makeNode({ id: 1, nodeOrder: 1, assignedUserIds: [200], status: 'pending' }),
+      makeNode({ id: 2, nodeOrder: 2, assignedUserIds: [100], status: 'pending' }),
     ];
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
@@ -257,7 +259,7 @@ describe('canComment 权限计算', () => {
       applicantId: 999,
       ccUsers: [{ id: 1, userId: 100, userName: '测试用户', readAt: null }],
     });
-    const nodes = [makeNode({ assignedUserId: 200, status: 'pending' })];
+    const nodes = [makeNode({ assignedUserIds: [200], status: 'pending' })];
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
     );
@@ -266,7 +268,7 @@ describe('canComment 权限计算', () => {
 
   it('申请人 → true', () => {
     const detail = makeDetail({ status: 'pending', applicantId: 100 });
-    const nodes = [makeNode({ assignedUserId: 200, status: 'pending' })];
+    const nodes = [makeNode({ assignedUserIds: [200], status: 'pending' })];
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
     );
@@ -275,7 +277,7 @@ describe('canComment 权限计算', () => {
 
   it('非参与者 → false', () => {
     const detail = makeDetail({ status: 'pending', applicantId: 999 });
-    const nodes = [makeNode({ assignedUserId: 200, status: 'pending' })];
+    const nodes = [makeNode({ assignedUserIds: [200], status: 'pending' })];
     const { result } = renderHook(() =>
       useApprovalActions({ instanceId: 1, detail, nodes }),
     );
@@ -350,7 +352,7 @@ describe('executeAction 操作执行', () => {
 
   function setupHook(actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update') {
     const detail = makeDetail({ status: 'pending', formData: { amount: 1000 } });
-    const nodes = [makeNode({ status: 'pending', assignedUserId: 100 })];
+    const nodes = [makeNode({ status: 'pending', assignedUserIds: [100] })];
 
     // transfer/countersign 类型会调用 getTransferCandidates，需预设返回值
     if (actionType === 'transfer' || actionType === 'countersign') {
@@ -524,7 +526,7 @@ describe('executeAction 操作执行', () => {
       formData: { amount: 1000 },
       comment: undefined,
     });
-    expect(mockMessage.success).toHaveBeenCalledWith('数据已更新');
+    expect(mockMessage.success).toHaveBeenCalledWith('数据已保存');
   });
 
   // ---- editableFormRef 路径 ----
@@ -532,7 +534,7 @@ describe('executeAction 操作执行', () => {
   describe('editableFormRef 路径', () => {
     function setupHookWithRef(actionType: 'approve' | 'update') {
       const detail = makeDetail({ status: 'pending', formData: { amount: 1000, action: null } });
-      const nodes = [makeNode({ status: 'pending', assignedUserId: 100 })];
+      const nodes = [makeNode({ status: 'pending', assignedUserIds: [100] })];
       const editableFormRef = { current: null as any };
 
       const { result } = renderHook(() =>
@@ -600,7 +602,7 @@ describe('executeAction 操作执行', () => {
       expect(mockOaApi.updateInstance).toHaveBeenCalledWith(42, expect.objectContaining({
         formData: expect.objectContaining({ amount: 1000, action: 'extension' }),
       }));
-      expect(mockMessage.success).toHaveBeenCalledWith('数据已更新');
+      expect(mockMessage.success).toHaveBeenCalledWith('数据已保存');
     });
   });
 
@@ -761,5 +763,83 @@ describe('弹窗控制', () => {
       await result.current.executeAction();
     });
     expect(mockMessage.warning).toHaveBeenCalledWith('请选择加签人员');
+  });
+});
+
+// ==================== G. 退回操作 send_back ====================
+
+describe('send_back 退回操作', () => {
+  it('sendBackTargets 过滤掉 auto/cc 节点且仅保留 order < currentNodeOrder', () => {
+    const detail = makeDetail({
+      status: 'pending',
+      currentNodeOrder: 3,
+      workflowDef: {
+        nodes: [
+          { order: 1, name: '营销师', type: 'approval' },
+          { order: 2, name: '经理确认', type: 'approval' },
+          { order: 3, name: '核销校验', type: 'auto' },
+        ],
+      },
+      nodes: [
+        makeNode({ nodeOrder: 1, nodeName: '营销师', nodeType: 'role' }),
+        makeNode({ nodeOrder: 2, nodeName: '经理确认', nodeType: 'role' }),
+        makeNode({ nodeOrder: 3, nodeName: '核销校验', nodeType: 'auto' }),
+      ],
+    });
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes: detail.nodes }),
+    );
+
+    expect(result.current.sendBackTargets).toEqual([
+      expect.objectContaining({ nodeOrder: 1, nodeName: '营销师' }),
+      expect.objectContaining({ nodeOrder: 2, nodeName: '经理确认' }),
+    ]);
+  });
+
+  it('未选择目标环节 → 弹出 warning', async () => {
+    const detail = makeDetail({ status: 'pending', currentNodeOrder: 2 });
+    const nodes = [
+      makeNode({ nodeOrder: 1, nodeName: '营销师' }),
+      makeNode({ nodeOrder: 2, nodeName: '经理' }),
+    ];
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    act(() => {
+      result.current.openActionModal('send_back');
+    });
+
+    await act(async () => {
+      await result.current.executeAction();
+    });
+    expect(mockMessage.warning).toHaveBeenCalled();
+  });
+
+  it('选择目标环节后执行退回 → 调用 oaApi.sendBack', async () => {
+    const detail = makeDetail({ status: 'pending', currentNodeOrder: 3 });
+    const nodes = [
+      makeNode({ nodeOrder: 1, nodeName: '营销师' }),
+      makeNode({ nodeOrder: 2, nodeName: '经理' }),
+      makeNode({ nodeOrder: 3, nodeName: '会计' }),
+    ];
+    mockOaApi.sendBack.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    act(() => {
+      result.current.openActionModal('send_back');
+      result.current.setSendBackTargetNodeOrder(1);
+    });
+
+    await act(async () => {
+      await result.current.executeAction();
+    });
+    expect(mockOaApi.sendBack).toHaveBeenCalledWith(1, {
+      targetNodeOrder: 1,
+      comment: undefined,
+    });
   });
 });

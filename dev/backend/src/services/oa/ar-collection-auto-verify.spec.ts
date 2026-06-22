@@ -19,7 +19,7 @@ jest.mock('../erp-client/erp-debt.service', () => ({
 }));
 
 jest.mock('./ar-collection-callback', () => ({
-  insertCollectionNode: jest.fn().mockResolvedValue({ id: 99 }),
+  verifyBills: jest.fn().mockResolvedValue('not_verified'),
 }));
 
 jest.mock('./oa-async-task.service', () => ({
@@ -30,7 +30,6 @@ jest.mock('./oa-async-task.service', () => ({
 
 import { autoVerifySettledInstances } from './ar-collection-auto-verify';
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
-import { insertCollectionNode } from './ar-collection-callback';
 import {
   enqueueFinalizeProcessInstance,
   enqueueCompleteAllPendingTodos,
@@ -38,7 +37,6 @@ import {
 import { appQuery, getAppClient } from '../../db/appPool';
 
 const mockFetchAllErpDebts = fetchAllErpDebts as jest.MockedFunction<typeof fetchAllErpDebts>;
-const mockInsertCollectionNode = insertCollectionNode as jest.MockedFunction<typeof insertCollectionNode>;
 const mockEnqueueFinalize = enqueueFinalizeProcessInstance as jest.MockedFunction<typeof enqueueFinalizeProcessInstance>;
 const mockEnqueueComplete = enqueueCompleteAllPendingTodos as jest.MockedFunction<typeof enqueueCompleteAllPendingTodos>;
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
@@ -77,22 +75,20 @@ describe('autoVerifySettledInstances', () => {
   });
 
   it('全部核销：所有单据已从ERP消失 → 关闭实例', async () => {
-    // ERP 中无任何欠款
     mockFetchAllErpDebts.mockResolvedValue([]);
 
-    // 1 个 pending 实例，含 2 笔单据
     mockAppQuery.mockResolvedValue({
       rows: [makeInstance(1, 'OA-001', [{ billNo: 'B1' }, { billNo: 'B2' }])],
     } as any);
 
     const mockClient = createMockClient();
-    // BEGIN, UPDATE form_data, UPDATE status, UPDATE nodes, SELECT auto node, INSERT comment, COMMIT = 7 calls
     mockClient.query
       .mockResolvedValueOnce({ rows: [] })        // BEGIN
+      .mockResolvedValueOnce({ rows: [{ status: 'pending' }] }) // FOR UPDATE 状态锁
       .mockResolvedValueOnce({ rows: [] })        // UPDATE form_data
       .mockResolvedValueOnce({ rows: [] })        // UPDATE status=approved
       .mockResolvedValueOnce({ rows: [] })        // UPDATE nodes
-      .mockResolvedValueOnce({ rows: [{ node_order: 2 }] }) // SELECT auto node
+      .mockResolvedValueOnce({ rows: [{ node_order: 7 }] }) // SELECT auto node
       .mockResolvedValueOnce({ rows: [] })        // INSERT comment
       .mockResolvedValueOnce({ rows: [] });       // COMMIT
     mockGetAppClient.mockResolvedValue(mockClient as any);
@@ -109,8 +105,7 @@ describe('autoVerifySettledInstances', () => {
     expect(mockEnqueueComplete).toHaveBeenCalledWith(1);
   });
 
-  it('部分核销：部分单据消失 → 标记状态 + 插入续催节点', async () => {
-    // ERP 中只剩 B2（B1 已消失）
+  it('部分核销：部分单据消失 → 标记状态 + 退回营销师', async () => {
     mockFetchAllErpDebts.mockResolvedValue([{ billId: 'B2' }] as any);
 
     mockAppQuery.mockResolvedValue({
@@ -118,11 +113,13 @@ describe('autoVerifySettledInstances', () => {
     } as any);
 
     const mockClient = createMockClient();
-    // BEGIN, UPDATE form_data, SELECT auto node, INSERT comment, COMMIT
     mockClient.query
       .mockResolvedValueOnce({ rows: [] })        // BEGIN
+      .mockResolvedValueOnce({ rows: [{ status: 'pending' }] }) // FOR UPDATE 状态锁
       .mockResolvedValueOnce({ rows: [] })        // UPDATE form_data
-      .mockResolvedValueOnce({ rows: [{ node_order: 3 }] }) // SELECT auto node
+      .mockResolvedValueOnce({ rows: [] })        // UPDATE node 1 → pending
+      .mockResolvedValueOnce({ rows: [] })        // UPDATE nodes 2-6 → skipped
+      .mockResolvedValueOnce({ rows: [{ node_order: 7 }] }) // SELECT auto node
       .mockResolvedValueOnce({ rows: [] })        // INSERT comment
       .mockResolvedValueOnce({ rows: [] });       // COMMIT
     mockGetAppClient.mockResolvedValue(mockClient as any);
@@ -134,11 +131,8 @@ describe('autoVerifySettledInstances', () => {
     expect(result.updated).toBe(1);
     expect(result.unchanged).toBe(0);
 
-    // 验证插入了续催节点
-    expect(mockInsertCollectionNode).toHaveBeenCalledWith(2, '营销师催收', 'marketer', 0);
-
     // 验证 form_data 更新时 B1 被标记为已核销，B2 保持空
-    const updateCall = mockClient.query.mock.calls[1]; // 第二个调用是 UPDATE form_data
+    const updateCall = mockClient.query.mock.calls[2]; // 第三个调用是 UPDATE form_data
     const updatedBillDetails = JSON.parse(updateCall[1][0]);
     expect(updatedBillDetails[0].verifyStatus).toBe('已核销'); // B1
     expect(updatedBillDetails[1].verifyStatus).toBe('');        // B2
@@ -161,9 +155,8 @@ describe('autoVerifySettledInstances', () => {
     expect(result.updated).toBe(0);
     expect(result.unchanged).toBe(1);
 
-    // 不应调用任何客户端事务或节点插入
+    // 不应调用任何客户端事务
     expect(mockGetAppClient).not.toHaveBeenCalled();
-    expect(mockInsertCollectionNode).not.toHaveBeenCalled();
   });
 
   it('单实例失败不影响其他实例', async () => {
@@ -185,10 +178,11 @@ describe('autoVerifySettledInstances', () => {
     const okClient = createMockClient();
     okClient.query
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ status: 'pending' }] }) // FOR UPDATE
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ node_order: 2 }] })
+      .mockResolvedValueOnce({ rows: [{ node_order: 7 }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 

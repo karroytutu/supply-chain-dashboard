@@ -117,7 +117,7 @@ function makeDetail(overrides: Partial<ApprovalDetail> = {}): ApprovalDetail {
     formSchema: { fields: [] },
     workflowDef: null,
     nodes: [
-      { id: 1, nodeOrder: 1, status: 'pending', assignedUserId: 100 } as any,
+      { id: 1, nodeOrder: 1, round: 1, status: 'pending', assignedUserIds: [100] } as any,
     ],
     actions: [],
     ccUsers: [],
@@ -184,7 +184,7 @@ describe('ApprovalDetailPanel - 权限覆盖逻辑', () => {
     const detail = makeDetail({
       status: 'pending',
       currentNodeOrder: 1,
-      nodes: [{ id: 1, nodeOrder: 1, status: 'pending', assignedUserId: 100 } as any],
+      nodes: [{ id: 1, nodeOrder: 1, round: 1, status: 'pending', assignedUserIds: [100] } as any],
     });
     mockOaApi.getDetail.mockResolvedValue({ data: detail });
 
@@ -199,7 +199,7 @@ describe('ApprovalDetailPanel - 权限覆盖逻辑', () => {
   it('viewMode=processed → canOperateOverride=false（即使当前用户是审批人）', async () => {
     const detail = makeDetail({
       status: 'pending',
-      nodes: [{ id: 1, nodeOrder: 1, status: 'pending', assignedUserId: 100 } as any],
+      nodes: [{ id: 1, nodeOrder: 1, round: 1, status: 'pending', assignedUserIds: [100] } as any],
     });
     mockOaApi.getDetail.mockResolvedValue({ data: detail });
 

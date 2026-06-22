@@ -74,8 +74,7 @@ export async function countersignApproval(
       const insertedNode = await insertNodeAfter(client, instanceId, currentInsertAfter, {
         name: '加签',
         type: 'approval',
-        assignedUserId: csUser.id,
-        assignedUserName: csUser.name,
+        assignedUserIds: [csUser.id],
         timeout: currentNode.timeout_config || undefined,
       });
 

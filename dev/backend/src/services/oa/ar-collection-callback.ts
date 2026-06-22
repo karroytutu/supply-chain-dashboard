@@ -2,145 +2,60 @@
  * 逾期催收 - OA表单回调实现
  * @module services/oa/ar-collection-callback
  *
- * 处理催收表单的提交前校验和各操作的流转逻辑：
- * - beforeSubmit: 从ERP查询催收数据，填充只读展示字段
- * - onApproved: 根据action字段执行对应操作（核销/延期/差异/升级/发函/起诉）
+ * 催收流程的流转由引擎条件重评估机制驱动（approve-approval.ts），
+ * 本文件保留业务逻辑回调：
+ * - beforeSubmit: 催收单创建时的数据初始化
+ * - verifyBills: ERP核销校验（供 auto 节点回调使用）
+ * - handleArCollectionAutoVerify: auto 节点回调（核销校验 + 即时退回循环催收）
  */
 
 import { appQuery as query, getAppClient } from '../../db/appPool';
-import { PoolClient } from 'pg';
 import { OaInstanceRow, OaNodeRow } from './oa.types';
-import { insertNodeAfter, transaction } from './mutations/shared-utils';
 import { checkExistingBillIds } from '../erp-client/erp-debt.service';
-import {
-  AR_EXTENSION_MAX_DAYS,
-  ROLE_CODES,
-} from '../../utils/constants';
-import {
-  COLLECTION_ACTIONS,
-  ESCALATION_ROLES,
-} from './form-types/ar-collection';
+import { enqueueSendApprovalNotification } from './oa-async-task.service';
+import { findUserIdsByRoleCodes } from './oa-workflow-utils';
+import { OA_ROLE } from './oa-role-codes';
+import { sendBackToNode } from './mutations/shared-utils';
+import { cache } from '../../utils/cache';
+import { CACHE_KEY } from '../../utils/cache-keys';
 import log from '../../utils/logger';
 
 const MODULE = 'ar-collection-callback';
 
 // =====================================================
-// beforeSubmit: 填充只读展示字段
+// beforeSubmit: 催收单创建时的数据初始化
 // =====================================================
 
 /**
- * 提交前校验：从 formData 中读取已有数据或从 ERP 查询
- * 催落实例由定时任务创建，beforeSubmit 主要用于补充/校验数据
+ * 提交前校验：催落实例由定时任务创建，beforeSubmit 主要用于补充/校验数据
  */
 export async function beforeSubmitArCollection(
   formData: Record<string, unknown>,
-  userId: number
+  _userId: number
 ): Promise<Record<string, unknown>> {
-  // 确保延期次数有默认值
-  if (formData._extensionCount === undefined) {
-    return { _extensionCount: 0 };
-  }
+  // 催收单创建时无需额外初始化数据（只读展示字段由 ar-collection-creator.ts 填充）
   return {};
 }
 
 // =====================================================
-// onApproved: 自动节点执行时的业务逻辑
+// ERP 核销校验：检查账单是否已在 ERP 中核销消失
 // =====================================================
 
 /**
- * 自动节点执行时调用：根据 formData.action 决定流转逻辑
- * 在 approve-approval.ts 的 executeAutoNodeCallback 中被调用
+ * 核销校验：检查 ERP 中账单是否已核销消失，同步更新 verifyStatus 字段
+ *
+ * @returns 核销结果：全部核销 / 部分核销 / 无核销
  */
-export async function onApprovedArCollection(
+export async function verifyBills(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
-  const action = formData.action as string;
-  const currentLevel = (formData._currentLevel as number) || 0;
-
-  log.info(`[${MODULE}] 执行催收操作: instanceId=${instance.id}, action=${action}, level=${currentLevel}`);
-
-  switch (action) {
-    case COLLECTION_ACTIONS.VERIFY:
-      await handleVerify(instance, formData);
-      break;
-    case COLLECTION_ACTIONS.EXTENSION:
-      await handleExtension(instance, formData, currentLevel);
-      break;
-    case COLLECTION_ACTIONS.DIFFERENCE:
-      await handleDifference(instance, currentLevel);
-      break;
-    case COLLECTION_ACTIONS.ESCALATE:
-      await handleEscalate(instance, formData, currentLevel);
-      break;
-    case COLLECTION_ACTIONS.RESOLVE_DIFF:
-      await handleResolveDiff(instance);
-      break;
-    case COLLECTION_ACTIONS.SEND_LETTER:
-      // 发函：记录信息，当前节点完成，催收继续留在L2
-      log.info(`[${MODULE}] 发函完成: instanceId=${instance.id}`);
-      await insertResultComment(instance.id, '发函完成');
-      break;
-    case COLLECTION_ACTIONS.LAWSUIT:
-      await handleLawsuit(instance);
-      break;
-    default:
-      log.warn(`[${MODULE}] 未知催收操作: ${action}`);
-  }
-}
-
-// =====================================================
-// 处理结果评论：向自动环节写入系统处理说明
-// =====================================================
-
-/**
- * 向自动环节插入一条系统处理结果评论
- * 使用统一评论模型（oa_approval_actions action_type='comment'）
- * 评论插入失败不影响主流程
- */
-async function insertResultComment(
-  instanceId: number,
-  comment: string
-): Promise<void> {
-  try {
-    const autoNodeResult = await query<{ node_order: number }>(
-      `SELECT node_order FROM oa_approval_nodes
-       WHERE instance_id = $1 AND node_type = 'auto' AND status = 'processing'
-       ORDER BY node_order LIMIT 1`,
-      [instanceId]
-    );
-    if (autoNodeResult.rows.length > 0) {
-      await query(
-        `INSERT INTO oa_approval_actions
-          (instance_id, action_type, operator_name, node_order, comment)
-         VALUES ($1, 'comment', '系统', $2, $3)`,
-        [instanceId, autoNodeResult.rows[0].node_order, comment]
-      );
-    }
-  } catch (err) {
-    log.error(`[${MODULE}] 插入处理结果评论失败:`, err);
-    // 评论插入失败不应影响主流程
-  }
-}
-
-// =====================================================
-// 各操作处理函数
-// =====================================================
-
-/**
- * 核销标记：检查ERP中账单是否已核销消失，同步更新 verifyStatus 字段
- */
-async function handleVerify(
-  instance: OaInstanceRow,
-  formData: Record<string, unknown>
-): Promise<void> {
+): Promise<'all_verified' | 'partial_verified' | 'not_verified'> {
   const billDetails = (formData.billDetails as Array<Record<string, unknown>>) || [];
   const billIds = billDetails.map(b => b.billNo as string).filter(Boolean);
 
   if (billIds.length === 0) {
-    log.warn(`[${MODULE}] 核销标记: 无账单明细`);
-    await insertResultComment(instance.id, '核销验证：无账单明细，跳过检查');
-    return;
+    log.warn(`[${MODULE}] 核销校验: 无账单明细`);
+    return 'not_verified';
   }
 
   const existingIds = await checkExistingBillIds(billIds);
@@ -154,239 +69,127 @@ async function handleVerify(
         bill.verifyStatus = '已核销';
       }
     }
-    // 将更新后的 billDetails 写回 form_data
+
+    // 仅在有核销变化时才写入 DB，避免无意义的写入产生并发冲突
     await query(
       `UPDATE oa_approval_instances SET form_data = jsonb_set(form_data, '{billDetails}', $1), updated_at = NOW() WHERE id = $2`,
       [JSON.stringify(billDetails), instance.id]
     );
+
+    // 核销后主动清除欠款缓存，确保催收人员下次查询拿到最新数据
+    cache.invalidate(CACHE_KEY.ERP_DEBTS_ALL);
   }
 
   if (disappearedIds.length === billIds.length) {
-    // 全部消失：实例完成（由 auto 节点后续处理）
-    log.info(`[${MODULE}] 核销标记: 全部${billIds.length}笔已核销，流程结束`);
-    await insertResultComment(
-      instance.id,
-      `核销验证：${billIds.length}/${billIds.length}笔账单已全部核销，催收流程结束`
-    );
+    log.info(`[${MODULE}] 核销校验: 全部${billIds.length}笔已核销，流程结束`);
+    return 'all_verified';
   } else if (disappearedIds.length > 0) {
-    // 部分消失：插入新同级节点继续操作
     const remaining = billIds.length - disappearedIds.length;
-    log.info(`[${MODULE}] 核销标记: ${disappearedIds.length}/${billIds.length}笔已核销，插入新节点继续`);
-    await insertResultComment(
-      instance.id,
-      `核销验证：${disappearedIds.length}/${billIds.length}笔已核销，剩余${remaining}笔继续催收`
-    );
-    await insertCollectionNode(instance.id, '继续催收', 'marketer', 0);
-  } else {
-    log.info(`[${MODULE}] 核销标记: 暂无已核销账单`);
-    await insertResultComment(instance.id, '核销验证：暂无已核销账单，需继续催收');
-  }
-}
-
-/**
- * 申请延期：根据次数和层级走不同流程
- */
-async function handleExtension(
-  instance: OaInstanceRow,
-  formData: Record<string, unknown>,
-  currentLevel: number
-): Promise<void> {
-  const extensionCount = (formData._extensionCount as number) || 0;
-  const extensionDays = formData.extensionDays as number;
-
-  if (extensionDays < 1 || extensionDays > AR_EXTENSION_MAX_DAYS) {
-    throw new Error(`延期天数必须在1-${AR_EXTENSION_MAX_DAYS}天之间`);
+    log.info(`[${MODULE}] 核销校验: ${disappearedIds.length}/${billIds.length}笔已核销，剩余${remaining}笔继续催收`);
+    return 'partial_verified';
   }
 
-  if (currentLevel === 0 && extensionCount === 0) {
-    // L0首次延期：直接生效
-    log.info(`[${MODULE}] L0首次延期${extensionDays}天，直接生效`);
-    await insertResultComment(instance.id, `延期${extensionDays}天已生效`);
-  } else if (currentLevel === 0 && extensionCount >= 1) {
-    // L0二次+延期：需要担保签字（signature字段已在表单中，这里验证）
-    if (!formData.guarantorSignature) {
-      throw new Error('二次延期需要营销担保签字');
-    }
-    log.info(`[${MODULE}] L0第${extensionCount + 1}次延期${extensionDays}天，担保签字已验证`);
-    await insertResultComment(instance.id, `延期${extensionDays}天，担保签字已验证`);
-  } else if (currentLevel === 1) {
-    // L1延期：插入总经理审批节点
-    log.info(`[${MODULE}] L1延期${extensionDays}天，插入总经理审批节点`);
-    await insertResultComment(instance.id, `延期${extensionDays}天，已提交总经理审批`);
-    await insertCollectionNode(
-      instance.id,
-      '总经理审批延期',
-      ROLE_CODES.GENERAL_MANAGER,
-      1, // approval type for GM
-    );
-  } else {
-    // L2+延期：同 L1，插入总经理审批节点
-    log.info(`[${MODULE}] L${currentLevel}延期${extensionDays}天，插入总经理审批节点`);
-    await insertResultComment(instance.id, `延期${extensionDays}天，已提交总经理审批`);
-    await insertCollectionNode(
-      instance.id,
-      '总经理审批延期',
-      ROLE_CODES.GENERAL_MANAGER,
-      currentLevel,
-    );
-  }
-}
-
-/**
- * 存在差异：插入财务差异处理节点
- */
-async function handleDifference(
-  instance: OaInstanceRow,
-  currentLevel: number
-): Promise<void> {
-  log.info(`[${MODULE}] 标记差异，插入财务差异处理节点`);
-  await insertResultComment(instance.id, '已标记差异，等待财务核实');
-  await insertCollectionNode(
-    instance.id,
-    '财务差异处理',
-    ROLE_CODES.CURRENT_ACCOUNTANT,
-    currentLevel,
-  );
-}
-
-/**
- * 升级处理：插入下一级催收节点
- */
-async function handleEscalate(
-  instance: OaInstanceRow,
-  formData: Record<string, unknown>,
-  currentLevel: number
-): Promise<void> {
-  const nextLevel = currentLevel + 1;
-  const targetRole = ESCALATION_ROLES[nextLevel];
-  if (!targetRole) {
-    throw new Error('已达到最高升级级别，无法继续升级');
-  }
-
-  const levelNames: Record<number, string> = { 1: '营销经理', 2: '财务' };
-  const nodeName = `${levelNames[nextLevel] || '上级'}催收`;
-
-  log.info(`[${MODULE}] 升级到L${nextLevel}(${targetRole})，插入新节点`);
-  await insertResultComment(instance.id, `已升级到L${nextLevel}(${levelNames[nextLevel] || '上级'})催收`);
-  await insertCollectionNode(instance.id, nodeName, targetRole, nextLevel);
-}
-
-/**
- * 差异解决：插入营销师节点继续催收
- */
-async function handleResolveDiff(instance: OaInstanceRow): Promise<void> {
-  log.info(`[${MODULE}] 差异解决，插入营销师催收节点`);
-  await insertResultComment(instance.id, '差异已解决，已安排营销师继续催收');
-  await insertCollectionNode(instance.id, '营销师催收', ROLE_CODES.MARKETER, 0);
-}
-
-/**
- * 起诉：插入起诉立案节点，进入多环节流程
- */
-async function handleLawsuit(instance: OaInstanceRow): Promise<void> {
-  log.info(`[${MODULE}] 起诉，插入起诉立案节点`);
-  await insertResultComment(instance.id, '已进入起诉立案程序');
-  await insertCollectionNode(
-    instance.id,
-    '起诉立案',
-    ROLE_CODES.CURRENT_ACCOUNTANT,
-    2,
-  );
+  log.info(`[${MODULE}] 核销校验: 暂无已核销账单，需继续催收`);
+  return 'not_verified';
 }
 
 // =====================================================
-// 通用节点插入辅助函数
+// auto 节点回调：核销校验 + 即时退回循环催收
 // =====================================================
 
 /**
- * 插入催收节点（封装 insertNodeAfter）
- * 在事务内查询实际 auto 节点位置，确保新节点插在正确位置（auto 节点之前）
- * 根据 roleCode 自动解析处理人，确保新建环节有明确的负责人
+ * 催收流程 auto 环节（核销校验）的回调
+ *
+ * 职责：检查客户还款情况，决定催收单走向
+ * - 全部还款：无需额外操作，框架自动结案
+ * - 部分/未还款：即时退回营销师继续催收
+ *
+ * 设计原则：轻量回调（~30行），只负责核销校验 + 循环退回。
+ * 所有流转路由已由通用条件重评估机制处理。
  */
-export async function insertCollectionNode(
-  instanceId: number,
-  nodeName: string,
-  roleCode: string,
-  level: number,
-): Promise<OaNodeRow> {
-  return transaction(async (client: PoolClient) => {
-    // 查询当前 pending/processing auto 节点的实际位置（避免依赖可能过时的 instance.current_node_order）
-    const autoNodeResult = await client.query<{ node_order: number }>(
-      `SELECT node_order FROM oa_approval_nodes
-       WHERE instance_id = $1 AND node_type = 'auto' AND status IN ('pending', 'processing')
-       ORDER BY node_order LIMIT 1`,
-      [instanceId]
+export async function handleArCollectionAutoVerify(
+  instance: OaInstanceRow,
+  formData: Record<string, unknown>
+): Promise<void | { sendBack: boolean }> {
+  const result = await verifyBills(instance, formData);
+
+  if (result === 'all_verified') {
+    // 全部还款：无需操作，框架自动将 node 7 → approved、催收单 → approved
+    log.info(`[${MODULE}] auto 回调: 全部核销，催收单将自动结案`);
+    return;
+  }
+
+  // 部分/未还款：退回营销师继续催收（复用通用退回函数）
+  const client = await getAppClient();
+  try {
+    await client.query('BEGIN');
+
+    // 查找 auto 节点（核销校验）的最新行，用作退回的“当前环节”
+    const autoNodeResult = await client.query<OaNodeRow>(
+      `SELECT * FROM oa_approval_nodes
+       WHERE instance_id = $1 AND node_type = 'auto'
+       ORDER BY node_order DESC, round DESC LIMIT 1`,
+      [instance.id]
     );
-    // 无 auto 节点说明流程状态异常（insertCollectionNode 仅在 auto 节点回调中被调用），应抛出错误而非静默 fallback
     if (autoNodeResult.rows.length === 0) {
-      throw new Error(`insertCollectionNode: 未找到 pending/processing 的 auto 节点 [instanceId=${instanceId}]`);
+      log.warn(`[${MODULE}] auto 回调: 未找到 auto 节点，跳过退回`);
+      await client.query('ROLLBACK');
+      return;
     }
-    // 新节点插入到 auto 节点之前
-    const actualAfterOrder = autoNodeResult.rows[0].node_order - 1;
+    const autoNode = autoNodeResult.rows[0];
 
-    // 根据角色编码查找对应的处理人（不再 LIMIT 1，取所有匹配用户）
-    const roleResult = await client.query<{ user_id: number }>(
-      `SELECT DISTINCT ur.user_id FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE r.code = $1 AND r.status = 1`,
-      [roleCode]
+    // 构建评论文本
+    const billDetails = (formData.billDetails as Array<Record<string, unknown>>) || [];
+    const totalBills = billDetails.filter(b => b.billNo).length;
+    const verifiedBills = billDetails.filter(b => b.verifyStatus === '已核销').length;
+    const remaining = totalBills - verifiedBills;
+    const commentText = result === 'partial_verified'
+      ? `核销校验：${verifiedBills}/${totalBills}笔已还款，剩余${remaining}笔继续催收`
+      : `核销校验：暂无已核销账单，共${totalBills}笔需继续催收`;
+
+    // 通用退回：auto 环节 → send_back，营销师(1) → pending，中间环节 → pending，指针 → 1
+    await sendBackToNode(
+      client, instance.id,
+      autoNode.id, autoNode.node_order,
+      1, // 退回到营销师催收（node_order = 1）
+      commentText
     );
-    const approverIds = roleResult.rows.map(r => r.user_id);
 
-    if (approverIds.length === 0) {
-      // 无人可分配：创建空环节
-      return insertNodeAfter(client, instanceId, actualAfterOrder, {
-        name: nodeName,
-        type: 'approval',
-        handler: { roleCode },
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log.error(`[${MODULE}] auto 回调: 退回营销师操作失败`, err);
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  // 发送通知给营销师（事务外，失败不阻断）
+  try {
+    const nodeResult = await query<{ assigned_user_ids: number[] | null }>(
+      `SELECT assigned_user_ids FROM oa_approval_nodes
+       WHERE instance_id = $1 AND node_order = 1
+       ORDER BY round DESC LIMIT 1`,
+      [instance.id]
+    );
+    let approverIds: number[] = [];
+    const assignedIds = nodeResult.rows[0]?.assigned_user_ids;
+    if (Array.isArray(assignedIds) && assignedIds.length > 0) {
+      approverIds = assignedIds;
+    } else {
+      approverIds = await findUserIdsByRoleCodes([OA_ROLE.MARKETER]);
+    }
+    if (approverIds.length > 0) {
+      await enqueueSendApprovalNotification('pending', instance.id, {
+        approverIds,
+        nodeName: '营销师催收',
+        nodeOrder: 1,
       });
     }
+  } catch (notifyErr) {
+    log.error(`[${MODULE}] auto 回调: 发送通知失败（不阻断流程）`, notifyErr);
+  }
 
-    if (approverIds.length === 1) {
-      // 单人：直接分配
-      const userResult = await client.query<{ name: string }>(
-        'SELECT name FROM users WHERE id = $1', [approverIds[0]]
-      );
-      return insertNodeAfter(client, instanceId, actualAfterOrder, {
-        name: nodeName,
-        type: 'approval',
-        handler: { roleCode },
-        assignedUserId: approverIds[0],
-        assignedUserName: userResult.rows[0]?.name,
-        signMode: 'or',
-      });
-    }
-
-    // 多人：共享同一 node_order（与 submit-approval.ts 保持一致）
-    // 第一个人通过 insertNodeAfter 移位后续节点，后续人直接 INSERT 到同一位置
-    let firstInserted: OaNodeRow | undefined;
-    for (let i = 0; i < approverIds.length; i++) {
-      const uid = approverIds[i];
-      const userResult = await client.query<{ name: string }>(
-        'SELECT name FROM users WHERE id = $1', [uid]
-      );
-      if (i === 0) {
-        // 首次：通过 insertNodeAfter 移位后续节点并插入
-        firstInserted = await insertNodeAfter(client, instanceId, actualAfterOrder, {
-          name: nodeName,
-          type: 'approval',
-          handler: { roleCode },
-          assignedUserId: uid,
-          assignedUserName: userResult.rows[0]?.name,
-          signMode: 'or',
-        });
-      } else {
-        // 后续：直接 INSERT 到同一 node_order（不触发移位）
-        await client.query(
-          `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code,
-             assigned_user_id, assigned_user_name, status, sign_mode, reminder_count)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, 0)`,
-          [instanceId, firstInserted!.node_order, nodeName, 'approval',
-           roleCode, uid, userResult.rows[0]?.name, 'or']
-        );
-      }
-    }
-    return firstInserted!;
-  });
+  log.info(`[${MODULE}] auto 回调: ${result}，已退回营销师继续催收`);
+  return { sendBack: true };
 }

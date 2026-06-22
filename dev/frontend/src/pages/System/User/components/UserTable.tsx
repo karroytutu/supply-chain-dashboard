@@ -2,7 +2,7 @@
  * 用户表格组件
  */
 import React from 'react';
-import { Table, Space, Tag, Badge, Button, Popconfirm } from 'antd';
+import { Table, Space, Tag, Badge, Button, Popconfirm, Tooltip } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { UserSwitchOutlined, StopOutlined, CheckOutlined } from '@ant-design/icons';
 import type { UserItem } from '../types';
@@ -68,14 +68,25 @@ const UserTable: React.FC<UserTableProps> = ({
       title: '角色',
       dataIndex: 'roles',
       key: 'roles',
-      width: 200,
-      render: (roles: { code: string; name: string }[]) => (
-        <Space wrap>
-          {roles?.map(role => (
-            <Tag key={role.code} color="blue">{role.name}</Tag>
-          ))}
-        </Space>
-      ),
+      width: 180,
+      render: (roles: { code: string; name: string }[]) => {
+        if (!roles || roles.length === 0) return '-';
+        const MAX_VISIBLE = 2;
+        const visible = roles.slice(0, MAX_VISIBLE);
+        const overflow = roles.length - MAX_VISIBLE;
+        return (
+          <Space size={[4, 0]} wrap={false}>
+            {visible.map(role => (
+              <Tag key={role.code} color="blue" style={{ marginRight: 0 }}>{role.name}</Tag>
+            ))}
+            {overflow > 0 && (
+              <Tooltip title={roles.map(r => r.name).join('、')}>
+                <Tag style={{ marginRight: 0, cursor: 'default' }}>+{overflow}</Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: '状态',

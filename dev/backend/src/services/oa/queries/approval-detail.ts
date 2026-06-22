@@ -26,11 +26,13 @@ export interface ApprovalDetail extends InstanceListItem {
 export interface ApprovalNodeDetail {
   id: number;
   nodeOrder: number;
+  /** 执行轮次（退回后重新走同一环节时 round + 1） */
+  round: number;
   nodeName: string;
   nodeType: string;
   roleCode: string | null;
-  assignedUserId: number | null;
-  assignedUserName: string | null;
+  assignedUserIds: number[] | null;
+  assignedUserNames: string[] | null;
   assignedUserAvatar: string | null;
   status: string;
   comment: string | null;
@@ -95,11 +97,27 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
   const nodesResult = await query<any>(
     `SELECT n.*, u.avatar AS assigned_user_avatar
      FROM oa_approval_nodes n
-     LEFT JOIN users u ON n.assigned_user_id = u.id
+     LEFT JOIN users u ON u.id = n.assigned_user_ids[1]
      WHERE n.instance_id = $1
-     ORDER BY n.node_order`,
+     ORDER BY n.node_order, n.round`,
     [instanceId]
   );
+
+  // 批量查询所有节点处理人的用户名
+  const allUserIds = new Set<number>();
+  for (const n of nodesResult.rows) {
+    if (Array.isArray(n.assigned_user_ids)) {
+      for (const uid of n.assigned_user_ids) allUserIds.add(uid);
+    }
+  }
+  const userNameMap = new Map<number, string>();
+  if (allUserIds.size > 0) {
+    const usersResult = await query<{ id: number; name: string }>(
+      `SELECT id, name FROM users WHERE id = ANY($1)`,
+      [Array.from(allUserIds)]
+    );
+    for (const u of usersResult.rows) userNameMap.set(u.id, u.name);
+  }
 
   const actionsResult = await query<OaActionRow>(
     `SELECT * FROM oa_approval_actions WHERE instance_id = $1 ORDER BY action_at`,
@@ -132,9 +150,9 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     applicantAvatar: instance.applicant_avatar || null,
     currentNodeOrder: instance.current_node_order,
     currentNodeName:
-      nodesResult.rows.find(n => n.node_order === instance.current_node_order)?.node_name || null,
+      [...nodesResult.rows].reverse().find(n => n.node_order === instance.current_node_order)?.node_name || null,
     currentNodeDeadlineAt:
-      nodesResult.rows.find(n => n.node_order === instance.current_node_order)?.deadline_at || null,
+      [...nodesResult.rows].reverse().find(n => n.node_order === instance.current_node_order)?.deadline_at || null,
     submittedAt: instance.submitted_at,
     completedAt: instance.completed_at,
     previewFields: [],  // 详情页展示完整表单，无需字段预览
@@ -144,25 +162,32 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     // fieldPermissions: DB 覆盖值（管理员配置的字段权限）
     ...(instance.field_permissions && { fieldPermissions: instance.field_permissions }),
     erpMeta: instance.erp_meta,
-    nodes: nodesResult.rows.map((n: any) => ({
-      id: n.id,
-      nodeOrder: n.node_order,
-      nodeName: n.node_name,
-      nodeType: n.node_type,
-      roleCode: n.role_code || null,
-      signMode: n.sign_mode || null,
-      assignedUserId: n.assigned_user_id,
-      assignedUserName: n.assigned_user_name,
-      assignedUserAvatar: n.assigned_user_avatar || null,
-      status: n.status,
-      comment: n.comment,
-      actedAt: n.acted_at,
-      isCountersign: n.is_countersign,
-      deadlineAt: n.deadline_at || null,
-      timeoutConfig: n.timeout_config || null,
-      reminderCount: n.reminder_count || 0,
-      ccSupervisorAt: n.cc_supervisor_at || null,
-    })),
+    nodes: nodesResult.rows.map((n: any) => {
+      const userIds: number[] | null = Array.isArray(n.assigned_user_ids) ? n.assigned_user_ids : null;
+      const userNames: string[] | null = userIds
+        ? userIds.map((uid: number) => userNameMap.get(uid) || '未知').filter(Boolean)
+        : null;
+      return {
+        id: n.id,
+        nodeOrder: n.node_order,
+        round: n.round ?? 1,
+        nodeName: n.node_name,
+        nodeType: n.node_type,
+        roleCode: n.role_code || null,
+        signMode: n.sign_mode || null,
+        assignedUserIds: userIds,
+        assignedUserNames: userNames,
+        assignedUserAvatar: n.assigned_user_avatar || null,
+        status: n.status,
+        comment: n.comment,
+        actedAt: n.acted_at,
+        isCountersign: n.is_countersign,
+        deadlineAt: n.deadline_at || null,
+        timeoutConfig: n.timeout_config || null,
+        reminderCount: n.reminder_count || 0,
+        ccSupervisorAt: n.cc_supervisor_at || null,
+      };
+    }),
     actions: actionsResult.rows.map(a => ({
       id: a.id,
       actionType: a.action_type,

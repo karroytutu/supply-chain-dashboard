@@ -97,6 +97,20 @@ function setupFullPipeline(debts: any[] = []) {
   } as any);
 }
 
+/** 包含 workflowDef 的 ar_collection 表单类型 mock（evaluateAndTriggerNodes 需要遍历 nodes） */
+function mockArCollectionFormType() {
+  return {
+    code: 'ar_collection',
+    name: '逾期催收',
+    formSchema: { fields: [] },
+    workflowDef: {
+      nodes: [
+        { order: 1, name: '营销师催收', type: 'handle', handler: {}, signMode: 'or' },
+      ],
+    },
+  } as any;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   // 清理 mockResolvedValueOnce 队列（clearAllMocks 不清理队列，需要 mockReset）
@@ -517,11 +531,11 @@ describe('generateCollectionOaInstances - 营销师分配', () => {
     } as any);
   }
 
-  it('营销师精确匹配成功：节点包含 assigned_user_id', async () => {
+  it('营销师精确匹配成功：节点包含 assigned_user_ids', async () => {
     const lockClient = setupLockAndUnlock();
     mockGetAppClient.mockResolvedValue(lockClient);
     setupPipelineWithManager('李营销');
-    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收', formSchema: { fields: [] } } as any);
+    mockGetFormTypeByCode.mockReturnValue(mockArCollectionFormType());
 
     mockAppQuery
       .mockResolvedValueOnce(mockQueryResult([])) // queryExistingOaInstances
@@ -533,20 +547,22 @@ describe('generateCollectionOaInstances - 营销师分配', () => {
 
     await generateCollectionOaInstances();
 
-    // 验证节点 INSERT 包含 assigned_user_id = 10（由 batchClient.query mock 返回）
+    // 验证节点 INSERT 包含 assigned_user_ids = [10]（营销师精确匹配 userId=10）
     const nodeInsertCalls = (batchClient.query as jest.Mock).mock.calls.filter(
-      (c: any) => typeof c[0] === 'string' && c[0].includes("'营销师催收'")
+      (c: any) => typeof c[0] === 'string' && c[0].includes('INSERT INTO oa_approval_nodes')
     );
-    expect(nodeInsertCalls.length).toBe(1);
-    const nodeParams = nodeInsertCalls[0][1];
-    expect(nodeParams[1]).toBe(100); // assigned_user_id（batchClient 默认 mock 返回 id=100）
+    expect(nodeInsertCalls.length).toBeGreaterThanOrEqual(1);
+    // 找到营销师催收节点（node_name = '营销师催收' 在参数 $3 中）
+    const marketerNodeCall = nodeInsertCalls.find((c: any) => c[1]?.[2] === '营销师催收');
+    expect(marketerNodeCall).toBeTruthy();
+    expect(marketerNodeCall![1][5]).toEqual([100]); // assigned_user_ids = [营销师userId]（batchClient 默认返回 id=100）
   });
 
   it('营销师精确匹配失败，fallback 到营销经理：节点包含 comment', async () => {
     const lockClient = setupLockAndUnlock();
     mockGetAppClient.mockResolvedValue(lockClient);
     setupPipelineWithManager('未知营销师');
-    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收', formSchema: { fields: [] } } as any);
+    mockGetFormTypeByCode.mockReturnValue(mockArCollectionFormType());
 
     mockAppQuery
       .mockResolvedValueOnce(mockQueryResult([])) // queryExistingOaInstances
@@ -554,34 +570,42 @@ describe('generateCollectionOaInstances - 营销师分配', () => {
 
     const batchClient = createMockPoolClient();
     // managerName='未知营销师' → 精确匹配失败，fallback 到营销经理
+    // 注意：resolveMarketer 在 evaluateAndTriggerNodes 之前调用
     (batchClient.query as jest.Mock)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // SAVEPOINT
       .mockResolvedValueOnce({ rows: [{ id: 100 }], rowCount: 1 }) // INSERT instance
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // resolveMarketer exact match → 无此用户
-      .mockResolvedValueOnce({ rows: [{ id: 20, name: '王经理' }], rowCount: 1 }); // resolveMarketer fallback → marketing_manager
-    // 后续 INSERT node/action/RELEASE SAVEPOINT/COMMIT 使用默认值
+      .mockResolvedValueOnce({ rows: [{ id: 20, name: '王经理' }], rowCount: 1 }) // resolveMarketer fallback → marketing_manager
+      .mockResolvedValueOnce({ rows: [{ max_order: null }], rowCount: 1 }) // MAX(node_order)
+      .mockResolvedValueOnce({ rows: [{ id: 300 }], rowCount: 1 }); // INSERT node (RETURNING)
+    // 后续 UPDATE instance / UPDATE comment / INSERT action / RELEASE / COMMIT 使用默认值
     (batchClient.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 1 });
     mockGetAppClient.mockResolvedValueOnce(lockClient).mockResolvedValueOnce(batchClient);
 
     await generateCollectionOaInstances();
 
-    // 验证节点 INSERT 包含 fallback 的 assigned_user_id 和 comment
+    // 验证节点 INSERT 包含 fallback 的 assigned_user_ids
     const nodeInsertCalls = (batchClient.query as jest.Mock).mock.calls.filter(
-      (c: any) => typeof c[0] === 'string' && c[0].includes("'营销师催收'")
+      (c: any) => typeof c[0] === 'string' && c[0].includes('INSERT INTO oa_approval_nodes')
     );
-    expect(nodeInsertCalls.length).toBe(1);
-    const nodeParams = nodeInsertCalls[0][1];
-    expect(nodeParams[1]).toBe(20); // fallback assigned_user_id = 王经理
-    expect(nodeParams[2]).toBe('王经理'); // fallback assigned_user_name
-    expect(nodeParams[3]).toContain('未知营销师'); // comment contains original manager name
+    expect(nodeInsertCalls.length).toBeGreaterThanOrEqual(1);
+    const marketerNodeCall = nodeInsertCalls.find((c: any) => c[1]?.[2] === '营销师催收');
+    expect(marketerNodeCall).toBeTruthy();
+    expect(marketerNodeCall![1][5]).toEqual([20]); // fallback assigned_user_ids = [王经理]
+    // fallback comment 通过 UPDATE oa_approval_nodes SET comment 写入
+    const commentUpdateCalls = (batchClient.query as jest.Mock).mock.calls.filter(
+      (c: any) => typeof c[0] === 'string' && c[0].includes('UPDATE oa_approval_nodes SET comment')
+    );
+    expect(commentUpdateCalls.length).toBe(1);
+    expect(commentUpdateCalls[0][1][0]).toContain('未知营销师'); // comment contains original manager name
   });
 
-  it('营销师和 fallback 均失败：节点 assigned_user_id 为 null，不阻断', async () => {
+  it('营销师和 fallback 均失败：节点 assigned_user_ids 为 null，不阻断', async () => {
     const lockClient = setupLockAndUnlock();
     mockGetAppClient.mockResolvedValue(lockClient);
     setupPipelineWithManager('未知营销师');
-    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收', formSchema: { fields: [] } } as any);
+    mockGetFormTypeByCode.mockReturnValue(mockArCollectionFormType());
 
     mockAppQuery
       .mockResolvedValueOnce(mockQueryResult([])) // queryExistingOaInstances
@@ -589,14 +613,17 @@ describe('generateCollectionOaInstances - 营销师分配', () => {
 
     const batchClient = createMockPoolClient();
     // managerName='未知营销师' → 精确匹配失败，fallback 也失败
+    // 注意：resolveMarketer 在 evaluateAndTriggerNodes 之前调用
     (batchClient.query as jest.Mock)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // SAVEPOINT
       .mockResolvedValueOnce({ rows: [{ id: 100 }], rowCount: 1 }) // INSERT instance
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // resolveMarketer exact match → no user
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // resolveMarketer fallback → no marketing_manager
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT node 1 (assigned_user_id=null)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT node 2
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT action
+      .mockResolvedValueOnce({ rows: [{ max_order: null }], rowCount: 1 }) // MAX(node_order)
+      .mockResolvedValueOnce({ rows: [{ id: 300 }], rowCount: 1 }); // INSERT node 1 (assigned_user_ids=null)
+    // 后续 UPDATE instance / INSERT action / RELEASE / COMMIT 使用默认值
+    (batchClient.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 1 });
     mockGetAppClient.mockResolvedValueOnce(lockClient).mockResolvedValueOnce(batchClient);
 
     await generateCollectionOaInstances();
@@ -636,14 +663,17 @@ describe('generateCollectionOaInstances - 钉钉集成', () => {
       entryReasons: ['overdue_days'] as any,
       entryRuleSnapshot: {} as any,
     } as any);
-    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收', formSchema: { fields: [] } } as any);
+    mockGetFormTypeByCode.mockReturnValue(mockArCollectionFormType());
 
     mockAppQuery
       .mockResolvedValueOnce(mockQueryResult([])) // queryExistingOaInstances
       .mockResolvedValueOnce(mockQueryResult([{ id: 92, name: '鑫小财(AI员工)', department_name: null }])); // getSystemApplicant
 
     const batchClient = createMockPoolClient();
-    (batchClient.query as jest.Mock).mockResolvedValue({ rows: [{ id: 100 }], rowCount: 1 });
+    // MAX(node_order) 必须返回 null/0，否则 order=1 的节点会被跳过
+    (batchClient.query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ max_order: null }], rowCount: 1 }) // MAX(node_order)
+      .mockResolvedValue({ rows: [{ id: 100 }], rowCount: 1 }); // 其他查询默认返回
     mockGetAppClient.mockResolvedValueOnce(lockClient).mockResolvedValueOnce(batchClient);
 
     await generateCollectionOaInstances();
@@ -682,22 +712,24 @@ describe('generateCollectionOaInstances - 钉钉集成', () => {
       entryReasons: ['overdue_days'] as any,
       entryRuleSnapshot: {} as any,
     } as any);
-    mockGetFormTypeByCode.mockReturnValue({ code: 'ar_collection', name: '逾期催收', formSchema: { fields: [] } } as any);
+    mockGetFormTypeByCode.mockReturnValue(mockArCollectionFormType());
 
     mockAppQuery
       .mockResolvedValueOnce(mockQueryResult([])) // queryExistingOaInstances
       .mockResolvedValueOnce(mockQueryResult([{ id: 92, name: '鑫小财(AI员工)', department_name: null }])); // getSystemApplicant
 
     const batchClient = createMockPoolClient();
-    // managerName=null → resolveMarketer 跳过精确匹配，fallback 查询也需返回空
+    // managerName=null → resolveMarketer 跳过精确匹配，fallback 查询返回空
+    // 注意：resolveMarketer fallback 在 evaluateAndTriggerNodes 之前调用
     (batchClient.query as jest.Mock)
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // SAVEPOINT
       .mockResolvedValueOnce({ rows: [{ id: 100 }], rowCount: 1 }) // INSERT instance
       .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // resolveMarketer fallback → null
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT node 1
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT node 2
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT action
+      .mockResolvedValueOnce({ rows: [{ max_order: null }], rowCount: 1 }) // MAX(node_order)
+      .mockResolvedValueOnce({ rows: [{ id: 300 }], rowCount: 1 }); // INSERT node (RETURNING)
+    // 后续 UPDATE instance / INSERT action / RELEASE / COMMIT 使用默认值
+    (batchClient.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 1 });
     mockGetAppClient.mockResolvedValueOnce(lockClient).mockResolvedValueOnce(batchClient);
 
     await generateCollectionOaInstances();

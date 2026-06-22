@@ -58,11 +58,13 @@ describe('insertNodeAfter', () => {
       [1, 3] // instanceId=1, newOrder=afterOrder+1=3
     );
 
-    // INSERT: 新节点 SQL（含 deadline_at、timeout_config、reminder_count）
+    // INSERT: 新节点 SQL（含 deadline_at、timeout_config、sign_mode）
+    // 参数顺序: instance_id, node_order, node_name, node_type, role_code,
+    //           assigned_user_ids, input_schema, deadline_at, timeout_config, sign_mode
     expect(client.query).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('INSERT INTO oa_approval_nodes'),
-      [1, 3, '加签', 'approval', null, 200, '李四', null, null, null, null]
+      [1, 3, '加签', 'approval', null, null, null, null, null, null]
     );
 
     expect(result).toEqual(expectedRow);
@@ -97,7 +99,7 @@ describe('insertNodeAfter', () => {
     });
 
     const insertCall = (client.query as jest.Mock).mock.calls[1];
-    expect(insertCall[1][7]).toBe(JSON.stringify(schema));
+    expect(insertCall[1][6]).toBe(JSON.stringify(schema));
   });
 
   it('inputSchema 不传时 SQL 参数为 null', async () => {
@@ -112,7 +114,7 @@ describe('insertNodeAfter', () => {
     });
 
     const insertCall = (client.query as jest.Mock).mock.calls[1];
-    expect(insertCall[1][7]).toBeNull();
+    expect(insertCall[1][6]).toBeNull();
   });
 
   it('afterOrder=0 时 newOrder=1', async () => {

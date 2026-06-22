@@ -56,7 +56,7 @@ export async function scanHandoverImpact(sourceUserId: number): Promise<Handover
   // 1. 流程定义扫描已停用（workflowDef 改为代码唯一来源，所有表单使用 roleCode）
   const formTypes: AffectedFormType[] = [];
 
-  // 2. 扫描在途实例：找出 assigned_user_id 匹配的 pending 节点
+  // 2. 扫描在途实例：找出 assigned_user_ids 包含该用户的 pending 节点
   const instances = await scanInFlightInstances(sourceUserId);
 
   // instanceCount 统计唯一实例数（一个审批单可能有多个节点分配给同一用户）
@@ -102,7 +102,7 @@ async function scanInFlightInstances(sourceUserId: number): Promise<AffectedInst
      FROM oa_approval_nodes n
      JOIN oa_approval_instances i ON i.id = n.instance_id
      JOIN oa_form_types ft ON ft.id = i.form_type_id
-     WHERE n.assigned_user_id = $1 AND n.status = 'pending'
+     WHERE $1 = ANY(n.assigned_user_ids) AND n.status = 'pending'
      ORDER BY i.submitted_at DESC`,
     [sourceUserId]
   );

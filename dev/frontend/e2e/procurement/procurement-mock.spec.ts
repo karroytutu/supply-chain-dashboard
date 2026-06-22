@@ -134,15 +134,15 @@ function buildMockProcurementDetail(overrides: Record<string, any> = {}): Record
     erpMeta: null,
     nodes: [
       {
-        id: 1, nodeOrder: 1, nodeName: '营销审批', nodeType: 'approval',
-        roleCode: 'marketing_manager', assignedUserId: MOCK_USER_ID,
-        assignedUserName: '开发管理员', assignedUserAvatar: null,
+        id: 1, nodeOrder: 1, round: 1, nodeName: '营销审批', nodeType: 'approval',
+        roleCode: 'marketing_manager', assignedUserIds: [MOCK_USER_ID],
+        assignedUserNames: ['开发管理员'], assignedUserAvatar: null,
         status: 'pending', comment: null, actedAt: null, isCountersign: false,
       },
       {
-        id: 2, nodeOrder: 2, nodeName: '财务审批', nodeType: 'approval',
-        roleCode: 'current_accountant', assignedUserId: MOCK_USER_ID,
-        assignedUserName: '开发管理员', assignedUserAvatar: null,
+        id: 2, nodeOrder: 2, round: 1, nodeName: '财务审批', nodeType: 'approval',
+        roleCode: 'current_accountant', assignedUserIds: [MOCK_USER_ID],
+        assignedUserNames: ['开发管理员'], assignedUserAvatar: null,
         status: 'pending', comment: null, actedAt: null, isCountersign: false,
       },
     ],
@@ -267,13 +267,13 @@ test.describe('采购审批 - Mock 数据驱动', () => {
   });
 
   test('非当前审批人时不显示操作按钮', async ({ authenticatedPage }) => {
-    // 设置 assignedUserId 为非当前用户
+    // 设置 assignedUserIds 为非当前用户
     await setupProcurementMockRoutes(authenticatedPage, {
       nodes: [
         {
-          id: 1, nodeOrder: 1, nodeName: '营销审批', nodeType: 'approval',
-          roleCode: 'marketing_manager', assignedUserId: 99999,
-          assignedUserName: '其他用户', assignedUserAvatar: null,
+          id: 1, nodeOrder: 1, round: 1, nodeName: '营销审批', nodeType: 'approval',
+          roleCode: 'marketing_manager', assignedUserIds: [99999],
+          assignedUserNames: ['其他用户'], assignedUserAvatar: null,
           status: 'pending', comment: null, actedAt: null, isCountersign: false,
         },
       ],

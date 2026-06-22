@@ -36,7 +36,6 @@ import { getDailySalesMap as getErpDailySalesMap } from './erp-client/erp-sales-
 import {
   getDailySalesMap,
   getStockSummaryMap,
-  warmupCache,
   invalidatePrecomputedCache,
 } from './precomputed.service';
 
@@ -102,29 +101,6 @@ describe('precomputed.service', () => {
         result,
         CACHE_TTL.LOW_FREQUENCY
       );
-    });
-  });
-
-  describe('warmupCache', () => {
-    it('并行预热所有缓存', async () => {
-      const salesMap = new Map([['A', 1]]);
-      const stockMap = new Map<number, number>([[1, 10]]);
-      mockCache.get.mockReturnValue(null); // 缓存未命中
-      mockGetErpSales.mockResolvedValueOnce(salesMap);
-      mockGetInventoryStock.mockResolvedValueOnce(stockMap);
-
-      await warmupCache();
-
-      expect(mockGetErpSales).toHaveBeenCalled();
-      expect(mockGetInventoryStock).toHaveBeenCalled();
-    });
-
-    it('预热失败时不抛异常', async () => {
-      mockCache.get.mockReturnValue(null);
-      mockGetErpSales.mockRejectedValueOnce(new Error('ERP error'));
-      mockGetInventoryStock.mockRejectedValueOnce(new Error('ERP error'));
-
-      await expect(warmupCache()).resolves.not.toThrow();
     });
   });
 

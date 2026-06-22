@@ -11,7 +11,13 @@ import { usePermission } from '@/hooks/usePermission';
 import { getErrorMessage } from '@/utils/errorUtils';
 import type { EditableFormSectionRef } from '../EditableFormSection';
 
-export type ActionType = 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | null;
+export type ActionType = 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | 'send_back' | null;
+
+/** 退回目标环节选项 */
+export interface SendBackTarget {
+  nodeOrder: number;
+  nodeName: string;
+}
 
 export interface UseApprovalActionsConfig {
   instanceId: number | undefined;
@@ -33,6 +39,10 @@ export interface UseApprovalActionsReturn {
   transferUsers: Array<{ id: number; name: string }>;
   countersignUserIds: number[];
   countersignType: 'before' | 'after';
+  /** 可退回的目标环节列表 */
+  sendBackTargets: SendBackTarget[];
+  /** 当前选中的退回目标环节序号 */
+  sendBackTargetNodeOrder: number | null;
   openActionModal: (type: NonNullable<ActionType>) => void;
   closeActionModal: () => void;
   executeAction: () => Promise<void>;
@@ -41,6 +51,7 @@ export interface UseApprovalActionsReturn {
   setTransferUserId: (v: number | null) => void;
   setCountersignUserIds: (v: number[]) => void;
   setCountersignType: (v: 'before' | 'after') => void;
+  setSendBackTargetNodeOrder: (v: number | null) => void;
   canOperate: boolean;
   canWithdraw: boolean;
   canComment: boolean;
@@ -64,13 +75,16 @@ export function useApprovalActions({
   const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
   const [countersignUserIds, setCountersignUserIds] = useState<number[]>([]);
   const [countersignType, setCountersignType] = useState<'before' | 'after'>('after');
+  const [sendBackTargetNodeOrder, setSendBackTargetNodeOrder] = useState<number | null>(null);
 
   // ==================== 权限计算（useMemo）====================
 
   const canOperate = useMemo(() => {
     if (!detail || detail.status !== 'pending') return false;
+    const uid = currentUser?.id;
+    if (!uid) return false;
     return nodes.some(
-      (n) => n.status === 'pending' && n.assignedUserId === currentUser?.id
+      (n) => n.status === 'pending' && n.assignedUserIds?.includes(uid)
     );
   }, [detail, nodes, currentUser?.id]);
 
@@ -84,7 +98,7 @@ export function useApprovalActions({
     const uid = currentUser?.id;
     if (!uid) return false;
     // 参与者：任意节点分配人（含历史已审批、当前待审批、未来节点）
-    if (nodes.some((n) => n.assignedUserId === uid)) return true;
+    if (nodes.some((n) => n.assignedUserIds?.includes(uid))) return true;
     // 参与者：抄送人
     if (detail.ccUsers?.some((cc) => cc.userId === uid)) return true;
     // 参与者：申请人
@@ -102,13 +116,30 @@ export function useApprovalActions({
     return pendingIndex;
   }, [nodes, detail?.status]);
 
-  // ==================== 操作执行 ====================
+  // ==================== 退回目标环节计算 ====================
+
+  const sendBackTargets = useMemo<SendBackTarget[]>(() => {
+    if (!detail?.workflowDef?.nodes || !detail.currentNodeOrder) return [];
+    const currentOrder = detail.currentNodeOrder;
+    // 仅展示数据库中实际存在的节点（条件节点可能因条件不满足而未创建）
+    const existingNodeOrders = new Set(detail.nodes.map(n => n.nodeOrder));
+    return detail.workflowDef.nodes
+      .filter(n => n.order < currentOrder && n.type !== 'auto' && n.type !== 'cc' && existingNodeOrders.has(n.order))
+      .map(n => ({ nodeOrder: n.order, nodeName: n.name }));
+  }, [detail?.workflowDef?.nodes, detail?.currentNodeOrder, detail?.nodes]);
+
+  // ==================== 操作执行 ======================================
 
   const executeAction = useCallback(async () => {
     if (!instanceId || !actionType) return;
 
     if (actionType === 'transfer' && !transferUserId) {
       message.warning('请选择转交人员');
+      return;
+    }
+
+    if (actionType === 'send_back' && sendBackTargetNodeOrder === null) {
+      message.warning('请选择退回目标环节');
       return;
     }
 
@@ -162,6 +193,15 @@ export function useApprovalActions({
           });
           message.success('已加签');
           break;
+        case 'send_back':
+          if (sendBackTargetNodeOrder !== null) {
+            await oaApi.sendBack(instanceId, {
+              targetNodeOrder: sendBackTargetNodeOrder,
+              comment: actionComment || undefined,
+            });
+          }
+          message.success('已退回');
+          break;
         case 'update': {
           // 操作型节点：发送编辑 diff 合并到原始 formData
           const editedDiff = editableFormRef?.current?.getEditedValues() || {};
@@ -186,13 +226,14 @@ export function useApprovalActions({
       setTransferUserId(null);
       setCountersignUserIds([]);
       setCountersignType('after');
+      setSendBackTargetNodeOrder(null);
       await onActionComplete?.();
     } catch (error) {
       message.error(getErrorMessage(error) || '操作失败');
     } finally {
       setActionLoading(false);
     }
-  }, [instanceId, actionType, actionComment, transferUserId, countersignUserIds, countersignType, detail?.formData, onActionComplete, editableFormRef]);
+  }, [instanceId, actionType, actionComment, transferUserId, countersignUserIds, countersignType, sendBackTargetNodeOrder, detail?.formData, onActionComplete, editableFormRef]);
 
   const executeWithdraw = useCallback(async () => {
     if (!instanceId) return;
@@ -217,6 +258,7 @@ export function useApprovalActions({
     setTransferUserId(null);
     setCountersignUserIds([]);
     setCountersignType('after');
+    setSendBackTargetNodeOrder(null);
     if (type === 'transfer' || type === 'countersign') {
       oaApi.getTransferCandidates()
         .then((users) => setTransferUsers(users))
@@ -230,13 +272,15 @@ export function useApprovalActions({
     setTransferUserId(null);
     setCountersignUserIds([]);
     setCountersignType('after');
+    setSendBackTargetNodeOrder(null);
   }, []);
 
   return {
     actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
-    countersignUserIds, countersignType,
+    countersignUserIds, countersignType, sendBackTargets, sendBackTargetNodeOrder,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setTransferUserId, setCountersignUserIds, setCountersignType,
+    setSendBackTargetNodeOrder,
     canOperate, canWithdraw, canComment, currentStep,
   };
 }

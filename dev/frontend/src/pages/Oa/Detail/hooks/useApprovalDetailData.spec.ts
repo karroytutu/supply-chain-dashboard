@@ -56,7 +56,7 @@ function makeDetail(overrides: Partial<ApprovalDetail> = {}): ApprovalDetail {
     formData: {},
     formSchema: { fields: [] },
     workflowDef: null,
-    nodes: [{ id: 1, nodeOrder: 1, status: 'pending', assignedUserId: 100 } as any],
+    nodes: [{ id: 1, nodeOrder: 1, round: 1, status: 'pending', assignedUserIds: [100] } as any],
     actions: [{ id: 1, actionType: 'submit', userId: 1, userName: '申请人', comment: '', actedAt: '2026-06-01' } as any],
     ccUsers: [],
     erpMeta: null,

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Input, Select, Segmented } from 'antd';
+import type { SendBackTarget } from './hooks/useApprovalActions';
 
 const { TextArea } = Input;
 
@@ -10,13 +11,19 @@ interface TransferUser {
 
 interface ActionModalProps {
   visible: boolean;
-  actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | null;
+  actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | 'send_back' | null;
   actionComment: string;
   actionLoading: boolean;
   /** 转交候选人列表（从后端获取） */
   transferUsers?: TransferUser[];
   /** 节点类型，影响弹窗标题文案 */
   nodeType?: 'approval' | 'handle' | 'auto' | 'cc';
+  /** 可退回的目标环节列表 */
+  sendBackTargets?: SendBackTarget[];
+  /** 当前选中的退回目标环节序号 */
+  sendBackTargetNodeOrder?: number | null;
+  /** 退回目标环节变更回调 */
+  onSendBackTargetChange?: (order: number | null) => void;
   onOk: () => Promise<void>;
   onCancel: () => void;
   onCommentChange: (comment: string) => void;
@@ -34,6 +41,7 @@ interface ActionModalProps {
 /** 获取操作弹窗标题 */
 const getActionModalTitle = (actionType: string | null, nodeType?: 'approval' | 'handle' | 'auto' | 'cc') => {
   if (actionType === 'comment') return '添加评论';
+  if (actionType === 'send_back') return '退回';
   if (nodeType === 'handle') {
     switch (actionType) {
       case 'approve': return '确认完成';
@@ -54,6 +62,7 @@ const getActionModalTitle = (actionType: string | null, nodeType?: 'approval' | 
 
 const ActionModal: React.FC<ActionModalProps> = ({
   visible, actionType, actionComment, actionLoading, transferUsers = [], nodeType,
+  sendBackTargets = [], sendBackTargetNodeOrder, onSendBackTargetChange,
   countersignUserIds = [], countersignType = 'after', onCountersignUserIdsChange, onCountersignTypeChange,
   onOk, onCancel, onCommentChange, onTransferUserChange,
 }) => {
@@ -68,6 +77,18 @@ const ActionModal: React.FC<ActionModalProps> = ({
       cancelText="取消"
     >
       <div className="actionModal">
+        {actionType === 'send_back' && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>退回目标环节：</label>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="请选择退回目标环节"
+              value={sendBackTargetNodeOrder ?? undefined}
+              onChange={(value) => onSendBackTargetChange?.(value)}
+              options={sendBackTargets.map((t) => ({ value: t.nodeOrder, label: t.nodeName }))}
+            />
+          </div>
+        )}
         {actionType === 'transfer' && (
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>转交人员：</label>
@@ -112,7 +133,9 @@ const ActionModal: React.FC<ActionModalProps> = ({
         )}
         <div style={{ marginBottom: 0 }}>
           <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
-            {actionType === 'comment' ? '评论内容：' : '审批意见：'}
+            {actionType === 'comment' ? '评论内容：' :
+             actionType === 'send_back' ? '退回原因（选填）：' :
+             '审批意见：'}
           </label>
           <TextArea
             rows={4}

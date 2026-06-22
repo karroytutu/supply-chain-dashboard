@@ -3,8 +3,8 @@ jest.mock('../../utils/logger', () => ({
   createLogger: () => ({ warn: jest.fn(), info: jest.fn(), error: jest.fn(), debug: jest.fn() }),
 }));
 jest.mock('../../utils/cache', () => ({
-  cache: { getStale: jest.fn(), isFresh: jest.fn(), set: jest.fn(), get: jest.fn() },
-  CACHE_TTL: { DASHBOARD: 60000, HIGH_FREQUENCY: 30000 },
+  cache: { getWithMeta: jest.fn(), set: jest.fn(), get: jest.fn(), getStale: jest.fn() },
+  CACHE_TTL: { DASHBOARD: 60000, HIGH_FREQUENCY: 30000, ERP_SLOW: 300000 },
 }));
 jest.mock('../../utils/cache-keys', () => ({
   CACHE_KEY: {
@@ -26,8 +26,8 @@ import { buildDashboardContext, fetchCollectionOaInstances } from './ar-dashboar
 import { getUpcomingWarnings } from '../ar-collection/ar-warning.query';
 import type { DashboardContext } from './ar-dashboard.types';
 
+const mockCacheGetWithMeta = cache.getWithMeta as jest.MockedFunction<typeof cache.getWithMeta>;
 const mockCacheGetStale = cache.getStale as jest.MockedFunction<typeof cache.getStale>;
-const mockCacheIsFresh = cache.isFresh as jest.MockedFunction<typeof cache.isFresh>;
 const mockCacheSet = cache.set as jest.MockedFunction<typeof cache.set>;
 const mockBuildContext = buildDashboardContext as jest.MockedFunction<typeof buildDashboardContext>;
 const mockFetchOaInstances = fetchCollectionOaInstances as jest.MockedFunction<typeof fetchCollectionOaInstances>;
@@ -58,8 +58,8 @@ function makeCtx(overrides: Partial<DashboardContext> = {}): DashboardContext {
 describe('getArDashboardOverview', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCacheGetWithMeta.mockReturnValue(null);
     mockCacheGetStale.mockReturnValue(null);
-    mockCacheIsFresh.mockReturnValue(false);
   });
 
   it('无缓存时等待数据刷新并返回完整结果', async () => {
@@ -80,14 +80,14 @@ describe('getArDashboardOverview', () => {
     expect(mockCacheSet).toHaveBeenCalled();
   });
 
-  it('缓存新鲜时直接返回缓存', async () => {
-    const cached = { kpiCards: [], pipeline: { nodes: [], legalProgress: { noticeSent: 0, lawsuitFiled: 0, lawsuitInProgress: 0, lawsuitCompleted: 0 } }, marketers: [], details: [], marketerOptions: [], updatedAt: 'cached' };
-    mockCacheGetStale.mockReturnValue(cached as any);
-    mockCacheIsFresh.mockReturnValue(true);
+  it('缓存命中时直接返回并注入新鲜度指标', async () => {
+    const cached = { kpiCards: [], pipeline: { nodes: [], legalProgress: { noticeSent: 0, lawsuitFiled: 0, lawsuitInProgress: 0, lawsuitCompleted: 0 } }, marketers: [], details: [], marketerOptions: [], updatedAt: 'cached', cacheAge: 0, isStale: false };
+    mockCacheGetWithMeta.mockReturnValue({ data: cached as any, timestamp: Date.now() - 60000, ttl: 300000 });
 
     const result = await getArDashboardOverview();
 
-    expect(result).toEqual(cached);
+    expect(result.cacheAge).toBe(60);
+    expect(result.isStale).toBe(false);
     expect(mockBuildContext).not.toHaveBeenCalled();
   });
 

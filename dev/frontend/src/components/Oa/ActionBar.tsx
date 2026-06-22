@@ -78,7 +78,7 @@ export interface ActionBarProps {
   canOperate: boolean;
   canWithdraw: boolean;
   canComment: boolean;
-  onOpenAction: (type: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment') => void;
+  onOpenAction: (type: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | 'send_back') => void;
   onWithdraw: () => void;
 }
 
@@ -134,7 +134,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
     if (nodeType === 'handle') {
       const leftItems: LeftItemData[] = [
         ...(canComment ? [{ icon: <MessageOutlined />, label: '评论', onClick: () => onOpenAction('comment') }] : []),
-        { icon: <RollbackOutlined />, label: '退回', onClick: () => onOpenAction('reject') },
+        { icon: <RollbackOutlined />, label: '退回', onClick: () => onOpenAction('send_back') },
         { icon: <SwapOutlined />, label: '转交', onClick: () => onOpenAction('transfer') },
       ];
 

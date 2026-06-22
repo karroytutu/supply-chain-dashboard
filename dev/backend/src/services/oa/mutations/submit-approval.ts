@@ -10,9 +10,8 @@ import { FormTypeDefinition, SubmitApprovalRequest, OaInstanceRow, OaNodeRow } f
 import {
   generateInstanceNo,
   validateFormData,
-  filterNodesByCondition,
-  resolveHandlerRule,
 } from '../oa-utils';
+import { evaluateAndTriggerNodes } from '../oa-workflow-utils';
 
 import { initErpMeta } from '../../fixed-asset/erp-meta-utils';
 import {
@@ -47,120 +46,50 @@ export async function submitApproval(
   // 2. 生成审批编号
   const instanceNo = await generateInstanceNo();
 
-  // 3. 解析审批节点（根据条件过滤）
-  const filteredNodes = filterNodesByCondition(formType.workflowDef.nodes, req.formData);
-
-  if (filteredNodes.length === 0) {
-    throw new Error('审批流程配置错误：至少需要一个审批节点');
-  }
-
-  // 4. 数据库事务写入
   let autoNodeToExecute: OaNodeRow | null = null;
-  const firstNodeIsAutoOrCc = ['auto', 'cc'].includes(filteredNodes[0].type);
-  const hasAutoNode = filteredNodes.some(n => n.type === 'auto');
 
   const result = await transaction(async client => {
-    // 插入审批实例
-    const initialStatus = firstNodeIsAutoOrCc ? 'processing' : 'pending';
-    const initialNodeOrder = filteredNodes[0].order;
+    // 插入审批实例（current_node_order = 0，由 evaluateAndTriggerNodes 创建节点后决定）
     const instanceResult = await client.query<OaInstanceRow>(
       `INSERT INTO oa_approval_instances
         (instance_no, form_type_id, title, form_data, status, applicant_id, applicant_name, applicant_dept, current_node_order)
        VALUES
-        ($1, (SELECT id FROM oa_form_types WHERE code = $2), $3, $4, $5, $6, $7, $8, $9)
+        ($1, (SELECT id FROM oa_form_types WHERE code = $2), $3, $4, 'processing', $5, $6, $7, 0)
        RETURNING *`,
       [
         instanceNo,
         req.formTypeCode,
         req.title,
         JSON.stringify(req.formData),
-        initialStatus,
         userId,
         userName,
         userDept,
-        initialNodeOrder,
       ]
     );
 
     const instance = instanceResult.rows[0];
 
-    // 插入审批节点（支持多人展开）
-    for (const node of filteredNodes) {
-      // 计算 deadline_at（如果配置了 timeout）
-      const deadlineAt = node.timeout
-        ? new Date(Date.now() + node.timeout.durationMinutes * 60000)
-        : null;
-      const timeoutConfigJson = node.timeout
-        ? JSON.stringify(node.timeout)
-        : null;
+    // 按需创建节点（条件评估 + 处理人解析）
+    const newNodes = await evaluateAndTriggerNodes(
+      client, instance.id, formType, req.formData, userId, 0
+    );
 
-      if (node.type === 'auto') {
-        // 自动环节：无处理人
-        await client.query(
-          `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config, sign_mode)
-           VALUES ($1, $2, $3, $4, NULL, NULL, '系统', NULL, 'pending', $5, $6, NULL)`,
-          [instance.id, node.order, node.name, node.type, deadlineAt, timeoutConfigJson]
-        );
-        continue;
-      }
-
-      if (node.type === 'cc') {
-        // 抄送环节：无处理人，系统自动执行
-        await client.query(
-          `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config, sign_mode)
-           VALUES ($1, $2, $3, $4, NULL, NULL, '系统', NULL, 'pending', NULL, NULL, NULL)`,
-          [instance.id, node.order, node.name, node.type]
-        );
-        continue;
-      }
-
-      // 解析处理人规则
-      const { userIds, signMode } = await resolveHandlerRule(node, userId);
-
-      if (userIds.length <= 1) {
-        // 单人或无人：sign_mode = NULL（向后兼容）
-        const uid = userIds[0] ?? null;
-        let approverName: string | null = null;
-        if (uid) {
-          const userResult = await client.query<{ name: string }>(
-            `SELECT name FROM users WHERE id = $1`, [uid]
-          );
-          approverName = userResult.rows[0]?.name || null;
-        }
-        await client.query(
-          `INSERT INTO oa_approval_nodes
-            (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config, sign_mode)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, NULL)`,
-          [
-            instance.id, node.order, node.name, node.type,
-            node.handler?.roleCode || null, uid, approverName,
-            null,  // inputSchema 已废弃，始终为 NULL
-            deadlineAt, timeoutConfigJson,
-          ]
-        );
-      } else {
-        // 多人展开：同 node_order，多条记录，共享 sign_mode
-        for (const uid of userIds) {
-          const userResult = await client.query<{ name: string }>(
-            `SELECT name FROM users WHERE id = $1`, [uid]
-          );
-          const approverName = userResult.rows[0]?.name || null;
-          await client.query(
-            `INSERT INTO oa_approval_nodes
-              (instance_id, node_order, node_name, node_type, role_code, assigned_user_id, assigned_user_name, input_schema, status, deadline_at, timeout_config, sign_mode)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, $11)`,
-            [
-              instance.id, node.order, node.name, node.type,
-              node.handler?.roleCode || null, uid, approverName,
-              null,  // inputSchema 已废弃，始终为 NULL
-              deadlineAt, timeoutConfigJson, signMode,
-            ]
-          );
-        }
-      }
+    if (newNodes.length === 0) {
+      throw new Error('审批流程配置错误：至少需要一个审批节点');
     }
+
+    // 根据首个节点类型决定初始状态
+    const firstNode = newNodes[0];
+    const firstNodeIsAutoOrCc = firstNode.node_type === 'auto' || firstNode.node_type === 'cc';
+    const initialStatus = firstNodeIsAutoOrCc ? 'processing' : 'pending';
+
+    await client.query(
+      `UPDATE oa_approval_instances SET status = $1, current_node_order = $2, updated_at = NOW() WHERE id = $3`,
+      [initialStatus, firstNode.node_order, instance.id]
+    );
+    // 同步内存对象，供后续 sendSubmitNotifications 使用
+    instance.status = initialStatus as any;
+    instance.current_node_order = firstNode.node_order;
 
     // 记录操作日志（submit 不关联具体审批节点，node_order 为 NULL）
     await client.query(
@@ -172,31 +101,26 @@ export async function submitApproval(
 
     // 如果第一个节点是 auto 或 cc 类型，获取该节点行用于事务后回调
     if (firstNodeIsAutoOrCc) {
-      const autoNodeResult = await client.query<OaNodeRow>(
-        `SELECT * FROM oa_approval_nodes WHERE instance_id = $1 AND node_type IN ('auto', 'cc') AND status = 'pending' ORDER BY node_order LIMIT 1`,
-        [instance.id]
-      );
-      if (autoNodeResult.rows.length > 0) {
-        autoNodeToExecute = autoNodeResult.rows[0];
-      }
+      autoNodeToExecute = firstNode;
     }
 
     return instance;
   });
 
   // 初始化 erp_meta
+  const autoNode = autoNodeToExecute as OaNodeRow | null; // type assertion: assigned inside transaction callback
   if (req.formData.applicationNo) {
     await initErpMeta(result.id, req.formData.applicationNo as string).catch(err => {
       log.error(`erp_meta 初始化失败 [instanceId=${result.id}]:`, err);
     });
-  } else if (hasAutoNode) {
+  } else {
     await initErpMeta(result.id, '').catch(err => {
       log.error(`erp_meta 初始化失败 [instanceId=${result.id}]:`, err);
     });
   }
 
   // 如果第一个节点是 auto 类型，确保 erp_meta 状态为 processing
-  if (firstNodeIsAutoOrCc && filteredNodes[0].type === 'auto') {
+  if (autoNode && autoNode.node_type === 'auto') {
     await query(
       `UPDATE oa_approval_instances SET erp_meta = jsonb_set(COALESCE(erp_meta, '{}'), '{status}', '"processing"') WHERE id = $1`,
       [result.id]
@@ -204,6 +128,7 @@ export async function submitApproval(
   }
 
   // 异步操作（不阻塞提交响应）：写入任务表，由 worker 消费实现失败补偿
+  const firstNodeIsAutoOrCc = autoNode !== null;
   setImmediate(async () => {
     await enqueueCreateProcessInstance(
       result.id,
@@ -215,14 +140,14 @@ export async function submitApproval(
       req.formData as Record<string, unknown>
     ).catch(err => log.error('创建壳实例任务入队失败:', err));
 
-    if (firstNodeIsAutoOrCc && autoNodeToExecute) {
+    if (firstNodeIsAutoOrCc && autoNode) {
       // auto/cc 节点回调：auto 节点内部会自行通知下一个审批人
       // cc 节点执行后也会自动流转到下一节点
-      await enqueueExecuteAutoNode(result.id, autoNodeToExecute.id).catch(err =>
+      await enqueueExecuteAutoNode(result.id, autoNode.id).catch(err =>
         log.error(`submitApproval auto/cc节点任务入队失败:`, err)
       );
       // CC 节点首节点时，仍需发提交通知给后续人工审批人（CC 执行后会自动通知）
-      if (filteredNodes[0].type === 'cc') {
+      if (autoNode.node_type === 'cc') {
         sendSubmitNotifications(result, formType).catch(err => {
           log.error('提交通知任务入队失败:', err);
         });
@@ -249,11 +174,11 @@ async function sendSubmitNotifications(
   if (!data) return;
 
   const nodeResult = await query<{
-    assigned_user_id: number;
+    assigned_user_ids: number[] | null;
     node_name: string;
     node_order: number;
   }>(
-    `SELECT assigned_user_id, node_name, node_order FROM oa_approval_nodes
+    `SELECT assigned_user_ids, node_name, node_order FROM oa_approval_nodes
      WHERE instance_id = $1 AND status = 'pending' AND node_type IN ('approval', 'handle')
        AND node_order = (
          SELECT MIN(node_order) FROM oa_approval_nodes
@@ -263,9 +188,12 @@ async function sendSubmitNotifications(
   );
 
   if (nodeResult.rows.length > 0) {
-    const approverIds = nodeResult.rows
-      .filter(r => r.assigned_user_id)
-      .map(r => r.assigned_user_id);
+    const approverIds: number[] = [];
+    for (const row of nodeResult.rows) {
+      if (Array.isArray(row.assigned_user_ids)) {
+        approverIds.push(...row.assigned_user_ids);
+      }
+    }
     if (approverIds.length > 0) {
       await enqueueSendApprovalNotification('pending', instance.id, {
         approverIds,

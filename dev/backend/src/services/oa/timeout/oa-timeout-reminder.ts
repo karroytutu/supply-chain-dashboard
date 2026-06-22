@@ -22,14 +22,14 @@ import type { OverdueNode } from './oa-timeout.types';
  * @returns true=发送成功，false=发送失败或跳过
  */
 export async function sendReminder(node: OverdueNode): Promise<boolean> {
-  if (!node.assigned_user_id) {
+  if (!node.assigned_user_ids?.length) {
     log.warn(`节点 ${node.id} 无审批人，跳过催办`);
     return false;
   }
 
-  const dingtalkUserIds = await getDingtalkUserIds([node.assigned_user_id]);
+  const dingtalkUserIds = await getDingtalkUserIds(node.assigned_user_ids);
   if (dingtalkUserIds.length === 0) {
-    log.warn(`用户 ${node.assigned_user_id} 无钉钉ID，跳过催办通知`);
+    log.warn(`节点 ${node.id} 用户无钉钉ID，跳过催办通知`);
     return false;
   }
 
@@ -51,7 +51,7 @@ export async function sendReminder(node: OverdueNode): Promise<boolean> {
         businessNo: node.instance_no,
       }
     );
-    log.info(`催办通知已发送: 节点${node.id}, 用户${node.assigned_user_id}, 超时${overdueText}`);
+    log.info(`催办通知已发送: 节点${node.id}, 用户${node.assigned_user_ids?.join(',')}, 超时${overdueText}`);
     return true;
   } catch (error) {
     log.error(`催办通知发送失败: 节点${node.id}`, error);
@@ -63,11 +63,11 @@ export async function sendReminder(node: OverdueNode): Promise<boolean> {
  * 发送抄送上级通知
  */
 export async function sendSupervisorCc(node: OverdueNode): Promise<boolean> {
-  if (!node.assigned_user_id) return false;
+  if (!node.assigned_user_ids?.length) return false;
 
-  const { supervisor } = await getSupervisor(node.assigned_user_id);
+  const { supervisor } = await getSupervisor(node.assigned_user_ids[0]);
   if (!supervisor) {
-    log.warn(`用户 ${node.assigned_user_id} 无直属上级，跳过抄送`);
+    log.warn(`用户 ${node.assigned_user_ids[0]} 无直属上级，跳过抄送`);
     return false;
   }
 
@@ -152,7 +152,7 @@ function buildCcSupervisorOaMessage(
     },
     body: {
       title: node.title,
-      content: `${node.assigned_user_name} 的「${node.node_name}」已超时 ${overdueText}，已多次催办未处理，特此抄送给您`,
+      content: `${node.first_assigned_user_name || '审批人'} 的「${node.node_name}」已超时 ${overdueText}，已多次催办未处理，特此抄送给您`,
     },
     messageUrl: `${baseUrl}/oa/detail/${node.instance_id}`,
     pcMessageUrl: `${baseUrl}/oa/detail/${node.instance_id}`,

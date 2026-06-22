@@ -21,9 +21,10 @@ export async function getCurrentPendingNodeByUser(
     `SELECT n.* FROM oa_approval_nodes n
      JOIN oa_approval_instances i ON i.id = n.instance_id
      WHERE n.instance_id = $1
-       AND n.assigned_user_id = $2
+       AND $2 = ANY(n.assigned_user_ids)
        AND n.status = 'pending'
        AND n.node_order = i.current_node_order
+     ORDER BY n.round DESC
      LIMIT 1`,
     [instanceId, userId]
   );
@@ -90,7 +91,7 @@ export async function getFirstPendingNode(
   const result = await client.query<OaNodeRow>(
     `SELECT * FROM oa_approval_nodes
      WHERE instance_id = $1 AND status = 'pending'
-     ORDER BY node_order LIMIT 1`,
+     ORDER BY node_order, round DESC LIMIT 1`,
     [instanceId]
   );
   return result.rows[0];
