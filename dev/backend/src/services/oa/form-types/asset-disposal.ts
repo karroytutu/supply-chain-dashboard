@@ -14,7 +14,7 @@ export const assetDisposalFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 40,
   description: '固定资产清理审批（支持出售/盘亏，有收入时自动创建收入单）',
-  version: 3,
+  version: 4,
 
   formSchema: {
     fields: [
@@ -83,12 +83,29 @@ export const assetDisposalFormType: FormTypeDefinition = {
       },
       { key: 'disposalDate', label: '清理日期', type: 'date', required: true },
       { key: 'attachmentUrls', label: '附件', type: 'upload', required: false, maxCount: 10 },
+
+      // ═══ 系统回填字段（auto 节点执行后自动填入，只读） ═══
+      { key: '_clearBillStr', label: '清理单号', type: 'text', required: false, disabled: true },
+      { key: '_incomeBillStr', label: '收入单号', type: 'text', required: false, disabled: true, visibleWhen: { field: 'hasIncome', operator: '==', value: 'true' } },
     ],
   },
 
   workflowDef: {
-    nodes: [{ order: 1, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' }],
+    nodes: [
+      { order: 1, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' },
+      { order: 2, name: '创建清理单', type: 'auto' },
+    ],
   },
+
+  /** auto 节点回填声明 */
+  nodeBackfills: [
+    {
+      nodeOrder: 2,
+      description: '审批通过后系统自动创建清理单和收入单',
+      erpMetaFields: ['clearBillId', 'clearBillStr', 'incomeBillId', 'incomeBillStr'],
+      formDataFields: ['_clearBillStr', '_incomeBillStr'],
+    },
+  ],
 
   /** 提交前校验：确保选择了资产且条件字段合法 */
   beforeSubmit: async formData => {

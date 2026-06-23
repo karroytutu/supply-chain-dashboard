@@ -38,8 +38,8 @@ export const ESCALATION_LEVEL_NAMES: Record<EscalationLevel, string> = {
   2: '财务',
 };
 
-// 催收管理页跳转URL（动态读取 config.app.baseUrl，避免硬编码域名）
-export const getCollectionActionUrl = (): string => `${config.app.baseUrl}/collection/overview`;
+// 催收管理页跳转URL（钉钉跳转始终使用生产域名）
+export const getCollectionActionUrl = (): string => `${config.dingtalk.baseUrl}/collection/overview`;
 
 function formatTimestamp(): string {
   return new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });

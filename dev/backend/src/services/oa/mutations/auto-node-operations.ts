@@ -88,6 +88,39 @@ export async function executeAutoNodeCallback(
       return;
     }
 
+    // ========== 声明式回填 ==========
+    // 如果表单类型定义了 nodeBackfills，根据声明自动执行回填
+    if (formType.nodeBackfills?.length && callbackResult) {
+      const backfillDecl = formType.nodeBackfills.find(b => b.nodeOrder === autoNode.node_order);
+      if (backfillDecl) {
+        // erpMeta 回填
+        if (backfillDecl.erpMetaFields?.length) {
+          if (callbackResult.erpMeta) {
+            const { mergeErpResponseData } = await import('../../fixed-asset/erp-meta-utils');
+            await mergeErpResponseData(instanceId, callbackResult.erpMeta);
+            // 同步内存中的 instance.erp_meta，供连续 auto 节点使用
+            const currentResponseData = (instance.erp_meta?.responseData || {}) as Record<string, unknown>;
+            instance.erp_meta = {
+              ...instance.erp_meta!,
+              responseData: { ...currentResponseData, ...callbackResult.erpMeta },
+            };
+          } else {
+            log.warn(`[声明式回填] 节点${autoNode.node_order}声明了erpMeta回填但回调未返回 [instanceId=${instanceId}]`);
+          }
+        }
+        // formData 回填
+        if (backfillDecl.formDataFields?.length) {
+          if (callbackResult.formData) {
+            const { persistFormData } = await import('../../fixed-asset/erp-meta-utils');
+            await persistFormData(instanceId, callbackResult.formData);
+          } else {
+            log.warn(`[声明式回填] 节点${autoNode.node_order}声明了formData回填但回调未返回 [instanceId=${instanceId}]`);
+          }
+        }
+      }
+    }
+    // ========== 声明式回填结束 ==========
+
     // 成功：auto 节点 → approved
     await query(`UPDATE oa_approval_nodes SET status = 'approved' WHERE id = $1`, [autoNode.id]);
 

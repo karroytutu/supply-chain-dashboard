@@ -6,7 +6,7 @@
 
 import { FormTypeDefinition } from '../oa.types';
 import { OA_ROLE } from '../oa-role-codes';
-import { handleAssetMaintenanceNodeCallback } from '../../fixed-asset/maintenance-callback';
+import { handleMaintenanceAutoNode } from '../../fixed-asset/maintenance-callback';
 
 export const assetMaintenanceFormType: FormTypeDefinition = {
   code: 'asset_maintenance',
@@ -15,7 +15,7 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 30,
   description: '固定资产维修审批（含条件询价和财务支付）',
-  version: 4,
+  version: 5,
 
   formSchema: {
     fields: [
@@ -78,6 +78,9 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
       },
       { key: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
       { key: 'paymentNote', label: '支付备注', type: 'text', required: false },
+
+      // ═══ 系统回填字段（auto 节点执行后自动填入，只读） ═══
+      { key: '_expenditureBillStr', label: '费用单号', type: 'text', required: false, disabled: true },
     ],
   },
 
@@ -91,23 +94,6 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
         handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
         condition: { field: 'estimatedCost', operator: '>=', value: 500 },
-        // 字段级编辑权限：行政人员只能编辑询价结果，其余字段只读
-        fieldPermissions: {
-          assetSearch: 'readonly' as const,
-          erpAssetId: 'hidden' as const,
-          assetNo: 'readonly' as const,
-          assetName: 'readonly' as const,
-          description: 'readonly' as const,
-          estimatedCost: 'readonly' as const,
-          urgency: 'readonly' as const,
-          attachmentUrls: 'readonly' as const,
-          quotations: 'editable' as const,
-          paymentAmount: 'hidden' as const,
-          paymentDate: 'hidden' as const,
-          paymentSubjectId: 'hidden' as const,
-          receiptUrls: 'hidden' as const,
-          paymentNote: 'hidden' as const,
-        },
       },
       { order: 3, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' },
       {
@@ -116,27 +102,21 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
         type: 'handle',
         handler: { roleCode: OA_ROLE.CASHIER },
         signMode: 'or',
-        // 字段级编辑权限：出纳只能编辑支付相关字段，其余字段只读
-        fieldPermissions: {
-          assetSearch: 'readonly' as const,
-          erpAssetId: 'hidden' as const,
-          assetNo: 'readonly' as const,
-          assetName: 'readonly' as const,
-          description: 'readonly' as const,
-          estimatedCost: 'readonly' as const,
-          urgency: 'readonly' as const,
-          attachmentUrls: 'readonly' as const,
-          quotations: 'readonly' as const,
-          paymentAmount: 'editable' as const,
-          paymentDate: 'editable' as const,
-          paymentSubjectId: 'editable' as const,
-          receiptUrls: 'editable' as const,
-          paymentNote: 'editable' as const,
-        },
       },
-      { order: 5, name: '抄送往来会计', type: 'cc' as const, ccRoles: [OA_ROLE.ACCOUNTANT] },
+      { order: 5, name: '创建费用单', type: 'auto' },
+      { order: 6, name: '抄送往来会计', type: 'cc' as const, ccRoles: [OA_ROLE.ACCOUNTANT] },
     ],
   },
+
+  /** auto 节点回填声明 */
+  nodeBackfills: [
+    {
+      nodeOrder: 5,
+      description: '财务支付后系统自动创建费用单',
+      erpMetaFields: ['expenditureBillId', 'expenditureBillStr'],
+      formDataFields: ['_expenditureBillStr'],
+    },
+  ],
 
   /** 提交前校验：确保选择了资产且费用合法 */
   beforeSubmit: async formData => {
@@ -150,5 +130,5 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
     return {};
   },
 
-  onNodeCompleted: handleAssetMaintenanceNodeCallback,
+  onApproved: handleMaintenanceAutoNode,
 };

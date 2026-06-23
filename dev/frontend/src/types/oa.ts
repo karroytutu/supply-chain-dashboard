@@ -64,7 +64,10 @@ export type FormFieldType =
   | 'erp_purchase_order'
   | 'erp_prepayment'
   | 'erp_supplier_income'
-  | 'formula'; // 公式计算字段（自动根据表达式求值，不可手动编辑）
+  | 'formula' // 公式计算字段（自动根据表达式求值，不可手动编辑）
+  // 物流装卸费用申请专用
+  | 'purchase_settlement_multi' // 采购结算单多选（弹窗选择，跨供应商）
+  | 'bank_account_selector'; // 银行账户历史选择器（弹窗选择，自动填充户名/账号/银行/开户行）
 
 export interface FormField {
   key: string;
@@ -74,6 +77,8 @@ export interface FormField {
   placeholder?: string;
   defaultValue?: unknown;
   disabled?: boolean;
+  /** table 类型专用：行锁定（禁止添加/删除行），适用于行数据由外部逻辑填充的场景 */
+  rowLocked?: boolean;
   bizAlias?: string;
   print?: boolean;
   options?: Array<{ value: string | number; label: string; key?: string }>;
@@ -120,7 +125,10 @@ export interface FormField {
 }
 
 export interface FormSchema {
+  /** 业务字段：用户需要看到或填写的字段，参与权限配置 */
   fields: FormField[];
+  /** 系统数据：系统内部辅助数据，不参与权限校验和前端渲染 */
+  internalFields?: FormField[];
 }
 
 // =====================================================
@@ -132,12 +140,11 @@ export type FieldPermission = 'editable' | 'readonly' | 'hidden';
 
 /**
  * 字段权限 DB 覆盖配置结构
- * - initiation: 发起阶段字段权限覆盖（申请人视角）
- * - nodes: 按节点 order 配置的字段权限覆盖（办理/审批人视角）
+ * - nodes: 按节点 order 配置的字段权限覆盖，"0"=发起阶段，"1"-"N"=审批环节
  */
 export interface FieldPermissionsOverride {
-  initiation?: Record<string, FieldPermission>;
-  nodes?: Record<string, Record<string, FieldPermission>>;
+  /** 节点权限配置。"0"=发起阶段，"1"-"N"=审批环节 */
+  nodes: Record<string, Record<string, FieldPermission>>;
 }
 
 /**
@@ -250,7 +257,7 @@ export interface WorkflowNodeDef {
    * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions
    */
   inputSchema?: NodeInputSchema;
-  /** 字段权限配置：控制每个字段在该节点下的可见/可编辑状态 */
+  /** @deprecated 字段权限已改为 DB 唯一来源，代码中不再定义 */
   fieldPermissions?: Record<string, FieldPermission>;
   /** 下拉选项过滤：控制 select 类型字段的可选选项 */
   fieldOptionFilter?: Record<string, string[]>;

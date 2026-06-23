@@ -1,26 +1,16 @@
 /**
- * 固定资产清理流程 - OA 审批回调处理器
- * 审批通过后: 1. 生成舟谱资产清理单  2. 如有收入，额外创建收入单
+ * 固定资产清理流程 - auto 节点回调处理器
+ * 节点2(创建清理单): 生成舟谱资产清理单 + 如有收入则创建收入单
  * @module services/fixed-asset/disposal-callback
  */
 import { createLogger } from '../../utils/logger';
 const log = createLogger('FixedAsset');
 
-import type { OaInstanceRow } from '../oa/oa.types';
+import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
 import { searchErpAssets, getErpStaff } from './fixed-asset.query';
-import {
-  getErpMeta,
-  updateErpMetaStatus,
-  mergeErpResponseData,
-  markErpFailed,
-} from './erp-meta-utils';
+import { getErpMeta, updateErpMetaStatus, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults, type ErpBillResponse } from '../erp-client';
-import {
-  FEE_SUBJECT,
-  DISPOSAL_INCRDECR_MAP,
-  type DisposalType,
-  type ErpAsset,
-} from './fixed-asset.types';
+import { FEE_SUBJECT, DISPOSAL_INCRDECR_MAP, type DisposalType, type ErpAsset } from './fixed-asset.types';
 import { normalizeDateTime } from './fixed-asset-utils';
 
 /**
@@ -37,7 +27,6 @@ async function createDisposalRecord(
   const { cid, uid } = getErpDefaults();
   const config = getErpConfig();
 
-  // 搜索获取资产 code 和 name
   const allAssets = await searchErpAssets('', '');
   const assetDetail = allAssets.find((a: ErpAsset) => a.id === erpAssetId);
   if (!assetDetail) {
@@ -122,57 +111,59 @@ async function createIncomeRecord(
 }
 
 /**
- * 清理流程 — 审批通过回调
+ * 清理流程 — auto 节点回调
+ * 由框架通过 executeAutoNodeCallback 触发，回填由 nodeBackfills 声明驱动
  */
 export async function handleAssetDisposalApproved(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
+): Promise<CallbackResult> {
+  const erpAssetId = formData.erpAssetId as number;
+  const disposalType = formData.disposalType as DisposalType;
+  const disposalDate = formData.disposalDate as string;
+  const hasIncome = formData.hasIncome as boolean;
+  const disposalValue = (formData.disposalValue as string) || '0';
+  const disposalReason = (formData.disposalReason as string) || '';
+
+  // 获取 APA 编号
+  const erpMeta = getErpMeta(instance);
+  const applicationNo = erpMeta?.applicationNo || instance.instance_no;
+
   try {
-    const erpAssetId = formData.erpAssetId as number;
-    const disposalType = formData.disposalType as DisposalType;
-    const disposalDate = formData.disposalDate as string;
-    const hasIncome = formData.hasIncome as boolean;
-    const disposalValue = (formData.disposalValue as string) || '0';
-    const disposalReason = (formData.disposalReason as string) || '';
-
-    // 获取 APA 编号
-    const erpMeta = getErpMeta(instance);
-    const applicationNo = erpMeta?.applicationNo || instance.instance_no;
-
     // 1. 生成清理单
     const clearData = await createDisposalRecord(
-      erpAssetId,
-      disposalType,
-      disposalDate,
-      disposalReason,
-      instance.id
+      erpAssetId, disposalType, disposalDate, disposalReason, instance.id
     );
 
-    const responseData: Record<string, unknown> = {
-      clearResult: clearData,
+    const erpMetaResult: Record<string, unknown> = {
+      clearBillId: clearData?.id,
+      clearBillStr: clearData?.billStr,
+    };
+    const formDataResult: Record<string, unknown> = {
+      _clearBillStr: clearData?.billStr,
     };
 
     // 2. 如有收入，创建收入单
     if (hasIncome && parseFloat(disposalValue) > 0) {
       const incomeData = await createIncomeRecord(
-        disposalValue,
-        disposalDate,
-        applicationNo,
-        instance.applicant_name || '',
-        instance.id
+        disposalValue, disposalDate, applicationNo,
+        instance.applicant_name || '', instance.id
       );
-      responseData.incomeResult = incomeData;
+      erpMetaResult.incomeBillId = incomeData?.id;
+      erpMetaResult.incomeBillStr = incomeData?.billStr;
+      formDataResult._incomeBillStr = incomeData?.billStr;
       log.info(`清理收入单创建成功`);
     }
 
     await updateErpMetaStatus(instance.id, 'completed');
-    await mergeErpResponseData(instance.id, responseData);
-
     log.info(`清理完成: erpAssetId=${erpAssetId}`);
+
+    // 返回结构化结果，框架根据 nodeBackfills 声明自动执行回填
+    return { erpMeta: erpMetaResult, formData: formDataResult };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     log.error(`清理操作失败:`, message);
     await markErpFailed(instance.id, { error: message, node: 'disposal' });
+    throw error;
   }
 }

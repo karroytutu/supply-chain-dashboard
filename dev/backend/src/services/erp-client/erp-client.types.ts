@@ -28,6 +28,8 @@ export interface ErpApiConfig {
   customerPathPrefix: string;
   /** 支出单 API 路径 */
   expenditureBillPath: string;
+  /** 供应商费用单 API 路径（trade-expenditure） */
+  supplierExpenditureBillPath?: string;
   /** 资产创建 API 路径 */
   assetCreatePath: string;
   /** 资产更新 API 路径 */

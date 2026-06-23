@@ -140,33 +140,13 @@ export const customerModifyFormType: FormTypeDefinition = {
         maxLength: 500,
       },
 
-      // ===== 隐藏字段（下划线前缀不在详情页展示） =====
-      {
-        key: '_customerName',
-        label: '客户名称',
-        type: 'text',
-        required: false,
-      },
-      {
-        key: '_storefrontPhotoUrl',
-        label: '当前门头照',
-        type: 'text',
-        required: false,
-      },
-      {
-        key: '_serviceStaffName',
-        label: '服务员工名称',
-        type: 'text',
-        required: false,
-      },
-      {
-        key: '_consumerManagerName',
-        label: '所属营销名称',
-        type: 'text',
-        required: false,
-      },
-
-      // ===== 变更对比原始值（_original_ 前缀，由 beforeSubmit 自动填充） =====
+    ],
+    // 系统数据：不参与权限配置和前端渲染
+    internalFields: [
+      { key: '_customerName', label: '客户名称', type: 'text', required: false },
+      { key: '_storefrontPhotoUrl', label: '当前门头照', type: 'text', required: false },
+      { key: '_serviceStaffName', label: '服务员工名称', type: 'text', required: false },
+      { key: '_consumerManagerName', label: '所属营销名称', type: 'text', required: false },
       { key: '_original_customerName', label: '原客户名称', type: 'text', required: false },
       { key: '_original_contactName', label: '原联系人', type: 'text', required: false },
       { key: '_original_contactTel', label: '原联系电话', type: 'text', required: false },
@@ -177,12 +157,7 @@ export const customerModifyFormType: FormTypeDefinition = {
       { key: '_original_areaId', label: '原片区ID', type: 'text', required: false },
       { key: '_original_areaName', label: '原片区名称', type: 'text', required: false },
       { key: '_original_consumerManagerId', label: '原所属营销ID', type: 'text', required: false },
-      {
-        key: '_original_consumerManagerName',
-        label: '原所属营销名称',
-        type: 'text',
-        required: false,
-      },
+      { key: '_original_consumerManagerName', label: '原所属营销名称', type: 'text', required: false },
       { key: '_original_customerState', label: '原状态', type: 'text', required: false },
       { key: '_original_storefrontPhotoUrl', label: '原门头照URL', type: 'text', required: false },
     ],

@@ -396,3 +396,85 @@ export interface SupplierDebtRecord {
   debtState?: string;
   note?: string;
 }
+
+// =====================================================
+// 采购结算单（funds-purchase）
+// =====================================================
+
+/** 采购结算单列表项（funds-purchase/list 响应） */
+export interface PurchaseSettlementListItem {
+  id: number;
+  billStr: string;
+  bizId: number;
+  bizStr: string;
+  supplierId: number;
+  supplierName: string;
+  salesmanName: string;
+  workTime: string;
+  warehouseName: string;
+  deptName: string;
+  settleAmount: string;
+  stockEndAmount: string;
+  costAmount: string;
+  leftAmount: string;
+  settleStateEnum: string;
+  expenditureAmount: string;
+  expenditureAmountSum: string;
+  note?: string | null;
+}
+
+// =====================================================
+// 费用分摊模块专用查询（toliman/expenditure-allocation）
+// =====================================================
+
+/** 可分摊采购结算单明细行（settle-allocatable-purchase-detail 响应） */
+export interface AllocatablePurchaseDetail {
+  /** 明细行ID，即费用分摊单所需的 bizDetailId */
+  id: number;
+  bizDetailId: number;
+  /** 结算单主单 ID */
+  mainId: number;
+  /** 关联采购订单 ID */
+  mainOrderId: number;
+  /** 结算单号 */
+  billStr: string;
+  /** 关联采购订单号 */
+  billOrderStr: string;
+  billOrderType: string;
+  billTypeName: string;
+  traderName: string;
+  settlerName: string;
+  supplierName: string;
+  goodsName: string;
+  brandName: string;
+  currUnitName: string;
+  quantity: number;
+  weight: number;
+  /** 结算金额 */
+  amount: string;
+  workTime: string;
+  salesmanName: string;
+  deptName: string;
+}
+
+/** 可分摊费用明细行（expenditure-allocatable-detail 响应） */
+export interface AllocatableExpenseDetail {
+  /** 明细行ID，即费用分摊单所需的 bizDetailId */
+  id: number;
+  bizDetailId: number;
+  /** 费用单主单 ID */
+  mainId: number;
+  /** 费用单号 */
+  billStr: string;
+  billTypeName: string;
+  traderId: number;
+  traderName: string;
+  /** 费用类别名称（如"物流费用"、"卸货费"） */
+  expenditureTypeName: string;
+  /** 费用金额 */
+  amount: string;
+  workTime: string;
+  salesmanName: string;
+  deptName: string;
+  note?: string | null;
+}

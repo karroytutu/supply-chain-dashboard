@@ -11,6 +11,7 @@
 import {
   FormTypeDefinition,
   FormField,
+  FormSchema,
   PreviewContextResult,
 } from '../oa.types';
 import { analyzePurchaseOrder, buildPurchaseLines } from '../../procurement-order/procurement-analysis';
@@ -39,7 +40,7 @@ export const NEED_PREPAYMENT = {
 // formSchema
 // =====================================================
 
-const procurementFormSchema: { fields: FormField[] } = {
+const procurementFormSchema: FormSchema = {
   fields: [
     // ═══ 区域一：采购基础信息（供应商级联选择 + 自动填充） ═══
     {
@@ -66,8 +67,6 @@ const procurementFormSchema: { fields: FormField[] } = {
       },
       nameField: 'erpBillStr',
     },
-    { key: 'supplierName', label: '供应商名称', type: 'text', required: false, hidden: true },
-    { key: 'erpBillStr', label: '采购单号', type: 'text', required: false, hidden: true },
     { key: 'warehouseName', label: '入库仓库', type: 'text', required: false, disabled: true },
     {
       key: 'totalAmount',
@@ -160,11 +159,14 @@ const procurementFormSchema: { fields: FormField[] } = {
       visibleWhen: { field: 'needPrepayment', operator: '==', value: NEED_PREPAYMENT.YES },
     },
 
-    // ═══ 区域二：审批条件标记（hidden，系统计算，用于条件节点过滤） ═══
+  ],
+  // 系统数据：不参与权限配置和前端渲染
+  internalFields: [
+    { key: 'supplierName', label: '供应商名称', type: 'text', required: false },
+    { key: 'erpBillStr', label: '采购单号', type: 'text', required: false },
     { key: '_needsMarketingApproval', label: '需营销审批', type: 'number', required: false },
     { key: '_needsFinanceApproval', label: '需财务审批', type: 'number', required: false },
     { key: '_needsManagerApproval', label: '需总经理审批', type: 'number', required: false },
-
   ],
 };
 
@@ -211,23 +213,6 @@ const procurementWorkflowDef = {
       handler: { roleCode: OA_ROLE.CASHIER },
       signMode: 'or' as const,
       condition: { field: 'needPrepayment', operator: '==' as const, value: NEED_PREPAYMENT.YES },
-      // 字段级编辑权限：出纳只能编辑付款相关字段，其余字段只读
-      fieldPermissions: {
-        supplierId: 'readonly' as const,
-        erpBillId: 'readonly' as const,
-        supplierName: 'hidden' as const,
-        erpBillStr: 'hidden' as const,
-        warehouseName: 'readonly' as const,
-        totalAmount: 'readonly' as const,
-        needPrepayment: 'readonly' as const,
-        prepaymentAmount: 'readonly' as const,
-        purchaseLines: 'readonly' as const,
-        purchaseRemark: 'readonly' as const,
-        paymentAmount: 'editable' as const,
-        paymentSubjectId: 'editable' as const,
-        paymentReceiptUrls: 'editable' as const,
-        prepayBillStr: 'hidden' as const,
-      },
     },
     {
       order: 5,
@@ -268,10 +253,12 @@ async function beforeSubmitProcurement(
   // 采购订单防重校验：检查是否已有其他审批实例占用该订单
   try {
     const existingResult = await query(
-      `SELECT instance_no, title, status FROM oa_approval_instances
-       WHERE form_type_code = 'procurement_order'
-         AND status NOT IN ('rejected', 'withdrawn', 'cancelled')
-         AND form_data->>'erpBillId' = $1
+      `SELECT i.instance_no, i.title, i.status
+       FROM oa_approval_instances i
+       JOIN oa_form_types ft ON i.form_type_id = ft.id
+       WHERE ft.code = 'procurement_order'
+         AND i.status NOT IN ('rejected', 'withdrawn', 'cancelled')
+         AND i.form_data->>'erpBillId' = $1
        LIMIT 1`,
       [String(erpBillId)]
     );
@@ -376,6 +363,21 @@ export const procurementOrderFormType: FormTypeDefinition = {
 
   /** 流程预览：根据已选采购订单动态计算需要经过哪些审批环节 */
   resolvePreviewContext: resolveProcurementPreviewContext,
+
+  /** auto 节点回填声明 */
+  nodeBackfills: [
+    {
+      nodeOrder: 5,
+      description: '出纳付款后系统自动创建预付款单',
+      erpMetaFields: ['prepayBillId', 'prepayBillStr'],
+      formDataFields: ['prepayBillStr'],
+    },
+    {
+      nodeOrder: 6,
+      description: '系统自动审核采购订单',
+      erpMetaFields: ['poApproved'],
+    },
+  ],
 
   /** auto节点回调：创建预付款/审核PO */
   onApproved: handleProcurementAutoNode,

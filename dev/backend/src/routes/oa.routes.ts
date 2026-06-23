@@ -453,6 +453,84 @@ router.post(
 );
 
 // =====================================================
+// 用户银行账户历史（物流装卸费用申请专用）
+// =====================================================
+
+// 获取当前用户的银行账户列表
+router.get(
+  '/user/bank-accounts',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ code: 401, message: '未登录' });
+        return;
+      }
+      const { getUserBankAccounts } = await import('../services/oa/user-bank-account.service');
+      const accounts = await getUserBankAccounts(userId);
+      res.json({ code: 200, data: accounts });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: error instanceof Error ? error.message : '获取银行账户失败',
+      });
+    }
+  }
+);
+
+// 新增银行账户
+router.post(
+  '/user/bank-accounts',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ code: 401, message: '未登录' });
+        return;
+      }
+      const { saveBankAccount } = await import('../services/oa/user-bank-account.service');
+      const account = await saveBankAccount(userId, req.body);
+      res.json({ code: 200, data: account });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: error instanceof Error ? error.message : '保存银行账户失败',
+      });
+    }
+  }
+);
+
+// 删除银行账户
+router.delete(
+  '/user/bank-accounts/:id',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ code: 401, message: '未登录' });
+        return;
+      }
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ code: 400, message: '无效的账户ID' });
+        return;
+      }
+      const { deleteBankAccount } = await import('../services/oa/user-bank-account.service');
+      await deleteBankAccount(id, userId);
+      res.json({ code: 200, message: '删除成功' });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: error instanceof Error ? error.message : '删除银行账户失败',
+      });
+    }
+  }
+);
+
+// =====================================================
 // 数据管理接口
 // =====================================================
 

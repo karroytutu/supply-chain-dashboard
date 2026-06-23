@@ -323,7 +323,7 @@ export async function exportData(
 // ERP 参考数据接口
 // =====================================================
 
-export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders';
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details';
 
 /** ERP ID 解析结果项 */
 export interface ErpResolvedItem {
@@ -656,6 +656,12 @@ export const oaApi = {
   executeHandover,
   searchHandoverUsers,
   getHandoverHistory,
+  // 物流装卸费用申请
+  getPurchaseSettlements,
+  getAllocatablePurchaseDetails,
+  getUserBankAccounts,
+  createUserBankAccount,
+  deleteUserBankAccount,
 };
 
 // =====================================================
@@ -741,4 +747,108 @@ export async function updateAdminFieldPermissions(
 /** 获取系统所有岗位列表 */
 export async function getAdminRoles(): Promise<Array<{ code: string; name: string; description: string }>> {
   return request('/oa/admin/roles');
+}
+
+// =====================================================
+// 用户银行账户 API
+// =====================================================
+
+/** 银行账户记录 */
+export interface UserBankAccount {
+  id: number;
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+  branchName: string | null;
+}
+
+/** 获取当前用户的历史银行账户 */
+export async function getUserBankAccounts(): Promise<UserBankAccount[]> {
+  return request<UserBankAccount[]>('/oa/user/bank-accounts');
+}
+
+/** 新增银行账户 */
+export async function createUserBankAccount(data: {
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+  branchName?: string;
+}): Promise<UserBankAccount> {
+  return request<UserBankAccount>('/oa/user/bank-accounts', {
+    method: 'POST',
+    body: data,
+  });
+}
+
+/** 删除银行账户 */
+export async function deleteUserBankAccount(id: number): Promise<void> {
+  return request<void>(`/oa/user/bank-accounts/${id}`, { method: 'DELETE' });
+}
+
+// =====================================================
+// 采购结算单 + 分摊明细 API
+// =====================================================
+
+/** 采购结算单列表查询参数 */
+export interface PurchaseSettlementsParams {
+  startDate?: string;
+  endDate?: string;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** 采购结算单列表结果 */
+export interface PurchaseSettlementsResult {
+  records: Array<Record<string, unknown>>;
+  total: number;
+}
+
+/** 查询采购结算单列表 */
+export async function getPurchaseSettlements(
+  params: PurchaseSettlementsParams,
+  signal?: AbortSignal
+): Promise<PurchaseSettlementsResult> {
+  return request<PurchaseSettlementsResult>(
+    '/oa/erp-reference/purchase-settlements',
+    {
+      params: {
+        startDate: params.startDate || undefined,
+        endDate: params.endDate || undefined,
+        keyword: params.keyword || undefined,
+        page: params.page || 1,
+        pageSize: params.pageSize || 20,
+      },
+      signal,
+      skipParamsSnakeCase: true,
+    }
+  );
+}
+
+/** 可分摊采购明细查询参数 */
+export interface AllocatablePurchaseDetailsParams {
+  billStr?: string;
+  supplierIdList?: string[];
+  startDate?: string;
+  endDate?: string;
+  /** 每页大小，默认 100，最大 500 */
+  size?: number;
+}
+
+/** 查询可分摊采购结算单明细行 */
+export async function getAllocatablePurchaseDetails(
+  params: AllocatablePurchaseDetailsParams,
+  signal?: AbortSignal
+): Promise<{ records: Array<Record<string, unknown>>; total: number }> {
+  const queryParams: Record<string, string> = {};
+  if (params.billStr) queryParams.billStr = params.billStr;
+  if (params.supplierIdList?.length) queryParams.supplierIdList = params.supplierIdList.join(',');
+  if (params.startDate) queryParams.startDate = params.startDate;
+  if (params.endDate) queryParams.endDate = params.endDate;
+  if (params.size) queryParams.size = String(params.size);
+
+  return request(
+    '/oa/erp-reference/allocatable-purchase-details',
+    { params: queryParams, signal, skipParamsSnakeCase: true }
+  );
 }

@@ -91,7 +91,6 @@ export function mergeWorkflowDef(codeDef: WorkflowDef, dbOverride: WorkflowDef |
       condition: dbNode.condition ?? codeNode.condition,
       ccRoles: dbNode.ccRoles ?? codeNode.ccRoles,
       timeout: dbNode.timeout ?? codeNode.timeout,
-      // fieldPermissions / fieldOptionFilter：始终取自代码（开发者配置）
     };
   });
 
@@ -125,8 +124,10 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     ...(codeDefinition?.resolvePreviewContext && {
       resolvePreviewContext: codeDefinition.resolvePreviewContext,
     }),
-    // fieldPermissions: DB 覆盖值（管理员通过表单管理页面配置）
-    ...(row.field_permissions && { fieldPermissions: row.field_permissions }),
+    // fieldPermissions: DB 为唯一来源，不再合并代码默认值
+    ...(row.field_permissions
+      ? { fieldPermissions: row.field_permissions }
+      : {}),
   };
 }
 

@@ -102,7 +102,6 @@ describe('arCollectionFormType', () => {
     expect(firstNode.handler?.roleCode).toBe('marketer');
     expect(firstNode.type).toBe('handle');
     expect(firstNode.signMode).toBe('or');
-    expect(firstNode.fieldPermissions).toBeDefined();
     expect(firstNode.fieldOptionFilter).toBeDefined();
     // reActivatable 已移除：循环退回由 onApproved 回调直接处理，无需条件重评估机制
     expect((firstNode as any).reActivatable).toBeUndefined();
@@ -113,7 +112,6 @@ describe('arCollectionFormType', () => {
     expect(node.name).toBe('营销经理催收');
     expect(node.handler?.roleCode).toBe('marketing_manager');
     expect(node.type).toBe('handle');
-    expect(node.fieldPermissions).toBeDefined();
     expect(node.condition).toEqual({ field: 'action', operator: '==', value: 'escalate' });
     expect(node.fieldOptionFilter).toEqual({ mgrAction: LEVEL_ACTION_OPTIONS[1] });
   });
@@ -291,38 +289,8 @@ describe('formSchema 字段结构', () => {
   });
 });
 
-// =====================================================
-// 按环节字段权限
-// =====================================================
-
-describe('按环节字段权限', () => {
-  const nodes = arCollectionFormType.workflowDef.nodes;
-
-  it('营销师(marketer)环节：营销师字段可编辑，经理/会计字段隐藏', () => {
-    const perms = nodes[0].fieldPermissions!;
-    expect(perms['action']).toBe('editable');
-    expect(perms['verifyRemark']).toBe('editable');
-    expect(perms['mgrAction']).toBe('hidden');
-    expect(perms['accAction']).toBe('hidden');
-  });
-
-  it('营销经理(marketing_manager)环节：营销师字段只读，经理字段可编辑，会计字段隐藏', () => {
-    const perms = nodes[1].fieldPermissions!;
-    expect(perms['action']).toBe('readonly');
-    expect(perms['escalateReason']).toBe('readonly');
-    expect(perms['mgrAction']).toBe('editable');
-    expect(perms['mgrEscalateReason']).toBe('editable');
-    expect(perms['accAction']).toBe('hidden');
-  });
-
-  it('往来会计(current_accountant)环节：营销师/经理字段只读，会计字段可编辑', () => {
-    const perms = nodes[2].fieldPermissions!;
-    expect(perms['action']).toBe('readonly');
-    expect(perms['mgrAction']).toBe('readonly');
-    expect(perms['accAction']).toBe('editable');
-    expect(perms['accLetterAttachment']).toBe('editable');
-  });
-});
+// 按环节字段权限已迁移至 DB 唯一来源，不再在代码中定义
+// 权限配置完整性由 field-permission-validator.ts 校验
 
 // =====================================================
 // 条件触发集成测试

@@ -34,6 +34,8 @@ export function getErpConfig(): ErpApiConfig {
       customerPathPrefix: erpApi?.customerPathPrefix || '/redcoast/',
       expenditureBillPath:
         erpApi?.expenditureBillPath || '/expenditure-bill/save-approve-cash-expenditure',
+      supplierExpenditureBillPath:
+        erpApi?.supplierExpenditureBillPath || '/expenditure-bill/save-approve-trade-expenditure',
       assetCreatePath: erpApi?.assetCreatePath || '/asset/create',
       assetUpdatePath: erpApi?.assetUpdatePath || '/asset/update',
       assetClearPath: erpApi?.assetClearPath || '/asset-clear/do-clear',

@@ -13,8 +13,10 @@ import { appQuery as query } from '../db/appPool';
 import { cache } from '../utils/cache';
 import { CACHE_KEY } from '../utils/cache-keys';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
-import type { OaFormTypeRow } from '../services/oa/oa.types';
+import type { OaFormTypeRow, FieldPermissionsOverride } from '../services/oa/oa.types';
 import { mapFormTypeRow } from '../services/oa/oa-utils';
+import { getFormTypeByCode } from '../services/oa/form-types';
+import { validateCompleteness } from '../services/oa/field-permission-validator';
 
 /** 清除表单类型缓存 */
 function invalidateFormTypesCache(): void {
@@ -195,23 +197,37 @@ export async function updateFieldPermissions(req: Request, res: Response): Promi
       return;
     }
 
-    // 校验权限值合法性
+    // 校验权限值合法性（只允许 nodes 键，不再允许 initiation）
     const validPerms = new Set(['editable', 'readonly', 'hidden']);
     if (fieldPermissions) {
       for (const [section, perms] of Object.entries(fieldPermissions)) {
-        if (section !== 'initiation' && section !== 'nodes') {
-          res.status(400).json(buildErrorResponse(400, `不支持的配置节: ${section}，仅允许 initiation 和 nodes`));
+        if (section !== 'nodes') {
+          res.status(400).json(buildErrorResponse(400, `不支持的配置节: ${section}，仅允许 nodes（initiation 已废弃，请使用 nodes["0"] 代替）`));
           return;
         }
-        const entries = section === 'initiation'
-          ? Object.entries(perms as Record<string, string>)
-          : Object.values(perms as Record<string, Record<string, string>>).flatMap(obj => Object.entries(obj));
-        for (const [field, perm] of entries) {
-          if (!validPerms.has(perm)) {
-            res.status(400).json(buildErrorResponse(400, `字段 ${field} 的权限值 ${perm} 不合法，仅允许 editable/readonly/hidden`));
-            return;
+        for (const [nodeOrder, nodePerms] of Object.entries(perms as Record<string, Record<string, string>>)) {
+          for (const [field, perm] of Object.entries(nodePerms)) {
+            if (!validPerms.has(perm)) {
+              res.status(400).json(buildErrorResponse(400, `节点${nodeOrder}字段 ${field} 的权限值 ${perm} 不合法，仅允许 editable/readonly/hidden`));
+              return;
+            }
           }
         }
+      }
+    }
+
+    // 校验全量完整性：每个节点必须为所有业务字段声明权限
+    const codeDef = getFormTypeByCode(code);
+    if (codeDef && fieldPermissions) {
+      const { valid, missing } = validateCompleteness(
+        codeDef.formSchema,
+        codeDef.workflowDef,
+        fieldPermissions as FieldPermissionsOverride
+      );
+      if (!valid) {
+        const missingDesc = missing.map(m => `节点${m.node}: ${m.fields.join(', ')}`).join('; ');
+        res.status(400).json(buildErrorResponse(400, `字段权限配置不完整，缺失: ${missingDesc}`));
+        return;
       }
     }
 

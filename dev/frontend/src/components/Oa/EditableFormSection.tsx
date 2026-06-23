@@ -5,22 +5,14 @@
  * 根据 fieldOptionFilter 过滤 select 选项，
  * 支持 visibleWhen 条件联动，通过 ref 暴露 getEditedValues/validate
  *
- * 支持的控件类型：text / textarea / number / money / date / select /
- *   signature / upload / table / 所有 erp_* 类型
+ * 所有字段渲染委托 FieldControlDispatcher（统一控件 + 模式开关）
  */
 import React, { useState, useImperativeHandle, forwardRef, useEffect, useCallback, useMemo } from 'react';
-import { Input, InputNumber, Select, Button, Card, Descriptions, DatePicker, Alert } from 'antd';
-import dayjs from 'dayjs';
+import { Card, Descriptions } from 'antd';
 import type { FormField, FormSchema, FieldPermission } from '@/types/oa';
-import { FormFieldRenderer, SignaturePad } from '@/components/Oa';
-import ErpFieldRenderer from '@/pages/Oa/Form/components/ErpFieldRenderer';
-import TableFieldRenderer from '@/pages/Oa/Form/components/TableFieldRenderer';
-import UploadFieldRenderer from '@/pages/Oa/Form/components/UploadFieldRenderer';
-import { TABLE_ERP_TYPES } from '@/components/Oa/hooks/useContainerWidth';
+import FieldControlDispatcher from './fields';
 import { checkCondition } from '@/pages/Oa/Form/components/ConditionalFieldWrapper';
 import styles from './ApprovalDetailContent.less';
-
-const { TextArea } = Input;
 
 // =====================================================
 // 对外暴露的 Ref 接口
@@ -40,6 +32,8 @@ export interface EditableFormSectionRef {
 export interface EditableFormSectionProps {
   formSchema: FormSchema;
   formData: Record<string, unknown>;
+  /** 表单类型编码，用于分组权限警告 */
+  formTypeCode?: string;
   /** 字段级编辑权限；未传入时所有字段默认为只读（安全降级） */
   fieldPermissions?: Record<string, FieldPermission>;
   fieldOptionFilter?: Record<string, string[]>;
@@ -52,12 +46,35 @@ export interface EditableFormSectionProps {
 // 辅助：获取字段权限（兼容 fieldPermissions 未传入的情况）
 // =====================================================
 
+/** 去重集合：按表单类型分组，同一字段在同一表单类型下只报告一次 */
+const MAX_REPORTED_GROUPS = 50;
+const reportedMissingPerms = new Map<string, Set<string>>();
+
 function getPerm(
   fieldPermissions: Record<string, FieldPermission> | undefined,
-  key: string
+  key: string,
+  formTypeCode?: string
 ): FieldPermission {
-  if (!fieldPermissions) return 'readonly';
-  return fieldPermissions[key] ?? 'readonly';
+  if (!fieldPermissions || !(key in fieldPermissions)) {
+    if (process.env.NODE_ENV === 'development') {
+      const groupKey = formTypeCode || '__default__';
+      let groupSet = reportedMissingPerms.get(groupKey);
+      if (!groupSet) {
+        // 容量上限：防止长时间运行的 SPA 内存泄漏
+        if (reportedMissingPerms.size >= MAX_REPORTED_GROUPS) {
+          reportedMissingPerms.clear();
+        }
+        groupSet = new Set();
+        reportedMissingPerms.set(groupKey, groupSet);
+      }
+      if (!groupSet.has(key)) {
+        groupSet.add(key);
+        console.warn(`[FieldPermission][${groupKey}] 字段 "${key}" 未声明权限，DB配置可能不完整。请在表单管理页配置。`);
+      }
+    }
+    return 'readonly';
+  }
+  return fieldPermissions[key];
 }
 
 // =====================================================
@@ -65,12 +82,12 @@ function getPerm(
 // =====================================================
 
 const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSectionProps>(
-  ({ formSchema, formData, fieldPermissions, fieldOptionFilter, resolvedMap, erpLicenseUrls, layout }, ref) => {
+  ({ formSchema, formData, formTypeCode, fieldPermissions, fieldOptionFilter, resolvedMap, erpLicenseUrls, layout }, ref) => {
     // 内部编辑状态：仅跟踪可编辑字段的值（formula 字段不参与编辑状态跟踪）
     const [editedValues, setEditedValues] = useState<Record<string, unknown>>(() => {
       const init: Record<string, unknown> = {};
       formSchema.fields.forEach(f => {
-        if (getPerm(fieldPermissions, f.key) === 'editable' && f.type !== 'formula') {
+        if (getPerm(fieldPermissions, f.key, formTypeCode) === 'editable' && f.type !== 'formula') {
           init[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
         }
       });
@@ -84,7 +101,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
     useEffect(() => {
       const reset: Record<string, unknown> = {};
       formSchema.fields.forEach(f => {
-        if (getPerm(fieldPermissions, f.key) === 'editable' && f.type !== 'formula') {
+        if (getPerm(fieldPermissions, f.key, formTypeCode) === 'editable' && f.type !== 'formula') {
           reset[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
         }
       });
@@ -132,7 +149,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
       validate(): string[] {
         const errors: string[] = [];
         formSchema.fields.forEach(field => {
-          const perm = getPerm(fieldPermissions, field.key);
+          const perm = getPerm(fieldPermissions, field.key, formTypeCode);
           if (perm !== 'editable') return;
           // 公式字段由系统计算，跳过校验
           if (field.type === 'formula') return;
@@ -156,10 +173,8 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
 
     // ==================== 字段过滤 ====================
 
+    // hidden 字段已在数据层 applyFieldPermissions 中过滤，此处仅处理 _ 前缀 / schema.hidden / visibleWhen
     const visibleFields = formSchema.fields.filter(field => {
-      const perm = getPerm(fieldPermissions, field.key);
-      // hidden 权限不渲染
-      if (perm === 'hidden') return false;
       // 跳过 _ 前缀内部字段
       if (field.key.startsWith('_')) return false;
       // 跳过 hidden 字段（如自动填充的供应商名称、采购单号等）
@@ -169,182 +184,37 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
       return true;
     });
 
-    // ==================== 可编辑字段渲染 ====================
-
-    const renderEditableField = (field: FormField) => {
-      const value = editedValues[field.key] ?? null;
-      const onChange = (v: unknown) => handleChange(field.key, v);
-
-      // ERP 字段类型：委托给 ErpFieldRenderer（含 autoFill 联动）
-      if (TABLE_ERP_TYPES.has(field.type)) {
-        const cascadeValue = field.cascadeFrom ? mergedValues[field.cascadeFrom] : undefined;
-        return (
-          <ErpFieldRenderer
-            field={field}
-            value={value}
-            onChange={onChange}
-            cascadeValue={cascadeValue}
-            form={fakeForm}
-          />
-        );
-      }
-
-      switch (field.type) {
-        case 'text':
-          return (
-            <Input
-              value={value as string || ''}
-              onChange={e => onChange(e.target.value)}
-              placeholder={field.placeholder || `请输入${field.label}`}
-              maxLength={field.maxLength}
-              showCount={!!field.maxLength}
-            />
-          );
-        case 'textarea':
-          return (
-            <TextArea
-              value={value as string || ''}
-              onChange={e => onChange(e.target.value)}
-              placeholder={field.placeholder || `请输入${field.label}`}
-              maxLength={field.maxLength}
-              showCount={!!field.maxLength}
-              autoSize={{ minRows: 3 }}
-            />
-          );
-        case 'number':
-          return (
-            <InputNumber
-              value={value as number | undefined}
-              onChange={v => onChange(v)}
-              style={{ width: '100%' }}
-              placeholder={field.placeholder || `请输入${field.label}`}
-              min={field.min}
-              max={field.max}
-              precision={field.precision}
-              addonAfter={field.suffix || field.unit}
-            />
-          );
-        case 'money':
-          // 金额输入：2位小数 + 千分位显示
-          return (
-            <>
-              <InputNumber
-                value={value as number | undefined}
-                onChange={v => onChange(v)}
-                style={{ width: '100%' }}
-                placeholder={field.placeholder || `请输入${field.label}`}
-                min={field.min}
-                max={field.max}
-                precision={2}
-                formatter={(val) =>
-                  val !== undefined && val !== null && String(val) !== ''
-                    ? `${Number(val).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    : ''
-                }
-                parser={(val) => val?.replace(/,/g, '') as any}
-                addonAfter="元"
-              />
-              {/* 实付金额与预付金额不一致时显示警告提醒 */}
-              {field.key === 'paymentAmount' && formData.prepaymentAmount != null && value != null && String(value) !== '' && (() => { const a = Number(value); const b = Number(formData.prepaymentAmount); if (isNaN(a) || isNaN(b)) return false; return a.toFixed(2) !== b.toFixed(2); })() && (
-                <Alert
-                  type="warning"
-                  message="实付金额与预付金额不一致，请确认"
-                  showIcon
-                  style={{ marginTop: 4 }}
-                />
-              )}
-            </>
-          );
-        case 'date':
-          return (
-            <DatePicker
-              value={value ? dayjs(value as string) : undefined}
-              onChange={(_, dateString) => onChange(dateString as string)}
-              placeholder={field.placeholder || `请选择${field.label}`}
-              style={{ width: '100%' }}
-            />
-          );
-        case 'select': {
-          let options = field.options || [];
-          // 应用 fieldOptionFilter（按层级过滤可选项）
-          const allowedValues = fieldOptionFilter?.[field.key];
-          if (allowedValues) {
-            options = options.filter(opt => allowedValues.includes(String(opt.value)));
-          }
-          return (
-            <Select
-              value={value as string | undefined}
-              onChange={v => onChange(v)}
-              placeholder={field.placeholder || `请选择${field.label}`}
-              options={options}
-              style={{ width: '100%' }}
-            />
-          );
-        }
-        case 'signature':
-          return (
-            <SignaturePad
-              value={value as string | undefined}
-              onChange={v => onChange(v)}
-            />
-          );
-        case 'upload':
-          return (
-            <UploadFieldRenderer
-              value={value}
-              onChange={onChange}
-              maxCount={field.maxCount}
-            />
-          );
-        case 'table':
-          // 可编辑表格：复用 TableFieldRenderer（支持增删行、单元格编辑）
-          return (
-            <TableFieldRenderer
-              field={field}
-              value={(value as Record<string, unknown>[]) || []}
-              onChange={onChange}
-            />
-          );
-        default:
-          // 其他未支持的类型降级为只读渲染
-          return (
-            <FormFieldRenderer
-              field={field}
-              value={value}
-              formData={mergedValues}
-              resolvedMap={resolvedMap}
-              erpLicenseUrls={erpLicenseUrls}
-            />
-          );
-      }
-    };
-
     // ==================== 渲染 ====================
+
+    /** 渲染单个字段：委托 FieldControlDispatcher，通过 mode 切换只读/编辑 */
+    const renderField = (field: FormField) => {
+      const perm = getPerm(fieldPermissions, field.key, formTypeCode);
+      const isEditable = perm === 'editable';
+      return (
+        <FieldControlDispatcher
+          mode={isEditable ? 'editable' : 'readonly'}
+          field={field}
+          value={isEditable ? (editedValues[field.key] ?? null) : formData[field.key]}
+          onChange={isEditable ? (v: unknown) => handleChange(field.key, v) : undefined}
+          formData={mergedValues}
+          resolvedMap={resolvedMap}
+          erpLicenseUrls={erpLicenseUrls}
+          allowedOptionValues={fieldOptionFilter?.[field.key]}
+          fakeForm={isEditable ? fakeForm : undefined}
+          fieldPermissions={fieldPermissions}
+        />
+      );
+    };
 
     if (layout === 'descriptions') {
       return (
         <Card title="表单内容" className={styles.card}>
           <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
-            {visibleFields.map(field => {
-              const perm = getPerm(fieldPermissions, field.key);
-              const isEditable = perm === 'editable';
-              return (
-                <Descriptions.Item key={field.key} label={field.label}>
-                  {isEditable
-                    ? renderEditableField(field)
-                    : (
-                      <FormFieldRenderer
-                        field={field}
-                        value={formData[field.key]}
-                        formData={mergedValues}
-                        resolvedMap={resolvedMap}
-                        erpLicenseUrls={erpLicenseUrls}
-                      />
-                    )
-                  }
-                </Descriptions.Item>
-              );
-            })}
+            {visibleFields.map(field => (
+              <Descriptions.Item key={field.key} label={field.label}>
+                {renderField(field)}
+              </Descriptions.Item>
+            ))}
           </Descriptions>
         </Card>
       );
@@ -355,29 +225,14 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
       <div className={styles.formDataSection}>
         <h3>表单数据</h3>
         <div className={styles.formDataList}>
-          {visibleFields.map(field => {
-            const perm = getPerm(fieldPermissions, field.key);
-            const isEditable = perm === 'editable';
-            return (
-              <div key={field.key} className={styles.formDataRow}>
-                <span className={styles.formLabel}>{field.label}</span>
-                <span className={styles.formValue}>
-                  {isEditable
-                    ? renderEditableField(field)
-                    : (
-                      <FormFieldRenderer
-                        field={field}
-                        value={formData[field.key]}
-                        formData={mergedValues}
-                        resolvedMap={resolvedMap}
-                        erpLicenseUrls={erpLicenseUrls}
-                      />
-                    )
-                  }
-                </span>
-              </div>
-            );
-          })}
+          {visibleFields.map(field => (
+            <div key={field.key} className={styles.formDataRow}>
+              <span className={styles.formLabel}>{field.label}</span>
+              <span className={styles.formValue}>
+                {renderField(field)}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     );

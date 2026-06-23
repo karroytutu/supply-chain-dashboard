@@ -33,6 +33,8 @@ jest.mock('./shared-utils', () => ({
 
 jest.mock('../../fixed-asset/erp-meta-utils', () => ({
   markErpFailed: jest.fn().mockResolvedValue(undefined),
+  mergeErpResponseData: jest.fn().mockResolvedValue(undefined),
+  persistFormData: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../oa-async-task.service', () => ({
@@ -52,6 +54,10 @@ import {
   executeAutoNodeCallback,
   retryAutoNode,
 } from './auto-node-operations';
+
+// 动态导入的 mock 引用
+const mockMergeErpResponseData = require('../../fixed-asset/erp-meta-utils').mergeErpResponseData;
+const mockPersistFormData = require('../../fixed-asset/erp-meta-utils').persistFormData;
 
 const mockQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 const mockTransaction = transaction as jest.MockedFunction<typeof transaction>;
@@ -245,6 +251,66 @@ describe('executeAutoNodeCallback', () => {
     expect(ft.onApproved).toHaveBeenCalledTimes(1);
     // 仅 claim + finalCheck 两次查询，不应有 mark-approved 或 advanceToNextNode 的查询
     expect(mockQuery).toHaveBeenCalledTimes(2);
+  });
+
+  // ========== 声明式回填测试 ==========
+
+  it('回调返回 erpMeta + 有声明 → 自动调用 mergeErpResponseData', async () => {
+    const ft = mkFormType({
+      onApproved: jest.fn().mockResolvedValue({ erpMeta: { billId: 123 } }),
+      nodeBackfills: [{ nodeOrder: 1, erpMetaFields: ['billId'] }],
+    });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)   // claim
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // finalCheck
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)   // node → approved
+      .mockResolvedValueOnce({ rows: [] } as any)                 // next node
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);   // instance → approved
+    await executeAutoNodeCallback(1, mkNode({ node_order: 1 }), ft as any, mkInstance(), {});
+    expect(mockMergeErpResponseData).toHaveBeenCalledWith(1, { billId: 123 });
+  });
+
+  it('回调返回 formData + 有声明 → 自动调用 persistFormData', async () => {
+    const ft = mkFormType({
+      onApproved: jest.fn().mockResolvedValue({ formData: { _billStr: 'BILL-001' } }),
+      nodeBackfills: [{ nodeOrder: 1, formDataFields: ['_billStr'] }],
+    });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
+      .mockResolvedValueOnce({ rows: [] } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
+    await executeAutoNodeCallback(1, mkNode({ node_order: 1 }), ft as any, mkInstance(), {});
+    expect(mockPersistFormData).toHaveBeenCalledWith(1, { _billStr: 'BILL-001' });
+  });
+
+  it('无 nodeBackfills 声明 → 不触发回填', async () => {
+    const ft = mkFormType({
+      onApproved: jest.fn().mockResolvedValue({ erpMeta: { billId: 123 } }),
+      // 无 nodeBackfills
+    });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)
+      .mockResolvedValueOnce({ rows: [] } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
+    await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), {});
+    expect(mockMergeErpResponseData).not.toHaveBeenCalled();
+    expect(mockPersistFormData).not.toHaveBeenCalled();
+  });
+
+  it('sendBack=true 时跳过回填', async () => {
+    const ft = mkFormType({
+      onApproved: jest.fn().mockResolvedValue({ sendBack: true, erpMeta: { billId: 123 } }),
+      nodeBackfills: [{ nodeOrder: 1, erpMetaFields: ['billId'] }],
+    });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
+    await executeAutoNodeCallback(1, mkNode(), ft as any, mkInstance(), {});
+    expect(mockMergeErpResponseData).not.toHaveBeenCalled();
   });
 });
 

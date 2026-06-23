@@ -94,13 +94,10 @@ export const assessmentAppealFormType: FormTypeDefinition = {
         required: false,
         maxCount: 5,
       },
-      {
-        key: '_sourceNoUrl',
-        label: '来源编号链接',
-        type: 'text',
-        required: false,
-        disabled: true,
-      },
+    ],
+    // 系统数据：不参与权限配置和前端渲染
+    internalFields: [
+      { key: '_sourceNoUrl', label: '来源编号链接', type: 'text', required: false },
     ],
   },
 

@@ -170,6 +170,78 @@ describe('validateFormData', () => {
     const result = validateFormData(schema, { rows: [{ qty: '' }, { qty: 5 }] });
     expect(result).toEqual(['明细[1].数量不能为空']);
   });
+
+  describe('nodeZeroPermissions 发起节点权限', () => {
+    const schema: any = {
+      fields: [
+        { key: 'name', label: '名称', type: 'text', required: true },
+        { key: 'paymentSubjectId', label: '付款账户', type: 'erp_payment_account', required: true },
+        { key: 'remark', label: '备注', type: 'textarea', required: false },
+      ],
+    };
+
+    it('hidden 字段跳过必填校验（核心修复场景）', () => {
+      const perms = { paymentSubjectId: 'hidden' as const };
+      // paymentSubjectId 被隐藏且未传值，应通过校验
+      expect(validateFormData(schema, { name: '测试' }, perms)).toEqual([]);
+    });
+
+    it('不传第三参数时保持原有行为（向后兼容）', () => {
+      // 不传第三参数，paymentSubjectId 必填未填应报错
+      expect(validateFormData(schema, { name: '测试' })).toContain('付款账户不能为空');
+    });
+
+    it('第三参数为 undefined 时保持原有行为', () => {
+      expect(validateFormData(schema, { name: '测试' }, undefined)).toContain('付款账户不能为空');
+    });
+
+    it('readonly 权限不跳过必填校验', () => {
+      const perms = { paymentSubjectId: 'readonly' as const };
+      expect(validateFormData(schema, { name: '测试' }, perms)).toContain('付款账户不能为空');
+    });
+
+    it('editable 权限不跳过必填校验', () => {
+      const perms = { paymentSubjectId: 'editable' as const };
+      expect(validateFormData(schema, { name: '测试' }, perms)).toContain('付款账户不能为空');
+    });
+
+    it('table 子字段递归不受 nodeZeroPermissions 影响', () => {
+      const tableSchema: any = {
+        fields: [
+          {
+            key: 'lines', label: '明细', type: 'table', required: true,
+            children: [
+              { key: 'qty', label: '数量', type: 'number', required: true },
+            ],
+          },
+          { key: 'paymentSubjectId', label: '付款账户', type: 'text', required: true },
+        ],
+      };
+      const perms = { paymentSubjectId: 'hidden' as const, qty: 'hidden' as const };
+      // paymentSubjectId 被隐藏跳过；但 qty 是子字段，递归不传 perms，必填校验仍生效
+      const errors = validateFormData(tableSchema, { lines: [{ qty: '' }] }, perms);
+      expect(errors).toContain('明细[1].数量不能为空');
+      expect(errors).not.toContain('付款账户不能为空');
+    });
+
+    it('同时有 visibleWhen 和 hidden 时任一满足即跳过', () => {
+      const condSchema: any = {
+        fields: [
+          {
+            key: 'extra', label: '附加', type: 'text', required: true,
+            visibleWhen: { field: 'show', operator: '==', value: true },
+          },
+        ],
+      };
+      // visibleWhen 不满足 → 跳过
+      expect(validateFormData(condSchema, { show: false }, {})).toEqual([]);
+      // visibleWhen 满足但 hidden → 跳过
+      expect(validateFormData(condSchema, { show: true }, { extra: 'hidden' as const })).toEqual([]);
+      // visibleWhen 满足且非 hidden → 报错
+      expect(validateFormData(condSchema, { show: true }, { extra: 'editable' as const }))
+        .toContain('附加不能为空');
+    });
+  });
 });
 
 describe('validateInputData', () => {

@@ -1,20 +1,16 @@
 /**
- * 固定资产采购流程 - OA 审批回调处理器
- * 节点5(出纳支付): 创建费用单
- * 节点7(资产入库): 批量创建舟谱资产卡片
+ * 固定资产采购流程 - auto 节点回调处理器
+ * 节点6(创建费用单): 出纳支付后调用 ERP 创建费用单
+ * 节点9(创建资产卡片): 资产入库后批量创建舟谱资产卡片
  * @module services/fixed-asset/purchase-callback
  */
 import { createLogger } from '../../utils/logger';
 const log = createLogger('FixedAsset');
 
-import type { OaInstanceRow } from '../oa/oa.types';
+import { appQuery as query } from '../../db/appPool';
+import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
 import { getErpStaff, searchErpAssets } from './fixed-asset.query';
-import {
-  getErpMeta,
-  updateErpMetaStatus,
-  mergeErpResponseData,
-  markErpFailed,
-} from './erp-meta-utils';
+import { getErpMeta, updateErpMetaStatus, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults, type ErpBillResponse } from '../erp-client';
 import { FEE_SUBJECT, type PurchaseLine, type CreatedAssetRecord } from './fixed-asset.types';
 import { randomUUID } from 'crypto';
@@ -25,29 +21,42 @@ import {
 } from './fixed-asset-utils';
 
 /**
- * 采购流程 — data_input 节点回调
+ * 采购流程 — auto 节点回调入口
+ * 通过查询当前 processing 状态的 auto 节点 node_order 进行分发
  */
-export async function handleAssetPurchaseNodeCallback(
+export async function handleAssetPurchaseAutoNode(
   instance: OaInstanceRow,
-  nodeOrder: number,
-  nodeData: Record<string, unknown>,
   formData: Record<string, unknown>
-): Promise<void> {
-  if (nodeOrder === 5) {
-    await handlePurchasePayment(instance, formData);
-  } else if (nodeOrder === 7) {
-    await handlePurchaseAssetCreate(instance, formData);
+): Promise<CallbackResult | void> {
+  const currentNodeResult = await query<{ node_order: number; node_name: string }>(
+    `SELECT node_order, node_name FROM oa_approval_nodes
+     WHERE instance_id = $1 AND node_type = 'auto' AND status = 'processing'
+     ORDER BY node_order LIMIT 1`,
+    [instance.id]
+  );
+
+  const nodeOrder = currentNodeResult.rows[0]?.node_order;
+  const nodeName = currentNodeResult.rows[0]?.node_name;
+  log.info(`[固定资产采购] auto节点执行: instanceId=${instance.id}, node=${nodeOrder}(${nodeName})`);
+
+  switch (nodeOrder) {
+    case 6:
+      return handleCreateExpenseBill(instance, formData);
+    case 9:
+      return handleCreateAssetCards(instance, formData);
+    default:
+      log.warn(`[固定资产采购] 未知的auto节点: nodeOrder=${nodeOrder}, nodeName=${nodeName}`);
   }
 }
 
 /**
- * 采购节点5 — 出纳支付后创建费用单
+ * 节点6 — 创建费用单
  * subjectId=217 购置固定资产
  */
-async function handlePurchasePayment(
+async function handleCreateExpenseBill(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
+): Promise<CallbackResult> {
   try {
     await updateErpMetaStatus(instance.id, 'paying');
 
@@ -56,18 +65,15 @@ async function handlePurchasePayment(
     const paymentSubjectId = formData.paymentSubjectId as number;
     const paymentDate = normalizeDateTime(formData.paymentDate as string);
 
-    // 获取申请人舟谱信息
     const { defaultSalesmanId, defaultDeptId } = getErpDefaults();
     const staff = await getErpStaff();
     const applicant = staff.find(s => s.name === instance.applicant_name);
     const salesmanId = applicant?.id || defaultSalesmanId;
     const deptId = applicant?.deptId || defaultDeptId;
 
-    // 获取 APA 编号
     const erpMeta = getErpMeta(instance);
     const applicationNo = erpMeta?.applicationNo || instance.instance_no;
 
-    // 构造费用单请求体
     const details = lines.map(line => ({
       id: randomUUID(),
       subjectId: FEE_SUBJECT.PURCHASE.subjectId,
@@ -113,30 +119,35 @@ async function handlePurchasePayment(
     const billData = result?.data as ErpBillResponse | undefined;
 
     await updateErpMetaStatus(instance.id, 'purchasing');
-    await mergeErpResponseData(instance.id, {
-      expenditureBillId: billData?.id,
-      expenditureBillStr: billData?.billStr,
-    });
-
     log.info(`采购费用单创建成功: billStr=${billData?.billStr}`);
+
+    return {
+      erpMeta: {
+        expenditureBillId: billData?.id,
+        expenditureBillStr: billData?.billStr,
+      },
+      formData: {
+        _expenditureBillStr: billData?.billStr,
+      },
+    };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     log.error(`采购费用单创建失败:`, message);
     await markErpFailed(instance.id, { error: message, node: 'purchase_payment' });
+    throw error;
   }
 }
 
 /**
- * 采购节点7 — 资产入库后批量创建舟谱资产卡片
+ * 节点9 — 批量创建资产卡片
  */
-async function handlePurchaseAssetCreate(
+async function handleCreateAssetCards(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
+): Promise<CallbackResult> {
   try {
     await updateErpMetaStatus(instance.id, 'storing');
 
-    // 采购明细 + 入库信息按行合并：入库时填写的 actualPrice/arrivalDate 覆盖到采购明细对应行上
     const purchaseLines = (formData.purchaseLines as PurchaseLine[]) || [];
     const arrivalLines = (formData.arrivalLines as Record<string, unknown>[]) || [];
     const lines = purchaseLines.map((line, i) => ({
@@ -149,7 +160,6 @@ async function handlePurchaseAssetCreate(
 
     const config = getErpConfig();
 
-    // 查询 ERP 现有资产获取最大编码
     const erpAssets = await searchErpAssets('', '');
     let nextCodeNum = generateNextAssetCode(erpAssets);
 
@@ -158,7 +168,6 @@ async function handlePurchaseAssetCreate(
       const quantity = line.quantity || 1;
 
       for (let unitIndex = 0; unitIndex < quantity; unitIndex++) {
-        // 跳过已创建的资产（重试场景）
         const alreadyCreated = existingAssets.find(
           a => a.lineIndex === lineIndex && a.unitIndex === unitIndex
         );
@@ -192,21 +201,27 @@ async function handlePurchaseAssetCreate(
           const message = createError instanceof Error ? createError.message : String(createError);
           log.error(`资产创建失败: line=${lineIndex} unit=${unitIndex}`, message);
           // 记录已成功的，标记部分失败
-          await mergeErpResponseData(instance.id, { createdAssets });
           await markErpFailed(instance.id, { error: message, lineIndex, unitIndex });
-          return;
+          // 返回已成功创建的部分
+          return {
+            erpMeta: { createdAssets },
+            formData: { _createdAssetCodes: createdAssets.map(a => a.code).join(', ') },
+          };
         }
       }
     }
 
-    // 全部成功
     await updateErpMetaStatus(instance.id, 'completed');
-    await mergeErpResponseData(instance.id, { createdAssets });
-
     log.info(`采购资产入库完成, 共创建 ${createdAssets.length} 件资产`);
+
+    return {
+      erpMeta: { createdAssets },
+      formData: { _createdAssetCodes: createdAssets.map(a => a.code).join(', ') },
+    };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     log.error(`采购资产入库异常:`, message);
     await markErpFailed(instance.id, { error: message, node: 'purchase_asset_create' });
+    throw error;
   }
 }

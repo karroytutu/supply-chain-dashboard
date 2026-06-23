@@ -194,4 +194,29 @@ describe('submitApproval', () => {
     const result = await submitApproval(baseReq, baseFormType, 1, '张三', null);
     expect(result.instanceId).toBe(1);
   });
+
+  it('提交校验时传入发起节点字段权限', async () => {
+    const formTypeWithPerms: any = {
+      ...baseFormType,
+      fieldPermissions: { nodes: { '0': { paymentSubjectId: 'hidden' } } },
+    };
+    const mockInstance = { id: 1, instance_no: 'OA-001' };
+
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [mockInstance] })
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [] }),
+      };
+      return fn(mockClient);
+    });
+
+    await submitApproval(baseReq, formTypeWithPerms, 1, '张三', null);
+    expect(validateFormData).toHaveBeenCalledWith(
+      formTypeWithPerms.formSchema,
+      baseReq.formData,
+      { paymentSubjectId: 'hidden' }
+    );
+  });
 });

@@ -130,7 +130,7 @@ async function createAndSaveTemplate(
   ];
 
   // detailUrl 用于 processFeatureConfig 的 TASK_EXECUTE 跳转
-  const detailUrl = `${config.app.baseUrl}/oa/detail`;
+  const detailUrl = `${config.dingtalk.baseUrl}/oa/detail`;
 
   const templateName = `${DINGTALK_PROCESS_TEMPLATE_PREFIX}-${formTypeName}`;
 
@@ -175,10 +175,10 @@ function buildActivityId(instanceId: number, nodeOrder: number): string {
 
 /**
  * 构建详情页URL
- * @param baseUrlOverride - 可选，覆盖 config.app.baseUrl（用于修复脚本在非生产环境运行时指定正确域名）
+ * @param baseUrlOverride - 可选，覆盖 config.dingtalk.baseUrl（应急用途）
  */
 function buildDetailUrl(instanceId: number, baseUrlOverride?: string): string {
-  const baseUrl = baseUrlOverride || config.app.baseUrl;
+  const baseUrl = baseUrlOverride || config.dingtalk.baseUrl;
   return `${baseUrl}/oa/detail/${instanceId}`;
 }
 

@@ -12,10 +12,8 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ProcurementCallback');
 
 import { appQuery as query } from '../../db/appPool';
-import type { OaInstanceRow } from '../oa/oa.types';
+import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
 import {
-  mergeErpResponseData,
-  mergeFormData,
   getErpMeta,
 } from '../../services/fixed-asset/erp-meta-utils';
 import {
@@ -38,7 +36,7 @@ import type {
 export async function handleProcurementAutoNode(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
+): Promise<CallbackResult | void> {
   // 查询当前正在执行的 auto 节点
   const currentNodeResult = await query<{ node_order: number; node_name: string }>(
     `SELECT node_order, node_name FROM oa_approval_nodes
@@ -98,7 +96,7 @@ export async function handleProcurementAutoNode(
 async function handleCreatePrepayment(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
+): Promise<CallbackResult> {
   const originalBillId = (formData._originalBillId || formData.erpBillId) as number;
   const originalBillStr = (formData._originalBillStr || formData.erpBillStr) as string;
   const supplierId = (formData._supplierId || formData.supplierId) as string;
@@ -136,15 +134,10 @@ async function handleCreatePrepayment(
   const result = await createPurchasePrepayment(request, idemKey);
   log.info(`[采购审批] 采购预付款创建成功: billStr=${result.billStr}`);
 
-  await mergeErpResponseData(instance.id, {
-    prepayBillId: result.id,
-    prepayBillStr: result.billStr,
-  });
-
-  // 回填预付款单号到 form_data，前端表单可直接展示
-  await mergeFormData(instance.id, {
-    prepayBillStr: result.billStr,
-  });
+  return {
+    erpMeta: { prepayBillId: result.id, prepayBillStr: result.billStr },
+    formData: { prepayBillStr: result.billStr },
+  };
 }
 
 /**
@@ -154,7 +147,7 @@ async function handleCreatePrepayment(
 async function handleCreatePrepaymentV4(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
+): Promise<CallbackResult> {
   const originalBillId = (formData._originalBillId || formData.erpBillId) as number;
   const originalBillStr = (formData._originalBillStr || formData.erpBillStr) as string;
   const supplierId = (formData._supplierId || formData.supplierId) as string;
@@ -188,15 +181,10 @@ async function handleCreatePrepaymentV4(
   const result = await createPurchasePrepayment(request, idemKey);
   log.info(`[采购审批] v4旧版-采购预付款创建成功: billStr=${result.billStr}`);
 
-  await mergeErpResponseData(instance.id, {
-    prepayBillId: result.id,
-    prepayBillStr: result.billStr,
-  });
-
-  // 回填预付款单号到 form_data，前端表单可直接展示
-  await mergeFormData(instance.id, {
-    prepayBillStr: result.billStr,
-  });
+  return {
+    erpMeta: { prepayBillId: result.id, prepayBillStr: result.billStr },
+    formData: { prepayBillStr: result.billStr },
+  };
 }
 
 /**
@@ -206,7 +194,7 @@ async function handleCreatePrepaymentV4(
 async function handleApprovePO(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
+): Promise<CallbackResult | void> {
   const originalBillId = (formData._originalBillId || formData.erpBillId) as number;
 
   if (!originalBillId) {
@@ -227,7 +215,9 @@ async function handleApprovePO(
     throw err; // 其他错误仍然抛出
   }
 
-  await mergeErpResponseData(instance.id, { poApproved: true, originalBillId });
+  return {
+    erpMeta: { poApproved: true, originalBillId },
+  };
 }
 
 /**
@@ -237,7 +227,9 @@ async function handleApprovePO(
 async function handleCompletion(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
-): Promise<void> {
+): Promise<CallbackResult> {
   log.info(`[采购审批] 办结检查: instanceId=${instance.id}`);
-  await mergeErpResponseData(instance.id, { completionStatus: 'completed' });
+  return {
+    erpMeta: { completionStatus: 'completed' },
+  };
 }

@@ -53,6 +53,8 @@ export const config = {
     appSecret: process.env.DINGTALK_APP_SECRET || '',
     corpId: process.env.DINGTALK_CORP_ID || '',
     agentId: process.env.DINGTALK_AGENT_ID || '',
+    /** 钉钉跳转链接基础URL（写入钉钉的链接始终指向生产域名，与运行环境无关） */
+    baseUrl: process.env.DINGTALK_BASE_URL || 'https://xly.gzzxd.com',
   },
 
   // JWT配置

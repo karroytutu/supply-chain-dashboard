@@ -3,9 +3,9 @@
  * 供 Oa/Detail 独立页面和 Oa/Center 流程中心面板复用
  * 负责：头部信息 + 表单渲染（list/descriptions 两种布局）+ 审批流程 + 操作栏 + ActionModal
  */
-import React from 'react';
-import { Card, Descriptions } from 'antd';
-import type { ApprovalDetail } from '@/types/oa';
+import React, { useMemo } from 'react';
+import { Alert, Card, Descriptions } from 'antd';
+import type { ApprovalDetail, FieldPermission, FormSchema } from '@/types/oa';
 import { ApprovalStatusTag, ApprovalFlow, FormFieldRenderer } from '@/components/Oa';
 import FormFieldsDiff, { hasOriginalFields } from './FormFieldsDiff';
 import EditableFormSection, { type EditableFormSectionRef } from './EditableFormSection';
@@ -49,6 +49,51 @@ const DetailHeader: React.FC<{ detail: ApprovalDetail }> = ({ detail }) => (
   </div>
 );
 
+// ==================== 数据层权限过滤 ====================
+
+/**
+ * 在数据层一次性过滤字段权限：
+ * 1. 从 formSchema.fields 中移除 fieldPermissions[key] === 'hidden' 的字段
+ * 2. 表格类型：从 children 中移除 hidden 子字段
+ * 3. 从 formData 中移除 hidden 字段对应的数据
+ */
+function applyFieldPermissions(
+  formSchema: FormSchema,
+  formData: Record<string, unknown>,
+  fieldPermissions?: Record<string, FieldPermission>,
+): { formSchema: FormSchema; formData: Record<string, unknown> } {
+  if (!fieldPermissions) return { formSchema, formData };
+
+  const filteredFields = formSchema.fields.filter(field => {
+    return fieldPermissions[field.key] !== 'hidden';
+  }).map(field => {
+    // 表格子字段过滤
+    if (field.type === 'table' && field.children) {
+      const filteredChildren = field.children.filter(
+        child => fieldPermissions[`${field.key}.${child.key}`] !== 'hidden'
+      );
+      return { ...field, children: filteredChildren };
+    }
+    return field;
+  });
+
+  // 从 formData 中移除 hidden 字段的数据
+  const hiddenKeys = new Set(
+    formSchema.fields
+      .filter(f => fieldPermissions[f.key] === 'hidden')
+      .map(f => f.key)
+  );
+  const filteredData = { ...formData };
+  for (const key of hiddenKeys) {
+    delete filteredData[key];
+  }
+
+  return {
+    formSchema: { ...formSchema, fields: filteredFields },
+    formData: filteredData,
+  };
+}
+
 // ==================== 表单字段渲染 ====================
 
 const FormFieldsSection: React.FC<{
@@ -61,6 +106,7 @@ const FormFieldsSection: React.FC<{
     <FormFieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
   );
 
+  // hidden 字段已在数据层 applyFieldPermissions 中过滤，此处仅处理 visibleWhen / _ 前缀 / schema.hidden
   const filteredFields = detail.formSchema?.fields?.filter((field: any) => {
     if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return false;
     if (field.key.startsWith('_')) return false;
@@ -132,28 +178,53 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   // 计算当前节点是否可操作（与 ActionBar 保持一致的逻辑）
   const canOperate = canOperateOverride !== undefined ? canOperateOverride : actionState.canOperate;
 
-  // 从 workflowDef 提取当前节点的字段权限和选项过滤
+  // 从 DB 获取当前节点的字段权限（DB 为唯一来源，不再合并代码默认值）
   const currentNode = detail.nodes.find(n => n.nodeOrder === detail.currentNodeOrder);
   const workflowNode = detail.workflowDef?.nodes.find(n => n.order === currentNode?.nodeOrder);
-  // 合并字段权限：代码定义（默认值） + DB 覆盖值（管理员配置优先）
-  const codePermissions = workflowNode?.fieldPermissions || {};
-  const dbOverrides = detail.fieldPermissions?.nodes?.[String(currentNode?.nodeOrder)] || {};
-  const fieldPermissions = { ...codePermissions, ...dbOverrides };
+  const fieldPermissions = detail.fieldPermissions?.nodes?.[String(currentNode?.nodeOrder)];
   const fieldOptionFilter = workflowNode?.fieldOptionFilter;
   const nodeType = workflowNode?.type ?? 'approval';
 
   // 办理型节点 + 可操作时进入编辑模式（fieldPermissions 可选，未配置时所有字段默认为只读）
   const isEditable = nodeType === 'handle' && canOperate;
 
+  // 数据层权限过滤：在传给子组件之前一次性过滤 hidden 字段和数据
+  const { formSchema: filteredSchema, formData: filteredData } = useMemo(
+    () => applyFieldPermissions(detail.formSchema, detail.formData, fieldPermissions),
+    [detail.formSchema, detail.formData, fieldPermissions],
+  );
+  const filteredDetail = useMemo(
+    () => ({ ...detail, formSchema: filteredSchema, formData: filteredData }),
+    [detail, filteredSchema, filteredData],
+  );
+
+  // 权限完整性检查：当 fieldPermissions 缺失时展示警告
+  const missingPermissions = useMemo(() => {
+    if (!detail.fieldPermissions) {
+      return { missing: true, description: '该表单尚未配置字段权限，请在「表单管理」页面补充配置。' };
+    }
+    return null;
+  }, [detail.fieldPermissions]);
+
   return (
     <div className={`${styles.content} ${className || ''}`}>
       {showHeader && <DetailHeader detail={detail} />}
       {extraContentBefore}
+      {missingPermissions && (
+        <Alert
+          type="warning"
+          message="字段权限配置不完整"
+          description={missingPermissions.description}
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
       {isEditable ? (
         <EditableFormSection
           ref={editableFormRef}
-          formSchema={detail.formSchema}
-          formData={detail.formData}
+          formSchema={filteredSchema}
+          formData={filteredData}
+          formTypeCode={detail.formTypeCode}
           fieldPermissions={fieldPermissions}
           fieldOptionFilter={fieldOptionFilter}
           resolvedMap={resolvedMap}
@@ -161,7 +232,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
           layout={formLayout}
         />
       ) : (
-        <FormFieldsSection detail={detail} layout={formLayout} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
+        <FormFieldsSection detail={filteredDetail} layout={formLayout} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
       )}
       <div className={styles.flowSection}>
         <h3>审批流程</h3>

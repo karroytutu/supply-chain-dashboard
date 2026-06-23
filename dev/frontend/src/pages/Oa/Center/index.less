@@ -47,6 +47,15 @@
   .navIcon {
     color: #1890ff;
   }
+
+  .navShortLabel {
+    color: #1890ff;
+    font-weight: 500;
+  }
+}
+
+.iconWrapper {
+  display: contents;
 }
 
 .navIcon {
@@ -59,6 +68,14 @@
   flex: 1;
   font-size: 14px;
   color: #333;
+}
+
+.navShortLabel {
+  display: none;
+  font-size: 10px;
+  color: #333;
+  line-height: 1.2;
+  text-align: center;
 }
 
 // 中间列表
@@ -294,18 +311,47 @@
 // 操作栏样式已迁移至 components/Oa/ActionBar.less
 
 // 响应式
-// ── 大屏 → 中屏 (≤1400px)：导航收起为图标 ──
+// ── 大屏 → 中屏 (≤1400px)：导航收起为图标 + 缩写 ──
 @media (max-width: @screen-xxl) {
   .nav {
     width: 48px;
   }
 
-  .navLabel {
-    display: none;
+  .navItem {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+    gap: 2px;
+  }
+
+  // iconWrapper 从 display:contents 切换为实体容器，便于 Badge 绝对定位
+  .iconWrapper {
+    display: inline-flex;
+    position: relative;
+    align-items: center;
+    justify-content: center;
   }
 
   .navIcon {
     margin-right: 0;
+    font-size: 16px;
+  }
+
+  .navLabel {
+    display: none;           // 隐藏完整标签
+  }
+
+  .navShortLabel {
+    display: block;          // 显示缩写标签
+  }
+
+  // Badge 定位到图标右上角
+  :global(.ant-badge) {
+    position: absolute !important;
+    top: -4px;
+    right: -6px;
+    transform: none !important;
   }
 }
 
@@ -345,6 +391,16 @@
       border-bottom: 3px solid transparent;
       flex: 1;
       min-width: 0;
+    }
+
+    // 重置 iconWrapper 为透明模式
+    .iconWrapper {
+      display: contents;
+    }
+
+    // 隐藏缩写，恢复完整标签
+    .navShortLabel {
+      display: none;
     }
 
     .navItemActive {
