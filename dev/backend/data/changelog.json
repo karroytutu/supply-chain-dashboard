@@ -1,6 +1,24 @@
 {
   "entries": [
     {
+      "version": "v2.11.0",
+      "date": "2026-06-24 02:58",
+      "types": ["feature", "breaking", "optimization"],
+      "changes": [
+        "OA表单字段架构重构：FormFieldRenderer从巨型组件拆分为14个独立字段控件（TextFieldControl、ErpFieldControl、TableFieldControl等），EditableFormSection大幅精简，ReadonlyTable废弃删除",
+        "新增字段权限服务端校验器（field-permission-validator），提交表单时后端强制校验字段可见/可编辑权限，防止越权篡改",
+        "新增物流费审批表单类型（logistics-fee），含表单定义、回调服务和单元测试，支持物流费用审批全生命周期",
+        "Auto节点架构重构：迁移127重构自动执行节点数据结构，auto-node-operations增强支持多行记录执行模式",
+        "新增用户银行账户服务（user-bank-account），含数据库迁移124、BankAccountSelector前端组件，支持付款表单关联银行账户",
+        "ERP服务扩展：新增费用分摊服务（erp-expense-allocation）和采购结算服务（erp-purchase-settlement），采购类型定义增强",
+        "8个OA表单类型批量适配：催收、采购、资产、授信、客户等表单统一适配字段权限体系和新的字段控件架构",
+        "新增字段权限生成脚本（generate-field-permissions），支持为现有表单批量生成全量字段权限配置",
+        "前端OA API服务增强：新增字段权限、银行账户、物流费相关接口，类型定义同步更新",
+        "OA审批详情页增强：ApprovalDetailContent支持更丰富的流程信息展示，审批中心导航和样式优化",
+        "4项数据库迁移：用户银行账户(124)、物流费表单(125)、字段权限全量迁移(126)、auto节点重构(127)"
+      ]
+    },
+    {
       "version": "v2.10.1",
       "date": "2026-06-23 12:55",
       "types": ["fix", "optimization"],

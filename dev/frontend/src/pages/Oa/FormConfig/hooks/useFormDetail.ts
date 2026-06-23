@@ -68,7 +68,6 @@ export interface FormDetailData {
   formSchema?: { fields: Array<{ key: string; label: string; type: string; hidden?: boolean }> };
   /** 字段权限 DB 覆盖值 */
   fieldPermissions?: {
-    initiation?: Record<string, string>;
     nodes?: Record<string, Record<string, string>>;
   };
   workflowDef: {

@@ -1,9 +1,9 @@
 /**
  * 表单填写页面
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { history, useParams, useAccess } from 'umi';
-import { Button, Spin, Form, message } from 'antd';
+import { Button, Spin, Form, message, Alert } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { oaApi } from '@/services/api/oa';
 import type { FormTypeDefinition } from '@/types/oa';
@@ -16,6 +16,7 @@ import { evaluateFormula, detectCycles, topologicalSort } from '@/utils/formula-
 import { initDingtalkViewportHeight } from '@/utils/dingtalk/utils';
 import styles from './index.less';
 import { getErrorMessage } from '../../../utils/errorUtils';
+import { computeFeeTotals } from './computeFeeTotals';
 
 const FormPage: React.FC = () => {
   const { typeCode } = useParams<{ typeCode: string }>();
@@ -70,6 +71,14 @@ const FormPage: React.FC = () => {
       for (const key of Object.keys(prev)) {
         if (key.startsWith('_')) hiddenFields[key] = prev[key];
       }
+      // 保留 internalFields 中定义的字段（如 feeSupplierName，无 Form.Item 注册，onValuesChange 不返回）
+      if (formType?.formSchema.internalFields) {
+        for (const f of formType.formSchema.internalFields) {
+          if (!f.key.startsWith('_') && prev[f.key] !== undefined) {
+            hiddenFields[f.key] = prev[f.key];
+          }
+        }
+      }
       return { ...hiddenFields, ...allValues };
     });
 
@@ -102,10 +111,77 @@ const FormPage: React.FC = () => {
         }
       }
     }
+
+    // 物流装卸费用：费用明细表格联动计算
+    if (typeCode === 'logistics_fee' && changedValues.feeLines) {
+      const feeLines = allValues.feeLines as Array<Record<string, unknown>> | undefined;
+      if (feeLines) {
+        const { total, updatedLines } = computeFeeTotals(feeLines);
+        if (updatedLines) {
+          form.setFieldsValue({ feeLines: updatedLines, feeTotalAmount: total });
+        }
+      }
+    }
   };
 
   // ===== 客户档案修改：欠款与状态选项 =====
   const { customerStateOptions, debtLoading } = useCustomerDebt(typeCode, formData);
+
+  // ===== 物流装卸费用：结算单选中后自动填充费用明细表 =====
+  const prevSettlementIdsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    if (typeCode !== 'logistics_fee') return;
+    const settlementIds = (formData.settlementIds as string[]) || [];
+
+    // 仅当选中结算单发生变化时触发
+    const prevIds = prevSettlementIdsRef.current;
+    const idsChanged = settlementIds.length !== prevIds.length ||
+      settlementIds.some((id, i) => id !== prevIds[i]);
+    if (!idsChanged || settlementIds.length === 0) {
+      prevSettlementIdsRef.current = settlementIds;
+      if (settlementIds.length === 0) {
+        form.setFieldsValue({ feeLines: [] });
+        setFormData(prev => ({ ...prev, feeLines: [] }));
+      }
+      return;
+    }
+    prevSettlementIdsRef.current = settlementIds;
+
+    // 异步获取可分摊采购明细，填充费用明细表
+    (async () => {
+      try {
+        const allLines: Array<Record<string, unknown>> = [];
+        for (const billStr of settlementIds) {
+          const result = await oaApi.getAllocatablePurchaseDetails({ billStr });
+          const records = (result?.records || []) as Array<Record<string, unknown>>;
+          for (const r of records) {
+            allLines.push({
+              billOrderStr: r.billOrderStr as string,
+              settlementBillStr: r.billStr as string,
+              goodsName: r.goodsName as string,
+              quantity: r.quantity as number,
+              currUnitName: r.currUnitName as string,
+              settleAmount: r.amount as string,
+              feeUnitPrice: null,
+              feeAmount: null,
+            });
+          }
+        }
+        if (allLines.length > 0) {
+          form.setFieldsValue({ feeLines: allLines });
+          setFormData(prev => ({ ...prev, feeLines: allLines }));
+        } else {
+          form.setFieldsValue({ feeLines: [] });
+          setFormData(prev => ({ ...prev, feeLines: [] }));
+        }
+      } catch {
+        message.error('获取结算单明细失败');
+      }
+    })();
+  }, [formData.settlementIds, typeCode, form, setFormData]);
+
+  // 费用金额自动计算：委托 computeFeeTotals 工具函数
 
   /** 判断字段是否在当前条件下必填 */
   const isFieldRequired = (field: FormTypeDefinition['formSchema']['fields'][0]): boolean => {
@@ -127,6 +203,15 @@ const FormPage: React.FC = () => {
       for (const key of Object.keys(formData)) {
         if (key.startsWith('_') && formData[key] !== undefined && formData[key] !== null) {
           values[key] = formData[key];
+        }
+      }
+
+      // 注入 internalFields 的值（如 supplierName、erpBillStr，由 autoFill 填入 formData）
+      if (formType.formSchema.internalFields) {
+        for (const f of formType.formSchema.internalFields) {
+          if (formData[f.key] !== undefined && formData[f.key] !== null) {
+            values[f.key] = formData[f.key];
+          }
         }
       }
 
@@ -217,9 +302,9 @@ const FormPage: React.FC = () => {
             {formType.formSchema.fields
               .filter((field) => {
                 if (field.key.startsWith('_') || field.hidden) return false;
-                // 应用管理员配置的发起阶段字段权限覆盖
-                const initiationPerms = formType.fieldPermissions?.initiation;
-                if (initiationPerms?.[field.key] === 'hidden') return false;
+                // 应用发起节点（order=0）的字段权限
+                const nodeZeroPerms = formType.fieldPermissions?.nodes?.['0'];
+                if (nodeZeroPerms?.[field.key] === 'hidden') return false;
                 return true;
               })
               .map((field) => {
@@ -251,6 +336,17 @@ const FormPage: React.FC = () => {
           <ApprovalFlow mode="preview" workflowNodes={formType.workflowDef.nodes} formTypeCode={formType.code} fieldLabels={fieldLabels} formData={formData} />
         </div>
       </div>
+
+      {typeCode === 'logistics_fee' && formData.paymentAmount != null && formData.feeTotalAmount != null &&
+        Math.abs(parseFloat(String(formData.paymentAmount)) - parseFloat(String(formData.feeTotalAmount))) > 0.01 && (
+        <div style={{ padding: '0 24px', marginBottom: 8 }}>
+          <Alert
+            type="warning"
+            showIcon
+            message={`实付金额（${formData.paymentAmount}）与费用合计（${formData.feeTotalAmount}）不一致`}
+          />
+        </div>
+      )}
 
       <div className={styles.footer}>
         <Button onClick={() => history.back()}>取消</Button>

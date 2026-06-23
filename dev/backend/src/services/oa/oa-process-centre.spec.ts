@@ -34,7 +34,7 @@ jest.mock('../../utils/distributed-lock', () => {
 jest.mock('../../config', () => ({
   config: {
     app: { baseUrl: 'https://test.example.com' },
-    dingtalk: { agentId: '12345' },
+    dingtalk: { agentId: '12345', baseUrl: 'https://test.example.com' },
   },
 }));
 

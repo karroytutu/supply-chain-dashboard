@@ -158,25 +158,12 @@ export const customerCreditFormType: FormTypeDefinition = {
         required: false,
         maxLength: 500,
       },
-      // 以下为隐藏字段，存储 ERP 显示名称（下划线开头不在详情页展示）
-      {
-        key: '_customerName',
-        label: '客户名称',
-        type: 'text',
-        required: false,
-      },
-      {
-        key: '_holdSettlementOrderNames',
-        label: '压单结算单名称',
-        type: 'text',
-        required: false,
-      },
-      {
-        key: '_holdSettlementOrderDetails',
-        label: '压单结算单明细',
-        type: 'text',
-        required: false,
-      },
+    ],
+    // 系统数据：不参与权限配置和前端渲染
+    internalFields: [
+      { key: '_customerName', label: '客户名称', type: 'text', required: false },
+      { key: '_holdSettlementOrderNames', label: '压单结算单名称', type: 'text', required: false },
+      { key: '_holdSettlementOrderDetails', label: '压单结算单明细', type: 'text', required: false },
     ],
   },
 

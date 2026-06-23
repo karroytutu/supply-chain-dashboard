@@ -52,96 +52,6 @@ export const ESCALATION_ROLES: Record<number, string> = {
 };
 
 // =====================================================
-// 字段权限预设（按催收环节区分）
-// =====================================================
-
-/** 只读展示字段（所有环节相同） */
-const READONLY_FIELDS: Record<string, FieldPermission> = {
-  consumerName: 'readonly',
-  totalAmount: 'readonly',
-  billCount: 'readonly',
-  maxOverdueDays: 'readonly',
-  managerName: 'readonly',
-  maxDebtDays: 'readonly',
-  maxDebtOrderNum: 'readonly',
-  billDetails: 'readonly',
-};
-
-/** 营销师(marketer)环节可编辑的操作字段 */
-const MARKETER_EDITABLE: Record<string, FieldPermission> = {
-  action: 'editable',
-  verifyRemark: 'editable',
-  extensionDays: 'editable',
-  extensionReason: 'editable',
-  guarantorSignature: 'editable',
-  differenceRemark: 'editable',
-  escalateReason: 'editable',
-  resolveDiffRemark: 'editable',
-  letterAttachment: 'editable',
-  deliveryProof: 'editable',
-};
-
-/** 营销经理(marketing_manager)环节可编辑的操作字段 */
-const MGR_EDITABLE: Record<string, FieldPermission> = {
-  mgrAction: 'editable',
-  mgrVerifyRemark: 'editable',
-  mgrExtensionDays: 'editable',
-  mgrExtensionReason: 'editable',
-  mgrGuarantorSignature: 'editable',
-  mgrDifferenceRemark: 'editable',
-  mgrEscalateReason: 'editable',
-};
-
-/** 往来会计(current_accountant)环节可编辑的操作字段 */
-const ACC_EDITABLE: Record<string, FieldPermission> = {
-  accAction: 'editable',
-  accVerifyRemark: 'editable',
-  accExtensionDays: 'editable',
-  accExtensionReason: 'editable',
-  accResolveDiffRemark: 'editable',
-  accLetterAttachment: 'editable',
-  accDeliveryProof: 'editable',
-};
-
-/** 将字段列表标记为隐藏 */
-function hideFields(fields: Record<string, FieldPermission>): Record<string, FieldPermission> {
-  const result: Record<string, FieldPermission> = {};
-  for (const key of Object.keys(fields)) result[key] = 'hidden';
-  return result;
-}
-
-/** 将字段列表标记为只读 */
-function readonlyFields(fields: Record<string, FieldPermission>): Record<string, FieldPermission> {
-  const result: Record<string, FieldPermission> = {};
-  for (const key of Object.keys(fields)) result[key] = 'readonly';
-  return result;
-}
-
-/** 营销师(marketer)环节字段权限 */
-const MARKETER_FIELD_PERMS: Record<string, FieldPermission> = {
-  ...READONLY_FIELDS,
-  ...MARKETER_EDITABLE,
-  ...hideFields(MGR_EDITABLE),
-  ...hideFields(ACC_EDITABLE),
-};
-
-/** 营销经理(marketing_manager)环节字段权限 */
-const MGR_FIELD_PERMS: Record<string, FieldPermission> = {
-  ...READONLY_FIELDS,
-  ...readonlyFields(MARKETER_EDITABLE),
-  ...MGR_EDITABLE,
-  ...hideFields(ACC_EDITABLE),
-};
-
-/** 往来会计(current_accountant)环节字段权限 */
-const ACC_FIELD_PERMS: Record<string, FieldPermission> = {
-  ...READONLY_FIELDS,
-  ...readonlyFields(MARKETER_EDITABLE),
-  ...readonlyFields(MGR_EDITABLE),
-  ...ACC_EDITABLE,
-};
-
-// =====================================================
 // formSchema
 // =====================================================
 
@@ -401,7 +311,7 @@ const arCollectionWorkflowDef: { nodes: import('../oa.types').WorkflowNodeDef[] 
       type: 'handle' as const,
       handler: { roleCode: OA_ROLE.MARKETER },
       signMode: 'or' as const,
-      fieldPermissions: MARKETER_FIELD_PERMS,
+      
       fieldOptionFilter: { action: LEVEL_ACTION_OPTIONS[0] },
       timeout: {
         durationMinutes: 3 * 24 * 60, // 3天
@@ -428,7 +338,7 @@ const arCollectionWorkflowDef: { nodes: import('../oa.types').WorkflowNodeDef[] 
       handler: { roleCode: OA_ROLE.MARKETING_MGR },
       signMode: 'or' as const,
       condition: { field: 'action', operator: '==' as const, value: 'escalate' },
-      fieldPermissions: MGR_FIELD_PERMS,
+      
       fieldOptionFilter: { mgrAction: LEVEL_ACTION_OPTIONS[1] },
     },
     {
@@ -438,7 +348,7 @@ const arCollectionWorkflowDef: { nodes: import('../oa.types').WorkflowNodeDef[] 
       handler: { roleCode: OA_ROLE.ACCOUNTANT },
       signMode: 'or' as const,
       condition: { field: 'mgrAction', operator: '==' as const, value: 'escalate' },
-      fieldPermissions: ACC_FIELD_PERMS,
+      
       fieldOptionFilter: { accAction: LEVEL_ACTION_OPTIONS[2] },
     },
     {
@@ -454,7 +364,7 @@ const arCollectionWorkflowDef: { nodes: import('../oa.types').WorkflowNodeDef[] 
           { field: 'accAction', operator: '==' as const, value: 'difference' },
         ],
       },
-      fieldPermissions: ACC_FIELD_PERMS,
+      
       fieldOptionFilter: { accAction: ['resolve_diff'] },
     },
     {
@@ -464,7 +374,7 @@ const arCollectionWorkflowDef: { nodes: import('../oa.types').WorkflowNodeDef[] 
       handler: { roleCode: OA_ROLE.ACCOUNTANT },
       signMode: 'or' as const,
       condition: { field: 'accAction', operator: '==' as const, value: 'lawsuit' },
-      fieldPermissions: ACC_FIELD_PERMS,
+      
       fieldOptionFilter: { accAction: ['verify', 'send_letter'] },
     },
     {

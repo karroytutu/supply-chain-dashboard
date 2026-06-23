@@ -6,20 +6,18 @@
  *
  * 执行内容：
  * Part 1: 更新所有钉钉壳模板的 TASK_EXECUTE URL 为生产域名
- * Part 2: 重建 ar_collection 类型的壳实例和待办
+ * Part 2: 重建 ar_collection 类型的壳实例和待办（先取消旧待办→终结旧壳实例→重建）
  *
- * 幂等安全：模板更新幂等；已有 active 映射的实例会被跳过
+ * 幂等安全：模板更新幂等；旧待办取消幂等；已有 terminated 映射的实例会跳过取消步骤
  *
- * 限制说明：Part 2 重建壳实例时，不会取消旧的钉钉待办。
- * 执行后营销师可能在钉钉端同时看到新旧两个催收审批待办，
- * 需在钉钉端手动完成/取消旧待办。
- *
- * 用法：cd dev/backend && APP_BASE_URL=https://xly.gzzxd.com npx ts-node scripts/fix-oa-dingtalk-urls.ts
+ * 用法：cd dev/backend && npx ts-node scripts/fix-oa-dingtalk-urls.ts
  */
 
 import { appQuery as query } from '../src/db/appPool';
 import {
   saveProcessTemplate,
+  cancelPcTasks,
+  updateWorkrecordStatus,
   ProcessFormComponent,
 } from '../src/services/dingtalk-process-centre.service';
 import { createProcessInstance } from '../src/services/oa/oa-process-centre';
@@ -90,7 +88,7 @@ async function updateAllTemplateUrls(): Promise<void> {
 }
 
 // =====================================================
-// Part 2: 重建催收OA的壳实例和待办
+// Part 2: 重建催收OA的壳实例和待办（先取消旧待办→终结旧壳实例→重建）
 // =====================================================
 
 async function rebuildArCollectionInstances(): Promise<void> {
@@ -102,8 +100,7 @@ async function rebuildArCollectionInstances(): Promise<void> {
     return;
   }
 
-  // 查询所有 pending/processing 的 ar_collection 实例
-  // 包含已有 active 映射的（需要重建）和 failed/无映射的（需要创建）
+  // 查询所有 pending/processing 的 ar_collection 实例及其壳映射信息
   const instancesResult = await query<{
     id: number;
     instance_no: string;
@@ -112,9 +109,11 @@ async function rebuildArCollectionInstances(): Promise<void> {
     applicant_name: string;
     form_data: Record<string, unknown>;
     mapping_status: string | null;
+    dingtalk_process_instance_id: string | null;
   }>(
     `SELECT oi.id, oi.instance_no, oi.title, oi.applicant_id, oi.applicant_name, oi.form_data,
-            m.status as mapping_status
+            m.status as mapping_status,
+            m.dingtalk_process_instance_id
      FROM oa_approval_instances oi
      JOIN oa_form_types ft ON oi.form_type_id = ft.id
      LEFT JOIN oa_process_instance_mapping m ON m.instance_id = oi.id
@@ -131,20 +130,8 @@ async function rebuildArCollectionInstances(): Promise<void> {
     return;
   }
 
-  // 先标记所有已有 active 映射为 failed（触发重建）
-  const activeIds = instances
-    .filter(i => i.mapping_status === 'active')
-    .map(i => i.id);
-
-  if (activeIds.length > 0) {
-    await query(
-      `UPDATE oa_process_instance_mapping SET status = 'failed', updated_at = NOW()
-       WHERE instance_id = ANY($1::int[]) AND status = 'active'`,
-      [activeIds]
-    );
-    console.log(`已标记 ${activeIds.length} 个 active 映射为 failed（准备重建）\n`);
-  }
-
+  let oldTodoCanceled = 0;
+  let oldShellTerminated = 0;
   let shellCreated = 0;
   let todoCreated = 0;
   let failed = 0;
@@ -152,7 +139,58 @@ async function rebuildArCollectionInstances(): Promise<void> {
   for (const instance of instances) {
     console.log(`\n--- 处理实例 #${instance.id}: ${instance.title} ---`);
 
-    // 创建壳实例
+    // 步骤 1: 取消旧的钉钉待办（如果有 active 映射 + pending 待办）
+    if (instance.mapping_status === 'active' && instance.dingtalk_process_instance_id) {
+      const taskResult = await query<{ activity_id: string }>(
+        `SELECT DISTINCT activity_id FROM oa_process_task_mapping
+         WHERE instance_id = $1 AND status = 'pending' AND activity_id != ''`,
+        [instance.id]
+      );
+
+      if (taskResult.rows.length > 0) {
+        for (const { activity_id } of taskResult.rows) {
+          try {
+            await cancelPcTasks(instance.dingtalk_process_instance_id!, activity_id);
+            console.log(`  ✓ 旧待办已取消 (activityId=${activity_id})`);
+            oldTodoCanceled++;
+          } catch (err: any) {
+            console.warn(`  ⚠ 旧待办取消失败 (activityId=${activity_id}): ${err?.message}，继续处理`);
+          }
+          await sleep(RATE_LIMIT_MS);
+        }
+
+        // 更新本地 task mapping 状态为 cancelled
+        await query(
+          `UPDATE oa_process_task_mapping SET status = 'cancelled', completed_at = NOW()
+           WHERE instance_id = $1 AND status = 'pending'`,
+          [instance.id]
+        );
+      }
+
+      // 步骤 2: 终结旧壳实例
+      try {
+        await updateWorkrecordStatus(
+          instance.dingtalk_process_instance_id!,
+          'TERMINATED',
+          'refuse'
+        );
+        console.log(`  ✓ 旧壳实例已终结`);
+        oldShellTerminated++;
+      } catch (err: any) {
+        console.warn(`  ⚠ 旧壳实例终结失败: ${err?.message}，继续重建`);
+      }
+
+      // 更新本地 instance mapping 状态为 terminated
+      await query(
+        `UPDATE oa_process_instance_mapping SET status = 'terminated', updated_at = NOW()
+         WHERE instance_id = $1 AND status = 'active'`,
+        [instance.id]
+      );
+
+      await sleep(RATE_LIMIT_MS);
+    }
+
+    // 步骤 3: 创建新壳实例
     try {
       await createProcessInstance(
         instance.id,
@@ -162,23 +200,21 @@ async function rebuildArCollectionInstances(): Promise<void> {
         instance.title,
         formType.formSchema,
         instance.form_data,
-        PRODUCTION_BASE_URL  // 覆盖 config.app.baseUrl，确保使用生产域名
+        PRODUCTION_BASE_URL  // 脚本硬编码确保正确
       );
       shellCreated++;
-      console.log(`  ✓ 壳实例创建成功`);
+      console.log(`  ✓ 新壳实例创建成功`);
     } catch (err: any) {
       failed++;
-      console.error(`  ✗ 壳实例创建失败:`, err?.message);
+      console.error(`  ✗ 新壳实例创建失败:`, err?.message);
       continue;
     }
 
     await sleep(RATE_LIMIT_MS);
 
-    // 查询营销师催收节点的 assigned_user_id
-    const nodeResult = await query<{
-      assigned_user_id: number | null;
-    }>(
-      `SELECT assigned_user_id FROM oa_approval_nodes
+    // 查询营销师催收节点的 assigned_user_ids（数组类型，取第一个元素）
+    const nodeResult = await query<{ assigned_user_id: number | null }>(
+      `SELECT assigned_user_ids[1] as assigned_user_id FROM oa_approval_nodes
        WHERE instance_id = $1 AND node_name = '营销师催收' AND node_order = 1
        LIMIT 1`,
       [instance.id]
@@ -190,7 +226,7 @@ async function rebuildArCollectionInstances(): Promise<void> {
       continue;
     }
 
-    // 创建钉钉待办
+    // 步骤 4: 创建新待办
     try {
       await notifyPendingApproval(
         {
@@ -203,23 +239,25 @@ async function rebuildArCollectionInstances(): Promise<void> {
           nodeOrder: 1,
           formSchema: formType.formSchema,
           formData: instance.form_data,
-          baseUrlOverride: PRODUCTION_BASE_URL,  // 覆盖 config.app.baseUrl
+          baseUrlOverride: PRODUCTION_BASE_URL,
         },
         [marketerUserId]
       );
       todoCreated++;
-      console.log(`  ✓ 钉钉待办创建成功 (userId=${marketerUserId})`);
+      console.log(`  ✓ 新钉钉待办创建成功 (userId=${marketerUserId})`);
     } catch (err: any) {
       failed++;
-      console.error(`  ✗ 钉钉待办创建失败:`, err?.message);
+      console.error(`  ✗ 新钉钉待办创建失败:`, err?.message);
     }
 
     await sleep(RATE_LIMIT_MS);
   }
 
   console.log(`\nPart 2 完成:`);
-  console.log(`  壳实例创建: ${shellCreated} 个`);
-  console.log(`  钉钉待办创建: ${todoCreated} 个`);
+  console.log(`  旧待办取消: ${oldTodoCanceled} 个`);
+  console.log(`  旧壳实例终结: ${oldShellTerminated} 个`);
+  console.log(`  新壳实例创建: ${shellCreated} 个`);
+  console.log(`  新钉钉待办创建: ${todoCreated} 个`);
   console.log(`  失败: ${failed} 个`);
   console.log(`  总计处理: ${instances.length} 个`);
 }

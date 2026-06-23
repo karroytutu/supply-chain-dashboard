@@ -36,6 +36,11 @@ import {
   searchSupplierIncomes,
   searchPurchaseOrders,
 } from '../services/erp-client/erp-purchase.service';
+import {
+  searchPurchaseSettlements,
+  getAllocatablePurchaseDetails,
+  getAllocatableExpenseDetails,
+} from '../services/erp-client/erp-purchase-settlement.service';
 import { analyzePurchaseOrder, buildPurchaseLines } from '../services/procurement-order/procurement-analysis';
 import type { PurchaseOrderListItem } from '../services/erp-client/erp-purchase.types';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
@@ -74,6 +79,9 @@ const LABEL_FIELDS: Record<string, string> = {
   suppliers: 'name',
   prepayments: 'paidBillStr',
   'supplier-incomes': 'billStr',
+  'purchase-settlements': 'billStr',
+  'allocatable-purchase-details': 'billStr',
+  'allocatable-expense-details': 'billStr',
 };
 
 /**
@@ -201,6 +209,57 @@ export async function getErpReference(
         const supplierIds = supplierIdsParam.split(',').map(Number).filter(n => !isNaN(n));
         const result = await searchPurchaseOrders({ supplierIds, states: ['UN_APPROVED'], size: 500, keyword: keyword || undefined });
         data = result.records;
+        break;
+      }
+
+      case 'purchase-settlements': {
+        // 采购结算单列表：支持日期范围和关键词筛选
+        const psStartDate = req.query.startDate as string | undefined;
+        const psEndDate = req.query.endDate as string | undefined;
+        const psPage = parseInt((req.query.page as string) || '1', 10);
+        const psPageSize = parseInt((req.query.pageSize as string) || '20', 10);
+        const psResult = await searchPurchaseSettlements({
+          startDate: psStartDate || undefined,
+          endDate: psEndDate || undefined,
+          current: psPage,
+          size: psPageSize,
+          keyword: keyword || undefined,
+        });
+        data = psResult;
+        break;
+      }
+
+      case 'allocatable-purchase-details': {
+        // 可分摊采购明细：支持按结算单号、供应商ID列表、分页大小筛选
+        const apdBillStr = req.query.billStr as string | undefined;
+        const apdSupplierIds = req.query.supplierIdList as string | undefined;
+        const apdStartDate = req.query.startDate as string | undefined;
+        const apdEndDate = req.query.endDate as string | undefined;
+        const apdSize = parseInt((req.query.size as string) || '', 10);
+        const apdResult = await getAllocatablePurchaseDetails({
+          billStr: apdBillStr || undefined,
+          supplierIdList: apdSupplierIds ? apdSupplierIds.split(',').filter(Boolean) : undefined,
+          startDate: apdStartDate || undefined,
+          endDate: apdEndDate || undefined,
+          size: !isNaN(apdSize) && apdSize > 0 ? apdSize : undefined,
+        });
+        data = apdResult;
+        break;
+      }
+
+      case 'allocatable-expense-details': {
+        // 可分摊费用明细：支持按费用单号、交易对象类型筛选
+        const aedBillStr = req.query.billStr as string | undefined;
+        const aedTraderTypes = req.query.traderTypes as string | undefined;
+        const aedStartDate = req.query.startDate as string | undefined;
+        const aedEndDate = req.query.endDate as string | undefined;
+        const aedResult = await getAllocatableExpenseDetails({
+          billStr: aedBillStr || undefined,
+          traderTypes: aedTraderTypes ? aedTraderTypes.split(',').filter(Boolean) : undefined,
+          startDate: aedStartDate || undefined,
+          endDate: aedEndDate || undefined,
+        });
+        data = aedResult;
         break;
       }
 

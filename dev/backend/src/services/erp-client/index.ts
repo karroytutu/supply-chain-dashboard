@@ -38,6 +38,31 @@ export {
   searchSuppliers,
   buildProcurementIdemKey,
 } from './erp-purchase.service';
+export {
+  searchPurchaseSettlements,
+  getAllocatablePurchaseDetails,
+  getAllocatableExpenseDetails,
+} from './erp-purchase-settlement.service';
+export type {
+  PurchaseSettlementListResult,
+  AllocatablePurchaseDetailParams,
+  AllocatablePurchaseDetailResult,
+  AllocatableExpenseDetailParams,
+  AllocatableExpenseDetailResult,
+} from './erp-purchase-settlement.service';
+export {
+  createSupplierExpenseBill,
+  createExpenseAllocation,
+  cancelExpenseAllocation,
+  buildLogisticsFeeIdemKey,
+} from './erp-expense-allocation.service';
+export type {
+  CreateSupplierExpenseBillRequest,
+  SupplierExpenseBillResponse,
+  AllocationDetailItem,
+  CreateExpenseAllocationRequest,
+  ExpenseAllocationResponse,
+} from './erp-expense-allocation.service';
 export type {
   PurchaseOrderListItem,
   PurchaseOrderDetailResponse,
@@ -58,4 +83,7 @@ export type {
   DailySalesGoodsRecord,
   DailySalesPeriod,
   SupplierDebtRecord,
+  PurchaseSettlementListItem,
+  AllocatablePurchaseDetail,
+  AllocatableExpenseDetail,
 } from './erp-purchase.types';

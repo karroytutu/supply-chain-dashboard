@@ -10,6 +10,7 @@ import type {
   NodeInputField,
   ConditionDef,
   ConditionGroup,
+  FieldPermission,
 } from './oa.types';
 import { evaluateFormula } from './formula-evaluator';
 
@@ -87,17 +88,26 @@ export function numberToChineseUpper(n: number): string {
 
 /**
  * 校验表单数据
- * 支持 visibleWhen（条件隐藏跳过校验）和 requiredWhen（条件必填）
+ * 支持 visibleWhen（条件隐藏跳过校验）、requiredWhen（条件必填），
+ * 以及 nodeZeroPermissions（发起节点字段权限，hidden 字段跳过必填校验）。
  * @returns 错误消息数组，空数组表示校验通过
  */
 export function validateFormData(
   formSchema: FormSchema,
-  formData: Record<string, unknown>
+  formData: Record<string, unknown>,
+  /** 发起节点字段权限（来自 fieldPermissions.nodes["0"]）。
+   * 值为 'hidden' 的字段跳过必填校验，与前端发起页字段过滤逻辑一致。
+   * 仅提交校验场景传入；table 子字段递归校验不传（子字段无审批环节权限概念）。 */
+  nodeZeroPermissions?: Record<string, FieldPermission>
 ): string[] {
   const errors: string[] = [];
 
   for (const field of formSchema.fields) {
     if (field.visibleWhen && !checkCondition(field.visibleWhen, formData)) {
+      continue;
+    }
+    // 发起节点权限隐藏跳过校验（与前端发起页过滤逻辑一致）
+    if (nodeZeroPermissions?.[field.key] === 'hidden') {
       continue;
     }
 

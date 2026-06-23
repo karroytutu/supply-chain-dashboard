@@ -8,7 +8,7 @@ jest.mock('../../utils/logger', () => ({
 }));
 
 jest.mock('../../config', () => ({
-  config: { app: { baseUrl: 'https://example.com' } },
+  config: { app: { baseUrl: 'https://example.com' }, dingtalk: { baseUrl: 'https://example.com' } },
 }));
 
 describe('ar-collection-notify-cards', () => {

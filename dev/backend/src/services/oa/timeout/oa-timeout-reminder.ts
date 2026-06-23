@@ -111,7 +111,7 @@ export async function sendSupervisorCc(node: OverdueNode): Promise<boolean> {
  * 构建催办 OA 消息
  */
 function buildReminderOaMessage(node: OverdueNode, overdueText: string): OaMessageContent {
-  const baseUrl = config.app.baseUrl;
+  const baseUrl = config.dingtalk.baseUrl;
 
   return {
     head: {
@@ -139,7 +139,7 @@ function buildCcSupervisorOaMessage(
   supervisorName: string,
   overdueText: string
 ): OaMessageContent {
-  const baseUrl = config.app.baseUrl;
+  const baseUrl = config.dingtalk.baseUrl;
 
   return {
     head: {

@@ -16,6 +16,7 @@ import { assessmentAppealFormType } from './assessment-appeal';
 import { customerModifyFormType } from './customer-modify';
 import { arCollectionFormType } from './ar-collection';
 import { procurementOrderFormType } from './procurement-order';
+import { logisticsFeeFormType } from './logistics-fee';
 
 /**
  * 所有已注册的表单类型
@@ -33,6 +34,7 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   customerModifyFormType,
   arCollectionFormType,
   procurementOrderFormType,
+  logisticsFeeFormType,
 ];
 
 /**
@@ -82,3 +84,4 @@ export { assessmentAppealFormType } from './assessment-appeal';
 export { customerModifyFormType } from './customer-modify';
 export { arCollectionFormType } from './ar-collection';
 export { procurementOrderFormType } from './procurement-order';
+export { logisticsFeeFormType } from './logistics-fee';

@@ -31,8 +31,8 @@ export async function submitApproval(
   userName: string,
   userDept: string | null
 ): Promise<{ instanceId: number; instanceNo: string }> {
-  // 1. 校验表单数据
-  const errors = validateFormData(formType.formSchema, req.formData);
+  // 1. 校验表单数据（传入发起阶段字段权限，使 hidden 字段跳过必填校验）
+  const errors = validateFormData(formType.formSchema, req.formData, formType.fieldPermissions?.nodes?.['0']);
   if (errors.length > 0) {
     throw new Error(`表单校验失败: ${errors.join('; ')}`);
   }

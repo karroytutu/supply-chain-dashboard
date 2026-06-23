@@ -1,14 +1,17 @@
 /**
  * 表格类型字段渲染器
- * 支持动态增删行，每行按 children 定义渲染子字段
+ * 统一支持可编辑模式（增删行、单元格输入）和只读模式（纯文本展示 + 汇总行）
+ * 通过 readonly prop 切换模式，消除了原先 ReadonlyTable 的重复实现
  */
 import React, { useCallback } from 'react';
 import { Button, Input, InputNumber, Select, DatePicker, Table, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import type { FormField } from '@/types/oa';
+import type { FormField, FieldPermission } from '@/types/oa';
 import { evaluateFormula } from '@/utils/formula-evaluator';
-import { TABLE_ERP_TYPES, useContainerWidth, getColumnWidth } from '@/components/Oa/hooks/useContainerWidth';
+import { TABLE_ERP_TYPES, useContainerWidth, getColumnWidth, NUMERIC_ALIGN_TYPES } from '@/components/Oa/hooks/useContainerWidth';
+import { renderCellValue } from '@/components/Oa/cellValueRenderer';
+import type { ErpResolvedMap } from '@/components/Oa/hooks/useErpFieldResolve';
 import ErpFieldRenderer from './ErpFieldRenderer';
 import styles from '../index.less';
 
@@ -16,6 +19,12 @@ interface TableFieldRendererProps {
   field: FormField;
   value?: Record<string, unknown>[];
   onChange?: (value: Record<string, unknown>[]) => void;
+  /** 表格子字段权限（key为子字段key，如 feeLines.feeUnitPrice → feeUnitPrice） */
+  subFieldPermissions?: Record<string, FieldPermission>;
+  /** 只读模式：隐藏操作列和添加按钮，使用 cellValueRenderer 渲染纯文本 */
+  readonly?: boolean;
+  /** 只读模式下传入的 ERP 解析结果 */
+  resolvedMap?: ErpResolvedMap;
 }
 
 /** 重算行内公式字段，返回更新后的行数据 */
@@ -158,12 +167,28 @@ const CellInput: React.FC<{
   }
 };
 
-const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = [], onChange }) => {
+const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = [], onChange, subFieldPermissions, readonly: isReadonly, resolvedMap }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   const columns = field.children || [];
+  // 过滤 hidden 子字段，仅渲染可见列（hidden 子字段已在数据层 applyFieldPermissions 中过滤）
+  const visibleColumns = columns.filter(col => !col.hidden);
   const [containerRef, containerWidth] = useContainerWidth();
-  const fixFirstCol = columns.length >= 4; // 与 ReadonlyTable 统一：列数≥4时固定首列
+  const fixFirstCol = visibleColumns.length >= 4;
   const isDisabled = !!field.disabled;
+  // 混合模式：表格非整体只读，但存在 disabled 子列（如物流费用明细表）
+  // 此类表格的只读列应自适应内容宽度，与纯只读表格行为一致
+  // 参考《只读表格列宽自适应与换行规范》《采购明细表格布局规范》
+  const useContentWidth = isReadonly || isDisabled || visibleColumns.some(col => col.disabled);
+
+  // ==================== 只读模式汇总行 ====================
+
+  const formulaChildren = columns.filter(c => c.type === 'formula' && c.formula);
+  const statFieldKeys = (field.statField || []).map(s => s.componentId);
+  const summaryKeys = new Set([
+    ...formulaChildren.map(c => c.key),
+    ...statFieldKeys,
+  ]);
+  const hasSummary = isReadonly && summaryKeys.size > 0 && (value?.length ?? 0) > 0;
 
   const handleAdd = useCallback(() => {
     const newRow: Record<string, unknown> = {};
@@ -197,26 +222,32 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   }, [value, onChange, columns]);
 
   const tableColumns = [
-    ...columns.map((col, idx) => ({
-      title: col.label + (col.required ? ' *' : ''),
+    ...visibleColumns.map((col, idx) => ({
+      title: isReadonly ? col.label : col.label + (col.required ? ' *' : ''),
       dataIndex: col.key,
       key: col.key,
-      // disabled 模式下不设固定宽度，让列宽自适应填充容器
-      ...(!isDisabled ? { width: getColumnWidth(col) } : {}),
-      ...(fixFirstCol && idx === 0 && !isDisabled ? { fixed: 'left' as const } : {}),
-      render: (_: unknown, record: Record<string, unknown>, rowIndex: number) => (
-        <CellInput
-          childField={col}
-          value={record[col.key]}
-          onChange={(v) => handleCellChange(rowIndex, col.key, v)}
-          rowData={record}
-          onRowUpdate={(updates) => handleRowUpdate(rowIndex, updates)}
-          disabled={isDisabled}
-        />
-      ),
+      // 只读模式或 disabled 列：不设固定宽度，自适应内容
+      ...(isReadonly || isDisabled || col.disabled ? {} : { width: getColumnWidth(col) }),
+      ...(isReadonly && NUMERIC_ALIGN_TYPES.has(col.type) ? { align: 'right' as const } : {}),
+      ...(fixFirstCol && idx === 0 && !isReadonly ? { fixed: 'left' as const, width: 120 } : {}),
+      render: (_: unknown, record: Record<string, unknown>, rowIndex: number) => {
+        if (isReadonly) {
+          return renderCellValue(col, record[col.key], record, resolvedMap);
+        }
+        return (
+          <CellInput
+            childField={col}
+            value={record[col.key]}
+            onChange={(v) => handleCellChange(rowIndex, col.key, v)}
+            rowData={record}
+            onRowUpdate={(updates) => handleRowUpdate(rowIndex, updates)}
+            disabled={isDisabled || !!col.disabled || subFieldPermissions?.[col.key] === 'readonly'}
+          />
+        );
+      },
     })),
-    // 仅在非 disabled 状态下显示删除操作列
-    ...(isDisabled ? [] : [{
+    // 只读、行锁定或整体 disabled 时不显示删除操作列
+    ...(isReadonly || isDisabled || field.rowLocked ? [] : [{
       title: '',
       key: '_action',
       width: 50,
@@ -239,12 +270,29 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
         size="small"
         pagination={false}
         bordered
-        scroll={isDisabled
+        scroll={useContentWidth
           ? { x: 'max-content' as const }
           : { x: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum }
         }
+        summary={hasSummary ? () => (
+          <Table.Summary.Row>
+            {visibleColumns.map((col, idx) => {
+              if (!summaryKeys.has(col.key)) {
+                return <Table.Summary.Cell key={col.key} index={idx}>-</Table.Summary.Cell>;
+              }
+              const values = value!.map(r => Number(r[col.key]) || 0);
+              const total = values.reduce((a, b) => a + b, 0);
+              const precision = col.formulaPrecision ?? 2;
+              return (
+                <Table.Summary.Cell key={col.key} index={idx} align="right">
+                  <strong>{total.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}</strong>
+                </Table.Summary.Cell>
+              );
+            })}
+          </Table.Summary.Row>
+        ) : undefined}
       />
-      {!isDisabled && (
+      {!isReadonly && !isDisabled && !field.rowLocked && (
         <Button type="dashed" onClick={handleAdd} icon={<PlusOutlined />} style={{ width: '100%', marginTop: 8 }}>
           添加一行
         </Button>

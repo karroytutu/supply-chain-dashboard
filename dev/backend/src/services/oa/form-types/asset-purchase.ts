@@ -5,7 +5,7 @@
 
 import { FormTypeDefinition } from '../oa.types';
 import { OA_ROLE } from '../oa-role-codes';
-import { handleAssetPurchaseNodeCallback } from '../../fixed-asset/purchase-callback';
+import { handleAssetPurchaseAutoNode } from '../../fixed-asset/purchase-callback';
 import { generateApplicationNo } from '../../fixed-asset/erp-meta-utils';
 
 export const assetPurchaseFormType: FormTypeDefinition = {
@@ -15,7 +15,7 @@ export const assetPurchaseFormType: FormTypeDefinition = {
   category: 'admin',
   sortOrder: 10,
   description: '固定资产采购审批流程（含询价、支付、入库）',
-  version: 4,
+  version: 5,
 
   formSchema: {
     fields: [
@@ -120,6 +120,10 @@ export const assetPurchaseFormType: FormTypeDefinition = {
           { key: 'note', label: '备注', type: 'text', required: false },
         ],
       },
+
+      // ═══ 系统回填字段（auto 节点执行后自动填入，只读） ═══
+      { key: '_expenditureBillStr', label: '费用单号', type: 'text', required: false, disabled: true },
+      { key: '_createdAssetCodes', label: '资产编号', type: 'text', required: false, disabled: true },
     ],
   },
 
@@ -133,20 +137,6 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         type: 'handle',
         handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
-        fieldPermissions: {
-          purchaseLines: 'readonly' as const,
-          remark: 'readonly' as const,
-          attachmentUrls: 'readonly' as const,
-          inquiryLines: 'editable' as const,
-          paymentAmount: 'hidden' as const,
-          paymentDate: 'hidden' as const,
-          paymentSubjectId: 'hidden' as const,
-          receiptUrls: 'hidden' as const,
-          paymentNote: 'hidden' as const,
-          purchaseDate: 'hidden' as const,
-          purchaseNote: 'hidden' as const,
-          arrivalLines: 'hidden' as const,
-        },
       },
       { order: 4, name: '总经理审批', type: 'approval', handler: { roleCode: OA_ROLE.GM }, signMode: 'or' },
       {
@@ -155,66 +145,42 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         type: 'handle',
         handler: { roleCode: OA_ROLE.CASHIER },
         signMode: 'or',
-        fieldPermissions: {
-          purchaseLines: 'readonly' as const,
-          remark: 'readonly' as const,
-          attachmentUrls: 'readonly' as const,
-          inquiryLines: 'readonly' as const,
-          paymentAmount: 'editable' as const,
-          paymentDate: 'editable' as const,
-          paymentSubjectId: 'editable' as const,
-          receiptUrls: 'editable' as const,
-          paymentNote: 'editable' as const,
-          purchaseDate: 'hidden' as const,
-          purchaseNote: 'hidden' as const,
-          arrivalLines: 'hidden' as const,
-        },
       },
+      { order: 6, name: '创建费用单', type: 'auto' },
       {
-        order: 6,
+        order: 7,
         name: '行政采购',
         type: 'handle',
         handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
-        fieldPermissions: {
-          purchaseLines: 'readonly' as const,
-          remark: 'readonly' as const,
-          attachmentUrls: 'readonly' as const,
-          inquiryLines: 'readonly' as const,
-          paymentAmount: 'readonly' as const,
-          paymentDate: 'readonly' as const,
-          paymentSubjectId: 'readonly' as const,
-          receiptUrls: 'readonly' as const,
-          paymentNote: 'readonly' as const,
-          purchaseDate: 'editable' as const,
-          purchaseNote: 'editable' as const,
-          arrivalLines: 'hidden' as const,
-        },
       },
       {
-        order: 7,
+        order: 8,
         name: '资产入库',
         type: 'handle',
         handler: { roleCode: OA_ROLE.ADMIN_STAFF },
         signMode: 'or',
-        fieldPermissions: {
-          purchaseLines: 'readonly' as const,
-          remark: 'readonly' as const,
-          attachmentUrls: 'readonly' as const,
-          inquiryLines: 'readonly' as const,
-          paymentAmount: 'readonly' as const,
-          paymentDate: 'readonly' as const,
-          paymentSubjectId: 'readonly' as const,
-          receiptUrls: 'readonly' as const,
-          paymentNote: 'readonly' as const,
-          purchaseDate: 'readonly' as const,
-          purchaseNote: 'readonly' as const,
-          arrivalLines: 'editable' as const,
-        },
       },
-      { order: 8, name: '抄送往来会计', type: 'cc' as const, ccRoles: [OA_ROLE.ACCOUNTANT] },
+      { order: 9, name: '创建资产卡片', type: 'auto' },
+      { order: 10, name: '抄送往来会计', type: 'cc' as const, ccRoles: [OA_ROLE.ACCOUNTANT] },
     ],
   },
+
+  /** auto 节点回填声明 */
+  nodeBackfills: [
+    {
+      nodeOrder: 6,
+      description: '出纳支付后系统自动创建费用单',
+      erpMetaFields: ['expenditureBillId', 'expenditureBillStr'],
+      formDataFields: ['_expenditureBillStr'],
+    },
+    {
+      nodeOrder: 9,
+      description: '资产入库后系统自动创建资产卡片',
+      erpMetaFields: ['createdAssets'],
+      formDataFields: ['_createdAssetCodes'],
+    },
+  ],
 
   /** 提交前生成采购申请编号 */
   beforeSubmit: async () => {
@@ -222,5 +188,5 @@ export const assetPurchaseFormType: FormTypeDefinition = {
     return { applicationNo };
   },
 
-  onNodeCompleted: handleAssetPurchaseNodeCallback,
+  onApproved: handleAssetPurchaseAutoNode,
 };

@@ -72,7 +72,10 @@ export type FormFieldType =
   | 'erp_purchase_order' // 搜索选择ERP采购订单（级联供应商）
   | 'erp_prepayment' // 搜索选择ERP预付款单（级联供应商）
   | 'erp_supplier_income' // 搜索选择ERP供应商收入单（级联供应商）
-  | 'formula'; // 公式计算字段（自动根据表达式求值，不可手动编辑）
+  | 'formula' // 公式计算字段（自动根据表达式求值，不可手动编辑）
+  // 物流装卸费用申请专用
+  | 'purchase_settlement_multi' // 采购结算单多选（弹窗选择，跨供应商）
+  | 'bank_account_selector'; // 银行账户历史选择器（弹窗选择，自动填充户名/账号/银行/开户行）
 
 /**
  * 表单字段定义
@@ -92,6 +95,8 @@ export interface FormField {
   defaultValue?: unknown;
   /** 是否禁用 */
   disabled?: boolean;
+  /** table 类型专用：行锁定（禁止添加/删除行），适用于行数据由外部逻辑填充的场景 */
+  rowLocked?: boolean;
   /** 业务标识，表单内唯一 */
   bizAlias?: string;
   /** 是否参与打印，默认true */
@@ -176,7 +181,10 @@ export interface FormField {
  * 表单结构定义
  */
 export interface FormSchema {
+  /** 业务字段：用户需要看到或填写的字段，参与权限配置 */
   fields: FormField[];
+  /** 系统数据：系统内部辅助数据（防重提示、自动填充缓存、ERP单据ID等），不参与权限校验和前端渲染 */
+  internalFields?: FormField[];
 }
 
 // =====================================================
@@ -192,15 +200,13 @@ export interface FormSchema {
 export type FieldPermission = 'editable' | 'readonly' | 'hidden';
 
 /**
- * 字段权限 DB 覆盖配置结构
- * - initiation: 发起阶段字段权限覆盖（申请人视角）
- * - nodes: 按节点 order 配置的字段权限覆盖（办理/审批人视角）
+ * 字段权限配置结构（DB 唯一来源）
+ * nodes: 按节点 order 配置字段权限。"0"=发起阶段，"1"-"N"=审批环节。
+ * 每个节点必须为所有业务字段显式声明权限，未声明则打开表单页时报错（fail-fast）。
  */
 export interface FieldPermissionsOverride {
-  /** 发起阶段：申请人看到的字段权限覆盖。未配置的字段默认为 editable */
-  initiation?: Record<string, FieldPermission>;
-  /** 环节覆盖：按节点 order 配置字段权限覆盖。未配置的字段取代码中 fieldPermissions 默认值 */
-  nodes?: Record<string, Record<string, FieldPermission>>;
+  /** 节点权限配置。key 为节点 order 字符串，value 为字段权限映射 */
+  nodes: Record<string, Record<string, FieldPermission>>;
 }
 
 /**
@@ -415,8 +421,6 @@ export interface WorkflowNodeDef {
    * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions。
    */
   inputSchema?: NodeInputSchema;
-  /** 字段权限配置：控制每个字段在该节点下的可见/可编辑状态 */
-  fieldPermissions?: Record<string, FieldPermission>;
   /** 下拉选项过滤：控制 select 类型字段的可选选项（独立于权限） */
   fieldOptionFilter?: Record<string, string[]>;
   /** 节点交互类型：决定显示哪些操作按钮（默认 'approval'）
@@ -462,6 +466,34 @@ export interface PreviewContextResult {
 // =====================================================
 
 /**
+ * auto 节点回调返回结果
+ * 回调函数可返回此结构，框架根据 nodeBackfills 声明自动执行回填
+ */
+export interface CallbackResult {
+  /** 回调已执行退回操作，框架跳过后续流转 */
+  sendBack?: boolean;
+  /** 需写入 erp_meta.responseData 的数据（系统内部追踪用） */
+  erpMeta?: Record<string, unknown>;
+  /** 需写入 form_data 的数据（业务人员可见，DB 级合并） */
+  formData?: Record<string, unknown>;
+}
+
+/**
+ * auto 节点回填声明
+ * 描述某个 auto 节点回调预期会返回哪些字段，框架据此自动执行回填
+ */
+export interface NodeBackfill {
+  /** 节点序号（匹配 oa_approval_nodes.node_order） */
+  nodeOrder: number;
+  /** 业务描述（给管理员看） */
+  description?: string;
+  /** 预期回填到 erp_meta.responseData 的字段名列表 */
+  erpMetaFields?: string[];
+  /** 预期回填到 form_data 的字段名列表 */
+  formDataFields?: string[];
+}
+
+/**
  * 表单类型定义接口
  */
 export interface FormTypeDefinition {
@@ -494,11 +526,12 @@ export interface FormTypeDefinition {
     formData: Record<string, unknown>,
     userId: number
   ) => Promise<Record<string, unknown>>;
-  /** 审批通过回调（整个流程完成时触发，可选）
+  /** 审批通过回调（auto 节点触发，可选）
+   * 返回 CallbackResult 时，框架根据 nodeBackfills 声明自动执行回填；
    * 返回 { sendBack: true } 时，框架跳过后续的 mark-approved + advanceToNextNode
    * （用于回调内部已执行退回操作的场景）
    */
-  onApproved?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void | { sendBack: boolean }>;
+  onApproved?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void | CallbackResult>;
   /** 审批驳回回调（可选） */
   onRejected?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void>;
   /** data_input 节点完成回调（可选，按节点序号分发） */
@@ -519,6 +552,8 @@ export interface FormTypeDefinition {
     formData: Record<string, unknown>,
     userId: number
   ) => Promise<PreviewContextResult>;
+  /** auto 节点回填声明列表（可选），声明后框架自动执行回填 */
+  nodeBackfills?: NodeBackfill[];
   /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖），由 mapFormTypeRow 从 DB 读取 */
   fieldPermissions?: FieldPermissionsOverride;
 }

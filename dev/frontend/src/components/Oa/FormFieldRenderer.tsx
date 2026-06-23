@@ -1,26 +1,14 @@
+/**
+ * 字段只读渲染器（facade）
+ * 委托 FieldControlDispatcher mode="readonly" 实现，保持现有 API 不变
+ * 调用方（FormFieldsDiff、FormFieldDiff 等）无需修改
+ */
 import React from 'react';
-import { Tag, Typography, Image } from 'antd';
 import type { FormField } from '@/types/oa';
-import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
-import { getFieldLinkUrl } from '@/utils/oa';
-import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
-import { FileTextOutlined } from '@ant-design/icons';
-import ErpNameDisplay from './ErpNameDisplay';
 import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
-import PhotoFieldDisplay from './PhotoFieldDisplay';
-import ReadonlyTable from './ReadonlyTable';
-import { resolveStoredName } from './utils/resolveStoredName';
-import styles from './FormFieldRenderer.less';
+import FieldControlDispatcher from './fields';
 
-const { Text } = Typography;
-
-/** 根据文件名后缀判断是否为图片 */
-function isImageFileName(name: string): boolean {
-  const ext = (name || '').split('.').pop()?.toLowerCase();
-  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext || '');
-}
-
-/** 字段渲染器 */
+/** 字段渲染器 — 只读模式门面 */
 const FieldRenderer: React.FC<{
   field: FormField;
   value: unknown;
@@ -31,256 +19,16 @@ const FieldRenderer: React.FC<{
   /** ERP 客户执照图片 URL（由 useErpLicenseResolve 提供，兼容历史数据） */
   erpLicenseUrls?: string[];
 }> = ({ field, value, formData, resolvedMap, erpLicenseUrls }) => {
-  if (field.type === 'photo') {
-    return <PhotoFieldDisplay field={field} value={value} formData={formData} erpLicenseUrls={erpLicenseUrls} />;
-  }
-
-  if (value === null || value === undefined || value === '') {
-    return <Text type="secondary">-</Text>;
-  }
-
-  switch (field.type) {
-    case 'text': {
-      const linkUrl = getFieldLinkUrl(field, formData);
-      if (linkUrl) {
-        return (
-          <a href={linkUrl} target="_blank" rel="noopener noreferrer">
-            {String(value)}
-          </a>
-        );
-      }
-      return <Text>{String(value)}</Text>;
-    }
-    case 'money':
-      return <Text strong>{formatCurrency(value as number)}</Text>;
-    case 'number':
-      return <Text>{(value as number).toLocaleString()}</Text>;
-    case 'date':
-      return <Text>{formatDate(value as string)}</Text>;
-    case 'datetime':
-      return <Text>{formatDateTime(value as string)}</Text>;
-    case 'date-range': {
-      const dates = value as [string, string];
-      if (!Array.isArray(dates) || dates.length < 2) return <Text>{String(value)}</Text>;
-      return <Text>{formatDate(dates[0])} ~ {formatDate(dates[1])}</Text>;
-    }
-    case 'select':
-    case 'radio': {
-      const option = field.options?.find((o) => o.value === value);
-      return <Text>{option?.label || (value as string)}</Text>;
-    }
-    case 'multi-select': {
-      const multiValues = value as string[];
-      if (!Array.isArray(multiValues) || multiValues.length === 0) {
-        return <Text type="secondary">-</Text>;
-      }
-      return (
-        <div>
-          {multiValues.map((v) => {
-            const opt = field.options?.find((o) => o.value === v);
-            return <Tag key={v}>{opt?.label || v}</Tag>;
-          })}
-        </div>
-      );
-    }
-    case 'upload': {
-      const files = value as Array<{ name: string; url: string; thumbUrl?: string }>;
-      if (!files || files.length === 0) return <Text type="secondary">-</Text>;
-
-      // 容错：兼容历史脏数据（url 缺失时回退到 thumbUrl base64 预览）
-      const getImageSrc = (f: typeof files[number]) => f.url || f.thumbUrl || '';
-
-      const imageFiles = files.filter(f => isImageFileName(f.name));
-      const otherFiles = files.filter(f => !isImageFileName(f.name));
-
-      return (
-        <div className={styles.fileList}>
-          {imageFiles.length > 0 && (
-            <Image.PreviewGroup>
-              <div className={styles.imageGroup}>
-                {imageFiles.map((file, index) => (
-                  <Image
-                    key={index}
-                    src={getImageSrc(file)}
-                    alt={file.name}
-                    width={60}
-                    height={60}
-                    style={{ objectFit: 'cover', borderRadius: 4 }}
-                  />
-                ))}
-              </div>
-            </Image.PreviewGroup>
-          )}
-          {otherFiles.map((file, index) => {
-            const href = file.url || file.thumbUrl;
-            return href ? (
-              <a key={`doc-${index}`} href={href} target="_blank" rel="noopener noreferrer">
-                <FileTextOutlined /> {file.name}
-              </a>
-            ) : (
-              <Text key={`doc-${index}`}><FileTextOutlined /> {file.name}</Text>
-            );
-          })}
-        </div>
-      );
-    }
-    case 'user':
-    case 'dept':
-      return <Text>{(value as { name?: string })?.name || String(value)}</Text>;
-    case 'erp_customer':
-    case 'erp_supplier':
-    case 'erp_purchase_order':
-    case 'erp_department':
-    case 'erp_staff':
-    case 'erp_payment_account':
-    case 'erp_asset_category':
-    case 'asset_search':
-    case 'erp_grade':
-    case 'erp_group':
-    case 'erp_area': {
-      // 第一优先级：formData 中已存储的名称（nameField，含 _ 前缀变体兜底）
-      const storedName = resolveStoredName(field.nameField, formData);
-      if (storedName) return <Text>{storedName}</Text>;
-      // 第二优先级：批量预解析结果
-      if (field.searchApi) {
-        const erpType = ERP_SEARCH_API_MAP[field.searchApi];
-        if (erpType) {
-          const cacheKey = `${erpType}:${value}`;
-          if (resolvedMap?.[cacheKey]) {
-            return <Text>{resolvedMap[cacheKey]}</Text>;
-          }
-          // 第三优先级：ErpNameDisplay 兜底
-          return <ErpNameDisplay erpType={erpType} id={value} />;
-        }
-      }
-      return <Text>{String(value)}</Text>;
-    }
-    case 'erp_prepayment':
-    case 'erp_supplier_income': {
-      // 多选字段：值可能是数组或逗号分隔字符串
-      const ids: unknown[] = Array.isArray(value)
-        ? value
-        : typeof value === 'string' && value
-          ? value.split(',').map(s => s.trim()).filter(Boolean)
-          : [];
-      if (ids.length === 0) return <Text type="secondary">-</Text>;
-      const erpType = field.searchApi ? ERP_SEARCH_API_MAP[field.searchApi] : null;
-      if (erpType) {
-        return (
-          <div>
-            {ids.map((id, i) => {
-              const cacheKey = `${erpType}:${id}`;
-              if (resolvedMap?.[cacheKey]) {
-                return <Tag key={i}>{resolvedMap[cacheKey]}</Tag>;
-              }
-              return <Tag key={i}><ErpNameDisplay erpType={erpType} id={id} /></Tag>;
-            })}
-          </div>
-        );
-      }
-      return <Text>{Array.isArray(value) ? value.join(', ') : String(value)}</Text>;
-    }
-    case 'erp_settlement_order': {
-      const orderIds = value as number[];
-      if (!Array.isArray(orderIds) || orderIds.length === 0) {
-        return <Text type="secondary">-</Text>;
-      }
-      // 第一优先级：结构化明细 JSON → 渲染小表格
-      if (field.detailsField && formData?.[field.detailsField]) {
-        try {
-          const parsed = JSON.parse(String(formData[field.detailsField]));
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const details = parsed as Array<{ bizStr: string; leftAmount: string }>;
-            const total = details.reduce((sum, d) => sum + (parseFloat(d.leftAmount) || 0), 0);
-            return (
-              <table style={{ fontSize: 13, borderCollapse: 'collapse', width: '100%' }}>
-                <tbody>
-                  {details.map((d, i) => (
-                    <tr key={i}>
-                      <td style={{ padding: '2px 8px 2px 0' }}>{d.bizStr}</td>
-                      <td style={{ padding: '2px 0', textAlign: 'right' }}>
-                        {formatCurrency(d.leftAmount)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td style={{ padding: '4px 8px 0 0', fontWeight: 500, borderTop: '1px solid #f0f0f0' }}>
-                      合计 ({details.length} 单)
-                    </td>
-                    <td style={{ padding: '4px 0 0', fontWeight: 500, textAlign: 'right', borderTop: '1px solid #f0f0f0' }}>
-                      {formatCurrency(total)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            );
-          }
-        } catch {
-          /* JSON 解析失败，降级到下方逻辑 */
-        }
-      }
-      // 第二优先级：nameField（旧数据，纯文本名称，含 _ 前缀变体兜底）
-      const storedSettlementNames = resolveStoredName(field.nameField, formData);
-      if (storedSettlementNames) {
-        return (
-          <div>
-            {storedSettlementNames.split(', ').map((name, i) => (
-              <Tag key={i}>{name}</Tag>
-            ))}
-          </div>
-        );
-      }
-      // 第三优先级：resolvedMap / ErpNameDisplay（兜底）
-      const settlementParams = formData?.customer
-        ? { consumerId: String(formData.customer) }
-        : undefined;
-      const erpType = 'settlement-orders';
-      return (
-        <div>
-          {orderIds.map((id) => {
-            const cacheKey = `${erpType}:${id}`;
-            if (resolvedMap?.[cacheKey]) {
-              return <Tag key={id}>{resolvedMap[cacheKey]}</Tag>;
-            }
-            return (
-              <Tag key={id}>
-                <ErpNameDisplay erpType={erpType} id={id} extraParams={settlementParams} />
-              </Tag>
-            );
-          })}
-        </div>
-      );
-    }
-    case 'textarea':
-      return <Text style={{ whiteSpace: 'pre-wrap' }}>{value as string}</Text>;
-    case 'table': {
-      const rows = value as Record<string, unknown>[];
-      if (!rows || rows.length === 0) return <Text type="secondary">-</Text>;
-      return <ReadonlyTable field={field} rows={rows} resolvedMap={resolvedMap} />;
-    }
-    case 'signature': {
-      const sigValue = value as string;
-      if (!sigValue) return <Text type="secondary">未签名</Text>;
-      return (
-        <img
-          src={sigValue}
-          alt="签名"
-          style={{ maxWidth: 200, maxHeight: 100, border: '1px solid #d9d9d9', borderRadius: 4 }}
-        />
-      );
-    }
-    case 'formula': {
-      // 快照语义：直接显示提交时存储的计算结果，不重算
-      const num = Number(value);
-      const precision = field.formulaPrecision ?? 2;
-      if (precision === 2) {
-        return <Text strong>{formatCurrency(num)}</Text>;
-      }
-      return <Text>{num.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}</Text>;
-    }
-    default:
-      return <Text>{String(value)}</Text>;
-  }
+  return (
+    <FieldControlDispatcher
+      mode="readonly"
+      field={field}
+      value={value}
+      formData={formData}
+      resolvedMap={resolvedMap}
+      erpLicenseUrls={erpLicenseUrls}
+    />
+  );
 };
 
 export default FieldRenderer;

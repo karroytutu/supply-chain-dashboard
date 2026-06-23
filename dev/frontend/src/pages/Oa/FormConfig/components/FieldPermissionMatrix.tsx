@@ -25,6 +25,27 @@ function isUserField(field: FormField): boolean {
   return !field.key.startsWith('_') && !field.hidden;
 }
 
+/** 展开表格子字段：将 table 类型的子字段插入到父字段后面作为子行 */
+function flattenFieldsWithChildren(fields: FormField[]): Array<{ field: FormField; isChild: boolean; parentKey?: string }> {
+  const result: Array<{ field: FormField; isChild: boolean; parentKey?: string }> = [];
+  for (const field of fields) {
+    result.push({ field, isChild: false });
+    // 表格类型且有子字段时，展开子字段
+    if (field.type === 'table' && field.children) {
+      for (const child of field.children) {
+        if (!child.hidden) {
+          result.push({
+            field: { ...child, key: `${field.key}.${child.key}`, label: `  └ ${child.label}` },
+            isChild: true,
+            parentKey: field.key,
+          });
+        }
+      }
+    }
+  }
+  return result;
+}
+
 const FieldPermissionMatrix: React.FC<FieldPermissionMatrixProps> = ({
   formCode,
   fields,
@@ -34,11 +55,12 @@ const FieldPermissionMatrix: React.FC<FieldPermissionMatrixProps> = ({
   const { togglePermission, getPermission, savePermissions, saving } =
     useFieldPermissions(formCode, initialPermissions);
 
-  // 过滤出用户可见字段
+  // 过滤出用户可见字段，并展开表格子字段
   const userFields = fields.filter(isUserField);
+  const flatFields = flattenFieldsWithChildren(userFields);
 
-  // 过滤出非 auto 类型的节点（auto 节点不需要字段权限配置）
-  const humanNodes = workflowNodes.filter(n => n.type !== 'auto');
+  // 过滤出非 auto/cc 类型的节点（auto 和 cc 节点不需要字段权限配置）
+  const humanNodes = workflowNodes.filter(n => n.type !== 'auto' && n.type !== 'cc');
 
   // 构建表格列
   const columns = [
@@ -46,25 +68,27 @@ const FieldPermissionMatrix: React.FC<FieldPermissionMatrixProps> = ({
       title: '字段名称',
       dataIndex: 'label',
       key: 'label',
-      width: 140,
+      width: 180,
       fixed: 'left' as const,
-      render: (label: string, record: FormField) => (
-        <Text strong style={{ fontSize: 13 }}>{label}</Text>
+      render: (label: string, record: { field: FormField; isChild: boolean }) => (
+        <Text strong={!record.isChild} style={{ fontSize: 13, color: record.isChild ? '#666' : undefined, paddingLeft: record.isChild ? 16 : 0 }}>
+          {label}
+        </Text>
       ),
     },
     {
       title: '发起阶段',
-      key: 'initiation',
+      key: 'node_0',
       width: 100,
       align: 'center' as const,
-      render: (_: unknown, record: FormField) => {
-        const perm = getPermission('initiation', '', record.key);
-        const meta = perm ? PERMISSION_LABELS[perm] : PERMISSION_LABELS.default;
+      render: (_: unknown, record: { field: FormField }) => {
+        const perm = getPermission('0', record.field.key);
+        const meta = perm ? PERMISSION_LABELS[perm] : PERMISSION_LABELS.hidden;
         return (
           <Tag
             color={meta.color}
             style={{ cursor: 'pointer', userSelect: 'none', minWidth: 56, textAlign: 'center' }}
-            onClick={() => togglePermission('initiation', '', record.key)}
+            onClick={() => togglePermission('0', record.field.key)}
           >
             {meta.label}
           </Tag>
@@ -77,14 +101,14 @@ const FieldPermissionMatrix: React.FC<FieldPermissionMatrixProps> = ({
       key: `node_${node.order}`,
       width: 100,
       align: 'center' as const,
-      render: (_: unknown, record: FormField) => {
-        const perm = getPermission('nodes', String(node.order), record.key);
-        const meta = perm ? PERMISSION_LABELS[perm] : PERMISSION_LABELS.default;
+      render: (_: unknown, record: { field: FormField }) => {
+        const perm = getPermission(String(node.order), record.field.key);
+        const meta = perm ? PERMISSION_LABELS[perm] : PERMISSION_LABELS.hidden;
         return (
           <Tag
             color={meta.color}
             style={{ cursor: 'pointer', userSelect: 'none', minWidth: 56, textAlign: 'center' }}
-            onClick={() => togglePermission('nodes', String(node.order), record.key)}
+            onClick={() => togglePermission(String(node.order), record.field.key)}
           >
             {meta.label}
           </Tag>
@@ -111,17 +135,16 @@ const FieldPermissionMatrix: React.FC<FieldPermissionMatrixProps> = ({
       }
     >
       <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-        点击单元格切换状态：默认(继承) → 可编辑 → 只读 → 隐藏。
-        "默认"表示使用代码定义的权限，不写入数据库覆盖。
+        点击单元格切换状态：可编辑 → 只读 → 隐藏。每个环节必须配置所有字段的权限，不允许留空。
       </Text>
       <Table
-        dataSource={userFields}
+        dataSource={flatFields}
         columns={columns}
-        rowKey="key"
+        rowKey={(record) => record.field.key}
         pagination={false}
         size="small"
         bordered
-        scroll={{ x: 140 + 100 * (1 + humanNodes.length) }}
+        scroll={{ x: 180 + 100 * (1 + humanNodes.length) }}
       />
     </Card>
   );

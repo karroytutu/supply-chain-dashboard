@@ -9,6 +9,8 @@ import TableFieldRenderer from './TableFieldRenderer';
 import PhotoFieldRenderer from './PhotoFieldRenderer';
 import { SignaturePad } from '@/components/Oa/SignaturePad';
 import UploadFieldRenderer from './UploadFieldRenderer';
+import ErpMultiSelectModal from '@/components/Oa/fields/ErpMultiSelectModal';
+import BankAccountSelector, { type BankAccountValue } from '@/components/Oa/BankAccountSelector';
 import styles from '../index.less';
 
 const { TextArea } = Input;
@@ -36,7 +38,7 @@ interface FormFieldConfigProps {
 
 /** 判断是否为 ERP 字段类型 */
 function isErpFieldType(type: FormField['type']): boolean {
-  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order', 'erp_grade', 'erp_group', 'erp_area', 'erp_supplier', 'erp_purchase_order', 'erp_prepayment', 'erp_supplier_income'].includes(type);
+  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order', 'erp_grade', 'erp_group', 'erp_area', 'erp_supplier', 'erp_purchase_order'].includes(type);
 }
 
 /** 表单字段渲染组件 */
@@ -44,6 +46,20 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
   field, formData, form, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect, includeAllStates,
 }) => {
   const { type, placeholder, required, options, maxLength, maxCount, upper } = field;
+
+  // ERP 多选弹窗选择器（统一组件替代 PurchaseSettlementSelector / ErpFieldRenderer 多选）
+  if (type === 'purchase_settlement_multi' || type === 'erp_prepayment' || type === 'erp_supplier_income') {
+    return (
+      <ErpMultiSelectModal
+        mode="editable"
+        field={field}
+        value={value}
+        onChange={onChange}
+        formData={formData}
+        fakeForm={form}
+      />
+    );
+  }
 
   // ERP 字段类型统一走 ErpFieldRenderer
   if (isErpFieldType(type)) {
@@ -215,6 +231,15 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           value={value as string | undefined}
           onChange={onChange as ((value: string | undefined) => void) | undefined}
           readOnly={field.disabled}
+        />
+      );
+
+    case 'bank_account_selector':
+      return (
+        <BankAccountSelector
+          value={value as BankAccountValue | null}
+          onChange={onChange as ((value: BankAccountValue | null) => void) | undefined}
+          disabled={field.disabled}
         />
       );
 

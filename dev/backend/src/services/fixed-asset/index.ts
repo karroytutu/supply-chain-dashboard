@@ -44,11 +44,11 @@ export {
   getErpPaymentAccounts,
 } from './fixed-asset.query';
 
-export { handleAssetPurchaseNodeCallback } from './purchase-callback';
+export { handleAssetPurchaseAutoNode } from './purchase-callback';
 
 export { handleAssetTransferApproved } from './transfer-callback';
 
-export { handleAssetMaintenanceNodeCallback } from './maintenance-callback';
+export { handleMaintenanceAutoNode } from './maintenance-callback';
 
 export { handleAssetDisposalApproved } from './disposal-callback';
 

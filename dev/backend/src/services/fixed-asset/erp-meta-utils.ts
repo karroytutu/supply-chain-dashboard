@@ -77,10 +77,10 @@ export async function mergeErpResponseData(
 }
 
 /**
- * 合并数据到 form_data（供 auto 节点回调回写自动生成字段）
+ * 持久化数据到 form_data（供 auto 节点回调回写自动生成字段）
  * 使用 jsonb || 运算符一次合并多个键，保留 form_data 中已有字段
  */
-export async function mergeFormData(
+export async function persistFormData(
   instanceId: number,
   data: Record<string, unknown>
 ): Promise<void> {

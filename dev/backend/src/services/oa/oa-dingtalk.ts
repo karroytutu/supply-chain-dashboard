@@ -42,7 +42,7 @@ export function buildResultOaMessage(
   params: DingtalkNotifyParams,
   status: 'approved' | 'rejected' | 'withdrawn'
 ): OaMessageContent {
-  const baseUrl = config.app.baseUrl;
+  const baseUrl = config.dingtalk.baseUrl;
   const {
     instanceId,
     title,
@@ -95,7 +95,7 @@ export function buildResultOaMessage(
  * 构建抄送OA消息
  */
 export function buildCcOaMessage(params: DingtalkNotifyParams): OaMessageContent {
-  const baseUrl = config.app.baseUrl;
+  const baseUrl = config.dingtalk.baseUrl;
   const { instanceId, title, formTypeName, applicantName, formSchema, formData } = params;
 
   const formRows = extractFormSummary(formSchema, formData);

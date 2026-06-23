@@ -1,36 +1,27 @@
 /**
- * 固定资产维修流程 - OA 审批回调处理器
- * 节点4(财务支付): 创建费用单 (subjectId=412 维修费用)
+ * 固定资产维修流程 - auto 节点回调处理器
+ * 节点5(创建费用单): 调用 ERP 创建维修费用单 (subjectId=412)
  * @module services/fixed-asset/maintenance-callback
  */
 import { createLogger } from '../../utils/logger';
 const log = createLogger('FixedAsset');
 
-import type { OaInstanceRow } from '../oa/oa.types';
+import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
 import { getErpStaff } from './fixed-asset.query';
-import {
-  getErpMeta,
-  updateErpMetaStatus,
-  mergeErpResponseData,
-  markErpFailed,
-} from './erp-meta-utils';
+import { getErpMeta, updateErpMetaStatus, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults, type ErpBillResponse } from '../erp-client';
 import { FEE_SUBJECT } from './fixed-asset.types';
 import { randomUUID } from 'crypto';
 import { normalizeDateTime } from './fixed-asset-utils';
 
 /**
- * 维修流程 — data_input 节点回调
- * 节点4(财务支付): 创建费用单
+ * 维修流程 — auto 节点回调
+ * 由框架通过 executeAutoNodeCallback 触发，回填由 nodeBackfills 声明驱动
  */
-export async function handleAssetMaintenanceNodeCallback(
+export async function handleMaintenanceAutoNode(
   instance: OaInstanceRow,
-  nodeOrder: number,
-  nodeData: Record<string, unknown>,
   formData: Record<string, unknown>
-): Promise<void> {
-  if (nodeOrder !== 4) return;
-
+): Promise<CallbackResult> {
   try {
     await updateErpMetaStatus(instance.id, 'paying');
 
@@ -94,15 +85,23 @@ export async function handleAssetMaintenanceNodeCallback(
     const billData = result?.data as ErpBillResponse | undefined;
 
     await updateErpMetaStatus(instance.id, 'completed');
-    await mergeErpResponseData(instance.id, {
-      expenditureBillId: billData?.id,
-      expenditureBillStr: billData?.billStr,
-    });
 
     log.info(`维修费用单创建成功: billStr=${billData?.billStr}`);
+
+    // 返回结构化结果，框架根据 nodeBackfills 声明自动执行回填
+    return {
+      erpMeta: {
+        expenditureBillId: billData?.id,
+        expenditureBillStr: billData?.billStr,
+      },
+      formData: {
+        _expenditureBillStr: billData?.billStr,
+      },
+    };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     log.error(`维修费用单创建失败:`, message);
     await markErpFailed(instance.id, { error: message, node: 'maintenance_payment' });
+    throw error;
   }
 }
