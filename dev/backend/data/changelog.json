@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "v2.10.1",
+      "date": "2026-06-23 12:55",
+      "types": ["fix", "optimization"],
+      "changes": [
+        "催收OA实例数据修复：迁移123为38个无节点的在途催收实例补充营销师催收节点，恢复待处理状态",
+        "壳实例对账增强反向对账：壳completed/terminated但OA仍在途时自动重建壳实例并补建钉钉待办，含连续失败熔断保护",
+        "钉钉流程中心状态对齐：一次性修复脚本处理三类异常（B类壳过早关闭、C类终态残留待办、A类无壳映射）",
+        "迁移后二次检查脚本：验证assigned_user_ids含NULL元素的节点和重复pending待办记录"
+      ]
+    },
+    {
       "version": "v2.10.0",
       "date": "2026-06-23 03:21",
       "types": ["feature", "breaking", "optimization"],

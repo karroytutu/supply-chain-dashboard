@@ -25,6 +25,7 @@ import {
   FormComponentValue,
 } from '../dingtalk-process-centre.service';
 import { extractFormSummary } from './oa-form-summary';
+import { getFormTypeByCode } from './form-types';
 import type { FormSchema } from './oa.types';
 import {
   OA_PC_ACTIVITY_ID_SEPARATOR,
@@ -494,12 +495,21 @@ export async function completeAllPendingTodos(
 }
 
 /**
- * 对账：扫描本地仍为 active 但审批实例已终态的记录，补偿完成壳实例
+ * 对账：扫描壳实例与 OA 实例状态不一致的记录，双向补偿
  * 每 30 分钟执行一次，兜底钉钉 API 失败导致的状态不一致
+ *
+ * 正向对账：壳 active + OA 终态 → 补偿关闭壳
+ * 反向对账：壳 completed/terminated + OA 仍在途 → 重建壳 + 补建当前节点待办
  */
 export async function reconcileProcessInstanceStatus(): Promise<{ processed: number; failed: number }> {
+  let processed = 0;
+  let failed = 0;
+
   try {
-    const result = await query<{
+    // =====================================================
+    // 正向对账：壳 active + OA 终态 → 补偿关闭壳
+    // =====================================================
+    const forwardResult = await query<{
       instance_id: number;
       status: string;
     }>(
@@ -512,19 +522,141 @@ export async function reconcileProcessInstanceStatus(): Promise<{ processed: num
        LIMIT 100`
     );
 
-    let processed = 0;
-    let failed = 0;
-    for (const row of result.rows) {
+    for (const row of forwardResult.rows) {
       try {
         const resultType = row.status === 'approved' ? 'agree' : 'refuse';
         await finalizeProcessInstance(row.instance_id, resultType);
         processed++;
       } catch (err: any) {
         failed++;
-        log.error('壳实例对账补偿失败:', {
+        log.error('壳实例正向对账失败:', {
           instanceId: row.instance_id,
           error: err?.message,
         });
+      }
+    }
+
+    // =====================================================
+    // 反向对账：壳 completed/terminated + OA 仍在途 → 重建壳 + 补建待办
+    // =====================================================
+    const reverseResult = await query<{
+      instance_id: number;
+      instance_no: string;
+      title: string;
+      form_type_code: string;
+      form_type_name: string;
+      applicant_id: number;
+      applicant_name: string;
+      current_node_order: number;
+      form_data: Record<string, unknown>;
+    }>(
+      `SELECT m.instance_id, i.instance_no, i.title,
+              ft.code as form_type_code, ft.name as form_type_name,
+              i.applicant_id, i.applicant_name,
+              i.current_node_order, i.form_data
+       FROM oa_process_instance_mapping m
+       JOIN oa_approval_instances i ON i.id = m.instance_id
+       JOIN oa_form_types ft ON ft.id = i.form_type_id
+       WHERE m.status IN ('completed', 'terminated')
+         AND i.status IN ('pending', 'processing')
+         AND m.updated_at < NOW() - interval '30 minutes'
+       LIMIT 100`
+    );
+
+    // 钉钉 API 熔断：连续失败达 5 次时提前终止，避免在钉钉降级时持续施压
+    let consecutiveFailures = 0;
+
+    for (const row of reverseResult.rows) {
+      try {
+        log.info('反向对账: 重建壳实例', { instanceId: row.instance_id });
+
+        // 0. 清理旧 pending task_mapping，避免旧 pc_task_id 与新壳实例冲突
+        await query(
+          `UPDATE oa_process_task_mapping SET status = 'canceled', completed_at = NOW()
+           WHERE instance_id = $1 AND status = 'pending'`,
+          [row.instance_id]
+        );
+
+        // 1. 从代码级定义获取表单结构（DB 中的 form_schema 已被迁移 110 废弃清空）
+        const formType = getFormTypeByCode(row.form_type_code);
+        const formSchema = formType?.formSchema;
+
+        // 2. 重建壳实例（createProcessInstance 内部会 UPSERT mapping 为 active）
+        await createProcessInstance(
+          row.instance_id,
+          row.form_type_code,
+          row.form_type_name,
+          row.applicant_id,
+          row.title,
+          formSchema,
+          row.form_data
+        );
+
+        // 3. 验证壳实例是否成功创建为 active（createProcessInstance 内部 catch 不抛异常）
+        const mappingCheck = await query<{ status: string }>(
+          `SELECT status FROM oa_process_instance_mapping WHERE instance_id = $1`,
+          [row.instance_id]
+        );
+        if (mappingCheck.rows[0]?.status !== 'active') {
+          log.warn('反向对账: 壳实例重建失败，跳过待办补建', {
+            instanceId: row.instance_id,
+            mappingStatus: mappingCheck.rows[0]?.status,
+          });
+          failed++;
+          consecutiveFailures++;
+          if (consecutiveFailures >= 5) {
+            log.error('反向对账: 连续钉钉失败达 5 次，提前终止', { consecutiveFailures });
+            break;
+          }
+          continue;
+        }
+
+        // 4. 获取当前 pending 的人工节点，补建钉钉待办
+        const pendingNodeResult = await query<{
+          assigned_user_ids: number[] | null;
+          node_order: number;
+        }>(
+          `SELECT DISTINCT ON (node_order) assigned_user_ids, node_order
+           FROM oa_approval_nodes
+           WHERE instance_id = $1
+             AND status = 'pending'
+             AND node_type IN ('approval', 'handle')
+           ORDER BY node_order, round DESC
+           LIMIT 1`,
+          [row.instance_id]
+        );
+
+        if (pendingNodeResult.rows.length > 0) {
+          const node = pendingNodeResult.rows[0];
+          const approverIds = node.assigned_user_ids ?? [];
+          for (const approverId of approverIds) {
+            await createApprovalTodo(
+              row.instance_id,
+              row.instance_no,
+              row.title,
+              row.form_type_name,
+              row.applicant_name,
+              approverId,
+              formSchema,
+              row.form_data,
+              node.node_order
+            );
+          }
+        }
+
+        processed++;
+        consecutiveFailures = 0; // 成功时重置连续失败计数
+      } catch (err: any) {
+        failed++;
+        consecutiveFailures++;
+        log.error('壳实例反向对账失败:', {
+          instanceId: row.instance_id,
+          error: err?.message,
+        });
+        if (consecutiveFailures >= 5) {
+          log.error('反向对账: 连续钉钉失败达 5 次，提前终止', { consecutiveFailures });
+          break;
+        }
       }
     }
 
@@ -534,7 +666,6 @@ export async function reconcileProcessInstanceStatus(): Promise<{ processed: num
     return { processed, failed };
   } catch (error: any) {
     log.error('壳实例状态对账异常:', { error: error?.message });
-    // 向上抛出异常，让 scheduler 感知并记录错误，避免静默失败
-    throw error;
+    throw error; // 向上抛出异常，让 scheduler 感知并记录错误，避免静默失败
   }
 }
