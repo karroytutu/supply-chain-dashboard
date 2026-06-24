@@ -794,6 +794,7 @@ export interface PurchaseSettlementsParams {
   startDate?: string;
   endDate?: string;
   keyword?: string;
+  supplierId?: string;
   page?: number;
   pageSize?: number;
 }
@@ -816,6 +817,7 @@ export async function getPurchaseSettlements(
         startDate: params.startDate || undefined,
         endDate: params.endDate || undefined,
         keyword: params.keyword || undefined,
+        supplierId: params.supplierId || undefined,
         page: params.page || 1,
         pageSize: params.pageSize || 20,
       },

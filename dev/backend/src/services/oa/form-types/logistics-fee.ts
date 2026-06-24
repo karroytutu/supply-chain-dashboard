@@ -62,8 +62,26 @@ const logisticsFeeFormSchema: FormSchema = {
     {
       key: 'settlementIds',
       label: '采购结算单',
-      type: 'purchase_settlement_multi',
+      type: 'modal_select',
       required: true,
+      multiple: true,
+      searchApi: 'purchase_settlements',
+      valueKey: 'billStr',
+      labelKey: 'bizStr',
+      amountKey: 'settleAmount',
+      paginated: true,
+      columns: [
+        { title: '单据日期', dataIndex: 'workTime', format: 'date' as const },
+        { title: '采购单号', dataIndex: 'bizStr' },
+        { title: '供应商', dataIndex: 'supplierName', ellipsis: true },
+        { title: '结算金额', dataIndex: 'settleAmount', format: 'money' as const, align: 'right' as const },
+        { title: '仓库', dataIndex: 'warehouseName', ellipsis: true },
+      ],
+      filters: [
+        { type: 'keyword' as const, key: 'bizStr', placeholder: '搜索采购单号' },
+        { type: 'date-range' as const, key: 'dateRange', label: '单据日期', defaultValue: 'last7days' },
+        { type: 'select' as const, key: 'supplierId', label: '供应商', searchApi: 'erp_suppliers' },
+      ],
     },
 
     {

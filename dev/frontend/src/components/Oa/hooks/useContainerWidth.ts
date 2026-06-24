@@ -83,7 +83,7 @@ export function getColumnWidth(col: FormField): number {
     case 'text': return 150;
     case 'textarea': return 200;
     case 'select':
-    case 'multi-select': return 120;
+    case 'modal_select': return 120;
     default: return 120;
   }
 }

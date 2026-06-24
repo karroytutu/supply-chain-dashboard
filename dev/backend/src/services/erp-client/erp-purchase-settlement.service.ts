@@ -39,6 +39,7 @@ export async function searchPurchaseSettlements(params: {
   size?: number;
   billState?: string;
   keyword?: string;
+  supplierId?: string;
 }): Promise<PurchaseSettlementListResult> {
   const { cid, uid } = getErpDefaults();
   const current = params.current || 1;
@@ -58,6 +59,11 @@ export async function searchPurchaseSettlements(params: {
   // 关键词搜索通过 billStr 参数
   if (params.keyword?.trim()) {
     queryParams.billStr = params.keyword.trim();
+  }
+
+  // 供应商筛选
+  if (params.supplierId?.trim()) {
+    queryParams.supplierId = params.supplierId.trim();
   }
 
   const response = await erpGet<unknown>(

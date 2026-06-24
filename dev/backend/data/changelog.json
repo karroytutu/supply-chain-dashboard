@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "version": "v2.12.0",
+      "date": "2026-06-24 11:58",
+      "types": ["feature", "breaking", "optimization"],
+      "changes": [
+        "统一弹窗多选控件（modal_select）架构落地：废弃ErpMultiSelectModal和multi-select/purchase_settlement_multi等分散类型，新建配置驱动的ModalSelectControl统一组件，支持远程搜索、固定选项、多条件筛选、级联参数、分页、列定义等全配置能力",
+        "modal_select类型系统统一：前后端FormFieldType新增modal_select类型，废弃multi-select和purchase_settlement_multi，新增ModalSelectColumn和ModalSelectFilter接口定义",
+        "物流费审批表单迁移：settlementIds字段从purchase_settlement_multi迁移为modal_select，配置5列表格（单据日期/采购单号/供应商/结算金额/仓库）和3项筛选条件（关键词/日期范围/供应商）",
+        "授信审批表单迁移：holdSettlementOrders字段从erp_settlement_order迁移为modal_select，支持级联客户参数和金额展示",
+        "ERP采购结算服务增强：searchPurchaseSettlements新增supplierId筛选参数，ERP参考控制器同步支持供应商条件过滤",
+        "表单校验适配：validateFormData新增modal_select校验分支（远程数据仅校验值类型），单元测试同步更新",
+        "前端API层增强：采购结算单查询接口新增supplierId参数传递"
+      ]
+    },
+    {
       "version": "v2.11.0",
       "date": "2026-06-24 02:58",
       "types": ["feature", "breaking", "optimization"],
