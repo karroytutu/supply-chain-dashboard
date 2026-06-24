@@ -60,7 +60,7 @@ export async function getActiveFormTypes(userRoles?: string[]): Promise<FormType
     const result = await query<OaFormTypeRow>(
       `SELECT id, code, name, icon, category, sort_order, description,
               is_active, version, allowed_roles, data_read_roles, data_export_roles,
-              field_permissions,
+              field_permissions, view_permissions,
               created_at, updated_at
        FROM oa_form_types WHERE is_active = true ORDER BY category, sort_order`
     );

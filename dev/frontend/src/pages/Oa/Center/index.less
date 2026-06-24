@@ -393,9 +393,21 @@
       min-width: 0;
     }
 
-    // 重置 iconWrapper 为透明模式
+    // 移动端 iconWrapper 保持为实体定位容器，承载 Badge 绝对定位
     .iconWrapper {
-      display: contents;
+      display: inline-flex;
+      position: relative;
+      align-items: center;
+      justify-content: center;
+    }
+
+    // 覆盖平板断点的 Badge 绝对定位规则（第350-355行），恢复 Ant Design 默认内联定位
+    :global(.ant-badge) {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      transform: none !important;
+      vertical-align: middle;
     }
 
     // 隐藏缩写，恢复完整标签

@@ -23,6 +23,7 @@ import { history, useParams } from 'umi';
 import { useFormDetail, formatCondition, type WorkflowNodeEdit } from './hooks/useFormDetail';
 import NodeCard from './components/NodeCard';
 import FieldPermissionMatrix from './components/FieldPermissionMatrix';
+import ViewPermissionMatrix from './components/ViewPermissionMatrix';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -205,6 +206,15 @@ const FormDetailPage: React.FC = () => {
               fields={formDetail.formSchema.fields as any}
               workflowNodes={formDetail.workflowDef.nodes as any}
               initialPermissions={formDetail.fieldPermissions as any}
+            />
+          )}
+          {/* 查看权限配置矩阵 */}
+          {formDetail.formSchema?.fields && (
+            <ViewPermissionMatrix
+              formCode={formDetail.code}
+              fields={formDetail.formSchema.fields as any}
+              workflowNodes={formDetail.workflowDef.nodes as any}
+              initialViewPermissions={formDetail.viewPermissions as any}
             />
           )}
         </Col>

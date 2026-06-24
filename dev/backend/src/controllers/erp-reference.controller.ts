@@ -35,6 +35,8 @@ import {
   listTraderPrepayments,
   searchSupplierIncomes,
   searchPurchaseOrders,
+  searchSupplierDebts,
+  searchSupplierDebtsPaged,
 } from '../services/erp-client/erp-purchase.service';
 import {
   searchPurchaseSettlements,
@@ -82,6 +84,7 @@ const LABEL_FIELDS: Record<string, string> = {
   'purchase-settlements': 'billStr',
   'allocatable-purchase-details': 'billStr',
   'allocatable-expense-details': 'billStr',
+  'supplier-debts': 'bizStr',
 };
 
 /**
@@ -153,11 +156,15 @@ export async function getErpReference(
           const pageSize =
             parseInt((req.query.page_size as string) || (req.query.pageSize as string), 10) || 20;
           const keyword = req.query.keyword as string | undefined;
+          const startDate = req.query.startDate as string | undefined;
+          const endDate = req.query.endDate as string | undefined;
           data = await searchErpSettlementOrdersPaged({
             traderId: consumerId,
             keyword,
             page,
             pageSize,
+            startDate,
+            endDate,
           });
         } else {
           // 兼容旧的全量查询模式
@@ -262,6 +269,37 @@ export async function getErpReference(
           endDate: aedEndDate || undefined,
         });
         data = aedResult;
+        break;
+      }
+
+      case 'supplier-debts': {
+        // 供应商应付单据：需要 traderId（供应商 ID）
+        const sdTraderId = req.query.traderId as string;
+        if (!sdTraderId) {
+          res.status(400).json({ code: 400, message: '供应商应付单据查询需要 traderId 参数' });
+          return;
+        }
+        const sdParsedTraderId = parseInt(sdTraderId, 10);
+        if (isNaN(sdParsedTraderId)) {
+          res.status(400).json({ code: 400, message: 'traderId 必须为数字' });
+          return;
+        }
+        // 支持分页模式：传 page 参数时返回分页结果
+        const sdPageParam = req.query.page as string | undefined;
+        if (sdPageParam) {
+          const sdPage = parseInt(sdPageParam, 10) || 1;
+          const sdPageSize =
+            parseInt((req.query.page_size as string) || (req.query.pageSize as string), 10) || 20;
+          const sdKeyword = req.query.keyword as string | undefined;
+          data = await searchSupplierDebtsPaged({
+            traderId: sdParsedTraderId,
+            keyword: sdKeyword,
+            page: sdPage,
+            pageSize: sdPageSize,
+          });
+        } else {
+          data = await searchSupplierDebts(sdParsedTraderId);
+        }
         break;
       }
 

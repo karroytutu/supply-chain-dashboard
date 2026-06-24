@@ -114,13 +114,19 @@ export const customerCreditFormType: FormTypeDefinition = {
         labelKey: 'bizStr',
         amountKey: 'leftAmount',
         cascadeParams: { consumerId: 'customer' },
-        nameField: '_holdSettlementOrderNames',
-        detailsField: '_holdSettlementOrderDetails',
+        paginated: true,
         columns: [
+          { title: '单据日期', dataIndex: 'workTime', format: 'date' as const },
           { title: '结算单号', dataIndex: 'bizStr' },
           { title: '剩余金额', dataIndex: 'leftAmount', format: 'money' as const, align: 'right' as const },
         ],
-        visibleWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
+        filters: [
+          { type: 'date-range' as const, key: 'dateRange', label: '单据日期' },
+        ],
+        visibleWhen: [
+          { field: 'customer', operator: 'not_empty' },
+          { field: 'creditType', operator: '==', value: 'hold_order' },
+        ],
         requiredWhen: { field: 'creditType', operator: '==', value: 'hold_order' },
       },
       // 压单类型
@@ -169,8 +175,6 @@ export const customerCreditFormType: FormTypeDefinition = {
     // 系统数据：不参与权限配置和前端渲染
     internalFields: [
       { key: '_customerName', label: '客户名称', type: 'text', required: false },
-      { key: '_holdSettlementOrderNames', label: '压单结算单名称', type: 'text', required: false },
-      { key: '_holdSettlementOrderDetails', label: '压单结算单明细', type: 'text', required: false },
     ],
   },
 

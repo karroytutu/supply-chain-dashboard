@@ -124,17 +124,12 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     setHasSignature(true);
   }, [isDrawing, readOnly, getPosition]);
 
-  // 结束绘制
+  // 结束绘制（仅结束绘制状态，不自动提交）
   const stopDrawing = useCallback(() => {
     if (!isDrawing) return;
     setIsDrawing(false);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // 保存签名
-    const dataUrl = canvas.toDataURL('image/png');
-    onChange?.(dataUrl);
-  }, [isDrawing, onChange]);
+    // 不自动调用 onChange —— 由用户点击“确认签名”按钮显式提交
+  }, [isDrawing]);
 
   // 清空签名
   const clearSignature = useCallback(() => {

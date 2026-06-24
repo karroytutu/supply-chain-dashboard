@@ -71,6 +71,10 @@ const FormPage: React.FC = () => {
       for (const key of Object.keys(prev)) {
         if (key.startsWith('_')) hiddenFields[key] = prev[key];
       }
+      // _details 由 ModalSelectControl 通过 form.setFieldsValue 自动写入，
+      // 无对应 Form.Item，onValuesChange 不会触发，需从 form 实例显式同步
+      const detailsVal = form.getFieldValue('_details');
+      if (detailsVal != null) hiddenFields._details = detailsVal;
       // 保留 internalFields 中定义的字段（如 feeSupplierName，无 Form.Item 注册，onValuesChange 不返回）
       if (formType?.formSchema.internalFields) {
         for (const f of formType.formSchema.internalFields) {
@@ -120,6 +124,20 @@ const FormPage: React.FC = () => {
         if (updatedLines) {
           form.setFieldsValue({ feeLines: updatedLines, feeTotalAmount: total });
         }
+      }
+    }
+
+    // 采购付款申请：抹零金额/需付款金额联动计算
+    if (typeCode === 'purchase_payment') {
+      const totalPayable = parseFloat(String(allValues.totalPayableAmount || 0));
+      if (changedValues.discountAmount !== undefined && totalPayable > 0) {
+        const discount = parseFloat(String(changedValues.discountAmount || 0));
+        const payment = Math.round((totalPayable - discount) * 100) / 100;
+        form.setFieldsValue({ paymentAmount: payment > 0 ? payment : 0 });
+      } else if (changedValues.paymentAmount !== undefined && totalPayable > 0) {
+        const payment = parseFloat(String(changedValues.paymentAmount || 0));
+        const discount = Math.round((totalPayable - payment) * 100) / 100;
+        form.setFieldsValue({ discountAmount: discount > 0 ? discount : 0 });
       }
     }
   };
@@ -181,6 +199,65 @@ const FormPage: React.FC = () => {
     })();
   }, [formData.settlementIds, typeCode, form, setFormData]);
 
+  // ===== 采购付款申请：应付单据选中后自动计算应付总额 =====
+  const prevDebtIdsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    if (typeCode !== 'purchase_payment') return;
+    const debtIds = (formData.debtIds as string[]) || [];
+
+    // 仅当选中应付单据发生变化时触发
+    const prevIds = prevDebtIdsRef.current;
+    const idsChanged = debtIds.length !== prevIds.length ||
+      debtIds.some((id, i) => id !== prevIds[i]);
+    if (!idsChanged) return;
+    prevDebtIdsRef.current = debtIds;
+
+    if (debtIds.length === 0) {
+      form.setFieldsValue({ totalPayableAmount: null, discountAmount: null, paymentAmount: null });
+      return;
+    }
+
+    // 优先从 _details.debtIds 中已持久化的选中记录直接计算（无需 API 请求）
+    const details = (formData._details as Record<string, unknown>)?.debtIds as Array<{ leftAmount?: string | number }> | undefined;
+    if (details && details.length > 0) {
+      const selectedBizIds = new Set(debtIds.map(String));
+      const selectedDebts = details.filter(r => selectedBizIds.has(String((r as any).bizId)));
+      const totalCents = selectedDebts.reduce((sum, r) => {
+        return sum + Math.round(parseFloat(String(r.leftAmount || 0)) * 100);
+      }, 0);
+      const totalPayable = +(totalCents / 100).toFixed(2);
+      form.setFieldsValue({
+        totalPayableAmount: totalPayable,
+        discountAmount: 0,
+        paymentAmount: totalPayable,
+      });
+      return;
+    }
+
+    // 兆底：_details 不存在时通过 API 拉取（兼容旧数据）
+    const supplierId = formData.supplierId as string;
+    if (!supplierId) return;
+    (async () => {
+      try {
+        const records = await oaApi.getErpReference('supplier-debts', undefined, { traderId: supplierId });
+        const selectedBizIds = new Set(debtIds.map(String));
+        const selectedDebts = (records || []).filter((r: any) => selectedBizIds.has(String(r.bizId)));
+        const totalCents = selectedDebts.reduce((sum: number, r: any) => {
+          return sum + Math.round(parseFloat(String(r.leftAmount || 0)) * 100);
+        }, 0);
+        const totalPayable = +(totalCents / 100).toFixed(2);
+        form.setFieldsValue({
+          totalPayableAmount: totalPayable,
+          discountAmount: 0,
+          paymentAmount: totalPayable,
+        });
+      } catch {
+        message.error('获取应付单据详情失败');
+      }
+    })();
+  }, [formData.debtIds, formData.supplierId, typeCode, form, formData._details]);
+
   // 费用金额自动计算：委托 computeFeeTotals 工具函数
 
   /** 判断字段是否在当前条件下必填 */
@@ -197,6 +274,14 @@ const FormPage: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (!formType) return;
+
+      // 确保 _details 从 form 实例同步到提交数据（防止 onValuesChange 未触发的竞态）
+      // ModalSelectControl 通过 form.setFieldsValue 写入 _details，但无 Form.Item 注册，
+      // 在某些 antd 版本下 onValuesChange 可能不触发，导致 formData 状态未及时更新
+      const detailsFromForm = form.getFieldValue('_details');
+      if (detailsFromForm != null) {
+        values._details = detailsFromForm;
+      }
 
       // 注入所有 _ 前缀隐藏字段到提交数据（autoFill 产生的值，无 Form.Item 注册）
       // 包括 _customerName、_storefrontPhotoUrl、_consumerManagerName 等
@@ -347,6 +432,27 @@ const FormPage: React.FC = () => {
           />
         </div>
       )}
+
+      {typeCode === 'purchase_payment' && formData.actualAmount != null && (() => {
+        const paymentType = formData.paymentType as string;
+        const expected = paymentType === 'prepay'
+          ? parseFloat(String(formData.prepayAmount || 0))
+          : parseFloat(String(formData.paymentAmount || 0));
+        const actual = parseFloat(String(formData.actualAmount));
+        if (expected > 0 && actual > 0 && Math.abs(actual - expected) > 0.01) {
+          const expectedLabel = paymentType === 'prepay' ? '预付金额' : '需付款金额';
+          return (
+            <div style={{ padding: '0 24px', marginBottom: 8 }}>
+              <Alert
+                type="warning"
+                showIcon
+                message={`实付金额（¥${actual.toFixed(2)}）与${expectedLabel}（¥${expected.toFixed(2)}）不一致`}
+              />
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       <div className={styles.footer}>
         <Button onClick={() => history.back()}>取消</Button>

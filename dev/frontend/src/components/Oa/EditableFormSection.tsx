@@ -135,6 +135,20 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
       getEditedValues(): Record<string, unknown> {
         const result: Record<string, unknown> = {};
         Object.entries(editedValues).forEach(([key, val]) => {
+          // _ 前缀的内部数据（如 _details 自动持久化记录）直接透传
+          if (key.startsWith('_')) {
+            if (key === '_details' && val !== formData[key]) {
+              // _details 深合并：保留原始 _details 中未被当前编辑覆盖的字段
+              // 例：原始 _details 有 receivableOrderIds，编辑只改了 unreconciledOrderIds
+              // 合并后两者都保留，避免后续节点编辑覆盖之前的 modal_select 记录
+              const originalDetails = (formData._details as Record<string, unknown>) || {};
+              const editedDetails = (val as Record<string, unknown>) || {};
+              result._details = { ...originalDetails, ...editedDetails };
+            } else if (val !== formData[key]) {
+              result[key] = val;
+            }
+            return;
+          }
           const field = formSchema.fields.find(f => f.key === key);
           if (!field) return;
           // 跳过当前不可见字段

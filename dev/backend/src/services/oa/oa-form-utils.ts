@@ -292,6 +292,10 @@ function checkSingleCondition(
       return Number(fieldValue) < Number(compareValue);
     case '<=':
       return Number(fieldValue) <= Number(compareValue);
+    case 'not_empty':
+      return fieldValue != null && fieldValue !== '' && !(Array.isArray(fieldValue) && fieldValue.length === 0);
+    case 'is_empty':
+      return fieldValue == null || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0);
     case 'contains':
       if (Array.isArray(fieldValue)) {
         return fieldValue.includes(compareValue);

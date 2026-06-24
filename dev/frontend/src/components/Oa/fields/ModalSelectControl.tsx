@@ -4,7 +4,7 @@
  *
  * 配置驱动的多选弹窗：
  * - 编辑模式：筛选条件区 + 表格搜索 + 分页 + 多选
- * - 只读模式：结构化小表格（编号+金额+合计行），降级到 nameField/detailsField
+ * - 只读模式：结构化小表格（编号+金额+合计行），从 formData._details 自动读取
  *
  * 数据源：searchApi（远程搜索）或 options（固定选项），二选一。
  * 筛选条件、列定义、级联参数全部从 field 配置读取。
@@ -17,7 +17,6 @@ import type { Dayjs } from 'dayjs';
 import { getErpReference, getPurchaseSettlements } from '@/services/api/oa';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
 import { formatCurrency } from '@/utils/format';
-import { resolveStoredName } from '../utils/resolveStoredName';
 import type { FieldControlProps } from './types';
 import type { ModalSelectFilter } from '@/types/oa';
 
@@ -71,12 +70,22 @@ async function fetchModalData(params: FetchParams): Promise<{ records: Record<st
     return { records: (result.records || []) as Record<string, unknown>[], total: result.total || 0 };
   }
 
-  // 通用 ERP 参考数据 API
+  // 通用 ERP 参考数据 API（paginated 时传递分页参数）
   const erpType = ERP_SEARCH_API_MAP[searchApi];
   if (!erpType) return { records: [], total: 0 };
 
-  const records = await getErpReference(erpType, keyword || undefined, extraParams, signal);
-  return { records: (records || []) as Record<string, unknown>[], total: records?.length || 0 };
+  if (paginated) {
+    extraParams.page = String(page);
+    extraParams.pageSize = '50';
+  }
+  const result = await getErpReference(erpType, keyword || undefined, extraParams, signal);
+  // 分页模式下后端返回 { records, total } 对象而非数组
+  if (paginated && result && !Array.isArray(result) && 'records' in (result as object)) {
+    const paged = result as { records: Record<string, unknown>[]; total: number };
+    return { records: paged.records || [], total: paged.total || 0 };
+  }
+  const records = (result || []) as Record<string, unknown>[];
+  return { records, total: records.length };
 }
 
 // =====================================================
@@ -195,7 +204,7 @@ function ReadonlyTable({
 // =====================================================
 
 const ModalSelectControl: React.FC<FieldControlProps> = ({
-  mode, field, value, onChange, formData, resolvedMap,
+  mode, field, value, onChange, formData, fakeForm,
 }) => {
   const { columns = [], valueKey = 'id', labelKey = 'name', amountKey, filters, paginated } = field;
 
@@ -219,6 +228,8 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
   const abortRef = useRef<AbortController | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   const selectedMapRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  // 记录当前页数据的 key 集合，用于跨页选中时区分"当前页"与"其他页"的选中项
+  const prevPageKeysRef = useRef<Set<string>>(new Set());
 
   const searchApi = field.searchApi || '';
 
@@ -276,7 +287,68 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
   }, [filters, filterValues]);
 
   const fetchData = useCallback(async (kw: string, page: number = 1) => {
+    // ═══ scopeFromField 模式：从另一字段的已选记录中客户端筛选 ═══
+    if (field.scopeFromField && formData) {
+      const scopeDetails = (formData._details as Record<string, unknown>)?.[field.scopeFromField];
+      let records = (Array.isArray(scopeDetails) ? scopeDetails : []) as Record<string, unknown>[];
+
+      // 客户端日期筛选
+      if (filters) {
+        for (const f of filters) {
+          if (f.type === 'date-range') {
+            const dates = filterValues[f.key] as [Dayjs, Dayjs] | null;
+            if (dates && dates[0] && dates[1]) {
+              const start = dates[0].format('YYYY-MM-DD');
+              const end = dates[1].format('YYYY-MM-DD');
+              records = records.filter(r => {
+                const d = String(r.workTime || '').slice(0, 10);
+                return d >= start && d <= end;
+              });
+            }
+          }
+        }
+      }
+
+      // 客户端关键词搜索
+      if (kw) {
+        const kwLower = kw.toLowerCase();
+        records = records.filter(r =>
+          String(r[labelKey] || '').toLowerCase().includes(kwLower)
+        );
+      }
+
+      // 客户端分页
+      const clientTotal = records.length;
+      if (paginated) {
+        const start = (page - 1) * 50;
+        records = records.slice(start, start + 50);
+      }
+
+      setDataSource(records);
+      setTotal(clientTotal);
+      for (const r of records) {
+        const key = String(r[valueKey]);
+        if (!selectedMapRef.current.has(key)) {
+          selectedMapRef.current.set(key, r);
+        }
+      }
+      return;
+    }
+
     if (!searchApi) return;
+
+    // 级联参数前置校验：上游字段（如客户）为空时不发请求，避免后端返回 400
+    if (field.cascadeParams && formData) {
+      for (const [, formField] of Object.entries(field.cascadeParams)) {
+        const val = formData[formField];
+        if (val == null || val === '') {
+          setDataSource([]);
+          setTotal(0);
+          return;
+        }
+      }
+    }
+
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -309,7 +381,7 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
     } finally {
       if (!controller.signal.aborted) setTableLoading(false);
     }
-  }, [searchApi, buildApiFilterParams, field.cascadeParams, formData, valueKey, paginated]);
+  }, [searchApi, buildApiFilterParams, field.cascadeParams, field.scopeFromField, formData, valueKey, paginated, labelKey, filters, filterValues]);
 
   const selectedRecords = useMemo(() => {
     return selectedIds
@@ -319,15 +391,57 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
 
   const openModal = () => {
     if (mode !== 'editable') return;
+
+    // scopeFromField 前置校验：上游字段无选中数据时提示
+    if (field.scopeFromField && formData) {
+      const scopeDetails = (formData._details as Record<string, unknown>)?.[field.scopeFromField];
+      if (!Array.isArray(scopeDetails) || scopeDetails.length === 0) {
+        message.warning('请先选择单据后再操作');
+        return;
+      }
+    }
+
+    // 级联参数前置校验：上游字段为空时给出友好提示，阻止打开空弹窗
+    if (field.cascadeParams && formData) {
+      for (const [, formField] of Object.entries(field.cascadeParams)) {
+        const val = formData[formField];
+        if (val == null || val === '') {
+          message.warning('请先选择客户后再选择单据');
+          return;
+        }
+      }
+    }
+
     setDraftKeys([...selectedIds]);
     setKeyword('');
     setCurrentPage(1);
+    prevPageKeysRef.current = new Set();
+    setFilterValues({});
     setModalOpen(true);
-    if (searchApi) fetchData('');
+    if (searchApi || field.scopeFromField) fetchData('');
   };
 
   const handleConfirm = () => {
     onChange?.(draftKeys);
+
+    // 自动持久化：将选中记录的完整数据存入 formData._details[field.key]
+    // 供详情页只读渲染 + auto 节点回调 + beforeSubmit 计算共用
+    if (fakeForm) {
+      const confirmedRecords = draftKeys
+        .map(key => selectedMapRef.current.get(String(key)))
+        .filter(Boolean);
+      const existingDetails = (fakeForm.getFieldValue('_details') as Record<string, unknown>) || {};
+      if (confirmedRecords.length > 0) {
+        fakeForm.setFieldsValue({
+          _details: { ...existingDetails, [field.key]: confirmedRecords },
+        });
+      } else {
+        // 清空选择时移除对应记录
+        const { [field.key]: _, ...rest } = existingDetails;
+        fakeForm.setFieldsValue({ _details: rest });
+      }
+    }
+
     setModalOpen(false);
   };
 
@@ -382,11 +496,47 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
     return tableColumns;
   }, [field.options, tableColumns]);
 
-  /** 表格横向滚动宽度（列宽之和 + 选择列 50px） */
+  /** 列数较多（>5）时启用横向滚动，否则自适应容器宽度 */
+  const needScrollX = useMemo(() => {
+    const cols = field.options ? staticColumns : tableColumns;
+    return cols.length > 5;
+  }, [field.options, tableColumns, staticColumns]);
+
+  /** 表格横向滚动宽度（列宽之和 + 选择列 50px），仅在列数>5时使用 */
   const tableScrollX = useMemo(() => {
     const cols = field.options ? staticColumns : tableColumns;
     return cols.reduce((sum, c) => sum + (c.width as number || 150), 0) + 50;
   }, [field.options, tableColumns, staticColumns]);
+
+  // 编辑模式变量（提前计算以满足 Hooks 规则）
+  const isStaticMode = !!field.options;
+  const displayColumns = isStaticMode ? staticColumns : tableColumns;
+  const displayDataSource = isStaticMode
+    ? staticFilteredOptions.map(o => ({ ...o, [valueKey]: o.value, [labelKey]: o.label }))
+    : dataSource;
+  const displayTotal = isStaticMode ? staticFilteredOptions.length : total;
+
+  // 同步当前页数据的 key 集合（用于跨页选中合并）
+  const currentPageDataKeys = useMemo(
+    () => new Set(displayDataSource.map(r => String((r as Record<string, unknown>)[valueKey]))),
+    [displayDataSource, valueKey],
+  );
+  prevPageKeysRef.current = currentPageDataKeys;
+
+  /**
+   * 跨页选中合并：Ant Design Table 的 onChange 只返回当前页 dataSource 中的选中 key，
+   * 需要手动保留其他页的已选 key，避免翻页全选后丢失之前页的选中项。
+   */
+  const handleSelectionChange = useCallback((keys: React.Key[]) => {
+    if (!paginated) {
+      setDraftKeys(keys);
+      return;
+    }
+    const pageKeys = prevPageKeysRef.current;
+    // 保留不在当前页数据中的 key（来自其他页的选中项）
+    const keptKeys = draftKeys.filter(k => !pageKeys.has(String(k)));
+    setDraftKeys([...keptKeys, ...keys]);
+  }, [paginated, draftKeys]);
 
   useEffect(() => {
     return () => {
@@ -397,69 +547,28 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
 
   // ==================== 只读模式 ====================
   if (mode === 'readonly') {
-    if (selectedRecords.length === 0 && selectedIds.length === 0) {
-      return <Text type="secondary">-</Text>;
+    // 从 formData._details 读取自动持久化的记录数据
+    const detailsData = (formData as Record<string, unknown> | undefined)?._details as Record<string, unknown> | undefined;
+    const records = detailsData?.[field.key] as Record<string, unknown>[] | undefined;
+
+    if (records && records.length > 0) {
+      return <ReadonlyTable records={records} labelKey={labelKey} amountKey={amountKey} />;
     }
 
-    // 优先使用缓存记录
+    // 内存缓存（编辑态同一会话内可用）
     if (selectedRecords.length > 0) {
       return <ReadonlyTable records={selectedRecords} labelKey={labelKey} amountKey={amountKey} />;
     }
 
-    // 降级：detailsField JSON 解析
-    if (field.detailsField && formData?.[field.detailsField]) {
-      try {
-        const parsed = JSON.parse(String(formData[field.detailsField]));
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return <ReadonlyTable records={parsed} labelKey={labelKey} amountKey={amountKey} />;
-        }
-      } catch { /* 降级到下一步 */ }
+    if (selectedIds.length === 0) {
+      return <Text type="secondary">-</Text>;
     }
 
-    // 降级：nameField
-    const storedName = resolveStoredName(field.nameField, formData);
-    if (storedName) {
-      return (
-        <table style={{ fontSize: 13, borderCollapse: 'collapse', width: '100%' }}>
-          <tbody>
-            {storedName.split(', ').map((name, i) => (
-              <tr key={i}><td style={{ padding: '2px 0' }}>{name}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      );
-    }
-
-    // 降级：resolvedMap
-    if (searchApi && resolvedMap) {
-      const erpType = ERP_SEARCH_API_MAP[searchApi];
-      if (erpType) {
-        return (
-          <table style={{ fontSize: 13, borderCollapse: 'collapse', width: '100%' }}>
-            <tbody>
-              {selectedIds.map((id, i) => (
-                <tr key={i}>
-                  <td style={{ padding: '2px 0' }}>{resolvedMap[`${erpType}:${id}`] || String(id)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        );
-      }
-    }
-
-    // 最终降级
+    // 最终降级：显示原始 ID
     return <Text>{Array.isArray(value) ? value.join(', ') : String(value)}</Text>;
   }
 
   // ==================== 编辑模式 ====================
-  const isStaticMode = !!field.options;
-  const displayColumns = isStaticMode ? staticColumns : tableColumns;
-  const displayDataSource = isStaticMode
-    ? staticFilteredOptions.map(o => ({ ...o, [valueKey]: o.value, [labelKey]: o.label }))
-    : dataSource;
-  const displayTotal = isStaticMode ? staticFilteredOptions.length : total;
-
   return (
     <>
       <div
@@ -517,15 +626,15 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
         )}
 
         <Table<Record<string, unknown>>
-          rowKey={valueKey}
+          rowKey={(record) => String(record[valueKey])}
           size="small"
           columns={displayColumns}
           dataSource={displayDataSource}
           loading={tableLoading}
-          scroll={{ x: tableScrollX, y: 400 }}
+          scroll={{ ...(needScrollX ? { x: tableScrollX } : {}), y: 400 }}
           rowSelection={{
             selectedRowKeys: draftKeys.map(String),
-            onChange: keys => setDraftKeys(keys),
+            onChange: handleSelectionChange,
           }}
           pagination={paginated && !isStaticMode ? {
             current: currentPage,

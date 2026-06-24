@@ -12,6 +12,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('LogisticsFeeCallback');
 
 import { appQuery as query } from '../../db/appPool';
+import { beijingDateTime } from '../../utils/beijingTime';
 import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
 import {
   getErpMeta,
@@ -25,20 +26,12 @@ import {
 import {
   createPaidBill,
 } from '../erp-client/erp-purchase.service';
+import type { PaidBillInvoiceInput } from '../erp-client/erp-purchase.types';
 import {
   getAllocatableExpenseDetails,
 } from '../erp-client/erp-purchase-settlement.service';
 import { getErpDefaults, getErpConfig } from '../erp-client/erp-config';
 import { FEE_SUBJECT_MAP } from '../oa/form-types/logistics-fee';
-
-// =====================================================
-// 动态时间生成（禁止硬编码）
-// =====================================================
-
-/** 生成当前时间字符串（北京时间），格式 yyyy-MM-dd HH:mm:ss */
-function nowStr(): string {
-  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' });
-}
 
 // =====================================================
 // onApproved: auto 节点回调入口
@@ -129,7 +122,7 @@ async function handleCreateExpenseBill(
   const billResult = await createSupplierExpenseBill(
     {
       operatorId: '1',
-      operateTime: nowStr(),
+      operateTime: beijingDateTime(),
       traderType: 'SUPPLIER',
       traderId: feeSupplierId,
       traderName: feeSupplierName,
@@ -137,7 +130,7 @@ async function handleCreateExpenseBill(
       details,
       salesmanId: defaultSalesmanId,
       deptId: defaultDeptId,
-      workTime: nowStr(),
+      workTime: beijingDateTime(),
       note: `OA: ${instance.instance_no}`,
       brandId: '',
       imgIds: [],
@@ -195,14 +188,11 @@ async function handleCreatePaymentBill(
   }
 
   // 构造核销信息：引用费用单，bizType = SUPPLIER_EXPENDITURE
-  const invoiceList = [{
+  // 仅传业务数据，服务层自动处理 totalAmount/arrivalTime 等
+  const invoiceList: PaidBillInvoiceInput[] = [{
     bizId: expenditureBillId,
     bizType: 'SUPPLIER_EXPENDITURE',
-    paidAmount: paymentAmount,
-    discountAmount: '0',
-    preAllocateAmount: '0',
     leftAmount: String(expenditureTotalAmount || paymentAmount),
-    note: '',
     originNote: `${instance.instance_no} ${formData.feeType === 'logistics_fee' ? '物流费用' : '装卸费用'}`,
   }];
 
@@ -212,15 +202,10 @@ async function handleCreatePaymentBill(
       traderId: feeSupplierId,
       salesmanId: defaultSalesmanId,
       deptId: defaultDeptId,
-      workTime: nowStr(),
+      workTime: beijingDateTime(),
       note: `OA: ${instance.instance_no}`,
       paymentDetails: [{ paymentAmount, subjectId: paymentSubjectId }],
-      paymentDirection: 'OUT',
-      traderType: 'SUPPLIER',
-      type: 'PAID',
-      totalAmount: paymentAmount,
-      writeOffInfo: { invoiceList, prepayList: null as unknown as [] },
-      imgIds: [],
+      invoiceList,
     },
     idemKey
   );
@@ -327,7 +312,7 @@ async function handleCreateExpenseAllocation(
     {
       allocationType: 'PURCHASE',
       allocationWay: 'ALL',
-      workTime: nowStr(),
+      workTime: beijingDateTime(),
       note: `OA: ${instance.instance_no}`,
       totalAmount: paymentAmountNum,
       expenditureDetail,

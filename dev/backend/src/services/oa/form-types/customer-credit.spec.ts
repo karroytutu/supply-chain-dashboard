@@ -3,18 +3,22 @@ import { customerCreditFormType } from './customer-credit';
 describe('customerCreditFormType', () => {
   const fields = customerCreditFormType.formSchema.fields;
 
-  it('holdSettlementOrders 字段配置 detailsField 和 nameField', () => {
+  it('holdSettlementOrders 字段不配置 detailsField/nameField，由控件层自动持久化', () => {
     const field = fields.find(f => f.key === 'holdSettlementOrders');
     expect(field).toBeDefined();
-    expect(field!.nameField).toBe('_holdSettlementOrderNames');
-    expect(field!.detailsField).toBe('_holdSettlementOrderDetails');
+    // detailsField 和 nameField 已从类型定义中移除，控件层自动持久化到 _details
+    expect((field as any).detailsField).toBeUndefined();
+    expect((field as any).nameField).toBeUndefined();
   });
 
-  it('holdSettlementOrders 在 creditType=hold_order 时可见', () => {
+  it('holdSettlementOrders 在 creditType=hold_order 且 customer 已填写时可见', () => {
     const field = fields.find(f => f.key === 'holdSettlementOrders');
-    expect(field!.visibleWhen).toEqual(
-      expect.objectContaining({ field: 'creditType', operator: '==', value: 'hold_order' })
-    );
+    const vw = field!.visibleWhen;
+    // visibleWhen 是 AND 条件数组
+    expect(Array.isArray(vw)).toBe(true);
+    const conditions = vw as Array<{ field: string; operator: string; value?: unknown }>;
+    expect(conditions).toContainEqual({ field: 'creditType', operator: '==', value: 'hold_order' });
+    expect(conditions).toContainEqual({ field: 'customer', operator: 'not_empty' });
   });
 
   it('包含关键必填字段', () => {

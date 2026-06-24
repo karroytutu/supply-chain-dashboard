@@ -4,6 +4,7 @@
  * @module routes/dev-erp-cleanup.routes
  */
 import { Router, type Request, type Response } from 'express';
+import { beijingDate } from '../utils/beijingTime';
 import { authMiddleware } from '../middleware/auth';
 import { cancelPurchaseOrder, createPurchaseOrder } from '../services/erp-client/erp-purchase.service';
 import { processOaAsyncTasks } from '../services/oa/oa-async-task.service';
@@ -65,7 +66,7 @@ router.post('/create-test-po', async (req: Request, res: Response) => {
   }
 
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = beijingDate();
     const result = await createPurchaseOrder({
       supplierId,
       warehouseId,

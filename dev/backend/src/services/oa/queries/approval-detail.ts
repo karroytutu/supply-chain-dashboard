@@ -4,7 +4,7 @@
  */
 
 import { appQuery as query } from '../../../db/appPool';
-import { OaActionRow, FormSchema, WorkflowDef, TimeoutConfig } from '../oa.types';
+import { OaActionRow, FormSchema, WorkflowDef, TimeoutConfig, ViewPermissionsOverride } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { InstanceListItem } from '../oa.query';
 import { resolveFormSchema } from '../oa-utils';
@@ -21,6 +21,8 @@ export interface ApprovalDetail extends InstanceListItem {
   nodes: ApprovalNodeDetail[];
   actions: ApprovalActionDetail[];
   ccUsers: CcUserDetail[];
+  /** 查看权限 DB 覆盖值（非办理人查看详情时使用） */
+  viewPermissions?: ViewPermissionsOverride;
 }
 
 export interface ApprovalNodeDetail {
@@ -79,6 +81,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       ft.name as form_type_name,
       ft.icon as form_type_icon,
       ft.field_permissions as field_permissions,
+      ft.view_permissions as view_permissions,
       u.avatar AS applicant_avatar
     FROM oa_approval_instances i
     LEFT JOIN oa_form_types ft ON i.form_type_id = ft.id
@@ -161,6 +164,8 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     workflowDef: codeFallback?.workflowDef || null,
     // fieldPermissions: DB 覆盖值（管理员配置的字段权限）
     ...(instance.field_permissions && { fieldPermissions: instance.field_permissions }),
+    // viewPermissions: DB 覆盖值（非办理人查看详情时使用）
+    ...(instance.view_permissions && { viewPermissions: instance.view_permissions }),
     erpMeta: instance.erp_meta,
     nodes: nodesResult.rows.map((n: any) => {
       const userIds: number[] | null = Array.isArray(n.assigned_user_ids) ? n.assigned_user_ids : null;

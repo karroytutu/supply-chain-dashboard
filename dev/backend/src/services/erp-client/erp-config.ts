@@ -27,7 +27,7 @@ export function getErpConfig(): ErpApiConfig {
       maxGlobalConcurrency: erpApi?.maxGlobalConcurrency ?? 12,
       // 业务默认值
       defaultPaymentSubjectId: erpApi?.defaultPaymentSubjectId || 16,
-      defaultSalesmanId: erpApi?.defaultSalesmanId || 1,
+      defaultSalesmanId: erpApi?.defaultSalesmanId || 97,
       defaultDeptId: erpApi?.defaultDeptId || 1,
       // API 路径配置
       assetPathPrefix: erpApi?.assetPathPrefix || '/messiah/',

@@ -5,6 +5,7 @@
  */
 
 import { erpPost } from './erp-client';
+import { beijingDate } from '../../utils/beijingTime';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
@@ -97,7 +98,7 @@ export async function fetchAllErpDebts(skipCache = false): Promise<ERPDebtRecord
 
   const doFetch = async (): Promise<ERPDebtRecord[]> => {
     const { cid, uid } = getErpDefaults();
-    const workEndDate = new Date().toISOString().slice(0, 10);
+    const workEndDate = beijingDate();
 
     const fetchPage = async (current: number) => {
       const result = await erpPost<ApiDebtResponse>(

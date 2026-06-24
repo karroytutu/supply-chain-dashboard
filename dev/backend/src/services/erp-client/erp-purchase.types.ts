@@ -222,7 +222,8 @@ export interface AvailablePrepayment {
   note?: string;
 }
 
-/** 创建采购预付款请求 */
+/** 创建采购预付款请求（业务输入接口）
+ * ERP 协议细节（source、金额格式化）由服务层处理，调用方无需关心 */
 export interface CreatePurchasePrepaymentRequest {
   /** 关联采购订单 bizId */
   relatedBizId: number;
@@ -232,14 +233,14 @@ export interface CreatePurchasePrepaymentRequest {
   traderId: number;
   traderType: 'SUPPLIER';
   type: 'PRE_PAID';
-  totalAmount: number;
+  /** 付款总额（string 类型，服务层确保格式正确） */
+  totalAmount: string;
   paymentDetails: Array<{
     paymentAmount: string;
     subjectId: number;
   }>;
   paymentDirection: 'OUT';
   salesmanId: string | number;
-  source: 'CLOUD';
   workTime: string;
   prePaidAmount?: string;
   wipeOffAmount?: number;
@@ -249,11 +250,65 @@ export interface CreatePurchasePrepaymentRequest {
   note?: string;
 }
 
+/** 创建普通预付款请求（业务输入接口，不关联采购订单，prePayType='NORMAL'）
+ * ERP 协议细节（source、金额格式化）由服务层处理，调用方无需关心 */
+export interface CreateNormalPrepaymentRequest {
+  traderId: number;
+  traderType: 'SUPPLIER';
+  type: 'PRE_PAID';
+  prePayType: 'NORMAL';
+  /** 付款总额（string 类型，服务层确保格式正确） */
+  totalAmount: string;
+  paymentDetails: Array<{
+    paymentAmount: string;
+    subjectId: number;
+  }>;
+  paymentDirection: 'OUT';
+  salesmanId: string | number;
+  workTime: string;
+  prePaidAmount?: string;
+  wipeOffAmount?: number;
+  /** 备注（如 OA 审批编号） */
+  note?: string;
+}
+
 // =====================================================
 // 付款单（核销）相关
 // =====================================================
 
-/** 创建付款单请求 */
+/** 付款单-核销单据输入项（调用方使用）
+ * 调用方只需提供业务数据，ERP 协议细节由 createPaidBill 服务层处理 */
+export interface PaidBillInvoiceInput {
+  bizId: number;
+  /** ERP 核销接口的 bizType 枚举（如 FUNDS_PURCHASE、SUPPLIER_EXPENDITURE） */
+  bizType: string;
+  /** 单据剩余金额（string 类型） */
+  leftAmount: string;
+  note?: string;
+  originNote?: string;
+}
+
+/** 创建付款单请求（业务输入接口）
+ * ERP 协议细节（totalAmount 计算、抹零分摊、arrivalTime、prePaidAmount、金额格式化）
+ * 由 createPaidBill 服务层自动处理，调用方无需关心 */
+export interface CreatePaidBillInput {
+  traderId: string | number;
+  salesmanId: number;
+  deptId: number;
+  operatorId?: string | number;
+  workTime: string;
+  note?: string;
+  paymentDetails: Array<{
+    paymentAmount: string;
+    subjectId: number;
+  }>;
+  /** 核销单据列表，服务层自动计算 totalAmount、分摊 wipeOffAmount */
+  invoiceList: PaidBillInvoiceInput[];
+  /** 抹零总额，服务层按 leftAmount 占比分摊到各条 discountAmount（倒挤法） */
+  wipeOffAmount?: string;
+}
+
+/** 创建付款单请求（内部 ERP 格式，服务层使用） */
 export interface CreatePaidBillRequest {
   traderId: string | number;
   salesmanId: number;
@@ -275,7 +330,7 @@ export interface CreatePaidBillRequest {
     invoiceList: PaidBillInvoiceItem[];
     prepayList: PaidBillPrepayItem[];
   };
-  imgIds?: string[];
+  imgIds?: never;
 }
 
 /** 付款单-应付单明细 */

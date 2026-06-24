@@ -9,7 +9,7 @@ import { Upload, Button, Image, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { UploadRequestOption } from 'rc-upload/lib/interface';
-import { createBeforeUpload, validateDocumentFile } from '@/utils/uploadValidation';
+import { validateDocumentFile } from '@/utils/uploadValidation';
 
 interface UploadFieldRendererProps {
   value?: unknown;
@@ -126,7 +126,10 @@ const UploadFieldRenderer: React.FC<UploadFieldRendererProps> = ({
         multiple
         maxCount={maxCount}
         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-        beforeUpload={beforeUpload || createBeforeUpload(validateDocumentFile)}
+        beforeUpload={beforeUpload || ((file: any) => {
+          if (!validateDocumentFile(file)) return Upload.LIST_IGNORE;
+          return true; // 放行上传，让 customRequest 接管立即上传
+        })}
         customRequest={customUploadRequest}
         fileList={fileList}
         onChange={handleChange}

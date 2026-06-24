@@ -70,6 +70,10 @@ export interface FormDetailData {
   fieldPermissions?: {
     nodes?: Record<string, Record<string, string>>;
   };
+  /** 查看权限 DB 覆盖值 */
+  viewPermissions?: {
+    nodes?: Record<string, Record<string, string>>;
+  };
   workflowDef: {
     nodes: WorkflowNodeEdit[];
   };

@@ -5,12 +5,13 @@
  */
 import React, { useMemo } from 'react';
 import { Alert, Card, Descriptions } from 'antd';
-import type { ApprovalDetail, FieldPermission, FormSchema } from '@/types/oa';
+import type { ApprovalDetail, FieldPermission, FormSchema, ViewPermissionsOverride } from '@/types/oa';
 import { ApprovalStatusTag, ApprovalFlow, FormFieldRenderer } from '@/components/Oa';
 import FormFieldsDiff, { hasOriginalFields } from './FormFieldsDiff';
 import EditableFormSection, { type EditableFormSectionRef } from './EditableFormSection';
 import { useErpFieldResolve } from './hooks/useErpFieldResolve';
 import { useErpLicenseResolve } from './hooks/useErpLicenseResolve';
+import { usePermission } from '@/hooks/usePermission';
 import ActionBar from './ActionBar';
 import ActionModal from './ActionModal';
 import { checkCondition } from '@/pages/Oa/Form/components/ConditionalFieldWrapper';
@@ -94,6 +95,74 @@ function applyFieldPermissions(
   };
 }
 
+// ==================== 查看权限解析 ====================
+
+/**
+ * 解析非办理人的查看权限
+ *
+ * 匹配规则：
+ * - 发起人（applicantId === userId）→ 使用 viewPermissions.nodes["0"]
+ * - 审批/办理人（node.assignedUserIds 包含 userId）→ 使用对应节点的查看权限
+ * - 参与了多个节点 → 取并集（任一节点 readonly 则最终 readonly，否则 hidden）
+ * - 纯抄送人 / 无匹配 / 未配置 → 返回 undefined（调用方负责处理为全隐藏）
+ */
+function resolveViewPermissions(
+  detail: ApprovalDetail,
+  userId: number | undefined
+): Record<string, FieldPermission> | undefined {
+  if (!userId || !detail.viewPermissions) return undefined;
+
+  // 收集用户参与的节点 order
+  const myOrders: string[] = [];
+  if (detail.applicantId === userId) myOrders.push('0');
+  for (const node of detail.nodes) {
+    if (node.assignedUserIds?.includes(userId)) {
+      const o = String(node.nodeOrder);
+      if (!myOrders.includes(o)) myOrders.push(o);
+    }
+  }
+  if (myOrders.length === 0) return undefined; // 无匹配，全隐藏
+
+  // 多节点取并集：任一节点 readonly → 最终 readonly
+  const merged: Record<string, FieldPermission> = {};
+  for (const field of detail.formSchema.fields) {
+    if (field.key.startsWith('_') || field.hidden) continue;
+    merged[field.key] = myOrders.some(o =>
+      detail.viewPermissions!.nodes?.[o]?.[field.key] === 'readonly'
+    ) ? 'readonly' : 'hidden';
+    // 表格子字段同理
+    if (field.type === 'table' && field.children) {
+      for (const child of field.children) {
+        if (child.key.startsWith('_') || child.hidden) continue;
+        const childKey = `${field.key}.${child.key}`;
+        merged[childKey] = myOrders.some(o =>
+          detail.viewPermissions!.nodes?.[o]?.[childKey] === 'readonly'
+        ) ? 'readonly' : 'hidden';
+      }
+    }
+  }
+  return merged;
+}
+
+/**
+ * 构建全隐藏的权限对象（所有业务字段均为 hidden）
+ * 当查看权限未配置且用户非办理人时使用
+ */
+function buildAllHiddenPermissions(formSchema: FormSchema): Record<string, FieldPermission> {
+  const perms: Record<string, FieldPermission> = {};
+  for (const field of formSchema.fields) {
+    if (field.key.startsWith('_') || field.hidden) continue;
+    perms[field.key] = 'hidden';
+    if (field.type === 'table' && field.children) {
+      for (const child of field.children) {
+        if (child.key.startsWith('_') || child.hidden) continue;
+        perms[`${field.key}.${child.key}`] = 'hidden';
+      }
+    }
+  }
+  return perms;
+}
+
 // ==================== 表单字段渲染 ====================
 
 const FormFieldsSection: React.FC<{
@@ -172,21 +241,37 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   detail, actionState, formLayout = 'list', extraContentBefore, className,
   canOperateOverride, canWithdrawOverride, showHeader = true, editableFormRef,
 }) => {
+  const { currentUser } = usePermission();
   const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
   const { erpLicenseUrls } = useErpLicenseResolve(detail.formSchema, detail.formData);
 
   // 计算当前节点是否可操作（与 ActionBar 保持一致的逻辑）
   const canOperate = canOperateOverride !== undefined ? canOperateOverride : actionState.canOperate;
 
-  // 从 DB 获取当前节点的字段权限（DB 为唯一来源，不再合并代码默认值）
+  // === 双层权限解析 ===
   const currentNode = detail.nodes.find(n => n.nodeOrder === detail.currentNodeOrder);
   const workflowNode = detail.workflowDef?.nodes.find(n => n.order === currentNode?.nodeOrder);
-  const fieldPermissions = detail.fieldPermissions?.nodes?.[String(currentNode?.nodeOrder)];
+  const isCurrentHandler = currentUser?.id != null && currentNode?.assignedUserIds?.includes(currentUser.id) === true;
+
+  // 办理人：使用办理权限；非办理人：使用查看权限
+  const fieldPermissions = useMemo(() => {
+    if (isCurrentHandler) {
+      // 办理权限：DB 为唯一来源
+      return detail.fieldPermissions?.nodes?.[String(currentNode?.nodeOrder)];
+    }
+    // 查看权限：匹配用户参与的节点，取并集
+    const viewPerms = resolveViewPermissions(detail, currentUser?.id);
+    if (viewPerms) return viewPerms;
+    // 未配置查看权限或无匹配节点：全隐藏
+    return buildAllHiddenPermissions(detail.formSchema);
+  }, [isCurrentHandler, detail, currentNode, currentUser?.id]);
+
   const fieldOptionFilter = workflowNode?.fieldOptionFilter;
   const nodeType = workflowNode?.type ?? 'approval';
 
   // 办理型节点 + 可操作时进入编辑模式（fieldPermissions 可选，未配置时所有字段默认为只读）
-  const isEditable = nodeType === 'handle' && canOperate;
+  // 非办理人永远不进入编辑模式
+  const isEditable = isCurrentHandler && nodeType === 'handle' && canOperate;
 
   // 数据层权限过滤：在传给子组件之前一次性过滤 hidden 字段和数据
   const { formSchema: filteredSchema, formData: filteredData } = useMemo(
@@ -198,13 +283,16 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
     [detail, filteredSchema, filteredData],
   );
 
-  // 权限完整性检查：当 fieldPermissions 缺失时展示警告
+  // 权限完整性检查
   const missingPermissions = useMemo(() => {
-    if (!detail.fieldPermissions) {
+    if (isCurrentHandler && !detail.fieldPermissions) {
       return { missing: true, description: '该表单尚未配置字段权限，请在「表单管理」页面补充配置。' };
     }
+    if (!isCurrentHandler && !detail.viewPermissions) {
+      return { missing: true, description: '该表单尚未配置查看权限，请在「表单管理」页面补充配置。非办理人查看时所有字段默认隐藏。' };
+    }
     return null;
-  }, [detail.fieldPermissions]);
+  }, [isCurrentHandler, detail.fieldPermissions, detail.viewPermissions]);
 
   return (
     <div className={`${styles.content} ${className || ''}`}>

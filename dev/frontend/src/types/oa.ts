@@ -96,12 +96,12 @@ export interface FormField {
   statField?: Array<{ componentId: string; label: string }>;
   link?: string;
   content?: string;
-  /** 条件显示（支持单个条件或AND条件数组） */
-  visibleWhen?: ConditionDef | ConditionDef[];
+  /** 条件显示（支持单个条件、AND条件数组、或ConditionGroup） */
+  visibleWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** 条件必填（满足条件时字段变为必填） */
-  requiredWhen?: ConditionDef | ConditionDef[];
+  requiredWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** ERP参考数据API标识 */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'purchase_settlements';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'erp_supplier_debts' | 'purchase_settlements';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
@@ -120,12 +120,12 @@ export interface FormField {
   filters?: ModalSelectFilter[];
   /** modal_select: 是否启用分页 */
   paginated?: boolean;
+  /** modal_select: 限定可选范围来自另一个 modal_select 字段已选中的记录 */
+  scopeFromField?: string;
   /** modal_select: 搜索框提示文字 */
   searchPlaceholder?: string;
   /** ERP字段选中后，将显示名称存入 formData 的哪个 key（如 'customerName'） */
   nameField?: string;
-  /** ERP多选字段选中后，将结构化明细(JSON)存入 formData 的哪个 key（如 'holdSettlementOrderDetails'） */
-  detailsField?: string;
   /** asset_search 显示哪些子字段 */
   displayFields?: string[];
   /** photo 类型用途：storefront=门头照，license=营业执照（默认 license） */
@@ -184,6 +184,18 @@ export interface FieldPermissionsOverride {
   nodes: Record<string, Record<string, FieldPermission>>;
 }
 
+/** 查看权限类型（非办理人查看详情时使用，仅 readonly/hidden） */
+export type ViewPermission = 'readonly' | 'hidden';
+
+/**
+ * 查看权限配置结构
+ * - nodes: 按节点 order 配置的查看权限覆盖，"0"=发起阶段（发起人），"1"-"N"=审批环节
+ * - 未配置时默认全部隐藏
+ */
+export interface ViewPermissionsOverride {
+  nodes: Record<string, Record<string, ViewPermission>>;
+}
+
 /**
  * @deprecated 已废弃，后端不再使用 interactionType 字段，改为根据 NodeType 决定按钮布局。
  * 保留类型定义以兼容旧代码，请勿在新代码中使用。
@@ -240,12 +252,19 @@ export interface HandlerRule {
   roleCode?: string;
   useSupervisor?: boolean;
   userId?: number;
+  useApplicant?: boolean;
 }
 
 export interface ConditionDef {
   field: string;
-  operator: '>' | '<' | '==' | '>=' | '<=';
-  value: number | string;
+  operator: '>' | '<' | '==' | '>=' | '<=' | 'not_empty' | 'is_empty';
+  value?: number | string;
+}
+
+/** 条件组：支持 OR（match='any'）或 AND（match='all'）逻辑 */
+export interface ConditionGroup {
+  match: 'any' | 'all';
+  conditions: ConditionDef[];
 }
 
 /** 数据录入节点 - 录入字段定义
@@ -268,8 +287,8 @@ export interface NodeInputField {
   autoFill?: Record<string, string>;
   cascadeFrom?: string;
   multiple?: boolean;
-  visibleWhen?: ConditionDef | ConditionDef[];
-  requiredWhen?: ConditionDef | ConditionDef[];
+  visibleWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
+  requiredWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
 }
 
 /** 数据录入节点 - 录入表单 Schema
@@ -289,7 +308,7 @@ export interface WorkflowNodeDef {
   userId?: number;
   handler?: HandlerRule;
   signMode?: SignMode;
-  condition?: ConditionDef | ConditionDef[];
+  condition?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** 数据录入表单 schema（仅 data_input 类型）
    * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions
    */
@@ -331,6 +350,8 @@ export interface FormTypeDefinition {
   workflowDef: WorkflowDef;
   /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖） */
   fieldPermissions?: FieldPermissionsOverride;
+  /** 查看权限 DB 覆盖值（非办理人查看详情时使用） */
+  viewPermissions?: ViewPermissionsOverride;
 }
 
 // =====================================================
@@ -444,6 +465,8 @@ export interface ApprovalDetail extends ApprovalInstance {
   erpMeta: ErpMeta | null;
   /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖） */
   fieldPermissions?: FieldPermissionsOverride;
+  /** 查看权限 DB 覆盖值（非办理人查看详情时使用） */
+  viewPermissions?: ViewPermissionsOverride;
 }
 
 // =====================================================

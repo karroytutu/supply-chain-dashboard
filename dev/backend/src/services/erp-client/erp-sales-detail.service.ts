@@ -5,6 +5,7 @@
  */
 
 import { erpPost } from './erp-client';
+import { beijingDate, beijingDateOffset } from '../../utils/beijingTime';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
@@ -161,12 +162,8 @@ export async function getDailySalesMap(days = 30): Promise<Map<string, number>> 
   const cached = cache.get<Map<string, number>>(cacheKey);
   if (cached) return cached;
 
-  const now = new Date();
-  const fromDate = new Date(now);
-  fromDate.setDate(fromDate.getDate() - days);
-
-  const dateFrom = fromDate.toISOString().slice(0, 10);
-  const dateTo = now.toISOString().slice(0, 10);
+  const dateFrom = beijingDateOffset(-days);
+  const dateTo = beijingDate();
 
   const details = await fetchSalesDetails(dateFrom, dateTo);
 
@@ -198,14 +195,9 @@ export async function getLastSaleMap(): Promise<Map<string, string>> {
   const cached = cache.get<Map<string, string>>(cacheKey);
   if (cached) return cached;
 
-  const now = new Date();
-  const fromDate = new Date(now);
-  // 查最近 45 天（滞销最大阈值30天 + 50%缓冲），超出此范围的商品视为严重滞销
-  fromDate.setDate(fromDate.getDate() - LAST_SALE_LOOKBACK_DAYS);
-
   const details = await fetchSalesDetails(
-    fromDate.toISOString().slice(0, 10),
-    now.toISOString().slice(0, 10)
+    beijingDateOffset(-LAST_SALE_LOOKBACK_DAYS),
+    beijingDate()
   );
 
   const lastSaleMap = lastBy(
@@ -231,13 +223,9 @@ export async function getLastSaleMap(): Promise<Map<string, string>> {
  */
 export async function getSalesDetailByOriginStr(originStr: string): Promise<ErpSalesDetail | null> {
   // 先尝试从缓存中查找
-  const now = new Date();
-  const fromDate = new Date(now);
-  fromDate.setDate(fromDate.getDate() - 90);
-
   const details = await fetchSalesDetails(
-    fromDate.toISOString().slice(0, 10),
-    now.toISOString().slice(0, 10)
+    beijingDateOffset(-90),
+    beijingDate()
   );
 
   return details.find(d => d.originStr === originStr) || null;

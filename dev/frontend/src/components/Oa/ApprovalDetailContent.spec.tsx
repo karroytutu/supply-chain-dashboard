@@ -45,6 +45,17 @@ vi.mock('@/pages/Oa/Form/components/ConditionalFieldWrapper', () => ({
   checkCondition: () => true,
 }));
 
+// 默认 mock：当前用户 ID=100，与测试数据中的 assignedUserIds 匹配（办理人视角）
+const mockUsePermission = vi.fn(() => ({
+  currentUser: { id: 100, name: '测试用户' },
+  hasPermission: () => true,
+  hasRole: () => false,
+}));
+vi.mock('@/hooks/usePermission', () => ({
+  usePermission: () => mockUsePermission(),
+  default: () => mockUsePermission(),
+}));
+
 import ApprovalDetailContent from './ApprovalDetailContent';
 import { hasOriginalFields } from './FormFieldsDiff';
 
@@ -348,5 +359,161 @@ describe('ApprovalDetailContent - canOperateOverride / canWithdrawOverride 覆�
     expect(screen.getByText(/同\s*意/)).toBeTruthy();
     // canWithdraw=false from actionState → 不显示撤回
     expect(screen.queryByText(/撤回审批/)).toBeNull();
+  });
+});
+
+// ==================== 查看权限双层模型测试 ====================
+
+describe('ApprovalDetailContent - 查看权限双层模型', () => {
+  it('当前办理人使用办理权限（editable 字段可见）', () => {
+    // currentUser.id=100 与 assignedUserIds=[100] 匹配 → 办理人视角
+    const detail = makeDetail({
+      fieldPermissions: {
+        nodes: { '1': { amount: 'editable', remark: 'readonly' } },
+      },
+    });
+    const actionState = makeActionState({ canOperate: true });
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    // amount 字段为 editable，办理人可以看到
+    expect(screen.getByTestId('field-amount')).toBeTruthy();
+    // remark 字段为 readonly，办理人也能看到（只是只读）
+    expect(screen.getByTestId('field-remark')).toBeTruthy();
+  });
+
+  it('发起人（非当前办理人）使用 viewPermissions.nodes["0"]', () => {
+    // 设置当前用户为发起人（id=100），但节点处理人是另一个人（assignedUserIds=[200]）
+    mockUsePermission.mockReturnValueOnce({
+      currentUser: { id: 100, name: '发起人' },
+      hasPermission: () => true,
+      hasRole: () => false,
+    });
+
+    const detail = makeDetail({
+      applicantId: 100,
+      nodes: [{ id: 1, nodeOrder: 1, round: 1, status: 'pending', assignedUserIds: [200] } as any],
+      viewPermissions: {
+        nodes: {
+          '0': { amount: 'readonly', remark: 'hidden' },
+          '1': { amount: 'readonly', remark: 'readonly' },
+        },
+      },
+    });
+    const actionState = makeActionState();
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    // 发起人看到 amount（readonly）但看不到 remark（hidden）
+    expect(screen.getByTestId('field-amount')).toBeTruthy();
+    expect(screen.queryByTestId('field-remark')).toBeNull();
+  });
+
+  it('节点参与人（非当前办理人）使用对应节点的查看权限', () => {
+    // 当前用户 id=100 是节点 1 的处理人，但当前流程在节点 2
+    mockUsePermission.mockReturnValueOnce({
+      currentUser: { id: 100, name: '节点参与人' },
+      hasPermission: () => true,
+      hasRole: () => false,
+    });
+
+    const detail = makeDetail({
+      currentNodeOrder: 2,
+      applicantId: 50,
+      nodes: [
+        { id: 1, nodeOrder: 1, round: 1, status: 'approved', assignedUserIds: [100] } as any,
+        { id: 2, nodeOrder: 2, round: 1, status: 'pending', assignedUserIds: [200] } as any,
+      ],
+      viewPermissions: {
+        nodes: {
+          '0': { amount: 'hidden', remark: 'hidden' },
+          '1': { amount: 'readonly', remark: 'hidden' },
+          '2': { amount: 'readonly', remark: 'readonly' },
+        },
+      },
+    });
+    const actionState = makeActionState();
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    // 用户参与了节点1，节点1的查看权限：amount=readonly, remark=hidden
+    expect(screen.getByTestId('field-amount')).toBeTruthy();
+    expect(screen.queryByTestId('field-remark')).toBeNull();
+  });
+
+  it('参与多个节点时取并集', () => {
+    mockUsePermission.mockReturnValueOnce({
+      currentUser: { id: 100, name: '多节点参与人' },
+      hasPermission: () => true,
+      hasRole: () => false,
+    });
+
+    const detail = makeDetail({
+      currentNodeOrder: 3,
+      applicantId: 50,
+      nodes: [
+        { id: 1, nodeOrder: 1, round: 1, status: 'approved', assignedUserIds: [100] } as any,
+        { id: 2, nodeOrder: 2, round: 1, status: 'approved', assignedUserIds: [100] } as any,
+        { id: 3, nodeOrder: 3, round: 1, status: 'pending', assignedUserIds: [200] } as any,
+      ],
+      viewPermissions: {
+        nodes: {
+          '1': { amount: 'readonly', remark: 'hidden' },
+          '2': { amount: 'hidden', remark: 'readonly' },
+          '3': { amount: 'hidden', remark: 'hidden' },
+        },
+      },
+    });
+    const actionState = makeActionState();
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    // 节点1: amount=readonly, remark=hidden
+    // 节点2: amount=hidden, remark=readonly
+    // 并集：amount=readonly, remark=readonly
+    expect(screen.getByTestId('field-amount')).toBeTruthy();
+    expect(screen.getByTestId('field-remark')).toBeTruthy();
+  });
+
+  it('无匹配节点时默认全部隐藏', () => {
+    // 当前用户 id=300，不在任何节点中，也不是发起人
+    mockUsePermission.mockReturnValueOnce({
+      currentUser: { id: 300, name: '纯抄送人' },
+      hasPermission: () => true,
+      hasRole: () => false,
+    });
+
+    const detail = makeDetail({
+      applicantId: 50,
+      viewPermissions: {
+        nodes: { '1': { amount: 'readonly', remark: 'readonly' } },
+      },
+    });
+    const actionState = makeActionState();
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    // 全部隐藏
+    expect(screen.queryByTestId('field-amount')).toBeNull();
+    expect(screen.queryByTestId('field-remark')).toBeNull();
+  });
+
+  it('viewPermissions 未配置时显示警告提示', () => {
+    mockUsePermission.mockReturnValueOnce({
+      currentUser: { id: 300, name: '外部用户' },
+      hasPermission: () => true,
+      hasRole: () => false,
+    });
+
+    const detail = makeDetail({ applicantId: 50 });
+    // 不设置 viewPermissions
+    const actionState = makeActionState();
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    // 显示警告提示
+    expect(screen.getByText(/查看权限/)).toBeTruthy();
+    // 全部隐藏
+    expect(screen.queryByTestId('field-amount')).toBeNull();
   });
 });

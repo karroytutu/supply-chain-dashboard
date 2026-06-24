@@ -7,6 +7,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ArDashboard');
 
 import { appQuery } from '../../db/appPool';
+import { beijingDate, beijingDateOffset } from '../../utils/beijingTime';
 import { getEnrichedNonHoardDebts, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 import { computeUpcomingWarnings, type UpcomingWarningDetail } from '../ar-collection/ar-warning.query';
 import { fetchSalesDetails } from '../erp-client/erp-sales-detail.service';
@@ -30,7 +31,7 @@ export async function buildDashboardContext(): Promise<DashboardContext> {
   const [debtsResult, oaResult, salesResult] = await Promise.allSettled([
     getEnrichedNonHoardDebts(now),
     fetchCollectionOaInstances(),
-    fetchSalesDetails(thirtyDaysAgo.toISOString().slice(0, 10), now.toISOString().slice(0, 10)),
+    fetchSalesDetails(beijingDateOffset(-30), beijingDate()),
   ]);
 
   const enrichedDebts = settleOrEmpty<EnrichedDebtRecord[]>(debtsResult, 'ERP欠款数据');

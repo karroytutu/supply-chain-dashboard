@@ -323,7 +323,7 @@ export async function exportData(
 // ERP 参考数据接口
 // =====================================================
 
-export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details';
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details' | 'supplier-debts';
 
 /** ERP ID 解析结果项 */
 export interface ErpResolvedItem {
@@ -662,6 +662,9 @@ export const oaApi = {
   getUserBankAccounts,
   createUserBankAccount,
   deleteUserBankAccount,
+  getUserSignature,
+  saveUserSignature,
+  deleteUserSignature,
 };
 
 // =====================================================
@@ -744,6 +747,17 @@ export async function updateAdminFieldPermissions(
   });
 }
 
+/** 更新表单查看权限配置（管理员配置非办理人查看详情的字段可见性） */
+export async function updateAdminViewPermissions(
+  code: string,
+  viewPermissions: Record<string, unknown> | null
+): Promise<void> {
+  return request<void>(`/oa/admin/form-types/${code}/view-permissions`, {
+    method: 'PATCH',
+    body: { viewPermissions },
+  });
+}
+
 /** 获取系统所有岗位列表 */
 export async function getAdminRoles(): Promise<Array<{ code: string; name: string; description: string }>> {
   return request('/oa/admin/roles');
@@ -783,6 +797,36 @@ export async function createUserBankAccount(data: {
 /** 删除银行账户 */
 export async function deleteUserBankAccount(id: number): Promise<void> {
   return request<void>(`/oa/user/bank-accounts/${id}`, { method: 'DELETE' });
+}
+
+// =====================================================
+// 用户签名持久化 API
+// =====================================================
+
+/** 用户签名记录 */
+export interface UserSignature {
+  id: number;
+  signatureData: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 获取当前用户已保存的签名（不存在时返回 null） */
+export async function getUserSignature(): Promise<UserSignature | null> {
+  return request<UserSignature | null>('/oa/user/signature');
+}
+
+/** 保存签名到个人档案（UPSERT，覆盖旧签名） */
+export async function saveUserSignature(signatureData: string): Promise<UserSignature> {
+  return request<UserSignature>('/oa/user/signature', {
+    method: 'POST',
+    body: { signatureData },
+  });
+}
+
+/** 删除已保存的签名 */
+export async function deleteUserSignature(): Promise<void> {
+  return request<void>('/oa/user/signature', { method: 'DELETE' });
 }
 
 // =====================================================

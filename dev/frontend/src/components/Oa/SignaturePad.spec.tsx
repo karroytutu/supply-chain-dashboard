@@ -103,7 +103,7 @@ describe('SignaturePad', () => {
     expect(screen.getByText('历史签名')).toBeTruthy();
   });
 
-  it('鼠标绘制后触发 onChange', () => {
+  it('鼠标绘制后不再自动触发 onChange（需点击确认签名）', () => {
     const onChange = vi.fn();
     const { container } = render(<SignaturePad onChange={onChange} />);
     const canvas = container.querySelector('canvas')!;
@@ -111,6 +111,24 @@ describe('SignaturePad', () => {
     fireEvent.mouseDown(canvas, { clientX: 10, clientY: 10 });
     fireEvent.mouseMove(canvas, { clientX: 20, clientY: 20 });
     fireEvent.mouseUp(canvas);
+
+    // stopDrawing 不再自动调用 onChange
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('绘制后点击“确认签名”按钮触发 onChange', () => {
+    const onChange = vi.fn();
+    const { container } = render(<SignaturePad onChange={onChange} />);
+    const canvas = container.querySelector('canvas')!;
+
+    // 先绘制使 hasSignature = true
+    fireEvent.mouseDown(canvas, { clientX: 10, clientY: 10 });
+    fireEvent.mouseMove(canvas, { clientX: 20, clientY: 20 });
+    fireEvent.mouseUp(canvas);
+
+    // 点击确认签名按钮
+    const confirmBtn = screen.getByText('确认签名');
+    fireEvent.click(confirmBtn);
 
     expect(onChange).toHaveBeenCalledWith('data:image/png;base64,mockSignatureData');
   });

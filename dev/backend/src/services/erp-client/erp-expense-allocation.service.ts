@@ -21,7 +21,8 @@ export interface CreateSupplierExpenseBillRequest {
   traderType: 'SUPPLIER';
   traderId: string | number;
   traderName: string;
-  totalAmount: number;
+  /** 费用总额（支持 number 或 string，服务层确保 string 类型） */
+  totalAmount: number | string;
   details: Array<{
     id: number;
     subjectId: number;
@@ -113,6 +114,7 @@ export async function createSupplierExpenseBill(
 
   const requestBody = {
     ...payload,
+    totalAmount: String(payload.totalAmount),
     imgIds: payload.imgIds || [],
     cid,
     uid,

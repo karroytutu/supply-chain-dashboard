@@ -9,6 +9,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ERP');
 
 import { appQuery } from '../../db/appPool';
+import { beijingDate } from '../../utils/beijingTime';
 import { fetchAllInventory } from './erp-inventory.service';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
@@ -32,8 +33,7 @@ export async function takeDailyInventorySnapshot(): Promise<{
   snapshotDate: string;
   recordCount: number;
 }> {
-  const today = new Date();
-  const snapshotDate = today.toISOString().slice(0, 10);
+  const snapshotDate = beijingDate();
 
   log.info(`开始执行每日库存快照: ${snapshotDate}`);
 

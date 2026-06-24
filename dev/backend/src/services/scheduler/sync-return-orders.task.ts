@@ -6,6 +6,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('Scheduler');
 
 import { appQuery } from '../../db/appPool';
+import { beijingDateCompact } from '../../utils/beijingTime';
 import { getProductByName } from '../erp-client/erp-product.service';
 import { getCostPriceByNameMap } from '../erp-client/erp-inventory.service';
 import { fetchReturnAcceptances } from '../erp-client/erp-return-acceptance.service';
@@ -343,8 +344,7 @@ function calculateExpireDate(batchDate: Date, shelfLife: number): Date {
  * 格式: RET + YYYYMMDD + 4位序号
  */
 function generateReturnNo(): string {
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const dateStr = beijingDateCompact();
   const random = Math.floor(1000 + Math.random() * 9000);
   return `RET${dateStr}${random}`;
 }

@@ -209,6 +209,32 @@ describe('oa-workflow-utils', () => {
 
       expect(result.signMode).toBe('and');
     });
+
+    it('useApplicant 返回申请人ID', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '发起人确认',
+        type: 'handle',
+        handler: { useApplicant: true },
+      };
+
+      const result = await resolveHandlerRule(node, 42);
+
+      expect(result.userIds).toEqual([42]);
+    });
+
+    it('useApplicant 与其他规则组合时去重', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '组合测试',
+        type: 'handle',
+        handler: { useApplicant: true, userId: 42 },
+      };
+
+      const result = await resolveHandlerRule(node, 42);
+
+      expect(result.userIds).toEqual([42]);
+    });
   });
 
   describe('findUserIdsByRoleCodes', () => {

@@ -13,10 +13,10 @@ import { appQuery as query } from '../db/appPool';
 import { cache } from '../utils/cache';
 import { CACHE_KEY } from '../utils/cache-keys';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
-import type { OaFormTypeRow, FieldPermissionsOverride } from '../services/oa/oa.types';
+import type { OaFormTypeRow, FieldPermissionsOverride, ViewPermissionsOverride } from '../services/oa/oa.types';
 import { mapFormTypeRow } from '../services/oa/oa-utils';
 import { getFormTypeByCode } from '../services/oa/form-types';
-import { validateCompleteness } from '../services/oa/field-permission-validator';
+import { validateCompleteness, validateViewCompleteness } from '../services/oa/field-permission-validator';
 
 /** 清除表单类型缓存 */
 function invalidateFormTypesCache(): void {
@@ -263,5 +263,74 @@ export async function listRolesForAdmin(req: Request, res: Response): Promise<vo
   } catch (error) {
     log.error('管理接口-获取岗位列表失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取岗位列表失败'));
+  }
+}
+
+/**
+ * 更新表单查看权限配置（管理员配置非办理人查看详情的字段可见性）
+ * PATCH /api/oa/admin/form-types/:code/view-permissions
+ *
+ * 请求体：{ viewPermissions: { nodes: { "0": {...}, "1": {...} } } | null }
+ */
+export async function updateViewPermissions(req: Request, res: Response): Promise<void> {
+  try {
+    const { code } = req.params;
+    const { viewPermissions } = req.body;
+
+    // 校验输入
+    if (viewPermissions !== null && typeof viewPermissions !== 'object') {
+      res.status(400).json(buildErrorResponse(400, 'viewPermissions 必须为对象或 null'));
+      return;
+    }
+
+    // 校验权限值合法性（只允许 nodes 键，权限值仅允许 readonly/hidden）
+    const validPerms = new Set(['readonly', 'hidden']);
+    if (viewPermissions) {
+      for (const [section, perms] of Object.entries(viewPermissions)) {
+        if (section !== 'nodes') {
+          res.status(400).json(buildErrorResponse(400, `不支持的配置节: ${section}，仅允许 nodes`));
+          return;
+        }
+        for (const [nodeOrder, nodePerms] of Object.entries(perms as Record<string, Record<string, string>>)) {
+          for (const [field, perm] of Object.entries(nodePerms)) {
+            if (!validPerms.has(perm)) {
+              res.status(400).json(buildErrorResponse(400, `节点${nodeOrder}字段 ${field} 的查看权限值 ${perm} 不合法，仅允许 readonly/hidden`));
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // 校验全量完整性：每个节点必须为所有业务字段声明查看权限
+    const codeDef = getFormTypeByCode(code);
+    if (codeDef && viewPermissions) {
+      const { valid, missing } = validateViewCompleteness(
+        codeDef.formSchema,
+        codeDef.workflowDef,
+        viewPermissions as ViewPermissionsOverride
+      );
+      if (!valid) {
+        const missingDesc = missing.map(m => `节点${m.node}: ${m.fields.join(', ')}`).join('; ');
+        res.status(400).json(buildErrorResponse(400, `查看权限配置不完整，缺失: ${missingDesc}`));
+        return;
+      }
+    }
+
+    const result = await query(
+      `UPDATE oa_form_types SET view_permissions = $1 WHERE code = $2`,
+      [viewPermissions ? JSON.stringify(viewPermissions) : null, code]
+    );
+
+    if (result.rowCount === 0) {
+      res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
+      return;
+    }
+
+    invalidateFormTypesCache();
+    res.json(buildSuccessResponse(null, '查看权限已保存'));
+  } catch (error) {
+    log.error('管理接口-更新查看权限失败:', error);
+    res.status(500).json(buildErrorResponse(500, '更新查看权限失败'));
   }
 }
