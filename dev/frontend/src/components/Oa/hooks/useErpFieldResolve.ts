@@ -92,19 +92,11 @@ export function useErpFieldResolve(
           continue;
         }
 
-        // 第二优先级：detailsField 存在且数据可解析时，渲染器可自行渲染，跳过 resolve
-        if (field.detailsField) {
-          const detailsValue = formData[field.detailsField];
-          if (detailsValue) {
-            try {
-              const parsed = JSON.parse(String(detailsValue));
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                continue; // detailsField 数据完整，无需 resolve
-              }
-            } catch {
-              /* JSON 解析失败，降级到下方的 ID 解析逻辑 */
-            }
-          }
+        // 第二优先级：_details[field.key] 存在时，渲染器可自行渲染，跳过 resolve
+        const detailsContainer = formData._details as Record<string, unknown> | undefined;
+        const detailsData = detailsContainer?.[field.key];
+        if (Array.isArray(detailsData) && detailsData.length > 0) {
+          continue; // _details 数据完整，无需 resolve
         }
 
         // 收集需要解析的 ID

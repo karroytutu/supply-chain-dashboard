@@ -29,20 +29,25 @@ vi.mock('@/constants/oa-erp', () => ({
 import FieldRenderer from './FormFieldRenderer';
 
 describe('FormFieldRenderer', () => {
-  it('结算单结构化明细渲染', () => {
+  it('modal_select 从 _details 自动读取结构化明细渲染', () => {
     const field: FormField = {
       key: 'holdSettlementOrders',
       label: '结算单',
-      type: 'erp_settlement_order',
+      type: 'modal_select',
       required: false,
-      detailsField: '_holdSettlementOrderDetails',
+      multiple: true,
+      labelKey: 'bizStr',
+      amountKey: 'leftAmount',
     } as any;
 
     const formData = {
-      _holdSettlementOrderDetails: JSON.stringify([
-        { bizStr: 'SO001', leftAmount: '1000.50' },
-        { bizStr: 'SO002', leftAmount: '2000.00' },
-      ]),
+      holdSettlementOrders: [1, 2],
+      _details: {
+        holdSettlementOrders: [
+          { bizStr: 'SO001', leftAmount: '1000.50' },
+          { bizStr: 'SO002', leftAmount: '2000.00' },
+        ],
+      },
     };
 
     render(
@@ -60,32 +65,30 @@ describe('FormFieldRenderer', () => {
     expect(screen.getByText('¥3,000.50')).toBeInTheDocument();
   });
 
-  it('结算单 JSON 解析失败降级', () => {
+  it('modal_select 无 _details 时降级显示原始 ID', () => {
     const field: FormField = {
       key: 'holdSettlementOrders',
       label: '结算单',
-      type: 'erp_settlement_order',
+      type: 'modal_select',
       required: false,
-      detailsField: '_holdSettlementOrderDetails',
-      nameField: '_holdSettlementOrderNames',
+      multiple: true,
+      labelKey: 'bizStr',
     } as any;
 
     const formData = {
-      _holdSettlementOrderDetails: 'invalid json{{',
-      _holdSettlementOrderNames: 'SO-A, SO-B',
+      holdSettlementOrders: [101, 202],
     };
 
     render(
       <FieldRenderer
         field={field}
-        value={[1, 2]}
+        value={[101, 202]}
         formData={formData}
       />,
     );
 
-    // 降级后应该用 nameField 显示
-    expect(screen.getByText('SO-A')).toBeInTheDocument();
-    expect(screen.getByText('SO-B')).toBeInTheDocument();
+    // 降级后显示原始 ID
+    expect(screen.getByText('101, 202')).toBeInTheDocument();
   });
 
   it('空值渲染为 -', () => {

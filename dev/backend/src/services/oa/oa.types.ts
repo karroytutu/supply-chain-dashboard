@@ -135,10 +135,10 @@ export interface FormField {
   link?: string;
   /** 文字说明控件内容 */
   content?: string;
-  /** 条件显示（支持单个条件或AND条件数组） */
-  visibleWhen?: ConditionDef | ConditionDef[];
+  /** 条件显示（支持单个条件、AND条件数组、或ConditionGroup） */
+  visibleWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** 条件必填（满足条件时字段变为必填） */
-  requiredWhen?: ConditionDef | ConditionDef[];
+  requiredWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** ERP参考数据API标识（erp_* 类型使用） */
   searchApi?:
     | 'erp_assets'
@@ -155,6 +155,7 @@ export interface FormField {
     | 'erp_prepayments'
     | 'erp_supplier_incomes'
     | 'erp_purchase_orders'
+    | 'erp_supplier_debts'
     | 'purchase_settlements';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
@@ -174,12 +175,12 @@ export interface FormField {
   filters?: ModalSelectFilter[];
   /** modal_select: 是否启用分页 */
   paginated?: boolean;
+  /** modal_select: 限定可选范围来自另一个 modal_select 字段已选中的记录 */
+  scopeFromField?: string;
   /** modal_select: 搜索框提示文字 */
   searchPlaceholder?: string;
   /** ERP字段选中后，将显示名称存入 formData 的哪个 key（如 'customerName'） */
   nameField?: string;
-  /** ERP多选字段选中后，将结构化明细(JSON)存入 formData 的哪个 key（如 'holdSettlementOrderDetails'） */
-  detailsField?: string;
   /** asset_search 显示哪些子字段 */
   displayFields?: string[];
   /** photo 类型用途：storefront=门头照，license=营业执照（默认 license） */
@@ -247,6 +248,19 @@ export interface FieldPermissionsOverride {
   nodes: Record<string, Record<string, FieldPermission>>;
 }
 
+/** 查看权限类型（非办理人查看详情时使用，仅 readonly/hidden） */
+export type ViewPermission = 'readonly' | 'hidden';
+
+/**
+ * 查看权限配置结构（DB 唯一来源）
+ * nodes: 按节点 order 配置查看权限。"0"=发起阶段（发起人），"1"-"N"=审批环节。
+ * 未配置时默认全部隐藏（最安全的兜底行为）。
+ */
+export interface ViewPermissionsOverride {
+  /** 节点查看权限配置。key 为节点 order 字符串，value 为字段权限映射 */
+  nodes: Record<string, Record<string, ViewPermission>>;
+}
+
 /**
  * @deprecated 节点交互类型已废弃，节点类型（NodeType）本身决定按钮样式。
  * 保留类型定义仅为兼容旧数据和旧代码，新代码不应使用。
@@ -279,6 +293,8 @@ export interface HandlerRule {
   useSupervisor?: boolean;
   /** 指定人：直接指定用户 ID */
   userId?: number;
+  /** 按发起人：将节点分配给审批实例的发起人 */
+  useApplicant?: boolean;
 }
 
 /**
@@ -343,7 +359,8 @@ export interface NodeInputField {
     | 'erp_suppliers'
     | 'erp_prepayments'
     | 'erp_supplier_incomes'
-    | 'erp_purchase_orders';
+    | 'erp_purchase_orders'
+    | 'erp_supplier_debts';
   /** 选择后自动填充其他字段 */
   autoFill?: Record<string, string>;
   /** 级联字段key */
@@ -353,9 +370,9 @@ export interface NodeInputField {
   /** ERP字段选中后，将显示名称存入 formData 的哪个 key */
   nameField?: string;
   /** 条件显示 */
-  visibleWhen?: ConditionDef | ConditionDef[];
+  visibleWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** 条件必填 */
-  requiredWhen?: ConditionDef | ConditionDef[];
+  requiredWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
 }
 
 /**
@@ -375,9 +392,9 @@ export interface ConditionDef {
   /** formSchema 中的字段 key */
   field: string;
   /** 比较操作符 */
-  operator: '>' | '<' | '==' | '>=' | '<=';
-  /** 比较值 */
-  value: number | string;
+  operator: '>' | '<' | '==' | '>=' | '<=' | 'not_empty' | 'is_empty';
+  /** 比较值（not_empty/is_empty 时不需要） */
+  value?: number | string;
 }
 
 /**
@@ -594,6 +611,8 @@ export interface FormTypeDefinition {
   nodeBackfills?: NodeBackfill[];
   /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖），由 mapFormTypeRow 从 DB 读取 */
   fieldPermissions?: FieldPermissionsOverride;
+  /** 查看权限 DB 覆盖值（非办理人查看详情时使用），由 mapFormTypeRow 从 DB 读取 */
+  viewPermissions?: ViewPermissionsOverride;
 }
 
 // =====================================================
@@ -622,6 +641,8 @@ export interface OaFormTypeRow {
   data_export_roles: string[] | null;
   /** 字段权限 DB 覆盖配置（管理员通过表单管理页面配置） */
   field_permissions?: FieldPermissionsOverride | null;
+  /** 查看权限 DB 覆盖配置（非办理人查看详情时使用，NULL=默认全部隐藏） */
+  view_permissions?: ViewPermissionsOverride | null;
   created_at: Date;
   updated_at: Date;
 }

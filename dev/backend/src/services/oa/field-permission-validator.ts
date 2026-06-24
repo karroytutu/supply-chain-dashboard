@@ -6,7 +6,7 @@
  * 业务字段从 formSchema.fields 提取（不含 internalFields），表格子字段用点号分隔 key。
  */
 
-import type { FormSchema, WorkflowDef, FieldPermissionsOverride } from './oa.types';
+import type { FormSchema, WorkflowDef, FieldPermissionsOverride, ViewPermissionsOverride } from './oa.types';
 
 /**
  * 提取表单的业务字段 key 列表（含表格子字段，用点号分隔）
@@ -66,6 +66,37 @@ export function validateCompleteness(
 
   for (const order of nodeOrders) {
     const nodePerms = fieldPermissions?.nodes?.[String(order)];
+
+    if (!nodePerms) {
+      missing.push({ node: String(order), fields: businessFields });
+      continue;
+    }
+
+    const missingFields = businessFields.filter(f => !(f in nodePerms));
+    if (missingFields.length > 0) {
+      missing.push({ node: String(order), fields: missingFields });
+    }
+  }
+
+  return { valid: missing.length === 0, missing };
+}
+
+/**
+ * 校验查看权限配置完整性
+ * 与 validateCompleteness 逻辑相同，但入参类型为 ViewPermissionsOverride
+ * @returns valid: 是否完整；missing: 缺失项列表
+ */
+export function validateViewCompleteness(
+  formSchema: FormSchema,
+  workflowDef: WorkflowDef,
+  viewPermissions: ViewPermissionsOverride | null | undefined
+): { valid: boolean; missing: Array<{ node: string; fields: string[] }> } {
+  const businessFields = extractBusinessFields(formSchema);
+  const nodeOrders = getConfigurableNodeOrders(workflowDef);
+  const missing: Array<{ node: string; fields: string[] }> = [];
+
+  for (const order of nodeOrders) {
+    const nodePerms = viewPermissions?.nodes?.[String(order)];
 
     if (!nodePerms) {
       missing.push({ node: String(order), fields: businessFields });

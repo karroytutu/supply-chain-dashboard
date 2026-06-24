@@ -8,6 +8,7 @@ const log = createLogger('ArCollection');
 
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery } from '../../db/appPool';
+import { formatLocalDate } from '../../utils/beijingTime';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import {
   hasReminderSentToday,
@@ -208,7 +209,7 @@ async function sendMergedReminder(
     billNo: d.bizOrderStr || d.billId, // 使用订单号作为单据编号
     consumerName: d.consumerName,
     leftAmount: Number(d.leftAmount),
-    expireDate: d.expireDate.toISOString().slice(0, 10),
+    expireDate: formatLocalDate(d.expireDate),
     daysToExpire: d.daysToExpire,
     settleMethod: d.settleMethod,
   }));
@@ -245,7 +246,7 @@ async function sendMergedReminder(
         managerUserName: managerName,
         managerUserId,
         leftAmount: Number(debt.leftAmount),
-        expireDate: debt.expireDate.toISOString().slice(0, 10),
+        expireDate: formatLocalDate(debt.expireDate),
         daysToExpire: debt.daysToExpire,
         reminderType,
         reminderStatus,

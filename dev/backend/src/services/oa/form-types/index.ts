@@ -17,6 +17,8 @@ import { customerModifyFormType } from './customer-modify';
 import { arCollectionFormType } from './ar-collection';
 import { procurementOrderFormType } from './procurement-order';
 import { logisticsFeeFormType } from './logistics-fee';
+import { purchasePaymentFormType } from './purchase-payment';
+import { customerReconciliationFormType } from './customer-reconciliation';
 
 /**
  * 所有已注册的表单类型
@@ -35,6 +37,8 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   arCollectionFormType,
   procurementOrderFormType,
   logisticsFeeFormType,
+  purchasePaymentFormType,
+  customerReconciliationFormType,
 ];
 
 /**
@@ -85,3 +89,5 @@ export { customerModifyFormType } from './customer-modify';
 export { arCollectionFormType } from './ar-collection';
 export { procurementOrderFormType } from './procurement-order';
 export { logisticsFeeFormType } from './logistics-fee';
+export { purchasePaymentFormType } from './purchase-payment';
+export { customerReconciliationFormType } from './customer-reconciliation';

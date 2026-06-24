@@ -242,16 +242,12 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
               : options.filter(opt => ids.includes(opt.value as number)).map(opt => opt.label);
             form.setFieldsValue({ [field.nameField]: nameLabels.join(', ') });
           }
-          // 存储结构化明细（供详情页表格渲染）
-          if (field.detailsField && form) {
-            const details = ids.map((bizId, idx) => {
-              const rec = records?.[idx];
-              return {
-                bizStr: rec?.bizStr || labels?.[idx] || String(bizId),
-                leftAmount: rec?.leftAmount || '0',
-              };
+          // 自动持久化选中记录到 _details[field.key]，供详情页展示
+          if (form && records && records.length > 0) {
+            const existingDetails = (form.getFieldValue('_details') as Record<string, unknown>) || {};
+            form.setFieldsValue({
+              _details: { ...existingDetails, [field.key]: records },
             });
-            form.setFieldsValue({ [field.detailsField]: JSON.stringify(details) });
           }
         }}
         disabled={isDisabled}

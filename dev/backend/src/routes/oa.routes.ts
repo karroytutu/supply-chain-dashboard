@@ -62,6 +62,7 @@ import {
   updateFormTypeBasic,
   updateFormTypeWorkflow,
   updateFieldPermissions,
+  updateViewPermissions,
   listRolesForAdmin,
 } from '../controllers/oa-form-type-admin.controller';
 import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
@@ -531,6 +532,89 @@ router.delete(
 );
 
 // =====================================================
+// 用户签名持久化（跨表单签名复用）
+// =====================================================
+
+// 获取当前用户已保存的签名
+router.get(
+  '/user/signature',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ code: 401, message: '未登录' });
+        return;
+      }
+      const { getUserSignature } = await import('../services/oa/user-signature.service');
+      const signature = await getUserSignature(userId);
+      res.json({ code: 200, data: signature });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: error instanceof Error ? error.message : '获取签名失败',
+      });
+    }
+  }
+);
+
+// 保存签名到个人档案（UPSERT，覆盖旧签名）
+router.post(
+  '/user/signature',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ code: 401, message: '未登录' });
+        return;
+      }
+      const { signatureData } = req.body;
+      if (!signatureData) {
+        res.status(400).json({ code: 400, message: '签名数据不能为空' });
+        return;
+      }
+      // base64 签名 data URL 通常 < 200KB，限制 512KB 防止数据库膨胀
+      if (typeof signatureData !== 'string' || signatureData.length > 512 * 1024) {
+        res.status(400).json({ code: 400, message: '签名数据过大（最大 512KB）' });
+        return;
+      }
+      const { saveUserSignature } = await import('../services/oa/user-signature.service');
+      const saved = await saveUserSignature(userId, signatureData);
+      res.json({ code: 200, data: saved });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: error instanceof Error ? error.message : '保存签名失败',
+      });
+    }
+  }
+);
+
+// 删除已保存的签名
+router.delete(
+  '/user/signature',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ code: 401, message: '未登录' });
+        return;
+      }
+      const { deleteUserSignature } = await import('../services/oa/user-signature.service');
+      await deleteUserSignature(userId);
+      res.json({ code: 200, message: '删除成功' });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: error instanceof Error ? error.message : '删除签名失败',
+      });
+    }
+  }
+);
+
+// =====================================================
 // 数据管理接口
 // =====================================================
 
@@ -574,6 +658,9 @@ router.put('/admin/form-types/:code/workflow', requirePermission('oa:form:manage
 
 // 更新表单字段权限配置（管理员配置每个环节的字段可见/可编辑/隐藏）
 router.patch('/admin/form-types/:code/field-permissions', requirePermission('oa:form:manage'), updateFieldPermissions);
+
+// 更新表单查看权限配置（管理员配置非办理人查看详情的字段可见性）
+router.patch('/admin/form-types/:code/view-permissions', requirePermission('oa:form:manage'), updateViewPermissions);
 
 // 获取系统所有岗位列表（供配置审批人时使用）
 router.get('/admin/roles', requirePermission('oa:form:manage'), listRolesForAdmin);

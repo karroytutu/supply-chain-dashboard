@@ -128,6 +128,10 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     ...(row.field_permissions
       ? { fieldPermissions: row.field_permissions }
       : {}),
+    // viewPermissions: DB 为唯一来源（非办理人查看详情时使用）
+    ...(row.view_permissions
+      ? { viewPermissions: row.view_permissions }
+      : {}),
   };
 }
 

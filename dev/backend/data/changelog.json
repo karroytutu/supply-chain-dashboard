@@ -1,6 +1,26 @@
 {
   "entries": [
     {
+      "version": "v2.13.0",
+      "date": "2026-06-25 07:22",
+      "types": ["feature", "breaking", "optimization"],
+      "changes": [
+        "新增采购付款申请单（purchase-payment）：支持后付款（选择供应商应付单据，审批后ERP自动核销）和预付款（手动填写预付金额，审批后创建ERP普通预付款单）双模式，含auto节点ERP单据创建与驳回回滚回调",
+        "新增应收对账审批表单（customer-reconciliation）：覆盖选客户→选应收单据→创建ERP对账单→PDF上传→单据领出签名→对账结果提交→差异审核→ERP审核完整业务流程",
+        "新增PDF服务端渲染服务（print-renderer）：复用舟谱打印插件原生渲染引擎（template.css + new_template_page.js），通过Playwright在服务端渲染对账单HTML为PDF，支持分页和小计",
+        "新增用户签名持久化服务（user-signature）：按用户隔离存储手写签名base64数据，支持跨表单签名控件自动填充，迁移138建表",
+        "新增查看权限体系（view-permissions）：非当前办理人查看详情时的字段级权限控制（只读/隐藏2态），含前端ViewPermissionMatrix配置矩阵组件和useViewPermissions Hook，迁移135加列",
+        "modal_select控件大幅增强：支持级联筛选（cascadeFrom）、初始值回填（initialValue解析）、ERP字段解析（useErpFieldResolve）、多表格模式、只读展示适配，ModalSelectControl从115行扩展到290行",
+        "ERP采购结算服务增强：新增searchPurchaseSettlements供应商筛选参数、采购订单详情接口、应付单据批量查询，erp-purchase.service扩展209行",
+        "OA审批详情增强：ApprovalDetailContent新增流程进度展示、节点状态可视化，审批中心列表样式优化",
+        "新增OA附件孤儿文件清理定时任务（oa-orphan-cleanup.task）：定期扫描uploads/oa-attachment/和oa-statement/目录清理无数据库引用的文件",
+        "表单权限校验器增强：field-permission-validator新增modal_select和signature字段类型校验分支，单元测试补充",
+        "前端OA表单页增强：Form/index.tsx新增签名控件集成、条件字段联动优化、查看权限适配",
+        "新增北京时间工具（beijingTime.ts）与单元测试，确保服务端时间计算正确",
+        "9项数据库迁移：采购付款表单(128/129)、应收对账表单(130/131)、modal_select详情迁移(132)、查看权限(135)、对账字段清理(136)、对账回填权限(137)、用户签名(138)"
+      ]
+    },
+    {
       "version": "v2.12.0",
       "date": "2026-06-24 11:58",
       "types": ["feature", "breaking", "optimization"],

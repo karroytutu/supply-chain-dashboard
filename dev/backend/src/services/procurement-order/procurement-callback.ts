@@ -12,6 +12,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ProcurementCallback');
 
 import { appQuery as query } from '../../db/appPool';
+import { beijingDateTime } from '../../utils/beijingTime';
 import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
 import {
   getErpMeta,
@@ -21,6 +22,7 @@ import {
   approvePurchaseOrder,
   buildProcurementIdemKey,
 } from '../erp-client/erp-purchase.service';
+import { getErpDefaults } from '../erp-client/erp-config';
 import type {
   CreatePurchasePrepaymentRequest,
 } from '../erp-client/erp-purchase.types';
@@ -122,12 +124,11 @@ async function handleCreatePrepayment(
     traderId: parseInt(supplierId, 10),
     traderType: 'SUPPLIER',
     type: 'PRE_PAID',
-    totalAmount: parseFloat(amount),
+    totalAmount: amount,
     paymentDetails: [{ paymentAmount: amount, subjectId: paymentSubjectId }],
     paymentDirection: 'OUT',
-    salesmanId: '97',
-    source: 'CLOUD',
-    workTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    salesmanId: getErpDefaults().defaultSalesmanId,
+    workTime: beijingDateTime(),
     note: `OA: ${instance.instance_no}`,
   };
 
@@ -169,12 +170,11 @@ async function handleCreatePrepaymentV4(
     traderId: parseInt(supplierId, 10),
     traderType: 'SUPPLIER',
     type: 'PRE_PAID',
-    totalAmount: parseFloat(paymentAmount),
+    totalAmount: paymentAmount,
     paymentDetails: [{ paymentAmount, subjectId: paymentSubjectId }],
     paymentDirection: 'OUT',
-    salesmanId: '97',
-    source: 'CLOUD',
-    workTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    salesmanId: getErpDefaults().defaultSalesmanId,
+    workTime: beijingDateTime(),
     note: `OA: ${instance.instance_no}`,
   };
 

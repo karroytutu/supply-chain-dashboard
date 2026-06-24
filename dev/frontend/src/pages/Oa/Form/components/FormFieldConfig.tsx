@@ -7,7 +7,7 @@ import { getFieldLinkUrl } from '@/utils/oa';
 import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
 import TableFieldRenderer from './TableFieldRenderer';
 import PhotoFieldRenderer from './PhotoFieldRenderer';
-import { SignaturePad } from '@/components/Oa/SignaturePad';
+import SignatureFieldControl from '@/components/Oa/fields/SignatureFieldControl';
 import UploadFieldRenderer from './UploadFieldRenderer';
 import ModalSelectControl from '@/components/Oa/fields/ModalSelectControl';
 import BankAccountSelector, { type BankAccountValue } from '@/components/Oa/BankAccountSelector';
@@ -214,10 +214,11 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
 
     case 'signature':
       return (
-        <SignaturePad
-          value={value as string | undefined}
-          onChange={onChange as ((value: string | undefined) => void) | undefined}
-          readOnly={field.disabled}
+        <SignatureFieldControl
+          mode={field.disabled ? 'readonly' : 'editable'}
+          field={field}
+          value={value}
+          onChange={onChange as ((value: unknown) => void) | undefined}
         />
       );
 

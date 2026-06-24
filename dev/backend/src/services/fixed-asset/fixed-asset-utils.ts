@@ -10,6 +10,7 @@ import type {
   ErpAsset,
 } from './fixed-asset.types';
 import { getErpDefaults } from '../erp-client';
+import { beijingDate } from '../../utils/beijingTime';
 
 /**
  * 验证维修申请预估费用门槛
@@ -126,7 +127,7 @@ function calcNetValue(originalValue: number, residualValueRate: number): string 
  */
 export function normalizeDateTime(dateStr: string | undefined | null): string {
   if (!dateStr) {
-    return new Date().toISOString().slice(0, 10) + ' 12:00:00';
+    return beijingDate() + ' 12:00:00';
   }
   // 已包含时间部分
   if (dateStr.includes(' ')) return dateStr;
@@ -173,7 +174,7 @@ export function buildAssetCreatePayload(
     name: line.assetName,
     code: assetCode || '',
     assetTypeId: line.assetTypeId,
-    entryDate: line.arrivalDate || new Date().toISOString().slice(0, 10),
+    entryDate: line.arrivalDate || beijingDate(),
     incrdecrId: 1,
     specification: line.specification,
     quantity: 1,

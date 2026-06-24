@@ -11,6 +11,7 @@ const log = createLogger('ArCollectionCreator');
 
 import type { PoolClient } from 'pg';
 import { appQuery as query, getAppClient } from '../../db/appPool';
+import { formatLocalDate } from '../../utils/beijingTime';
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 import { evaluateEntryRules, extractEntryMetadata, COLLECTION_ENTRY_RULES } from '../ar-collection/ar-collection-entry-rules';
@@ -322,7 +323,7 @@ function getOverdueDateStr(debt: EnrichedDebtRecord): string {
     : AR_DEFAULT_EXPIRE_DAYS;
   const overdueDate = new Date(debt.workTime);
   overdueDate.setDate(overdueDate.getDate() + maxDays);
-  return overdueDate.toISOString().split('T')[0];
+  return formatLocalDate(overdueDate);
 }
 
 /**

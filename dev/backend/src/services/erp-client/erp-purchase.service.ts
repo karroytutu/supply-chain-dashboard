@@ -8,7 +8,7 @@ const log = createLogger('ERP');
 
 import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
-import { erpGet, erpPost } from './erp-client';
+import { erpGet, erpPost, extractErpData } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
@@ -18,8 +18,12 @@ import type {
   CreatePurchaseOrderRequest,
   AvailablePrepayment,
   CreatePurchasePrepaymentRequest,
+  CreateNormalPrepaymentRequest,
+  CreatePaidBillInput,
   CreatePaidBillRequest,
   CreatePaidBillResponse,
+  PaidBillInvoiceInput,
+  PaidBillInvoiceItem,
   SupplierIncomeRecord,
   ErpSupplier,
   DailySalesGoodsRecord,
@@ -40,6 +44,18 @@ export function buildProcurementIdemKey(
   nodeOrder: number
 ): string {
   return `PROC-${type}-${instanceId}-${nodeOrder}`;
+}
+
+/**
+ * 采购付款申请 ERP 幂等键
+ * 与 buildProcurementIdemKey 使用不同前缀避免冲突
+ */
+export function buildPurchasePaymentIdemKey(
+  type: 'PREPAY' | 'PAID',
+  instanceId: number,
+  nodeOrder: number
+): string {
+  return `PUR-PAY-${type}-${instanceId}-${nodeOrder}`;
 }
 
 // =====================================================
@@ -251,6 +267,42 @@ export async function createPurchasePrepayment(
 }
 
 /**
+ * 创建普通预付款（不关联采购订单）
+ * POST /saas/pro/prepay/operate-pre-payment
+ * prePayType='NORMAL'，不含 relatedBizId/relatedBizStr
+ */
+export async function createNormalPrepayment(
+  payload: CreateNormalPrepaymentRequest,
+  idemKey: string
+): Promise<{ id: number; billStr: string }> {
+  const { cid, uid } = getErpDefaults();
+
+  const result = (await erpPost(
+    '/prepay/operate-pre-payment',
+    {
+      ...payload,
+      prePaidAmount: payload.prePaidAmount || '0.00',
+      wipeOffAmount: payload.wipeOffAmount ?? 0,
+      source: 'CLOUD',
+      cid,
+      uid,
+    },
+    {
+      pathPrefix: '/saas/pro/',
+      businessType: 'normal_prepayment_create',
+      headers: { idemkey: idemKey },
+    }
+  )) as any;
+
+  const id = result?.data?.id;
+  const billStr = result?.data?.paidBillStr || result?.data?.billStr;
+  if (!id) {
+    throw new Error('创建普通预付款失败: 未返回 id');
+  }
+  return { id, billStr };
+}
+
+/**
  * 反审核预付款 (API#7)
  * POST /saas/pro/prepay/de-approve
  */
@@ -320,22 +372,63 @@ export async function listTraderPrepayments(
 /**
  * 创建付款单核销 (API#11)
  * POST /saas/pro/paid/save-and-approve
- * 需要幂等键 idemkey，自动审核通过
+ *
+ * 接收业务输入（CreatePaidBillInput），自动处理 ERP 协议细节：
+ * - totalAmount = sum(invoiceList.leftAmount)
+ * - 抹零按 leftAmount 占比分摊到各条 discountAmount（倒挤法保总和）
+ * - arrivalTime = workTime
+ * - prePaidAmount = "0"
+ * - 金额统一 string 类型
  */
 export async function createPaidBill(
-  payload: CreatePaidBillRequest,
+  input: CreatePaidBillInput,
   idemKey: string
 ): Promise<CreatePaidBillResponse> {
   const { cid, uid } = getErpDefaults();
 
+  // 1. 计算 totalAmount = sum(leftAmount)
+  const totalAmount = input.invoiceList.reduce(
+    (sum, inv) => sum + (parseFloat(inv.leftAmount) || 0), 0
+  );
+
+  // 2. 抹零分摊（倒挤法）
+  const wipeOff = parseFloat(input.wipeOffAmount || '0') || 0;
+  const discountAmounts = distributeDiscount(input.invoiceList, wipeOff);
+
+  // 3. 组装 ERP 格式的 invoiceList
+  const invoiceList: PaidBillInvoiceItem[] = input.invoiceList.map((inv, i) => ({
+    bizId: inv.bizId,
+    bizType: inv.bizType,
+    paidAmount: String(inv.leftAmount),
+    discountAmount: discountAmounts[i],
+    preAllocateAmount: '0',
+    leftAmount: String(inv.leftAmount),
+    note: inv.note || '',
+    originNote: inv.originNote || '',
+  }));
+
+  // 4. 构建完整 ERP 请求
+  const erpPayload: CreatePaidBillRequest = {
+    traderId: input.traderId,
+    salesmanId: input.salesmanId,
+    deptId: input.deptId,
+    operatorId: input.operatorId,
+    workTime: input.workTime,
+    arrivalTime: input.workTime,
+    note: input.note || '',
+    paymentDetails: input.paymentDetails,
+    paymentDirection: 'OUT',
+    traderType: 'SUPPLIER',
+    type: 'PAID',
+    totalAmount: String(totalAmount),
+    wipeOffAmount: input.wipeOffAmount || '0',
+    writeOffInfo: { invoiceList, prepayList: [] },
+  };
+
   const result = (await erpPost(
     '/paid/save-and-approve',
     {
-      ...payload,
-      paymentDirection: 'OUT',
-      traderType: 'SUPPLIER',
-      type: 'PAID',
-      imgIds: payload.imgIds || [],
+      ...erpPayload,
       cid,
       uid,
       time: Date.now(),
@@ -351,6 +444,45 @@ export async function createPaidBill(
     throw new Error('创建付款单失败: 未返回 id');
   }
   return result.data as CreatePaidBillResponse;
+}
+
+/**
+ * 抹零金额按比例分摊到各条明细（倒挤法保总和）
+ * 前 N-1 条：按比例四舍五入保留两位小数
+ * 第 N 条：用总额减去前 N-1 条合计，确保分摊总和 = wipeOffAmount
+ */
+function distributeDiscount(
+  invoiceList: PaidBillInvoiceInput[],
+  wipeOffAmount: number
+): string[] {
+  if (wipeOffAmount <= 0 || invoiceList.length === 0) {
+    return invoiceList.map(() => '0');
+  }
+
+  const totalLeft = invoiceList.reduce(
+    (sum, inv) => sum + (parseFloat(inv.leftAmount) || 0), 0
+  );
+  if (totalLeft <= 0) {
+    return invoiceList.map(() => '0');
+  }
+
+  const result: string[] = [];
+  let distributed = 0;
+
+  for (let i = 0; i < invoiceList.length; i++) {
+    if (i < invoiceList.length - 1) {
+      const proportion = (parseFloat(invoiceList[i].leftAmount) || 0) / totalLeft;
+      const amount = Math.round(proportion * wipeOffAmount * 100) / 100;
+      result.push(String(amount));
+      distributed += amount;
+    } else {
+      // 最后一条用倒挤法
+      const lastAmount = Math.round((wipeOffAmount - distributed) * 100) / 100;
+      result.push(String(lastAmount));
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -527,6 +659,67 @@ export async function searchSupplierDebts(
   }
 
   return allRecords;
+}
+
+/** 供应商欠款分页查询结果 */
+export interface SupplierDebtPagedResult {
+  records: SupplierDebtRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * 供应商欠款分页查询
+ * 支持服务端分页，前端按需请求
+ *
+ * 搜索策略：
+ * - 无关键词时：直接利用 ERP API 分页，性能最优
+ * - 有关键词时：ERP API 不支持搜索，需全量拉取后内存过滤再手动分页
+ */
+export async function searchSupplierDebtsPaged(params: {
+  traderId: number;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<SupplierDebtPagedResult> {
+  const { cid, uid } = getErpDefaults();
+  const page = params.page || 1;
+  const pageSize = Math.min(params.pageSize || 20, 100);
+
+  // 有关键词时：ERP API 不支持搜索，需全量拉取后内存过滤
+  if (params.keyword?.trim()) {
+    const allRecords = await searchSupplierDebts(params.traderId);
+    const kw = params.keyword.toLowerCase();
+    const filtered = allRecords.filter(
+      r => r.bizStr?.toLowerCase().includes(kw) || String(r.bizId).includes(params.keyword!)
+    );
+    const total = filtered.length;
+    const start = (page - 1) * pageSize;
+    const records = filtered.slice(start, start + pageSize);
+    return { records, total, page, pageSize };
+  }
+
+  // 无关键词：直接利用 ERP API 分页
+  const response = await erpGet<unknown>(
+    '/invoice/list-debt-list',
+    {
+      size: pageSize,
+      total: 0,
+      current: page,
+      traderId: params.traderId,
+      traderType: 'SUPPLIER',
+      cid,
+      uid,
+    },
+    { pathPrefix: '/saas/pro/', businessType: 'supplier_debt_list' }
+  );
+
+  const data = extractErpData<{ records?: SupplierDebtRecord[]; total?: number }>(response);
+  const records: SupplierDebtRecord[] = data?.records ?? [];
+  const total: number = data?.total ?? 0;
+
+  return { records, total, page, pageSize };
 }
 
 // =====================================================

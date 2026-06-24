@@ -32,6 +32,7 @@ import { runOaTimeoutTask, runOaTimeoutAssessmentTask } from '../oa/timeout';
 import { processOaAsyncTasks } from '../oa/oa-async-task.service';
 import { reconcileProcessInstanceStatus } from '../oa/oa-process-centre';
 import { runPeriodicWarmup } from '../cache-warmup.service';
+import { runOaOrphanCleanup } from '../oa/oa-orphan-cleanup.task';
 
 /**
  * 启动所有定时任务
@@ -294,6 +295,25 @@ export function startScheduler(): void {
 
   } // end if (isProduction) — 写入型任务到此结束
 
+  // ==================== OA 附件孤儿文件清理（仅生产环境） ====================
+  // 清理未被任何审批实例引用的上传文件
+  // 开发环境数据创建频率低，测试附件可能超过保留期后被误删，因此仅在生产环境运行
+  if (isProduction) {
+    cron.schedule(
+      '0 2 * * *',
+      async () => {
+        log.info('执行 OA 附件孤儿文件清理...');
+        try {
+          const result = await runOaOrphanCleanup();
+          log.info('OA 附件孤儿文件清理完成:', result);
+        } catch (error) {
+          log.error('OA 附件孤儿文件清理失败:', error);
+        }
+      },
+      { timezone: 'Asia/Shanghai' }
+    );
+  }
+
   // ==================== OA 异步任务消费（所有环境） ====================
   // auto 节点回调、通知重试等通过异步任务表实现，必须在所有环境中消费
   // 否则开发/测试环境中 auto 节点会永远停留在 pending 状态
@@ -424,6 +444,7 @@ export function startScheduler(): void {
     log.info('  - OA节点超时考核计算: 每天 09:00 (Asia/Shanghai)');
     log.info('  - OA 异步任务消费: 每1分钟 (Asia/Shanghai)');
     log.info('  - OA 壳实例状态对账: 每30分钟 (Asia/Shanghai)');
+    log.info('  - OA 附件孤儿文件清理: 每天 02:00 (Asia/Shanghai)');
     log.info('  - 钉钉部门同步: 每天 06:00 (Asia/Shanghai)');
     log.info('  - 钉钉全量用户同步: 每天 07:00 (Asia/Shanghai)');
     log.info('  - 钉钉增量用户同步: 每4小时 (Asia/Shanghai)');

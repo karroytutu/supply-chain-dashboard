@@ -22,6 +22,7 @@ export const ERP_SEARCH_API_MAP: Record<string, ErpReferenceType> = {
   erp_prepayments: 'prepayments',
   erp_supplier_incomes: 'supplier-incomes',
   erp_purchase_orders: 'purchase-orders',
+  erp_supplier_debts: 'supplier-debts',
 };
 
 /** ERP 类型到标签字段名的映射 */
@@ -40,6 +41,7 @@ export const ERP_LABEL_FIELDS: Record<string, string> = {
   prepayments: 'paidBillStr',
   'supplier-incomes': 'billStr',
   'purchase-orders': 'billStr',
+  'supplier-debts': 'bizStr',
 };
 
 /** ERP 类型到值字段名的映射 */
@@ -58,4 +60,5 @@ export const ERP_VALUE_FIELDS: Record<string, string> = {
   prepayments: 'id',
   'supplier-incomes': 'id',
   'purchase-orders': 'billId',
+  'supplier-debts': 'bizId',
 };

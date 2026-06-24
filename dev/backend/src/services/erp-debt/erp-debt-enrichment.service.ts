@@ -7,6 +7,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ArCollection');
 
 import { appQuery } from '../../db/appPool';
+import { beijingDate, formatLocalDate } from '../../utils/beijingTime';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 import {
@@ -107,7 +108,7 @@ export async function enrichDebtRecords(
       rawHoardTag === AR_HOARD_TAG_HOARD &&
       holdType === AR_HOLD_TYPE_TIME_LIMITED &&
       holdUntil &&
-      holdUntil < now.toISOString().slice(0, 10)
+      holdUntil < beijingDate()
     ) {
       hoardTag = AR_HOARD_TAG_NORMAL;
     }
@@ -121,7 +122,7 @@ export async function enrichDebtRecords(
     const ageDays = Math.floor((now.getTime() - workDate.getTime()) / 86400000);
     const overdueDays = Math.max(0, ageDays - maxAllowedDays);
     const overdueDate = new Date(workDate.getTime() + maxAllowedDays * 86400000);
-    const overdueDateStr = overdueDate.toISOString().slice(0, 10);
+    const overdueDateStr = formatLocalDate(overdueDate);
     const isOverdue = ageDays > maxAllowedDays;
 
     return {

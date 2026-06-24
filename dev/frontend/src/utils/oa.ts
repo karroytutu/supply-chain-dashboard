@@ -37,6 +37,8 @@ const OPERATOR_LABELS: Record<ConditionDef['operator'], string> = {
   '<': '低于',
   '<=': '不超过',
   '==': '为',
+  'not_empty': '已填写',
+  'is_empty': '未填写',
 };
 
 /**
@@ -50,6 +52,10 @@ export function humanizeCondition(
 ): string {
   const label = fieldLabels[condition.field] || condition.field;
   const opLabel = OPERATOR_LABELS[condition.operator] || condition.operator;
+  // not_empty/is_empty 无比较值，直接拼接
+  if (condition.operator === 'not_empty' || condition.operator === 'is_empty') {
+    return `${label}${opLabel}时`;
+  }
   const value = typeof condition.value === 'number'
     ? condition.value.toLocaleString('zh-CN')
     : String(condition.value);

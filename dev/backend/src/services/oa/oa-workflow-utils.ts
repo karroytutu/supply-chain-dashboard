@@ -55,6 +55,9 @@ export async function resolveHandlerRule(
   if (handler.userId) {
     userIds.push(handler.userId);
   }
+  if (handler.useApplicant) {
+    userIds.push(applicantId);
+  }
 
   return { userIds: [...new Set(userIds)], signMode };
 }

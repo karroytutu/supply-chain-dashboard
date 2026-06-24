@@ -9,6 +9,7 @@ const log = createLogger('ArCollection');
 
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import { appQuery } from '../../db/appPool';
+import { formatLocalDate } from '../../utils/beijingTime';
 import { AR_DEFAULT_EXPIRE_DAYS, AR_SETTLE_METHOD_CONSUMER_EXPIRE } from '../../utils/constants';
 import { enrichDebtRecords, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
@@ -197,7 +198,7 @@ export async function computeUpcomingWarnings(
     managerUserName: debt.managerUsers || '',
     managerUserId: debt.managerUsers ? managerIdMap.get(debt.managerUsers) || null : null,
     leftAmount: Number(debt.leftAmount),
-    expireDate: debt.expireDate.toISOString().slice(0, 10),
+    expireDate: formatLocalDate(debt.expireDate),
     daysToExpire: debt.daysToExpire,
     warningLevel: debt.warningLevel,
     reminderCount: reminderCounts.get(debt.billId) || 0,

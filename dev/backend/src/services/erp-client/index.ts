@@ -26,6 +26,7 @@ export {
   deApprovePurchaseOrder,
   cancelPurchaseOrder,
   createPurchasePrepayment,
+  createNormalPrepayment,
   deApprovePrepayment,
   cancelPrepayment,
   listTraderPrepayments,
@@ -35,14 +36,27 @@ export {
   searchSupplierIncomes,
   getDailySalesData,
   searchSupplierDebts,
+  searchSupplierDebtsPaged,
   searchSuppliers,
   buildProcurementIdemKey,
+  buildPurchasePaymentIdemKey,
 } from './erp-purchase.service';
 export {
   searchPurchaseSettlements,
   getAllocatablePurchaseDetails,
   getAllocatableExpenseDetails,
 } from './erp-purchase-settlement.service';
+export {
+  fetchReceivableOrders,
+  createReconciliationDraft,
+  approveReconciliation,
+  cancelReconciliation,
+  fetchPrintTemplate,
+} from './erp-reconciliation.service';
+export type {
+  ReceivableOrder,
+  StatementDetailItem,
+} from './erp-reconciliation.service';
 export type {
   PurchaseSettlementListResult,
   AllocatablePurchaseDetailParams,
@@ -74,8 +88,11 @@ export type {
   CreatePurchaseOrderDetail,
   AvailablePrepayment,
   CreatePurchasePrepaymentRequest,
+  CreateNormalPrepaymentRequest,
+  CreatePaidBillInput,
   CreatePaidBillRequest,
   CreatePaidBillResponse,
+  PaidBillInvoiceInput,
   PaidBillInvoiceItem,
   PaidBillPrepayItem,
   SupplierIncomeRecord,

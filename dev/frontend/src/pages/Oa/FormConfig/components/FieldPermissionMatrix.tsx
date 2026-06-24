@@ -66,7 +66,7 @@ const FieldPermissionMatrix: React.FC<FieldPermissionMatrixProps> = ({
   const columns = [
     {
       title: '字段名称',
-      dataIndex: 'label',
+      dataIndex: ['field', 'label'],
       key: 'label',
       width: 180,
       fixed: 'left' as const,

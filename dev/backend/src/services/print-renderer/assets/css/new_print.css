@@ -1,0 +1,47 @@
+@charset "UTF-8";
+
+/*.pageNum {*/
+/*    font-size: 12px;*/
+/*    align-self: flex-end;*/
+/*    float: right;*/
+/*    height: 16px;*/
+/*}*/
+
+/*.pageNum2 {*/
+/*    font-size: 12px;*/
+/*    align-self: flex-end;*/
+/*    float: right;*/
+/*    height: 16px;*/
+/*}*/
+
+.pageNum2_1 {
+    position: absolute;
+    align-self: flex-start;
+    height: 16px;
+}
+
+
+body {
+    margin: 0;
+    overflow: hidden;
+}
+
+div{
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+}
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+p {
+    display: block;
+    margin-block-start: 1px;
+    margin-block-end: 1px;
+    margin-inline-start: 0;
+    margin-inline-end: 0;
+}

@@ -7,6 +7,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('FixedAsset');
 
 import { appQuery } from '../../db/appPool';
+import { beijingDateCompact } from '../../utils/beijingTime';
 import type { ErpMeta, OaInstanceRow } from '../oa/oa.types';
 import { OA_AUTO_NODE_STUCK_TIMEOUT_MS } from '../../utils/constants';
 
@@ -134,7 +135,7 @@ export async function initErpMeta(instanceId: number, applicationNo: string): Pr
  * 使用序列 asset_application_no_seq 保证唯一性
  */
 export async function generateApplicationNo(): Promise<string> {
-  const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const datePrefix = beijingDateCompact();
   const result = await appQuery<{ nextval: number }>(
     `SELECT nextval('asset_application_no_seq') as nextval`
   );
