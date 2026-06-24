@@ -19,7 +19,7 @@ import PhotoFieldControl from './PhotoFieldControl';
 import UserFieldControl from './UserFieldControl';
 import BankAccountFieldControl from './BankAccountFieldControl';
 import ErpFieldControl from './ErpFieldControl';
-import ErpMultiSelectModal from './ErpMultiSelectModal';
+import ModalSelectControl from './ModalSelectControl';
 import TableFieldControl from './TableFieldControl';
 
 const { Text } = Typography;
@@ -32,10 +32,6 @@ const FieldControlDispatcher: React.FC<FieldControlProps> = (props) => {
   if (field.type === 'photo') return <PhotoFieldControl {...props} />;
   if (field.type === 'formula') return <FormulaFieldControl {...props} />;
   if (field.type === 'signature') return <SignatureFieldControl {...props} />;
-  // ERP 多选弹窗选择器（purchase_settlement_multi、erp_prepayment、erp_supplier_income）
-  if (field.type === 'purchase_settlement_multi' || field.type === 'erp_prepayment' || field.type === 'erp_supplier_income') {
-    return <ErpMultiSelectModal {...props} />;
-  }
 
   switch (field.type) {
     case 'text':
@@ -50,8 +46,9 @@ const FieldControlDispatcher: React.FC<FieldControlProps> = (props) => {
       return <DateFieldControl {...props} />;
     case 'select':
     case 'radio':
-    case 'multi-select':
       return <SelectFieldControl {...props} />;
+    case 'modal_select':
+      return <ModalSelectControl {...props} />;
     case 'upload':
       return <UploadFieldControl {...props} />;
     case 'table':

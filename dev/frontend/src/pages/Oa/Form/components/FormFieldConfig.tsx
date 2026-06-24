@@ -9,7 +9,7 @@ import TableFieldRenderer from './TableFieldRenderer';
 import PhotoFieldRenderer from './PhotoFieldRenderer';
 import { SignaturePad } from '@/components/Oa/SignaturePad';
 import UploadFieldRenderer from './UploadFieldRenderer';
-import ErpMultiSelectModal from '@/components/Oa/fields/ErpMultiSelectModal';
+import ModalSelectControl from '@/components/Oa/fields/ModalSelectControl';
 import BankAccountSelector, { type BankAccountValue } from '@/components/Oa/BankAccountSelector';
 import styles from '../index.less';
 
@@ -47,10 +47,10 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
 }) => {
   const { type, placeholder, required, options, maxLength, maxCount, upper } = field;
 
-  // ERP 多选弹窗选择器（统一组件替代 PurchaseSettlementSelector / ErpFieldRenderer 多选）
-  if (type === 'purchase_settlement_multi' || type === 'erp_prepayment' || type === 'erp_supplier_income') {
+  // 统一弹窗多选控件
+  if (type === 'modal_select') {
     return (
-      <ErpMultiSelectModal
+      <ModalSelectControl
         mode="editable"
         field={field}
         value={value}
@@ -161,19 +161,6 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
         <Select
           value={value as string | undefined}
           onChange={onChange as ((value: string) => void) | undefined}
-          placeholder={placeholder || `请选择${field.label}`}
-          options={options}
-          disabled={field.disabled}
-          style={{ width: '100%' }}
-        />
-      );
-
-    case 'multi-select':
-      return (
-        <Select
-          mode="multiple"
-          value={value as string[] | undefined}
-          onChange={onChange as ((value: string[]) => void) | undefined}
           placeholder={placeholder || `请选择${field.label}`}
           options={options}
           disabled={field.disabled}

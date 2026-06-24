@@ -156,7 +156,6 @@ export function validateFormData(
       }
 
       case 'select':
-      case 'multi-select':
         if (field.options) {
           const validValues = field.options.map(o => o.value);
           if (Array.isArray(value)) {
@@ -167,6 +166,13 @@ export function validateFormData(
           } else if (!validValues.includes(value as string)) {
             errors.push(`${field.label}选项无效`);
           }
+        }
+        break;
+
+      case 'modal_select':
+        // modal_select 选项来自远程 API，仅校验值类型
+        if (value != null && value !== '' && !Array.isArray(value)) {
+          errors.push(`${field.label}值格式错误`);
         }
         break;
 

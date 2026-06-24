@@ -127,15 +127,17 @@ describe('validateFormData', () => {
     expect(validateFormData(schema, { type: 'A' })).toEqual([]);
   });
 
-  it('多选下拉选项校验', () => {
+  it('modal_select 值类型校验', () => {
     const schema: any = {
       fields: [{
-        key: 'tags', label: '标签', type: 'multi-select',
-        options: [{ value: 'x', label: 'x' }],
+        key: 'settlementIds', label: '采购结算单', type: 'modal_select',
+        searchApi: 'purchase_settlements',
       }],
     };
-    expect(validateFormData(schema, { tags: ['x', 'y'] })).toEqual(['标签包含无效选项']);
-    expect(validateFormData(schema, { tags: ['x'] })).toEqual([]);
+    // 数组值通过校验
+    expect(validateFormData(schema, { settlementIds: ['bill1', 'bill2'] })).toEqual([]);
+    // 非数组值报错
+    expect(validateFormData(schema, { settlementIds: 'not-array' })).toEqual(['采购结算单值格式错误']);
   });
 
   it('条件隐藏跳过校验', () => {

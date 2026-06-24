@@ -213,14 +213,16 @@ export async function getErpReference(
       }
 
       case 'purchase-settlements': {
-        // 采购结算单列表：支持日期范围和关键词筛选
+        // 采购结算单列表：支持日期范围、关键词、供应商筛选
         const psStartDate = req.query.startDate as string | undefined;
         const psEndDate = req.query.endDate as string | undefined;
+        const psSupplierId = req.query.supplierId as string | undefined;
         const psPage = parseInt((req.query.page as string) || '1', 10);
         const psPageSize = parseInt((req.query.pageSize as string) || '20', 10);
         const psResult = await searchPurchaseSettlements({
           startDate: psStartDate || undefined,
           endDate: psEndDate || undefined,
+          supplierId: psSupplierId || undefined,
           current: psPage,
           size: psPageSize,
           keyword: keyword || undefined,

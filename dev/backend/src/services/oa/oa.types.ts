@@ -38,7 +38,6 @@ export type FormFieldType =
   | 'number'
   | 'money'
   | 'select'
-  | 'multi-select'
   | 'date'
   | 'date-range'
   | 'upload'
@@ -73,8 +72,7 @@ export type FormFieldType =
   | 'erp_prepayment' // 搜索选择ERP预付款单（级联供应商）
   | 'erp_supplier_income' // 搜索选择ERP供应商收入单（级联供应商）
   | 'formula' // 公式计算字段（自动根据表达式求值，不可手动编辑）
-  // 物流装卸费用申请专用
-  | 'purchase_settlement_multi' // 采购结算单多选（弹窗选择，跨供应商）
+  | 'modal_select' // 统一弹窗多选控件（配置驱动，支持远程搜索+固定选项+多条件筛选）
   | 'bank_account_selector'; // 银行账户历史选择器（弹窗选择，自动填充户名/账号/银行/开户行）
 
 /**
@@ -156,11 +154,28 @@ export interface FormField {
     | 'erp_suppliers'
     | 'erp_prepayments'
     | 'erp_supplier_incomes'
-    | 'erp_purchase_orders';
+    | 'erp_purchase_orders'
+    | 'purchase_settlements';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
   cascadeFrom?: string;
+  /** modal_select: 级联参数映射 { API参数名: 表单字段名 } */
+  cascadeParams?: Record<string, string>;
+  /** modal_select: 值字段（选中后存储的 ID/key） */
+  valueKey?: string;
+  /** modal_select: 显示字段（Tag/小表格主列） */
+  labelKey?: string;
+  /** modal_select: 金额字段（只读展示合计行） */
+  amountKey?: string;
+  /** modal_select: 弹窗表格列定义 */
+  columns?: ModalSelectColumn[];
+  /** modal_select: 筛选条件配置 */
+  filters?: ModalSelectFilter[];
+  /** modal_select: 是否启用分页 */
+  paginated?: boolean;
+  /** modal_select: 搜索框提示文字 */
+  searchPlaceholder?: string;
   /** ERP字段选中后，将显示名称存入 formData 的哪个 key（如 'customerName'） */
   nameField?: string;
   /** ERP多选字段选中后，将结构化明细(JSON)存入 formData 的哪个 key（如 'holdSettlementOrderDetails'） */
@@ -175,6 +190,29 @@ export interface FormField {
   formulaPrecision?: number;
   /** 是否在表单中隐藏（值仍存储在 formData 中，供 autoFill 等机制使用） */
   hidden?: boolean;
+}
+
+/** modal_select 弹窗表格列定义 */
+export interface ModalSelectColumn {
+  title: string;
+  dataIndex: string;
+  format?: 'date' | 'money' | 'text';
+  width?: number;
+  ellipsis?: boolean;
+  align?: 'left' | 'right' | 'center';
+}
+
+/** modal_select 筛选条件配置 */
+export interface ModalSelectFilter {
+  type: 'keyword' | 'date-range' | 'select';
+  /** API 参数名 */
+  key: string;
+  label?: string;
+  placeholder?: string;
+  /** 默认值，如 'last7days' */
+  defaultValue?: string;
+  /** select 类型的数据源 API */
+  searchApi?: string;
 }
 
 /**
