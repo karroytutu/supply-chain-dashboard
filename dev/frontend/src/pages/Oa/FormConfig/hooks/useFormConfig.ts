@@ -83,7 +83,7 @@ export function useFormConfig() {
     return result;
   }, [formTypes, activeCategory, searchText]);
 
-  /** 内联编辑保存（单字段更新） */
+  /** 保存表单配置（单字段更新） */
   const inlineUpdate = useCallback(
     async (code: string, data: Partial<{
       name: string;
@@ -128,5 +128,6 @@ export function useFormConfig() {
     userMap,
     reload: loadFormTypes,
     inlineUpdate,
+    saveFormType: inlineUpdate, // 新命名，向后兼容
   };
 }

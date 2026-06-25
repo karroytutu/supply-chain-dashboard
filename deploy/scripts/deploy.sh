@@ -396,10 +396,16 @@ log_info "初始化上传目录..."
 mkdir -p /data/uploads/return-evidence
 mkdir -p /data/uploads/ar-evidence
 mkdir -p /data/uploads/credit-license
+mkdir -p /data/uploads/oa-attachment
+mkdir -p /data/uploads/oa-exports
+mkdir -p /data/uploads/oa-statement
 chmod 755 /data/uploads
 chmod 755 /data/uploads/return-evidence
 chmod 755 /data/uploads/ar-evidence
 chmod 755 /data/uploads/credit-license
+chmod 755 /data/uploads/oa-attachment
+chmod 755 /data/uploads/oa-exports
+chmod 755 /data/uploads/oa-statement
 log_info "上传目录已创建: /data/uploads"
 
 # ========== 同步更新日志文件 ==========
