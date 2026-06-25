@@ -6,14 +6,14 @@
  * 支持常驻编辑图标编辑表单名称、分类、可发起岗位/人员、数据权限。
  */
 import React, { useCallback, useMemo } from 'react';
-import { Table, Input, Typography, Tabs } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { Table, Input, Typography, Tabs, Button } from 'antd';
+import { SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import { history } from 'umi';
 import type { FormTypeDefinition, FormCategory, ActiveCategory } from '@/types/oa';
 import { CATEGORY_LABELS } from '@/types/oa';
 import { useFormConfig } from './hooks/useFormConfig';
-import InlineEditCell from './components/InlineEditCell';
-import RoleUserSelect from './components/RoleUserSelect';
+import { usePermissionDrawer } from './hooks/usePermissionDrawer';
+import PermissionConfigDrawer from './components/PermissionConfigDrawer';
 import styles from './index.less';
 
 const { Title } = Typography;
@@ -29,8 +29,11 @@ const FormConfigPage: React.FC = () => {
     categoryCounts,
     roles,
     userMap,
-    inlineUpdate,
+    reload,
   } = useFormConfig();
+
+  const { drawerVisible, currentRecord, openDrawer, closeDrawer, handleSave } =
+    usePermissionDrawer(reload);
 
   /** 岗位编码→中文名映射 */
   const rolesMap = useMemo(() => {
@@ -51,27 +54,28 @@ const FormConfigPage: React.FC = () => {
   }, [categoryCounts]);
 
   /** 保存内联编辑 */
-  const handleSave = useCallback(
+  const handleSaveInline = useCallback(
     async (code: string, data: Record<string, unknown>) => {
-      await inlineUpdate(code, data);
+      await reload(); // reload already called in usePermissionDrawer
     },
-    [inlineUpdate]
+    [reload]
   );
 
-  /** 渲染岗位/人员展示（逗号分隔文字） */
-  const renderRoleUserTags = (
-    _record: FormTypeDefinition,
-    roleList?: string[] | null,
-    userList?: number[] | null
-  ) => {
-    if (!roleList?.length && !userList?.length) {
-      return <span style={{ color: '#999' }}>不限制</span>;
-    }
-    const parts: string[] = [];
-    if (roleList) parts.push(...roleList.map(code => rolesMap.get(code) || code));
-    if (userList) parts.push(...userList.map(id => userMap.get(id) || `用户${id}`));
-    return <span>{parts.join(', ')}</span>;
-  };
+  /** 渲染权限文字摘要 */
+  const renderPermissionText = useCallback(
+    (roleList?: string[] | null, userList?: number[] | null) => {
+      if (!roleList?.length && !userList?.length) {
+        return <span className={styles.permissionMuted}>不限制</span>;
+      }
+      const parts: string[] = [];
+      if (roleList) parts.push(...roleList.map(code => rolesMap.get(code) || code));
+      if (userList) parts.push(...userList.map(id => userMap.get(id) || `用户${id}`));
+      const display = parts.slice(0, 3).join(', ');
+      const extra = parts.length > 3 ? `, +${parts.length - 3}人` : '';
+      return <span className={styles.permissionText}>{display}{extra}</span>;
+    },
+    [rolesMap, userMap]
+  );
 
   const columns = [
     {
@@ -80,17 +84,7 @@ const FormConfigPage: React.FC = () => {
       key: 'name',
       width: 200,
       render: (name: string, record: FormTypeDefinition) => (
-        <InlineEditCell
-          value={
-            <span>
-              <a onClick={() => history.push(`/oa/form-config/${record.code}?tab=workflow`)}>{name}</a>
-            </span>
-          }
-          editType="text"
-          editInitialValue={name}
-          styles={styles}
-          onSave={async (newName) => handleSave(record.code, { name: newName })}
-        />
+        <a onClick={() => history.push(`/oa/form-config/${record.code}?tab=workflow`)}>{name}</a>
       ),
     },
     {
@@ -98,110 +92,42 @@ const FormConfigPage: React.FC = () => {
       dataIndex: 'category',
       key: 'category',
       width: 120,
-      render: (cat: FormCategory, record: FormTypeDefinition) => (
-        <InlineEditCell
-          value={CATEGORY_LABELS[cat]}
-          editType="select"
-          editInitialValue={cat}
-          editProps={{
-            options: Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label })),
-          }}
-          styles={styles}
-          onSave={async (newCat) => handleSave(record.code, { category: newCat })}
-        />
-      ),
+      render: (cat: FormCategory) => CATEGORY_LABELS[cat],
     },
     {
       title: '可发起',
       key: 'allowed',
       width: 250,
-      render: (_: unknown, record: FormTypeDefinition) => (
-        <InlineEditCell
-          value={renderRoleUserTags(record, record.allowedRoles, record.allowedUsers)}
-          editType="role-user"
-          styles={styles}
-          editProps={{
-            renderEditor: (onSave) => (
-              <RoleUserSelect
-                roles={roles}
-                selectedRoles={record.allowedRoles || []}
-                selectedUsers={record.allowedUsers || []}
-                onChange={(newRoles, newUsers) =>
-                  onSave({ allowedRoles: newRoles, allowedUsers: newUsers })
-                }
-                autoFocus
-              />
-            ),
-          }}
-          onSave={async (val: any) =>
-            handleSave(record.code, {
-              allowedRoles: val.allowedRoles,
-              allowedUsers: val.allowedUsers,
-            })
-          }
-        />
-      ),
+      render: (_: unknown, record: FormTypeDefinition) =>
+        renderPermissionText(record.allowedRoles, record.allowedUsers),
     },
     {
       title: '数据权限',
       key: 'dataPerms',
       render: (_: unknown, record: FormTypeDefinition) => (
         <div>
-          <div className={styles.permissionSummary}>
-            <span className={styles.permissionLabel}>查看:</span>
-            <InlineEditCell
-              value={renderRoleUserTags(record, record.dataReadRoles, record.dataReadUsers)}
-              editType="role-user"
-              styles={styles}
-              editProps={{
-                renderEditor: (onSave) => (
-                  <RoleUserSelect
-                    roles={roles}
-                    selectedRoles={record.dataReadRoles || []}
-                    selectedUsers={record.dataReadUsers || []}
-                    onChange={(newRoles, newUsers) =>
-                      onSave({ dataReadRoles: newRoles, dataReadUsers: newUsers })
-                    }
-                    autoFocus
-                  />
-                ),
-              }}
-              onSave={async (val: any) =>
-                handleSave(record.code, {
-                  dataReadRoles: val.dataReadRoles,
-                  dataReadUsers: val.dataReadUsers,
-                })
-              }
-            />
-          </div>
-          <div className={styles.permissionSummary} style={{ marginTop: 4 }}>
-            <span className={styles.permissionLabel}>导出:</span>
-            <InlineEditCell
-              value={renderRoleUserTags(record, record.dataExportRoles, record.dataExportUsers)}
-              editType="role-user"
-              styles={styles}
-              editProps={{
-                renderEditor: (onSave) => (
-                  <RoleUserSelect
-                    roles={roles}
-                    selectedRoles={record.dataExportRoles || []}
-                    selectedUsers={record.dataExportUsers || []}
-                    onChange={(newRoles, newUsers) =>
-                      onSave({ dataExportRoles: newRoles, dataExportUsers: newUsers })
-                    }
-                    autoFocus
-                  />
-                ),
-              }}
-              onSave={async (val: any) =>
-                handleSave(record.code, {
-                  dataExportRoles: val.dataExportRoles,
-                  dataExportUsers: val.dataExportUsers,
-                })
-              }
-            />
-          </div>
+          <span className={styles.permissionLabel}>查看:</span>
+          {renderPermissionText(record.dataReadRoles, record.dataReadUsers)}
+          <span className={styles.permissionDivider}>|</span>
+          <span className={styles.permissionLabel}>导出:</span>
+          {renderPermissionText(record.dataExportRoles, record.dataExportUsers)}
         </div>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 80,
+      fixed: 'right' as const,
+      render: (_: unknown, record: FormTypeDefinition) => (
+        <Button
+          type="text"
+          size="small"
+          icon={<SettingOutlined />}
+          onClick={() => openDrawer(record)}
+        >
+          配置
+        </Button>
       ),
     },
   ];
@@ -238,6 +164,13 @@ const FormConfigPage: React.FC = () => {
           size="middle"
         />
       </div>
+      <PermissionConfigDrawer
+        visible={drawerVisible}
+        record={currentRecord}
+        roles={roles}
+        onClose={closeDrawer}
+        onSave={handleSave}
+      />
     </div>
   );
 };

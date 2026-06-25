@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "v2.14.1",
+      "date": "2026-06-25 20:46",
+      "types": ["optimization", "fix"],
+      "changes": [
+        "表单管理页权限配置重构：将可发起人/可查看人/可导出人三类权限从表格内联编辑改为右侧抽屉集中配置，新增 PermissionConfigDrawer 组件和 usePermissionDrawer Hook，交互体验更清晰",
+        "文件上传限制提升：Nginx client_max_body_size 从 50M 提升到 200M，与后端评论附件上传限制对齐",
+        "部署脚本增强：新增 oa-attachment/oa-exports/oa-statement 三个上传目录自动初始化，确保 OA 附件功能开箱即用"
+      ]
+    },
+    {
       "version": "v2.14.0",
       "date": "2026-06-25 20:17",
       "types": ["feature", "optimization"],
