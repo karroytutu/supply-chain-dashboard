@@ -30,10 +30,9 @@ interface BankAccountSelectorProps {
   disabled?: boolean;
 }
 
-/** 账号掩码：保留前6位 + **** + 后4位 */
+/** 账号完整展示，不做掩码 */
 function maskAccountNumber(num: string): string {
-  if (!num || num.length <= 10) return num;
-  return num.slice(0, 6) + '****' + num.slice(-4);
+  return num || '';
 }
 
 const BankAccountSelector: React.FC<BankAccountSelectorProps> = ({ value, onChange, disabled = false }) => {

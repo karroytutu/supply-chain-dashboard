@@ -6,6 +6,7 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
+import { AttachmentMeta } from '../oa.types';
 import { isApprovalParticipant } from '../oa-utils';
 
 /**
@@ -17,7 +18,8 @@ export async function addCommentToInstance(
   instanceId: number,
   userId: number,
   userName: string,
-  comment: string
+  comment: string,
+  attachments?: AttachmentMeta[]
 ): Promise<void> {
   // 1. 校验评论内容非空
   if (!comment || !comment.trim()) {
@@ -43,9 +45,9 @@ export async function addCommentToInstance(
   // 4. 插入评论记录
   await query(
     `INSERT INTO oa_approval_actions
-      (instance_id, action_type, operator_id, operator_name, node_order, comment)
-     VALUES ($1, 'comment', $2, $3, $4, $5)`,
-    [instanceId, userId, userName, current_node_order, comment.trim()]
+      (instance_id, action_type, operator_id, operator_name, node_order, comment, attachments)
+     VALUES ($1, 'comment', $2, $3, $4, $5, $6)`,
+    [instanceId, userId, userName, current_node_order, comment.trim(), attachments && attachments.length > 0 ? JSON.stringify(attachments) : null]
   );
 
   log.info(`Comment added to instance ${instanceId} by ${userName}: ${comment.substring(0, 50)}...`);

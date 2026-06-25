@@ -101,7 +101,6 @@ describe('rejectApproval', () => {
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance rejected
           .mockResolvedValueOnce({ rows: [] }) // CANCEL pending nodes
           .mockResolvedValueOnce({ rows: [] }) // INSERT action (reject)
-          .mockResolvedValueOnce({ rows: [] }) // INSERT action (comment) - 统一评论模型新增
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'rejected', applicant_id: 5, applicant_name: 'A' }] }) // SELECT instance
           .mockResolvedValueOnce({ rows: [{ code: 'test_form' }] }), // SELECT form type code
       };

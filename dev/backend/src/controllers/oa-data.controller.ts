@@ -19,24 +19,34 @@ import { ApprovalListParams } from '../services/oa/oa.types';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
 
 /**
- * 根据用户岗位查询其有权查看/导出的表单类型编码列表
+ * 根据用户岗位/用户ID查询其有权查看/导出的表单类型编码列表
  * @param userRoles 用户角色编码列表
  * @param column 'data_read_roles' | 'data_export_roles'
+ * @param userColumn 'data_read_users' | 'data_export_users'
+ * @param userId 当前用户 ID
  */
 async function getAccessibleFormTypeCodes(
   userRoles: string[],
-  column: 'data_read_roles' | 'data_export_roles'
+  column: 'data_read_roles' | 'data_export_roles',
+  userColumn: 'data_read_users' | 'data_export_users',
+  userId?: number
 ): Promise<string[]> {
-  if (!userRoles || userRoles.length === 0) return [];
+  if ((!userRoles || userRoles.length === 0) && !userId) return [];
 
-  // 查询哪些表单的 data_read_roles/data_export_roles 与用户角色有交集
-  // NULL 表示不限制（所有人可访问），需包含在结果中
+  // 三段式权限判断逻辑：
+  // 1. 两维度都未配置（NULL）= 不受限，所有人可访问
+  // 2. 岗位维度已配置且匹配当前用户角色
+  // 3. 用户维度已配置且匹配当前用户 ID（$2 != 0 防止未登录 fallback）
   const result = await appQuery<{ code: string }>(
     `SELECT code FROM oa_form_types
      WHERE is_active = true
-       AND (${column} IS NULL OR ${column} && $1::text[])
+       AND (
+         (${column} IS NULL AND ${userColumn} IS NULL)
+         OR (${column} IS NOT NULL AND ${column} && $1::text[])
+         OR (${userColumn} IS NOT NULL AND $2 != 0 AND $2 = ANY(${userColumn}))
+       )
      ORDER BY code`,
-    [userRoles]
+    [userRoles || [], userId || 0]
   );
 
   return result.rows.map(r => r.code);
@@ -56,7 +66,7 @@ export async function getDataList(req: Request, res: Response): Promise<void> {
 
     // 根据用户岗位查询其有权查看的表单类型
     const userRoles = req.user?.roles || [];
-    const accessibleCodes = await getAccessibleFormTypeCodes(userRoles, 'data_read_roles');
+    const accessibleCodes = await getAccessibleFormTypeCodes(userRoles, 'data_read_roles', 'data_read_users', userId);
 
     // 前端请求拦截器自动将 camelCase 参数转为 snake_case，后端统一按 snake_case 读取
     const params: ApprovalListParams = {
@@ -101,7 +111,7 @@ export async function exportData(req: Request, res: Response): Promise<void> {
 
     // 根据用户岗位查询其有权导出的表单类型
     const userRoles = req.user?.roles || [];
-    const accessibleCodes = await getAccessibleFormTypeCodes(userRoles, 'data_export_roles');
+    const accessibleCodes = await getAccessibleFormTypeCodes(userRoles, 'data_export_roles', 'data_export_users', userId);
 
     const exportType = req.query.export_type as string;
     const params: ApprovalListParams = {

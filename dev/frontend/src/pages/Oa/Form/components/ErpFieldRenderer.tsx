@@ -13,7 +13,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Select, Spin } from 'antd';
 import { oaApi } from '@/services/api/oa';
-import type { FormField } from '@/types/oa';
+import type { FormField, FormSchema } from '@/types/oa';
 import { ERP_SEARCH_API_MAP, ERP_LABEL_FIELDS, ERP_VALUE_FIELDS } from '@/constants/oa-erp';
 import { getCachedOptions, setCachedOptions, SERVER_KEYWORD_TYPES, MIN_SEARCH_LENGTH, buildCacheKey } from './erpSearchCache';
 import SettlementOrderPicker from './SettlementOrderPicker';
@@ -37,10 +37,12 @@ interface ErpFieldRendererProps {
     getFieldValue: (name: string) => unknown;
   };
   onCustomerSelect?: (licenseInfo: CustomerLicenseInfo | null) => void;
+  /** 表单 Schema（用于 bank_account_selector cascadeFrom 级联填充） */
+  formSchema?: FormSchema;
 }
 
 const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
-  field, value, onChange, cascadeValue, includeAllStates, form, onCustomerSelect,
+  field, value, onChange, cascadeValue, includeAllStates, form, onCustomerSelect, formSchema,
 }) => {
   const [options, setOptions] = useState<Array<{ label: string; value: unknown; raw: unknown }>>([]);
   const [loading, setLoading] = useState(false);
@@ -203,12 +205,38 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
           const picUrls = (raw.attachedPicUrls as string[]) || [];
           onCustomerSelect({ hasLicense: picIds.length > 0, imageCount: picIds.length, attachedPicUrls: picUrls });
         }
+        // bank_account_selector 级联填充：供应商选中后自动填入银行账户信息
+        if (form && formSchema?.fields) {
+          const bankFields = formSchema.fields.filter(
+            f => f.type === 'bank_account_selector' && f.cascadeFrom === field.key
+          );
+          for (const bankField of bankFields) {
+            const bankValue = (raw.bankAccountName || raw.openingBank || raw.account)
+              ? {
+                  accountName: (raw.bankAccountName as string) || '',
+                  accountNumber: (raw.account as string) || '',
+                  bankName: (raw.openingBank as string) || '',
+                  branchName: '',
+                }
+              : null;
+            form.setFieldsValue({ [bankField.key]: bankValue });
+          }
+        }
       } else if (field.type === 'erp_customer' && onCustomerSelect) {
         onCustomerSelect(null);
         if (field.nameField && form) form.setFieldsValue({ [field.nameField]: '' });
       }
+      // 供应商清空时级联清空银行账户
+      if (!selectedOption && form && formSchema?.fields) {
+        const bankFields = formSchema.fields.filter(
+          f => f.type === 'bank_account_selector' && f.cascadeFrom === field.key
+        );
+        for (const bankField of bankFields) {
+          form.setFieldsValue({ [bankField.key]: null });
+        }
+      }
     },
-    [onChange, field.autoFill, field.nameField, field.type, form, options, onCustomerSelect, erpType]
+    [onChange, field.autoFill, field.nameField, field.type, field.key, form, options, onCustomerSelect, erpType, formSchema]
   );
 
   const isDisabled = !!(field.cascadeFrom && cascadeValue === undefined);

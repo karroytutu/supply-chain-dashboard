@@ -1,0 +1,69 @@
+/* 表单管理列表页样式 */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f5f5f5;
+}
+
+.header {
+  padding: 16px 20px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* 顶部分类 Tabs */
+.categoryTabs {
+  background: #fff;
+  padding: 0 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* 表格区域 */
+.listPanel {
+  flex: 1;
+  padding: 16px;
+  overflow: auto;
+  background: #fff;
+  margin: 0 12px 12px;
+  border-radius: 0 0 4px 4px;
+}
+
+/* 内联编辑图标（常驻显示） */
+.inlineEditCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  .inlineEditIcon {
+    font-size: 12px;
+    color: #8c8c8c;
+    cursor: pointer;
+    transition: color 0.2s;
+
+    &:hover {
+      color: #1890ff;
+    }
+  }
+}
+
+/* 数据权限摘要 */
+.permissionSummary {
+  font-size: 12px;
+  color: #666;
+
+  .permissionLabel {
+    color: #999;
+    margin-right: 4px;
+  }
+}
+
+@media (max-width: 768px) {
+  .listPanel {
+    margin: 0 8px 8px;
+  }
+}

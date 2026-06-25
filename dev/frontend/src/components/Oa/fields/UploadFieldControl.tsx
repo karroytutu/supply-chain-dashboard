@@ -24,6 +24,7 @@ const UploadFieldControl: React.FC<FieldControlProps> = ({ mode, field, value, o
         value={value}
         onChange={onChange!}
         maxCount={field.maxCount}
+        accept={field.accept}
       />
     );
   }

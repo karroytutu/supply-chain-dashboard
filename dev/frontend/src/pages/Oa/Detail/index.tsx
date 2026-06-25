@@ -80,11 +80,11 @@ const ApprovalDetailPage: React.FC = () => {
   const editableFormRef = useRef<EditableFormSectionRef>(null);
   const {
     loading, detail, errorType, loadDetail,
-    actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
+    actionLoading, actionModalVisible, actionType, actionComment, attachments, transferUsers,
     countersignUserIds, countersignType, sendBackTargets, sendBackTargetNodeOrder,
     canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
-    setActionComment, setTransferUserId,
+    setActionComment, setAttachments, setTransferUserId,
     setCountersignUserIds, setCountersignType, setSendBackTargetNodeOrder,
   } = useApprovalDetail(id, editableFormRef);
 
@@ -108,11 +108,11 @@ const ApprovalDetailPage: React.FC = () => {
   if (!detail) return renderErrorState(errorType, loadDetail);
 
   const actionState = {
-    actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
+    actionLoading, actionModalVisible, actionType, actionComment, attachments, transferUsers,
     countersignUserIds, countersignType, sendBackTargets, sendBackTargetNodeOrder,
     canOperate, canWithdraw, canComment, currentStep,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
-    setActionComment, setTransferUserId,
+    setActionComment, setAttachments, setTransferUserId,
     setCountersignUserIds, setCountersignType, setSendBackTargetNodeOrder,
   };
 

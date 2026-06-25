@@ -45,6 +45,54 @@ export const uploadOaAttachment = multer({
   },
 });
 
+// =====================================================
+// 评论/附言附件上传配置
+// =====================================================
+
+// 图片过滤 - 仅支持常见图片格式
+const imageFileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowedExtensions.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error('只支持 jpg/png/gif/webp 格式的图片'));
+  }
+};
+
+/** 评论图片上传：最多9张，每张≤5MB */
+export const uploadCommentImage = multer({
+  storage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 9,
+  },
+});
+
+/** 危险文件扩展名黑名单（禁止上传可执行文件和脚本） */
+const BLOCKED_EXTENSIONS = new Set([
+  '.exe', '.bat', '.cmd', '.msi', '.sh', '.php', '.jsp', '.asp', '.aspx',
+  '.py', '.rb', '.html', '.htm', '.svg',
+]);
+
+/** 评论文件上传：任意类型（排除可执行文件），最多9个，每个≤200MB */
+export const uploadCommentFile = multer({
+  storage,
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (BLOCKED_EXTENSIONS.has(ext)) {
+      cb(new Error('不允许上传可执行文件或脚本文件'));
+    } else {
+      cb(null, true);
+    }
+  },
+  limits: {
+    fileSize: 200 * 1024 * 1024,
+    files: 9,
+  },
+});
+
 /**
  * 获取文件访问URL
  * @param filename - 文件名

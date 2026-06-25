@@ -6,7 +6,7 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
-import { OaInstanceRow } from '../oa.types';
+import { AttachmentMeta, OaInstanceRow } from '../oa.types';
 import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
 import {
@@ -23,7 +23,8 @@ export async function rejectApproval(
   instanceId: number,
   userId: number,
   userName: string,
-  comment: string
+  comment: string,
+  attachments?: AttachmentMeta[]
 ): Promise<void> {
   const canApprove = await isCurrentApprover(instanceId, userId);
   if (!canApprove) {
@@ -68,20 +69,10 @@ export async function rejectApproval(
 
     await client.query(
       `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order, comment)
-       VALUES ($1, 'reject', $2, $3, $4, $5)`,
-      [instanceId, userId, userName, currentNode.node_order, null]
+        (instance_id, action_type, operator_id, operator_name, node_order, comment, attachments)
+       VALUES ($1, 'reject', $2, $3, $4, $5, $6)`,
+      [instanceId, userId, userName, currentNode.node_order, comment?.trim() || null, attachments && attachments.length > 0 ? JSON.stringify(attachments) : null]
     );
-
-    // 拒绝原因作为独立 comment 记录插入（统一评论模型）
-    if (comment && comment.trim()) {
-      await client.query(
-        `INSERT INTO oa_approval_actions
-          (instance_id, action_type, operator_id, operator_name, node_order, comment)
-         VALUES ($1, 'comment', $2, $3, $4, $5)`,
-        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
-      );
-    }
 
     // 触发审批驳回回调
     const instResult = await client.query<OaInstanceRow>(
@@ -126,7 +117,8 @@ export async function transferApproval(
   userId: number,
   userName: string,
   transferToUserId: number,
-  comment?: string
+  comment?: string,
+  attachments?: AttachmentMeta[]
 ): Promise<void> {
   const canApprove = await isCurrentApprover(instanceId, userId);
   if (!canApprove) {
@@ -174,27 +166,18 @@ export async function transferApproval(
 
     await client.query(
       `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
-       VALUES ($1, 'transfer', $2, $3, $4, $5, $6)`,
+        (instance_id, action_type, operator_id, operator_name, node_order, comment, details, attachments)
+       VALUES ($1, 'transfer', $2, $3, $4, $5, $6, $7)`,
       [
         instanceId,
         userId,
         userName,
         currentNode.node_order,
-        null,
+        comment?.trim() || null,
         JSON.stringify({ transferToUserId, transferToUserName: targetUserName }),
+        attachments && attachments.length > 0 ? JSON.stringify(attachments) : null,
       ]
     );
-
-    // 如果用户填写了转交备注，作为独立 comment 记录插入（统一评论模型）
-    if (comment && comment.trim()) {
-      await client.query(
-        `INSERT INTO oa_approval_actions
-          (instance_id, action_type, operator_id, operator_name, node_order, comment)
-         VALUES ($1, 'comment', $2, $3, $4, $5)`,
-        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
-      );
-    }
   });
 
   setImmediate(() => {

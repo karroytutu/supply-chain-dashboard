@@ -10,6 +10,7 @@ import { Table, Tag, Button, Card, Typography } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import type { FormField, WorkflowDef, FieldPermissionsOverride } from '@/types/oa';
 import { useFieldPermissions, PERMISSION_LABELS } from '../hooks/useFieldPermissions';
+import { isUserField, flattenFieldsWithChildren } from '../utils/fieldUtils';
 
 const { Text } = Typography;
 
@@ -18,32 +19,6 @@ interface FieldPermissionMatrixProps {
   fields: FormField[];
   workflowNodes: WorkflowDef['nodes'];
   initialPermissions?: FieldPermissionsOverride;
-}
-
-/** 需要过滤的字段：_ 前缀内部字段和 hidden 字段 */
-function isUserField(field: FormField): boolean {
-  return !field.key.startsWith('_') && !field.hidden;
-}
-
-/** 展开表格子字段：将 table 类型的子字段插入到父字段后面作为子行 */
-function flattenFieldsWithChildren(fields: FormField[]): Array<{ field: FormField; isChild: boolean; parentKey?: string }> {
-  const result: Array<{ field: FormField; isChild: boolean; parentKey?: string }> = [];
-  for (const field of fields) {
-    result.push({ field, isChild: false });
-    // 表格类型且有子字段时，展开子字段
-    if (field.type === 'table' && field.children) {
-      for (const child of field.children) {
-        if (!child.hidden) {
-          result.push({
-            field: { ...child, key: `${field.key}.${child.key}`, label: `  └ ${child.label}` },
-            isChild: true,
-            parentKey: field.key,
-          });
-        }
-      }
-    }
-  }
-  return result;
 }
 
 const FieldPermissionMatrix: React.FC<FieldPermissionMatrixProps> = ({

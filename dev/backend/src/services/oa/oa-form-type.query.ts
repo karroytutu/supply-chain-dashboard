@@ -42,17 +42,24 @@ export async function validateFormTypeRoleCodes(): Promise<void> {
 
 /**
  * 获取所有可用的表单类型
- * formSchema 和 workflowDef 均由代码提供，DB 仅存储元数据和角色配置
+ * formSchema 和 workflowDef 均由代码提供，DB 仅存储元数据和角色/用户配置
  * @param userRoles 当前用户的角色编码列表，传入时按 allowed_roles 过滤
+ * @param userId 当前用户的 ID，传入时同时按 allowed_users 过滤（与角色过滤为 OR 关系）
  */
-export async function getActiveFormTypes(userRoles?: string[]): Promise<FormTypeDefinition[]> {
-  // 先查缓存（全量数据，内存过滤角色）
+export async function getActiveFormTypes(userRoles?: string[], userId?: number): Promise<FormTypeDefinition[]> {
+  // 先查缓存（全量数据，内存过滤角色/用户）
   const cached = cache.get<FormTypeDefinition[]>(CACHE_KEY.OA_FORM_TYPES_ACTIVE);
   if (cached) {
-    if (!userRoles || userRoles.length === 0) return cached;
+    if ((!userRoles || userRoles.length === 0) && !userId) return cached;
     return cached.filter(ft => {
-      if (!ft.allowedRoles) return true;
-      return ft.allowedRoles.some(role => userRoles.includes(role));
+      // 无限制 → 通过
+      if (!ft.allowedRoles && !ft.allowedUsers) return true;
+      // 角色匹配
+      if (userRoles && ft.allowedRoles && ft.allowedRoles.some(role => userRoles.includes(role))) return true;
+      // 用户ID匹配
+      if (userId && ft.allowedUsers && ft.allowedUsers.includes(userId)) return true;
+      // 有限制但不匹配
+      return false;
     });
   }
 
@@ -60,6 +67,7 @@ export async function getActiveFormTypes(userRoles?: string[]): Promise<FormType
     const result = await query<OaFormTypeRow>(
       `SELECT id, code, name, icon, category, sort_order, description,
               is_active, version, allowed_roles, data_read_roles, data_export_roles,
+              allowed_users, data_read_users, data_export_users,
               field_permissions, view_permissions,
               created_at, updated_at
        FROM oa_form_types WHERE is_active = true ORDER BY category, sort_order`
@@ -77,11 +85,13 @@ export async function getActiveFormTypes(userRoles?: string[]): Promise<FormType
       // 写入缓存（全量数据）
       cache.set(CACHE_KEY.OA_FORM_TYPES_ACTIVE, allFormTypes, CACHE_TTL.LOW_FREQUENCY);
 
-      // 按角色过滤：仅当传入 userRoles 时执行
-      if (userRoles && userRoles.length > 0) {
+      // 按角色/用户过滤：仅当传入 userRoles 或 userId 时执行
+      if ((userRoles && userRoles.length > 0) || userId) {
         return allFormTypes.filter(ft => {
-          if (!ft.allowedRoles) return true;
-          return ft.allowedRoles.some(role => userRoles.includes(role));
+          if (!ft.allowedRoles && !ft.allowedUsers) return true;
+          if (userRoles && ft.allowedRoles && ft.allowedRoles.some(role => userRoles.includes(role))) return true;
+          if (userId && ft.allowedUsers && ft.allowedUsers.includes(userId)) return true;
+          return false;
         });
       }
 
@@ -122,11 +132,12 @@ export async function getFormTypeByCodeQuery(code: string): Promise<FormTypeDefi
 /**
  * 按分类分组获取表单类型
  * @param userRoles 当前用户的角色编码列表，传入时按 allowed_roles 过滤
+ * @param userId 当前用户的 ID，传入时同时按 allowed_users 过滤
  */
-export async function getFormTypesGroupedByCategory(userRoles?: string[]): Promise<
+export async function getFormTypesGroupedByCategory(userRoles?: string[], userId?: number): Promise<
   Record<FormCategory, FormTypeDefinition[]>
 > {
-  const formTypes = await getActiveFormTypes(userRoles);
+  const formTypes = await getActiveFormTypes(userRoles, userId);
 
   const grouped: Record<FormCategory, FormTypeDefinition[]> = {
     finance: [],

@@ -127,6 +127,14 @@ const procurementFormSchema: FormSchema = {
 
     // ═══ 出纳付款环节字段（条件显示：仅当需要预付款时展示） ═══
     {
+      key: 'bankAccountSelector',
+      label: '收款账户',
+      type: 'bank_account_selector',
+      required: false,
+      cascadeFrom: 'supplierId',
+      visibleWhen: { field: 'needPrepayment', operator: '==', value: NEED_PREPAYMENT.YES },
+    },
+    {
       key: 'paymentAmount',
       label: '实付金额',
       type: 'money',

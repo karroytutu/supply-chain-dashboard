@@ -89,15 +89,12 @@ describe('approveApproval', () => {
       const mockClient = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [] }) // advisory lock
-          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // SELECT instance0
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // SELECT instance
           .mockResolvedValueOnce({ rows: [{ code: 'other_payment' }] }) // SELECT form type code
-          // getCurrentApproverNode is MOCKED, does not consume client.query
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
-          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (approve)
-          .mockResolvedValueOnce({ rows: [] }) // INSERT comment (comment='同意')
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (with comment)
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: {}, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
-          .mockResolvedValueOnce({ rows: [] }) // failedAutoCheck (empty = no failed auto nodes)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance status
         };
       return fn(mockClient);
@@ -172,16 +169,13 @@ describe('approveApproval', () => {
       const mockClient = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [] }) // advisory lock
-          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: { action: null }, status: 'pending' }] }) // SELECT instance0 FOR UPDATE
+          .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: { action: null }, status: 'pending' }] }) // SELECT instance FOR UPDATE
           .mockResolvedValueOnce({ rows: [{ code: 'ar_collection' }] }) // SELECT form type code
-          // getCurrentApproverNode is MOCKED, does not consume client.query
           .mockResolvedValueOnce({ rows: [] }) // UPDATE form_data (inputData merge)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE node approved
-          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (approve)
-          .mockResolvedValueOnce({ rows: [] }) // INSERT comment (comment='完成')
+          .mockResolvedValueOnce({ rows: [] }) // INSERT action log (with comment)
           .mockResolvedValueOnce({ rows: [{ id: 1, form_type_id: 1, form_data: { action: 'verify' }, status: 'pending' }] }) // re-fetch instance
           .mockResolvedValueOnce({ rows: [] }) // next node (empty = last node)
-          .mockResolvedValueOnce({ rows: [] }) // failedAutoCheck (empty = no failed auto nodes)
           .mockResolvedValueOnce({ rows: [] }) // UPDATE instance status
       };
       return fn(mockClient);

@@ -6,7 +6,7 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
-import { OaInstanceRow, OaNodeRow } from '../oa.types';
+import { AttachmentMeta, OaInstanceRow, OaNodeRow } from '../oa.types';
 import { isCurrentApprover, isApplicant, getCurrentApproverNode } from '../oa-utils';
 import {
   enqueueCompleteAllPendingTodos,
@@ -24,7 +24,8 @@ export async function countersignApproval(
   userName: string,
   countersignType: 'before' | 'after',
   countersignUserIds: number[],
-  comment?: string
+  comment?: string,
+  attachments?: AttachmentMeta[]
 ): Promise<void> {
   const canApprove = await isCurrentApprover(instanceId, userId);
   if (!canApprove) {
@@ -99,31 +100,22 @@ export async function countersignApproval(
 
     await client.query(
       `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
-       VALUES ($1, 'countersign', $2, $3, $4, $5, $6)`,
+        (instance_id, action_type, operator_id, operator_name, node_order, comment, details, attachments)
+       VALUES ($1, 'countersign', $2, $3, $4, $5, $6, $7)`,
       [
         instanceId,
         userId,
         userName,
         currentNode.node_order,
-        null,
+        comment?.trim() || null,
         JSON.stringify({
           countersignType,
           countersignUserIds,
           countersignUserNames: countersignUsers.map(u => u.name),
         }),
+        attachments && attachments.length > 0 ? JSON.stringify(attachments) : null,
       ]
     );
-
-    // 如果用户填写了加签备注，作为独立 comment 记录插入（统一评论模型）
-    if (comment && comment.trim()) {
-      await client.query(
-        `INSERT INTO oa_approval_actions
-          (instance_id, action_type, operator_id, operator_name, node_order, comment)
-         VALUES ($1, 'comment', $2, $3, $4, $5)`,
-        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
-      );
-    }
   });
 
   setImmediate(() => {

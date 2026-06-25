@@ -48,6 +48,7 @@ vi.mock('@/pages/Oa/Form/components/ConditionalFieldWrapper', () => ({
 // 默认 mock：当前用户 ID=100，与测试数据中的 assignedUserIds 匹配（办理人视角）
 const mockUsePermission = vi.fn(() => ({
   currentUser: { id: 100, name: '测试用户' },
+  roles: [] as string[],
   hasPermission: () => true,
   hasRole: () => false,
 }));
@@ -100,6 +101,7 @@ function makeActionState(overrides: Partial<UseApprovalActionsReturn> = {}): Use
     actionModalVisible: false,
     actionType: null,
     actionComment: '',
+    attachments: [],
     transferUsers: [],
     countersignUserIds: [] as number[],
     countersignType: 'after' as 'before' | 'after',
@@ -110,6 +112,7 @@ function makeActionState(overrides: Partial<UseApprovalActionsReturn> = {}): Use
     executeAction: vi.fn(),
     executeWithdraw: vi.fn(),
     setActionComment: vi.fn(),
+    setAttachments: vi.fn(),
     setTransferUserId: vi.fn(),
     setCountersignUserIds: vi.fn(),
     setCountersignType: vi.fn(),
@@ -386,6 +389,7 @@ describe('ApprovalDetailContent - 查看权限双层模型', () => {
     // 设置当前用户为发起人（id=100），但节点处理人是另一个人（assignedUserIds=[200]）
     mockUsePermission.mockReturnValueOnce({
       currentUser: { id: 100, name: '发起人' },
+      roles: [],
       hasPermission: () => true,
       hasRole: () => false,
     });
@@ -413,6 +417,7 @@ describe('ApprovalDetailContent - 查看权限双层模型', () => {
     // 当前用户 id=100 是节点 1 的处理人，但当前流程在节点 2
     mockUsePermission.mockReturnValueOnce({
       currentUser: { id: 100, name: '节点参与人' },
+      roles: [],
       hasPermission: () => true,
       hasRole: () => false,
     });
@@ -444,6 +449,7 @@ describe('ApprovalDetailContent - 查看权限双层模型', () => {
   it('参与多个节点时取并集', () => {
     mockUsePermission.mockReturnValueOnce({
       currentUser: { id: 100, name: '多节点参与人' },
+      roles: [],
       hasPermission: () => true,
       hasRole: () => false,
     });
@@ -479,6 +485,7 @@ describe('ApprovalDetailContent - 查看权限双层模型', () => {
     // 当前用户 id=300，不在任何节点中，也不是发起人
     mockUsePermission.mockReturnValueOnce({
       currentUser: { id: 300, name: '纯抄送人' },
+      roles: [],
       hasPermission: () => true,
       hasRole: () => false,
     });
@@ -498,9 +505,61 @@ describe('ApprovalDetailContent - 查看权限双层模型', () => {
     expect(screen.queryByTestId('field-remark')).toBeNull();
   });
 
+  it('数据查看人（角色在 dataReadRoles 中）使用 viewPermissions.dataRead', () => {
+    // 当前用户 id=300，不在任何节点中，但角色为 manager
+    mockUsePermission.mockReturnValueOnce({
+      currentUser: { id: 300, name: '数据查看人' },
+      roles: ['manager'],
+      hasPermission: () => true,
+      hasRole: () => false,
+    });
+
+    const detail = makeDetail({
+      applicantId: 50,
+      dataReadRoles: ['manager', 'admin'],
+      viewPermissions: {
+        nodes: { '1': { amount: 'readonly', remark: 'readonly' } },
+        dataRead: { amount: 'readonly', remark: 'hidden' },
+      },
+    });
+    const actionState = makeActionState();
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    // amount 为 readonly（可见），remark 为 hidden（不可见）
+    expect(screen.getByTestId('field-amount')).toBeTruthy();
+    expect(screen.queryByTestId('field-remark')).toBeNull();
+  });
+
+  it('非参与人且角色不在 dataReadRoles 中时全隐藏', () => {
+    mockUsePermission.mockReturnValueOnce({
+      currentUser: { id: 300, name: '无关用户' },
+      roles: ['viewer'],
+      hasPermission: () => true,
+      hasRole: () => false,
+    });
+
+    const detail = makeDetail({
+      applicantId: 50,
+      dataReadRoles: ['manager', 'admin'],
+      viewPermissions: {
+        nodes: { '1': { amount: 'readonly', remark: 'readonly' } },
+        dataRead: { amount: 'readonly', remark: 'readonly' },
+      },
+    });
+    const actionState = makeActionState();
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    // viewer 不在 dataReadRoles 中，全隐藏
+    expect(screen.queryByTestId('field-amount')).toBeNull();
+    expect(screen.queryByTestId('field-remark')).toBeNull();
+  });
+
   it('viewPermissions 未配置时显示警告提示', () => {
     mockUsePermission.mockReturnValueOnce({
       currentUser: { id: 300, name: '外部用户' },
+      roles: [],
       hasPermission: () => true,
       hasRole: () => false,
     });

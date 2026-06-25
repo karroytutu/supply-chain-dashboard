@@ -126,6 +126,7 @@ const purchasePaymentFormSchema: FormSchema = {
       label: '收款账户',
       type: 'bank_account_selector',
       required: true,
+      cascadeFrom: 'supplierId',
     },
     {
       key: 'remark',

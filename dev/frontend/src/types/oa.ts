@@ -17,6 +17,26 @@ export const CATEGORY_LABELS: Record<FormCategory, string> = {
   admin: '行政',
 };
 
+/** 分类颜色（Tag 展示用） */
+export const CATEGORY_COLORS: Record<FormCategory, string> = {
+  finance: 'gold',
+  supply_chain: 'green',
+  marketing: 'magenta',
+  hr: 'blue',
+  admin: 'purple',
+};
+
+/** 分类选项（Select 下拉用） */
+export const CATEGORY_OPTIONS: Array<{ value: FormCategory; label: string }> = [
+  { value: 'finance', label: '财务' },
+  { value: 'supply_chain', label: '供应链' },
+  { value: 'marketing', label: '营销' },
+  { value: 'hr', label: '人事' },
+  { value: 'admin', label: '行政' },
+];
+
+export type ActiveCategory = FormCategory | 'all';
+
 // =====================================================
 // 表单字段相关类型
 // =====================================================
@@ -87,6 +107,7 @@ export interface FormField {
   suffix?: string;
   maxLength?: number;
   maxCount?: number;
+  accept?: string;
   multiple?: boolean;
   format?: string;
   addressModel?: 'city' | 'district' | 'street';
@@ -194,6 +215,8 @@ export type ViewPermission = 'readonly' | 'hidden';
  */
 export interface ViewPermissionsOverride {
   nodes: Record<string, Record<string, ViewPermission>>;
+  /** 数据查看人（非流程参与人，通过 dataReadRoles 匹配）的查看权限 */
+  dataRead?: Record<string, ViewPermission>;
 }
 
 /**
@@ -348,6 +371,18 @@ export interface FormTypeDefinition {
   version: number;
   formSchema: FormSchema;
   workflowDef: WorkflowDef;
+  /** 允许发起此表单的角色编码列表 */
+  allowedRoles?: string[];
+  /** 可查看该表单数据的角色编码列表 */
+  dataReadRoles?: string[];
+  /** 可导出该表单数据的角色编码列表 */
+  dataExportRoles?: string[];
+  /** 允许发起此表单的用户ID列表 */
+  allowedUsers?: number[];
+  /** 可查看该表单数据的用户ID列表 */
+  dataReadUsers?: number[];
+  /** 可导出该表单数据的用户ID列表 */
+  dataExportUsers?: number[];
   /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖） */
   fieldPermissions?: FieldPermissionsOverride;
   /** 查看权限 DB 覆盖值（非办理人查看详情时使用） */
@@ -422,6 +457,20 @@ export interface ApprovalNode {
   ccSupervisorAt: string | null;
 }
 
+/** 操作附件元数据（图片/文件） */
+export interface AttachmentMeta {
+  /** 原始文件名 */
+  name: string;
+  /** 服务器存储路径 */
+  url: string;
+  /** 文件大小（字节） */
+  size: number;
+  /** MIME 类型 */
+  type: string;
+  /** 是否为图片 */
+  isImage: boolean;
+}
+
 export interface ApprovalAction {
   id: number;
   actionType: string;
@@ -431,6 +480,7 @@ export interface ApprovalAction {
   nodeOrder: number | null;
   comment: string | null;
   details: Record<string, unknown> | null;
+  attachments: AttachmentMeta[];
   actionAt: string;
   createdAt?: string;  // Alias for actionAt
 }
@@ -467,6 +517,10 @@ export interface ApprovalDetail extends ApprovalInstance {
   fieldPermissions?: FieldPermissionsOverride;
   /** 查看权限 DB 覆盖值（非办理人查看详情时使用） */
   viewPermissions?: ViewPermissionsOverride;
+  /** 可查看该表单数据的角色列表（前端判断数据查看人身份用） */
+  dataReadRoles?: string[];
+  /** 可查看该表单数据的用户ID列表（前端判断数据查看人身份用） */
+  dataReadUsers?: number[];
 }
 
 // =====================================================

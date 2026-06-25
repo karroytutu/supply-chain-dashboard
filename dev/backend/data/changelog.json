@@ -1,6 +1,22 @@
 {
   "entries": [
     {
+      "version": "v2.14.0",
+      "date": "2026-06-25 20:17",
+      "types": ["feature", "optimization"],
+      "changes": [
+        "审批操作附件系统：所有审批操作（同意/拒绝/转交/加签/退回/评论）支持携带图片和文件附件，oa_approval_actions 表新增 attachments 列，迁移139/144",
+        "评论与操作记录合并：历史独立评论记录（action_type=comment）统一合并到对应操作记录的 comment 字段，消除冗余双记录，迁移143",
+        "表单权限体系增强——用户级权限：新增 allowed_users/data_read_users/data_export_users 三列，与现有角色级权限并行，支持选择具体人员而非仅岗位，迁移141",
+        "表单管理页大幅重构：列表页新增分类筛选、状态筛选，详情页提取 FlowPreview（流程预览）、InlineEditCell（内联编辑）、RoleUserSelect（岗位+人员混合选择器）三个子组件，表单基本信息编辑支持乐观锁版本控制",
+        "查看权限体系增强：新增 dataRead 节（数据查看人专属字段权限），与节点级权限并行，ViewPermissionMatrix 适配双节配置，迁移145补充对账回单查看权限",
+        "应收对账表单增强：新增对账回单（reconciliationReceipt）字段，节点6可编辑、节点7/8只读、其余隐藏，迁移140/145",
+        "采购审批表单增强：新增收款账户（bankAccountSelector）字段权限配置，出纳付款环节可编辑，迁移142",
+        "前端审批组件增强：ActionModal 扩展支持附件上传，ApprovalFlowActual 新增节点状态可视化，FormConfig/Detail 重构为模块化子组件结构",
+        "7项数据库迁移：操作附件(139)、对账回单权限(140)、用户级权限(141)、采购收款账户权限(142)、评论合并(143)、附件默认值修正(144)、对账回单查看权限(145)"
+      ]
+    },
+    {
       "version": "v2.13.0",
       "date": "2026-06-25 07:22",
       "types": ["feature", "breaking", "optimization"],

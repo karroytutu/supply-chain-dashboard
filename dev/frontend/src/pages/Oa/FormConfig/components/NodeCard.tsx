@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Card, Select, Radio, Tag, Collapse, Typography, Space, Input } from 'antd';
 import { SettingOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons';
 import type { WorkflowNodeEdit } from '../hooks/useFormDetail';
-import { formatCondition } from '../hooks/useFormDetail';
+import { formatCondition } from '../utils/fieldUtils';
 import TimeoutEditor from './TimeoutEditor';
 
 const { Text } = Typography;

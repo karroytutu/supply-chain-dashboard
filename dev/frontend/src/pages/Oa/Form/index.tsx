@@ -405,6 +405,7 @@ const FormPage: React.FC = () => {
                   rules={[{ required: isFieldRequired(field), message: `请输入${field.label}` }]}
                 >
                   <FormFieldConfig field={fieldWithOptions} formData={formData} form={form}
+                    formSchema={formType.formSchema}
                     customerLicenseInfo={customerLicenseInfo}
                     licenseLoading={licenseLoading}
                     onCustomerSelect={handleCustomerSelect}

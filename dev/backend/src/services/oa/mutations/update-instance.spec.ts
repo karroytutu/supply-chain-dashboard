@@ -94,7 +94,7 @@ describe('updateInstanceFormData', () => {
   it('插入 action_type=update 操作记录（在事务内）', async () => {
     const mockClient = setupTransaction(
       { rows: [{ form_data: {}, current_node_order: 2, applicant_id: 10 }] },
-      [{ rows: [] }, { rows: [] }], // INSERT action, INSERT comment
+      [{ rows: [] }], // INSERT action (with comment and attachments)
       { hasCurrentNodeQuery: true }
     );
 
@@ -103,8 +103,8 @@ describe('updateInstanceFormData', () => {
     // client.query 调用顺序：BEGIN=0, advisory lock=1, SELECT=2, getCurrentNode=3, UPDATE=4, INSERT action=5
     const insertCall = mockClient.query.mock.calls[5];
     expect(insertCall[0]).toContain("'update'");
-    // 参数：[instanceId, userId, userName, currentNodeOrder, null, details]
-    expect(insertCall[1]).toEqual([1, 10, '张三', 2, null, expect.any(String)]);
+    // 参数：[instanceId, userId, userName, currentNodeOrder, comment, details, attachments]
+    expect(insertCall[1]).toEqual([1, 10, '张三', 2, '更新了数据', expect.any(String), null]);
     // 验证 details 包含 formDataDiff
     const details = JSON.parse(insertCall[1]![5] as string);
     expect(details).toEqual({ formDataDiff: { x: 1 } });
