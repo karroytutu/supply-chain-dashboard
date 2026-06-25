@@ -1,8 +1,13 @@
-import React from 'react';
-import { Modal, Input, Select, Segmented } from 'antd';
+import React, { useState } from 'react';
+import { Modal, Input, Select, Segmented, Upload, message } from 'antd';
+import { PlusOutlined, PaperClipOutlined, DeleteOutlined, InboxOutlined } from '@ant-design/icons';
+import type { UploadFile } from 'antd/es/upload/interface';
+import type { AttachmentMeta } from '@/types/oa';
 import type { SendBackTarget } from './hooks/useApprovalActions';
+import { requestFormData } from '@/services/api/request';
 
 const { TextArea } = Input;
+const { Dragger } = Upload;
 
 interface TransferUser {
   id: number;
@@ -14,6 +19,10 @@ interface ActionModalProps {
   actionType: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | 'send_back' | null;
   actionComment: string;
   actionLoading: boolean;
+  /** 已上传的附件列表 */
+  attachments?: AttachmentMeta[];
+  /** 附件变更回调 */
+  onAttachmentsChange?: (attachments: AttachmentMeta[]) => void;
   /** 转交候选人列表（从后端获取） */
   transferUsers?: TransferUser[];
   /** 节点类型，影响弹窗标题文案 */
@@ -60,12 +69,125 @@ const getActionModalTitle = (actionType: string | null, nodeType?: 'approval' | 
   }
 };
 
+/** 格式化文件大小 */
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+};
+
+/** 通用上传处理函数（使用项目统一的 requestFormData 封装） */
+const handleUpload = async (
+  file: File,
+  endpoint: string,
+  fieldName: string,
+  onSuccess: (attachment: AttachmentMeta) => void,
+  onError: (error: Error) => void
+) => {
+  const formData = new FormData();
+  formData.append(fieldName, file);
+  try {
+    const resp = await requestFormData<{ attachments: AttachmentMeta[] }>(`/oa${endpoint}`, formData);
+    if (resp?.attachments?.length > 0) {
+      onSuccess(resp.attachments[0]);
+    } else {
+      onError(new Error('上传响应中无附件数据'));
+    }
+  } catch (error: any) {
+    onError(error instanceof Error ? error : new Error('上传失败'));
+  }
+};
+
 const ActionModal: React.FC<ActionModalProps> = ({
-  visible, actionType, actionComment, actionLoading, transferUsers = [], nodeType,
-  sendBackTargets = [], sendBackTargetNodeOrder, onSendBackTargetChange,
+  visible, actionType, actionComment, actionLoading, attachments = [], onAttachmentsChange,
+  transferUsers = [], nodeType, sendBackTargets = [], sendBackTargetNodeOrder, onSendBackTargetChange,
   countersignUserIds = [], countersignType = 'after', onCountersignUserIdsChange, onCountersignTypeChange,
   onOk, onCancel, onCommentChange, onTransferUserChange,
 }) => {
+  const [imageFileList, setImageFileList] = useState<UploadFile[]>([]);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+
+  // 用 ref 追踪最新附件列表，避免并发上传时闭包捕获过期值
+  const attachmentsRef = React.useRef(attachments);
+  attachmentsRef.current = attachments;
+
+  // 弹窗打开时重置文件列表
+  React.useEffect(() => {
+    if (visible) {
+      setImageFileList([]);
+      setFileList([]);
+    }
+  }, [visible]);
+
+  const handleImageUpload = (options: any) => {
+    const { file, onSuccess, onError } = options;
+    handleUpload(
+      file as File,
+      '/upload-comment-image',
+      'images',
+      (attachment) => {
+        onSuccess?.(attachment as any);  // 存完整对象，确保 remove 时 response.url 可靠
+        onAttachmentsChange?.([...attachmentsRef.current, attachment]);
+      },
+      (error) => {
+        message.error(error.message);
+        onError?.(error as any);
+      }
+    );
+  };
+
+  const handleFileUpload = (options: any) => {
+    const { file, onSuccess, onError } = options;
+    handleUpload(
+      file as File,
+      '/upload-comment-file',
+      'files',
+      (attachment) => {
+        onSuccess?.(attachment as any);  // 存完整对象，确保 remove 时 response.url 可靠
+        onAttachmentsChange?.([...attachmentsRef.current, attachment]);
+      },
+      (error) => {
+        message.error(error.message);
+        onError?.(error as any);
+      }
+    );
+  };
+
+  const handleImageRemove = (file: UploadFile) => {
+    const url = file.response?.url;
+    if (url) {
+      onAttachmentsChange?.(attachmentsRef.current.filter(a => a.url !== url));
+    }
+    return true;
+  };
+
+  const handleFileRemove = (file: UploadFile) => {
+    const url = file.response?.url;
+    if (url) {
+      onAttachmentsChange?.(attachmentsRef.current.filter(a => a.url !== url));
+    }
+    return true;
+  };
+
+  const beforeImageUpload = (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      message.warning(`图片 "${file.name}" 超过 5MB 限制`);
+      return Upload.LIST_IGNORE;
+    }
+    return true;
+  };
+
+  const beforeFileUpload = (file: File) => {
+    if (file.size > 200 * 1024 * 1024) {
+      message.warning(`文件 "${file.name}" 超过 200MB 限制`);
+      return Upload.LIST_IGNORE;
+    }
+    return true;
+  };
+
+  const imageAttachments = attachments.filter(a => a.isImage);
+  const fileAttachments = attachments.filter(a => !a.isImage);
+
   return (
     <Modal
       title={getActionModalTitle(actionType, nodeType)}
@@ -75,6 +197,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
       confirmLoading={actionLoading}
       okText="确定"
       cancelText="取消"
+      width={560}
     >
       <div className="actionModal">
         {actionType === 'send_back' && (
@@ -131,7 +254,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
             </div>
           </>
         )}
-        <div style={{ marginBottom: 0 }}>
+        <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
             {actionType === 'comment' ? '评论内容：' :
              actionType === 'send_back' ? '退回原因（选填）：' :
@@ -143,6 +266,80 @@ const ActionModal: React.FC<ActionModalProps> = ({
             value={actionComment}
             onChange={(e) => onCommentChange(e.target.value)}
           />
+        </div>
+
+        {/* 图片上传区域 */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 8, fontWeight: 500, color: '#595959', fontSize: 13 }}>
+            图片（最多9张，每张≤5MB）
+          </label>
+          <Upload
+            listType="picture-card"
+            fileList={imageFileList}
+            onChange={({ fileList: newList }) => setImageFileList(newList)}
+            customRequest={handleImageUpload}
+            beforeUpload={beforeImageUpload}
+            onRemove={handleImageRemove}
+            maxCount={9}
+            accept="image/jpeg,image/png,image/gif,image/webp"
+          >
+            {imageFileList.length >= 9 ? null : (
+              <div>
+                <PlusOutlined />
+                <div style={{ marginTop: 8, fontSize: 12 }}>上传图片</div>
+              </div>
+            )}
+          </Upload>
+        </div>
+
+        {/* 文件上传区域 */}
+        <div style={{ marginBottom: 0 }}>
+          <label style={{ display: 'block', marginBottom: 8, fontWeight: 500, color: '#595959', fontSize: 13 }}>
+            附件（最多9个，每个≤200MB）
+          </label>
+          {/* 已上传文件列表 */}
+          {fileAttachments.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              {fileAttachments.map((att, idx) => (
+                <div
+                  key={att.url}
+                  style={{
+                    display: 'flex', alignItems: 'center', padding: '6px 8px',
+                    background: '#fafafa', borderRadius: 4, marginBottom: 4,
+                    fontSize: 12, color: '#595959',
+                  }}
+                >
+                  <PaperClipOutlined style={{ marginRight: 6, color: '#8c8c8c' }} />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {att.name}
+                  </span>
+                  <span style={{ marginLeft: 8, color: '#8c8c8c' }}>{formatFileSize(att.size)}</span>
+                  <DeleteOutlined
+                    style={{ marginLeft: 8, color: '#ff4d4f', cursor: 'pointer' }}
+                    onClick={() => {
+                      onAttachmentsChange?.(attachments.filter(a => a.url !== att.url));
+                      setFileList(prev => prev.filter(f => f.response?.url !== att.url));
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          <Dragger
+            fileList={fileList}
+            onChange={({ fileList: newList }) => setFileList(newList.filter(f => f.status === 'uploading' || f.status === 'done'))}
+            customRequest={handleFileUpload}
+            beforeUpload={beforeFileUpload}
+            onRemove={handleFileRemove}
+            maxCount={9}
+            showUploadList={false}
+            multiple
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+            <p className="ant-upload-text" style={{ fontSize: 13 }}>点击或拖拽文件到此区域上传</p>
+          </Dragger>
         </div>
       </div>
     </Modal>

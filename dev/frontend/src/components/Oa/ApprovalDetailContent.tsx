@@ -104,11 +104,13 @@ function applyFieldPermissions(
  * - 发起人（applicantId === userId）→ 使用 viewPermissions.nodes["0"]
  * - 审批/办理人（node.assignedUserIds 包含 userId）→ 使用对应节点的查看权限
  * - 参与了多个节点 → 取并集（任一节点 readonly 则最终 readonly，否则 hidden）
+ * - 数据查看人（用户角色在 dataReadRoles 中，或用户ID在 dataReadUsers 中）→ 使用 viewPermissions.dataRead
  * - 纯抄送人 / 无匹配 / 未配置 → 返回 undefined（调用方负责处理为全隐藏）
  */
 function resolveViewPermissions(
   detail: ApprovalDetail,
-  userId: number | undefined
+  userId: number | undefined,
+  userRoles: string[] = []
 ): Record<string, FieldPermission> | undefined {
   if (!userId || !detail.viewPermissions) return undefined;
 
@@ -121,27 +123,46 @@ function resolveViewPermissions(
       if (!myOrders.includes(o)) myOrders.push(o);
     }
   }
-  if (myOrders.length === 0) return undefined; // 无匹配，全隐藏
 
-  // 多节点取并集：任一节点 readonly → 最终 readonly
-  const merged: Record<string, FieldPermission> = {};
-  for (const field of detail.formSchema.fields) {
-    if (field.key.startsWith('_') || field.hidden) continue;
-    merged[field.key] = myOrders.some(o =>
-      detail.viewPermissions!.nodes?.[o]?.[field.key] === 'readonly'
-    ) ? 'readonly' : 'hidden';
-    // 表格子字段同理
-    if (field.type === 'table' && field.children) {
-      for (const child of field.children) {
-        if (child.key.startsWith('_') || child.hidden) continue;
-        const childKey = `${field.key}.${child.key}`;
-        merged[childKey] = myOrders.some(o =>
-          detail.viewPermissions!.nodes?.[o]?.[childKey] === 'readonly'
-        ) ? 'readonly' : 'hidden';
+  if (myOrders.length > 0) {
+    // 多节点取并集：任一节点 readonly → 最终 readonly
+    const merged: Record<string, FieldPermission> = {};
+    for (const field of detail.formSchema.fields) {
+      if (field.key.startsWith('_') || field.hidden) continue;
+      merged[field.key] = myOrders.some(o =>
+        detail.viewPermissions!.nodes?.[o]?.[field.key] === 'readonly'
+      ) ? 'readonly' : 'hidden';
+      // 表格子字段同理
+      if (field.type === 'table' && field.children) {
+        for (const child of field.children) {
+          if (child.key.startsWith('_') || child.hidden) continue;
+          const childKey = `${field.key}.${child.key}`;
+          merged[childKey] = myOrders.some(o =>
+            detail.viewPermissions!.nodes?.[o]?.[childKey] === 'readonly'
+          ) ? 'readonly' : 'hidden';
+        }
       }
     }
+    return merged;
   }
-  return merged;
+
+  // 非流程参与人：检查是否为数据查看人（角色匹配 或 用户ID匹配）
+  // 1. 角色匹配
+  if (detail.dataReadRoles && detail.dataReadRoles.length > 0 && userRoles.length > 0) {
+    const isRoleViewer = detail.dataReadRoles.some(role => userRoles.includes(role));
+    if (isRoleViewer && detail.viewPermissions.dataRead) {
+      return detail.viewPermissions.dataRead;
+    }
+  }
+  // 2. 用户ID匹配
+  if (detail.dataReadUsers && detail.dataReadUsers.length > 0) {
+    const isUserViewer = detail.dataReadUsers.includes(userId);
+    if (isUserViewer && detail.viewPermissions.dataRead) {
+      return detail.viewPermissions.dataRead;
+    }
+  }
+
+  return undefined; // 无匹配，全隐藏
 }
 
 /**
@@ -241,7 +262,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   detail, actionState, formLayout = 'list', extraContentBefore, className,
   canOperateOverride, canWithdrawOverride, showHeader = true, editableFormRef,
 }) => {
-  const { currentUser } = usePermission();
+  const { currentUser, roles: userRoles } = usePermission();
   const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
   const { erpLicenseUrls } = useErpLicenseResolve(detail.formSchema, detail.formData);
 
@@ -259,12 +280,12 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
       // 办理权限：DB 为唯一来源
       return detail.fieldPermissions?.nodes?.[String(currentNode?.nodeOrder)];
     }
-    // 查看权限：匹配用户参与的节点，取并集
-    const viewPerms = resolveViewPermissions(detail, currentUser?.id);
+    // 查看权限：匹配用户参与的节点，取并集；或匹配 dataReadRoles
+    const viewPerms = resolveViewPermissions(detail, currentUser?.id, userRoles);
     if (viewPerms) return viewPerms;
     // 未配置查看权限或无匹配节点：全隐藏
     return buildAllHiddenPermissions(detail.formSchema);
-  }, [isCurrentHandler, detail, currentNode, currentUser?.id]);
+  }, [isCurrentHandler, detail, currentNode, currentUser?.id, userRoles]);
 
   const fieldOptionFilter = workflowNode?.fieldOptionFilter;
   const nodeType = workflowNode?.type ?? 'approval';
@@ -341,6 +362,8 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
       <ActionModal
         visible={actionState.actionModalVisible} actionType={actionState.actionType}
         actionComment={actionState.actionComment} actionLoading={actionState.actionLoading}
+        attachments={actionState.attachments}
+        onAttachmentsChange={actionState.setAttachments}
         transferUsers={actionState.transferUsers} nodeType={nodeType}
         sendBackTargets={actionState.sendBackTargets}
         sendBackTargetNodeOrder={actionState.sendBackTargetNodeOrder}

@@ -282,9 +282,9 @@ describe('countersignApproval - 补充', () => {
         || (typeof c[0] === 'string' && c[0].includes('oa_approval_actions') && c[0].includes('countersign'))
     );
     expect(actionInsert).toBeDefined();
-    // details 参数包含 countersignType 和 countersignUserIds
+    // details 参数包含 countersignType 和 countersignUserIds（attachments 在最后，details 在倒数第二）
     const params = actionInsert![1];
-    const detailsJson = JSON.parse(params[params.length - 1]);
+    const detailsJson = JSON.parse(params[params.length - 2]);
     expect(detailsJson.countersignType).toBe('after');
     expect(detailsJson.countersignUserIds).toEqual([200]);
   });

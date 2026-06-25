@@ -210,4 +210,49 @@ describe('validateViewCompleteness', () => {
     expect(result.valid).toBe(false);
     expect(result.missing.length).toBeGreaterThan(0);
   });
+
+  it('配置了 dataReadRoles 且 dataRead 完整时返回 valid=true', () => {
+    const fullPerms: ViewPermissionsOverride = {
+      nodes: {
+        '0': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
+        '1': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
+        '2': Object.fromEntries(businessFields.map(f => [f, 'hidden'])),
+      },
+      dataRead: Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
+    };
+
+    const result = validateViewCompleteness(sampleSchema, sampleWorkflow, fullPerms, ['manager', 'admin']);
+    expect(result.valid).toBe(true);
+    expect(result.missing).toHaveLength(0);
+  });
+
+  it('配置了 dataReadRoles 但缺少 dataRead 节时报告缺失', () => {
+    const nodesOnlyPerms: ViewPermissionsOverride = {
+      nodes: {
+        '0': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
+        '1': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
+        '2': Object.fromEntries(businessFields.map(f => [f, 'hidden'])),
+      },
+    };
+
+    const result = validateViewCompleteness(sampleSchema, sampleWorkflow, nodesOnlyPerms, ['manager']);
+    expect(result.valid).toBe(false);
+    const dataReadMissing = result.missing.find(m => m.node === 'dataRead');
+    expect(dataReadMissing).toBeDefined();
+    expect(dataReadMissing!.fields).toEqual(businessFields);
+  });
+
+  it('未配置 dataReadRoles 时不校验 dataRead 节', () => {
+    const nodesOnlyPerms: ViewPermissionsOverride = {
+      nodes: {
+        '0': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
+        '1': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
+        '2': Object.fromEntries(businessFields.map(f => [f, 'hidden'])),
+      },
+    };
+
+    // 不传 dataReadRoles 参数
+    const result = validateViewCompleteness(sampleSchema, sampleWorkflow, nodesOnlyPerms);
+    expect(result.valid).toBe(true);
+  });
 });

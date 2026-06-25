@@ -12,6 +12,7 @@ import { Table, Tag, Button, Card, Typography, Dropdown } from 'antd';
 import { SaveOutlined, DownOutlined } from '@ant-design/icons';
 import type { FormField, WorkflowDef, ViewPermissionsOverride } from '@/types/oa';
 import { useViewPermissions, VIEW_PERMISSION_LABELS } from '../hooks/useViewPermissions';
+import { isUserField, flattenFieldsWithChildren } from '../utils/fieldUtils';
 
 const { Text } = Typography;
 
@@ -20,31 +21,10 @@ interface ViewPermissionMatrixProps {
   fields: FormField[];
   workflowNodes: WorkflowDef['nodes'];
   initialViewPermissions?: ViewPermissionsOverride;
-}
-
-/** 需要过滤的字段：_ 前缀内部字段和 hidden 字段 */
-function isUserField(field: FormField): boolean {
-  return !field.key.startsWith('_') && !field.hidden;
-}
-
-/** 展开表格子字段：将 table 类型的子字段插入到父字段后面作为子行 */
-function flattenFieldsWithChildren(fields: FormField[]): Array<{ field: FormField; isChild: boolean; parentKey?: string }> {
-  const result: Array<{ field: FormField; isChild: boolean; parentKey?: string }> = [];
-  for (const field of fields) {
-    result.push({ field, isChild: false });
-    if (field.type === 'table' && field.children) {
-      for (const child of field.children) {
-        if (!child.hidden) {
-          result.push({
-            field: { ...child, key: `${field.key}.${child.key}`, label: `  └ ${child.label}` },
-            isChild: true,
-            parentKey: field.key,
-          });
-        }
-      }
-    }
-  }
-  return result;
+  /** 可查看数据的岗位列表，非空时显示“数据查看人”列 */
+  dataReadRoles?: string[] | null;
+  /** 可查看数据的用户列表，非空时也显示“数据查看人”列 */
+  dataReadUsers?: number[] | null;
 }
 
 const ViewPermissionMatrix: React.FC<ViewPermissionMatrixProps> = ({
@@ -52,6 +32,8 @@ const ViewPermissionMatrix: React.FC<ViewPermissionMatrixProps> = ({
   fields,
   workflowNodes,
   initialViewPermissions,
+  dataReadRoles,
+  dataReadUsers,
 }) => {
   const { togglePermission, getPermission, setAllFieldsPermission, savePermissions, saving } =
     useViewPermissions(formCode, initialViewPermissions);
@@ -132,6 +114,26 @@ const ViewPermissionMatrix: React.FC<ViewPermissionMatrixProps> = ({
         );
       },
     })),
+    // 数据查看人列（当表单配置了 dataReadRoles 或 dataReadUsers 时显示）
+    ...((dataReadRoles?.length || dataReadUsers?.length) ? [{
+      title: renderColumnTitle('dataRead', '数据查看人'),
+      key: 'dataRead',
+      width: 110,
+      align: 'center' as const,
+      render: (_: unknown, record: { field: FormField }) => {
+        const perm = getPermission('dataRead', record.field.key);
+        const meta = perm ? VIEW_PERMISSION_LABELS[perm] : VIEW_PERMISSION_LABELS.hidden;
+        return (
+          <Tag
+            color={meta.color}
+            style={{ cursor: 'pointer', userSelect: 'none', minWidth: 56, textAlign: 'center' }}
+            onClick={() => togglePermission('dataRead', record.field.key)}
+          >
+            {meta.label}
+          </Tag>
+        );
+      },
+    }] : []),
   ];
 
   return (
@@ -161,7 +163,7 @@ const ViewPermissionMatrix: React.FC<ViewPermissionMatrixProps> = ({
         pagination={false}
         size="small"
         bordered
-        scroll={{ x: 180 + 120 + 100 * humanNodes.length }}
+        scroll={{ x: 180 + 120 + 100 * humanNodes.length + ((dataReadRoles?.length || dataReadUsers?.length) ? 110 : 0) }}
       />
     </Card>
   );

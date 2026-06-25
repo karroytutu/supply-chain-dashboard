@@ -404,6 +404,12 @@ export interface ErpSupplier {
   supplierCategoryName?: string;
   receiptType?: string;
   autoWriteOff?: number;
+  /** 银行账户户名 */
+  bankAccountName?: string;
+  /** 开户银行 */
+  openingBank?: string;
+  /** 银行账号 */
+  account?: string;
 }
 
 // =====================================================

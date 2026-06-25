@@ -5,7 +5,7 @@
 import { createLogger } from '../../../utils/logger';
 const log = createLogger('OA');
 
-import { FormTypeDefinition, OaInstanceRow, OaNodeRow } from '../oa.types';
+import { AttachmentMeta, FormTypeDefinition, OaInstanceRow, OaNodeRow } from '../oa.types';
 import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
 import { evaluateAndTriggerNodes } from '../oa-workflow-utils';
@@ -29,7 +29,8 @@ export async function approveApproval(
   userId: number,
   userName: string,
   comment?: string,
-  inputData?: Record<string, unknown>
+  inputData?: Record<string, unknown>,
+  attachments?: AttachmentMeta[]
 ): Promise<{ status: string }> {
   const canApprove = await isCurrentApprover(instanceId, userId);
   if (!canApprove) {
@@ -94,28 +95,19 @@ export async function approveApproval(
     const currentRound = currentNode.round ?? 1;
     await client.query(
       `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order, comment, details, round)
-       VALUES ($1, 'approve', $2, $3, $4, $5, $6, $7)`,
+        (instance_id, action_type, operator_id, operator_name, node_order, comment, details, attachments, round)
+       VALUES ($1, 'approve', $2, $3, $4, $5, $6, $7, $8)`,
       [
         instanceId,
         userId,
         userName,
         currentNode.node_order,
-        null,
+        comment?.trim() || null,
         inputData ? JSON.stringify({ inputData }) : null,
+        attachments && attachments.length > 0 ? JSON.stringify(attachments) : null,
         currentRound,
       ]
     );
-
-    // 如果用户填写了审批意见，作为独立 comment 记录插入（统一评论模型）
-    if (comment && comment.trim()) {
-      await client.query(
-        `INSERT INTO oa_approval_actions
-          (instance_id, action_type, operator_id, operator_name, node_order, comment, round)
-         VALUES ($1, 'comment', $2, $3, $4, $5, $6)`,
-        [instanceId, userId, userName, currentNode.node_order, comment.trim(), currentRound]
-      );
-    }
 
     // 多人环节签署模式处理
     if (currentNode.sign_mode !== null) {

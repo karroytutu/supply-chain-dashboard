@@ -42,15 +42,17 @@ export async function listFormTypesForAdmin(req: Request, res: Response): Promis
 }
 
 /**
- * 更新表单基本信息（名称、描述、图标、可发起岗位）
+ * 更新表单基本信息（名称、描述、图标、可发起岗位、可发起人员）
  * PATCH /api/oa/admin/form-types/:code
  *
- * 请求体可选字段：name, description, icon, allowedRoles
+ * 请求体可选字段：name, description, icon, category, allowedRoles, dataReadRoles, dataExportRoles,
+ *                  allowedUsers, dataReadUsers, dataExportUsers, version
  */
 export async function updateFormTypeBasic(req: Request, res: Response): Promise<void> {
   try {
     const { code } = req.params;
-    const { name, description, icon, allowedRoles, dataReadRoles, dataExportRoles } = req.body;
+    const { name, description, icon, category, allowedRoles, dataReadRoles, dataExportRoles,
+            allowedUsers, dataReadUsers, dataExportUsers, version } = req.body;
 
     // 输入类型校验
     if (name !== undefined && typeof name !== 'string') {
@@ -65,6 +67,10 @@ export async function updateFormTypeBasic(req: Request, res: Response): Promise<
       res.status(400).json(buildErrorResponse(400, 'icon 必须为字符串'));
       return;
     }
+    if (category !== undefined && typeof category !== 'string') {
+      res.status(400).json(buildErrorResponse(400, 'category 必须为字符串'));
+      return;
+    }
     if (allowedRoles !== undefined && !Array.isArray(allowedRoles)) {
       res.status(400).json(buildErrorResponse(400, 'allowedRoles 必须为数组'));
       return;
@@ -75,6 +81,22 @@ export async function updateFormTypeBasic(req: Request, res: Response): Promise<
     }
     if (dataExportRoles !== undefined && !Array.isArray(dataExportRoles)) {
       res.status(400).json(buildErrorResponse(400, 'dataExportRoles 必须为数组'));
+      return;
+    }
+    if (allowedUsers !== undefined && (!Array.isArray(allowedUsers) || !allowedUsers.every((v: unknown) => typeof v === 'number'))) {
+      res.status(400).json(buildErrorResponse(400, 'allowedUsers 必须为数字数组'));
+      return;
+    }
+    if (dataReadUsers !== undefined && (!Array.isArray(dataReadUsers) || !dataReadUsers.every((v: unknown) => typeof v === 'number'))) {
+      res.status(400).json(buildErrorResponse(400, 'dataReadUsers 必须为数字数组'));
+      return;
+    }
+    if (dataExportUsers !== undefined && (!Array.isArray(dataExportUsers) || !dataExportUsers.every((v: unknown) => typeof v === 'number'))) {
+      res.status(400).json(buildErrorResponse(400, 'dataExportUsers 必须为数字数组'));
+      return;
+    }
+    if (version !== undefined && (typeof version !== 'number' || version < 1)) {
+      res.status(400).json(buildErrorResponse(400, 'version 必须为正整数'));
       return;
     }
 
@@ -95,6 +117,10 @@ export async function updateFormTypeBasic(req: Request, res: Response): Promise<
       setClauses.push(`icon = $${paramIndex++}`);
       params.push(icon);
     }
+    if (category !== undefined) {
+      setClauses.push(`category = $${paramIndex++}`);
+      params.push(category);
+    }
     if (allowedRoles !== undefined) {
       setClauses.push(`allowed_roles = $${paramIndex++}`);
       params.push(allowedRoles.length > 0 ? allowedRoles : null);
@@ -107,19 +133,53 @@ export async function updateFormTypeBasic(req: Request, res: Response): Promise<
       setClauses.push(`data_export_roles = $${paramIndex++}`);
       params.push(dataExportRoles.length > 0 ? dataExportRoles : null);
     }
+    if (allowedUsers !== undefined) {
+      setClauses.push(`allowed_users = $${paramIndex++}`);
+      params.push(allowedUsers.length > 0 ? allowedUsers : null);
+    }
+    if (dataReadUsers !== undefined) {
+      setClauses.push(`data_read_users = $${paramIndex++}`);
+      params.push(dataReadUsers.length > 0 ? dataReadUsers : null);
+    }
+    if (dataExportUsers !== undefined) {
+      setClauses.push(`data_export_users = $${paramIndex++}`);
+      params.push(dataExportUsers.length > 0 ? dataExportUsers : null);
+    }
+    // 基本信息更新不递增 version（仅流程配置保存时递增）
+    setClauses.push(`updated_at = NOW()`);
 
-    if (setClauses.length === 0) {
+    if (setClauses.length <= 1) {
+      // 仅有 updated_at，没有业务字段更新
       res.status(400).json(buildErrorResponse(400, '未提供任何更新字段'));
       return;
     }
 
     params.push(code);
+
+    // 乐观锁：如果传了 version，则校验版本一致性
+    let whereClause = `code = $${paramIndex}`;
+    if (version !== undefined) {
+      paramIndex++;
+      params.push(version);
+      whereClause += ` AND version = $${paramIndex}`;
+    }
+
     const result = await query(
-      `UPDATE oa_form_types SET ${setClauses.join(', ')} WHERE code = $${paramIndex}`,
+      `UPDATE oa_form_types SET ${setClauses.join(', ')} WHERE ${whereClause}`,
       params
     );
 
     if (result.rowCount === 0) {
+      if (version !== undefined) {
+        // 检查是否是版本冲突还是不存在
+        const check = await query(`SELECT version FROM oa_form_types WHERE code = $1`, [code]);
+        if (check.rowCount === 0) {
+          res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
+        } else {
+          res.status(409).json(buildErrorResponse(409, '数据已被其他用户修改，请刷新后重试'));
+        }
+        return;
+      }
       res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
       return;
     }
@@ -283,18 +343,28 @@ export async function updateViewPermissions(req: Request, res: Response): Promis
       return;
     }
 
-    // 校验权限值合法性（只允许 nodes 键，权限值仅允许 readonly/hidden）
+    // 校验权限值合法性（允许 nodes 和 dataRead 键，权限值仅允许 readonly/hidden）
     const validPerms = new Set(['readonly', 'hidden']);
+    const validSections = new Set(['nodes', 'dataRead']);
     if (viewPermissions) {
       for (const [section, perms] of Object.entries(viewPermissions)) {
-        if (section !== 'nodes') {
-          res.status(400).json(buildErrorResponse(400, `不支持的配置节: ${section}，仅允许 nodes`));
+        if (!validSections.has(section)) {
+          res.status(400).json(buildErrorResponse(400, `不支持的配置节: ${section}，仅允许 nodes 和 dataRead`));
           return;
         }
-        for (const [nodeOrder, nodePerms] of Object.entries(perms as Record<string, Record<string, string>>)) {
-          for (const [field, perm] of Object.entries(nodePerms)) {
+        if (section === 'nodes') {
+          for (const [nodeOrder, nodePerms] of Object.entries(perms as Record<string, Record<string, string>>)) {
+            for (const [field, perm] of Object.entries(nodePerms)) {
+              if (!validPerms.has(perm)) {
+                res.status(400).json(buildErrorResponse(400, `节点${nodeOrder}字段 ${field} 的查看权限值 ${perm} 不合法，仅允许 readonly/hidden`));
+                return;
+              }
+            }
+          }
+        } else if (section === 'dataRead') {
+          for (const [field, perm] of Object.entries(perms as Record<string, string>)) {
             if (!validPerms.has(perm)) {
-              res.status(400).json(buildErrorResponse(400, `节点${nodeOrder}字段 ${field} 的查看权限值 ${perm} 不合法，仅允许 readonly/hidden`));
+              res.status(400).json(buildErrorResponse(400, `数据查看人字段 ${field} 的查看权限值 ${perm} 不合法，仅允许 readonly/hidden`));
               return;
             }
           }
@@ -305,13 +375,25 @@ export async function updateViewPermissions(req: Request, res: Response): Promis
     // 校验全量完整性：每个节点必须为所有业务字段声明查看权限
     const codeDef = getFormTypeByCode(code);
     if (codeDef && viewPermissions) {
+      // 查询表单的 dataReadRoles 和 dataReadUsers（从 DB 获取，代码定义中不包含这些字段）
+      const ftRow = await query<{ data_read_roles: string[] | null; data_read_users: number[] | null }>(
+        `SELECT data_read_roles, data_read_users FROM oa_form_types WHERE code = $1`, [code]
+      );
+      const dataReadRoles = ftRow.rows[0]?.data_read_roles || null;
+      const dataReadUsers = ftRow.rows[0]?.data_read_users || null;
+
       const { valid, missing } = validateViewCompleteness(
         codeDef.formSchema,
         codeDef.workflowDef,
-        viewPermissions as ViewPermissionsOverride
+        viewPermissions as ViewPermissionsOverride,
+        dataReadRoles,
+        dataReadUsers
       );
       if (!valid) {
-        const missingDesc = missing.map(m => `节点${m.node}: ${m.fields.join(', ')}`).join('; ');
+        const missingDesc = missing.map(m => {
+          const label = m.node === 'dataRead' ? '数据查看人' : `节点${m.node}`;
+          return `${label}: ${m.fields.join(', ')}`;
+        }).join('; ');
         res.status(400).json(buildErrorResponse(400, `查看权限配置不完整，缺失: ${missingDesc}`));
         return;
       }
@@ -332,5 +414,28 @@ export async function updateViewPermissions(req: Request, res: Response): Promis
   } catch (error) {
     log.error('管理接口-更新查看权限失败:', error);
     res.status(500).json(buildErrorResponse(500, '更新查看权限失败'));
+  }
+}
+
+/**
+ * 批量获取用户信息（根据 ID 列表）
+ * GET /api/oa/admin/users/batch?ids=1,2,3
+ */
+export async function batchGetUsers(req: Request, res: Response): Promise<void> {
+  try {
+    const idsParam = (req.query.ids as string) || '';
+    const ids = idsParam.split(',').map(Number).filter(n => n > 0);
+    if (ids.length === 0) {
+      res.json(buildSuccessResponse([]));
+      return;
+    }
+    const result = await query(
+      'SELECT id, username AS name FROM users WHERE id = ANY($1::int[])',
+      [ids]
+    );
+    res.json(buildSuccessResponse(result.rows));
+  } catch (error) {
+    log.error('批量获取用户失败:', error);
+    res.status(500).json(buildErrorResponse(500, '获取用户信息失败'));
   }
 }

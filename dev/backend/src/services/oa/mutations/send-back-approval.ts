@@ -12,7 +12,7 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
-import { OaInstanceRow, OaNodeRow } from '../oa.types';
+import { AttachmentMeta, OaInstanceRow, OaNodeRow } from '../oa.types';
 import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { transaction, sendBackToNode } from './shared-utils';
 import {
@@ -41,7 +41,8 @@ export async function sendBackApproval(
   userId: number,
   userName: string,
   targetNodeOrder: number,
-  comment?: string
+  comment?: string,
+  attachments?: AttachmentMeta[]
 ): Promise<void> {
   // 1. 校验：当前用户是否为当前环节审批人
   const canApprove = await isCurrentApprover(instanceId, userId);
@@ -147,31 +148,22 @@ export async function sendBackApproval(
     // 记录操作日志（action_type='send_back'）
     await client.query(
       `INSERT INTO oa_approval_actions
-        (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
-       VALUES ($1, 'send_back', $2, $3, $4, $5, $6)`,
+        (instance_id, action_type, operator_id, operator_name, node_order, comment, details, attachments)
+       VALUES ($1, 'send_back', $2, $3, $4, $5, $6, $7)`,
       [
         instanceId,
         userId,
         userName,
         currentNode.node_order,
-        comment || null,
+        comment?.trim() || null,
         JSON.stringify({
           targetNodeOrder,
           targetNodeName: targetNode.node_name,
           targetUserIds,
         }),
+        attachments && attachments.length > 0 ? JSON.stringify(attachments) : null,
       ]
     );
-
-    // 退回原因作为独立 comment 记录插入（统一评论模型）
-    if (comment && comment.trim()) {
-      await client.query(
-        `INSERT INTO oa_approval_actions
-          (instance_id, action_type, operator_id, operator_name, node_order, comment)
-         VALUES ($1, 'comment', $2, $3, $4, $5)`,
-        [instanceId, userId, userName, currentNode.node_order, comment.trim()]
-      );
-    }
   });
 
   // 事务外：异步通知

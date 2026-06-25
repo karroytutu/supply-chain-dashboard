@@ -1,7 +1,7 @@
 import React from 'react';
 import { Input, InputNumber, Select, DatePicker } from 'antd';
 import type { Dayjs } from 'dayjs';
-import type { FormField } from '@/types/oa';
+import type { FormField, FormSchema } from '@/types/oa';
 import { numberToChineseUpper } from '@/utils/number';
 import { getFieldLinkUrl } from '@/utils/oa';
 import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
@@ -34,6 +34,8 @@ interface FormFieldConfigProps {
   onCustomerSelect?: (licenseInfo: CustomerLicenseInfo | null) => void;
   /** 客户搜索是否包含所有状态（客户档案修改场景传 true） */
   includeAllStates?: boolean;
+  /** 表单 Schema（传递给 ErpFieldRenderer 用于级联扫描） */
+  formSchema?: FormSchema;
 }
 
 /** 判断是否为 ERP 字段类型 */
@@ -43,7 +45,7 @@ function isErpFieldType(type: FormField['type']): boolean {
 
 /** 表单字段渲染组件 */
 const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
-  field, formData, form, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect, includeAllStates,
+  field, formData, form, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect, includeAllStates, formSchema,
 }) => {
   const { type, placeholder, required, options, maxLength, maxCount, upper } = field;
 
@@ -73,6 +75,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
         cascadeValue={cascadeValue}
         includeAllStates={includeAllStates}
         form={form}
+        formSchema={formSchema}
         onCustomerSelect={field.type === 'erp_customer' ? onCustomerSelect : undefined}
       />
     );
@@ -193,6 +196,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           onChange={onChange}
           maxCount={maxCount}
           disabled={field.disabled}
+          accept={field.accept}
         />
       );
 

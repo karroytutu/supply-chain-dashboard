@@ -1,0 +1,50 @@
+/* 表单编辑详情页样式 */
+
+.container {
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tabContent {
+  padding-top: 16px;
+}
+
+/* 审批流程 Tab 内的布局 */
+.workflowLayout {
+  display: flex;
+  gap: 16px;
+}
+
+.workflowNodes {
+  flex: 1;
+  min-width: 0;
+}
+
+.workflowPreview {
+  width: 320px;
+  min-width: 280px;
+  position: sticky;
+  top: 16px;
+  align-self: flex-start;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+/* 移动端：流程预览改为上下排列 */
+@media (max-width: 1024px) {
+  .workflowLayout {
+    flex-direction: column;
+  }
+
+  .workflowPreview {
+    width: 100%;
+    position: static;
+    max-height: none;
+  }
+}

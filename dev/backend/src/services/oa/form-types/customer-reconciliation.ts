@@ -150,6 +150,28 @@ const reconciliationFormSchema: FormSchema = {
     },
 
     {
+      key: 'reconciliationReceipt',
+      label: '对账回单',
+      type: 'upload',
+      required: false,
+      accept: 'image/*',
+      visibleWhen: {
+        match: 'any' as const,
+        conditions: [
+          { field: 'reconciliationResult', operator: '==' as const, value: 'reconciled' },
+          { field: 'reconciliationResult', operator: '==' as const, value: 'partial_reconciled' },
+        ],
+      },
+      requiredWhen: {
+        match: 'any' as const,
+        conditions: [
+          { field: 'reconciliationResult', operator: '==' as const, value: 'reconciled' },
+          { field: 'reconciliationResult', operator: '==' as const, value: 'partial_reconciled' },
+        ],
+      },
+    },
+
+    {
       key: 'unreconciledOrderIds',
       label: '未对账应收单据',
       type: 'modal_select',

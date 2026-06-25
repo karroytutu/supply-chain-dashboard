@@ -23,6 +23,10 @@ export interface ApprovalDetail extends InstanceListItem {
   ccUsers: CcUserDetail[];
   /** 查看权限 DB 覆盖值（非办理人查看详情时使用） */
   viewPermissions?: ViewPermissionsOverride;
+  /** 可查看该表单数据的角色列表（用于前端判断当前用户是否为数据查看人） */
+  dataReadRoles?: string[];
+  /** 可查看该表单数据的用户ID列表（用于前端判断当前用户是否为数据查看人） */
+  dataReadUsers?: number[];
 }
 
 export interface ApprovalNodeDetail {
@@ -82,6 +86,8 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       ft.icon as form_type_icon,
       ft.field_permissions as field_permissions,
       ft.view_permissions as view_permissions,
+      ft.data_read_roles as data_read_roles,
+      ft.data_read_users as data_read_users,
       u.avatar AS applicant_avatar
     FROM oa_approval_instances i
     LEFT JOIN oa_form_types ft ON i.form_type_id = ft.id
@@ -166,6 +172,10 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     ...(instance.field_permissions && { fieldPermissions: instance.field_permissions }),
     // viewPermissions: DB 覆盖值（非办理人查看详情时使用）
     ...(instance.view_permissions && { viewPermissions: instance.view_permissions }),
+    // dataReadRoles: 可查看该表单数据的角色列表（前端判断数据查看人身份用）
+    ...(instance.data_read_roles && { dataReadRoles: instance.data_read_roles }),
+    // dataReadUsers: 可查看该表单数据的用户ID列表（前端判断数据查看人身份用）
+    ...(instance.data_read_users && { dataReadUsers: instance.data_read_users }),
     erpMeta: instance.erp_meta,
     nodes: nodesResult.rows.map((n: any) => {
       const userIds: number[] | null = Array.isArray(n.assigned_user_ids) ? n.assigned_user_ids : null;
@@ -201,6 +211,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       nodeOrder: a.node_order,
       comment: a.comment,
       details: a.details,
+      attachments: a.attachments || [],
       actionAt: a.action_at,
     })),
     ccUsers: ccResult.rows.map((c: any) => ({

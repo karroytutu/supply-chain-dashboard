@@ -179,7 +179,7 @@ describe('POST /api/oa/instances/:id/update', () => {
     expect(res.body.message).toContain('更新');
     // JWT payload 中 username='admin'，但 controller 用的是 req.user.name（来自 DB，mock 未提供则为 undefined）
     expect(mockUpdateInstance).toHaveBeenCalledWith(
-      42, 1, undefined, { field1: 'value1' }, '更新备注'
+      42, 1, undefined, { field1: 'value1' }, '更新备注', undefined
     );
   });
 
@@ -257,6 +257,7 @@ describe('POST /api/oa/instances/:id/approve', () => {
       undefined,           // userName（JWT mock 无 name 字段）
       '完成催收',         // comment
       inputData,          // inputData
+      undefined,          // attachments
     );
   });
 });

@@ -19,6 +19,7 @@ import {
   sendBackApproval,
 } from '../services/oa/oa.mutation';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
+import { AttachmentMeta } from '../services/oa/oa.types';
 
 /** 解析并校验审批实例 ID */
 function parseInstanceId(id: string): number {
@@ -27,6 +28,26 @@ function parseInstanceId(id: string): number {
     throw new Error('无效的审批ID');
   }
   return instanceId;
+}
+
+/** 校验并清洗附件元数据，过滤无效条目 */
+function validateAttachments(raw: unknown): AttachmentMeta[] | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (!Array.isArray(raw)) return undefined;
+  if (raw.length > 18) throw new Error('附件数量超限（最多18个）');
+  return raw
+    .filter(item =>
+      item && typeof item === 'object' &&
+      typeof item.name === 'string' &&
+      typeof item.url === 'string' &&
+      typeof item.size === 'number' &&
+      typeof item.type === 'string' &&
+      typeof item.isImage === 'boolean'
+    )
+    .map(item => ({
+      name: item.name, url: item.url, size: item.size,
+      type: item.type, isImage: item.isImage,
+    }));
 }
 
 /** 提交审批 */
@@ -50,11 +71,14 @@ export async function submit(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // 表单级别角色校验：检查用户是否有权发起此表单类型
-    if (formType.allowedRoles && formType.allowedRoles.length > 0) {
+    // 表单级别角色/用户校验：检查用户是否有权发起此表单类型（角色 OR 用户ID，任一匹配即可）
+    const hasRoleRestriction = formType.allowedRoles && formType.allowedRoles.length > 0;
+    const hasUserRestriction = formType.allowedUsers && formType.allowedUsers.length > 0;
+    if (hasRoleRestriction || hasUserRestriction) {
       const userRoles = user.roles || [];
-      const hasAccess = formType.allowedRoles.some(role => userRoles.includes(role));
-      if (!hasAccess) {
+      const roleMatch = hasRoleRestriction && formType.allowedRoles!.some(role => userRoles.includes(role));
+      const userMatch = hasUserRestriction && formType.allowedUsers!.includes(user.userId);
+      if (!roleMatch && !userMatch) {
         res.status(403).json(buildErrorResponse(403, '您没有发起此表单的权限'));
         return;
       }
@@ -86,8 +110,9 @@ export async function approve(req: Request, res: Response): Promise<void> {
     }
 
     const instanceId = parseInstanceId(req.params.id);
-    const { comment, inputData } = req.body;
-    const result = await approveApproval(instanceId, user.userId, user.name, comment, inputData);
+    const { comment, inputData, attachments: rawAttachments } = req.body;
+    const attachments = validateAttachments(rawAttachments);
+    const result = await approveApproval(instanceId, user.userId, user.name, comment, inputData, attachments);
     if (result.status === 'processing') {
       res
         .status(202)
@@ -118,13 +143,14 @@ export async function reject(req: Request, res: Response): Promise<void> {
     }
 
     const instanceId = parseInstanceId(req.params.id);
-    const { comment } = req.body;
+    const { comment, attachments: rawAttachments } = req.body;
     if (!comment) {
       res.status(400).json(buildErrorResponse(400, '请填写拒绝原因'));
       return;
     }
 
-    await rejectApproval(instanceId, user.userId, user.name, comment);
+    const attachments = validateAttachments(rawAttachments);
+    await rejectApproval(instanceId, user.userId, user.name, comment, attachments);
     res.json(buildSuccessResponse(null, '已拒绝'));
   } catch (error) {
     log.error('拒绝审批失败:', error);
@@ -143,13 +169,14 @@ export async function transfer(req: Request, res: Response): Promise<void> {
     }
 
     const instanceId = parseInstanceId(req.params.id);
-    const { transferToUserId, comment } = req.body;
+    const { transferToUserId, comment, attachments: rawAttachments } = req.body;
     if (!transferToUserId) {
       res.status(400).json(buildErrorResponse(400, '请选择转交对象'));
       return;
     }
 
-    await transferApproval(instanceId, user.userId, user.name, transferToUserId, comment);
+    const attachments = validateAttachments(rawAttachments);
+    await transferApproval(instanceId, user.userId, user.name, transferToUserId, comment, attachments);
     res.json(buildSuccessResponse(null, '转交成功'));
   } catch (error) {
     log.error('转交审批失败:', error);
@@ -168,19 +195,21 @@ export async function countersign(req: Request, res: Response): Promise<void> {
     }
 
     const instanceId = parseInstanceId(req.params.id);
-    const { countersignType, countersignUserIds, comment } = req.body;
+    const { countersignType, countersignUserIds, comment, attachments: rawAttachments } = req.body;
     if (!countersignType || !countersignUserIds || countersignUserIds.length === 0) {
       res.status(400).json(buildErrorResponse(400, '请选择加签类型和加签人'));
       return;
     }
 
+    const attachments = validateAttachments(rawAttachments);
     await countersignApproval(
       instanceId,
       user.userId,
       user.name,
       countersignType,
       countersignUserIds,
-      comment
+      comment,
+      attachments
     );
     res.json(buildSuccessResponse(null, '加签成功'));
   } catch (error) {
@@ -238,14 +267,15 @@ export async function updateInstance(req: Request, res: Response): Promise<void>
     }
 
     const instanceId = parseInstanceId(req.params.id);
-    const { formData, comment } = req.body;
+    const { formData, comment, attachments: rawAttachments } = req.body;
     if (!formData || typeof formData !== 'object') {
       res.status(400).json(buildErrorResponse(400, '缺少 formData 参数'));
       return;
     }
 
+    const attachments = validateAttachments(rawAttachments);
     const { updateInstanceFormData } = await import('../services/oa/mutations/update-instance');
-    await updateInstanceFormData(instanceId, user.userId, user.name, formData, comment);
+    await updateInstanceFormData(instanceId, user.userId, user.name, formData, comment, attachments);
     res.json(buildSuccessResponse(null, '数据已更新'));
   } catch (error) {
     log.error('更新实例数据失败:', error);
@@ -264,13 +294,14 @@ export async function addComment(req: Request, res: Response): Promise<void> {
     }
 
     const instanceId = parseInstanceId(req.params.id);
-    const { comment } = req.body;
+    const { comment, attachments: rawAttachments } = req.body;
     if (!comment || !comment.trim()) {
       res.status(400).json(buildErrorResponse(400, '请输入评论内容'));
       return;
     }
 
-    await addCommentToInstance(instanceId, user.userId, user.name, comment);
+    const attachments = validateAttachments(rawAttachments);
+    await addCommentToInstance(instanceId, user.userId, user.name, comment, attachments);
     res.json(buildSuccessResponse(null, '评论已添加'));
   } catch (error) {
     log.error('添加评论失败:', error);
@@ -289,13 +320,14 @@ export async function sendBack(req: Request, res: Response): Promise<void> {
     }
 
     const instanceId = parseInstanceId(req.params.id);
-    const { targetNodeOrder, comment } = req.body;
+    const { targetNodeOrder, comment, attachments: rawAttachments } = req.body;
     if (targetNodeOrder === undefined || targetNodeOrder === null) {
       res.status(400).json(buildErrorResponse(400, '请选择退回目标环节'));
       return;
     }
 
-    await sendBackApproval(instanceId, user.userId, user.name, targetNodeOrder, comment);
+    const attachments = validateAttachments(rawAttachments);
+    await sendBackApproval(instanceId, user.userId, user.name, targetNodeOrder, comment, attachments);
     res.json(buildSuccessResponse(null, '已退回'));
   } catch (error) {
     log.error('退回审批失败:', error);

@@ -84,12 +84,15 @@ export function validateCompleteness(
 /**
  * 校验查看权限配置完整性
  * 与 validateCompleteness 逻辑相同，但入参类型为 ViewPermissionsOverride
+ * 当 dataReadRoles 或 dataReadUsers 非空时，额外校验 dataRead 节的完整性
  * @returns valid: 是否完整；missing: 缺失项列表
  */
 export function validateViewCompleteness(
   formSchema: FormSchema,
   workflowDef: WorkflowDef,
-  viewPermissions: ViewPermissionsOverride | null | undefined
+  viewPermissions: ViewPermissionsOverride | null | undefined,
+  dataReadRoles?: string[] | null,
+  dataReadUsers?: number[] | null
 ): { valid: boolean; missing: Array<{ node: string; fields: string[] }> } {
   const businessFields = extractBusinessFields(formSchema);
   const nodeOrders = getConfigurableNodeOrders(workflowDef);
@@ -106,6 +109,20 @@ export function validateViewCompleteness(
     const missingFields = businessFields.filter(f => !(f in nodePerms));
     if (missingFields.length > 0) {
       missing.push({ node: String(order), fields: missingFields });
+    }
+  }
+
+  // 当表单配置了 dataReadRoles 或 dataReadUsers 时，校验 dataRead 节完整性
+  const hasDataReadConfig = (dataReadRoles && dataReadRoles.length > 0) || (dataReadUsers && dataReadUsers.length > 0);
+  if (hasDataReadConfig) {
+    const dataReadPerms = viewPermissions?.dataRead;
+    if (!dataReadPerms) {
+      missing.push({ node: 'dataRead', fields: businessFields });
+    } else {
+      const missingFields = businessFields.filter(f => !(f in dataReadPerms));
+      if (missingFields.length > 0) {
+        missing.push({ node: 'dataRead', fields: missingFields });
+      }
     }
   }
 

@@ -6,6 +6,7 @@
  * 将用户编辑的表单数据合并到实例中，插入操作记录，但不推进流程。
  */
 
+import { AttachmentMeta } from '../oa.types';
 import { mergeFormData, transaction } from './shared-utils';
 import { lockInstanceById } from '../repositories/approval-instance.repository';
 import { getCurrentPendingNodeByUser } from '../repositories/approval-node.repository';
@@ -24,7 +25,8 @@ export async function updateInstanceFormData(
   userId: number,
   userName: string,
   newFormData: Record<string, unknown>,
-  comment?: string
+  comment?: string,
+  attachments?: AttachmentMeta[]
 ): Promise<void> {
   // 所有操作在事务内完成，防止并发竞态 + 保证审计记录与数据一致
   await transaction(async client => {
@@ -71,20 +73,11 @@ export async function updateInstanceFormData(
     // 5. 插入操作记录（action_type='update'，不推进节点）
     await client.query(
       `INSERT INTO oa_approval_actions
-         (instance_id, action_type, operator_id, operator_name, node_order, comment, details)
-       VALUES ($1, 'update', $2, $3, $4, $5, $6)`,
-      [instanceId, userId, userName, currentNodeOrder, null,
-       Object.keys(formDataDiff).length > 0 ? JSON.stringify({ formDataDiff }) : null]
+         (instance_id, action_type, operator_id, operator_name, node_order, comment, details, attachments)
+       VALUES ($1, 'update', $2, $3, $4, $5, $6, $7)`,
+      [instanceId, userId, userName, currentNodeOrder, comment?.trim() || null,
+       Object.keys(formDataDiff).length > 0 ? JSON.stringify({ formDataDiff }) : null,
+       attachments && attachments.length > 0 ? JSON.stringify(attachments) : null]
     );
-
-    // 6. 如果用户填写了备注，作为独立 comment 记录插入（统一评论模型）
-    if (comment && comment.trim()) {
-      await client.query(
-        `INSERT INTO oa_approval_actions
-           (instance_id, action_type, operator_id, operator_name, node_order, comment)
-         VALUES ($1, 'comment', $2, $3, $4, $5)`,
-        [instanceId, userId, userName, currentNodeOrder, comment.trim()]
-      );
-    }
   });
 }

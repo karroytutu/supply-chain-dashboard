@@ -5,7 +5,7 @@
  */
 import { useState, useMemo, useCallback } from 'react';
 import { message } from 'antd';
-import type { ApprovalDetail, ApprovalNode } from '@/types/oa';
+import type { ApprovalDetail, ApprovalNode, AttachmentMeta } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import { usePermission } from '@/hooks/usePermission';
 import { getErrorMessage } from '@/utils/errorUtils';
@@ -36,6 +36,8 @@ export interface UseApprovalActionsReturn {
   actionModalVisible: boolean;
   actionType: ActionType;
   actionComment: string;
+  /** 操作附件列表（图片/文件） */
+  attachments: AttachmentMeta[];
   transferUsers: Array<{ id: number; name: string }>;
   countersignUserIds: number[];
   countersignType: 'before' | 'after';
@@ -48,6 +50,7 @@ export interface UseApprovalActionsReturn {
   executeAction: () => Promise<void>;
   executeWithdraw: () => Promise<void>;
   setActionComment: (v: string) => void;
+  setAttachments: (v: AttachmentMeta[]) => void;
   setTransferUserId: (v: number | null) => void;
   setCountersignUserIds: (v: number[]) => void;
   setCountersignType: (v: 'before' | 'after') => void;
@@ -71,6 +74,7 @@ export function useApprovalActions({
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [actionType, setActionType] = useState<ActionType>(null);
   const [actionComment, setActionComment] = useState('');
+  const [attachments, setAttachments] = useState<AttachmentMeta[]>([]);
   const [transferUserId, setTransferUserId] = useState<number | null>(null);
   const [transferUsers, setTransferUsers] = useState<Array<{ id: number; name: string }>>([]);
   const [countersignUserIds, setCountersignUserIds] = useState<number[]>([]);
@@ -159,6 +163,7 @@ export function useApprovalActions({
           const res = await oaApi.approve(instanceId, {
             comment: actionComment,
             inputData: inputData && Object.keys(inputData).length > 0 ? inputData : undefined,
+            attachments: attachments.length > 0 ? attachments : undefined,
           });
           if (res?.status === 'processing') {
             message.success('审批已通过，系统处理中');
@@ -172,12 +177,12 @@ export function useApprovalActions({
             message.warning('请填写拒绝原因');
             return;
           }
-          await oaApi.reject(instanceId, { comment: actionComment });
+          await oaApi.reject(instanceId, { comment: actionComment, attachments: attachments.length > 0 ? attachments : undefined });
           message.success('已拒绝');
           break;
         case 'transfer':
           if (transferUserId) {
-            await oaApi.transfer(instanceId, { transferToUserId: transferUserId, comment: actionComment });
+            await oaApi.transfer(instanceId, { transferToUserId: transferUserId, comment: actionComment, attachments: attachments.length > 0 ? attachments : undefined });
           }
           message.success('已转交');
           break;
@@ -190,6 +195,7 @@ export function useApprovalActions({
             countersignType,
             countersignUserIds,
             comment: actionComment || undefined,
+            attachments: attachments.length > 0 ? attachments : undefined,
           });
           message.success('已加签');
           break;
@@ -198,6 +204,7 @@ export function useApprovalActions({
             await oaApi.sendBack(instanceId, {
               targetNodeOrder: sendBackTargetNodeOrder,
               comment: actionComment || undefined,
+              attachments: attachments.length > 0 ? attachments : undefined,
             });
           }
           message.success('已退回');
@@ -208,6 +215,7 @@ export function useApprovalActions({
           await oaApi.updateInstance(instanceId, {
             formData: { ...(detail?.formData || {}), ...editedDiff },
             comment: actionComment || undefined,
+            attachments: attachments.length > 0 ? attachments : undefined,
           });
           message.success('数据已保存');
           break;
@@ -217,12 +225,13 @@ export function useApprovalActions({
             message.warning('请输入评论内容');
             return;
           }
-          await oaApi.addComment(instanceId, { comment: actionComment });
+          await oaApi.addComment(instanceId, { comment: actionComment, attachments: attachments.length > 0 ? attachments : undefined });
           message.success('评论已添加');
           break;
       }
       setActionModalVisible(false);
       setActionComment('');
+      setAttachments([]);
       setTransferUserId(null);
       setCountersignUserIds([]);
       setCountersignType('after');
@@ -233,7 +242,7 @@ export function useApprovalActions({
     } finally {
       setActionLoading(false);
     }
-  }, [instanceId, actionType, actionComment, transferUserId, countersignUserIds, countersignType, sendBackTargetNodeOrder, detail?.formData, onActionComplete, editableFormRef]);
+  }, [instanceId, actionType, actionComment, attachments, transferUserId, countersignUserIds, countersignType, sendBackTargetNodeOrder, detail?.formData, onActionComplete, editableFormRef]);
 
   const executeWithdraw = useCallback(async () => {
     if (!instanceId) return;
@@ -255,6 +264,7 @@ export function useApprovalActions({
     setActionType(type);
     setActionModalVisible(true);
     setActionComment('');
+    setAttachments([]);
     setTransferUserId(null);
     setCountersignUserIds([]);
     setCountersignType('after');
@@ -269,6 +279,7 @@ export function useApprovalActions({
   const closeActionModal = useCallback(() => {
     setActionModalVisible(false);
     setActionComment('');
+    setAttachments([]);
     setTransferUserId(null);
     setCountersignUserIds([]);
     setCountersignType('after');
@@ -276,10 +287,10 @@ export function useApprovalActions({
   }, []);
 
   return {
-    actionLoading, actionModalVisible, actionType, actionComment, transferUsers,
+    actionLoading, actionModalVisible, actionType, actionComment, attachments, transferUsers,
     countersignUserIds, countersignType, sendBackTargets, sendBackTargetNodeOrder,
     openActionModal, closeActionModal, executeAction, executeWithdraw,
-    setActionComment, setTransferUserId, setCountersignUserIds, setCountersignType,
+    setActionComment, setAttachments, setTransferUserId, setCountersignUserIds, setCountersignType,
     setSendBackTargetNodeOrder,
     canOperate, canWithdraw, canComment, currentStep,
   };

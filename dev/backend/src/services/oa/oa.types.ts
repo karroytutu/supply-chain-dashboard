@@ -117,6 +117,8 @@ export interface FormField {
   maxLength?: number;
   /** upload 类型最大文件数 */
   maxCount?: number;
+  /** upload 类型允许的文件格式（如 'image/*'），覆盖默认值 */
+  accept?: string;
   /** user-select/department 是否多选 */
   multiple?: boolean;
   /** date 类型格式 */
@@ -259,6 +261,8 @@ export type ViewPermission = 'readonly' | 'hidden';
 export interface ViewPermissionsOverride {
   /** 节点查看权限配置。key 为节点 order 字符串，value 为字段权限映射 */
   nodes: Record<string, Record<string, ViewPermission>>;
+  /** 数据查看人（非流程参与人，通过 dataReadRoles 匹配）的查看权限 */
+  dataRead?: Record<string, ViewPermission>;
 }
 
 /**
@@ -576,6 +580,12 @@ export interface FormTypeDefinition {
   dataReadRoles?: string[];
   /** 可导出该表单数据的角色编码列表。null/undefined 表示不限制 */
   dataExportRoles?: string[];
+  /** 允许发起此表单的用户ID列表。null/undefined 表示不限制（与 allowedRoles 并行） */
+  allowedUsers?: number[];
+  /** 可查看该表单数据的用户ID列表。null/undefined 表示不限制（与 dataReadRoles 并行） */
+  dataReadUsers?: number[];
+  /** 可导出该表单数据的用户ID列表。null/undefined 表示不限制（与 dataExportRoles 并行） */
+  dataExportUsers?: number[];
   /** 提交前回调：业务校验和数据增强，返回值合并到 formData */
   beforeSubmit?: (
     formData: Record<string, unknown>,
@@ -639,6 +649,9 @@ export interface OaFormTypeRow {
   allowed_roles: string[] | null;
   data_read_roles: string[] | null;
   data_export_roles: string[] | null;
+  allowed_users: number[] | null;
+  data_read_users: number[] | null;
+  data_export_users: number[] | null;
   /** 字段权限 DB 覆盖配置（管理员通过表单管理页面配置） */
   field_permissions?: FieldPermissionsOverride | null;
   /** 查看权限 DB 覆盖配置（非办理人查看详情时使用，NULL=默认全部隐藏） */
@@ -801,6 +814,22 @@ export type ApprovalActionType =
   | 'send_back'; // 退回操作（流转路由，将流程退回到指定环节）
 
 /**
+ * 操作附件元数据（图片/文件）
+ */
+export interface AttachmentMeta {
+  /** 原始文件名 */
+  name: string;
+  /** 服务器存储路径（如 /uploads/oa-attachment/oa-xxx.pdf） */
+  url: string;
+  /** 文件大小（字节） */
+  size: number;
+  /** MIME 类型 */
+  type: string;
+  /** 是否为图片 */
+  isImage: boolean;
+}
+
+/**
  * oa_approval_actions 表行
  */
 export interface OaActionRow {
@@ -812,6 +841,7 @@ export interface OaActionRow {
   node_order: number | null;
   comment: string | null;
   details: Record<string, unknown> | null;
+  attachments: AttachmentMeta[] | null;
   action_at: Date;
 }
 

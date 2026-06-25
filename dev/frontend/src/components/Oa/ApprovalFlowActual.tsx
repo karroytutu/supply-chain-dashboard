@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Timeline } from 'antd';
-import { SendOutlined, SettingOutlined, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { Timeline, Image } from 'antd';
+import { SendOutlined, SettingOutlined, ClockCircleOutlined, WarningOutlined, PaperClipOutlined, DownloadOutlined } from '@ant-design/icons';
 import UserAvatar from '@/components/UserAvatar';
-import type { ApprovalNode, ApprovalAction, CcUser, ApprovalStatus, ErpMeta } from '@/types/oa';
+import type { ApprovalNode, ApprovalAction, AttachmentMeta, CcUser, ApprovalStatus, ErpMeta } from '@/types/oa';
 import { formatDateTime } from '@/utils/format';
 import { NODE_TYPE_CONFIG, getTimelineColor, NodeHeader } from './flow-types';
 import TimelineApprovalGroup from './TimelineApprovalGroup';
@@ -122,12 +122,78 @@ function getApprovalGroupSubtitle(nodes: ApprovalNode[]): string | undefined {
   return undefined;
 }
 
-/** 从非评论操作中提取审批意见（第一个有 comment 的 approve/reject 操作） */
+/** 从非评论操作中提取审批意见（第一个有 comment 的操作） */
+const APPROVAL_ACTION_TYPES = ['approve', 'reject', 'transfer', 'send_back', 'countersign', 'update'];
 function getApprovalComment(actions: ApprovalAction[]): string | null {
   const approvalAction = actions.find(
-    a => (a.actionType === 'approve' || a.actionType === 'reject' || a.actionType === 'transfer' || a.actionType === 'send_back') && a.comment
+    a => APPROVAL_ACTION_TYPES.includes(a.actionType) && a.comment
   );
   return approvalAction?.comment || null;
+}
+
+/** 从操作记录中提取附件 */
+function getActionAttachments(action: ApprovalAction | undefined): AttachmentMeta[] {
+  return action?.attachments || [];
+}
+
+/** 格式化文件大小 */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+/** 渲染附件列表（图片缩略图 + 文件下载） */
+function ActionAttachments({ attachments }: { attachments: AttachmentMeta[] }) {
+  if (!attachments || attachments.length === 0) return null;
+
+  const images = attachments.filter(a => a.isImage);
+  const files = attachments.filter(a => !a.isImage);
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      {/* 图片缩略图 */}
+      {images.length > 0 && (
+        <Image.PreviewGroup>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {images.map(img => (
+              <Image
+                key={img.url}
+                src={img.url}
+                width={60}
+                height={60}
+                style={{ objectFit: 'cover', borderRadius: 4, border: '1px solid #f0f0f0' }}
+                alt={img.name}
+              />
+            ))}
+          </div>
+        </Image.PreviewGroup>
+      )}
+      {/* 文件列表 */}
+      {files.length > 0 && (
+        <div style={{ marginTop: images.length > 0 ? 8 : 0 }}>
+          {files.map(file => (
+            <div
+              key={file.url}
+              style={{
+                display: 'flex', alignItems: 'center', padding: '4px 0',
+                fontSize: 12, color: '#8c8c8c',
+              }}
+            >
+              <PaperClipOutlined style={{ marginRight: 4 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
+                {file.name}
+              </span>
+              <span style={{ marginLeft: 4 }}>({formatFileSize(file.size)})</span>
+              <a href={file.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 6, color: '#1890ff' }}>
+                <DownloadOutlined />
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** 时限状态徽章组件 */
@@ -252,6 +318,8 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
             )}
           </div>
           <div className={styles.timelineCommentContent}>{action.comment}</div>
+          {/* 评论附件 */}
+          <ActionAttachments attachments={action.attachments || []} />
         </div>
       </Timeline.Item>
     );
@@ -274,6 +342,11 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
 
     // 提取审批意见（非斜体，普通灰色文本）
     const approvalComment = getApprovalComment(otherActions);
+    // 提取审批动作的附件
+    const approvalAction = otherActions.find(
+      a => APPROVAL_ACTION_TYPES.includes(a.actionType) && a.attachments?.length > 0
+    );
+    const approvalAttachments = getActionAttachments(approvalAction);
 
     // auto 节点内容区保持干净（不渲染 ErpStep），其他节点保留操作记录
     const showApprovalGroup = firstNode.nodeType !== 'auto' && otherActions.length > 0;
@@ -295,6 +368,8 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
         {approvalComment && (
           <div className={styles.approvalComment}>{approvalComment}</div>
         )}
+        {/* 审批附言附件 */}
+        <ActionAttachments attachments={approvalAttachments} />
         {/* 非 auto 节点的操作记录（转交、加签等非冗余操作） */}
         {showApprovalGroup && (
           <TimelineApprovalGroup nodes={group} actions={otherActions} />
@@ -329,6 +404,8 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
               )}
             </div>
             <div className={styles.timelineCommentContent}>{action.comment}</div>
+            {/* 评论附件 */}
+            <ActionAttachments attachments={action.attachments || []} />
           </div>
         </Timeline.Item>
       );

@@ -20,6 +20,7 @@ import {
   HandoverExecuteRequest,
   HandoverExecuteResult,
   HandoverHistoryItem,
+  AttachmentMeta,
 } from '@/types/oa';
 
 // =====================================================
@@ -167,7 +168,7 @@ export async function submitApproval(data: SubmitApprovalRequest): Promise<{
  */
 export async function approve(
   instanceId: number,
-  data?: { comment?: string; inputData?: Record<string, unknown> }
+  data?: { comment?: string; inputData?: Record<string, unknown>; attachments?: AttachmentMeta[] }
 ): Promise<{ status?: string } | null> {
   return request<{ status?: string } | null>(
     `/oa/instances/${instanceId}/approve`,
@@ -183,7 +184,7 @@ export async function approve(
  */
 export async function reject(
   instanceId: number,
-  data: { comment: string }
+  data: { comment: string; attachments?: AttachmentMeta[] }
 ): Promise<void> {
   await request<{ success: boolean; message: string }>(
     `/oa/instances/${instanceId}/reject`,
@@ -200,7 +201,7 @@ export async function reject(
  */
 export async function sendBack(
   instanceId: number,
-  data: { targetNodeOrder: number; comment?: string }
+  data: { targetNodeOrder: number; comment?: string; attachments?: AttachmentMeta[] }
 ): Promise<void> {
   await request<{ success: boolean; message: string }>(
     `/oa/instances/${instanceId}/send-back`,
@@ -216,7 +217,7 @@ export async function sendBack(
  */
 export async function transfer(
   instanceId: number,
-  data: { transferToUserId: number; comment?: string }
+  data: { transferToUserId: number; comment?: string; attachments?: AttachmentMeta[] }
 ): Promise<void> {
   await request<{ success: boolean; message: string }>(
     `/oa/instances/${instanceId}/transfer`,
@@ -232,7 +233,7 @@ export async function transfer(
  */
 export async function countersign(
   instanceId: number,
-  data: { countersignType: 'before' | 'after'; countersignUserIds: number[]; comment?: string }
+  data: { countersignType: 'before' | 'after'; countersignUserIds: number[]; comment?: string; attachments?: AttachmentMeta[] }
 ): Promise<void> {
   await request<{ success: boolean; message: string }>(
     `/oa/instances/${instanceId}/countersign`,
@@ -260,7 +261,7 @@ export async function withdraw(instanceId: number): Promise<void> {
  */
 export async function addComment(
   instanceId: number,
-  data: { comment: string }
+  data: { comment: string; attachments?: AttachmentMeta[] }
 ): Promise<void> {
   await request<{ success: boolean; message: string }>(
     `/oa/instances/${instanceId}/comment`,
@@ -487,7 +488,7 @@ export async function getTransferCandidates(): Promise<Array<{ id: number; name:
  */
 export async function updateInstance(
   instanceId: number,
-  data: { formData: Record<string, unknown>; comment?: string }
+  data: { formData: Record<string, unknown>; comment?: string; attachments?: AttachmentMeta[] }
 ): Promise<void> {
   await request<{ success: boolean; message: string }>(
     `/oa/instances/${instanceId}/update`,
@@ -706,16 +707,21 @@ export async function getAdminFormTypes(): Promise<FormTypeDefinition[]> {
   return request<FormTypeDefinition[]>('/oa/admin/form-types');
 }
 
-/** 更新表单基本信息和可发起岗位 */
+/** 更新表单基本信息、可发起岗位/人员、数据权限 */
 export async function updateAdminFormType(
   code: string,
   data: {
     name?: string;
     description?: string;
     icon?: string;
+    category?: string;
     allowedRoles?: string[];
     dataReadRoles?: string[];
     dataExportRoles?: string[];
+    allowedUsers?: number[];
+    dataReadUsers?: number[];
+    dataExportUsers?: number[];
+    version?: number;
   }
 ): Promise<void> {
   return request<void>(`/oa/admin/form-types/${code}`, {
@@ -761,6 +767,12 @@ export async function updateAdminViewPermissions(
 /** 获取系统所有岗位列表 */
 export async function getAdminRoles(): Promise<Array<{ code: string; name: string; description: string }>> {
   return request('/oa/admin/roles');
+}
+
+/** 批量获取用户信息（根据 ID 列表） */
+export async function batchGetUsersByIds(ids: number[]): Promise<Array<{ id: number; name: string }>> {
+  if (ids.length === 0) return [];
+  return request(`/oa/admin/users/batch?ids=${ids.join(',')}`);
 }
 
 // =====================================================

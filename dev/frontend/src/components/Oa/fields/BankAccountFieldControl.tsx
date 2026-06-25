@@ -1,6 +1,6 @@
 /**
  * 银行账户字段统一控件（bank_account_selector）
- * mode=readonly: 展示户名 + 银行 + 掩码账号 + 开户行
+ * mode=readonly: 展示户名 + 银行 + 完整账号 + 开户行
  * mode=editable: 委托 BankAccountSelector 组件
  */
 import React from 'react';
@@ -23,13 +23,10 @@ const BankAccountFieldControl: React.FC<FieldControlProps> = ({ mode, field, val
   // readonly
   const account = value as { accountName: string; accountNumber: string; bankName: string; branchName: string } | null;
   if (!account || !account.accountName) return <Text type="secondary">-</Text>;
-  const maskNum = account.accountNumber && account.accountNumber.length > 10
-    ? account.accountNumber.slice(0, 6) + '****' + account.accountNumber.slice(-4)
-    : account.accountNumber;
   return (
     <div>
       <div style={{ fontWeight: 500 }}>{account.accountName}</div>
-      <div style={{ fontSize: 13, color: '#666' }}>{account.bankName} {maskNum}</div>
+      <div style={{ fontSize: 13, color: '#666' }}>{account.bankName} {account.accountNumber}</div>
       {account.branchName && <div style={{ fontSize: 12, color: '#999' }}>{account.branchName}</div>}
     </div>
   );

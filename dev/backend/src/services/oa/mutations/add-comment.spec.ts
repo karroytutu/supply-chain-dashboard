@@ -63,7 +63,7 @@ describe('addCommentToInstance', () => {
     // 验证 INSERT 被调用
     const insertCall = mockAppQuery.mock.calls[1];
     expect(insertCall[0]).toContain('INSERT INTO oa_approval_actions');
-    expect(insertCall[1]).toEqual([1, 100, '申请人', 1, '申请人评论']);
+    expect(insertCall[1]).toEqual([1, 100, '申请人', 1, '申请人评论', null]);
   });
 
   it('已通过节点审批人评论（非当前审批人）→ INSERT 成功', async () => {
@@ -105,6 +105,6 @@ describe('addCommentToInstance', () => {
 
     const insertCall = mockAppQuery.mock.calls[1];
     expect(insertCall[0]).toContain('INSERT INTO oa_approval_actions');
-    expect(insertCall[1]).toEqual([1, 24, '罗国娜', 4, '事后补充备注']);
+    expect(insertCall[1]).toEqual([1, 24, '罗国娜', 4, '事后补充备注', null]);
   });
 });

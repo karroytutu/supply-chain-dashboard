@@ -5,7 +5,8 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('Routes');
 
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import multer from 'multer';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
 import {
@@ -64,11 +65,29 @@ import {
   updateFieldPermissions,
   updateViewPermissions,
   listRolesForAdmin,
+  batchGetUsers,
 } from '../controllers/oa-form-type-admin.controller';
 import { uploadCreditLicense, getCreditLicenseUrl } from '../middleware/credit-upload';
-import { uploadOaAttachment, getOaAttachmentUrl } from '../middleware/oa-attachment-upload';
+import { uploadOaAttachment, uploadCommentImage, uploadCommentFile, getOaAttachmentUrl } from '../middleware/oa-attachment-upload';
 
 const router = Router();
+
+/** Multer 文件上传错误处理：将 MulterError 转为 JSON 响应 */
+function multerErrorHandler(err: any, _req: Request, res: Response, next: NextFunction) {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ code: 400, message: '文件大小超出限制' });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({ code: 400, message: '文件数量超出限制' });
+    }
+    return res.status(400).json({ code: 400, message: err.message });
+  }
+  if (err) {
+    return res.status(400).json({ code: 400, message: err.message });
+  }
+  next();
+}
 
 // =====================================================
 // 所有路由都需要认证
@@ -436,6 +455,7 @@ router.post(
   '/upload-attachment',
   requirePermission('oa:read'),
   uploadOaAttachment.array('files', 10),
+  multerErrorHandler,
   async (req: Request, res: Response) => {
     try {
       const files = req.files as Express.Multer.File[];
@@ -445,6 +465,70 @@ router.post(
       }
       const urls = files.map(f => getOaAttachmentUrl(f.filename));
       res.json({ code: 200, data: { urls } });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ code: 500, message: error instanceof Error ? error.message : '上传失败' });
+    }
+  }
+);
+
+// =====================================================
+// 评论/附言图片上传（最多9张，每张≤5MB）
+// =====================================================
+
+router.post(
+  '/upload-comment-image',
+  requirePermission('oa:read'),
+  uploadCommentImage.array('images', 9),
+  multerErrorHandler,
+  async (req: Request, res: Response) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        res.status(400).json({ code: 400, message: '请上传图片' });
+        return;
+      }
+      const urls = files.map(f => ({
+        name: f.originalname,
+        url: getOaAttachmentUrl(f.filename),
+        size: f.size,
+        type: f.mimetype,
+        isImage: true,
+      }));
+      res.json({ code: 200, data: { attachments: urls } });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ code: 500, message: error instanceof Error ? error.message : '上传失败' });
+    }
+  }
+);
+
+// =====================================================
+// 评论/附言文件上传（最多9个，每个≤200MB）
+// =====================================================
+
+router.post(
+  '/upload-comment-file',
+  requirePermission('oa:read'),
+  uploadCommentFile.array('files', 9),
+  multerErrorHandler,
+  async (req: Request, res: Response) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        res.status(400).json({ code: 400, message: '请上传文件' });
+        return;
+      }
+      const urls = files.map(f => ({
+        name: f.originalname,
+        url: getOaAttachmentUrl(f.filename),
+        size: f.size,
+        type: f.mimetype,
+        isImage: false,
+      }));
+      res.json({ code: 200, data: { attachments: urls } });
     } catch (error) {
       res
         .status(500)
@@ -661,6 +745,9 @@ router.patch('/admin/form-types/:code/field-permissions', requirePermission('oa:
 
 // 更新表单查看权限配置（管理员配置非办理人查看详情的字段可见性）
 router.patch('/admin/form-types/:code/view-permissions', requirePermission('oa:form:manage'), updateViewPermissions);
+
+// 批量获取用户信息（根据 ID 列表，用于表单管理页显示用户姓名）
+router.get('/admin/users/batch', requirePermission('oa:form:manage'), batchGetUsers);
 
 // 获取系统所有岗位列表（供配置审批人时使用）
 router.get('/admin/roles', requirePermission('oa:form:manage'), listRolesForAdmin);

@@ -17,6 +17,8 @@ interface UploadFieldRendererProps {
   maxCount?: number;
   disabled?: boolean;
   beforeUpload?: (file: any) => any;
+  /** 允许的文件格式，覆盖默认值 */
+  accept?: string;
 }
 
 /** 判断文件是否为图片 */
@@ -81,6 +83,7 @@ const UploadFieldRenderer: React.FC<UploadFieldRendererProps> = ({
   maxCount,
   disabled,
   beforeUpload,
+  accept,
 }) => {
   const fileList: UploadFile[] = (Array.isArray(value) ? value : []) as UploadFile[];
 
@@ -125,7 +128,7 @@ const UploadFieldRenderer: React.FC<UploadFieldRendererProps> = ({
       <Upload
         multiple
         maxCount={maxCount}
-        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+        accept={accept || 'image/*,.pdf,.doc,.docx,.xls,.xlsx'}
         beforeUpload={beforeUpload || ((file: any) => {
           if (!validateDocumentFile(file)) return Upload.LIST_IGNORE;
           return true; // 放行上传，让 customRequest 接管立即上传

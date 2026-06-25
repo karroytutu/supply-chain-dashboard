@@ -258,7 +258,7 @@ describe('updateInstance', () => {
     const res = createMockResponse();
     await updateInstance(req, res);
     expect(updateInstanceFormData).toHaveBeenCalledWith(
-      5, 1, 'tester', { field1: 'value1' }, '更新备注'
+      5, 1, 'tester', { field1: 'value1' }, '更新备注', undefined
     );
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ message: '数据已更新' })
