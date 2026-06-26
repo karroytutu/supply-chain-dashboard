@@ -74,6 +74,28 @@ export async function renderStatementPdf(params: RenderParams): Promise<Buffer> 
     const page = await browser.newPage();
     await page.setViewportSize({ width: 1123, height: 794 });
 
+    // 2.5 捕获页面内 JS 错误和日志（诊断渲染失败的关键信息）
+    const pageErrors: string[] = [];
+    const consoleMessages: string[] = [];
+    const failedRequests: string[] = [];
+
+    page.on('pageerror', (err) => {
+      const msg = `[PAGE_ERROR] ${err.message}`;
+      pageErrors.push(msg);
+      log.error(msg);
+    });
+    page.on('console', (msg) => {
+      const text = `[CONSOLE:${msg.type()}] ${msg.text()}`;
+      consoleMessages.push(text);
+      if (msg.type() === 'error') log.error(text);
+    });
+    page.on('requestfailed', (req) => {
+      const failure = req.failure();
+      const msg = `[REQUEST_FAILED] ${req.url()} -> ${failure?.errorText || 'unknown'}`;
+      failedRequests.push(msg);
+      log.warn(msg);
+    });
+
     // 3. 加载包装页面
     const wrapperUrl = `http://127.0.0.1:${port}/?render=true`;
     await page.goto(wrapperUrl, { waitUntil: 'networkidle', timeout: 30000 });
@@ -119,9 +141,23 @@ export async function renderStatementPdf(params: RenderParams): Promise<Buffer> 
     await page.addScriptTag({ content: renderScript });
 
     // 5. 等待渲染完成
-    await page.waitForFunction('window.__renderDone === true', {
-      timeout: 15000,
-    });
+    try {
+      await page.waitForFunction('window.__renderDone === true', {
+        timeout: 15000,
+      });
+    } catch (timeoutErr) {
+      // 超时时输出所有捕获的诊断信息
+      log.error(`[PDF渲染超时] 页面错误: ${pageErrors.length}条, 控制台消息: ${consoleMessages.length}条, 失败请求: ${failedRequests.length}条`);
+      if (pageErrors.length > 0) log.error(`[PDF渲染诊断] 页面错误详情:\n${pageErrors.join('\n')}`);
+      if (consoleMessages.length > 0) log.info(`[PDF渲染诊断] 控制台消息:\n${consoleMessages.join('\n')}`);
+      if (failedRequests.length > 0) log.warn(`[PDF渲染诊断] 失败请求:\n${failedRequests.join('\n')}`);
+
+      // 检查 __renderCallback 是否被注册
+      const callbackExists = await page.evaluate('typeof window.__renderCallback === "function"').catch(() => false);
+      log.error(`[PDF渲染诊断] __renderCallback已注册: ${callbackExists}`);
+
+      throw timeoutErr;
+    }
     log.info('渲染完成');
 
     // 6. 导出 PDF

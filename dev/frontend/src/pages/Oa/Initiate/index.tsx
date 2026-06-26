@@ -106,6 +106,7 @@ const Initiate: React.FC = () => {
               <FormCard
                 key={ft.code}
                 name={ft.name}
+                icon={ft.icon}
                 category={category}
                 onClick={() => handleFormClick(ft)}
               />

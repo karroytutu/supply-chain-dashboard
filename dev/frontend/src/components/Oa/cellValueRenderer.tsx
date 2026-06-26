@@ -6,6 +6,7 @@ import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
 import ErpNameDisplay from './ErpNameDisplay';
 import type { ErpResolvedMap } from './hooks/useErpFieldResolve';
 import { resolveStoredName } from './utils/resolveStoredName';
+import { buildDynamicOptions } from './fields/SelectFieldControl';
 
 const { Text } = Typography;
 
@@ -24,9 +25,24 @@ export function renderCellValue(
       return formatCurrency(cellValue as number);
     case 'number':
       return (cellValue as number).toLocaleString();
+    case 'modal_select': {
+      // 第一优先级：行数据中已存储的名称（nameField）
+      const storedName = resolveStoredName(childField.nameField, rowData);
+      if (storedName) return storedName;
+      // 降级：显示原始值
+      return String(cellValue);
+    }
     case 'select': {
+      // 优先使用静态选项
       const option = childField.options?.find((o) => o.value === cellValue);
-      return option?.label || String(cellValue);
+      if (option) return option.label;
+      // optionsFromField 动态选项（如从 _goodsUnits 数组中提取单位）
+      if (childField.optionsFromField && rowData) {
+        const dynamicOpts = buildDynamicOptions(rowData[childField.optionsFromField]);
+        const dynOpt = dynamicOpts?.find((o) => o.value === cellValue);
+        if (dynOpt) return dynOpt.label;
+      }
+      return String(cellValue);
     }
     case 'erp_customer':
     case 'erp_department':

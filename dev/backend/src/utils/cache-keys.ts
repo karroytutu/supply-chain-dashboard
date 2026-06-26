@@ -45,6 +45,8 @@ export const CACHE_KEY = {
   ERP_CUSTOMER_GROUPS: 'erp:customer:groups' as const,
   /** 客户片区列表 */
   ERP_CUSTOMER_AREAS: 'erp:customer:areas' as const,
+  /** 客户片区树形结构 */
+  ERP_CUSTOMER_AREAS_TREE: 'erp:customer:areas-tree' as const,
   /** 客户欠款总额（按客户ID） */
   ERP_CUSTOMER_DEBT_TOTAL: (customerId: number) => `erp:customer:debt-total:${customerId}` as const,
   /** 客户名称映射 */
@@ -140,6 +142,10 @@ export const CACHE_KEY = {
   ERP_PURCHASE_DAILY_SALE: (hash: string) => `erp:purchase:daily-sale:${hash}` as const,
   /** 供应商列表缓存（按关键词区分） */
   ERP_PURCHASE_SUPPLIERS: (keyword: string) => `erp:purchase:suppliers:${keyword}` as const,
+  /** 供应商全量加载统一缓存（避免逐页缓存碎片） */
+  ERP_PURCHASE_SUPPLIERS_ALL: 'erp:purchase:suppliers:all' as const,
+  /** 商品成本价映射缓存（从库存数据延迟构建） */
+  ERP_PRODUCT_COST_PRICE_MAP: 'erp:product:costPriceMap' as const,
 
   // ==================== OA 表单类型相关 ====================
   /** OA 表单类型列表（全量） */

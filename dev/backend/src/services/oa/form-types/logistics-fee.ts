@@ -103,6 +103,19 @@ const logisticsFeeFormSchema: FormSchema = {
       required: true,
       // 行数据由“选采购结算单”自动填充，禁止手动添加/删除行
       rowLocked: true,
+      // 一键分摊：输入总金额后按比例分摊到每行费用金额，自动反算费用单价
+      allocate: {
+        methods: ['by_amount', 'by_quantity'],
+        targetField: 'feeAmount',          // 分摊结果写入「费用金额」
+        amountWeightField: 'settleAmount', // 按金额：以「结算金额」为权重
+        quantityWeightField: 'quantity',   // 按数量：以「数量」为权重
+        derivedFields: [{                  // 自动反算「费用单价」= 费用金额 ÷ 数量
+          target: 'feeUnitPrice',
+          dividend: 'feeAmount',
+          divisor: 'quantity',
+          precision: 2,
+        }],
+      },
       children: [
         { key: 'billOrderStr', label: '采购单号', type: 'text', required: false, disabled: true },
         { key: 'goodsName', label: '商品名称', type: 'text', required: false, disabled: true },

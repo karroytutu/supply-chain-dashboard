@@ -14,9 +14,18 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Select, Spin } from 'antd';
 import { oaApi } from '@/services/api/oa';
 import type { FormField, FormSchema } from '@/types/oa';
-import { ERP_SEARCH_API_MAP, ERP_LABEL_FIELDS, ERP_VALUE_FIELDS } from '@/constants/oa-erp';
+import { ERP_SEARCH_API_MAP, ERP_LABEL_FIELDS, ERP_VALUE_FIELDS, loadErpConfig } from '@/constants/oa-erp';
 import { getCachedOptions, setCachedOptions, SERVER_KEYWORD_TYPES, MIN_SEARCH_LENGTH, buildCacheKey } from './erpSearchCache';
 import SettlementOrderPicker from './SettlementOrderPicker';
+
+/** 解析点号路径取值，如 'units.0.id' -> obj.units[0].id */
+function resolvePath(obj: Record<string, unknown>, path: string): unknown {
+  if (!path.includes('.')) return obj[path];
+  return path.split('.').reduce<unknown>((acc, key) => {
+    if (acc == null || typeof acc !== 'object') return undefined;
+    return (acc as Record<string, unknown>)[key];
+  }, obj);
+}
 
 /** 客户执照信息（从 ERP 搜索结果提取） */
 export interface CustomerLicenseInfo {
@@ -39,15 +48,20 @@ interface ErpFieldRendererProps {
   onCustomerSelect?: (licenseInfo: CustomerLicenseInfo | null) => void;
   /** 表单 Schema（用于 bank_account_selector cascadeFrom 级联填充） */
   formSchema?: FormSchema;
+  /** 单元格失焦回调（表格列宽动态计算用） */
+  onBlur?: () => void;
 }
 
 const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
-  field, value, onChange, cascadeValue, includeAllStates, form, onCustomerSelect, formSchema,
+  field, value, onChange, cascadeValue, includeAllStates, form, onCustomerSelect, formSchema, onBlur,
 }) => {
   const [options, setOptions] = useState<Array<{ label: string; value: unknown; raw: unknown }>>([]);
   const [loading, setLoading] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   const abortRef = useRef<AbortController | null>(null);
+
+  // 首次渲染时从后端加载最新 ERP 类型配置（新增类型无需前端硬编码）
+  useEffect(() => { loadErpConfig(); }, []);
 
   const erpType = field.searchApi ? ERP_SEARCH_API_MAP[field.searchApi] : null;
 
@@ -161,31 +175,49 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
 
   useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
 
-  /** 选中后处理 autoFill + nameField + 执照信息提取 + 采购明细拉取 */
+  /**
+   * 选中后处理 autoFill + nameField + 执照信息提取 + 采购明细拉取
+   *
+   * 【闭包竞态修复】将选中值、autoFill、nameField 合并为一次 form.setFieldsValue 调用。
+   * 原先分三次调用（onChange → autoFill → nameField），在表格上下文中每次触发
+   * handleRowUpdate 基于旧 props 快照构建新数组，后调用覆盖前调用，导致 goodsId
+   * 和 _goodsUnits 丢失。合并后仅一次 setFieldValue，消除竞态。
+   */
   const handleChange = useCallback(
     (selectedValue: unknown) => {
-      onChange?.(selectedValue);
       const selectedOption = options.find((opt) => opt.value === selectedValue);
+
       if (selectedOption) {
         const raw = selectedOption.raw as Record<string, unknown>;
-        if (field.autoFill && form) {
-          const fillValues: Record<string, unknown> = {};
-          for (const [targetField, sourceField] of Object.entries(field.autoFill)) {
-            const rawVal = raw[sourceField];
-            // 纯数字字符串自动转为 number，确保 money 类型字段精度正确
-            if (typeof rawVal === 'string') {
-              const parsed = parseFloat(rawVal);
-              fillValues[targetField] = !isNaN(parsed) && String(parsed) === rawVal.trim()
-                ? parsed : rawVal;
-            } else {
-              fillValues[targetField] = rawVal;
+
+        if (form) {
+          // 合并选中值 + autoFill + nameField 到一次 setFieldsValue，消除多次同步覆盖的竞态
+          const allValues: Record<string, unknown> = { [field.key]: selectedValue };
+
+          if (field.autoFill) {
+            for (const [targetField, sourceField] of Object.entries(field.autoFill)) {
+              const rawVal = resolvePath(raw, sourceField);
+              // 纯数字字符串自动转为 number，确保 money 类型字段精度正确
+              if (typeof rawVal === 'string') {
+                const parsed = parseFloat(rawVal);
+                allValues[targetField] = !isNaN(parsed) && String(parsed) === rawVal.trim()
+                  ? parsed : rawVal;
+              } else {
+                allValues[targetField] = rawVal;
+              }
             }
           }
-          form.setFieldsValue(fillValues);
+
+          if (field.nameField) {
+            allValues[field.nameField] = selectedOption.label;
+          }
+
+          form.setFieldsValue(allValues);
+        } else {
+          // 无 form 上下文：仅通过 onChange 更新选中值
+          onChange?.(selectedValue);
         }
-        if (field.nameField && form) {
-          form.setFieldsValue({ [field.nameField]: selectedOption.label });
-        }
+
         // 采购订单选中后异步拉取行项明细，填充 purchaseLines 表格
         if (erpType === 'purchase-orders' && form && selectedValue) {
           const billId = Number(selectedValue);
@@ -249,9 +281,9 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
   if (field.type === 'erp_asset_category') {
     return (
       <Select showSearch value={value as number | undefined} onChange={handleChange}
-        onSearch={handleSearch} loading={loading} placeholder={`请选择${field.label}`}
+        onSearch={handleSearch} onBlur={onBlur} loading={loading} placeholder={`请选择${field.label}`}
         filterOption={false} notFoundContent={notFound}
-        style={{ width: '100%' }}
+        style={{ width: '100%' }} dropdownMatchSelectWidth={false}
         options={options.map((opt) => ({ label: opt.label, value: opt.value as number }))}
       />
     );
@@ -262,6 +294,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
       <SettlementOrderPicker
         value={(value as number[]) || []}
         consumerId={cascadeValue as string | number | undefined}
+        extraQueryParams={field.defaultQueryParams}
         onChange={(ids, labels, records) => {
           onChange?.(ids);
           if (field.nameField && form) {
@@ -287,12 +320,12 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
   return (
     <Select showSearch mode={field.multiple ? 'multiple' : undefined}
       value={value as (string | number | (string | number)[]) | undefined}
-      onChange={handleChange} onSearch={handleSearch} loading={loading}
+      onChange={handleChange} onSearch={handleSearch} onBlur={onBlur} loading={loading}
       placeholder={isDisabled ? disabledPlaceholder : `请选择${field.label}`}
       filterOption={SERVER_KEYWORD_TYPES.has(erpType || '') ? false : (input, option) =>
         (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
       } disabled={isDisabled} notFoundContent={notFound}
-      style={{ width: '100%' }}
+      style={{ width: '100%' }} dropdownMatchSelectWidth={false}
       options={options.map((opt) => ({ label: opt.label, value: opt.value as string | number }))}
     />
   );

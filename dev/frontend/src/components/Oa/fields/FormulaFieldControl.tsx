@@ -15,10 +15,22 @@ const FormulaFieldControl: React.FC<FieldControlProps> = ({ field, value }) => {
   }
   const num = Number(value);
   const precision = field.formulaPrecision ?? 2;
+
+  // 有 suffix 时按 suffix 渲染（如利润率 %），不使用 formatCurrency
+  if (field.suffix) {
+    return (
+      <Text strong>
+        {num.toLocaleString('zh-CN', { minimumFractionDigits: precision, maximumFractionDigits: precision })}
+        {field.suffix}
+      </Text>
+    );
+  }
+
+  // 无 suffix：默认按货币渲染
   if (precision === 2) {
     return <Text strong>{formatCurrency(num)}</Text>;
   }
-  return <Text>{num.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}</Text>;
+  return <Text>{num.toLocaleString('zh-CN', { minimumFractionDigits: precision, maximumFractionDigits: precision })}</Text>;
 };
 
 export default FormulaFieldControl;

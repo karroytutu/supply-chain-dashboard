@@ -73,7 +73,33 @@ export type FormFieldType =
   | 'erp_supplier_income' // 搜索选择ERP供应商收入单（级联供应商）
   | 'formula' // 公式计算字段（自动根据表达式求值，不可手动编辑）
   | 'modal_select' // 统一弹窗多选控件（配置驱动，支持远程搜索+固定选项+多条件筛选）
+  | 'tree_select' // 树形弹窗选择器（可展开/折叠的 Tree 控件，支持父子联动勾选）
   | 'bank_account_selector'; // 银行账户历史选择器（弹窗选择，自动填充户名/账号/银行/开户行）
+
+/**
+ * 表格一键分摊配置（table 类型字段的通用能力）
+ *
+ * 业务场景：物流费用申请中，用户输入一笔总费用后，系统按比例自动分摊到每个商品行。
+ * 例如：总金额 100 元，3 行结算金额分别为 300/500/200（合计 1000），
+ *       按金额分摊后每行费用金额 = 30.00 / 50.00 / 20.00 元。
+ */
+export interface AllocateConfig {
+  /** 支持的分摊方式（by_amount=按金额占比, by_quantity=按数量占比） */
+  methods: Array<'by_amount' | 'by_quantity'>;
+  /** 分摊结果写入哪个子字段 key（如 'feeAmount'） */
+  targetField: string;
+  /** 按金额分摊时，读取哪个子字段作为权重（如 'settleAmount'） */
+  amountWeightField?: string;
+  /** 按数量分摊时，读取哪个子字段作为权重（如 'quantity'） */
+  quantityWeightField?: string;
+  /** 分摊后需要反算的派生字段（如 费用单价 = 费用金额 ÷ 数量） */
+  derivedFields?: Array<{
+    target: string;     // 写入的子字段 key（如 'feeUnitPrice'）
+    dividend: string;   // 被除数字段 key（如 'feeAmount'）
+    divisor: string;    // 除数字段 key（如 'quantity'）
+    precision: number;  // 小数位数
+  }>;
+}
 
 /**
  * 表单字段定义
@@ -95,6 +121,8 @@ export interface FormField {
   disabled?: boolean;
   /** table 类型专用：行锁定（禁止添加/删除行），适用于行数据由外部逻辑填充的场景 */
   rowLocked?: boolean;
+  /** table 类型专用：一键分摊配置，启用后表格上方显示分摊操作区（标准金额输入 + 方式下拉，选好自动触发） */
+  allocate?: AllocateConfig;
   /** 业务标识，表单内唯一 */
   bizAlias?: string;
   /** 是否参与打印，默认true */
@@ -103,6 +131,8 @@ export interface FormField {
   // 类型特定属性
   /** select 类型选项 */
   options?: Array<{ value: string | number; label: string; key?: string }>;
+  /** select 类型：从另一个字段的值动态生成选项（如从 modal_select 带入的 _goodsUnits 中提取单位列表） */
+  optionsFromField?: string;
   /** number 类型单位 */
   unit?: string;
   /** number 类型最小值 */
@@ -158,13 +188,16 @@ export interface FormField {
     | 'erp_supplier_incomes'
     | 'erp_purchase_orders'
     | 'erp_supplier_debts'
-    | 'purchase_settlements';
+    | 'purchase_settlements'
+    | 'promotion_goods';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
   cascadeFrom?: string;
   /** modal_select: 级联参数映射 { API参数名: 表单字段名 } */
   cascadeParams?: Record<string, string>;
+  /** modal_select: 静态查询参数（固定过滤条件，与 cascadeParams 的动态参数互补） */
+  defaultQueryParams?: Record<string, string | number | boolean>;
   /** modal_select: 值字段（选中后存储的 ID/key） */
   valueKey?: string;
   /** modal_select: 显示字段（Tag/小表格主列） */
@@ -181,6 +214,8 @@ export interface FormField {
   scopeFromField?: string;
   /** modal_select: 搜索框提示文字 */
   searchPlaceholder?: string;
+  /** tree_select: 树形数据 API 标识 */
+  treeSearchApi?: string;
   /** ERP字段选中后，将显示名称存入 formData 的哪个 key（如 'customerName'） */
   nameField?: string;
   /** asset_search 显示哪些子字段 */
@@ -193,6 +228,12 @@ export interface FormField {
   formulaPrecision?: number;
   /** 是否在表单中隐藏（值仍存储在 formData 中，供 autoFill 等机制使用） */
   hidden?: boolean;
+  /** table 类型专用：列分组标识，相同值的列归入同一分组表头（Ant Design 嵌套列） */
+  columnGroup?: string;
+  /** table 类型专用：分组表头提示文字，显示在分组标题末尾（如"选填"） */
+  columnGroupTip?: string;
+  /** table 类型专用：自动同步值，从同行另一个字段复制值（源字段变更时实时同步） */
+  syncFrom?: string;
 }
 
 /** modal_select 弹窗表格列定义 */

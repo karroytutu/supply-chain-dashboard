@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, Row, Col, Statistic, Dropdown, Menu, Button, Badge } from 'antd';
-import { DownloadOutlined, BarChartOutlined, FileExcelOutlined, FilePdfOutlined, PrinterOutlined } from '@ant-design/icons';
+import { Card, Dropdown, Menu, Button } from 'antd';
+import { DownloadOutlined, FileExcelOutlined, FilePdfOutlined, PrinterOutlined } from '@ant-design/icons';
 import { useDataList } from './hooks/useDataList';
 import DataFilterBar from './components/DataFilterBar';
 import DataTable from './components/DataTable';
@@ -11,7 +11,7 @@ const DataPage: React.FC = () => {
     formTypeCode, status, dateRange, searchText, applicantName,
     setFormTypeCode, setStatus, setDateRange, setSearchText, setApplicantName,
     loading, dataSource, formTypes, pagination, setPagination,
-    stats, handleReset, handleExport,
+    handleReset, handleExport,
   } = useDataList();
 
   // 导出菜单
@@ -31,22 +31,6 @@ const DataPage: React.FC = () => {
 
   return (
     <div className={styles.dataPage}>
-      {/* 统计卡片 */}
-      <Row gutter={16} className={styles.statsRow}>
-        <Col span={6}>
-          <Card><Statistic title="审批总数" value={stats.total} prefix={<BarChartOutlined />} /></Card>
-        </Col>
-        <Col span={6}>
-          <Card><Statistic title="处理中" value={stats.pending} valueStyle={{ color: '#1890ff' }} prefix={<Badge status="processing" />} /></Card>
-        </Col>
-        <Col span={6}>
-          <Card><Statistic title="已通过" value={stats.approved} valueStyle={{ color: '#52c41a' }} prefix={<Badge status="success" />} /></Card>
-        </Col>
-        <Col span={6}>
-          <Card><Statistic title="已拒绝" value={stats.rejected} valueStyle={{ color: '#ff4d4f' }} prefix={<Badge status="error" />} /></Card>
-        </Col>
-      </Row>
-
       {/* 主内容区 */}
       <Card className={styles.mainCard}>
         <DataFilterBar

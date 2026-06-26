@@ -11,7 +11,7 @@ import type { FieldPermission } from '@/types/oa';
 
 const { Text } = Typography;
 
-const TableFieldControl: React.FC<FieldControlProps> = ({ mode, field, value, onChange, resolvedMap, fieldPermissions }) => {
+const TableFieldControl: React.FC<FieldControlProps> = ({ mode, field, value, onChange, resolvedMap, fieldPermissions, formData }) => {
   const rows = (value as Record<string, unknown>[]) || [];
 
   // 从全局权限配置中提取当前表格的子字段权限（如 feeLines.feeUnitPrice -> feeUnitPrice）
@@ -35,6 +35,7 @@ const TableFieldControl: React.FC<FieldControlProps> = ({ mode, field, value, on
       readonly={mode === 'readonly'}
       resolvedMap={resolvedMap}
       subFieldPermissions={subFieldPermissions}
+      formData={formData}
     />
   );
 };

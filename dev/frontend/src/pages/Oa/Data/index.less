@@ -5,31 +5,6 @@
   background: #f0f2f5;
   min-height: calc(100vh - 64px);
 
-  .statsRow {
-    margin-bottom: 24px;
-
-    :global {
-      .ant-card {
-        border-radius: 4px;
-
-        .ant-card-body {
-          padding: 20px 24px;
-        }
-
-        .ant-statistic-title {
-          font-size: 14px;
-          color: #666;
-          margin-bottom: 8px;
-        }
-
-        .ant-statistic-content {
-          font-size: 28px;
-          font-weight: 600;
-        }
-      }
-    }
-  }
-
   .mainCard {
     border-radius: 4px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -96,38 +71,123 @@
   }
 }
 
+// ── 表格 / 卡片流切换容器 ──
+.tableWrapper {
+  display: block;
+}
+
+.cardListWrapper {
+  display: none;
+}
+
+// ── 卡片流样式 ──
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardListLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  padding: 14px;
+  border-left: 3px solid #d9d9d9;
+
+  &[data-status='pending'] {
+    border-left-color: #1890ff;
+  }
+
+  &[data-status='approved'] {
+    border-left-color: #52c41a;
+  }
+
+  &[data-status='rejected'] {
+    border-left-color: #ff4d4f;
+  }
+
+  &[data-status='withdrawn'],
+  &[data-status='cancelled'] {
+    border-left-color: #d9d9d9;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.cardNo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ant-primary-color);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.cardBody {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
+.cardField {
+  min-width: 0;
+}
+
+.cardFieldLabel {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 2px;
+}
+
+.cardFieldValue {
+  font-size: 13px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardFooter {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cardPagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
 // ── 平板/小屏 (≤768px) ──
 @media (max-width: @screen-md) {
   .dataPage {
     padding: 12px;
   }
 
-  .statsRow {
-    margin-bottom: 16px;
-
-    :global {
-      .ant-col {
-        margin-bottom: 8px;
-      }
-
-      .ant-statistic-content {
-        font-size: 22px !important;
-      }
-    }
+  // 手机端：隐藏表格，显示卡片流
+  .tableWrapper {
+    display: none;
   }
 
-  .filterSection {
-    :global {
-      .ant-row {
-        flex-direction: column;
-        gap: 8px;
-
-        .ant-col {
-          max-width: 100% !important;
-          flex: 0 0 100% !important;
-        }
-      }
-    }
+  .cardListWrapper {
+    display: block;
   }
 
   .toolbar {
@@ -165,9 +225,5 @@
 
   .mainCard :global(.ant-card-body) {
     padding: 8px;
-  }
-
-  .statsRow :global(.ant-statistic-content) {
-    font-size: 20px !important;
   }
 }

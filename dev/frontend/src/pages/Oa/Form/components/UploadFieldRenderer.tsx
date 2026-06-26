@@ -119,7 +119,15 @@ const UploadFieldRenderer: React.FC<UploadFieldRendererProps> = ({
       setPreviewVisible(true);
     } else {
       const url = getFileUrl(file);
-      if (url) window.open(url, '_blank');
+      if (url) {
+        // 非图片文件强制下载（同源 URL 使用 <a download> 触发浏览器下载而非预览）
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name || 'download';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     }
   }, [imageUrls]);
 

@@ -21,6 +21,7 @@ export const SERVER_KEYWORD_TYPES = new Set([
   'assets', 'customers', 'settlement-orders',
   'suppliers', 'staff', 'purchase-orders',
   'prepayments', 'supplier-incomes',
+  'promotion-goods',  // 促销表单商品搜索（组合搭赠/满赠/限时特价）
 ]);
 
 /** 最小搜索关键词长度（仅适用于服务端关键词类型） */
@@ -49,6 +50,8 @@ export function buildCacheKey(
 
 /** 写入缓存（自动 LRU 淘汰） */
 export function setCachedOptions(cacheKey: string, data: Array<{ label: string; value: unknown; raw: unknown }>) {
+  // 不缓存空结果，避免 ERP 暂时不可用时空数据被缓存 5 分钟
+  if (data.length === 0) return;
   if (erpSearchCache.size >= ERP_SEARCH_CACHE_MAX) {
     const firstKey = erpSearchCache.keys().next().value;
     if (firstKey !== undefined) erpSearchCache.delete(firstKey);

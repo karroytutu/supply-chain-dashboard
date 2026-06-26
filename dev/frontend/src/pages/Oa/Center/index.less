@@ -54,10 +54,6 @@
   }
 }
 
-.iconWrapper {
-  display: contents;
-}
-
 .navIcon {
   font-size: 14px;
   color: #666;
@@ -227,32 +223,7 @@
   padding: 20px 20px 0; // 底部留白移至 .content 的 padding-bottom
 }
 
-// 详情头部信息
-.detailHeader {
-  margin-bottom: 16px;
-}
-
-.detailTitle {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  margin: 0 0 8px 0;
-}
-
-.detailMeta {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 8px;
-
-  span {
-    margin-right: 16px;
-  }
-}
-
-.detailStatus {
-  display: flex;
-  gap: 8px;
-}
+// 详情头部样式已由共享组件 ApprovalDetailContent.less 提供
 
 // 表单数据
 .formDataSection {
@@ -325,14 +296,6 @@
     gap: 2px;
   }
 
-  // iconWrapper 从 display:contents 切换为实体容器，便于 Badge 绝对定位
-  .iconWrapper {
-    display: inline-flex;
-    position: relative;
-    align-items: center;
-    justify-content: center;
-  }
-
   .navIcon {
     margin-right: 0;
     font-size: 16px;
@@ -344,14 +307,6 @@
 
   .navShortLabel {
     display: block;          // 显示缩写标签
-  }
-
-  // Badge 定位到图标右上角
-  :global(.ant-badge) {
-    position: absolute !important;
-    top: -4px;
-    right: -6px;
-    transform: none !important;
   }
 }
 
@@ -391,23 +346,6 @@
       border-bottom: 3px solid transparent;
       flex: 1;
       min-width: 0;
-    }
-
-    // 移动端 iconWrapper 保持为实体定位容器，承载 Badge 绝对定位
-    .iconWrapper {
-      display: inline-flex;
-      position: relative;
-      align-items: center;
-      justify-content: center;
-    }
-
-    // 覆盖平板断点的 Badge 绝对定位规则（第350-355行），恢复 Ant Design 默认内联定位
-    :global(.ant-badge) {
-      position: relative !important;
-      top: auto !important;
-      right: auto !important;
-      transform: none !important;
-      vertical-align: middle;
     }
 
     // 隐藏缩写，恢复完整标签
@@ -469,10 +407,6 @@
 
   .detailScroll {
     padding: 12px 12px 0; // 底部留白移至 .content
-  }
-
-  .detailTitle {
-    font-size: 16px;
   }
 
   // 表单数据：纵向堆叠
@@ -555,11 +489,5 @@
     .navLabel {
       font-size: 9px;
     }
-  }
-
-  .detailMeta span {
-    display: block;
-    margin-right: 0;
-    margin-bottom: 2px;
   }
 }

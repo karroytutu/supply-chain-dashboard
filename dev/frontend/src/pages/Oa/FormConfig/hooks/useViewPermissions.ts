@@ -9,16 +9,23 @@
  * - 权限循环仅 2 态：readonly → hidden（无 editable）
  * - 保存 API 为 updateAdminViewPermissions
  */
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { message } from 'antd';
 import { updateAdminViewPermissions } from '@/services/api/oa';
-import type { ViewPermission, ViewPermissionsOverride } from '@/types/oa';
+import type { FormField, ViewPermission, ViewPermissionsOverride } from '@/types/oa';
 
 /** 查看权限状态循环：readonly → hidden（仅 2 态，无 editable） */
 const VIEW_PERMISSION_CYCLE: ViewPermission[] = ['readonly', 'hidden'];
 
+/**
+ * 查看权限配置 Hook
+ * @param code 表单类型编码
+ * @param fields formSchema 字段列表，用于自动补全 DB 中缺失的新增字段权限
+ * @param initialPermissions DB 中的初始查看权限配置
+ */
 export function useViewPermissions(
   code: string,
+  fields: FormField[],
   initialPermissions?: ViewPermissionsOverride
 ) {
   const [permissions, setPermissions] = useState<ViewPermissionsOverride>(
@@ -26,6 +33,54 @@ export function useViewPermissions(
   );
   const [saving, setSaving] = useState(false);
   const dirtyRef = useRef(false);
+  const initializedRef = useRef(false);
+
+  /**
+   * 自动补全：DB 中的 view_permissions 可能缺少后来新增到 formSchema 的字段。
+   * 首次加载时，为缺失字段自动补充 hidden 权限，确保保存时不会因缺字段而被 fail-fast 拦截。
+   */
+  useEffect(() => {
+    if (initializedRef.current || !fields.length) return;
+    initializedRef.current = true;
+
+    const businessFields = fields
+      .filter(f => !f.key.startsWith('_') && !f.hidden && f.type !== 'formula')
+      .map(f => f.key);
+
+    setPermissions(prev => {
+      let changed = false;
+      const next: ViewPermissionsOverride = {
+        ...prev,
+        nodes: { ...prev.nodes },
+      };
+
+      for (const [nodeOrder, nodePerms] of Object.entries(next.nodes)) {
+        for (const fieldKey of businessFields) {
+          if (!(fieldKey in nodePerms)) {
+            next.nodes[nodeOrder] = { ...next.nodes[nodeOrder], [fieldKey]: 'hidden' as ViewPermission };
+            changed = true;
+          }
+        }
+      }
+
+      if (next.dataRead) {
+        next.dataRead = { ...next.dataRead };
+        for (const fieldKey of businessFields) {
+          if (!(fieldKey in next.dataRead)) {
+            next.dataRead[fieldKey] = 'hidden' as ViewPermission;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) {
+        dirtyRef.current = true;
+        return next;
+      }
+      return prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fields]);
 
   /** 切换某个字段在某个环节的查看权限状态（nodeOrder 为 "dataRead" 时操作 dataRead 节） */
   const togglePermission = useCallback((

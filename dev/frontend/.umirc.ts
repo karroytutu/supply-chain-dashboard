@@ -168,8 +168,14 @@ export default defineConfig({
         {
           path: 'analysis',
           component: '@/pages/SalesAnalysis',
-          name: '首页总览',
+          name: '销售分析看板',
           access: PERMISSIONS.SALES.ANALYSIS.READ,
+        },
+        {
+          path: 'targets',
+          component: '@/pages/TargetManagement',
+          name: '目标管理',
+          access: PERMISSIONS.SALES.TARGET.READ,
         },
       ],
     },

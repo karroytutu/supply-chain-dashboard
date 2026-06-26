@@ -42,6 +42,8 @@ export interface InstanceListItem {
   applicantDept: string | null;
   currentNodeOrder: number;
   currentNodeName: string | null;
+  /** 当前处理人姓名（取当前节点第一个审批人） */
+  currentApproverName: string | null;
   /** 当前节点截止时间（仅 pending 状态有值） */
   currentNodeDeadlineAt: Date | null;
   submittedAt: Date;
@@ -78,6 +80,7 @@ export function formatInstanceListItem(
     applicantDept: row.applicant_dept as string | null,
     currentNodeOrder: row.current_node_order as number,
     currentNodeName: row.current_node_name as string | null,
+    currentApproverName: row.current_approver_name as string | null,
     currentNodeDeadlineAt: row.current_node_deadline_at || null,
     submittedAt: row.submitted_at as Date,
     completedAt: row.completed_at as Date | null,

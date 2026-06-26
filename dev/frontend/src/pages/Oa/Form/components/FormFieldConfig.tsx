@@ -1,5 +1,6 @@
 import React from 'react';
 import { Input, InputNumber, Select, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import type { FormField, FormSchema } from '@/types/oa';
 import { numberToChineseUpper } from '@/utils/number';
@@ -10,6 +11,7 @@ import PhotoFieldRenderer from './PhotoFieldRenderer';
 import SignatureFieldControl from '@/components/Oa/fields/SignatureFieldControl';
 import UploadFieldRenderer from './UploadFieldRenderer';
 import ModalSelectControl from '@/components/Oa/fields/ModalSelectControl';
+import TreeSelectModalControl from '@/components/Oa/fields/TreeSelectModalControl';
 import BankAccountSelector, { type BankAccountValue } from '@/components/Oa/BankAccountSelector';
 import styles from '../index.less';
 
@@ -53,6 +55,20 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
   if (type === 'modal_select') {
     return (
       <ModalSelectControl
+        mode="editable"
+        field={field}
+        value={value}
+        onChange={onChange}
+        formData={formData}
+        fakeForm={form}
+      />
+    );
+  }
+
+  // 树形弹窗选择器
+  if (type === 'tree_select') {
+    return (
+      <TreeSelectModalControl
         mode="editable"
         field={field}
         value={value}
@@ -184,10 +200,29 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
       );
 
     case 'date':
-      return <DatePicker value={value as Dayjs | undefined} onChange={onChange as ((value: Dayjs | null) => void) | undefined} style={{ width: '100%' }} placeholder={placeholder || '请选择日期'} disabled={field.disabled} />;
+      return (
+        <DatePicker
+          value={value ? dayjs(value as string) : undefined}
+          onChange={(_, dateString) => onChange?.(dateString as string)}
+          style={{ width: '100%' }}
+          placeholder={placeholder || '请选择日期'}
+          disabled={field.disabled}
+        />
+      );
 
-    case 'date-range':
-      return <DatePicker.RangePicker value={value as [Dayjs, Dayjs] | undefined} onChange={onChange as ((value: [Dayjs | null, Dayjs | null] | null) => void) | undefined} style={{ width: '100%' }} disabled={field.disabled} />;
+    case 'date-range': {
+      const rangeValue = Array.isArray(value) && value.length >= 2
+        ? [dayjs(value[0] as string), dayjs(value[1] as string)] as [dayjs.Dayjs, dayjs.Dayjs]
+        : undefined;
+      return (
+        <DatePicker.RangePicker
+          value={rangeValue}
+          onChange={(_, dateStrings) => onChange?.(dateStrings as unknown)}
+          style={{ width: '100%' }}
+          disabled={field.disabled}
+        />
+      );
+    }
 
     case 'upload':
       return (
@@ -214,7 +249,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
       );
 
     case 'table':
-      return <TableFieldRenderer field={field} value={value as Record<string, unknown>[] | undefined} onChange={onChange as ((value: Record<string, unknown>[]) => void) | undefined} />;
+      return <TableFieldRenderer field={field} value={value as Record<string, unknown>[] | undefined} onChange={onChange as ((value: Record<string, unknown>[]) => void) | undefined} formData={formData} />;
 
     case 'signature':
       return (

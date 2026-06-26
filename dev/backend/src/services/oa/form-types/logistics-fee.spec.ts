@@ -111,6 +111,21 @@ describe('logisticsFeeFormType', () => {
     expect(settlementBillStr!.hidden).toBe(true);
   });
 
+  it('费用明细表格启用了一键分摊配置', () => {
+    const feeLines = logisticsFeeFormType.formSchema.fields.find(f => f.key === 'feeLines');
+    expect(feeLines!.allocate).toBeDefined();
+    const allocate = feeLines!.allocate!;
+    expect(allocate.methods).toEqual(['by_amount', 'by_quantity']);
+    expect(allocate.targetField).toBe('feeAmount');
+    expect(allocate.amountWeightField).toBe('settleAmount');
+    expect(allocate.quantityWeightField).toBe('quantity');
+    expect(allocate.derivedFields).toHaveLength(1);
+    expect(allocate.derivedFields![0].target).toBe('feeUnitPrice');
+    expect(allocate.derivedFields![0].dividend).toBe('feeAmount');
+    expect(allocate.derivedFields![0].divisor).toBe('quantity');
+    expect(allocate.derivedFields![0].precision).toBe(2);
+  });
+
   it('internalFields 存在且不参与权限配置', () => {
     const internalFields = logisticsFeeFormType.formSchema.internalFields;
     expect(internalFields).toBeDefined();

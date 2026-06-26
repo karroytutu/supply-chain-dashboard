@@ -66,7 +66,7 @@ const InlineEditCell: React.FC<InlineEditCellProps> = ({
     if (disabled || saving) return;
     setEditing(true);
     if (editType === 'text') {
-      setTextValue(editInitialValue ?? (typeof value === 'string' ? value : ''));
+      setTextValue(editInitialValue != null ? String(editInitialValue) : (typeof value === 'string' ? value : ''));
     } else if (editType === 'select') {
       setSelectValue(editInitialValue);
     } else if (editType === 'multi-select') {

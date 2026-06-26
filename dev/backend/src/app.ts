@@ -138,7 +138,16 @@ app.use(express.json());
 app.use(requestLogger);
 
 // 静态文件服务（上传文件访问）
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// 对 PDF/文档类文件设置 Content-Disposition: attachment，强制浏览器下载而非预览
+// 可通过 ?inline=1 查询参数绕过强制下载，允许浏览器内联预览（如审批附件预览场景）
+app.use('/uploads', (req, res, next) => {
+  const ext = path.extname(req.path).toLowerCase();
+  const allowInline = req.query.inline === '1';
+  if (['.pdf', '.doc', '.docx', '.xls', '.xlsx'].includes(ext) && !allowInline) {
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(path.basename(req.path))}"`);
+  }
+  express.static(path.join(__dirname, '../uploads'))(req, res, next);
+});
 
 // 路由
 app.use('/api', routes);

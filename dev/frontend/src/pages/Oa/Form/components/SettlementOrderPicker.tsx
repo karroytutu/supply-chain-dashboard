@@ -28,6 +28,8 @@ interface SettlementOrderPickerProps {
   value?: number[];
   onChange?: (value: number[], labels?: string[], records?: SettlementRecord[]) => void;
   consumerId?: string | number;
+  /** 额外查询参数（从表单 schema 的 defaultQueryParams 透传） */
+  extraQueryParams?: Record<string, string | number | boolean>;
   disabled: boolean;
   cachedOptions?: Array<{ label: string; value: unknown; raw: unknown }>;
 }
@@ -59,7 +61,7 @@ export const TABLE_COLUMNS: ColumnType<SettlementRecord>[] = [
 export const PAGE_SIZE = 20;
 
 const SettlementOrderPicker: React.FC<SettlementOrderPickerProps> = ({
-  value = [], onChange, consumerId, disabled, cachedOptions = [],
+  value = [], onChange, consumerId, extraQueryParams, disabled, cachedOptions = [],
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -148,6 +150,7 @@ const SettlementOrderPicker: React.FC<SettlementOrderPickerProps> = ({
       <SettlementOrderPickerModal
         open={modalOpen}
         consumerId={consumerId}
+        extraQueryParams={extraQueryParams}
         initialKeys={value}
         selectedMap={selectedMap}
         onSelectedMapUpdate={handleSelectedMapUpdate}

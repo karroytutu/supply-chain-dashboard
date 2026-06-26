@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { Modal, Input, Select, Segmented, Upload, message } from 'antd';
-import { PlusOutlined, PaperClipOutlined, DeleteOutlined, InboxOutlined } from '@ant-design/icons';
+import { Modal, Input, Select, Segmented, Upload, Button, Image, message } from 'antd';
+import { PictureOutlined, UploadOutlined, PaperClipOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { AttachmentMeta } from '@/types/oa';
 import type { SendBackTarget } from './hooks/useApprovalActions';
 import { requestFormData } from '@/services/api/request';
 
 const { TextArea } = Input;
-const { Dragger } = Upload;
 
 interface TransferUser {
   id: number;
@@ -268,78 +267,109 @@ const ActionModal: React.FC<ActionModalProps> = ({
           />
         </div>
 
-        {/* 图片上传区域 */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', marginBottom: 8, fontWeight: 500, color: '#595959', fontSize: 13 }}>
-            图片（最多9张，每张≤5MB）
-          </label>
-          <Upload
-            listType="picture-card"
-            fileList={imageFileList}
-            onChange={({ fileList: newList }) => setImageFileList(newList)}
-            customRequest={handleImageUpload}
-            beforeUpload={beforeImageUpload}
-            onRemove={handleImageRemove}
-            maxCount={9}
-            accept="image/jpeg,image/png,image/gif,image/webp"
-          >
-            {imageFileList.length >= 9 ? null : (
-              <div>
-                <PlusOutlined />
-                <div style={{ marginTop: 8, fontSize: 12 }}>上传图片</div>
-              </div>
-            )}
-          </Upload>
-        </div>
-
-        {/* 文件上传区域 */}
+        {/* 附件区域：图片上传 + 文件上传按钮并排，已上传内容纵向排列 */}
         <div style={{ marginBottom: 0 }}>
-          <label style={{ display: 'block', marginBottom: 8, fontWeight: 500, color: '#595959', fontSize: 13 }}>
-            附件（最多9个，每个≤200MB）
+          <label style={{ display: 'block', marginBottom: 10, fontWeight: 500, color: '#595959', fontSize: 13 }}>
+            附件
           </label>
-          {/* 已上传文件列表 */}
-          {fileAttachments.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              {fileAttachments.map((att, idx) => (
-                <div
-                  key={att.url}
-                  style={{
-                    display: 'flex', alignItems: 'center', padding: '6px 8px',
-                    background: '#fafafa', borderRadius: 4, marginBottom: 4,
-                    fontSize: 12, color: '#595959',
-                  }}
-                >
-                  <PaperClipOutlined style={{ marginRight: 6, color: '#8c8c8c' }} />
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {att.name}
-                  </span>
-                  <span style={{ marginLeft: 8, color: '#8c8c8c' }}>{formatFileSize(att.size)}</span>
-                  <DeleteOutlined
-                    style={{ marginLeft: 8, color: '#ff4d4f', cursor: 'pointer' }}
-                    onClick={() => {
-                      onAttachmentsChange?.(attachments.filter(a => a.url !== att.url));
-                      setFileList(prev => prev.filter(f => f.response?.url !== att.url));
-                    }}
-                  />
+
+          {/* 按钮行：上传图片 + 上传附件并排 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: imageAttachments.length > 0 || fileAttachments.length > 0 ? 12 : 0 }}>
+            <Upload
+              fileList={imageFileList}
+              onChange={({ fileList: newList }) => setImageFileList(newList)}
+              customRequest={handleImageUpload}
+              beforeUpload={beforeImageUpload}
+              onRemove={handleImageRemove}
+              maxCount={9}
+              showUploadList={false}
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
+            >
+              <Button size="small" icon={<PictureOutlined />} disabled={imageFileList.length >= 9}>上传图片</Button>
+            </Upload>
+            <Upload
+              fileList={fileList}
+              onChange={({ fileList: newList }) => setFileList(newList.filter(f => f.status === 'uploading' || f.status === 'done'))}
+              customRequest={handleFileUpload}
+              beforeUpload={beforeFileUpload}
+              onRemove={handleFileRemove}
+              maxCount={9}
+              showUploadList={false}
+              multiple
+            >
+              <Button size="small" icon={<UploadOutlined />} disabled={fileList.length >= 9}>上传附件</Button>
+            </Upload>
+            <span style={{ fontSize: 11, color: '#999' }}>图片≤5MB，附件≤200MB</span>
+          </div>
+
+          {/* 已上传内容 */}
+          {(imageAttachments.length > 0 || fileAttachments.length > 0) && (
+            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 10 }}>
+              {/* 图片缩略图 56x56 横排 */}
+              {imageAttachments.length > 0 && (
+                <div style={{ marginBottom: fileAttachments.length > 0 ? 10 : 0 }}>
+                  <div style={{ fontSize: 11, color: '#999', marginBottom: 6 }}>已上传图片</div>
+                  <Image.PreviewGroup>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {imageAttachments.map((img) => (
+                        <div key={img.url} style={{ position: 'relative', width: 56, height: 56 }}>
+                          <Image
+                            src={img.url}
+                            width={56}
+                            height={56}
+                            style={{ objectFit: 'cover', borderRadius: 4, border: '1px solid #f0f0f0' }}
+                            alt={img.name}
+                          />
+                          <div
+                            onClick={() => {
+                              onAttachmentsChange?.(attachments.filter(a => a.url !== img.url));
+                              setImageFileList(prev => prev.filter(f => f.response?.url !== img.url));
+                            }}
+                            style={{
+                              position: 'absolute', top: 2, right: 2, width: 16, height: 16,
+                              borderRadius: '50%', background: 'rgba(0,0,0,0.45)', color: '#fff',
+                              fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', lineHeight: 1,
+                            }}
+                          >×</div>
+                        </div>
+                      ))}
+                    </div>
+                  </Image.PreviewGroup>
                 </div>
-              ))}
+              )}
+              {/* 文件列表纵排 */}
+              {fileAttachments.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, color: '#999', marginBottom: 6 }}>已上传附件</div>
+                  {fileAttachments.map((att) => (
+                    <div
+                      key={att.url}
+                      style={{
+                        display: 'flex', alignItems: 'center', padding: '5px 8px',
+                        background: '#fafafa', borderRadius: 4, marginBottom: 4,
+                        fontSize: 12, color: '#595959',
+                      }}
+                    >
+                      <PaperClipOutlined style={{ marginRight: 6, color: '#8c8c8c' }} />
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {att.name}
+                      </span>
+                      <span style={{ marginLeft: 8, color: '#8c8c8c' }}>{formatFileSize(att.size)}</span>
+                      <DeleteOutlined
+                        style={{ marginLeft: 8, color: '#ff4d4f', cursor: 'pointer' }}
+                        onClick={() => {
+                          onAttachmentsChange?.(attachments.filter(a => a.url !== att.url));
+                          setFileList(prev => prev.filter(f => f.response?.url !== att.url));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-          <Dragger
-            fileList={fileList}
-            onChange={({ fileList: newList }) => setFileList(newList.filter(f => f.status === 'uploading' || f.status === 'done'))}
-            customRequest={handleFileUpload}
-            beforeUpload={beforeFileUpload}
-            onRemove={handleFileRemove}
-            maxCount={9}
-            showUploadList={false}
-            multiple
-          >
-            <p className="ant-upload-drag-icon">
-              <InboxOutlined />
-            </p>
-            <p className="ant-upload-text" style={{ fontSize: 13 }}>点击或拖拽文件到此区域上传</p>
-          </Dragger>
         </div>
       </div>
     </Modal>

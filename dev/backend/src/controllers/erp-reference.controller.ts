@@ -25,6 +25,7 @@ import {
   getErpGrades,
   getErpGroups,
   getErpAreas,
+  getErpAreaTree,
 } from '../services/erp-client/erp-customer-reference.service';
 import {
   searchErpSettlementOrders,
@@ -43,9 +44,12 @@ import {
   getAllocatablePurchaseDetails,
   getAllocatableExpenseDetails,
 } from '../services/erp-client/erp-purchase-settlement.service';
+import { searchPromotionGoods, getProductById } from '../services/erp-client/erp-product.service';
 import { analyzePurchaseOrder, buildPurchaseLines } from '../services/procurement-order/procurement-analysis';
 import type { PurchaseOrderListItem } from '../services/erp-client/erp-purchase.types';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
+import { cache, CACHE_TTL } from '../utils/cache';
+import { CACHE_KEY } from '../utils/cache-keys';
 import { retryAutoNode as retryAutoNodeService } from '../services/oa/oa.mutation';
 
 /** 解析结果项 */
@@ -85,7 +89,52 @@ const LABEL_FIELDS: Record<string, string> = {
   'allocatable-purchase-details': 'billStr',
   'allocatable-expense-details': 'billStr',
   'supplier-debts': 'bizStr',
+  'promotion-goods': 'name',
 };
+
+/** 各 ERP 类型的值字段映射（选中后存储的 ID/key） */
+const VALUE_FIELDS: Record<string, string> = {
+  assets: 'id',
+  departments: 'id',
+  staff: 'id',
+  'payment-accounts': 'id',
+  'asset-categories': 'id',
+  customers: 'id',
+  'settlement-orders': 'bizId',
+  grades: 'id',
+  groups: 'id',
+  areas: 'id',
+  suppliers: 'originId',
+  prepayments: 'billId',
+  'supplier-incomes': 'id',
+  'purchase-settlements': 'billId',
+  'allocatable-purchase-details': 'id',
+  'allocatable-expense-details': 'id',
+  'supplier-debts': 'bizId',
+  'promotion-goods': 'goodsId',
+};
+
+/**
+ * 获取所有 ERP 参考类型配置
+ * GET /oa/erp-reference/types
+ * 前端动态获取类型列表、标签字段、值字段，无需硬编码
+ */
+export async function getErpReferenceTypes(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const types = Object.keys(LABEL_FIELDS).map(type => ({
+      type,
+      labelField: LABEL_FIELDS[type],
+      valueField: VALUE_FIELDS[type] || 'id',
+    }));
+    res.json({ code: 200, data: types });
+  } catch (error) {
+    next(error);
+  }
+}
 
 /**
  * 获取ERP参考数据
@@ -143,6 +192,10 @@ export async function getErpReference(
         data = await getErpAreas();
         break;
 
+      case 'areas-tree':
+        data = await getErpAreaTree();
+        break;
+
       case 'settlement-orders': {
         const consumerId = req.query.consumerId as string;
         if (!consumerId) {
@@ -158,6 +211,10 @@ export async function getErpReference(
           const keyword = req.query.keyword as string | undefined;
           const startDate = req.query.startDate as string | undefined;
           const endDate = req.query.endDate as string | undefined;
+          // 从前端透传的静态过滤参数（来自表单 schema 的 defaultQueryParams）
+          const writeOffQueryStates = req.query.writeOffQueryStates as string | undefined;
+          const consumerCollectTypes = req.query.consumerCollectTypes as string | undefined;
+          const queryDebtStr = req.query.queryDebt as string | undefined;
           data = await searchErpSettlementOrdersPaged({
             traderId: consumerId,
             keyword,
@@ -165,6 +222,9 @@ export async function getErpReference(
             pageSize,
             startDate,
             endDate,
+            ...(writeOffQueryStates !== undefined && { writeOffQueryStates }),
+            ...(consumerCollectTypes !== undefined && { consumerCollectTypes }),
+            ...(queryDebtStr !== undefined && { queryDebt: queryDebtStr === 'true' }),
           });
         } else {
           // 兼容旧的全量查询模式
@@ -173,9 +233,39 @@ export async function getErpReference(
         break;
       }
 
-      case 'suppliers':
-        data = await searchSuppliers(keyword || undefined);
+      case 'suppliers': {
+        // 供应商列表需全量加载，供筛选下拉完整搜索
+        // 优先检查统一缓存，避免逐页缓存碎片
+        const cachedAll = cache.get(CACHE_KEY.ERP_PURCHASE_SUPPLIERS_ALL);
+        if (cachedAll && !keyword) {
+          data = cachedAll;
+          break;
+        }
+        // 首页获取总数，再并行加载剩余页
+        const pageSize = 200;
+        const firstPage = await searchSuppliers(keyword || undefined, 1, pageSize);
+        const allSuppliers = [...firstPage];
+        if (firstPage.length >= pageSize) {
+          // 估算剩余页数（每页 200 条，假设最多 10 页 = 2000 条安全上限）
+          const maxPages = 10;
+          const remainingPageCount = maxPages - 1;
+          const remainingPages = await Promise.all(
+            Array.from({ length: remainingPageCount }, (_, i) =>
+              searchSuppliers(keyword || undefined, i + 2, pageSize)
+            )
+          );
+          for (const batch of remainingPages) {
+            allSuppliers.push(...batch);
+            if (batch.length < pageSize) break; // 已拉完
+          }
+        }
+        // 无关键词时写入统一缓存
+        if (!keyword && allSuppliers.length > 0) {
+          cache.set(CACHE_KEY.ERP_PURCHASE_SUPPLIERS_ALL, allSuppliers, CACHE_TTL.LOW_FREQUENCY);
+        }
+        data = allSuppliers;
         break;
+      }
 
       case 'prepayments': {
         const traderId = req.query.traderId as string;
@@ -300,6 +390,14 @@ export async function getErpReference(
         } else {
           data = await searchSupplierDebts(sdParsedTraderId);
         }
+        break;
+      }
+
+      case 'promotion-goods': {
+        // 促销表单商品搜索：返回含成本价和可用单位的商品列表
+        const pgKeyword = (req.query.keyword as string) || '';
+        const pgLimit = parseInt((req.query.limit as string) || '50', 10);
+        data = await searchPromotionGoods(pgKeyword, pgLimit);
         break;
       }
 
@@ -540,6 +638,22 @@ export async function resolveErpReference(
         break;
       }
 
+      case 'areas-tree': {
+        // 展平树以构建 id→name 映射
+        const tree = await getErpAreaTree();
+        const flatList: Array<{ id: number | string; name: string }> = [];
+        function flattenForResolve(nodes: Array<{ id: number | string; name: string; children?: any[] }>) {
+          for (const node of nodes) {
+            flatList.push({ id: node.id, name: node.name });
+            if (node.children?.length) flattenForResolve(node.children);
+          }
+        }
+        flattenForResolve(tree);
+        const treeMap = new Map(flatList.map(a => [a.id, a.name]));
+        resolved = ids.map(id => ({ id, label: String(treeMap.get(id) ?? treeMap.get(String(id)) ?? id) }));
+        break;
+      }
+
       case 'purchase-orders': {
         // 解析采购订单 ID → 富标签（单号 | 日期 | ¥金额）
         const buildPOLabel = (o: PurchaseOrderListItem) => {
@@ -567,6 +681,19 @@ export async function resolveErpReference(
         }
         const supplierMap = new Map(allSuppliers.map(s => [s.originId, s.name]));
         resolved = ids.map(id => ({ id, label: String(supplierMap.get(id) ?? id) }));
+        break;
+      }
+
+      case 'promotion-goods': {
+        const pgResults = await Promise.allSettled(
+          ids.map(async id => {
+            const p = await getProductById(id);
+            return { id, label: String(p?.name ?? id) };
+          })
+        );
+        resolved = pgResults.map((r, i) =>
+          r.status === 'fulfilled' ? r.value : { id: ids[i], label: String(ids[i]) }
+        );
         break;
       }
 

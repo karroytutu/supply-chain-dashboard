@@ -16,6 +16,7 @@ import RepRadarChart from './components/RepRadarChart';
 import RepTrendChart from './components/RepTrendChart';
 import DiagnosisCard from './components/DiagnosisCard';
 import CustomerDrilldownModal from './components/CustomerDrilldownModal';
+import TargetProgress from './components/TargetProgress';
 import { useCustomerDrilldown } from './hooks/useCustomerDrilldown';
 import {
   ALL_METRICS,
@@ -49,6 +50,8 @@ const SalesAnalysis: React.FC = () => {
           ))}
         </div>
       </section>
+
+      <TargetProgress />
 
       <CustomerSection onMetricClick={(t: CustomerMetricType) => drilldown.actions.openModal(t)} />
 

@@ -71,6 +71,7 @@ export async function erpRequest<T = any>(
   const requestId = createLogEntry();
   let retryCount = 0;
   let lastError: Error | null = null;
+  let lastAxiosResponse: { status: number; data: unknown } | null = null;
   const startTime = Date.now();
 
   // 构造请求头
@@ -167,13 +168,22 @@ export async function erpRequest<T = any>(
         throw error;
       }
 
+      // HTTP 4xx/5xx 错误：保留 Axios 原始响应体用于日志（Axios 对非 2xx 抛 error，response 挂在 error.response 上）
+      if (error?.response) {
+        lastAxiosResponse = { status: error.response.status, data: error.response.data };
+        const respInfo = error.response.data
+          ? ` | response: ${typeof error.response.data === 'object' ? JSON.stringify(error.response.data) : error.response.data}`
+          : '';
+        lastError = new Error(`${error.message}${respInfo}`);
+      }
+
       // 网络错误或超时，可重试
       retryCount++;
       if (retryCount <= config.retryMax) {
         const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
         log.warn(
           `请求失败，${delay}ms 后第 ${retryCount} 次重试: ${fullPath}`,
-          getErrorMessage(error)
+          getErrorMessage(lastError)
         );
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -188,6 +198,8 @@ export async function erpRequest<T = any>(
       path: fullPath,
       requestHeaders: sanitizedHeaders,
       requestBody: method.toUpperCase() !== 'GET' ? data : undefined,
+      responseStatus: lastAxiosResponse?.status,
+      responseBody: lastAxiosResponse?.data,
       errorMessage: lastError?.message || '未知错误',
       durationMs: Date.now() - startTime,
       retryCount,

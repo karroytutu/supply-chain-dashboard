@@ -41,15 +41,15 @@ const DataFilterBar: React.FC<DataFilterBarProps> = ({
     <>
       {/* 筛选区域 */}
       <div className={styles.filterSection}>
-        <Row gutter={16}>
-          <Col span={4}>
+        <Row gutter={[12, 8]}>
+          <Col xs={24} sm={12} lg={4}>
             <Select placeholder="申请类型" allowClear style={{ width: '100%' }} value={formTypeCode} onChange={setFormTypeCode}>
               {formTypes.map((ft) => (
                 <Option key={ft.code} value={ft.code}>{ft.name}</Option>
               ))}
             </Select>
           </Col>
-          <Col span={4}>
+          <Col xs={24} sm={12} lg={4}>
             <Select placeholder="审批状态" allowClear style={{ width: '100%' }} value={status} onChange={setStatus}>
               <Option value="pending">处理中</Option>
               <Option value="approved">已通过</Option>
@@ -58,7 +58,7 @@ const DataFilterBar: React.FC<DataFilterBarProps> = ({
               <Option value="cancelled">已取消</Option>
             </Select>
           </Col>
-          <Col span={6}>
+          <Col xs={24} sm={12} lg={6}>
             <RangePicker
               style={{ width: '100%' }}
               value={dateRange}
@@ -66,18 +66,20 @@ const DataFilterBar: React.FC<DataFilterBarProps> = ({
               placeholder={['开始日期', '结束日期']}
             />
           </Col>
-          <Col span={4}>
+          <Col xs={24} sm={12} lg={4}>
             <Input placeholder="申请人姓名" allowClear value={applicantName} onChange={(e) => setApplicantName(e.target.value)} />
           </Col>
-          <Col span={4}>
+          <Col xs={24} sm={12} lg={4}>
             <Input placeholder="搜索关键词" prefix={<SearchOutlined />} allowClear value={searchText} onChange={(e) => setSearchText(e.target.value)} />
           </Col>
-          <Col span={2}>
-            <Space>
-              <Tooltip title="重置">
-                <Button icon={<ReloadOutlined />} onClick={handleReset} />
-              </Tooltip>
-            </Space>
+          <Col xs={24} sm={12} lg={2}>
+            <div style={{ textAlign: 'right' }}>
+              <Space>
+                <Tooltip title="重置">
+                  <Button icon={<ReloadOutlined />} onClick={handleReset} />
+                </Tooltip>
+              </Space>
+            </div>
           </Col>
         </Row>
       </div>

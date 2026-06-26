@@ -324,7 +324,7 @@ export async function exportData(
 // ERP 参考数据接口
 // =====================================================
 
-export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details' | 'supplier-debts';
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'areas-tree' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details' | 'supplier-debts' | 'promotion-goods';
 
 /** ERP ID 解析结果项 */
 export interface ErpResolvedItem {
@@ -365,6 +365,8 @@ export interface SettlementOrdersPagedParams {
   page: number;
   pageSize: number;
   signal?: AbortSignal;
+  /** 额外查询参数（从表单 schema 的 defaultQueryParams 透传） */
+  extraQueryParams?: Record<string, string | number | boolean>;
 }
 
 /** 结算单分页查询结果 */
@@ -380,7 +382,7 @@ export interface SettlementOrdersPagedResult {
 export async function getSettlementOrdersPaged(
   params: SettlementOrdersPagedParams
 ): Promise<SettlementOrdersPagedResult> {
-  const { consumerId, keyword, page, pageSize, signal } = params;
+  const { consumerId, keyword, page, pageSize, signal, extraQueryParams } = params;
   // ERP 参考数据 API 的参数名由后端定义（如 consumerId、pageSize），不做 camelCase→snake_case 转换
   const res = await request<SettlementOrdersPagedResult>(
     '/oa/erp-reference/settlement-orders',
@@ -390,6 +392,7 @@ export async function getSettlementOrdersPaged(
         keyword: keyword || undefined,
         page,
         pageSize,
+        ...extraQueryParams,
       },
       signal,
       skipParamsSnakeCase: true,
@@ -417,6 +420,21 @@ export async function resolveErpNames(
     { params, skipParamsSnakeCase: true }
   );
   return res;
+}
+
+/** ERP 参考类型配置（由后端 API 提供） */
+export interface ErpTypeConfig {
+  type: string;
+  labelField: string;
+  valueField: string;
+}
+
+/**
+ * 获取所有 ERP 参考类型配置
+ * 前端动态加载，避免硬编码映射表
+ */
+export async function getErpReferenceTypes(): Promise<ErpTypeConfig[]> {
+  return request<ErpTypeConfig[]>('/oa/erp-reference/types');
 }
 
 /**

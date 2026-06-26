@@ -61,9 +61,9 @@ export async function searchPurchaseSettlements(params: {
     queryParams.billStr = params.keyword.trim();
   }
 
-  // 供应商筛选
+  // 供应商筛选（ERP 接口参数名为 supplierIds，复数形式，支持逗号分隔多 ID）
   if (params.supplierId?.trim()) {
-    queryParams.supplierId = params.supplierId.trim();
+    queryParams.supplierIds = params.supplierId.trim();
   }
 
   const response = await erpGet<unknown>(

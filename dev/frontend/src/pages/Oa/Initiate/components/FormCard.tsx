@@ -3,17 +3,20 @@
  */
 import React from 'react';
 import type { FormCategory } from '@/types/oa';
-import { CATEGORY_ICONS, CATEGORY_COLORS } from '../constants';
+import { CATEGORY_ICONS, CATEGORY_COLORS, FORM_ICON_MAP } from '../constants';
 import styles from './FormCard.less';
 
 interface FormCardProps {
   name: string;
+  icon?: string;
   category: FormCategory;
   onClick: () => void;
 }
 
-const FormCard: React.FC<FormCardProps> = ({ name, category, onClick }) => {
+const FormCard: React.FC<FormCardProps> = ({ name, icon, category, onClick }) => {
   const color = CATEGORY_COLORS[category];
+  // 优先使用表单自身图标，未匹配时回退到分类图标
+  const iconNode = (icon && FORM_ICON_MAP[icon]) || CATEGORY_ICONS[category];
 
   return (
     <div
@@ -25,7 +28,7 @@ const FormCard: React.FC<FormCardProps> = ({ name, category, onClick }) => {
         className={styles.iconCircle}
         style={{ background: `${color}15`, color }}
       >
-        {CATEGORY_ICONS[category]}
+        {iconNode}
       </div>
       <span className={styles.formName}>{name}</span>
     </div>

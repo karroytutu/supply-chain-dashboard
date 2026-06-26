@@ -3,8 +3,9 @@
  * 供 Oa/Detail 独立页面和 Oa/Center 流程中心面板复用
  * 负责：头部信息 + 表单渲染（list/descriptions 两种布局）+ 审批流程 + 操作栏 + ActionModal
  */
-import React, { useMemo } from 'react';
-import { Alert, Card, Descriptions } from 'antd';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { Alert, Card, Descriptions, Button, message } from 'antd';
+import { ArrowLeftOutlined, ClockCircleOutlined, WarningOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import type { ApprovalDetail, FieldPermission, FormSchema, ViewPermissionsOverride } from '@/types/oa';
 import { ApprovalStatusTag, ApprovalFlow, FormFieldRenderer } from '@/components/Oa';
 import FormFieldsDiff, { hasOriginalFields } from './FormFieldsDiff';
@@ -15,6 +16,9 @@ import { usePermission } from '@/hooks/usePermission';
 import ActionBar from './ActionBar';
 import ActionModal from './ActionModal';
 import { checkCondition } from '@/pages/Oa/Form/components/ConditionalFieldWrapper';
+import { remindNode } from '@/services/api/oa';
+import { formatDateTime } from '@/utils/format';
+import LicenseDeferredCard from '@/pages/Oa/Detail/components/LicenseDeferredCard';
 import type { UseApprovalActionsReturn } from './hooks/useApprovalActions';
 import styles from './ApprovalDetailContent.less';
 
@@ -28,24 +32,88 @@ export interface ApprovalDetailContentProps {
   canOperateOverride?: boolean;
   /** 外部覆盖 canWithdraw（Center 根据 viewMode 计算） */
   canWithdrawOverride?: boolean;
-  /** 是否显示头部信息（Detail 页面有自己的 pageHeader，传 false 避免重复） */
+  /** 是否显示头部信息 */
   showHeader?: boolean;
+  /** 传入时头部显示返回按钮（独立详情页传入，流程中心不传） */
+  onBack?: () => void;
   /** 可编辑表单 ref（操作型节点时传入，用于获取表单编辑值和校验） */
   editableFormRef?: React.RefObject<EditableFormSectionRef>;
 }
 
+// ==================== 超时信息条 ====================
+
+const TimeoutInfoBar: React.FC<{
+  deadlineAt: string;
+  nodeName: string;
+  reminderCount: number;
+  ccSupervisorAt: string | null;
+}> = ({ deadlineAt, nodeName, reminderCount, ccSupervisorAt }) => {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const now = Date.now();
+  const deadline = new Date(deadlineAt).getTime();
+  const diff = deadline - now;
+  const isOverdue = diff <= 0;
+
+  const absMs = Math.abs(diff);
+  const totalMin = Math.floor(absMs / 60000);
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const minutes = totalMin % 60;
+  const durationText = days > 0 ? `${days}天${hours}小时${minutes}分` : hours > 0 ? `${hours}小时${minutes}分` : `${minutes}分钟`;
+
+  return (
+    <Alert
+      type={isOverdue ? 'error' : 'warning'}
+      showIcon
+      icon={isOverdue ? <WarningOutlined /> : <ClockCircleOutlined />}
+      message={
+        <span>
+          当前节点「{nodeName}」{isOverdue ? `已超时 ${durationText}` : `剩余 ${durationText}`}
+        </span>
+      }
+      description={
+        <span style={{ fontSize: 12 }}>
+          截止时间: {formatDateTime(deadlineAt)}
+          {reminderCount > 0 && <span style={{ marginLeft: 12 }}>已催办: {reminderCount}次</span>}
+          {ccSupervisorAt && <span style={{ marginLeft: 12, color: '#fa541c' }}>上级已通知</span>}
+        </span>
+      }
+      style={{ marginBottom: 12 }}
+    />
+  );
+};
+
 // ==================== 头部信息 ====================
 
-const DetailHeader: React.FC<{ detail: ApprovalDetail }> = ({ detail }) => (
+const DetailHeader: React.FC<{
+  detail: ApprovalDetail;
+  onBack?: () => void;
+}> = ({ detail, onBack }) => (
   <div className={styles.detailHeader}>
-    <h2 className={styles.detailTitle}>{detail.formTypeName}</h2>
-    <div className={styles.detailMeta}>
-      <span>编号: {detail.instanceNo}</span>
-      <span>申请人: {detail.applicantName}</span>
-      <span>部门: {detail.applicantDept || '-'}</span>
+    <div className={styles.headerTitleRow}>
+      {onBack && (
+        <button className={styles.backBtn} onClick={onBack} type="button">
+          <ArrowLeftOutlined /> 返回
+        </button>
+      )}
+      <h2 className={styles.detailTitle}>{detail.formTypeName}</h2>
+      <div className={styles.headerStatus}>
+        <ApprovalStatusTag status={detail.status} />
+      </div>
     </div>
-    <div className={styles.detailTags}>
-      <ApprovalStatusTag status={detail.status} />
+    <div className={styles.headerInstanceNo}>{detail.instanceNo}</div>
+    <div className={styles.headerMeta}>
+      {[
+        detail.applicantName,
+        detail.applicantDept || '-',
+        formatDateTime(detail.submittedAt, 'YYYY-MM-DD') + ' 提交',
+        detail.completedAt ? formatDateTime(detail.completedAt, 'YYYY-MM-DD') + ' 完成' : null,
+      ].filter(Boolean).join(' · ')}
     </div>
   </div>
 );
@@ -260,11 +328,26 @@ const FormFieldsSection: React.FC<{
 
 const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   detail, actionState, formLayout = 'list', extraContentBefore, className,
-  canOperateOverride, canWithdrawOverride, showHeader = true, editableFormRef,
+  canOperateOverride, canWithdrawOverride, showHeader = true, onBack, editableFormRef,
 }) => {
   const { currentUser, roles: userRoles } = usePermission();
   const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
   const { erpLicenseUrls } = useErpLicenseResolve(detail.formSchema, detail.formData);
+
+  // 催办处理
+  const [remindLoading, setRemindLoading] = useState(false);
+  const handleRemind = useCallback(async () => {
+    try {
+      setRemindLoading(true);
+      await remindNode(detail.id);
+      message.success('催办通知已发送');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : '催办失败';
+      message.error(errMsg);
+    } finally {
+      setRemindLoading(false);
+    }
+  }, [detail.id]);
 
   // 计算当前节点是否可操作（与 ActionBar 保持一致的逻辑）
   const canOperate = canOperateOverride !== undefined ? canOperateOverride : actionState.canOperate;
@@ -315,9 +398,51 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
     return null;
   }, [isCurrentHandler, detail.fieldPermissions, detail.viewPermissions]);
 
+  // === 额外内容：超时提示 + 催办 + 执照延期 ===
+  const pendingNode = detail.nodes?.find(n => n.status === 'pending' && n.deadlineAt);
+  const isOverdue = pendingNode?.deadlineAt
+    ? new Date(pendingNode.deadlineAt).getTime() < Date.now()
+    : false;
+
+  const timeoutSection = pendingNode?.deadlineAt ? (
+    <div>
+      <TimeoutInfoBar
+        deadlineAt={pendingNode.deadlineAt}
+        nodeName={pendingNode.nodeName}
+        reminderCount={pendingNode.reminderCount ?? 0}
+        ccSupervisorAt={pendingNode.ccSupervisorAt ?? null}
+      />
+      {isOverdue && (
+        <Button
+          type="primary"
+          danger
+          size="small"
+          icon={<ThunderboltOutlined />}
+          loading={remindLoading}
+          onClick={handleRemind}
+          style={{ marginTop: 8, marginBottom: 12 }}
+        >
+          手动催办
+        </Button>
+      )}
+    </div>
+  ) : null;
+
+  const licenseSection = detail.formTypeCode === 'customer_credit' ? (
+    <LicenseDeferredCard
+      instanceId={detail.id}
+      approvalStatus={detail.status}
+      applicantId={detail.applicantId}
+      customerId={detail.formData?.customerId as number | undefined}
+      cardClassName={styles.card}
+    />
+  ) : null;
+
   return (
     <div className={`${styles.content} ${className || ''}`}>
-      {showHeader && <DetailHeader detail={detail} />}
+      {showHeader && <DetailHeader detail={detail} onBack={onBack} />}
+      {timeoutSection}
+      {licenseSection}
       {extraContentBefore}
       {missingPermissions && (
         <Alert

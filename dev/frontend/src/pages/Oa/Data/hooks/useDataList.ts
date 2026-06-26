@@ -6,13 +6,6 @@ import { oaApi } from '@/services/api/oa';
 import { createLogger } from '../../../../utils/logger';
 const log = createLogger('OaData');
 
-interface DataStats {
-  total: number;
-  pending: number;
-  approved: number;
-  rejected: number;
-}
-
 interface UseDataListReturn {
   // 筛选状态
   formTypeCode: string | undefined;
@@ -32,9 +25,6 @@ interface UseDataListReturn {
   formTypes: FormTypeDefinition[];
   pagination: { current: number; pageSize: number; total: number };
   setPagination: React.Dispatch<React.SetStateAction<{ current: number; pageSize: number; total: number }>>;
-
-  // 统计数据
-  stats: DataStats;
 
   // 操作方法
   loadData: () => Promise<void>;
@@ -58,14 +48,6 @@ export function useDataList(): UseDataListReturn {
     current: 1,
     pageSize: 20,
     total: 0,
-  });
-
-  // 统计数据
-  const [stats, setStats] = useState<DataStats>({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
   });
 
   // 加载表单类型
@@ -107,24 +89,8 @@ export function useDataList(): UseDataListReturn {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [pagination.current, pagination.pageSize, formTypeCode, status, applicantName, searchText, dateRange]);
 
-  // 加载统计
-  const loadStats = async () => {
-    try {
-      const res = await oaApi.getStats();
-      setStats({
-        total: res.data.total || 0,
-        pending: res.data.pending || 0,
-        approved: res.data.approved || 0,
-        rejected: res.data.rejected || 0,
-      });
-    } catch (error) {
-      log.error('加载统计失败', error);
-    }
-  };
-
   useEffect(() => {
     loadFormTypes();
-    loadStats();
   }, []);
 
   useEffect(() => {
@@ -179,7 +145,6 @@ export function useDataList(): UseDataListReturn {
     formTypeCode, status, dateRange, searchText, applicantName,
     setFormTypeCode, setStatus, setDateRange, setSearchText, setApplicantName,
     loading, dataSource, formTypes, pagination, setPagination,
-    stats,
     loadData, handleReset, handleExport,
   };
 }

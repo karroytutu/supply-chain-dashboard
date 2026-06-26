@@ -53,6 +53,7 @@ function makeInstance(overrides: Partial<ApprovalInstance> & { id: number }): Ap
     applicantDept: '技术部',
     currentNodeOrder: 1,
     currentNodeName: '节点',
+    currentApproverName: null,
     submittedAt: '2026-06-01T10:00:00Z',
     completedAt: null,
     previewFields: [],

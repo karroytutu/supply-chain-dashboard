@@ -127,10 +127,11 @@ describe('validateFormData', () => {
     expect(validateFormData(schema, { type: 'A' })).toEqual([]);
   });
 
-  it('modal_select 值类型校验', () => {
+  it('modal_select 多选值类型校验', () => {
     const schema: any = {
       fields: [{
         key: 'settlementIds', label: '采购结算单', type: 'modal_select',
+        multiple: true,
         searchApi: 'purchase_settlements',
       }],
     };
@@ -138,6 +139,31 @@ describe('validateFormData', () => {
     expect(validateFormData(schema, { settlementIds: ['bill1', 'bill2'] })).toEqual([]);
     // 非数组值报错
     expect(validateFormData(schema, { settlementIds: 'not-array' })).toEqual(['采购结算单值格式错误']);
+  });
+
+  it('modal_select 单选（表格行内）标量值通过校验', () => {
+    const schema: any = {
+      fields: [{
+        key: 'goodsId', label: '商品', type: 'modal_select',
+        searchApi: 'promotion_goods',
+      }],
+    };
+    // 标量值通过
+    expect(validateFormData(schema, { goodsId: '12345' })).toEqual([]);
+    expect(validateFormData(schema, { goodsId: 12345 })).toEqual([]);
+    // 数组值报错（单选不应为数组）
+    expect(validateFormData(schema, { goodsId: ['a', 'b'] })).toEqual(['商品值格式错误']);
+  });
+
+  it('modal_select 多选保持数组校验', () => {
+    const schema: any = {
+      fields: [{
+        key: 'ids', label: '客户', type: 'modal_select', multiple: true,
+        searchApi: 'erp_customers',
+      }],
+    };
+    expect(validateFormData(schema, { ids: ['a', 'b'] })).toEqual([]);
+    expect(validateFormData(schema, { ids: 'not-array' })).toEqual(['客户值格式错误']);
   });
 
   it('条件隐藏跳过校验', () => {

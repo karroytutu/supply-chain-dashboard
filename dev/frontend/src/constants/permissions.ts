@@ -104,6 +104,10 @@ export const PERMISSIONS = {
     ANALYSIS: {
       READ: 'sales:analysis:read',
     },
+    TARGET: {
+      READ: 'sales:target:read',
+      WRITE: 'sales:target:write',
+    },
   },
 
   // 统一考核模块

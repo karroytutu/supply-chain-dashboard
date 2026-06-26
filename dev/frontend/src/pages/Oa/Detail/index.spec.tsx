@@ -53,28 +53,11 @@ vi.mock('@/components/Oa', () => ({
     <div
       data-testid="approval-detail-content"
       data-form-layout={props.formLayout}
-      data-show-header={String(props.showHeader)}
-      data-has-extra={props.extraContentBefore ? 'true' : 'false'}
+      data-has-onback={typeof props.onBack === 'function' ? 'true' : 'false'}
     >
-      {props.extraContentBefore}
       ApprovalDetailContent
     </div>
   ),
-  ApprovalStatusTag: ({ status }: { status: string }) => (
-    <span data-testid="approval-status-tag">{status}</span>
-  ),
-}));
-
-vi.mock('./components/LicenseDeferredCard', () => ({
-  default: (props: any) => (
-    <div data-testid="license-deferred-card" data-instance-id={props.instanceId}>
-      LicenseDeferredCard
-    </div>
-  ),
-}));
-
-vi.mock('@/utils/format', () => ({
-  formatDateTime: (date: string | null) => date ? `formatted:${date}` : '',
 }));
 
 vi.mock('./index.less', () => ({
@@ -101,6 +84,7 @@ function makeDetail(overrides: Partial<ApprovalDetail> = {}): ApprovalDetail {
     applicantDept: '技术部',
     currentNodeOrder: 1,
     currentNodeName: '审批节点',
+    currentApproverName: null,
     submittedAt: '2026-06-01T10:00:00Z',
     completedAt: null,
     previewFields: [],
@@ -214,59 +198,14 @@ describe('ApprovalDetailPage - 错误状态渲染', () => {
   });
 });
 
-describe('ApprovalDetailPage - 条件组件渲染', () => {
-  it('formTypeCode=customer_credit → 渲染 LicenseDeferredCard', () => {
-    hookState.detail = makeDetail({
-      formTypeCode: 'customer_credit',
-      formData: { customerId: 88 },
-    });
-
-    render(<ApprovalDetailPage />);
-
-    expect(screen.getByTestId('license-deferred-card')).toBeTruthy();
-    expect(screen.getByTestId('license-deferred-card').getAttribute('data-instance-id')).toBe('42');
-  });
-
-  it('formTypeCode=other_payment → 不渲染 LicenseDeferredCard', () => {
-    hookState.detail = makeDetail({ formTypeCode: 'other_payment' });
-
-    render(<ApprovalDetailPage />);
-
-    expect(screen.queryByTestId('license-deferred-card')).toBeNull();
-  });
-});
-
 describe('ApprovalDetailPage - 传参验证', () => {
-  it('ApprovalDetailContent 接收 formLayout="list" + showHeader=false', () => {
+  it('ApprovalDetailContent 接收 formLayout="list" + onBack', () => {
     hookState.detail = makeDetail();
 
     render(<ApprovalDetailPage />);
 
     const content = screen.getByTestId('approval-detail-content');
     expect(content.getAttribute('data-form-layout')).toBe('list');
-    expect(content.getAttribute('data-show-header')).toBe('false');
-  });
-
-  it('customer_credit 时 extraContentBefore 有内容', () => {
-    hookState.detail = makeDetail({ formTypeCode: 'customer_credit' });
-
-    render(<ApprovalDetailPage />);
-
-    const content = screen.getByTestId('approval-detail-content');
-    expect(content.getAttribute('data-has-extra')).toBe('true');
-  });
-
-  it('页面头部显示返回按钮和审批信息', () => {
-    hookState.detail = makeDetail({
-      formTypeName: '付款审批',
-      instanceNo: 'OA-2026-042',
-      applicantName: '张三',
-    });
-
-    render(<ApprovalDetailPage />);
-
-    expect(screen.getByText('付款审批')).toBeTruthy();
-    expect(screen.getByText(/OA-2026-042/)).toBeTruthy();
-    expect(screen.getByText(/张三/)).toBeTruthy();
+    expect(content.getAttribute('data-has-onback')).toBe('true');
   });
 });
