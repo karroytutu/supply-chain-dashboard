@@ -34,6 +34,13 @@ export interface ErpArea {
   [key: string]: unknown;
 }
 
+/** 片区树形节点（保留层级关系） */
+export interface ErpAreaTreeNode {
+  id: number | string;
+  name: string;
+  children?: ErpAreaTreeNode[];
+}
+
 // =====================================================
 // 查询方法
 // =====================================================
@@ -113,4 +120,48 @@ export async function getErpAreas(): Promise<ErpArea[]> {
 
   cache.set(cacheKey, areas, CACHE_TTL.LOW_FREQUENCY);
   return areas;
+}
+
+/**
+ * 获取片区树形结构（保留层级关系）
+ * POST /redcoast/store-area-query/query-list
+ * 与 getErpAreas() 共用 ERP API，但不展平，保留 children
+ */
+export async function getErpAreaTree(): Promise<ErpAreaTreeNode[]> {
+  const cacheKey = CACHE_KEY.ERP_CUSTOMER_AREAS_TREE;
+  const cached = cache.get<ErpAreaTreeNode[]>(cacheKey);
+  if (cached) return cached;
+
+  const { cid, uid } = getErpDefaults();
+  const response = await erpPost<unknown>(
+    '/store-area-query/query-list',
+    { cid, uid },
+    { pathPrefix: '/redcoast/', businessType: 'customer_area_tree' }
+  );
+
+  const rawData = extractErpData<unknown>(response) ?? [];
+  const items = Array.isArray(rawData) ? rawData : [rawData];
+
+  // 递归构建树（只保留 id/name/children）
+  function buildTree(nodes: Array<{ id: number | string; name: string; children?: any[] }>): ErpAreaTreeNode[] {
+    return nodes.map(node => ({
+      id: node.id,
+      name: node.name,
+      children: node.children?.length ? buildTree(node.children) : undefined,
+    }));
+  }
+
+  // ERP API 返回的顶层是根节点 "全部"(id=0)，取其 children 作为实际区域
+  const rootNodes = items as Array<{ id: number | string; name: string; children?: any[] }>;
+  const tree: ErpAreaTreeNode[] = [];
+  for (const root of rootNodes) {
+    if (root.id === 0 && root.children?.length) {
+      tree.push(...buildTree(root.children));
+    } else {
+      tree.push(...buildTree([root]));
+    }
+  }
+
+  cache.set(cacheKey, tree, CACHE_TTL.LOW_FREQUENCY);
+  return tree;
 }

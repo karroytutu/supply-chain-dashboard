@@ -36,7 +36,7 @@ const ViewPermissionMatrix: React.FC<ViewPermissionMatrixProps> = ({
   dataReadUsers,
 }) => {
   const { togglePermission, getPermission, setAllFieldsPermission, savePermissions, saving } =
-    useViewPermissions(formCode, initialViewPermissions);
+    useViewPermissions(formCode, fields, initialViewPermissions);
 
   const userFields = fields.filter(isUserField);
   const flatFields = flattenFieldsWithChildren(userFields);

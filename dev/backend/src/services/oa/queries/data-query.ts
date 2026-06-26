@@ -6,7 +6,7 @@
 import { appQuery as query } from '../../../db/appPool';
 import { escapeLikePattern } from '../../../utils/sqlHelpers';
 import { ApprovalListParams, WorkflowNodeDef } from '../oa.types';
-import { getFormTypeByCode } from '../form-types';
+import { getFormTypeByCodeQuery } from '../oa-form-type.query';
 import { formatInstanceListItem, InstanceListItem } from '../oa.query';
 import { getStatusLabel } from '../oa-utils';
 
@@ -95,7 +95,13 @@ export async function getDataListAll(
       (
         SELECT n.node_name FROM oa_approval_nodes n
         WHERE n.instance_id = i.id AND n.node_order = i.current_node_order LIMIT 1
-      ) as current_node_name
+      ) as current_node_name,
+      (
+        SELECT u.name FROM oa_approval_nodes n2
+        JOIN users u ON u.id = n2.assigned_user_ids[1]
+        WHERE n2.instance_id = i.id AND n2.node_order = i.current_node_order
+        LIMIT 1
+      ) as current_approver_name
     FROM oa_approval_instances i
     JOIN oa_form_types ft ON i.form_type_id = ft.id
     ${whereClause}
@@ -173,7 +179,7 @@ export async function previewApprovers(
   formTypeCode: string,
   userId: number
 ): Promise<PreviewApprover[]> {
-  const formType = await getFormTypeByCode(formTypeCode);
+  const formType = await getFormTypeByCodeQuery(formTypeCode);
   if (!formType) return [];
 
   return resolvePreviewApproversForNodes(formType.workflowDef.nodes, userId);

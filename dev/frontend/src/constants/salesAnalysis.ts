@@ -481,3 +481,75 @@ export const DIAGNOSIS_ITEMS: DiagnosisItem[] = [
 
 /** 钻取弹窗 - 风险客户数据（拆分至 customerDrilldown.ts） */
 export { CUSTOMER_DRILLDOWN } from './customerDrilldown';
+
+/** ==================== 目标进展看板数据 ==================== */
+
+export interface TargetProgressMarketer {
+  marketerId: string;
+  marketerName: string;
+  targetAmount: number;
+  actualAmount: number;
+  completionRate: number;
+  isOnTrack: boolean;
+  customers: TargetProgressCustomer[];
+}
+
+export interface TargetProgressCustomer {
+  customerId: string;
+  customerName: string;
+  targetAmount: number;
+  actualAmount: number;
+  completionRate: number;
+  isOnTrack: boolean;
+}
+
+export interface TargetProgressData {
+  monthLabel: string;
+  timeProgress: number;
+  timeProgressDays: number;
+  totalDays: number;
+  totalTargetAmount: number;
+  totalActualAmount: number;
+  completionRate: number;
+  isOnTrack: boolean;
+  marketers: TargetProgressMarketer[];
+}
+
+export const TARGET_PROGRESS_DATA: TargetProgressData = {
+  monthLabel: '2026年7月',
+  timeProgress: 86.7,
+  timeProgressDays: 26,
+  totalDays: 30,
+  totalTargetAmount: 5800000,
+  totalActualAmount: 3620000,
+  completionRate: 62.4,
+  isOnTrack: false,
+  marketers: [
+    {
+      marketerId: 'm1', marketerName: '张三',
+      targetAmount: 1800000, actualAmount: 1350000, completionRate: 75, isOnTrack: false,
+      customers: [
+        { customerId: 'c1', customerName: '张三商贸', targetAmount: 550000, actualAmount: 420000, completionRate: 76.4, isOnTrack: false },
+        { customerId: 'c2', customerName: '李四超市', targetAmount: 620000, actualAmount: 480000, completionRate: 77.4, isOnTrack: false },
+        { customerId: 'c3', customerName: '王五便利', targetAmount: 430000, actualAmount: 310000, completionRate: 72.1, isOnTrack: false },
+        { customerId: 'c5', customerName: '百联集团', targetAmount: 200000, actualAmount: 140000, completionRate: 70, isOnTrack: false },
+      ],
+    },
+    {
+      marketerId: 'm2', marketerName: '李四',
+      targetAmount: 2000000, actualAmount: 1080000, completionRate: 54, isOnTrack: false,
+      customers: [
+        { customerId: 'c6', customerName: '家乐福', targetAmount: 1200000, actualAmount: 680000, completionRate: 56.7, isOnTrack: false },
+        { customerId: 'c7', customerName: '盒马鲜生', targetAmount: 800000, actualAmount: 400000, completionRate: 50, isOnTrack: false },
+      ],
+    },
+    {
+      marketerId: 'm3', marketerName: '王五',
+      targetAmount: 2000000, actualAmount: 1190000, completionRate: 59.5, isOnTrack: false,
+      customers: [
+        { customerId: 'c9', customerName: '永辉超市', targetAmount: 1100000, actualAmount: 680000, completionRate: 61.8, isOnTrack: false },
+        { customerId: 'c10', customerName: '大润发', targetAmount: 900000, actualAmount: 510000, completionRate: 56.7, isOnTrack: false },
+      ],
+    },
+  ],
+};

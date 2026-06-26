@@ -20,6 +20,7 @@ import UserFieldControl from './UserFieldControl';
 import BankAccountFieldControl from './BankAccountFieldControl';
 import ErpFieldControl from './ErpFieldControl';
 import ModalSelectControl from './ModalSelectControl';
+import TreeSelectModalControl from './TreeSelectModalControl';
 import TableFieldControl from './TableFieldControl';
 
 const { Text } = Typography;
@@ -49,6 +50,8 @@ const FieldControlDispatcher: React.FC<FieldControlProps> = (props) => {
       return <SelectFieldControl {...props} />;
     case 'modal_select':
       return <ModalSelectControl {...props} />;
+    case 'tree_select':
+      return <TreeSelectModalControl {...props} />;
     case 'upload':
       return <UploadFieldControl {...props} />;
     case 'table':

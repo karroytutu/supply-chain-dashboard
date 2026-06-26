@@ -1,6 +1,23 @@
 {
   "entries": [
     {
+      "version": "v2.15.0",
+      "date": "2026-06-27 03:20",
+      "types": ["feature", "optimization"],
+      "changes": [
+        "新增目标管理模块：支持月度目标设定、目标进度追踪与可视化，含前端页面（TargetManagement）、常量配置和权限定义，迁移149",
+        "新增三种线下促销审批表单：组合搭赠线下版（promotion-combined-offline）、满赠线下版（promotion-fullgift-offline）、特价线下版（promotion-special-offline），含表单定义和审批回调服务，迁移146/147",
+        "销售分析增强：新增目标进度组件（TargetProgress），集成目标完成率可视化追踪",
+        "公式求值器大幅增强（前后端同步）：扩展运算符和函数支持，新增条件表达式、字符串比较、聚合函数等能力，补充完整单元测试",
+        "表格字段渲染器增强（TableFieldRenderer）：支持行分配逻辑（allocateTableRows）、只读展示优化、列宽自适应，大幅提升明细表格交互体验",
+        "OA数据管理页重构：新增卡片列表视图（DataCardList）支持移动端友好展示，筛选栏和样式全面优化",
+        "新增TreeSelectModalControl控件：支持树形结构数据的弹窗选择，扩展OA表单字段类型体系",
+        "ERP服务增强：新增促销查询服务（erp-promotion）、客户参考数据服务（erp-customer-reference），产品单位换算增强",
+        "审批组件优化：ActionModal交互增强，ModalSelectControl支持更多配置项，审批详情页展示优化",
+        "4项数据库迁移：促销活动表单(146)、线下表单重命名(147)、组合必选visibleWhen(148)、目标管理权限(149)"
+      ]
+    },
+    {
       "version": "v2.14.1",
       "date": "2026-06-25 20:46",
       "types": ["optimization", "fix"],

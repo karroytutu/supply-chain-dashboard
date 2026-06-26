@@ -11,6 +11,8 @@ import styles from './SettlementOrderPicker.less';
 interface SettlementOrderPickerModalProps {
   open: boolean;
   consumerId?: string | number;
+  /** 额外查询参数（从表单 schema 的 defaultQueryParams 透传） */
+  extraQueryParams?: Record<string, string | number | boolean>;
   /** 初始选中的 bizId 列表 */
   initialKeys: number[];
   /** 已选记录缓存 */
@@ -22,7 +24,7 @@ interface SettlementOrderPickerModalProps {
 }
 
 const SettlementOrderPickerModal: React.FC<SettlementOrderPickerModalProps> = ({
-  open, consumerId, initialKeys, selectedMap, onSelectedMapUpdate, onConfirm, onClose,
+  open, consumerId, extraQueryParams, initialKeys, selectedMap, onSelectedMapUpdate, onConfirm, onClose,
 }) => {
   const [draftKeys, setDraftKeys] = useState<number[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -49,6 +51,7 @@ const SettlementOrderPickerModal: React.FC<SettlementOrderPickerModalProps> = ({
         page,
         pageSize: PAGE_SIZE,
         signal: controller.signal,
+        extraQueryParams,
       });
       if (!controller.signal.aborted) {
         const records = result.records as SettlementRecord[];
@@ -69,7 +72,7 @@ const SettlementOrderPickerModal: React.FC<SettlementOrderPickerModalProps> = ({
     } finally {
       if (!controller.signal.aborted) setTableLoading(false);
     }
-  }, [consumerId, onSelectedMapUpdate]);
+  }, [consumerId, extraQueryParams, onSelectedMapUpdate]);
 
   // 弹窗打开时初始化并加载数据
   useEffect(() => {

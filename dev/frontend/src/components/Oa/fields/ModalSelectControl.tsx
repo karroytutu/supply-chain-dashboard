@@ -36,13 +36,20 @@ interface FetchParams {
   signal: AbortSignal;
   page: number;
   paginated?: boolean;
+  /** 表单类型定义中的默认查询参数，优先级最低，可被 cascadeParams 和 filterValues 覆盖 */
+  defaultQueryParams?: Record<string, string | number | boolean>;
 }
 
 async function fetchModalData(params: FetchParams): Promise<{ records: Record<string, unknown>[]; total: number }> {
-  const { searchApi, keyword, filterValues, cascadeParams, formData, signal, page, paginated } = params;
+  const { searchApi, keyword, filterValues, cascadeParams, formData, signal, page, paginated, defaultQueryParams } = params;
 
-  // 构建通用参数：级联参数 + 筛选参数
+  // 构建通用参数：默认参数（最低优先级）→ 级联参数 → 筛选参数 → 关键词
   const extraParams: Record<string, string> = {};
+  if (defaultQueryParams) {
+    for (const [k, v] of Object.entries(defaultQueryParams)) {
+      extraParams[k] = String(v);
+    }
+  }
   if (cascadeParams && formData) {
     for (const [apiParam, formField] of Object.entries(cascadeParams)) {
       const val = formData[formField];
@@ -89,14 +96,31 @@ async function fetchModalData(params: FetchParams): Promise<{ records: Record<st
 }
 
 // =====================================================
+// 筛选默认值计算
+// =====================================================
+
+/** 根据 filters 配置计算筛选默认值（如 date-range 的 last7days） */
+function getFilterDefaults(filters?: ModalSelectFilter[]): Record<string, unknown> {
+  if (!filters) return {};
+  const defaults: Record<string, unknown> = {};
+  for (const f of filters) {
+    if (f.type === 'date-range' && f.defaultValue === 'last7days') {
+      defaults[f.key] = [dayjs().subtract(7, 'day'), dayjs()];
+    }
+  }
+  return defaults;
+}
+
+// =====================================================
 // 筛选条件渲染
 // =====================================================
 
 function renderFilterControl(
   filter: ModalSelectFilter,
   value: unknown,
-  onChange: (val: unknown) => void,
+  onChange: (val: unknown, skipFetch?: boolean) => void,
   filterOptions: Record<string, { value: string; label: string }[]>,
+  onKeywordSearch?: (val: string) => void,
 ) {
   const labelStyle: React.CSSProperties = { fontSize: 12, color: '#666', marginBottom: 4 };
 
@@ -109,8 +133,8 @@ function renderFilterControl(
             placeholder={filter.placeholder || '搜索'}
             allowClear
             value={value as string || ''}
-            onChange={e => onChange(e.target.value)}
-            onSearch={val => onChange(val)}
+            onChange={e => onChange(e.target.value, true)}
+            onSearch={val => { onChange(val); onKeywordSearch?.(val); }}
             style={{ width: 200 }}
           />
         </div>
@@ -139,7 +163,7 @@ function renderFilterControl(
             placeholder={filter.placeholder || `选择${filter.label}`}
             options={filterOptions[filter.key] || []}
             value={value as string | undefined}
-            onChange={onChange}
+            onChange={(val) => onChange(val)}
             filterOption={(input, option) =>
               String(option?.label || '').toLowerCase().includes(input.toLowerCase())
             }
@@ -230,20 +254,14 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
   const selectedMapRef = useRef<Map<string, Record<string, unknown>>>(new Map());
   // 记录当前页数据的 key 集合，用于跨页选中时区分"当前页"与"其他页"的选中项
   const prevPageKeysRef = useRef<Set<string>>(new Set());
+  // 标记是否跳过下一次 filterValues 变化触发的自动 fetch（openModal 已自行处理）
+  const skipNextFilterFetchRef = useRef(false);
 
   const searchApi = field.searchApi || '';
 
-  // 初始化日期筛选默认值
+  // 初始化日期筛选默认值（组件挂载时）
   useEffect(() => {
-    if (!filters) return;
-    const defaults: Record<string, unknown> = {};
-    for (const f of filters) {
-      if (f.type === 'date-range' && f.defaultValue === 'last7days') {
-        defaults[`${f.key}_start`] = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
-        defaults[`${f.key}_end`] = dayjs().format('YYYY-MM-DD');
-        defaults[f.key] = [dayjs().subtract(7, 'day'), dayjs()];
-      }
-    }
+    const defaults = getFilterDefaults(filters);
     if (Object.keys(defaults).length > 0) {
       setFilterValues(prev => ({ ...prev, ...defaults }));
     }
@@ -268,12 +286,13 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 构建 API 筛选参数
-  const buildApiFilterParams = useCallback((): Record<string, unknown> => {
+  // 构建 API 筛选参数（可接受外部传入的筛选值源，用于 openModal 首次调用时 state 尚未提交的场景）
+  const buildApiFilterParams = useCallback((source?: Record<string, unknown>): Record<string, unknown> => {
+    const values = source || filterValues;
     const params: Record<string, unknown> = {};
     if (!filters) return params;
     for (const f of filters) {
-      const val = filterValues[f.key];
+      const val = values[f.key];
       if (val == null || val === '') continue;
       if (f.type === 'date-range' && Array.isArray(val)) {
         const [start, end] = val as [Dayjs, Dayjs];
@@ -286,7 +305,7 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
     return params;
   }, [filters, filterValues]);
 
-  const fetchData = useCallback(async (kw: string, page: number = 1) => {
+  const fetchData = useCallback(async (kw: string, page: number = 1, overrideFilters?: Record<string, unknown>) => {
     // ═══ scopeFromField 模式：从另一字段的已选记录中客户端筛选 ═══
     if (field.scopeFromField && formData) {
       const scopeDetails = (formData._details as Record<string, unknown>)?.[field.scopeFromField];
@@ -358,12 +377,13 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
       const result = await fetchModalData({
         searchApi,
         keyword: kw,
-        filterValues: buildApiFilterParams(),
+        filterValues: buildApiFilterParams(overrideFilters),
         cascadeParams: field.cascadeParams,
         formData,
         signal: controller.signal,
         page,
         paginated,
+        defaultQueryParams: field.defaultQueryParams,
       });
       if (!controller.signal.aborted) {
         setDataSource(result.records);
@@ -388,6 +408,15 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
       .map(id => selectedMapRef.current.get(String(id)))
       .filter(Boolean) as Record<string, unknown>[];
   }, [selectedIds]);
+
+  // 从 _details 读取持久化记录（控件重建后 selectedMapRef 为空时的兜底）
+  // 用户在弹窗中确认选择时，系统已将完整记录（ID+名称等）存入 formData._details[field.key]
+  const detailsRecords = useMemo(() => {
+    if (selectedIds.length === 0) return [];
+    const detailsData = (formData as Record<string, unknown> | undefined)?._details as Record<string, unknown> | undefined;
+    const records = detailsData?.[field.key] as Record<string, unknown>[] | undefined;
+    return records || [];
+  }, [selectedIds, formData, field.key]);
 
   const openModal = () => {
     if (mode !== 'editable') return;
@@ -416,9 +445,14 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
     setKeyword('');
     setCurrentPage(1);
     prevPageKeysRef.current = new Set();
-    setFilterValues({});
+    // 重置为筛选默认值（如近7天日期），而非清空为空对象
+    const defaults = getFilterDefaults(filters);
+    // 标记跳过 useEffect 的自动 fetch（本函数已直接调用 fetchData）
+    skipNextFilterFetchRef.current = true;
+    setFilterValues(defaults);
     setModalOpen(true);
-    if (searchApi || field.scopeFromField) fetchData('');
+    // 首次 fetch 直接传入默认值（setFilterValues 异步，state 尚未提交）
+    if (searchApi || field.scopeFromField) fetchData('', 1, defaults);
   };
 
   const handleConfirm = () => {
@@ -445,18 +479,34 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
     setModalOpen(false);
   };
 
-  const handleFilterChange = (filterKey: string, val: unknown) => {
+  const handleFilterChange = (filterKey: string, val: unknown, skipFetch?: boolean) => {
     setFilterValues(prev => ({ ...prev, [filterKey]: val }));
     setCurrentPage(1);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => fetchData(keyword), 300);
+    // keyword 类型只更新存储值，不触发 fetch（由 onSearch 回车/点击触发）
+    // 非 keyword 类型的 fetch 由下方 useEffect 在 filterValues 提交后自动触发
   };
 
   const handleKeywordSearch = (kw: string) => {
+    // 清除可能存在的延时定时器，避免 onChange 触发的空关键词请求取消正确请求
+    if (searchTimer.current) clearTimeout(searchTimer.current);
     setKeyword(kw);
     setCurrentPage(1);
     fetchData(kw);
   };
+
+  // 筛选条件变化后自动触发 fetch（使用 useEffect 确保读到最新 state，避免闭包陈旧引用）
+  useEffect(() => {
+    if (!modalOpen) return;
+    // openModal 已直接调用 fetchData，跳过本次自动触发
+    if (skipNextFilterFetchRef.current) {
+      skipNextFilterFetchRef.current = false;
+      return;
+    }
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      if (searchApi || field.scopeFromField) fetchData(keyword);
+    }, 300);
+  }, [filterValues, modalOpen, searchApi, field.scopeFromField, fetchData, keyword]);
 
   // 静态选项过滤
   const staticFilteredOptions = useMemo(() => {
@@ -585,7 +635,12 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
         {selectedIds.length === 0 ? (
           <span style={{ color: '#bfbfbf' }}>请选择</span>
         ) : (
-          <ReadonlyTable records={selectedRecords} labelKey={labelKey} amountKey={amountKey} />
+          // 显示优先级：selectedRecords（内存缓存）→ detailsRecords（持久化兜底）→ 原始 ID
+          <ReadonlyTable
+            records={selectedRecords.length > 0 ? selectedRecords : detailsRecords.length > 0 ? detailsRecords : selectedIds.map(id => ({ [valueKey]: id }))}
+            labelKey={selectedRecords.length > 0 ? labelKey : detailsRecords.length > 0 ? labelKey : valueKey}
+            amountKey={amountKey}
+          />
         )}
       </div>
       {selectedIds.length > 0 && (
@@ -621,7 +676,12 @@ const ModalSelectControl: React.FC<FieldControlProps> = ({
             borderRadius: 6,
             alignItems: 'flex-end',
           }}>
-            {filters.map(f => renderFilterControl(f, filterValues[f.key], val => handleFilterChange(f.key, val), filterOptions))}
+            {filters.map(f => renderFilterControl(
+              f, filterValues[f.key],
+              (val, skip) => handleFilterChange(f.key, val, skip),
+              filterOptions,
+              handleKeywordSearch,
+            ))}
           </div>
         )}
 

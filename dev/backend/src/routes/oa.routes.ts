@@ -49,6 +49,7 @@ import {
   retryErpOperation,
   retryAutoNode,
   getPurchaseOrderAnalysis,
+  getErpReferenceTypes,
 } from '../controllers/erp-reference.controller';
 import {
   // 流程交接
@@ -144,8 +145,8 @@ router.post(
         return;
       }
 
-      const { getFormTypeByCode } = await import('../services/oa/form-types');
-      const formType = await getFormTypeByCode(code);
+      const { getFormTypeByCodeQuery } = await import('../services/oa/oa-form-type.query');
+      const formType = await getFormTypeByCodeQuery(code);
       if (!formType) {
         res.status(404).json({ code: 404, message: '表单类型不存在' });
         return;
@@ -181,8 +182,8 @@ router.post(
       // 预览场景出错时降级：返回全量节点，不阻断用户操作
       log.warn(`Error for ${req.params.code}:`, error instanceof Error ? error.message : error);
       try {
-        const { getFormTypeByCode } = await import('../services/oa/form-types');
-        const formType = await getFormTypeByCode(req.params.code);
+        const { getFormTypeByCodeQuery } = await import('../services/oa/oa-form-type.query');
+        const formType = await getFormTypeByCodeQuery(req.params.code);
         res.json({
           code: 200,
           data: { visibleNodes: formType?.workflowDef.nodes || [], approvers: [] },
@@ -390,6 +391,9 @@ router.get(
   requirePermission('oa:read'),
   getPurchaseOrderAnalysis
 );
+
+// 获取所有 ERP 参考类型配置（前端动态加载，无需硬编码）
+router.get('/erp-reference/types', requirePermission('oa:read'), getErpReferenceTypes);
 
 // 获取ERP参考数据（审批只读用户也需要查看参考数据，read 或 write 任一即可）
 router.get('/erp-reference/:type', requirePermission('oa:read'), getErpReference);

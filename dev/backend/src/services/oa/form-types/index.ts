@@ -19,6 +19,9 @@ import { procurementOrderFormType } from './procurement-order';
 import { logisticsFeeFormType } from './logistics-fee';
 import { purchasePaymentFormType } from './purchase-payment';
 import { customerReconciliationFormType } from './customer-reconciliation';
+import { promotionCombinedOfflineFormType } from './promotion-combined-offline';
+import { promotionSpecialOfflineFormType } from './promotion-special-offline';
+import { promotionFullGiftOfflineFormType } from './promotion-fullgift-offline';
 
 /**
  * 所有已注册的表单类型
@@ -39,6 +42,9 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   logisticsFeeFormType,
   purchasePaymentFormType,
   customerReconciliationFormType,
+  promotionCombinedOfflineFormType,
+  promotionSpecialOfflineFormType,
+  promotionFullGiftOfflineFormType,
 ];
 
 /**
@@ -91,3 +97,6 @@ export { procurementOrderFormType } from './procurement-order';
 export { logisticsFeeFormType } from './logistics-fee';
 export { purchasePaymentFormType } from './purchase-payment';
 export { customerReconciliationFormType } from './customer-reconciliation';
+export { promotionCombinedOfflineFormType } from './promotion-combined-offline';
+export { promotionSpecialOfflineFormType } from './promotion-special-offline';
+export { promotionFullGiftOfflineFormType } from './promotion-fullgift-offline';

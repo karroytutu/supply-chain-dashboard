@@ -50,6 +50,7 @@ function makeDetail(overrides: Partial<ApprovalDetail> = {}): ApprovalDetail {
     applicantDept: '技术部',
     currentNodeOrder: 1,
     currentNodeName: '节点',
+    currentApproverName: null,
     submittedAt: '2026-06-01',
     completedAt: null,
     previewFields: [],

@@ -61,11 +61,14 @@
 
 .formSection {
   flex: 1;
+  min-width: 0;              // 解除 flexbox min-width: auto 约束，防止表格撑宽容器
   overflow-y: auto;
+  overflow-x: hidden;        // 防止横向溢出
   -webkit-overflow-scrolling: touch;  // iOS WebView 惯性滚动
 }
 
 .form {
+  max-width: 100%;           // 确保不超出父容器
   background: #fff;
   border-radius: 8px;
   padding: 24px;
@@ -242,6 +245,13 @@
     }
   }
 
+  // 列宽动态计算：平滑过渡（避免编辑过程中列宽突变）
+  :global {
+    .ant-table-cell {
+      transition: width 200ms ease-out;
+    }
+  }
+
   // 移动端紧凑化
   @media (max-width: @screen-sm) {
     :global {
@@ -255,6 +265,13 @@
         font-size: 12px;
       }
     }
+  }
+
+  // 分摊操作区：标准 Form.Item 布局，与其他表单字段视觉一致
+  .allocateToolbar {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 }
 
@@ -330,6 +347,7 @@
 
   .formSection {
     flex: none;
+    min-width: 0;            // 移动端同样需要解除 flexbox 约束
   }
 
   .footer {

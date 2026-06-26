@@ -98,12 +98,17 @@ export function validateFormData(
   /** 发起节点字段权限（来自 fieldPermissions.nodes["0"]）。
    * 值为 'hidden' 的字段跳过必填校验，与前端发起页字段过滤逻辑一致。
    * 仅提交校验场景传入；table 子字段递归校验不传（子字段无审批环节权限概念）。 */
-  nodeZeroPermissions?: Record<string, FieldPermission>
+  nodeZeroPermissions?: Record<string, FieldPermission>,
+  /** 父级表单数据，供表格子字段的 visibleWhen 引用父级字段值。
+   * 仅 table 递归校验场景传入，顶层校验不传。 */
+  parentFormData?: Record<string, unknown>
 ): string[] {
   const errors: string[] = [];
+  // 合并父级数据，使表格子字段的 visibleWhen 可以引用父级表单字段
+  const mergedData = parentFormData ? { ...parentFormData, ...formData } : formData;
 
   for (const field of formSchema.fields) {
-    if (field.visibleWhen && !checkCondition(field.visibleWhen, formData)) {
+    if (field.visibleWhen && !checkCondition(field.visibleWhen, mergedData)) {
       continue;
     }
     // 发起节点权限隐藏跳过校验（与前端发起页过滤逻辑一致）
@@ -114,7 +119,7 @@ export function validateFormData(
     const value = formData[field.key];
 
     const isRequired =
-      field.required || (field.requiredWhen ? checkCondition(field.requiredWhen, formData) : false);
+      field.required || (field.requiredWhen ? checkCondition(field.requiredWhen, mergedData) : false);
 
     if (isRequired) {
       if (value === undefined || value === null || value === '') {
@@ -171,8 +176,17 @@ export function validateFormData(
 
       case 'modal_select':
         // modal_select 选项来自远程 API，仅校验值类型
-        if (value != null && value !== '' && !Array.isArray(value)) {
-          errors.push(`${field.label}值格式错误`);
+        // 区分多选/单选：多选（multiple: true）要求数组；单选接受标量（表格行内 ErpFieldRenderer 降级场景）
+        if (value != null && value !== '') {
+          if (field.multiple) {
+            if (!Array.isArray(value)) {
+              errors.push(`${field.label}值格式错误`);
+            }
+          } else {
+            if (Array.isArray(value)) {
+              errors.push(`${field.label}值格式错误`);
+            }
+          }
         }
         break;
 
@@ -181,7 +195,9 @@ export function validateFormData(
           for (let i = 0; i < value.length; i++) {
             const rowErrors = validateFormData(
               { fields: field.children },
-              value[i] as Record<string, unknown>
+              value[i] as Record<string, unknown>,
+              undefined,
+              formData
             );
             errors.push(...rowErrors.map(e => `${field.label}[${i + 1}].${e}`));
           }

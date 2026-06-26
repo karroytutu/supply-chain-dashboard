@@ -1,5 +1,4 @@
 import React from 'react';
-import { Badge } from 'antd';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -15,7 +14,6 @@ interface NavItem {
   shortLabel: string;
   icon: React.ReactNode;
   count: number | null;
-  badgeType: 'number' | 'dot';
 }
 
 interface ApprovalNavProps {
@@ -24,12 +22,17 @@ interface ApprovalNavProps {
   onNavClick: (mode: ViewMode) => void;
 }
 
+/** 格式化标签文字，有数量时在后面加括号 */
+function formatLabel(text: string, count: number | null): string {
+  return count != null && count > 0 ? `${text}(${count})` : text;
+}
+
 const ApprovalNav: React.FC<ApprovalNavProps> = ({ viewMode, stats, onNavClick }) => {
   const navItems: NavItem[] = [
-    { key: 'pending', label: '待处理的', shortLabel: '待办', icon: <ClockCircleOutlined />, count: stats.pending, badgeType: 'number' },
-    { key: 'processed', label: '已处理的', shortLabel: '已办', icon: <CheckCircleOutlined />, count: null, badgeType: 'number' },
-    { key: 'my', label: '我发起的', shortLabel: '发起', icon: <SendOutlined />, count: null, badgeType: 'number' },
-    { key: 'cc', label: '抄送我的', shortLabel: '抄送', icon: <BellOutlined />, count: stats.cc, badgeType: 'dot' },
+    { key: 'pending', label: '待处理的', shortLabel: '待办', icon: <ClockCircleOutlined />, count: stats.pending },
+    { key: 'processed', label: '已处理的', shortLabel: '已办', icon: <CheckCircleOutlined />, count: null },
+    { key: 'my', label: '我发起的', shortLabel: '发起', icon: <SendOutlined />, count: null },
+    { key: 'cc', label: '抄送我的', shortLabel: '抄送', icon: <BellOutlined />, count: stats.cc },
   ];
 
   return (
@@ -40,17 +43,9 @@ const ApprovalNav: React.FC<ApprovalNavProps> = ({ viewMode, stats, onNavClick }
           className={`${styles.navItem} ${viewMode === item.key ? styles.navItemActive : ''}`}
           onClick={() => onNavClick(item.key as ViewMode)}
         >
-        <span className={styles.iconWrapper}>
           <span className={styles.navIcon}>{item.icon}</span>
-          {item.badgeType === 'number' && item.count && item.count > 0 && (
-            <Badge count={item.count} size="small" style={{ backgroundColor: '#fa8c16' }} />
-          )}
-          {item.badgeType === 'dot' && item.count && item.count > 0 && (
-            <Badge dot style={{ backgroundColor: '#f5222d' }} />
-          )}
-        </span>
-        <span className={styles.navLabel}>{item.label}</span>
-        <span className={styles.navShortLabel}>{item.shortLabel}</span>
+          <span className={styles.navLabel}>{formatLabel(item.label, item.count)}</span>
+          <span className={styles.navShortLabel}>{formatLabel(item.shortLabel, item.count)}</span>
         </div>
       ))}
     </div>

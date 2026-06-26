@@ -17,6 +17,7 @@ import { initDingtalkViewportHeight } from '@/utils/dingtalk/utils';
 import styles from './index.less';
 import { getErrorMessage } from '../../../utils/errorUtils';
 import { computeFeeTotals } from './computeFeeTotals';
+import { recalcRowFormulas } from './components/TableFieldRenderer';
 
 const FormPage: React.FC = () => {
   const { typeCode } = useParams<{ typeCode: string }>();
@@ -86,9 +87,41 @@ const FormPage: React.FC = () => {
       return { ...hiddenFields, ...allValues };
     });
 
-    // 自动重算公式字段（按拓扑序，确保公式间依赖正确处理）
+    // 自动重算公式字段
     // 放在 updater 外部避免违反 React 纯函数规则
     if (formType) {
+      // 第一步：预计算隐藏的中间值公式（_ 前缀字段，如 _comboRevenue、_comboCost）
+      // 结果写入计算上下文，供第二步的展示公式引用；不设置 form 值（无对应 Form.Item）
+      const hiddenFormulas = formType.formSchema.fields.filter(
+        f => f.type === 'formula' && f.formula && f.key.startsWith('_')
+      );
+      const currentValues = form.getFieldsValue();
+      const merged: Record<string, unknown> = { ...formData, ...currentValues };
+
+      // 第零步：预计算所有表格行内公式字段（解决跨表依赖断裂）
+      // 用最新 merged 上下文重算每行的 _stepMinMargin 等公式列，
+      // 使顶层 minProfitMargin 引用时始终拿到基于当前数据的值
+      for (const tf of formType.formSchema.fields) {
+        if (tf.type !== 'table' || !tf.children) continue;
+        const rows = merged[tf.key] as Array<Record<string, unknown>> | undefined;
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+        const hasRowFormulas = tf.children.some(c => c.type === 'formula' && c.formula);
+        if (!hasRowFormulas) continue;
+        merged[tf.key] = rows.map(row => recalcRowFormulas(row, tf.children!, merged));
+      }
+
+      for (const hf of hiddenFormulas) {
+        const result = evaluateFormula(hf.formula!, merged);
+        const precision = hf.formulaPrecision ?? 2;
+        const rounded = Number(result.toFixed(precision));
+        merged[hf.key] = rounded;
+      }
+      // 将底稿同步到表单存档数据，确保提交时服务端拿到的底稿与利润率计算使用的一致
+      setFormData(prev => ({ ...prev, ...Object.fromEntries(
+        hiddenFormulas.map(hf => [hf.key, merged[hf.key]])
+      )}));
+
+      // 第二步：计算展示公式字段（按拓扑序，确保公式间依赖正确处理）
       const formulaFields = formType.formSchema.fields.filter(
         f => f.type === 'formula' && f.formula && !f.key.startsWith('_')
       );
@@ -100,9 +133,6 @@ const FormPage: React.FC = () => {
           const sorted = topologicalSort(
             formulaFields.map(f => ({ key: f.key, expression: f.formula!, field: f }))
           );
-          // 使用当前表单值 + 隐藏字段作为计算上下文
-          const currentValues = form.getFieldsValue();
-          const merged: Record<string, unknown> = { ...formData, ...currentValues };
           const formulaUpdates: Record<string, unknown> = {};
           for (const item of sorted) {
             const result = evaluateFormula(item.expression, merged);

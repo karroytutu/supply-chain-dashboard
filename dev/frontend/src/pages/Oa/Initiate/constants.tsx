@@ -8,6 +8,19 @@ import {
   TeamOutlined,
   SolutionOutlined,
   BankOutlined,
+  // 表单级图标
+  MoneyCollectOutlined,
+  SafetyCertificateOutlined,
+  DeleteOutlined,
+  CarOutlined,
+  AlertOutlined,
+  ThunderboltOutlined,
+  ShoppingOutlined,
+  UserSwitchOutlined,
+  SwapOutlined,
+  GiftOutlined,
+  AuditOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import type { FormCategory } from '@/types/oa';
 
@@ -18,6 +31,30 @@ export const CATEGORY_ICONS: Record<FormCategory, React.ReactNode> = {
   marketing: <TeamOutlined />,
   hr: <SolutionOutlined />,
   admin: <BankOutlined />,
+};
+
+/**
+ * 表单级图标映射（icon 字符串 → React 节点）
+ * 优先使用表单自身图标，未匹配时回退到分类图标
+ */
+export const FORM_ICON_MAP: Record<string, React.ReactNode> = {
+  PayCircleOutlined: <PayCircleOutlined />,
+  ShoppingCartOutlined: <ShoppingCartOutlined />,
+  MoneyCollectOutlined: <MoneyCollectOutlined />,
+  SafetyCertificateOutlined: <SafetyCertificateOutlined />,
+  DeleteOutlined: <DeleteOutlined />,
+  CarOutlined: <CarOutlined />,
+  AlertOutlined: <AlertOutlined />,
+  ThunderboltOutlined: <ThunderboltOutlined />,
+  ShoppingOutlined: <ShoppingOutlined />,
+  UserSwitchOutlined: <UserSwitchOutlined />,
+  SwapOutlined: <SwapOutlined />,
+  GiftOutlined: <GiftOutlined />,
+  AuditOutlined: <AuditOutlined />,
+  ToolOutlined: <ToolOutlined />,
+  TeamOutlined: <TeamOutlined />,
+  SolutionOutlined: <SolutionOutlined />,
+  BankOutlined: <BankOutlined />,
 };
 
 /** 分类色值 */

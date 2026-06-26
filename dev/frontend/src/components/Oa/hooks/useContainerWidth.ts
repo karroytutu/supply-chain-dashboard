@@ -16,6 +16,7 @@ export const TABLE_ERP_TYPES = new Set([
   'erp_payment_account', 'erp_asset_category', 'asset_search',
   'erp_grade', 'erp_group', 'erp_area',
   'erp_settlement_order',
+  'modal_select',  // 统一弹窗选择器（表格行内降级为 Select 搜索框）
 ]);
 
 // =====================================================
@@ -83,7 +84,8 @@ export function getColumnWidth(col: FormField): number {
     case 'text': return 150;
     case 'textarea': return 200;
     case 'select':
-    case 'modal_select': return 120;
+    case 'modal_select':
+    case 'tree_select': return 120;
     default: return 120;
   }
 }

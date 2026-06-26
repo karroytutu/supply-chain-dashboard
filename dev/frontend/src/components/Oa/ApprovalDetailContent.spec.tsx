@@ -45,6 +45,18 @@ vi.mock('@/pages/Oa/Form/components/ConditionalFieldWrapper', () => ({
   checkCondition: () => true,
 }));
 
+vi.mock('@/services/api/oa', () => ({
+  remindNode: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock('@/pages/Oa/Detail/components/LicenseDeferredCard', () => ({
+  default: (props: any) => (
+    <div data-testid="license-deferred-card" data-instance-id={props.instanceId}>
+      LicenseDeferredCard
+    </div>
+  ),
+}));
+
 // 默认 mock：当前用户 ID=100，与测试数据中的 assignedUserIds 匹配（办理人视角）
 const mockUsePermission = vi.fn(() => ({
   currentUser: { id: 100, name: '测试用户' },
@@ -76,6 +88,7 @@ function makeDetail(overrides: Partial<ApprovalDetail> = {}): ApprovalDetail {
     applicantDept: '技术部',
     currentNodeOrder: 1,
     currentNodeName: '审批节点',
+    currentApproverName: null,
     submittedAt: '2026-06-01T10:00:00Z',
     completedAt: null,
     previewFields: [],
@@ -150,27 +163,52 @@ beforeEach(() => {
 });
 
 describe('ApprovalDetailContent - DetailHeader 渲染', () => {
-  it('显示 formTypeName / instanceNo / applicantName', () => {
+  it('显示 formTypeName / instanceNo / 元信息 + 状态标签', () => {
     const detail = makeDetail();
     const actionState = makeActionState();
 
     render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
 
     expect(screen.getByText('其他付款申请单')).toBeTruthy();
-    expect(screen.getByText('编号: OA-2026-001')).toBeTruthy();
-    expect(screen.getByText('申请人: 张三')).toBeTruthy();
-    expect(screen.getByText('部门: 技术部')).toBeTruthy();
+    expect(screen.getByText('OA-2026-001')).toBeTruthy();
+    // 元信息用中间点分隔
+    expect(screen.getByText(/张三 · 技术部 · 2026-06-01 提交/)).toBeTruthy();
     expect(screen.getByTestId('status-tag')).toBeTruthy();
   });
 
-  it('showHeader=false 时不渲染头部信息（Detail 页面使用）', () => {
+  it('有 completedAt 时显示完成时间', () => {
+    const detail = makeDetail({ completedAt: '2026-06-05T14:00:00Z' });
+    const actionState = makeActionState();
+
+    render(<ApprovalDetailContent detail={detail} actionState={actionState} />);
+
+    expect(screen.getByText(/2026-06-05 完成/)).toBeTruthy();
+  });
+
+  it('onBack 传入时渲染返回按钮，不传时不渲染', () => {
+    const detail = makeDetail();
+    const actionState = makeActionState();
+    const onBack = vi.fn();
+
+    const { rerender } = render(
+      <ApprovalDetailContent detail={detail} actionState={actionState} onBack={onBack} />,
+    );
+    expect(screen.getByText('返回')).toBeTruthy();
+
+    rerender(
+      <ApprovalDetailContent detail={detail} actionState={actionState} />,
+    );
+    expect(screen.queryByText('返回')).toBeNull();
+  });
+
+  it('showHeader=false 时不渲染头部信息', () => {
     const detail = makeDetail();
     const actionState = makeActionState();
 
     render(<ApprovalDetailContent detail={detail} actionState={actionState} showHeader={false} />);
 
     expect(screen.queryByText('其他付款申请单')).toBeNull();
-    expect(screen.queryByText('编号: OA-2026-001')).toBeNull();
+    expect(screen.queryByText('OA-2026-001')).toBeNull();
     expect(screen.queryByTestId('status-tag')).toBeNull();
     // 表单和操作区仍然正常渲染
     expect(screen.getByText('表单数据')).toBeTruthy();

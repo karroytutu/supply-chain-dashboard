@@ -5,6 +5,8 @@ import type { ColumnsType } from 'antd/es/table';
 import { history } from 'umi';
 import type { ApprovalInstance } from '@/types/oa';
 import { formatDateTime } from '@/utils/format';
+import DataCardList from './DataCardList';
+import styles from '../index.less';
 
 // 审批状态映射
 const statusMap: Record<string, { color: string; text: string }> = {
@@ -25,7 +27,6 @@ const columns: ColumnsType<ApprovalInstance> = [
   },
   { title: '申请类型', dataIndex: 'formTypeName', key: 'formTypeName', width: 120 },
   { title: '申请人', dataIndex: 'applicantName', key: 'applicantName', width: 100 },
-  { title: '申请部门', dataIndex: 'applicantDept', key: 'applicantDept', width: 150 },
   {
     title: '申请时间', dataIndex: 'submittedAt', key: 'submittedAt', width: 160, sorter: true,
     render: (text) => formatDateTime(text),
@@ -64,22 +65,37 @@ interface DataTableProps {
 
 const DataTable: React.FC<DataTableProps> = ({ dataSource, loading, pagination, onPaginationChange }) => {
   return (
-    <Table
-      columns={columns}
-      dataSource={dataSource}
-      rowKey="id"
-      loading={loading}
-      scroll={{ x: 1400 }}
-      pagination={{
-        current: pagination.current,
-        pageSize: pagination.pageSize,
-        total: pagination.total,
-        showSizeChanger: true,
-        showQuickJumper: true,
-        showTotal: (total) => `共 ${total} 条`,
-        onChange: onPaginationChange,
-      }}
-    />
+    <>
+      {/* 桌面/平板：表格 */}
+      <div className={styles.tableWrapper}>
+        <Table
+          columns={columns}
+          dataSource={dataSource}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: 900 }}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 条`,
+            onChange: onPaginationChange,
+          }}
+        />
+      </div>
+
+      {/* 手机端：卡片流 */}
+      <div className={styles.cardListWrapper}>
+        <DataCardList
+          dataSource={dataSource}
+          loading={loading}
+          pagination={pagination}
+          onPaginationChange={onPaginationChange}
+        />
+      </div>
+    </>
   );
 };
 

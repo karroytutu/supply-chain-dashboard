@@ -17,29 +17,65 @@
 
 // 头部信息
 .detailHeader {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px 24px;
   margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.headerTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  &:hover {
+    background: #f5f5f5;
+    color: #1f1f1f;
+  }
 }
 
 .detailTitle {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
-  margin: 0 0 8px 0;
+  color: #1f1f1f;
+  margin: 0;
+  flex: 1;
+  line-height: 1.4;
 }
 
-.detailMeta {
+.headerStatus {
+  flex-shrink: 0;
+}
+
+.headerInstanceNo {
   font-size: 13px;
-  color: #666;
-  margin-bottom: 8px;
-
-  span {
-    margin-right: 16px;
-  }
+  color: #8c8c8c;
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
 }
 
-.detailTags {
-  display: flex;
-  gap: 8px;
+.headerMeta {
+  font-size: 13px;
+  color: #8c8c8c;
+  line-height: 1.6;
 }
 
 // 表单数据
@@ -140,11 +176,35 @@
   .content {
     padding-bottom: 12px; // 与容器留白对齐
   }
+
+  .detailHeader {
+    padding: 12px;
+  }
+
+  .detailTitle {
+    font-size: 15px;
+  }
 }
 
 @media (max-width: @screen-sm) {
   .content {
     padding-bottom: 8px; // 与容器留白对齐
+  }
+
+  .detailHeader {
+    padding: 8px 12px;
+  }
+
+  .detailTitle {
+    font-size: 14px;
+  }
+
+  .headerInstanceNo {
+    font-size: 12px;
+  }
+
+  .headerMeta {
+    font-size: 12px;
   }
 
   .formDataRow {

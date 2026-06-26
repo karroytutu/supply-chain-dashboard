@@ -9,10 +9,9 @@ import type { ApprovalInstance, FormTypeDefinition } from '@/types/oa';
 
 // ==================== Mocks ====================
 
-const { mockGetDataList, mockGetFormTypes, mockGetStats, mockExportData } = vi.hoisted(() => ({
+const { mockGetDataList, mockGetFormTypes, mockExportData } = vi.hoisted(() => ({
   mockGetDataList: vi.fn(),
   mockGetFormTypes: vi.fn(),
-  mockGetStats: vi.fn(),
   mockExportData: vi.fn(),
 }));
 
@@ -28,7 +27,7 @@ vi.mock('@/services/api/oa', () => ({
   oaApi: {
     getDataList: (...args: any[]) => mockGetDataList(...args),
     getFormTypes: (...args: any[]) => mockGetFormTypes(...args),
-    getStats: (...args: any[]) => mockGetStats(...args),
+
     exportData: (...args: any[]) => mockExportData(...args),
   },
 }));
@@ -63,6 +62,7 @@ function makeInstance(id: number): ApprovalInstance {
     applicantDept: '部门',
     currentNodeOrder: 1,
     currentNodeName: '节点',
+    currentApproverName: null,
     currentNodeDeadlineAt: null,
     submittedAt: '2026-06-01',
     completedAt: null,
@@ -88,7 +88,6 @@ function makeFormType(code: string): FormTypeDefinition {
 
 const defaultListResponse = { data: { list: [makeInstance(1), makeInstance(2)], total: 2 } };
 const defaultFormTypesResponse = { data: [makeFormType('other_payment')] };
-const defaultStatsResponse = { data: { total: 10, pending: 5, approved: 3, rejected: 2 } };
 
 // ==================== 测试用例 ====================
 
@@ -96,18 +95,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetDataList.mockResolvedValue(defaultListResponse);
   mockGetFormTypes.mockResolvedValue(defaultFormTypesResponse);
-  mockGetStats.mockResolvedValue(defaultStatsResponse);
+
   mockExportData.mockResolvedValue({ data: { url: 'http://example.com/export.xlsx' } });
 });
 
 describe('useDataList 初始化', () => {
-  it('挂载后调用 getFormTypes + getStats + getDataList', async () => {
+  it('挂载后调用 getFormTypes + getDataList', async () => {
     await act(async () => {
       renderHook(() => useDataList());
     });
 
     expect(mockGetFormTypes).toHaveBeenCalledTimes(1);
-    expect(mockGetStats).toHaveBeenCalledTimes(1);
     expect(mockGetDataList).toHaveBeenCalled();
   });
 
@@ -315,14 +313,5 @@ describe('useDataList 容错', () => {
     expect(result.current.formTypes).toEqual([]);
   });
 
-  it('loadStats 失败 → 静默处理不崩溃', async () => {
-    mockGetStats.mockRejectedValueOnce(new Error('Stats error'));
 
-    const { result } = await act(async () => {
-      return renderHook(() => useDataList());
-    });
-
-    // 不应崩溃，stats 保持默认值
-    expect(result.current.stats).toEqual({ total: 0, pending: 0, approved: 0, rejected: 0 });
-  });
 });
