@@ -1,0 +1,40 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 8.130.26.73 >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Pull latest code on server
+        run: |
+          ssh -i ~/.ssh/deploy_key root@8.130.26.73 \
+            "cd /www2/DevHub/supply-chain-dashboard && git pull"
+
+      - name: Run deploy script
+        run: |
+          ssh -i ~/.ssh/deploy_key root@8.130.26.73 \
+            "cd /www2/DevHub/supply-chain-dashboard/deploy/scripts && ./deploy.sh"
+
+      - name: Health check
+        run: |
+          sleep 5
+          RESPONSE=$(ssh -i ~/.ssh/deploy_key root@8.130.26.73 \
+            "curl -sf http://localhost:8000/api/health")
+          echo "Health response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"status":"ok"' || exit 1
+          echo "Deployment successful!"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

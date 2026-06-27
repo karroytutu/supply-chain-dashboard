@@ -31,7 +31,7 @@ function normalizeOrigin(value?: string | null): string | null {
 
 function getAllowedAppOrigins(): Set<string> {
   const defaultOrigins = ['http://localhost:3000', 'http://localhost:3100'];
-  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+  const envOrigins = config.cors.allowedOrigins
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean)

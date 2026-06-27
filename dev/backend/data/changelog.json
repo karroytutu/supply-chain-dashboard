@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "v2.15.2",
+      "date": "2026-06-27 21:30",
+      "types": ["optimization"],
+      "changes": [
+        "环境变量管理体系完善：新增启动校验（缺少必需变量时拒绝启动）、.env.example 模板文件、散落的 process.env 统一收口到 config/index.ts",
+        "CI/CD 自动部署搭建：配置 GitHub Actions，push 到 main 后自动 SSH 到生产服务器执行构建部署和健康检查",
+        "生产环境配置修复：补齐 ALLOWED_ORIGINS/ERP并发参数/LOG_LEVEL，清理已弃用的旧数据源变量",
+        "规范文档更新：端口配置规范新增环境架构说明，项目开发规范新增单人开发工作流，新增环境变量管理规范"
+      ]
+    },
+    {
       "version": "v2.15.1",
       "date": "2026-06-27 11:30",
       "types": ["optimization", "fix"],

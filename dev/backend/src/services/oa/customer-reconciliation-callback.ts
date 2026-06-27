@@ -9,6 +9,7 @@
  */
 
 import { createLogger } from '../../utils/logger';
+import { config } from '../../config';
 const log = createLogger('CustomerReconciliationCallback');
 
 import { appQuery as query } from '../../db/appPool';
@@ -173,7 +174,7 @@ async function handleUploadStatementPdf(
   await fsp.writeFile(filePath, pdfBuffer);
 
   // 生成可访问的 URL（通过静态文件服务）
-  const baseUrl = process.env.APP_BASE_URL || 'http://localhost:8100';
+  const baseUrl = config.app.baseUrl;
   const pdfUrl = `${baseUrl}/uploads/oa-statement/${fileName}`;
 
   log.info(`[应收对账] PDF保存成功: path=${filePath}, url=${pdfUrl}, size=${pdfBuffer.length}`);

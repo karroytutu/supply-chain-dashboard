@@ -1,7 +1,8 @@
 import winston from 'winston';
+import { config } from '../config';
 
 const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
+  level: config.log.level,
   format: winston.format.combine(
     winston.format.splat(), // 支持 %s/%d 插值（兼容 console.log 习惯）
     winston.format.timestamp(),
