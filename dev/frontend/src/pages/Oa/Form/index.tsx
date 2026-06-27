@@ -1,7 +1,7 @@
 /**
  * 表单填写页面
  */
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { history, useParams, useAccess } from 'umi';
 import { Button, Spin, Form, message, Alert } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
@@ -25,20 +25,19 @@ const FormPage: React.FC = () => {
   const [form] = Form.useForm();
 
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
 
-  const { loading, formType, customerLicenseInfo, licenseLoading, loadFormType, handleCustomerSelect: handleCustomerSelectBase } =
-    useFormData(form, formData, setFormData);
+  // 内部辅助字段存储：无 Form.Item 的字段（_前缀 + internalFields），不参与 useWatch 订阅
+  const hiddenFieldsRef = useRef<Record<string, unknown>>({});
+  // 订阅 form store 全部变更（含 setFieldsValue 编程式写入），消除双数据源同步断裂
+  const watchedValues = Form.useWatch([], form);
 
-  // 包装客户选中回调：autoFill 通过 form.setFieldsValue 设置隐藏字段（_storefrontPhotoUrl 等），
-  // 但隐藏字段没有 Form.Item 注册，不会触发 onValuesChange，需手动同步到 formData
-  const handleCustomerSelect = useCallback((licenseInfo: any) => {
-    handleCustomerSelectBase(licenseInfo);
-    setFormData(prev => ({
-      ...prev,
-      _storefrontPhotoUrl: form.getFieldValue('_storefrontPhotoUrl'),
-    }));
-  }, [handleCustomerSelectBase, form]);
+  const formData = useMemo(() => ({
+    ...hiddenFieldsRef.current,
+    ...(watchedValues || {}),
+  }), [watchedValues]);
+
+  const { loading, formType, customerLicenseInfo, licenseLoading, loadFormType, handleCustomerSelect } =
+    useFormData(form, hiddenFieldsRef);
 
   // 钉钉 WebView 视口高度修正
   useEffect(() => {
@@ -61,31 +60,20 @@ const FormPage: React.FC = () => {
     return map;
   }, [formType]);
 
-  // 监听表单值变化，同时自动重算公式字段
-  // allValues 不包含没有 Form.Item 注册的隐藏字段（如 _customerName、_storefrontPhotoUrl），
-  // 因此必须保留 formData 中已有的 _ 前缀隐藏字段，避免用户编辑可见字段时将其覆盖丢失
+  // 监听表单值变化，处理副作用（公式计算、费用联动）
+  // formData 已由 useWatch 自动派生，不再需要手动同步状态
   const handleValuesChange = (changedValues: any, allValues: any) => {
-    // updater 只做隐藏字段合并（纯函数），公式计算在外部执行
-    setFormData(prev => {
-      // 保留 autoFill 产生的隐藏字段（_ 前缀，onValuesChange 不返回）
-      const hiddenFields: Record<string, unknown> = {};
-      for (const key of Object.keys(prev)) {
-        if (key.startsWith('_')) hiddenFields[key] = prev[key];
-      }
-      // _details 由 ModalSelectControl 通过 form.setFieldsValue 自动写入，
-      // 无对应 Form.Item，onValuesChange 不会触发，需从 form 实例显式同步
-      const detailsVal = form.getFieldValue('_details');
-      if (detailsVal != null) hiddenFields._details = detailsVal;
-      // 保留 internalFields 中定义的字段（如 feeSupplierName，无 Form.Item 注册，onValuesChange 不返回）
-      if (formType?.formSchema.internalFields) {
-        for (const f of formType.formSchema.internalFields) {
-          if (!f.key.startsWith('_') && prev[f.key] !== undefined) {
-            hiddenFields[f.key] = prev[f.key];
-          }
+    // 保留无 Form.Item 的内部辅助字段到 hiddenFieldsRef
+    const detailsVal = form.getFieldValue('_details');
+    if (detailsVal != null) hiddenFieldsRef.current._details = detailsVal;
+    if (formType?.formSchema.internalFields) {
+      for (const f of formType.formSchema.internalFields) {
+        if (!f.key.startsWith('_')) {
+          const v = allValues[f.key];
+          if (v !== undefined) hiddenFieldsRef.current[f.key] = v;
         }
       }
-      return { ...hiddenFields, ...allValues };
-    });
+    }
 
     // 自动重算公式字段
     // 放在 updater 外部避免违反 React 纯函数规则
@@ -96,7 +84,7 @@ const FormPage: React.FC = () => {
         f => f.type === 'formula' && f.formula && f.key.startsWith('_')
       );
       const currentValues = form.getFieldsValue();
-      const merged: Record<string, unknown> = { ...formData, ...currentValues };
+      const merged: Record<string, unknown> = { ...hiddenFieldsRef.current, ...currentValues };
 
       // 第零步：预计算所有表格行内公式字段（解决跨表依赖断裂）
       // 用最新 merged 上下文重算每行的 _stepMinMargin 等公式列，
@@ -117,9 +105,10 @@ const FormPage: React.FC = () => {
         merged[hf.key] = rounded;
       }
       // 将底稿同步到表单存档数据，确保提交时服务端拿到的底稿与利润率计算使用的一致
-      setFormData(prev => ({ ...prev, ...Object.fromEntries(
-        hiddenFormulas.map(hf => [hf.key, merged[hf.key]])
-      )}));
+      // 隐藏公式字段写入 hiddenFieldsRef（无 Form.Item，useWatch 不捕获）
+      for (const hf of hiddenFormulas) {
+        hiddenFieldsRef.current[hf.key] = merged[hf.key];
+      }
 
       // 第二步：计算展示公式字段（按拓扑序，确保公式间依赖正确处理）
       const formulaFields = formType.formSchema.fields.filter(
@@ -190,7 +179,6 @@ const FormPage: React.FC = () => {
       prevSettlementIdsRef.current = settlementIds;
       if (settlementIds.length === 0) {
         form.setFieldsValue({ feeLines: [] });
-        setFormData(prev => ({ ...prev, feeLines: [] }));
       }
       return;
     }
@@ -218,16 +206,14 @@ const FormPage: React.FC = () => {
         }
         if (allLines.length > 0) {
           form.setFieldsValue({ feeLines: allLines });
-          setFormData(prev => ({ ...prev, feeLines: allLines }));
         } else {
           form.setFieldsValue({ feeLines: [] });
-          setFormData(prev => ({ ...prev, feeLines: [] }));
         }
       } catch {
         message.error('获取结算单明细失败');
       }
     })();
-  }, [formData.settlementIds, typeCode, form, setFormData]);
+  }, [formData.settlementIds, typeCode, form]);
 
   // ===== 采购付款申请：应付单据选中后自动计算应付总额 =====
   const prevDebtIdsRef = useRef<string[]>([]);
@@ -249,7 +235,7 @@ const FormPage: React.FC = () => {
     }
 
     // 优先从 _details.debtIds 中已持久化的选中记录直接计算（无需 API 请求）
-    const details = (formData._details as Record<string, unknown>)?.debtIds as Array<{ leftAmount?: string | number }> | undefined;
+    const details = (form.getFieldValue('_details') as Record<string, unknown>)?.debtIds as Array<{ leftAmount?: string | number }> | undefined;
     if (details && details.length > 0) {
       const selectedBizIds = new Set(debtIds.map(String));
       const selectedDebts = details.filter(r => selectedBizIds.has(String((r as any).bizId)));
@@ -286,7 +272,7 @@ const FormPage: React.FC = () => {
         message.error('获取应付单据详情失败');
       }
     })();
-  }, [formData.debtIds, formData.supplierId, typeCode, form, formData._details]);
+  }, [formData.debtIds, formData.supplierId, typeCode, form, form.getFieldValue('_details')]);
 
   // 费用金额自动计算：委托 computeFeeTotals 工具函数
 
@@ -305,28 +291,17 @@ const FormPage: React.FC = () => {
       const values = await form.validateFields();
       if (!formType) return;
 
-      // 确保 _details 从 form 实例同步到提交数据（防止 onValuesChange 未触发的竞态）
-      // ModalSelectControl 通过 form.setFieldsValue 写入 _details，但无 Form.Item 注册，
-      // 在某些 antd 版本下 onValuesChange 可能不触发，导致 formData 状态未及时更新
-      const detailsFromForm = form.getFieldValue('_details');
-      if (detailsFromForm != null) {
-        values._details = detailsFromForm;
+      // 注入 hiddenFieldsRef 中的内部辅助字段（无 Form.Item 注册，useWatch 不捕获）
+      for (const key of Object.keys(hiddenFieldsRef.current)) {
+        const v = hiddenFieldsRef.current[key];
+        if (v !== undefined && v !== null) values[key] = v;
       }
 
-      // 注入所有 _ 前缀隐藏字段到提交数据（autoFill 产生的值，无 Form.Item 注册）
-      // 包括 _customerName、_storefrontPhotoUrl、_consumerManagerName 等
-      for (const key of Object.keys(formData)) {
-        if (key.startsWith('_') && formData[key] !== undefined && formData[key] !== null) {
-          values[key] = formData[key];
-        }
-      }
-
-      // 注入 internalFields 的值（如 supplierName、erpBillStr，由 autoFill 填入 formData）
+      // 注入 internalFields 的值（autoFill 通过 setFieldsValue 写入 form store）
       if (formType.formSchema.internalFields) {
         for (const f of formType.formSchema.internalFields) {
-          if (formData[f.key] !== undefined && formData[f.key] !== null) {
-            values[f.key] = formData[f.key];
-          }
+          const v = hiddenFieldsRef.current[f.key] ?? form.getFieldValue(f.key);
+          if (v !== undefined && v !== null) values[f.key] = v;
         }
       }
 

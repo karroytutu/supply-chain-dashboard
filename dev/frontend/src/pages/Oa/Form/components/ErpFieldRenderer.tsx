@@ -213,6 +213,9 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
           }
 
           form.setFieldsValue(allValues);
+          // 修复：form.setFieldsValue 不触发 onValuesChange，需显式调用 Form.Item 注入的 onChange
+          // 以传播值变更到 Form 的 onValuesChange，同步更新 formData state
+          onChange?.(selectedValue);
         } else {
           // 无 form 上下文：仅通过 onChange 更新选中值
           onChange?.(selectedValue);

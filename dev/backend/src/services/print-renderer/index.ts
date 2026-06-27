@@ -3,12 +3,10 @@
  * 复用舟谱打印插件的原生渲染引擎（template.css + new_template_page.js），
  * 在服务端通过 Playwright 渲染对账单 HTML 为 PDF。
  *
- * 渲染流程：
- * 1. 启动临时 HTTP 服务器，托管打印插件的 CSS/JS 静态资源
- * 2. 构造包装 HTML 页面：mock window.electronAPI，加载插件 CSS/JS
- * 3. Playwright 加载页面，触发 mock 的 onRenderPrint 回调
- * 4. 等待 finishPageRenderFromPreview 信号（分页/小计/页码由插件代码处理）
- * 5. 导出 PDF 并返回 Buffer
+ * 架构：三层单例（HTTP 服务器 + 浏览器 + 预热页面）
+ * - HTTP 服务器：进程级常驻，托管静态资源 + body-content 动态端点
+ * - 浏览器：进程级 Chromium 单例，断线自动重建
+ * - 预热页面：CSS/JS 只加载一次，后续渲染只替换 DOM 内容
  *
  * @module services/print-renderer
  */
@@ -19,10 +17,165 @@ const log = createLogger('PrintRenderer');
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 
 /** 静态资源目录（编译后的路径） */
 const ASSETS_DIR = path.join(__dirname, 'assets');
+
+// =====================================================
+// 三层单例：HTTP 服务器 + 浏览器 + 预热页面
+// =====================================================
+
+/** 当前待渲染的 body HTML 内容（通过 HTTP 端点传递给浏览器） */
+let pendingBodyContent = '';
+
+/** HTTP 服务器单例 */
+let staticServer: http.Server | null = null;
+let staticPort = 0;
+let serverInitPromise: Promise<number> | null = null;
+
+/** 浏览器单例 */
+let sharedBrowser: Browser | null = null;
+let browserInitPromise: Promise<Browser> | null = null;
+
+
+
+/**
+ * 获取常驻 HTTP 服务器（懒初始化，首次启动后常驻）
+ * 路由：/ → 包装页面, /body-content → 动态内容, 其他 → 静态资源
+ */
+async function getStaticServer(): Promise<number> {
+  if (staticServer && staticServer.listening) {
+    return staticPort;
+  }
+  if (serverInitPromise) {
+    return serverInitPromise;
+  }
+  serverInitPromise = new Promise<number>((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const url = req.url || '/';
+
+      // 根路径：返回包装页面
+      if (url === '/' || url === '/?render=true') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(generateWrapperHtml());
+        return;
+      }
+
+      // body-content 端点：返回当前待渲染的 HTML（避免嵌入 JS 字符串）
+      if (url === '/body-content') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(pendingBodyContent);
+        return;
+      }
+
+      // 其他路径：从 assets/ 读取静态文件（含路径遍历防护）
+      const rawPath = url.split('?')[0];
+      const filePath = path.resolve(ASSETS_DIR, '.' + rawPath);
+      if (!filePath.startsWith(ASSETS_DIR)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+      }
+      const ext = path.extname(filePath);
+
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          res.writeHead(404);
+          res.end('Not found');
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+        res.end(data);
+      });
+    });
+
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (addr && typeof addr === 'object') {
+        staticServer = server;
+        staticPort = addr.port;
+        log.info(`[PrintRenderer] HTTP服务器单例就绪, port=${staticPort}`);
+        resolve(staticPort);
+      } else {
+        serverInitPromise = null;
+        reject(new Error('无法获取服务器端口'));
+      }
+    });
+
+    server.on('error', (err) => {
+      serverInitPromise = null;
+      reject(err);
+    });
+  });
+  return serverInitPromise;
+}
+
+/**
+ * 获取共享浏览器实例（懒初始化 + 断线自动重建）
+ */
+async function getSharedBrowser(): Promise<Browser> {
+  if (sharedBrowser && sharedBrowser.isConnected()) {
+    return sharedBrowser;
+  }
+  if (browserInitPromise) {
+    return browserInitPromise;
+  }
+  log.info('[PrintRenderer] 创建浏览器单例...');
+  const t0 = Date.now();
+  browserInitPromise = chromium
+    .launch({ headless: true })
+    .then((browser) => {
+      sharedBrowser = browser;
+      browser.on('disconnected', () => {
+        log.warn('[PrintRenderer] 浏览器单例断开，下次调用将重新创建');
+        sharedBrowser = null;
+        browserInitPromise = null;
+      });
+      log.info(`[PrintRenderer] 浏览器单例就绪, 启动耗时=${Date.now() - t0}ms`);
+      return browser;
+    })
+    .catch((err) => {
+      browserInitPromise = null;
+      throw err;
+    });
+  return browserInitPromise;
+}
+
+/**
+ * 创建渲染页面（每次新建 page，复用单例服务器和浏览器）
+ * 新建 page 确保模板引擎状态干净，避免渲染结果互相干扰
+ */
+async function createRenderPage(): Promise<Page> {
+  const port = await getStaticServer();
+  const browser = await getSharedBrowser();
+  const page = await browser.newPage();
+  await page.setViewportSize({ width: 1123, height: 794 });
+
+  // 注册诊断监听器
+  page.on('pageerror', (err) => {
+    log.error(`[PAGE_ERROR] ${err.message}`);
+  });
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      log.error(`[CONSOLE:error] ${msg.text()}`);
+    }
+  });
+  page.on('requestfailed', (req) => {
+    const failure = req.failure();
+    log.warn(`[REQUEST_FAILED] ${req.url()} -> ${failure?.errorText || 'unknown'}`);
+  });
+
+  await page.goto(`http://127.0.0.1:${port}/?render=true`, {
+    waitUntil: 'networkidle',
+    timeout: 30000,
+  });
+  return page;
+}
+
+// =====================================================
+// 常量
+// =====================================================
 
 /** MIME 类型映射 */
 const MIME_TYPES: Record<string, string> = {
@@ -49,6 +202,10 @@ interface RenderParams {
 /**
  * 渲染对账单 HTML 为 PDF
  *
+ * 使用三层单例架构：HTTP 服务器常驻 + 浏览器复用 + 预热页面
+ * body content 通过 HTTP 端点传递（避免嵌入 JS 字符串字面量）
+ * 超时自适应：基础30s + 每100KB额外15s
+ *
  * @param params - 渲染参数
  * @returns PDF 文件 Buffer
  */
@@ -60,176 +217,99 @@ export async function renderStatementPdf(params: RenderParams): Promise<Buffer> 
     pageMargin = 5,
   } = params;
 
-  let server: http.Server | null = null;
-  let browser: Browser | null = null;
-  let port = 0;
+  const t0 = Date.now();
+
+  // 1. 将 body 内容放入 HTTP 端点（浏览器通过 fetch 获取，不再嵌入 JS）
+  pendingBodyContent = bodyContent;
+
+  // 2. 创建渲染页面（每次新建，复用服务器和浏览器）
+  const page = await createRenderPage();
+
+  // 3. 通过 evaluate 触发渲染（浏览器内 fetch /body-content 获取 HTML）
+  const renderScript = `
+    (async function() {
+      var resp = await fetch('/body-content');
+      var bodyHtml = await resp.text();
+      var w = window;
+      if (w.__renderCallback) {
+        w.__renderCallback(
+          { sender: { send: function() {} } },
+          {
+            content: {
+              computedBody: bodyHtml,
+              pageSize: { width: ${pageWidth}, height: ${pageHeight} },
+              allPagesRange: null
+            },
+            batchId: 'statement-pdf',
+            pageIndex: 0,
+            fromPreView: true,
+            isPreview: true,
+            isBreakWord: false,
+            printType: 'bill',
+            MM_TO_PX: 3.7795275590551185,
+            pageMargin: { top: ${pageMargin}, bottom: ${pageMargin}, left: ${pageMargin}, right: ${pageMargin} },
+            landscape: true,
+            allPages: null,
+            printSetting: {
+              zoomOutFont: '0', zoomOutFontSize: '10',
+              useSelfMargin: '0', usePrintTotalSum: '1',
+              usePrintTableHead: '1', exportExcel: '0',
+              exportMode: '0', printAllPages: '1',
+              forcedPageBreak: '0'
+            },
+            printConfig: {},
+            isAllPage: true,
+            pageRanges: null
+          }
+        );
+      }
+    })();
+  `;
+  await page.evaluate(renderScript);
+
+  // 4. 自适应超时：基础30s + 每100KB额外15s
+  const contentKB = bodyContent.length / 1024;
+  const adaptiveTimeout = Math.max(30000, 30000 + Math.ceil(contentKB / 100) * 15000);
+  log.info(`自适应超时: ${adaptiveTimeout}ms (内容${Math.round(contentKB)}KB)`);
 
   try {
-    // 1. 启动临时 HTTP 服务器
-    port = await startStaticServer();
-    log.info(`静态资源服务器启动: port=${port}`);
-
-    // 2. 启动 Playwright
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.setViewportSize({ width: 1123, height: 794 });
-
-    // 2.5 捕获页面内 JS 错误和日志（诊断渲染失败的关键信息）
-    const pageErrors: string[] = [];
-    const consoleMessages: string[] = [];
-    const failedRequests: string[] = [];
-
-    page.on('pageerror', (err) => {
-      const msg = `[PAGE_ERROR] ${err.message}`;
-      pageErrors.push(msg);
-      log.error(msg);
+    await page.waitForFunction('window.__renderDone === true', {
+      timeout: adaptiveTimeout,
     });
-    page.on('console', (msg) => {
-      const text = `[CONSOLE:${msg.type()}] ${msg.text()}`;
-      consoleMessages.push(text);
-      if (msg.type() === 'error') log.error(text);
-    });
-    page.on('requestfailed', (req) => {
-      const failure = req.failure();
-      const msg = `[REQUEST_FAILED] ${req.url()} -> ${failure?.errorText || 'unknown'}`;
-      failedRequests.push(msg);
-      log.warn(msg);
-    });
-
-    // 3. 加载包装页面
-    const wrapperUrl = `http://127.0.0.1:${port}/?render=true`;
-    await page.goto(wrapperUrl, { waitUntil: 'networkidle', timeout: 30000 });
-
-    // 4. 注入渲染触发脚本（通过 addScriptTag 避免 TS 编译期 window 引用问题）
-    const renderScript = `
-      (function() {
-        var w = window;
-        if (w.__renderCallback) {
-          w.__renderCallback(
-            { sender: { send: function() {} } },
-            {
-              content: {
-                computedBody: ${JSON.stringify(bodyContent)},
-                pageSize: { width: ${pageWidth}, height: ${pageHeight} },
-                allPagesRange: null
-              },
-              batchId: 'statement-pdf',
-              pageIndex: 0,
-              fromPreView: true,
-              isPreview: true,
-              isBreakWord: false,
-              printType: 'bill',
-              MM_TO_PX: 3.7795275590551185,
-              pageMargin: { top: ${pageMargin}, bottom: ${pageMargin}, left: ${pageMargin}, right: ${pageMargin} },
-              landscape: true,
-              allPages: null,
-              printSetting: {
-                zoomOutFont: '0', zoomOutFontSize: '10',
-                useSelfMargin: '0', usePrintTotalSum: '1',
-                usePrintTableHead: '1', exportExcel: '0',
-                exportMode: '0', printAllPages: '1',
-                forcedPageBreak: '0'
-              },
-              printConfig: {},
-              isAllPage: true,
-              pageRanges: null
-            }
-          );
-        }
-      })();
-    `;
-    await page.addScriptTag({ content: renderScript });
-
-    // 5. 等待渲染完成
-    try {
-      await page.waitForFunction('window.__renderDone === true', {
-        timeout: 15000,
-      });
-    } catch (timeoutErr) {
-      // 超时时输出所有捕获的诊断信息
-      log.error(`[PDF渲染超时] 页面错误: ${pageErrors.length}条, 控制台消息: ${consoleMessages.length}条, 失败请求: ${failedRequests.length}条`);
-      if (pageErrors.length > 0) log.error(`[PDF渲染诊断] 页面错误详情:\n${pageErrors.join('\n')}`);
-      if (consoleMessages.length > 0) log.info(`[PDF渲染诊断] 控制台消息:\n${consoleMessages.join('\n')}`);
-      if (failedRequests.length > 0) log.warn(`[PDF渲染诊断] 失败请求:\n${failedRequests.join('\n')}`);
-
-      // 检查 __renderCallback 是否被注册
-      const callbackExists = await page.evaluate('typeof window.__renderCallback === "function"').catch(() => false);
-      log.error(`[PDF渲染诊断] __renderCallback已注册: ${callbackExists}`);
-
-      throw timeoutErr;
-    }
-    log.info('渲染完成');
-
-    // 6. 导出 PDF
-    const pdfBuffer = await page.pdf({
-      width: `${pageWidth}mm`,
-      height: `${pageHeight}mm`,
-      margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
-      printBackground: true,
-    });
-
-    return Buffer.from(pdfBuffer);
-  } finally {
-    // 7. 清理
-    if (browser) await browser.close().catch(() => {});
-    if (server) (server as http.Server).close();
-    if (port) log.info(`静态资源服务器关闭: port=${port}`);
+  } catch (timeoutErr) {
+    // 超时时收集诊断信息
+    const callbackExists = await page
+      .evaluate('typeof window.__renderCallback === "function"')
+      .catch(() => false);
+    log.error(
+      `[PDF渲染超时] __renderCallback已注册=${callbackExists}, ` +
+      `超时=${adaptiveTimeout}ms, 内容=${Math.round(contentKB)}KB`
+    );
+    throw timeoutErr;
   }
+
+  // 5. 导出 PDF
+  const pdfBuffer = await page.pdf({
+    width: `${pageWidth}mm`,
+    height: `${pageHeight}mm`,
+    margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
+    printBackground: true,
+  });
+
+  // 6. 清理 body 内容（释放内存）
+  pendingBodyContent = '';
+
+  log.info(`PDF渲染完成, 总耗时=${Date.now() - t0}ms, 大小=${pdfBuffer.length}bytes`);
+  const result = Buffer.from(pdfBuffer);
+
+  // 关闭本次渲染的 page（服务器和浏览器单例保持存活）
+  await page.close().catch(() => {});
+  return result;
 }
 
 // =====================================================
 // 内部实现
 // =====================================================
-
-/**
- * 启动静态资源服务器
- * 根路径返回包装 HTML 页面，其他路径返回 assets/ 下的文件
- * @returns 分配的端口号
- */
-function startStaticServer(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer((req, res) => {
-      // 根路径：返回包装页面
-      if (req.url === '/' || req.url === '/?render=true') {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(generateWrapperHtml());
-        return;
-      }
-
-      // 其他路径：从 assets/ 读取文件（含路径遍历防护）
-      const rawPath = req.url!.split('?')[0];
-      const filePath = path.resolve(ASSETS_DIR, '.' + rawPath);
-      if (!filePath.startsWith(ASSETS_DIR)) {
-        res.writeHead(403);
-        res.end('Forbidden');
-        return;
-      }
-      const ext = path.extname(filePath);
-
-      fs.readFile(filePath, (err, data) => {
-        if (err) {
-          res.writeHead(404);
-          res.end('Not found');
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
-        res.end(data);
-      });
-    });
-
-    server.listen(0, '127.0.0.1', () => {
-      const addr = server.address();
-      if (addr && typeof addr === 'object') {
-        resolve(addr.port);
-      } else {
-        reject(new Error('无法获取服务器端口'));
-      }
-    });
-
-    // 保存 server 引用以便清理
-    (startStaticServer as any)._server = server;
-  });
-}
 
 /**
  * 生成包装 HTML 页面
