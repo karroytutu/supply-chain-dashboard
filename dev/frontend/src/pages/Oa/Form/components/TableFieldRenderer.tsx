@@ -13,6 +13,7 @@ import { isErpSelectField, useContainerWidth, getColumnWidth, NUMERIC_ALIGN_TYPE
 import { useColumnWidths } from '@/components/Oa/hooks/useColumnWidths';
 import { renderCellValue } from '@/components/Oa/cellValueRenderer';
 import type { ErpResolvedMap } from '@/components/Oa/hooks/useErpFieldResolve';
+import { UNIT_ID_TO_TAG } from '@/constants/oa-erp';
 import ErpFieldRenderer from './ErpFieldRenderer';
 import { buildDynamicOptions } from '@/components/Oa/fields/SelectFieldControl';
 import { checkCondition } from './ConditionalFieldWrapper';
@@ -91,8 +92,8 @@ const CellInput: React.FC<{
     return <span style={{ fontSize: 13 }}>{displayValue}</span>;
   }
 
-  // ERP 字段类型：使用 ErpFieldRenderer
-  if (isErpSelectField(childField)) {
+  // ERP 字段类型 + modal_select（表格行内降级为 Select 搜索框）：使用 ErpFieldRenderer
+  if (isErpSelectField(childField) || (childField.type === 'modal_select' && childField.searchApi)) {
     const cascadeValue = childField.cascadeFrom ? rowData[childField.cascadeFrom] : undefined;
     return (
       <ErpFieldRenderer
@@ -215,17 +216,13 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   const [containerRef, containerWidth] = useContainerWidth();
   const fixFirstCol = visibleColumns.length >= 4;
   const isDisabled = !!field.disabled;
-  // 混合模式：表格非整体只读，但存在 disabled 子列（如物流费用明细表）
-  // 此类表格的只读列应自适应内容宽度，与纯只读表格行为一致
-  // 参考《只读表格列宽自适应与换行规范》《采购明细表格布局规范》
-  const isReadonlyLike = isReadonly || isDisabled || visibleColumns.some(col => col.disabled);
 
   // 基于内容动态计算列宽（blur 触发重算 + CSS transition 平滑过渡）
-  // 只读模式：使用纯文本 padding，跳过控件类型最小宽度
+  // 只读模式或整表禁用时使用纯文本 padding；编辑态部分列禁用时仍按编辑列宽计算
   const { widths: colWidths, recalcColumn } = useColumnWidths(
     visibleColumns,
     value,
-    { readonly: isReadonlyLike },
+    { readonly: isReadonly || isDisabled },
   );
 
   // ==================== 分摊配置状态 ====================
@@ -296,6 +293,8 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
       }
       // 同步 currUnitId，使回调函数发给 ERP API 的单位与用户选择一致
       updatedRow.currUnitId = cellValue;
+      // 同步 _goodsUnitTag（ERP 兑付协议 API 需要 B/M/P 单字符标签）
+      updatedRow._goodsUnitTag = UNIT_ID_TO_TAG[cellValue as string] || 'P';
     }
 
     // syncFrom 自动同步：当源字段变更时，自动同步引用它的目标字段
@@ -353,6 +352,10 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   const handleRowUpdate = useCallback((rowIndex: number, updates: Record<string, unknown>) => {
     const newValue = [...value];
     const updatedRow = { ...newValue[rowIndex], ...updates };
+    // autoFill 写入 currUnitId 时，始终同步 _goodsUnitTag（防止切换商品后 tag 陈旧）
+    if (updates.currUnitId) {
+      updatedRow._goodsUnitTag = UNIT_ID_TO_TAG[updates.currUnitId as string] || 'P';
+    }
     newValue[rowIndex] = recalcRowFormulas(updatedRow, columns, formData);
     onChange?.(newValue);
   }, [value, onChange, columns, formData]);

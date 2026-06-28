@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "v2.16.1",
+      "date": "2026-06-28 18:00",
+      "types": ["fix", "optimization"],
+      "changes": [
+        "OA抄送列表未读优先排序：抄送Tab按未读优先+提交时间倒序排列，统计数仅计未读数，新增(user_id, read_at)组合索引（迁移153）",
+        "市场费用goodsUnitTag自动推导：新增resolveGoodsUnitTag从currUnitId推导ERP单位标签（B/M/P），autoFill currUnitName修正为映射unit id",
+        "表格modal_select列宽与显示修复：useColumnWidths覆盖modal_select类型的列宽计算和名称展示，防止切换商品后tag陈旧",
+        "currUnitId→_goodsUnitTag双点同步：CellInput变更和autoFill写入时均同步_goodsUnitTag，确保ERP兑付协议API收到正确单位标签"
+      ]
+    },
+    {
       "version": "v2.16.0",
       "date": "2026-06-28 14:29",
       "types": ["feature", "breaking", "optimization"],

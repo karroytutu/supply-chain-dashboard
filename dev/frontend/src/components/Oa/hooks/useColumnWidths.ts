@@ -5,7 +5,7 @@
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { FormField } from '@/types/oa';
-import { isErpSelectField } from './useContainerWidth';
+import { isErpSelectField, MODAL_SELECT_TYPE } from './useContainerWidth';
 import { getColumnWidth } from './useContainerWidth';
 
 // =====================================================
@@ -34,7 +34,7 @@ function getCellDisplayText(col: FormField, row: Record<string, unknown>): strin
 
   // modal_select / erp_* 类型：优先从 nameField 取存储的名称
   // nameField 可能已有值，即使 row[col.key] 尚未就绪也要读取
-  if (isErpSelectField(col)) {
+  if (isErpSelectField(col) || col.type === MODAL_SELECT_TYPE) {
     if (col.nameField) {
       const nameVal = row[col.nameField];
       if (nameVal != null && nameVal !== '') return String(nameVal);
@@ -95,7 +95,7 @@ function getCellDisplayText(col: FormField, row: Record<string, unknown>): strin
 function getControlPadding(col: FormField, readonly?: boolean): number {
   if (readonly) return 24; // 纯文本渲染，仅单元格内边距
   const t = col.type;
-  if (isErpSelectField(col)) return 80; // ERP 数据选择字段（含下拉箭头 + 内边距 + 边框 + measureText 偏差补偿）
+  if (isErpSelectField(col) || t === MODAL_SELECT_TYPE) return 80; // ERP 数据选择字段 + 弹窗选择器（含控件内边距 + 边框 + measureText 偏差补偿）
   switch (t) {
     case 'number': return 32; // InputNumber 含步进按钮
     case 'money': return 24;

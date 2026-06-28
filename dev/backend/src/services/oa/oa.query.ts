@@ -194,7 +194,9 @@ function buildListWhereClause(
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const orderBy = 'ORDER BY i.submitted_at DESC';
+  const orderBy = params.viewMode === 'cc'
+    ? 'ORDER BY cc_read_at NULLS FIRST, i.submitted_at DESC'
+    : 'ORDER BY i.submitted_at DESC';
 
   return { whereClause, queryParams, orderBy };
 }
@@ -319,6 +321,7 @@ export async function getApprovalStats(userId: number): Promise<ApprovalStats> {
       FROM oa_approval_instances i
       JOIN oa_approval_cc cc ON cc.instance_id = i.id
       WHERE cc.user_id = $1
+        AND cc.read_at IS NULL
     `,
       [userId]
     ),

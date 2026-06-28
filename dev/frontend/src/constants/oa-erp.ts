@@ -78,6 +78,9 @@ export const ERP_VALUE_FIELDS: Record<string, string> = {
   'promotion-goods': 'goodsId',
 };
 
+/** 单位 ID 到 ERP goodsUnitTag 的映射（B=基本, M=中, P=包装） */
+export const UNIT_ID_TO_TAG: Record<string, string> = { BASE: 'B', MID: 'M', PKG: 'P' };
+
 // =====================================================
 // API 驱动的动态配置加载
 // =====================================================

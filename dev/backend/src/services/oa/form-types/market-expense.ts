@@ -26,6 +26,16 @@ import { cleanupExpenditureBill } from '../../erp-client/erp-cleanup';
 
 const log = createLogger('MarketExpense');
 
+/** 从 currUnitId 推导 ERP goodsUnitTag（B=基本, M=中, P=包装） */
+function resolveGoodsUnitTag(line: Record<string, unknown>): string {
+  // 优先使用前端显式传入的 _goodsUnitTag
+  if (line._goodsUnitTag) return line._goodsUnitTag as string;
+  // 兜底：从 currUnitId 推导
+  const unitId = (line.currUnitId as string) || '';
+  const map: Record<string, string> = { BASE: 'B', MID: 'M', PKG: 'P' };
+  return map[unitId] || 'P';
+}
+
 // =====================================================
 // 商品 modal_select 公共配置（参考 promotion-fullgift-offline）
 // =====================================================
@@ -45,7 +55,7 @@ const GOODS_SELECT_CONFIG = {
   ],
   autoFill: {
     currUnitId: 'units.0.id',
-    currUnitName: 'units.0.name',
+    currUnitName: 'units.0.id',
     _costPrice: 'costPrice',
     _goodsUnits: 'units',
     _goodsName: 'name',
@@ -395,7 +405,7 @@ async function handleCreateContract(
       goodsId: Number(line.goodsId),
       goodsPrice: String(line.wholesalePrice || 0),
       goodsQuantity: String(line.quantity || 0),
-      goodsUnitTag: (line._goodsUnitTag as string) || 'P',
+      goodsUnitTag: resolveGoodsUnitTag(line),
     }));
   } else {
     params.details = [{ amount: String(formData.cashAmount || 0) }];
