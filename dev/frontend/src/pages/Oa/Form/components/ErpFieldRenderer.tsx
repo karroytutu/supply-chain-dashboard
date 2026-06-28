@@ -67,7 +67,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
 
   const getLabel = useCallback((item: Record<string, unknown>, type: string): string => {
     const labelField = ERP_LABEL_FIELDS[type] || 'name';
-    if (field.type === 'asset_search' && field.displayFields?.length) {
+    if (field.searchApi === 'erp_assets' && field.displayFields?.length) {
       return field.displayFields.map((f) => item[f]).filter(Boolean).join(' | ');
     }
     // 采购订单富标签：单号 | 日期 | ¥金额
@@ -234,7 +234,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
               .catch(err => console.warn('获取采购订单明细失败:', err));
           }
         }
-        if (field.type === 'erp_customer' && onCustomerSelect) {
+        if (field.searchApi === 'erp_customers' && onCustomerSelect) {
           const ext = (raw.ext as Record<string, unknown>) || {};
           const picIds = (ext.attachedPicIds as string[]) || [];
           const picUrls = (raw.attachedPicUrls as string[]) || [];
@@ -257,7 +257,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
             form.setFieldsValue({ [bankField.key]: bankValue });
           }
         }
-      } else if (field.type === 'erp_customer' && onCustomerSelect) {
+      } else if (field.searchApi === 'erp_customers' && onCustomerSelect) {
         onCustomerSelect(null);
         if (field.nameField && form) form.setFieldsValue({ [field.nameField]: '' });
       }
@@ -281,7 +281,7 @@ const ErpFieldRenderer: React.FC<ErpFieldRendererProps> = ({
     ? (erpType === 'purchase-orders' || erpType === 'prepayments' || erpType === 'supplier-incomes' ? '请先选择供应商' : '请先选择客户')
     : `请选择${field.label}`;
 
-  if (field.type === 'erp_asset_category') {
+  if (field.searchApi === 'erp_asset_categories') {
     return (
       <Select showSearch value={value as number | undefined} onChange={handleChange}
         onSearch={handleSearch} onBlur={onBlur} loading={loading} placeholder={`请选择${field.label}`}

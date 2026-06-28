@@ -70,6 +70,22 @@ export {
   cancelExpenseAllocation,
   buildLogisticsFeeIdemKey,
 } from './erp-expense-allocation.service';
+export {
+  fetchAllBrands,
+} from './erp-brand.service';
+export type { ErpBrand } from './erp-brand.service';
+export {
+  createChargeContract,
+  createCustomerExpenditure,
+  getChargeContractDetail,
+  terminateChargeContract,
+} from './erp-market-expense.service';
+export type {
+  CreateChargeContractParams,
+  CreateChargeContractResult,
+  CreateCustomerExpenditureParams,
+  CreateCustomerExpenditureResult,
+} from './erp-market-expense.service';
 export type {
   CreateSupplierExpenseBillRequest,
   SupplierExpenseBillResponse,

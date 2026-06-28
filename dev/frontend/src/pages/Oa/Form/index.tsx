@@ -274,6 +274,47 @@ const FormPage: React.FC = () => {
     })();
   }, [formData.debtIds, formData.supplierId, typeCode, form, form.getFieldValue('_details')]);
 
+  // ===== 后端实时预览计算：监听 previewTrigger 字段变化，调 computePreview 回填 =====
+  const prevTriggerValuesRef = useRef<Record<string, unknown>>({});
+  useEffect(() => {
+    if (!formType?.formSchema?.fields) return;
+
+    // 收集所有 previewTrigger 字段
+    const triggerFields = new Set<string>();
+    formType.formSchema.fields.forEach(f => {
+      if (f.previewTrigger) f.previewTrigger.forEach(t => triggerFields.add(t));
+    });
+    if (triggerFields.size === 0) return;
+
+    // 检查 trigger 字段是否变化
+    const current: Record<string, unknown> = {};
+    let changed = false;
+    for (const field of triggerFields) {
+      current[field] = formData[field];
+      if (formData[field] !== prevTriggerValuesRef.current[field]) changed = true;
+    }
+    if (!changed) return;
+    prevTriggerValuesRef.current = current;
+
+    // 任一 trigger 字段为空时不触发
+    const allEmpty = Array.from(triggerFields).every(f => formData[f] == null || formData[f] === '');
+    if (allEmpty) return;
+
+    // 防抖调用 computePreview
+    const timer = setTimeout(async () => {
+      try {
+        const result = await oaApi.computePreview(formType.code, formData);
+        if (result && typeof result === 'object') {
+          form.setFieldsValue(result);
+        }
+      } catch {
+        // 静默失败，不影响表单操作
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [formData, formType, form]);
+
   // 费用金额自动计算：委托 computeFeeTotals 工具函数
 
   /** 判断字段是否在当前条件下必填 */
@@ -302,6 +343,21 @@ const FormPage: React.FC = () => {
         for (const f of formType.formSchema.internalFields) {
           const v = hiddenFieldsRef.current[f.key] ?? form.getFieldValue(f.key);
           if (v !== undefined && v !== null) values[f.key] = v;
+        }
+      }
+
+      // 收集顶层 schema fields 中 nameField / autoFill 目标值
+      // _ 前缀字段无 Form.Item，validateFields 不捕获；注入以确保 ERP 名称随 formData 持久化
+      // （table children 的 autoFill 值已随每行数据被 TableFieldRenderer 捕获，无需额外处理）
+      for (const f of formType.formSchema.fields) {
+        if (f.type === 'table') continue;
+        const targets: string[] = [];
+        if (f.nameField) targets.push(f.nameField);
+        if (f.autoFill) Object.keys(f.autoFill).forEach(k => targets.push(k));
+        for (const key of targets) {
+          if (values[key] !== undefined) continue;
+          const v = hiddenFieldsRef.current[key] ?? form.getFieldValue(key);
+          if (v !== undefined && v !== null) values[key] = v;
         }
       }
 

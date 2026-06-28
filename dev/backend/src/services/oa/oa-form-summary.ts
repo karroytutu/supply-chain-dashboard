@@ -66,7 +66,6 @@ export function extractFormSummary(
         displayValue = `¥${Number(rawValue).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
         break;
       case 'select':
-      case 'radio':
         // 从options中解析label
         if (field.options) {
           const opt = field.options.find(o => o.value === rawValue);

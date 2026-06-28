@@ -24,9 +24,16 @@ export interface ErpProduct {
   midUnitName?: string | null;
   midUnitFactor?: number | null;
   brandName?: string;
+  brandId?: number;
   specifications?: string;
   articleNumber?: string;
   warnDays?: number;
+  /** 基本单位批发价 */
+  baseWholesale?: number | null;
+  /** 中单位批发价 */
+  midWholesale?: number | null;
+  /** 包装单位批发价 */
+  pkgWholesale?: number | null;
 }
 
 /** API 分页响应 */
@@ -229,8 +236,16 @@ export interface PromotionGoodsItem {
   warnDays?: number;
   /** 品牌 */
   brandName?: string;
+  /** 品牌ID */
+  brandId?: number;
   /** 分类 */
   categoryChainName?: string;
+  /** 基本单位批发价 */
+  baseWholesale?: number | null;
+  /** 中单位批发价 */
+  midWholesale?: number | null;
+  /** 包装单位批发价 */
+  pkgWholesale?: number | null;
 }
 
 /**
@@ -285,7 +300,11 @@ export async function searchPromotionGoods(
       shelfLife: p.shelfLife,
       warnDays: p.warnDays,
       brandName: p.brandName,
+      brandId: p.brandId,
       categoryChainName: p.categoryChainName,
+      baseWholesale: p.baseWholesale ?? null,
+      midWholesale: p.midWholesale ?? null,
+      pkgWholesale: p.pkgWholesale ?? null,
     };
   });
 

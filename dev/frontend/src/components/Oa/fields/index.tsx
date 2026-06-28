@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { Typography } from 'antd';
-import { TABLE_ERP_TYPES } from '../hooks/useContainerWidth';
+import { isErpSelectField } from '../hooks/useContainerWidth';
 import type { FieldControlProps } from './types';
 
 import TextFieldControl from './TextFieldControl';
@@ -16,7 +16,6 @@ import UploadFieldControl from './UploadFieldControl';
 import SignatureFieldControl from './SignatureFieldControl';
 import FormulaFieldControl from './FormulaFieldControl';
 import PhotoFieldControl from './PhotoFieldControl';
-import UserFieldControl from './UserFieldControl';
 import BankAccountFieldControl from './BankAccountFieldControl';
 import ErpFieldControl from './ErpFieldControl';
 import ModalSelectControl from './ModalSelectControl';
@@ -42,11 +41,9 @@ const FieldControlDispatcher: React.FC<FieldControlProps> = (props) => {
     case 'money':
       return <NumberFieldControl {...props} />;
     case 'date':
-    case 'datetime':
     case 'date-range':
       return <DateFieldControl {...props} />;
     case 'select':
-    case 'radio':
       return <SelectFieldControl {...props} />;
     case 'modal_select':
       return <ModalSelectControl {...props} />;
@@ -56,12 +53,10 @@ const FieldControlDispatcher: React.FC<FieldControlProps> = (props) => {
       return <UploadFieldControl {...props} />;
     case 'table':
       return <TableFieldControl {...props} />;
-    case 'user':
-    case 'dept':
-      return <UserFieldControl {...props} />;
+
     default:
-      // ERP 类型和其他以 erp_ 开头的类型
-      if (TABLE_ERP_TYPES.has(field.type) || field.type.startsWith('erp_')) {
+      // ERP 数据选择字段（通过 searchApi 配置识别）
+      if (isErpSelectField(field)) {
         return <ErpFieldControl {...props} />;
       }
       // 未知类型降级：只读文本

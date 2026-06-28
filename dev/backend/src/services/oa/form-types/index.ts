@@ -22,6 +22,7 @@ import { customerReconciliationFormType } from './customer-reconciliation';
 import { promotionCombinedOfflineFormType } from './promotion-combined-offline';
 import { promotionSpecialOfflineFormType } from './promotion-special-offline';
 import { promotionFullGiftOfflineFormType } from './promotion-fullgift-offline';
+import { marketExpenseFormType } from './market-expense';
 
 /**
  * 所有已注册的表单类型
@@ -45,6 +46,7 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   promotionCombinedOfflineFormType,
   promotionSpecialOfflineFormType,
   promotionFullGiftOfflineFormType,
+  marketExpenseFormType,
 ];
 
 /**
@@ -100,3 +102,4 @@ export { customerReconciliationFormType } from './customer-reconciliation';
 export { promotionCombinedOfflineFormType } from './promotion-combined-offline';
 export { promotionSpecialOfflineFormType } from './promotion-special-offline';
 export { promotionFullGiftOfflineFormType } from './promotion-fullgift-offline';
+export { marketExpenseFormType } from './market-expense';

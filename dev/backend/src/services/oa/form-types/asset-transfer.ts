@@ -39,7 +39,7 @@ export const assetTransferFormType: FormTypeDefinition = {
           {
             key: 'assetSearch',
             label: '选择资产',
-            type: 'asset_search',
+            type: 'select',
             required: true,
             searchApi: 'erp_assets',
             autoFill: {
@@ -59,7 +59,7 @@ export const assetTransferFormType: FormTypeDefinition = {
           {
             key: 'toDeptId',
             label: '新使用部门',
-            type: 'erp_department',
+            type: 'select',
             required: true,
             searchApi: 'erp_departments',
             nameField: 'toDeptName',
@@ -67,7 +67,7 @@ export const assetTransferFormType: FormTypeDefinition = {
           {
             key: 'toUserId',
             label: '新使用人',
-            type: 'erp_staff',
+            type: 'select',
             required: true,
             searchApi: 'erp_staff',
             cascadeFrom: 'toDeptId',

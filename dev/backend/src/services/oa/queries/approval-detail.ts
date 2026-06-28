@@ -7,7 +7,6 @@ import { appQuery as query } from '../../../db/appPool';
 import { OaActionRow, FormSchema, WorkflowDef, TimeoutConfig, ViewPermissionsOverride } from '../oa.types';
 import { getFormTypeByCode } from '../form-types';
 import { InstanceListItem } from '../oa.query';
-import { resolveFormSchema } from '../oa-utils';
 
 /**
  * 审批详情返回类型
@@ -166,7 +165,7 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     completedAt: instance.completed_at,
     previewFields: [],  // 详情页展示完整表单，无需字段预览
     formData: instance.form_data,
-    formSchema: resolveFormSchema(instance.form_type_code, null),
+    formSchema: codeFallback?.formSchema ?? { fields: [] },
     workflowDef: codeFallback?.workflowDef || null,
     // fieldPermissions: DB 覆盖值（管理员配置的字段权限）
     ...(instance.field_permissions && { fieldPermissions: instance.field_permissions }),

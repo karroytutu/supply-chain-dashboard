@@ -52,6 +52,10 @@ import {
   getErpReferenceTypes,
 } from '../controllers/erp-reference.controller';
 import {
+  terminateChargeContract,
+} from '../services/erp-client/erp-market-expense.service';
+import { cleanupExpenditureBill } from '../services/erp-client/erp-cleanup';
+import {
   // 流程交接
   scanHandoverHandler,
   executeHandoverHandler,
@@ -62,7 +66,7 @@ import {
   // 表单管理（管理员专用）
   listFormTypesForAdmin,
   updateFormTypeBasic,
-  updateFormTypeWorkflow,
+  updateWorkflowSettings,
   updateFieldPermissions,
   updateViewPermissions,
   listRolesForAdmin,
@@ -191,6 +195,35 @@ router.post(
       } catch {
         res.json({ code: 200, data: { visibleNodes: [], approvers: [] } });
       }
+    }
+  }
+);
+
+// 实时预览计算（根据表单数据实时计算展示字段值）
+router.post(
+  '/form-types/:code/compute-preview',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const { code } = req.params;
+      const { formData } = req.body as { formData?: Record<string, unknown> };
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ code: 401, message: '未登录' });
+        return;
+      }
+
+      const { getFormTypeByCodeQuery } = await import('../services/oa/oa-form-type.query');
+      const formType = await getFormTypeByCodeQuery(code);
+      if (!formType?.computePreview) {
+        res.json({ code: 200, data: {} });
+        return;
+      }
+      const result = await formType.computePreview(formData || {}, userId);
+      res.json({ code: 200, data: result });
+    } catch (error) {
+      log.warn(`compute-preview error for ${req.params.code}:`, error instanceof Error ? error.message : error);
+      res.json({ code: 200, data: {}, warning: '预览计算暂不可用' });
     }
   }
 );
@@ -735,14 +768,14 @@ router.get('/workflow-handover/history', requirePermission('oa:workflow:handover
 // 表单管理接口（管理员专用）
 // =====================================================
 
-// 获取所有表单类型（含完整 workflow_def 和 allowed_roles）
+// 获取所有表单类型（含 allowed_roles 等管理配置）
 router.get('/admin/form-types', requirePermission('oa:form:manage'), listFormTypesForAdmin);
 
 // 更新表单基本信息和可发起岗位
 router.patch('/admin/form-types/:code', requirePermission('oa:form:manage'), updateFormTypeBasic);
 
-// 更新表单审批流程配置（含乐观锁）
-router.put('/admin/form-types/:code/workflow', requirePermission('oa:form:manage'), updateFormTypeWorkflow);
+// 更新表单流程管理配置（审批人规则、签署模式、超时时限）
+router.put('/admin/form-types/:code/workflow-settings', requirePermission('oa:form:manage'), updateWorkflowSettings);
 
 // 更新表单字段权限配置（管理员配置每个环节的字段可见/可编辑/隐藏）
 router.patch('/admin/form-types/:code/field-permissions', requirePermission('oa:form:manage'), updateFieldPermissions);
@@ -755,5 +788,47 @@ router.get('/admin/users/batch', requirePermission('oa:form:manage'), batchGetUs
 
 // 获取系统所有岗位列表（供配置审批人时使用）
 router.get('/admin/roles', requirePermission('oa:form:manage'), listRolesForAdmin);
+
+// =====================================================
+// 市场费用 - ERP 操作接口
+// =====================================================
+
+/** 终止兑付协议 */
+router.post(
+  '/erp-market-expense/terminate-contract',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const { billStr } = req.body;
+      if (!billStr) {
+        res.status(400).json({ code: 400, message: '缺少 billStr 参数' });
+        return;
+      }
+      await terminateChargeContract(billStr);
+      res.json({ code: 200, message: '兑付协议已终止' });
+    } catch (error) {
+      res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '终止协议失败' });
+    }
+  }
+);
+
+/** 取消费用单（反审核 + 取消） */
+router.post(
+  '/erp-market-expense/cancel-expenditure',
+  requirePermission('oa:read'),
+  async (req: Request, res: Response) => {
+    try {
+      const { billId } = req.body;
+      if (!billId) {
+        res.status(400).json({ code: 400, message: '缺少 billId 参数' });
+        return;
+      }
+      await cleanupExpenditureBill(billId);
+      res.json({ code: 200, message: '费用单已取消' });
+    } catch (error) {
+      res.status(500).json({ code: 500, message: error instanceof Error ? error.message : '取消费用单失败' });
+    }
+  }
+);
 
 export default router;

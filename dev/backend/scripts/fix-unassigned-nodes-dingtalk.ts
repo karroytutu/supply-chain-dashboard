@@ -9,7 +9,7 @@
 
 import { appQuery } from '../src/db/appPool';
 import { notifyPendingApproval } from '../src/services/oa/oa-notify';
-import { resolveFormSchema } from '../src/services/oa/oa-utils';
+import { getFormTypeByCode } from '../src/services/oa/form-types';
 
 async function main() {
   console.log('=== 补发钉钉待办：已修复处理人的活跃环节 ===\n');
@@ -44,7 +44,7 @@ async function main() {
   let failed = 0;
 
   for (const row of result.rows) {
-    const formSchema = resolveFormSchema(row.form_code, null);
+    const formSchema = getFormTypeByCode(row.form_code)?.formSchema ?? { fields: [] };
 
     try {
       await notifyPendingApproval(

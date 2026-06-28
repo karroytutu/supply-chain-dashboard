@@ -9,7 +9,7 @@ import { message } from 'antd';
 import {
   getAdminFormTypes,
   getAdminRoles,
-  updateAdminFormTypeWorkflow,
+  updateAdminWorkflowSettings,
 } from '@/services/api/oa';
 
 /** 工作流节点编辑视图 */
@@ -93,21 +93,29 @@ export function useFormDetail(code: string) {
     loadData();
   }, [loadData]);
 
-  /** 保存流程配置（含乐观锁） */
+  /** 保存流程管理配置（仅保存管理员可编辑部分：审批人规则、签署模式、超时时限） */
   const saveWorkflow = useCallback(
-    async (workflowDef: unknown, version: number) => {
+    async (nodes: WorkflowNodeEdit[]) => {
       setSavingWorkflow(true);
       try {
-        await updateAdminFormTypeWorkflow(code, workflowDef, version);
+        // 仅提取管理员可编辑字段，按节点 order 索引
+        const workflowSettings: Record<number, Record<string, unknown>> = {};
+        for (const node of nodes) {
+          const settings: Record<string, unknown> = {};
+          if (node.name !== undefined) settings.name = node.name;
+          if (node.handler !== undefined) settings.handler = node.handler;
+          if (node.signMode !== undefined) settings.signMode = node.signMode;
+          if (node.timeout !== undefined) settings.timeout = node.timeout;
+          // 仅当有配置时才存储
+          if (Object.keys(settings).length > 0) {
+            workflowSettings[node.order] = settings;
+          }
+        }
+        await updateAdminWorkflowSettings(code, { nodes: workflowSettings });
         message.success('流程配置已保存');
         await loadData();
       } catch (error: any) {
-        if (error?.status === 409) {
-          message.error('数据已被其他用户修改，已自动刷新');
-          await loadData();
-        } else {
-          message.error(error?.message || '保存流程配置失败');
-        }
+        message.error(error?.message || '保存流程配置失败');
       } finally {
         setSavingWorkflow(false);
       }

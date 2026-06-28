@@ -46,7 +46,7 @@ const procurementFormSchema: FormSchema = {
     {
       key: 'supplierId',
       label: '供应商',
-      type: 'erp_supplier',
+      type: 'select',
       required: true,
       searchApi: 'erp_suppliers',
       autoFill: { supplierName: 'name' },
@@ -55,7 +55,7 @@ const procurementFormSchema: FormSchema = {
     {
       key: 'erpBillId',
       label: '采购订单',
-      type: 'erp_purchase_order',
+      type: 'select',
       required: true,
       searchApi: 'erp_purchase_orders',
       cascadeFrom: 'supplierId',
@@ -145,11 +145,14 @@ const procurementFormSchema: FormSchema = {
     {
       key: 'paymentSubjectId',
       label: '付款账户',
-      type: 'erp_payment_account',
+      type: 'select',
       required: true,
       searchApi: 'erp_payment_accounts' as const,
+      nameField: '_paymentSubjectName',
+      autoFill: { _paymentSubjectName: 'name' },
       visibleWhen: { field: 'needPrepayment', operator: '==', value: NEED_PREPAYMENT.YES },
     },
+    { key: '_paymentSubjectName', label: '付款账户名称', type: 'text', required: false, hidden: true },
     {
       key: 'paymentReceiptUrls',
       label: '付款回单',
@@ -258,33 +261,7 @@ async function beforeSubmitProcurement(
     throw new Error('请选择ERP采购订单');
   }
 
-  // 采购订单防重校验：检查是否已有其他审批实例占用该订单
-  try {
-    const existingResult = await query(
-      `SELECT i.instance_no, i.title, i.status
-       FROM oa_approval_instances i
-       JOIN oa_form_types ft ON i.form_type_id = ft.id
-       WHERE ft.code = 'procurement_order'
-         AND i.status NOT IN ('rejected', 'withdrawn', 'cancelled')
-         AND i.form_data->>'erpBillId' = $1
-       LIMIT 1`,
-      [String(erpBillId)]
-    );
-    if (existingResult.rows.length > 0) {
-      const existing = existingResult.rows[0];
-      const statusLabel = existing.status === 'approved' ? '已完成审批' : '已在审批流程中';
-      throw new Error(
-        `该采购订单${statusLabel}（单号：${existing.instance_no}），不能重复提交`
-      );
-    }
-  } catch (dbError) {
-    // 如果是业务错误（我们抛出的），直接上抛
-    if (dbError instanceof Error && dbError.message.includes('不能重复提交')) {
-      throw dbError;
-    }
-    // 数据库查询失败时记录警告但不阻止提交
-    log.warn('采购订单防重校验查询失败:', dbError);
-  }
+  // 采购订单防重校验已迁移至通用查重引擎（duplicateCheck 配置）
 
   // 调用分析服务（含 8s 超时防护）
   const analysis = await analyzePurchaseOrder(erpBillId);
@@ -366,8 +343,16 @@ export const procurementOrderFormType: FormTypeDefinition = {
   formSchema: procurementFormSchema,
   workflowDef: procurementWorkflowDef,
 
-  /** 提交前：从ERP拉取数据+计算审批条件 */
+  /** 提交前：从ERP拉取数据+计算审批条件（防重已迁移至通用引擎） */
   beforeSubmit: beforeSubmitProcurement,
+
+  /** 通用查重配置：同采购订单 = 重复 */
+  duplicateCheck: {
+    matchFields: ['erpBillId'],
+    includeStatuses: ['processing', 'approved'],
+    displayFields: ['billStr', 'totalAmount'],
+    subjectLabel: '该采购订单',
+  },
 
   /** 流程预览：根据已选采购订单动态计算需要经过哪些审批环节 */
   resolvePreviewContext: resolveProcurementPreviewContext,

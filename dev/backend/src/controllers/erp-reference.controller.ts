@@ -27,6 +27,7 @@ import {
   getErpAreas,
   getErpAreaTree,
 } from '../services/erp-client/erp-customer-reference.service';
+import { fetchAllBrands } from '../services/erp-client/erp-brand.service';
 import {
   searchErpSettlementOrders,
   searchErpSettlementOrdersPaged,
@@ -90,6 +91,7 @@ const LABEL_FIELDS: Record<string, string> = {
   'allocatable-expense-details': 'billStr',
   'supplier-debts': 'bizStr',
   'promotion-goods': 'name',
+  brands: 'name',
 };
 
 /** 各 ERP 类型的值字段映射（选中后存储的 ID/key） */
@@ -112,6 +114,7 @@ const VALUE_FIELDS: Record<string, string> = {
   'allocatable-expense-details': 'id',
   'supplier-debts': 'bizId',
   'promotion-goods': 'goodsId',
+  brands: 'originBrandId',
 };
 
 /**
@@ -194,6 +197,10 @@ export async function getErpReference(
 
       case 'areas-tree':
         data = await getErpAreaTree();
+        break;
+
+      case 'brands':
+        data = await fetchAllBrands();
         break;
 
       case 'settlement-orders': {
@@ -694,6 +701,14 @@ export async function resolveErpReference(
         resolved = pgResults.map((r, i) =>
           r.status === 'fulfilled' ? r.value : { id: ids[i], label: String(ids[i]) }
         );
+        break;
+      }
+
+      case 'brands': {
+        const all = await fetchAllBrands();
+        // ERP 业务 API 使用 originBrandId，以此作 key 进行映射
+        const map = new Map(all.map(b => [b.originBrandId, b.name]));
+        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
         break;
       }
 

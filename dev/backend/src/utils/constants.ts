@@ -145,6 +145,15 @@ export type ArHoldType = typeof AR_HOLD_TYPE_LONG_TERM | typeof AR_HOLD_TYPE_TIM
 /** 退货时保质期不足阈值（天） @usedBy return-penalty-calculate.ts (判断退货考核规则) */
 export const RETURN_EXPIRE_INSUFFICIENT_DAYS = 15;
 
+// ==================== 市场费用 ====================
+
+/** 市场费用科目映射 @usedBy market-expense.ts (表单定义), erp-market-expense.service.ts (ERP请求) */
+export const MARKET_EXPENSE_SUBJECTS = {
+  '350': { chargeType: 350, name: '独山陈列费用' },
+  '351': { chargeType: 351, name: '独山临期处理费用' },
+  '352': { chargeType: 352, name: '独山其他市场费用' },
+} as const;
+
 // ==================== ERP 配置 ====================
 
 /** ERP 独山云仓仓库 ID @usedBy erp-batch-inventory.service.ts (默认拉取批次库存的仓库) */

@@ -40,9 +40,9 @@ interface FormFieldConfigProps {
   formSchema?: FormSchema;
 }
 
-/** 判断是否为 ERP 字段类型 */
-function isErpFieldType(type: FormField['type']): boolean {
-  return ['asset_search', 'erp_department', 'erp_staff', 'erp_payment_account', 'erp_asset_category', 'erp_customer', 'erp_settlement_order', 'erp_grade', 'erp_group', 'erp_area', 'erp_supplier', 'erp_purchase_order'].includes(type);
+/** 判断是否为 ERP 数据选择字段（通过 searchApi 配置识别，而非专用类型名） */
+function isErpFieldType(field: FormField): boolean {
+  return !!field.searchApi;
 }
 
 /** 表单字段渲染组件 */
@@ -80,7 +80,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
   }
 
   // ERP 字段类型统一走 ErpFieldRenderer
-  if (isErpFieldType(type)) {
+  if (isErpFieldType(field)) {
     // 获取级联父字段值
     const cascadeValue = field.cascadeFrom ? formData[field.cascadeFrom] : undefined;
     return (
@@ -92,7 +92,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
         includeAllStates={includeAllStates}
         form={form}
         formSchema={formSchema}
-        onCustomerSelect={field.type === 'erp_customer' ? onCustomerSelect : undefined}
+        onCustomerSelect={field.searchApi === 'erp_customers' ? onCustomerSelect : undefined}
       />
     );
   }
@@ -175,29 +175,20 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
       );
     }
 
-    case 'select':
+    case 'select': {
+      const isMulti = !!field.multiple;
       return (
         <Select
-          value={value as string | undefined}
-          onChange={onChange as ((value: string) => void) | undefined}
+          mode={isMulti ? 'multiple' : undefined}
+          value={isMulti ? (value as string[] | undefined) : (value as string | undefined)}
+          onChange={onChange as ((value: string | string[]) => void) | undefined}
           placeholder={placeholder || `请选择${field.label}`}
           options={options}
           disabled={field.disabled}
           style={{ width: '100%' }}
         />
       );
-
-    case 'radio':
-      return (
-        <Select
-          value={value as string | undefined}
-          onChange={onChange as ((value: string) => void) | undefined}
-          placeholder={placeholder || `请选择${field.label}`}
-          options={options}
-          disabled={field.disabled}
-          style={{ width: '100%' }}
-        />
-      );
+    }
 
     case 'date':
       return (

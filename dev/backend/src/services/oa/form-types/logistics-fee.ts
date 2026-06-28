@@ -52,7 +52,7 @@ const logisticsFeeFormSchema: FormSchema = {
     {
       key: 'feeSupplierId',
       label: '费用供应商',
-      type: 'erp_supplier',
+      type: 'select',
       required: true,
       searchApi: 'erp_suppliers',
       autoFill: { feeSupplierName: 'name' },
@@ -175,10 +175,13 @@ const logisticsFeeFormSchema: FormSchema = {
     {
       key: 'paymentSubjectId',
       label: '付款账户',
-      type: 'erp_payment_account',
+      type: 'select',
       required: true,
       searchApi: 'erp_payment_accounts' as const,
+      nameField: '_paymentSubjectName',
+      autoFill: { _paymentSubjectName: 'name' },
     },
+    { key: '_paymentSubjectName', label: '付款账户名称', type: 'text', required: false, hidden: true },
     {
       key: 'paymentReceiptUrls',
       label: '付款回单',
@@ -301,39 +304,7 @@ async function beforeSubmitLogisticsFee(
     result._settlementLineItems = JSON.stringify(lineItems);
   }
 
-  // 2. 防重检测：同一费用类型下检查结算单是否已在其他审批实例中
-  try {
-    const feeType = formData.feeType as string;
-    const settlementIdsArr = formData.settlementIds as string[];
-    if (feeType && settlementIdsArr?.length) {
-      const warnings: string[] = [];
-      for (const sid of settlementIdsArr) {
-        const existingResult = await appQuery(
-          `SELECT i.instance_no, i.title, i.status
-           FROM oa_approval_instances i
-           JOIN oa_form_types ft ON i.form_type_id = ft.id
-           WHERE ft.code = 'logistics_fee'
-             AND i.status NOT IN ('rejected', 'withdrawn', 'cancelled')
-             AND i.form_data->>'feeType' = $1
-             AND i.form_data->'settlementIds' ? $2
-           LIMIT 1`,
-          [feeType, sid]
-        );
-        if (existingResult.rows.length > 0) {
-          const existing = existingResult.rows[0];
-          warnings.push(`结算单 ${sid} 已在审批 ${existing.instance_no} 中（${existing.status}）`);
-        }
-      }
-      if (warnings.length > 0) {
-        throw new Error(`以下结算单已被其他审批使用：${warnings.join('；')}`);
-      }
-    }
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith('以下结算单已被其他审批使用')) {
-      throw err; // 防重阻断错误，向上抛出
-    }
-    log.warn('防重检测查询失败:', err instanceof Error ? err.message : err);
-  }
+  // 2. 防重检测已迁移至通用查重引擎（duplicateCheck 配置）
 
   // 3. 保存银行账户到用户历史记录
   try {
@@ -379,8 +350,16 @@ export const logisticsFeeFormType: FormTypeDefinition = {
   /** 仅仓储主管和采购主管可发起 */
   allowedRoles: [OA_ROLE.WAREHOUSE_MGR, OA_ROLE.PROCUREMENT_MGR],
 
-  /** 提交前：获取可分摊明细 + 防重检测 + 保存银行账户 */
+  /** 提交前：获取可分摊明细 + 保存银行账户（防重已迁移至通用引擎） */
   beforeSubmit: beforeSubmitLogisticsFee,
+
+  /** 通用查重配置：同费用类型 + 同结算单 = 重复 */
+  duplicateCheck: {
+    matchFields: ['feeType', 'settlementIds'],
+    includeStatuses: ['processing', 'approved'],
+    displayFields: ['feeType', 'feeTotalAmount'],
+    subjectLabel: '该结算单',
+  },
 
   /** auto 节点回填声明 */
   nodeBackfills: [

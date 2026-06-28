@@ -1,6 +1,22 @@
 {
   "entries": [
     {
+      "version": "v2.16.0",
+      "date": "2026-06-28 14:29",
+      "types": ["feature", "breaking", "optimization"],
+      "changes": [
+        "新增市场费用申请表单（market-expense）：支持现金/商品两种费用类型，审批通过后自动创建ERP兑付协议，含费销比实时预览计算，迁移150",
+        "新增通用查重引擎（duplicate-check）：声明式DuplicateCheckConfig配置驱动，框架统一处理查重查询和提示文本生成，替代各表单散写的防重SQL",
+        "新增实时预览计算机制（computePreview）：表单指定字段变化时调用后端实时计算展示值（如费销比），新增前端API和后端路由",
+        "新增ERP品牌服务（erp-brand.service）：品牌列表拉取与缓存，支持品牌ID→originBrandId解析，ERP参考类型新增brands",
+        "新增ERP市场费用服务（erp-market-expense.service）：兑付协议创建/查询/终止、客户费用单创建/取消，支持审批回调自动ERP操作",
+        "ERP控件类型体系统一（breaking）：FormFieldType从30+种精简为15种通用类型，ERP数据选择统一使用select+searchApi配置驱动，删除erp_customer/erp_supplier等专用类型，8个表单批量适配",
+        "流程配置架构重构（breaking）：新增workflow_settings列替代workflow_def，节点结构（代码定义）与管理配置（管理员编辑）彻底分离，移除乐观锁机制，迁移151/152",
+        "前端OA组件精简：SelectFieldControl增强ERP名称解析（readonly模式三层降级），删除UserFieldControl，InlineEditCell移除multi-select编辑类型",
+        "3项数据库迁移：市场费用表单(150)、废弃列清理(151)、workflow_settings(152)"
+      ]
+    },
+    {
       "version": "v2.15.2",
       "date": "2026-06-27 21:30",
       "types": ["optimization"],

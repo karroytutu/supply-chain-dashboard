@@ -8,7 +8,7 @@ import { appQuery as query } from '../../db/appPool';
 import { escapeLikePattern } from '../../utils/sqlHelpers';
 import { ApprovalListParams, ApprovalStats, ApprovalStatus } from './oa.types';
 import { extractFormSummary } from './oa-form-summary';
-import { resolveFormSchema } from './oa-utils';
+import { getFormTypeByCode } from './form-types';
 
 // Re-export from extracted modules
 export { getApprovalDetail } from './queries/approval-detail';
@@ -60,7 +60,7 @@ export function formatInstanceListItem(
 ): InstanceListItem {
   // formSchema 统一从代码注册表获取（代码唯一来源）
   const resolvedSchema = row.form_type_code
-    ? resolveFormSchema(row.form_type_code, null)
+    ? getFormTypeByCode(row.form_type_code)?.formSchema ?? { fields: [] }
     : null;
   const formData = row.form_data || null;
   const previewFields = resolvedSchema && formData

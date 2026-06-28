@@ -20,6 +20,7 @@ import {
   enqueueExecuteAutoNode,
 } from '../oa-async-task.service';
 import { transaction, getInstanceNotifyData } from './shared-utils';
+import { checkDuplicate } from '../duplicate-check';
 
 /**
  * 提交审批请求
@@ -35,6 +36,14 @@ export async function submitApproval(
   const errors = validateFormData(formType.formSchema, req.formData, formType.fieldPermissions?.nodes?.['0']);
   if (errors.length > 0) {
     throw new Error(`表单校验失败: ${errors.join('; ')}`);
+  }
+
+  // 1.4 通用查重（在 beforeSubmit 前执行，使用用户原始 formData）
+  if (formType.duplicateCheck) {
+    const warning = await checkDuplicate(formType.code, req.formData, formType.duplicateCheck);
+    if (warning) {
+      req.formData._duplicateWarning = warning;
+    }
   }
 
   // 1.5 beforeSubmit 钩子：业务校验和数据增强

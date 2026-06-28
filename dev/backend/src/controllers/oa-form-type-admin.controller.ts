@@ -24,7 +24,7 @@ function invalidateFormTypesCache(): void {
 }
 
 /**
- * 获取所有表单类型（含完整的 workflow_def 和 allowed_roles）
+ * 获取所有表单类型（含完整的 allowed_roles 等管理配置）
  * GET /api/oa/admin/form-types
  */
 export async function listFormTypesForAdmin(req: Request, res: Response): Promise<void> {
@@ -189,54 +189,6 @@ export async function updateFormTypeBasic(req: Request, res: Response): Promise<
   } catch (error) {
     log.error('管理接口-更新表单基本信息失败:', error);
     res.status(500).json(buildErrorResponse(500, '更新失败'));
-  }
-}
-
-/**
- * 更新表单审批流程配置（管理员调整处理人/条件/签署模式等可编辑配置）
- * PUT /api/oa/admin/form-types/:code/workflow
- *
- * 架构：代码骨架 + DB配置分层
- * - 代码（form-types/*.ts）定义流程骨架：节点顺序、类型、回调
- * - 本接口保存管理员通过 UI 调整的配置：处理人、签署模式、条件、抄送角色
- * - 运行时由 mergeWorkflowDef() 合并两层定义
- */
-export async function updateFormTypeWorkflow(req: Request, res: Response): Promise<void> {
-  try {
-    const { code } = req.params;
-    const { workflowDef, version } = req.body;
-
-    if (!workflowDef || typeof workflowDef !== 'object' || !Array.isArray(workflowDef.nodes)) {
-      res.status(400).json(buildErrorResponse(400, 'workflowDef 必须包含 nodes 数组'));
-      return;
-    }
-
-    // 乐观锁：校验 version 未过期
-    if (version !== undefined) {
-      const current = await query<{ version: number }>(
-        `SELECT version FROM oa_form_types WHERE code = $1`, [code]
-      );
-      if (current.rows.length > 0 && current.rows[0].version !== version) {
-        res.status(409).json(buildErrorResponse(409, '数据已被其他用户修改，请刷新后重试'));
-        return;
-      }
-    }
-
-    const result = await query(
-      `UPDATE oa_form_types SET workflow_def = $1, version = version + 1 WHERE code = $2`,
-      [JSON.stringify(workflowDef), code]
-    );
-
-    if (result.rowCount === 0) {
-      res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
-      return;
-    }
-
-    invalidateFormTypesCache();
-    res.json(buildSuccessResponse(null, '流程配置已保存'));
-  } catch (error) {
-    log.error('管理接口-更新流程配置失败:', error);
-    res.status(500).json(buildErrorResponse(500, '更新流程配置失败'));
   }
 }
 
@@ -437,5 +389,55 @@ export async function batchGetUsers(req: Request, res: Response): Promise<void> 
   } catch (error) {
     log.error('批量获取用户失败:', error);
     res.status(500).json(buildErrorResponse(500, '获取用户信息失败'));
+  }
+}
+
+/**
+ * 更新表单流程管理配置（管理员在表单配置页面编辑的审批人规则、签署模式、超时时限）
+ * PUT /api/oa/admin/form-types/:code/workflow-settings
+ *
+ * 请求体：{ workflowSettings: { nodes: { "1": { name, handler, signMode, timeout }, ... } } }
+ * 仅存储管理员可编辑的配置，节点结构由代码定义
+ */
+export async function updateWorkflowSettings(req: Request, res: Response): Promise<void> {
+  try {
+    const { code } = req.params;
+    const { workflowSettings } = req.body;
+
+    // 校验输入
+    if (workflowSettings !== null && typeof workflowSettings !== 'object') {
+      res.status(400).json(buildErrorResponse(400, 'workflowSettings 必须为对象或 null'));
+      return;
+    }
+
+    // 校验 nodes 结构
+    if (workflowSettings?.nodes) {
+      for (const [order, nodeSettings] of Object.entries(workflowSettings.nodes)) {
+        const ns = nodeSettings as Record<string, unknown>;
+        // 仅允许管理配置字段，拒绝节点结构字段
+        const allowedKeys = new Set(['name', 'handler', 'signMode', 'timeout']);
+        const invalidKeys = Object.keys(ns).filter(k => !allowedKeys.has(k));
+        if (invalidKeys.length > 0) {
+          res.status(400).json(buildErrorResponse(400, `节点${order}不允许包含结构字段: ${invalidKeys.join(', ')}，仅允许 name/handler/signMode/timeout`));
+          return;
+        }
+      }
+    }
+
+    const result = await query(
+      `UPDATE oa_form_types SET workflow_settings = $1 WHERE code = $2`,
+      [workflowSettings ? JSON.stringify(workflowSettings) : '{}', code]
+    );
+
+    if (result.rowCount === 0) {
+      res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
+      return;
+    }
+
+    invalidateFormTypesCache();
+    res.json(buildSuccessResponse(null, '流程配置已保存'));
+  } catch (error) {
+    log.error('管理接口-更新流程配置失败:', error);
+    res.status(500).json(buildErrorResponse(500, '更新流程配置失败'));
   }
 }

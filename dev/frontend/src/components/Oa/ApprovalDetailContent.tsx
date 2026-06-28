@@ -264,6 +264,9 @@ const FormFieldsSection: React.FC<{
     <FormFieldRenderer field={field} value={value} formData={detail.formData} resolvedMap={resolvedMap} erpLicenseUrls={erpLicenseUrls} />
   );
 
+  // 查重警告：提取 _duplicateWarning 字段值
+  const duplicateWarning = detail.formData?._duplicateWarning as string | undefined;
+
   // hidden 字段已在数据层 applyFieldPermissions 中过滤，此处仅处理 visibleWhen / _ 前缀 / schema.hidden
   const filteredFields = detail.formSchema?.fields?.filter((field: any) => {
     if (field.visibleWhen && !checkCondition(field.visibleWhen, detail.formData)) return false;
@@ -272,11 +275,24 @@ const FormFieldsSection: React.FC<{
     return true;
   }) || [];
 
+  // 查重警告横幅
+  const warningBanner = duplicateWarning ? (
+    <Alert
+      type="warning"
+      showIcon
+      icon={<WarningOutlined />}
+      message="重复申请提示"
+      description={<pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 13 }}>{duplicateWarning}</pre>}
+      style={{ marginBottom: 16 }}
+    />
+  ) : null;
+
   if (hasOriginalFields(detail.formData)) {
     const diffProps = { formSchema: detail.formSchema, formData: detail.formData, resolvedMap, erpLicenseUrls };
     if (layout === 'descriptions') {
       return (
         <Card title="表单内容" className={styles.card}>
+          {warningBanner}
           <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
             <FormFieldsDiff {...diffProps} layout="descriptions" />
           </Descriptions>
@@ -286,6 +302,7 @@ const FormFieldsSection: React.FC<{
     return (
       <div className={styles.formDataSection}>
         <h3>表单数据</h3>
+        {warningBanner}
         <div className={styles.formDataList}>
           <FormFieldsDiff {...diffProps} layout="list" />
         </div>

@@ -9,14 +9,7 @@ import { oaApi, type ErpReferenceType } from '@/services/api/oa';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
 import { resolveStoredName } from '../utils/resolveStoredName';
 
-/** ERP 类型字段类型列表 */
-const ERP_FIELD_TYPES = new Set([
-  'erp_customer', 'erp_department', 'erp_staff',
-  'erp_payment_account', 'erp_asset_category', 'asset_search', 'erp_settlement_order',
-  'erp_grade', 'erp_group', 'erp_area',
-  'erp_supplier', 'erp_purchase_order',
-  'erp_prepayment', 'erp_supplier_income',
-]);
+
 
 export interface ErpResolvedMap {
   /** key: "{erpType}:{id}", value: 名称 */
@@ -52,7 +45,8 @@ export function useErpFieldResolve(
           continue;
         }
 
-        if (!ERP_FIELD_TYPES.has(field.type)) continue;
+        // 判断是否为 ERP 数据选择字段（通过 searchApi 配置识别）
+        if (!field.searchApi || !ERP_SEARCH_API_MAP[field.searchApi]) continue;
 
         const erpType = field.searchApi ? ERP_SEARCH_API_MAP[field.searchApi] : undefined;
         if (!erpType) continue;
@@ -103,7 +97,7 @@ export function useErpFieldResolve(
         const rawValue = formData[field.key];
         if (rawValue == null) continue;
 
-        if (field.type === 'erp_settlement_order') {
+        if (field.searchApi === 'erp_settlement_orders') {
           const ids = Array.isArray(rawValue) ? rawValue : [];
           const extraParams = formData.customer ? { consumerId: String(formData.customer) } : undefined;
           if (ids.length > 0) {
@@ -111,7 +105,7 @@ export function useErpFieldResolve(
             pendingByType[erpType].ids.push(...ids.map(Number));
             pendingByType[erpType].extraParams = extraParams;
           }
-        } else if (field.type === 'erp_purchase_order') {
+        } else if (field.searchApi === 'erp_purchase_orders') {
           const id = Number(rawValue);
           if (!isNaN(id)) {
             const extraParams = formData.supplierId ? { supplierIds: String(formData.supplierId) } : undefined;

@@ -41,52 +41,28 @@ export type ActiveCategory = FormCategory | 'all';
 // 表单字段相关类型
 // =====================================================
 
+/**
+ * 表单字段类型
+ *
+ * ERP 数据选择统一使用 select + searchApi 配置，不再为每种 ERP 数据定义专用类型名。
+ * 例如：选客户 → type: 'select', searchApi: 'erp_customers'
+ */
 export type FormFieldType =
-  | 'text'
-  | 'textarea'
-  | 'number'
-  | 'money'
-  | 'select'
-  | 'date'
-  | 'datetime'
-  | 'date-range'
-  | 'upload'
-  | 'photo'
-  | 'user-select'
-  | 'user'
-  | 'department'
-  | 'dept'
-  | 'cascader'
-  | 'address'
-  | 'table'
-  | 'rating'
-  | 'text-note'
-  | 'relate-approval'
-  | 'location'
-  | 'radio'
-  | 'signature' // 电子签名（手写签名控件，支持复用历史签名）
-  // ERP 参考数据字段类型
-  | 'asset_search'
-  | 'erp_department'
-  | 'erp_staff'
-  | 'erp_payment_account'
-  | 'erp_asset_category'
-  // ERP 参考数据字段类型（客户授信审批使用）
-  | 'erp_customer'
-  | 'erp_settlement_order'
-  // ERP 参考数据字段类型（客户档案修改使用）
-  | 'erp_grade'
-  | 'erp_group'
-  | 'erp_area'
-  // ERP 参考数据字段类型（采购审批使用）
-  | 'erp_supplier'
-  | 'erp_purchase_order'
-  | 'erp_prepayment'
-  | 'erp_supplier_income'
-  | 'formula' // 公式计算字段（自动根据表达式求值，不可手动编辑）
-  | 'modal_select' // 统一弹窗多选控件（配置驱动，支持远程搜索+固定选项+多条件筛选）
-  | 'tree_select' // 树形弹窗选择器（可展开/折叠的 Tree 控件，支持父子联动勾选）
-  | 'bank_account_selector'; // 银行账户历史选择器（弹窗选择，自动填充户名/账号/银行/开户行）
+  | 'text'           // 单行文本
+  | 'textarea'       // 多行文本
+  | 'number'         // 数字
+  | 'money'          // 金额（支持大写显示）
+  | 'select'         // 单选下拉（也用于 ERP 数据选择，通过 searchApi 驱动）
+  | 'date'           // 日期选择
+  | 'date-range'     // 日期区间
+  | 'upload'         // 附件上传
+  | 'photo'          // 图片上传
+  | 'table'          // 可编辑明细表
+  | 'signature'      // 电子签名
+  | 'formula'        // 公式计算（只读）
+  | 'modal_select'   // 弹窗多选（远程搜索+多列表格）
+  | 'tree_select'    // 树形弹窗选择器
+  | 'bank_account_selector'; // 银行账户选择器
 
 /**
  * 表格一键分摊配置（table 类型字段的通用能力）
@@ -152,7 +128,7 @@ export interface FormField {
   /** 条件必填（满足条件时字段变为必填） */
   requiredWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** ERP参考数据API标识 */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'erp_supplier_debts' | 'purchase_settlements' | 'promotion_goods';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'erp_supplier_debts' | 'erp_brands' | 'purchase_settlements' | 'promotion_goods';
   /** tree_select: 树形数据 API 标识 */
   treeSearchApi?: string;
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
@@ -197,6 +173,8 @@ export interface FormField {
   columnGroupTip?: string;
   /** table 类型专用：自动同步值，从同行另一个字段复制值（源字段变更时实时同步） */
   syncFrom?: string;
+  /** 触发后端实时计算的字段列表，当这些字段值变化时调用 computePreview */
+  previewTrigger?: string[];
 }
 
 /** modal_select 弹窗表格列定义 */
@@ -336,17 +314,13 @@ export interface ConditionGroup {
 export interface NodeInputField {
   name: string;
   label: string;
-  type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table'
-    | 'asset_search' | 'erp_department' | 'erp_staff' | 'erp_payment_account' | 'erp_asset_category'
-    | 'erp_customer' | 'erp_settlement_order'
-    | 'erp_grade' | 'erp_group' | 'erp_area'
-    | 'erp_prepayment' | 'erp_supplier_income';
+  type: 'text' | 'number' | 'date' | 'select' | 'upload' | 'amount' | 'table';
   required?: boolean;
   options?: Array<{ label: string; value: unknown }>;
   defaultValue?: unknown;
   readonly?: boolean;
   columns?: NodeInputField[];
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'erp_brands';
   autoFill?: Record<string, string>;
   cascadeFrom?: string;
   multiple?: boolean;

@@ -33,7 +33,24 @@ export function renderCellValue(
       return String(cellValue);
     }
     case 'select': {
-      // 优先使用静态选项
+      // ERP 数据选择字段（通过 searchApi 配置识别）
+      if (childField.searchApi) {
+        // 第一优先级：行数据中已存储的名称（nameField，含 _ 前缀变体兗底）
+        const storedName = resolveStoredName(childField.nameField, rowData);
+        if (storedName) return storedName;
+        // 第二优先级：批量预解析结果
+        const erpType = ERP_SEARCH_API_MAP[childField.searchApi];
+        if (erpType) {
+          const cacheKey = `${erpType}:${cellValue}`;
+          if (resolvedMap?.[cacheKey]) {
+            return resolvedMap[cacheKey];
+          }
+          // 第三优先级：ErpNameDisplay 兗底
+          return <ErpNameDisplay erpType={erpType} id={cellValue} />;
+        }
+        return String(cellValue);
+      }
+      // 普通 select：优先使用静态选项
       const option = childField.options?.find((o) => o.value === cellValue);
       if (option) return option.label;
       // optionsFromField 动态选项（如从 _goodsUnits 数组中提取单位）
@@ -42,37 +59,6 @@ export function renderCellValue(
         const dynOpt = dynamicOpts?.find((o) => o.value === cellValue);
         if (dynOpt) return dynOpt.label;
       }
-      return String(cellValue);
-    }
-    case 'erp_customer':
-    case 'erp_department':
-    case 'erp_staff':
-    case 'erp_payment_account':
-    case 'erp_asset_category':
-    case 'asset_search':
-    case 'erp_supplier':
-    case 'erp_purchase_order':
-    case 'erp_prepayment':
-    case 'erp_supplier_income': {
-      // 第一优先级：行数据中已存储的名称（nameField，含 _ 前缀变体兜底）
-      const storedName = resolveStoredName(childField.nameField, rowData);
-      if (storedName) return storedName;
-      // 第二优先级：批量预解析结果
-      if (childField.searchApi) {
-        const erpType = ERP_SEARCH_API_MAP[childField.searchApi];
-        if (erpType) {
-          const cacheKey = `${erpType}:${cellValue}`;
-          if (resolvedMap?.[cacheKey]) {
-            return resolvedMap[cacheKey];
-          }
-          // 第三优先级：ErpNameDisplay 兜底
-          return <ErpNameDisplay erpType={erpType} id={cellValue} />;
-        }
-      }
-      return String(cellValue);
-    }
-    case 'erp_settlement_order': {
-      // 结算单类型不在表格子字段中使用，降级为文本
       return String(cellValue);
     }
     case 'formula': {

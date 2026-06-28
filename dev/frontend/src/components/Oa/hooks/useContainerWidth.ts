@@ -7,17 +7,16 @@ import React, { useRef, useState, useCallback } from 'react';
 import type { FormField } from '@/types/oa';
 
 // =====================================================
-// ERP 字段类型集合
+// ERP 数据选择字段识别
 // =====================================================
 
-/** 所有 ERP 字段类型（取 FormFieldRenderer 与 TableFieldRenderer 的并集） */
-export const TABLE_ERP_TYPES = new Set([
-  'erp_customer', 'erp_department', 'erp_staff',
-  'erp_payment_account', 'erp_asset_category', 'asset_search',
-  'erp_grade', 'erp_group', 'erp_area',
-  'erp_settlement_order',
-  'modal_select',  // 统一弹窗选择器（表格行内降级为 Select 搜索框）
-]);
+/** 判断是否为 ERP 数据选择字段（通过 searchApi 配置识别） */
+export function isErpSelectField(col: FormField): boolean {
+  return col.type === 'select' && !!col.searchApi;
+}
+
+/** 弹窗选择器类型（表格行内降级为 Select 搜索框） */
+export const MODAL_SELECT_TYPE = 'modal_select';
 
 // =====================================================
 // 表格样式常量
@@ -74,17 +73,16 @@ export function useContainerWidth(): [React.RefCallback<HTMLDivElement>, number]
 /** 根据字段类型计算列最小宽度 */
 export function getColumnWidth(col: FormField): number {
   const t = col.type;
-  if (TABLE_ERP_TYPES.has(t)) return 160;
+  // ERP 数据选择字段和弹窗选择器需要更宽的列
+  if (isErpSelectField(col) || t === MODAL_SELECT_TYPE) return 160;
   switch (t) {
     case 'date': return 130;
-    case 'datetime': return 180;
     case 'money': return 130;
     case 'number': return 100;
     case 'formula': return 120;
     case 'text': return 150;
     case 'textarea': return 200;
     case 'select':
-    case 'modal_select':
     case 'tree_select': return 120;
     default: return 120;
   }

@@ -203,7 +203,7 @@ describe('validateFormData', () => {
     const schema: any = {
       fields: [
         { key: 'name', label: '名称', type: 'text', required: true },
-        { key: 'paymentSubjectId', label: '付款账户', type: 'erp_payment_account', required: true },
+        { key: 'paymentSubjectId', label: '付款账户', type: 'select', searchApi: 'erp_payment_accounts', required: true },
         { key: 'remark', label: '备注', type: 'textarea', required: false },
       ],
     };

@@ -6,7 +6,7 @@
 import React from 'react';
 import { DatePicker, Typography } from 'antd';
 import dayjs from 'dayjs';
-import { formatDate, formatDateTime } from '@/utils/format';
+import { formatDate } from '@/utils/format';
 import type { FieldControlProps } from './types';
 
 const { Text } = Typography;
@@ -40,7 +40,7 @@ const DateFieldControl: React.FC<FieldControlProps> = ({ mode, field, value, onC
     if (value === null || value === undefined || value === '') {
       return <Text type="secondary">-</Text>;
     }
-    return <Text>{field.type === 'datetime' ? formatDateTime(value as string) : formatDate(value as string)}</Text>;
+    return <Text>{formatDate(value as string)}</Text>;
   }
 
   // editable

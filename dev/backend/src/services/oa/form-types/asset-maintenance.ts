@@ -22,7 +22,7 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
       {
         key: 'assetSearch',
         label: '选择资产',
-        type: 'asset_search',
+        type: 'select',
         required: true,
         searchApi: 'erp_assets',
         autoFill: {
@@ -72,10 +72,13 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
       {
         key: 'paymentSubjectId',
         label: '付款账户',
-        type: 'erp_payment_account',
+        type: 'select',
         required: false,
         searchApi: 'erp_payment_accounts',
+        nameField: '_paymentSubjectName',
+        autoFill: { _paymentSubjectName: 'name' },
       },
+      { key: '_paymentSubjectName', label: '付款账户名称', type: 'text', required: false, hidden: true },
       { key: 'receiptUrls', label: '支付回单', type: 'upload', required: false },
       { key: 'paymentNote', label: '支付备注', type: 'text', required: false },
 

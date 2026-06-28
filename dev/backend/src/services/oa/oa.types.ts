@@ -30,51 +30,26 @@ export const CATEGORY_LABELS: Record<FormCategory, string> = {
 
 /**
  * 表单字段类型
- * 参考：钉钉OA控件
+ *
+ * ERP 数据选择统一使用 select + searchApi 配置，不再为每种 ERP 数据定义专用类型名。
+ * 例如：选客户 → type: 'select', searchApi: 'erp_customers'
  */
 export type FormFieldType =
-  | 'text'
-  | 'textarea'
-  | 'number'
-  | 'money'
-  | 'select'
-  | 'date'
-  | 'date-range'
-  | 'upload'
-  | 'photo'
-  | 'user-select'
-  | 'department'
-  | 'cascader'
-  | 'address'
-  | 'table'
-  | 'rating'
-  | 'text-note'
-  | 'relate-approval'
-  | 'location'
-  | 'radio'
-  | 'signature' // 电子签名（手写签名控件，支持复用历史签名）
-  // ERP 参考数据字段类型（固定资产审批使用）
-  | 'asset_search' // 搜索选择ERP资产
-  | 'erp_department' // 选择ERP部门
-  | 'erp_staff' // 选择ERP员工
-  | 'erp_payment_account' // 选择ERP付款账户
-  | 'erp_asset_category' // 选择ERP资产分类
-  // ERP 参考数据字段类型（客户授信审批使用）
-  | 'erp_customer' // 搜索选择ERP客户
-  | 'erp_settlement_order' // 搜索选择ERP结算单（多选）
-  // ERP 参考数据字段类型（客户档案修改使用）
-  | 'erp_grade' // 选择ERP客户等级
-  | 'erp_group' // 选择ERP客户渠道（分组）
-  | 'erp_area' // 选择ERP客户片区（区域）
-  // ERP 参考数据字段类型（采购审批使用）
-  | 'erp_supplier' // 搜索选择ERP供应商
-  | 'erp_purchase_order' // 搜索选择ERP采购订单（级联供应商）
-  | 'erp_prepayment' // 搜索选择ERP预付款单（级联供应商）
-  | 'erp_supplier_income' // 搜索选择ERP供应商收入单（级联供应商）
-  | 'formula' // 公式计算字段（自动根据表达式求值，不可手动编辑）
-  | 'modal_select' // 统一弹窗多选控件（配置驱动，支持远程搜索+固定选项+多条件筛选）
-  | 'tree_select' // 树形弹窗选择器（可展开/折叠的 Tree 控件，支持父子联动勾选）
-  | 'bank_account_selector'; // 银行账户历史选择器（弹窗选择，自动填充户名/账号/银行/开户行）
+  | 'text'           // 单行文本
+  | 'textarea'       // 多行文本
+  | 'number'         // 数字
+  | 'money'          // 金额（支持大写显示）
+  | 'select'         // 单选下拉（也用于 ERP 数据选择，通过 searchApi 驱动）
+  | 'date'           // 日期选择
+  | 'date-range'     // 日期区间
+  | 'upload'         // 附件上传
+  | 'photo'          // 图片上传
+  | 'table'          // 可编辑明细表
+  | 'signature'      // 电子签名
+  | 'formula'        // 公式计算（只读）
+  | 'modal_select'   // 弹窗多选（远程搜索+多列表格）
+  | 'tree_select'    // 树形弹窗选择器
+  | 'bank_account_selector'; // 银行账户选择器
 
 /**
  * 表格一键分摊配置（table 类型字段的通用能力）
@@ -189,7 +164,8 @@ export interface FormField {
     | 'erp_purchase_orders'
     | 'erp_supplier_debts'
     | 'purchase_settlements'
-    | 'promotion_goods';
+    | 'promotion_goods'
+    | 'erp_brands';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
@@ -234,6 +210,8 @@ export interface FormField {
   columnGroupTip?: string;
   /** table 类型专用：自动同步值，从同行另一个字段复制值（源字段变更时实时同步） */
   syncFrom?: string;
+  /** 触发后端实时计算的字段列表，当这些字段值变化时调用 computePreview */
+  previewTrigger?: string[];
 }
 
 /** modal_select 弹窗表格列定义 */
@@ -367,18 +345,7 @@ export interface NodeInputField {
     | 'select'
     | 'upload'
     | 'amount'
-    | 'table'
-    | 'asset_search'
-    | 'erp_department'
-    | 'erp_staff'
-    | 'erp_payment_account'
-    | 'erp_asset_category'
-    | 'erp_customer'
-    | 'erp_settlement_order'
-    | 'erp_supplier'
-    | 'erp_purchase_order'
-    | 'erp_prepayment'
-    | 'erp_supplier_income';
+    | 'table';
   /** 是否必填 */
   required?: boolean;
   /** select 类型的选项 */
@@ -405,7 +372,8 @@ export interface NodeInputField {
     | 'erp_prepayments'
     | 'erp_supplier_incomes'
     | 'erp_purchase_orders'
-    | 'erp_supplier_debts';
+    | 'erp_supplier_debts'
+    | 'erp_brands';
   /** 选择后自动填充其他字段 */
   autoFill?: Record<string, string>;
   /** 级联字段key */
@@ -594,6 +562,21 @@ export interface NodeBackfill {
 }
 
 /**
+ * 通用查重配置
+ * 声明式配置替代各表单散写的防重 SQL，框架统一处理查询和提示生成
+ */
+export interface DuplicateCheckConfig {
+  /** 按哪些表单字段判重（字段名必须存在于 formSchema.fields 中） */
+  matchFields: string[];
+  /** 查哪些审批状态的申请（如 ['processing', 'approved']） */
+  includeStatuses: string[];
+  /** 提示中展示哪些字段的值（纯文本摘要） */
+  displayFields: string[];
+  /** 查重提示中的主体名称，如 "该客户"、"该供应商"、"该采购订单"，默认 "该客户" */
+  subjectLabel?: string;
+}
+
+/**
  * 表单类型定义接口
  */
 export interface FormTypeDefinition {
@@ -632,6 +615,11 @@ export interface FormTypeDefinition {
     formData: Record<string, unknown>,
     userId: number
   ) => Promise<Record<string, unknown>>;
+  /** 实时预览计算钩子：指定字段变化时，后端根据 formData 计算展示字段值 */
+  computePreview?: (
+    formData: Record<string, unknown>,
+    userId: number
+  ) => Promise<Record<string, unknown>>;
   /** 审批通过回调（auto 节点触发，可选）
    * 返回 CallbackResult 时，框架根据 nodeBackfills 声明自动执行回填；
    * 返回 { sendBack: true } 时，框架跳过后续的 mark-approved + advanceToNextNode
@@ -664,11 +652,39 @@ export interface FormTypeDefinition {
   fieldPermissions?: FieldPermissionsOverride;
   /** 查看权限 DB 覆盖值（非办理人查看详情时使用），由 mapFormTypeRow 从 DB 读取 */
   viewPermissions?: ViewPermissionsOverride;
+  /** 通用查重配置（可选），声明后框架在提交时自动执行查重并生成提示 */
+  duplicateCheck?: DuplicateCheckConfig;
 }
 
 // =====================================================
 // 数据库行映射类型
 // =====================================================
+
+/**
+ * 流程管理配置 DB 存储结构
+ * 仅存储管理员可在表单配置页面编辑的字段（审批人规则、签署模式、超时时限）
+ * 节点结构（数量、顺序、类型、条件）由代码定义，不存数据库
+ */
+export interface WorkflowSettings {
+  /** 按节点 order 索引的管理配置 */
+  nodes: Record<number, WorkflowNodeSettings>;
+}
+
+/** 单个节点的管理配置（管理员可编辑部分） */
+export interface WorkflowNodeSettings {
+  /** 节点显示名称 */
+  name?: string;
+  /** 审批人规则 */
+  handler?: {
+    roleCode?: string;
+    useSupervisor?: boolean;
+    userId?: number;
+  };
+  /** 签署模式：or(或签) / and(会签) */
+  signMode?: string;
+  /** 超时时限配置 */
+  timeout?: unknown;
+}
 
 /**
  * oa_form_types 表行
@@ -681,10 +697,6 @@ export interface OaFormTypeRow {
   category: FormCategory;
   sort_order: number;
   description: string | null;
-  /** @deprecated form_schema 已改为代码唯一来源，DB 列保留但不再读取 */
-  form_schema?: FormSchema;
-  /** @deprecated workflow_def 已改为代码唯一来源，DB 列保留但不再作为运行时主源 */
-  workflow_def?: WorkflowDef;
   is_active: boolean;
   version: number;
   allowed_roles: string[] | null;
@@ -697,6 +709,8 @@ export interface OaFormTypeRow {
   field_permissions?: FieldPermissionsOverride | null;
   /** 查看权限 DB 覆盖配置（非办理人查看详情时使用，NULL=默认全部隐藏） */
   view_permissions?: ViewPermissionsOverride | null;
+  /** 流程管理配置 DB 存储（审批人规则、签署模式、超时时限），与代码定义的节点结构分离 */
+  workflow_settings?: WorkflowSettings | null;
   created_at: Date;
   updated_at: Date;
 }

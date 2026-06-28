@@ -9,7 +9,7 @@ import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { FormField, FieldPermission } from '@/types/oa';
 import { evaluateFormula } from '@/utils/formula-evaluator';
-import { TABLE_ERP_TYPES, useContainerWidth, getColumnWidth, NUMERIC_ALIGN_TYPES } from '@/components/Oa/hooks/useContainerWidth';
+import { isErpSelectField, useContainerWidth, getColumnWidth, NUMERIC_ALIGN_TYPES } from '@/components/Oa/hooks/useContainerWidth';
 import { useColumnWidths } from '@/components/Oa/hooks/useColumnWidths';
 import { renderCellValue } from '@/components/Oa/cellValueRenderer';
 import type { ErpResolvedMap } from '@/components/Oa/hooks/useErpFieldResolve';
@@ -92,7 +92,7 @@ const CellInput: React.FC<{
   }
 
   // ERP 字段类型：使用 ErpFieldRenderer
-  if (TABLE_ERP_TYPES.has(childField.type)) {
+  if (isErpSelectField(childField)) {
     const cascadeValue = childField.cascadeFrom ? rowData[childField.cascadeFrom] : undefined;
     return (
       <ErpFieldRenderer

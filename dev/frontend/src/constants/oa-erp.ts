@@ -29,6 +29,7 @@ export const ERP_SEARCH_API_MAP: Record<string, ErpReferenceType> = {
   erp_supplier_incomes: 'supplier-incomes',
   erp_purchase_orders: 'purchase-orders',
   erp_supplier_debts: 'supplier-debts',
+  erp_brands: 'brands',
   promotion_goods: 'promotion-goods',
 };
 

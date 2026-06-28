@@ -32,7 +32,7 @@ export const customerCreditFormType: FormTypeDefinition = {
       {
         key: 'customer',
         label: '客户',
-        type: 'erp_customer',
+        type: 'select',
         required: true,
         searchApi: 'erp_customers',
         nameField: '_customerName',

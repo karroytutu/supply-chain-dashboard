@@ -96,6 +96,20 @@ export async function previewWorkflow(
   return res;
 }
 
+/**
+ * 实时预览计算（根据表单数据实时计算展示字段值）
+ */
+export async function computePreview(
+  code: string,
+  formData: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const res = await request<Record<string, unknown>>(
+    `/oa/form-types/${code}/compute-preview`,
+    { method: 'POST', body: { formData } }
+  );
+  return res;
+}
+
 // =====================================================
 // 审批实例接口
 // =====================================================
@@ -324,7 +338,7 @@ export async function exportData(
 // ERP 参考数据接口
 // =====================================================
 
-export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'areas-tree' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details' | 'supplier-debts' | 'promotion-goods';
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'areas-tree' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details' | 'supplier-debts' | 'brands' | 'promotion-goods';
 
 /** ERP ID 解析结果项 */
 export interface ErpResolvedItem {
@@ -642,6 +656,7 @@ export const oaApi = {
   getFormType,
   previewApprovers,
   previewWorkflow,
+  computePreview,
   getApprovalList,
   getStats,
   getDetail,
@@ -748,15 +763,14 @@ export async function updateAdminFormType(
   });
 }
 
-/** 更新表单审批流程配置（含乐观锁） */
-export async function updateAdminFormTypeWorkflow(
+/** 更新表单流程管理配置（审批人规则、签署模式、超时时限） */
+export async function updateAdminWorkflowSettings(
   code: string,
-  workflowDef: unknown,
-  version: number
+  workflowSettings: { nodes: Record<number, { name?: string; handler?: Record<string, unknown>; signMode?: string; timeout?: unknown }> }
 ): Promise<void> {
-  return request<void>(`/oa/admin/form-types/${code}/workflow`, {
+  return request<void>(`/oa/admin/form-types/${code}/workflow-settings`, {
     method: 'PUT',
-    body: { workflowDef, version },
+    body: { workflowSettings },
   });
 }
 

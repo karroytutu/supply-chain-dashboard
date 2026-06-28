@@ -105,46 +105,43 @@ interface FormField {
 }
 ```
 
-### 3.1 支持的 FormFieldType（参考钉钉OA审批控件）与前端组件映射
+### 3.1 支持的 FormFieldType 与前端组件映射
 
-| type | 钉钉控件名 | 前端组件 | 说明 |
-|------|-----------|----------|------|
-| `text` | TextField | Input | 单行文本 |
-| `textarea` | TextareaField | Input.TextArea | 多行文本 |
-| `number` | NumberField | InputNumber | 数字输入（支持单位） |
-| `money` | MoneyField | InputNumber | 金额（支持大写显示） |
-| `select` | DDSelectField | Select | 单选下拉 |
-| `multi-select` | DDMultiSelectField | Select mode=multiple | 多选下拉 |
-| `date` | DDDateField | DatePicker | 日期选择 |
-| `date-range` | DDDateRangeField | RangePicker | 时间区间 |
-| `upload` | DDAttachment | Upload | 附件上传 |
-| `photo` | DDPhotoField | Upload | 图片上传 |
-| `user-select` | InnerContactField | 自定义 | 联系人选择（系统用户） |
-| `department` | DepartmentField | 自定义 | 部门选择 |
-| `cascader` | Cascader | Cascader | 级联选择 |
-| `address` | AddressField | Cascader | 省市区选择 |
-| `table` | TableField | 可编辑表格 | 明细控件（支持子字段） |
-| `rating` | StarRatingField | Rate | 评分控件 |
-| `text-note` | TextNote | Typography.Text | 文字说明 |
-| `relate-approval` | RelateField | 自定义 | 关联审批单 |
-| `location` | TimeAndLocationField | 自定义 | 地点控件 |
+| type | 前端组件 | 说明 |
+|------|----------|------|
+| `text` | Input | 单行文本 |
+| `textarea` | Input.TextArea | 多行文本 |
+| `number` | InputNumber | 数字输入（支持单位、精度、范围） |
+| `money` | InputNumber | 金额（支持大写显示） |
+| `select` | Select / ErpFieldRenderer | 单选下拉；带 searchApi 时用于 ERP 数据选择（客户、供应商等） |
+| `multi-select` | Select mode=multiple | 多选下拉 |
+| `date` | DatePicker | 日期选择 |
+| `date-range` | RangePicker | 日期区间 |
+| `upload` | Upload | 附件上传 |
+| `photo` | PhotoFieldRenderer | 图片上传（支持执照识别） |
+| `table` | TableFieldRenderer | 可编辑明细表（支持子字段） |
+| `signature` | SignatureFieldControl | 电子签名 |
+| `formula` | InputNumber(disabled) | 公式计算（只读） |
+| `modal_select` | ModalSelectControl | 弹窗多选（远程搜索+多列表格） |
+| `tree_select` | TreeSelectModalControl | 树形弹窗选择器 |
+| `bank_account_selector` | BankAccountSelector | 银行账户选择器 |
 
-### 3.2 钉钉控件特殊属性说明
+> **ERP 数据选择**：选择客户、供应商、员工、部门等 ERP 数据时，统一使用 `type: 'select'` + `searchApi` 配置，不再为每种 ERP 数据定义专用类型名。
+
+### 3.2 控件特殊属性说明
 
 | 控件类型 | 特殊属性 | 说明 |
 |----------|----------|------|
-| `number` | `unit`, `defaultValue` | 数字单位、默认值 |
-| `money` | `upper` | 是否显示大写金额，默认需要大写 |
-| `select`/`multi-select` | `options` | 选项列表，`key: "other"` 为"其它"选项 |
-| `date` | `unit`, `format`, `defaultValue` | 单位(小时/天)、格式、默认值 |
-| `date-range` | `unit`, `format`, `duration` | 是否自动计算时长 |
-| `address` | `addressModel` | city=省市, district=省市区, street=省市区-街道 |
-| `rating` | `limit` | 5分制或10分制 |
-| `table` | `tableViewMode`, `verticalPrint`, `statField`, `children` | 列表/表格模式、打印方向、统计字段、子控件 |
-| `user-select` | `choice` | 1=多选，0=单选 |
-| `department` | `multiple` | 是否支持多选 |
-| `relate-approval` | `availableTemplates` | 可关联的审批模板列表 |
-| `text-note` | `content`, `link`, `notPrint` | 说明文字、超链接、是否打印 |
+| `number` | `unit`, `defaultValue`, `suffix` | 数字单位、默认值、后缀 |
+| `money` | `upper` | 是否显示大写金额 |
+| `select` | `options`, `searchApi`, `autoFill`, `nameField`, `cascadeFrom` | 静态选项或 ERP 数据搜索、选中后自动填充、级联 |
+| `multi-select` | `options` | 选项列表 |
+| `date` | `format`, `defaultValue` | 格式、默认值 |
+| `date-range` | `format` | 日期区间格式 |
+| `table` | `children` | 明细表子字段定义 |
+| `modal_select` | `searchApi`, `columns`, `filters` | 弹窗搜索API、表格列定义、筛选条件 |
+| `tree_select` | `treeSearchApi` | 树形数据搜索API |
+| `formula` | `formula`, `formulaPrecision` | 公式表达式、结果精度 |
 
 ### 3.3 命名规范
 
@@ -582,15 +579,15 @@ Markdown 格式，包含审批标题、类型、申请人、紧急程度、当�
 | textarea | Input.TextArea | autoSize={{ minRows: 3 }} |
 | number | InputNumber | precision, min, max, suffix |
 | money | InputNumber + 大写显示 | formatter/parser, 上方显示大写 |
-| select | Select | options 映射 |
+| select | Select / ErpFieldRenderer | options 映射或 searchApi 驱动 |
 | multi-select | Select mode="multiple" | options 映射 |
 | date | DatePicker | showTime 根据 format |
 | date-range | RangePicker | showTime |
 | upload | Upload.Dragger | maxCount 限制 |
-| photo | Upload (图片卡片) | listType="picture-card" |
-| user-select | UserSelectModal | 弹窗选择 |
-| department | TreeSelect | 部门树数据 |
-| address | Cascader | 省市区数据 |
-| table | EditableTable | 可编辑表格组件 |
-| rating | Rate | allowHalf |
-| text-note | Typography.Text | type="secondary" |
+| photo | PhotoFieldRenderer | 支持执照识别 |
+| table | TableFieldRenderer | 可编辑表格组件 |
+| signature | SignatureFieldControl | 手写电子签名 |
+| formula | InputNumber(disabled) | 公式计算只读 |
+| modal_select | ModalSelectControl | 弹窗搜索+多列表格 |
+| tree_select | TreeSelectModalControl | 树形弹窗选择 |
+| bank_account_selector | BankAccountSelector | 银行账户弹窗选择 |

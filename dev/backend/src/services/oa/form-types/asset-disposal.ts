@@ -21,7 +21,7 @@ export const assetDisposalFormType: FormTypeDefinition = {
       {
         key: 'assetSearch',
         label: '选择资产',
-        type: 'asset_search',
+        type: 'select',
         required: true,
         searchApi: 'erp_assets',
         autoFill: {

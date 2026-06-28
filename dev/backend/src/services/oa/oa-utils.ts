@@ -10,11 +10,12 @@ import { getFormTypeByCode as getCodeFormTypeByCode } from './form-types';
 import type {
   OaFormTypeRow,
   FormTypeDefinition,
-  FormSchema,
-  WorkflowDef,
   ApprovalStatus,
   ApprovalNodeStatus,
   OaNodeRow,
+  WorkflowDef,
+  WorkflowNodeDef,
+  WorkflowSettings,
 } from './oa.types';
 
 // Re-export from split modules
@@ -49,48 +50,25 @@ export async function generateInstanceNo(): Promise<string> {
 // =====================================================
 
 /**
- * 从代码注册表解析 formSchema（代码唯一来源）。
- * dbFallback 仅用于未注册的历史表单类型兼容。
+ * 合并代码定义的节点结构与 DB 存储的管理配置
+ * - 节点结构（order、type、condition）始终取自代码
+ * - 管理配置（name、handler、signMode、timeout）取自 DB workflow_settings
+ * - DB 无配置时回退到代码默认值
  */
-export function resolveFormSchema(code: string, dbFallback?: FormSchema | null): FormSchema {
-  return getCodeFormTypeByCode(code)?.formSchema ?? dbFallback ?? { fields: [] };
-}
-
-/**
- * 从代码注册表解析 workflowDef（代码提供骨架，DB 提供可编辑配置）。
- * 运行时合并：节点顺序/类型取自代码，处理人/条件/签署模式取自 DB 覆盖值。
- */
-function resolveWorkflowDef(code: string, dbOverride?: WorkflowDef | null): WorkflowDef {
-  const codeDef = getCodeFormTypeByCode(code)?.workflowDef;
-  if (codeDef && dbOverride) {
-    return mergeWorkflowDef(codeDef, dbOverride);
-  }
-  return codeDef ?? dbOverride ?? { nodes: [] };
-}
-
-/**
- * 合并代码骨架与 DB 配置覆盖
- * 结构字段（order、type）始终取自代码；配置字段（handler、signMode、condition、ccRoles、name、timeout）取自 DB。
- * DB 无覆盖时回退到代码默认值。
- */
-export function mergeWorkflowDef(codeDef: WorkflowDef, dbOverride: WorkflowDef | null): WorkflowDef {
-  if (!dbOverride?.nodes?.length) return codeDef;
-
-  const dbByOrder = new Map(dbOverride.nodes.map(n => [n.order, n]));
+function mergeWorkflowSettings(codeDef: WorkflowDef, settings: WorkflowSettings | null): WorkflowDef {
+  if (!settings?.nodes || Object.keys(settings.nodes).length === 0) return codeDef;
 
   const mergedNodes = codeDef.nodes.map(codeNode => {
-    const dbNode = dbByOrder.get(codeNode.order);
-    if (!dbNode) return codeNode;
+    const dbSettings = settings.nodes[codeNode.order];
+    if (!dbSettings) return codeNode;
 
     return {
       ...codeNode,
-      // 配置字段：DB 覆盖优先，未配置时回退代码默认
-      name: dbNode.name ?? codeNode.name,
-      handler: dbNode.handler ?? codeNode.handler,
-      signMode: dbNode.signMode ?? codeNode.signMode,
-      condition: dbNode.condition ?? codeNode.condition,
-      ccRoles: dbNode.ccRoles ?? codeNode.ccRoles,
-      timeout: dbNode.timeout ?? codeNode.timeout,
+      // 管理配置字段：DB 覆盖优先，未配置时回退代码默认
+      name: dbSettings.name ?? codeNode.name,
+      handler: dbSettings.handler ?? codeNode.handler,
+      signMode: (dbSettings.signMode ?? codeNode.signMode) as WorkflowNodeDef['signMode'],
+      timeout: (dbSettings.timeout ?? codeNode.timeout) as WorkflowNodeDef['timeout'],
     };
   });
 
@@ -111,10 +89,13 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     sortOrder: row.sort_order,
     description: row.description || '',
     version: row.version,
-    // formSchema: 代码为唯一来源，DB 列已废弃
-    formSchema: resolveFormSchema(row.code, row.form_schema),
-    // workflowDef: 代码提供骨架（节点顺序/类型），DB 提供可编辑配置（处理人/条件/签署模式）
-    workflowDef: resolveWorkflowDef(row.code, row.workflow_def),
+    // formSchema 从代码定义获取
+    formSchema: codeDefinition?.formSchema ?? { fields: [] },
+    // workflowDef: 代码定义节点结构 + DB 管理配置合并
+    workflowDef: mergeWorkflowSettings(
+      codeDefinition?.workflowDef ?? { nodes: [] },
+      row.workflow_settings ?? null
+    ),
     ...(row.allowed_roles && { allowedRoles: row.allowed_roles }),
     ...(row.data_read_roles && { dataReadRoles: row.data_read_roles }),
     ...(row.data_export_roles && { dataExportRoles: row.data_export_roles }),
@@ -122,6 +103,7 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     ...(row.data_read_users && { dataReadUsers: row.data_read_users }),
     ...(row.data_export_users && { dataExportUsers: row.data_export_users }),
     ...(codeDefinition?.beforeSubmit && { beforeSubmit: codeDefinition.beforeSubmit }),
+    ...(codeDefinition?.computePreview && { computePreview: codeDefinition.computePreview }),
     ...(codeDefinition?.onNodeCompleted && { onNodeCompleted: codeDefinition.onNodeCompleted }),
     ...(codeDefinition?.onApproved && { onApproved: codeDefinition.onApproved }),
     ...(codeDefinition?.resolvePreviewContext && {

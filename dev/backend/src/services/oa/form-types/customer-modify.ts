@@ -28,7 +28,7 @@ export const customerModifyFormType: FormTypeDefinition = {
       {
         key: 'customer',
         label: '客户',
-        type: 'erp_customer',
+        type: 'select',
         required: true,
         searchApi: 'erp_customers',
         nameField: '_customerName',
@@ -70,21 +70,21 @@ export const customerModifyFormType: FormTypeDefinition = {
       {
         key: 'gradeId',
         label: '等级',
-        type: 'erp_grade',
+        type: 'select',
         required: false,
         searchApi: 'erp_grades',
       },
       {
         key: 'groupId',
         label: '渠道',
-        type: 'erp_group',
+        type: 'select',
         required: false,
         searchApi: 'erp_groups',
       },
       {
         key: 'areaId',
         label: '片区',
-        type: 'erp_area',
+        type: 'select',
         required: false,
         searchApi: 'erp_areas',
       },
@@ -93,7 +93,7 @@ export const customerModifyFormType: FormTypeDefinition = {
       {
         key: 'consumerManagerId',
         label: '所属营销',
-        type: 'erp_staff',
+        type: 'select',
         required: false,
         searchApi: 'erp_staff',
         nameField: '_consumerManagerName',
@@ -101,7 +101,7 @@ export const customerModifyFormType: FormTypeDefinition = {
       {
         key: 'serviceStaffId',
         label: '服务员工',
-        type: 'erp_staff',
+        type: 'select',
         required: false,
         searchApi: 'erp_staff',
         nameField: '_serviceStaffName',

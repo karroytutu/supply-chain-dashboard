@@ -63,11 +63,8 @@ const FormDetailPage: React.FC = () => {
 
   const handleSaveWorkflow = async () => {
     if (!formDetail) return;
-    const workflowDef = {
-      ...formDetail.workflowDef,
-      nodes: editingNodes || formDetail.workflowDef.nodes,
-    };
-    await saveWorkflow(workflowDef, formDetail.version);
+    const nodes = editingNodes || formDetail.workflowDef.nodes;
+    await saveWorkflow(nodes);
     // 保存成功后清除本地编辑状态
     setEditingNodes(null);
   };

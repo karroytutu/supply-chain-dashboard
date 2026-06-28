@@ -12,7 +12,7 @@ import type { ReactNode } from 'react';
 
 const { Text } = Typography;
 
-type EditType = 'text' | 'select' | 'multi-select' | 'role-user';
+type EditType = 'text' | 'select' | 'role-user';
 
 interface InlineEditCellProps {
   /** 只读态展示内容 */
@@ -58,7 +58,6 @@ const InlineEditCell: React.FC<InlineEditCellProps> = ({
   const [saving, setSaving] = useState(false);
   const [textValue, setTextValue] = useState('');
   const [selectValue, setSelectValue] = useState<unknown>(undefined);
-  const [multiValue, setMultiValue] = useState<unknown[]>([]);
   const [roleUserValue, setRoleUserValue] = useState<unknown>(undefined);
   const inputRef = useRef<any>(null);
 
@@ -69,8 +68,6 @@ const InlineEditCell: React.FC<InlineEditCellProps> = ({
       setTextValue(editInitialValue != null ? String(editInitialValue) : (typeof value === 'string' ? value : ''));
     } else if (editType === 'select') {
       setSelectValue(editInitialValue);
-    } else if (editType === 'multi-select') {
-      setMultiValue([]);
     } else if (editType === 'role-user') {
       setRoleUserValue(undefined);
     }
@@ -146,26 +143,6 @@ const InlineEditCell: React.FC<InlineEditCellProps> = ({
             disabled={saving}
           />
           {renderActionButtons(() => handleSave(selectValue))}
-        </div>
-      );
-    }
-
-    if (editType === 'multi-select') {
-      return (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...style }}>
-          <Select
-            size="small"
-            mode="multiple"
-            autoFocus
-            defaultOpen
-            value={multiValue}
-            options={editProps?.options}
-            placeholder={editProps?.placeholder}
-            onChange={(vals) => setMultiValue(vals)}
-            style={{ minWidth: 200 }}
-            disabled={saving}
-          />
-          {renderActionButtons(() => handleSave(multiValue))}
         </div>
       );
     }

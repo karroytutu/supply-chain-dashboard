@@ -39,7 +39,7 @@ const purchasePaymentFormSchema: FormSchema = {
     {
       key: 'supplierId',
       label: '供应商',
-      type: 'erp_supplier',
+      type: 'select',
       required: true,
       searchApi: 'erp_suppliers',
       autoFill: { supplierName: 'name' },
@@ -141,10 +141,13 @@ const purchasePaymentFormSchema: FormSchema = {
     {
       key: 'paymentSubjectId',
       label: '付款账户',
-      type: 'erp_payment_account',
+      type: 'select',
       required: true,
       searchApi: 'erp_payment_accounts' as const,
+      nameField: '_paymentSubjectName',
+      autoFill: { _paymentSubjectName: 'name' },
     },
+    { key: '_paymentSubjectName', label: '付款账户名称', type: 'text', required: false, hidden: true },
     {
       key: 'actualAmount',
       label: '实付金额',
@@ -236,33 +239,7 @@ async function beforeSubmitPurchasePayment(
     throw new Error('请选择供应商');
   }
 
-  // 1. 防重校验：同一供应商不能有两个在途/已完成的采购付款申请
-  try {
-    const existingResult = await query(
-      `SELECT i.instance_no, i.title, i.status
-       FROM oa_approval_instances i
-       JOIN oa_form_types ft ON i.form_type_id = ft.id
-       WHERE ft.code = 'purchase_payment'
-         AND i.status NOT IN ('rejected', 'withdrawn', 'cancelled')
-         AND i.form_data->>'supplierId' = $1
-       LIMIT 1`,
-      [supplierId]
-    );
-    if (existingResult.rows.length > 0) {
-      const existing = existingResult.rows[0];
-      const statusLabel = existing.status === 'approved' ? '已完成审批' : '已在审批流程中';
-      throw new Error(
-        `该供应商${statusLabel}（单号：${existing.instance_no}），不能重复提交`
-      );
-    }
-  } catch (dbError) {
-    if (dbError instanceof Error && dbError.message.includes('不能重复提交')) {
-      throw dbError;
-    }
-    // 防重校验查询失败时阻止提交，避免产生重复单据
-    log.error('采购付款防重校验查询失败:', dbError);
-    throw new Error('系统繁忙，防重校验失败，请稍后重试');
-  }
+  // 1. 防重校验已迁移至通用查重引擎（duplicateCheck 配置）
 
   // 2. 按付款类型校验并计算 _approvalAmount
   const result: Record<string, unknown> = {
@@ -339,8 +316,16 @@ export const purchasePaymentFormType: FormTypeDefinition = {
   formSchema: purchasePaymentFormSchema,
   workflowDef: purchasePaymentWorkflowDef,
 
-  /** 提交前：防重校验 + 计算审批金额 + 快照债务明细 */
+  /** 提交前：计算审批金额 + 快照债务明细（防重已迁移至通用引擎） */
   beforeSubmit: beforeSubmitPurchasePayment,
+
+  /** 通用查重配置：同供应商 = 重复 */
+  duplicateCheck: {
+    matchFields: ['supplierId'],
+    includeStatuses: ['processing', 'approved'],
+    displayFields: ['supplierName', 'paymentAmount'],
+    subjectLabel: '该供应商',
+  },
 
   /** 流程预览：根据付款类型和金额计算审批条件 */
   resolvePreviewContext: resolvePurchasePaymentPreviewContext,

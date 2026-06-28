@@ -55,7 +55,7 @@ const reconciliationFormSchema: FormSchema = {
     {
       key: 'customerId',
       label: '客户',
-      type: 'erp_customer',
+      type: 'select',
       required: true,
       searchApi: 'erp_customers',
       nameField: '_customerName',
@@ -92,7 +92,7 @@ const reconciliationFormSchema: FormSchema = {
     {
       key: 'needOriginalDocs',
       label: '单据领出需求',
-      type: 'radio',
+      type: 'select',
       required: true,
       options: [
         { value: 'need_original', label: '需领出原始单据' },
@@ -103,7 +103,7 @@ const reconciliationFormSchema: FormSchema = {
     {
       key: 'needPrintStatement',
       label: '对账单打印需求',
-      type: 'radio',
+      type: 'select',
       required: true,
       options: [
         { value: 'need_print', label: '需打印对账单' },
@@ -141,7 +141,7 @@ const reconciliationFormSchema: FormSchema = {
     {
       key: 'reconciliationResult',
       label: '对账结果',
-      type: 'radio',
+      type: 'select',
       required: true,
       options: [
         { value: 'reconciled', label: '已对账' },
@@ -204,7 +204,7 @@ const reconciliationFormSchema: FormSchema = {
     {
       key: 'differenceStatus',
       label: '差异情况',
-      type: 'radio',
+      type: 'select',
       required: true,
       options: [
         { value: 'no_difference', label: '无差异' },
@@ -352,19 +352,7 @@ async function beforeSubmitCustomerReconciliation(
   const orderIds = formData.receivableOrderIds as string[];
   if (!orderIds?.length) throw new Error('请选择应收单据');
 
-  // 3. 防重：同一客户不允许有进行中的对账流程
-  const existing = await appQuery<{ id: number }>(
-    `SELECT id FROM oa_approval_instances
-     WHERE form_type_id = (SELECT id FROM oa_form_types WHERE code = 'customer_reconciliation')
-       AND status = 'pending'
-       AND form_data->>'customerId' = $1
-       AND applicant_id != $2
-     LIMIT 1`,
-    [String(customerId), userId]
-  );
-  if (existing.rows.length > 0) {
-    throw new Error('该客户已有进行中的对账流程，请完成后再发起新的对账');
-  }
+  // 3. 防重已迁移至通用查重引擎（duplicateCheck 配置）
 
   return {};
 }
@@ -387,6 +375,14 @@ export const customerReconciliationFormType: FormTypeDefinition = {
 
   beforeSubmit: beforeSubmitCustomerReconciliation,
   onApproved: handleCustomerReconciliationAutoNode,
+
+  /** 通用查重配置：同客户 = 重复 */
+  duplicateCheck: {
+    matchFields: ['customerId'],
+    includeStatuses: ['processing', 'approved'],
+    displayFields: ['title'],
+    subjectLabel: '该客户',
+  },
 
   nodeBackfills: [
     {

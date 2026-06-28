@@ -47,6 +47,8 @@ export const CACHE_KEY = {
   ERP_CUSTOMER_AREAS: 'erp:customer:areas' as const,
   /** 客户片区树形结构 */
   ERP_CUSTOMER_AREAS_TREE: 'erp:customer:areas-tree' as const,
+  /** 品牌列表 */
+  ERP_BRANDS: 'erp:brands' as const,
   /** 客户欠款总额（按客户ID） */
   ERP_CUSTOMER_DEBT_TOTAL: (customerId: number) => `erp:customer:debt-total:${customerId}` as const,
   /** 客户名称映射 */

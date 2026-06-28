@@ -139,7 +139,23 @@ export async function checkAndRefreshAllTokens(): Promise<void> {
   let erpTokenAvailable = false;
   try {
     const erpRecord = await tokenRepo.getTokenRecord('erp');
-    if (!erpRecord || !erpRecord.token_value) {
+    if (erpRecord && (erpRecord.login_status === 'failed' || erpRecord.login_status === 'expired')) {
+      // 上次登录失败或 token 已失效，直接尝试重新登录（跳过无意义的旧 token 验证）
+      log.info(`ERP Token 状态为 ${erpRecord.login_status}，直接重新登录...`);
+      if (_erpConsecutiveFailures >= ERP_MAX_CONSECUTIVE_FAILURES) {
+        log.warn(`ERP 登录已连续失败 ${_erpConsecutiveFailures} 次，跳过自动重试，请检查凭据或浏览器配置`);
+      } else {
+        const loginOk = await performErpLoginAndSave();
+        if (loginOk) {
+          _erpConsecutiveFailures = 0;
+          erpTokenAvailable = true;
+        } else {
+          _erpConsecutiveFailures++;
+          log.warn(`ERP 登录失败 (${_erpConsecutiveFailures}/${ERP_MAX_CONSECUTIVE_FAILURES})`);
+        }
+      }
+    } else if (!erpRecord || !erpRecord.token_value) {
+      // 无 Token 记录 — 首次登录
       log.info('ERP Token 不存在，尝试登录...');
       if (_erpConsecutiveFailures >= ERP_MAX_CONSECUTIVE_FAILURES) {
         log.warn(`ERP 登录已连续失败 ${_erpConsecutiveFailures} 次，跳过自动重试，请检查凭据配置`);
@@ -154,7 +170,7 @@ export async function checkAndRefreshAllTokens(): Promise<void> {
         }
       }
     } else {
-      // 检查是否超过强制重登间隔（1小时）
+      // Token 存在且状态为 success — 检查年龄和有效性
       const updatedAt = erpRecord.updated_at ? new Date(erpRecord.updated_at).getTime() : 0;
       const ageMs = Date.now() - updatedAt;
       if (ageMs > 60 * 60 * 1000) {

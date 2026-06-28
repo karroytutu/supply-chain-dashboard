@@ -113,7 +113,12 @@ export async function getActiveFormTypes(userRoles?: string[], userId?: number):
 export async function getFormTypeByCodeQuery(code: string): Promise<FormTypeDefinition | null> {
   try {
     const result = await query<OaFormTypeRow>(
-      `SELECT * FROM oa_form_types WHERE code = $1 AND is_active = true`,
+      `SELECT id, code, name, icon, category, sort_order, description,
+              is_active, version, allowed_roles, data_read_roles, data_export_roles,
+              allowed_users, data_read_users, data_export_users,
+              field_permissions, view_permissions,
+              created_at, updated_at
+       FROM oa_form_types WHERE code = $1 AND is_active = true`,
       [code]
     );
 
