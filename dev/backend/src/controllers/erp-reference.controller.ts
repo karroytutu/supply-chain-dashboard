@@ -171,9 +171,13 @@ export async function getErpReference(
         data = await getErpStaff(keyword || undefined);
         break;
 
-      case 'payment-accounts':
-        data = flattenTree(await getErpPaymentAccounts());
+      case 'payment-accounts': {
+        const allAccounts = await getErpPaymentAccounts();
+        // ERP 返回树形结构（类别 > 子账户），展平为扁平列表供 select 下拉使用
+        const flatAccounts = flattenTree(allAccounts);
+        data = keyword ? flatAccounts.filter(a => (a.name || a.text || '').toLowerCase().includes(keyword.toLowerCase())) : flatAccounts;
         break;
+      }
 
       case 'asset-categories':
         data = await getErpAssetCategories();

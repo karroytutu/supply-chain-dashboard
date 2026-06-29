@@ -11,7 +11,7 @@ import { message, type FormInstance } from 'antd';
 import { history } from 'umi';
 import { oaApi } from '@/services/api/oa';
 import type { FormTypeDefinition } from '@/types/oa';
-import type { CustomerLicenseInfo } from '../components/ErpFieldRenderer';
+import type { CustomerLicenseInfo } from '@/services/api/oa';
 import { createLogger } from '../../../../utils/logger';
 const log = createLogger('OaForm');
 

@@ -51,6 +51,8 @@ RUN mkdir -p /app/.cache/ms-playwright && \
 
 # 代码层（频繁变动，放最后，避免影响上游缓存）
 COPY --chown=nodejs:nodejs prod/backend/dist ./dist
+# 数据库迁移 SQL 文件（tsc 不复制非 TS 文件，需手动 COPY）
+COPY --chown=nodejs:nodejs dev/backend/src/db/migrations ./dist/db/migrations
 COPY --chown=nodejs:nodejs deploy/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh && \
     mkdir -p /app/uploads/ar-evidence /app/uploads/return-evidence /app/uploads/credit-license /app/uploads/oa-exports /app/uploads/oa-attachment /app/uploads/oa-statement /app/logs && \

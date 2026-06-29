@@ -23,7 +23,7 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 200,
   description: '线下组合搭赠促销活动申请，购买主品赠送赠品',
-  version: 1,
+  version: 2,
 
   formSchema: {
     fields: [
@@ -90,19 +90,23 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
       {
         key: 'clientIdList',
         label: '客户选择',
-        type: 'modal_select',
+        type: 'table',
         required: true,
         multiple: true,
         searchApi: 'erp_customers',
         valueKey: 'id',
         labelKey: 'name',
         searchPlaceholder: '搜索客户名称',
-        filters: [
-          { key: 'keyword', type: 'keyword', placeholder: '搜索客户名称' },
-        ],
         columns: [
           { title: '客户名称', dataIndex: 'name' },
           { title: '客户编码', dataIndex: 'consumerCode' },
+        ],
+        filters: [
+          { key: 'keyword', type: 'keyword', placeholder: '搜索客户名称' },
+        ],
+        children: [
+          { key: 'name', label: '客户名称', type: 'text', required: false, disabled: true },
+          { key: 'consumerCode', label: '客户编码', type: 'text', required: false, disabled: true },
         ],
         visibleWhen: { field: 'issueRange', operator: '==', value: '2' },
       },
@@ -177,11 +181,15 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
         label: '主品列表',
         type: 'table',
         required: true,
+        statField: [
+          { componentId: 'onSalePrice', label: '促销价合计' },
+          { componentId: 'quantity', label: '数量合计' },
+        ],
         children: [
           {
             key: 'goodsId',
             label: '商品',
-            type: 'modal_select',
+            type: 'select',
             required: true,
             searchApi: 'promotion_goods',
             valueKey: 'goodsId',
@@ -282,11 +290,14 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
         label: '赠品列表',
         type: 'table',
         required: true,
+        statField: [
+          { componentId: 'quantity', label: '数量合计' },
+        ],
         children: [
           {
             key: 'goodsId',
             label: '赠品',
-            type: 'modal_select',
+            type: 'select',
             required: true,
             searchApi: 'promotion_goods',
             valueKey: 'goodsId',

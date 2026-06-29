@@ -13,17 +13,6 @@ interface CategoryTabsProps {
 const CategoryTabs: React.FC<CategoryTabsProps> = ({ category, stats, onChange }) => {
   const items = [
     {
-      key: 'ar_collection',
-      label: (
-        <span>
-          催收考核
-          {category === 'ar_collection' && stats.pendingCount > 0 && (
-            <Badge count={stats.pendingCount} size="small" style={{ marginLeft: 8 }} />
-          )}
-        </span>
-      ),
-    },
-    {
       key: 'return_order',
       label: (
         <span>

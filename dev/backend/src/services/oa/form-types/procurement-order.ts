@@ -100,6 +100,11 @@ const procurementFormSchema: FormSchema = {
       type: 'table',
       required: false,
       disabled: true,
+      statField: [
+        { componentId: 'quantity', label: '数量合计' },
+        { componentId: 'realPrice', label: '采购价合计' },
+        { componentId: 'subAmount', label: '金额合计' },
+      ],
       children: [
         { key: 'goodsName', label: '商品名称', type: 'text', required: false },
         { key: 'specification', label: '规格', type: 'text', required: false },
@@ -123,6 +128,17 @@ const procurementFormSchema: FormSchema = {
       required: false,
       placeholder: '请输入采购备注信息（选填）',
       maxLength: 500,
+    },
+    // ═══ 整单售后选项（选"是"时跳过营销审批） ═══
+    {
+      key: 'isAfterSalesReturn',
+      label: '是否整单售后',
+      type: 'select',
+      required: true,
+      options: [
+        { value: 'yes', label: '是' },
+        { value: 'no', label: '否' },
+      ],
     },
 
     // ═══ 出纳付款环节字段（条件显示：仅当需要预付款时展示） ═══
@@ -274,6 +290,11 @@ async function beforeSubmitProcurement(
     ? formData.prepaymentAmount
     : analysis.totalAmount.toFixed(2);
 
+  // 整单售后时跳过营销审批（售后补发不存在"卖不出去"的风险）
+  const needsMarketingApproval = formData.isAfterSalesReturn === 'yes'
+    ? false
+    : analysis.needsMarketingApproval;
+
   return {
     erpBillStr: analysis.billStr,
     supplierId: String(analysis.supplierId),
@@ -282,7 +303,7 @@ async function beforeSubmitProcurement(
     totalAmount: analysis.totalAmount.toFixed(2),
     purchaseLines,
     prepaymentAmount,
-    _needsMarketingApproval: analysis.needsMarketingApproval ? 1 : 0,
+    _needsMarketingApproval: needsMarketingApproval ? 1 : 0,
     _needsFinanceApproval: analysis.needsFinanceApproval ? 1 : 0,
     _needsManagerApproval: analysis.needsManagerApproval ? 1 : 0,
     _analysisResult: JSON.stringify(analysis),
@@ -313,9 +334,13 @@ async function resolveProcurementPreviewContext(
   try {
     // 复用已有的采购订单分析函数（含可售天数>45天→需营销审批等业务规则）
     const analysis = await analyzePurchaseOrder(erpBillId);
+    // 整单售后时跳过营销审批
+    const needsMarketingApproval = formData.isAfterSalesReturn === 'yes'
+      ? false
+      : analysis.needsMarketingApproval;
     return {
       contextFields: {
-        _needsMarketingApproval: analysis.needsMarketingApproval ? 1 : 0,
+        _needsMarketingApproval: needsMarketingApproval ? 1 : 0,
         _needsFinanceApproval: analysis.needsFinanceApproval ? 1 : 0,
         _needsManagerApproval: analysis.needsManagerApproval ? 1 : 0,
       },
@@ -338,7 +363,7 @@ export const procurementOrderFormType: FormTypeDefinition = {
   category: 'supply_chain',
   sortOrder: 50,
   description: '采购审批：条件三级审批→出纳付款(如需预付)→审核PO',
-  version: 10,
+  version: 11,
 
   formSchema: procurementFormSchema,
   workflowDef: procurementWorkflowDef,

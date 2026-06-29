@@ -5,7 +5,6 @@
  */
 import React from 'react';
 import { Typography } from 'antd';
-import { isErpSelectField } from '../hooks/useContainerWidth';
 import type { FieldControlProps } from './types';
 
 import TextFieldControl from './TextFieldControl';
@@ -17,8 +16,6 @@ import SignatureFieldControl from './SignatureFieldControl';
 import FormulaFieldControl from './FormulaFieldControl';
 import PhotoFieldControl from './PhotoFieldControl';
 import BankAccountFieldControl from './BankAccountFieldControl';
-import ErpFieldControl from './ErpFieldControl';
-import ModalSelectControl from './ModalSelectControl';
 import TreeSelectModalControl from './TreeSelectModalControl';
 import TableFieldControl from './TableFieldControl';
 
@@ -45,8 +42,6 @@ const FieldControlDispatcher: React.FC<FieldControlProps> = (props) => {
       return <DateFieldControl {...props} />;
     case 'select':
       return <SelectFieldControl {...props} />;
-    case 'modal_select':
-      return <ModalSelectControl {...props} />;
     case 'tree_select':
       return <TreeSelectModalControl {...props} />;
     case 'upload':
@@ -55,10 +50,6 @@ const FieldControlDispatcher: React.FC<FieldControlProps> = (props) => {
       return <TableFieldControl {...props} />;
 
     default:
-      // ERP 数据选择字段（通过 searchApi 配置识别）
-      if (isErpSelectField(field)) {
-        return <ErpFieldControl {...props} />;
-      }
       // 未知类型降级：只读文本
       if (props.value === null || props.value === undefined || props.value === '') {
         return <Text type="secondary">-</Text>;

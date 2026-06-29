@@ -88,7 +88,7 @@ export const EXPIRING_RATE_ATTENTION = 1;
 // ==================== 角色编码 ====================
 
 /** 系统所有活跃岗位编码（唯一的"岗位花名册"）
- * @usedBy oa/ar-collection-callback.ts, assessment/rules/oa-collection-node-rules.ts,
+ * @usedBy oa/ar-collection-callback.ts,
  *          oa-workflow-utils.ts, oa.routes.ts, workspace.service.ts
  */
 export const ROLE_CODES = {

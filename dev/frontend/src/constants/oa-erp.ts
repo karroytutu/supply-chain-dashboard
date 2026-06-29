@@ -1,6 +1,6 @@
 /**
  * OA - ERP参考数据共享常量
- * 供 ErpFieldRenderer（表单）和 FormFieldRenderer（详情）共用
+ * 供 SelectFieldControl（表单）和 FormFieldRenderer（详情）共用
  *
  * 架构说明：
  * - ERP_LABEL_FIELDS / ERP_VALUE_FIELDS 为本地 fallback，保证 API 不可用时仍可工作

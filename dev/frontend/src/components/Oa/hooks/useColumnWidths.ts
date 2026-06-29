@@ -3,10 +3,10 @@
  * 基于实际内容测量列宽，以单元格 blur 为触发时机，配合 CSS transition 平滑过渡
  * @module components/Oa/hooks/useColumnWidths
  */
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, type RefObject } from 'react';
 import type { FormField } from '@/types/oa';
-import { isErpSelectField, MODAL_SELECT_TYPE } from './useContainerWidth';
-import { getColumnWidth } from './useContainerWidth';
+import { isErpSelectField, getColumnWidth } from './useContainerWidth';
+import { buildDynamicOptions } from '@/components/Oa/fields/SelectFieldControl';
 
 // =====================================================
 // 文本测量（Canvas 2D measureText）
@@ -14,14 +14,30 @@ import { getColumnWidth } from './useContainerWidth';
 
 let _canvas: HTMLCanvasElement | null = null;
 
-/** 测量文字实际像素宽度（模块级缓存 Canvas 实例） */
-function measureText(text: string, font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'): number {
+/** DOM 未就绪时的降级字体 */
+const FALLBACK_FONT = '400 14px system-ui, sans-serif';
+
+/** 测量文字实际像素宽度，font 必须由调用方显式传入（来自 DOM 采样） */
+function measureText(text: string, font: string): number {
   if (!text) return 0;
   if (!_canvas) _canvas = document.createElement('canvas');
   const ctx = _canvas.getContext('2d');
   if (!ctx) return text.length * 14; // 降级估算
   ctx.font = font;
   return Math.ceil(ctx.measureText(text).width);
+}
+
+/**
+ * 从已渲染的表头 <th> 元素读取实际字体参数
+ * 返回 CSS font shorthand 字符串，供 Canvas measureText 使用
+ */
+function captureHeaderFont(containerRef?: RefObject<HTMLElement>): string {
+  const th = containerRef?.current?.querySelector('.ant-table-thead th');
+  if (th) {
+    const s = getComputedStyle(th);
+    return `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+  }
+  return FALLBACK_FONT;
 }
 
 // =====================================================
@@ -32,9 +48,9 @@ function measureText(text: string, font = '14px -apple-system, BlinkMacSystemFon
 function getCellDisplayText(col: FormField, row: Record<string, unknown>): string {
   const value = row[col.key];
 
-  // modal_select / erp_* 类型：优先从 nameField 取存储的名称
+  // ERP 选择字段：优先从 nameField 取存储的名称
   // nameField 可能已有值，即使 row[col.key] 尚未就绪也要读取
-  if (isErpSelectField(col) || col.type === MODAL_SELECT_TYPE) {
+  if (isErpSelectField(col)) {
     if (col.nameField) {
       const nameVal = row[col.nameField];
       if (nameVal != null && nameVal !== '') return String(nameVal);
@@ -66,6 +82,15 @@ function getCellDisplayText(col: FormField, row: Record<string, unknown>): strin
       });
     }
     case 'select': {
+      // 动态选项：从行数据的 optionsFromField 字段解析标签
+      if (col.optionsFromField) {
+        const dynamicOpts = buildDynamicOptions(row[col.optionsFromField]);
+        if (dynamicOpts) {
+          const opt = dynamicOpts.find(o => o.value === value);
+          return opt?.label || String(value);
+        }
+      }
+      // 静态选项
       const option = col.options?.find(o => o.value === value);
       return option?.label || String(value);
     }
@@ -91,11 +116,13 @@ function getCellDisplayText(col: FormField, row: Record<string, unknown>): strin
 // 控件内边距
 // =====================================================
 
-/** 根据控件类型返回额外内边距（px）；只读模式下统一使用纯文本 padding */
+/** 根据该列实际渲染方式返回额外内边距（px）
+ *  逐列判断：disabled 列或整表 readonly → 纯文本 padding；可编辑列 → 按控件类型
+ */
 function getControlPadding(col: FormField, readonly?: boolean): number {
-  if (readonly) return 24; // 纯文本渲染，仅单元格内边距
+  if (readonly || col.disabled) return 24; // 该列渲染为纯文本，仅单元格内边距
   const t = col.type;
-  if (isErpSelectField(col) || t === MODAL_SELECT_TYPE) return 80; // ERP 数据选择字段 + 弹窗选择器（含控件内边距 + 边框 + measureText 偏差补偿）
+  if (isErpSelectField(col)) return 80; // ERP 数据选择字段（含控件内边距 + 边框 + measureText 偏差补偿）
   switch (t) {
     case 'number': return 32; // InputNumber 含步进按钮
     case 'money': return 24;
@@ -114,35 +141,34 @@ function getControlPadding(col: FormField, readonly?: boolean): number {
 
 /**
  * 计算单列的理想宽度
- * 以 getColumnWidth 作为类型最小宽度下限（控件本身的合理最小尺寸），
- * 再取表头和所有行内容测量宽度的最大值，确保列宽始终不低于控件类型下限
+ * 公式：max(表头宽度, 内容宽度 + 格子内边距, 类型最小宽度)
+ * font 来自 DOM 采样，确保测量精度与浏览器渲染一致
  */
 function calcColumnWidth(
   col: FormField,
   rows: Record<string, unknown>[],
   isRequired: boolean,
-  minWidth: number,
-  readonly?: boolean,
+  readonly: boolean | undefined,
+  font: string,
 ): number {
-  // 类型最小宽度下限（由控件类型决定，如 select=120、number=100）
-  const typeMinWidth = readonly ? minWidth : getColumnWidth(col);
-
-  // 表头宽度
+  // 表头宽度（使用真实字体参数，覆盖 font-weight 差异）
   const headerText = col.label + (isRequired ? ' *' : '');
-  const headerWidth = measureText(headerText) + 16; // 16px = th padding
+  const headerWidth = measureText(headerText, font) + 16; // 16px = th padding
 
   // 数据行最大宽度
   let maxDataWidth = 0;
   for (const row of rows) {
     const text = getCellDisplayText(col, row);
     if (text) {
-      const w = measureText(text);
+      const w = measureText(text, font);
       if (w > maxDataWidth) maxDataWidth = w;
     }
   }
 
   const dataWidth = maxDataWidth + getControlPadding(col, readonly);
-  return Math.max(headerWidth, dataWidth, typeMinWidth, minWidth);
+  // 类型感知最小宽度：确保控件（Select/DatePicker 等）有足够渲染空间
+  const typeMinWidth = getColumnWidth(col);
+  return Math.max(headerWidth, dataWidth, typeMinWidth);
 }
 
 // =====================================================
@@ -150,8 +176,6 @@ function calcColumnWidth(
 // =====================================================
 
 interface UseColumnWidthsOptions {
-  /** 列最小宽度（px），默认 60 */
-  minColumnWidth?: number;
   /** 只读模式：使用纯文本 padding，跳过控件类型最小宽度 */
   readonly?: boolean;
 }
@@ -177,14 +201,17 @@ export function useColumnWidths(
   visibleColumns: FormField[],
   rows: Record<string, unknown>[],
   options?: UseColumnWidthsOptions,
+  containerRef?: RefObject<HTMLElement>,
 ): UseColumnWidthsResult {
-  const minWidth = options?.minColumnWidth ?? 60;
   const isReadonly = options?.readonly ?? false;
+
+  // 从 DOM 表头采样真实字体参数（首次渲染时读取，消除 font-weight 等测量偏差）
+  const fontRef = useRef(FALLBACK_FONT);
 
   const [widths, setWidths] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
     for (const col of visibleColumns) {
-      initial[col.key] = calcColumnWidth(col, rows, !!col.required, minWidth, isReadonly);
+      initial[col.key] = calcColumnWidth(col, rows, !!col.required, isReadonly, fontRef.current);
     }
     return initial;
   });
@@ -196,36 +223,39 @@ export function useColumnWidths(
   colsRef.current = visibleColumns;
 
   const recalcAll = useCallback(() => {
+    const font = fontRef.current;
     setWidths(prev => {
       const next: Record<string, number> = {};
       let changed = false;
       for (const col of colsRef.current) {
-        const w = calcColumnWidth(col, rowsRef.current, !!col.required, minWidth, isReadonly);
+        const w = calcColumnWidth(col, rowsRef.current, !!col.required, isReadonly, font);
         next[col.key] = w;
         if (Math.abs(w - (prev[col.key] ?? 0)) >= 5) changed = true;
       }
       return changed ? next : prev;
     });
-  }, [minWidth, isReadonly]);
+  }, [isReadonly]);
 
   const recalcColumn = useCallback((colKey: string) => {
+    const font = fontRef.current;
     setWidths(prev => {
       const col = colsRef.current.find(c => c.key === colKey);
       if (!col) return prev;
-      const w = calcColumnWidth(col, rowsRef.current, !!col.required, minWidth, isReadonly);
+      const w = calcColumnWidth(col, rowsRef.current, !!col.required, isReadonly, font);
       if (Math.abs(w - (prev[colKey] ?? 0)) < 5) return prev; // 差值过小，忽略
       return { ...prev, [colKey]: w };
     });
-  }, [minWidth, isReadonly]);
+  }, [isReadonly]);
 
-  // 挂载时计算初始宽度（确保 DOM 就绪后测量）
+  // 挂载时采样真实字体并重算（DOM 就绪后 <th> 已渲染）
   const mountedRef = useRef(false);
   useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true;
+      fontRef.current = captureHeaderFont(containerRef);
       recalcAll();
     }
-  }, [recalcAll]);
+  }, [recalcAll, containerRef]);
 
   // 行数变化时自动重算所有列宽（新增/删除行后确保宽度自适应）
   // recalcAll 内部通过 rowsRef 读取最新数据，且有 >=5px 变化阈值保护，不会多余 re-render

@@ -3,19 +3,20 @@
  * 统一支持可编辑模式（增删行、单元格输入）和只读模式（纯文本展示 + 汇总行）
  * 通过 readonly prop 切换模式，消除了原先 ReadonlyTable 的重复实现
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef, useMemo } from 'react';
 import { Button, Input, InputNumber, Select, DatePicker, Table, Popconfirm, Form, message } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { FormField, FieldPermission } from '@/types/oa';
 import { evaluateFormula } from '@/utils/formula-evaluator';
-import { isErpSelectField, useContainerWidth, getColumnWidth, NUMERIC_ALIGN_TYPES } from '@/components/Oa/hooks/useContainerWidth';
+import { useContainerWidth, NUMERIC_ALIGN_TYPES } from '@/components/Oa/hooks/useContainerWidth';
 import { useColumnWidths } from '@/components/Oa/hooks/useColumnWidths';
 import { renderCellValue } from '@/components/Oa/cellValueRenderer';
 import type { ErpResolvedMap } from '@/components/Oa/hooks/useErpFieldResolve';
 import { UNIT_ID_TO_TAG } from '@/constants/oa-erp';
-import ErpFieldRenderer from './ErpFieldRenderer';
-import { buildDynamicOptions } from '@/components/Oa/fields/SelectFieldControl';
+import SearchableModalPicker from '@/components/Oa/fields/SearchableModalPicker';
+import { EditableAmountList } from '@/components/Oa/fields/EditableAmountList';
+import SelectFieldControl, { buildDynamicOptions } from '@/components/Oa/fields/SelectFieldControl';
 import { checkCondition } from './ConditionalFieldWrapper';
 import { allocateTableRows } from '../allocateTableRows';
 import type { AllocateMethod } from '../allocateTableRows';
@@ -33,6 +34,11 @@ interface TableFieldRendererProps {
   resolvedMap?: ErpResolvedMap;
   /** 父级表单数据，供子列 visibleWhen 条件引用 */
   formData?: Record<string, unknown>;
+  /** 父级表单实例，供可编辑金额列表读取跨字段校验值（如预付款核销需读取需付款金额） */
+  form?: {
+    setFieldsValue: (values: Record<string, unknown>) => void;
+    getFieldValue: (name: string) => unknown;
+  };
 }
 
 /** 重算行内公式字段，返回更新后的行数据
@@ -69,7 +75,9 @@ const CellInput: React.FC<{
   disabled?: boolean;
   /** 单元格失焦回调（列宽动态计算） */
   onBlur?: () => void;
-}> = ({ childField, value, onChange, rowData, onRowUpdate, disabled, onBlur }) => {
+  /** money 类型失焦业务校验：接收当前值，返回截断后的值；返回 undefined 表示无需修改 */
+  onAmountBlur?: (currentValue: number | undefined) => number | undefined;
+}> = ({ childField, value, onChange, rowData, onRowUpdate, disabled, onBlur, onAmountBlur }) => {
   // disabled 模式下渲染为只读文本
   if (disabled) {
     if (value == null || value === '') {
@@ -92,38 +100,43 @@ const CellInput: React.FC<{
     return <span style={{ fontSize: 13 }}>{displayValue}</span>;
   }
 
-  // ERP 字段类型 + modal_select（表格行内降级为 Select 搜索框）：使用 ErpFieldRenderer
-  if (isErpSelectField(childField) || (childField.type === 'modal_select' && childField.searchApi)) {
-    const cascadeValue = childField.cascadeFrom ? rowData[childField.cascadeFrom] : undefined;
+  // ERP 数据选择字段：通过 SelectFieldControl 统一处理
+  if (childField.type === 'select' && childField.searchApi) {
+    const cascadeVal = childField.cascadeFrom ? rowData[childField.cascadeFrom] : undefined;
     return (
-      <ErpFieldRenderer
+      <SelectFieldControl
+        mode="editable"
         field={childField}
         value={value}
         onChange={(v) => {
-          // 选中值已通过 ErpFieldRenderer 的合并 setFieldsValue 写入（含 autoFill + nameField），
-          // 不再单独调用 onChange 避免闭包竞态覆盖；仅清空时直接更新单元格值
-          if (v === undefined || v === null) {
-            onChange(v);
-          }
-          // Ant Design Select 选中后不会触发 onBlur（下拉关闭 ≠ 失焦），
-          // 需主动触发列宽重算；延迟 100ms 确保 React 完成状态更新和 re-render
+          if (v === undefined || v === null) onChange(v);
           setTimeout(() => onBlur?.(), 100);
         }}
-        cascadeValue={cascadeValue}
-        onBlur={onBlur}
-        form={{
-          setFieldsValue: (values) => {
-            // nameField 写入 + autoFill 写入：更新到同行数据
-            onRowUpdate(values);
-          },
+        fakeForm={{
+          setFieldsValue: (values) => onRowUpdate(values),
           getFieldValue: (name: string) => rowData[name],
         }}
+        cascadeValue={cascadeVal}
+        onBlur={onBlur}
       />
     );
   }
 
   switch (childField.type) {
     case 'number':
+      return (
+        <InputNumber
+          style={{ width: '100%' }}
+          placeholder={childField.placeholder || `请输入${childField.label}`}
+          min={childField.min}
+          max={childField.max}
+          precision={childField.precision}
+          value={value as number | undefined}
+          onChange={(v) => onChange(v)}
+          onBlur={onBlur}
+          size="small"
+        />
+      );
     case 'money':
       return (
         <InputNumber
@@ -131,10 +144,19 @@ const CellInput: React.FC<{
           placeholder={childField.placeholder || `请输入${childField.label}`}
           min={childField.min}
           max={childField.max}
-          precision={childField.type === 'money' ? 2 : childField.precision}
+          precision={2}
           value={value as number | undefined}
           onChange={(v) => onChange(v)}
-          onBlur={onBlur}
+          onBlur={() => {
+            // 失焦业务校验：截断超限金额
+            if (onAmountBlur) {
+              const truncated = onAmountBlur(value as number | undefined);
+              if (truncated !== undefined && truncated !== value) {
+                onChange(truncated);
+              }
+            }
+            onBlur?.();
+          }}
           size="small"
         />
       );
@@ -204,9 +226,47 @@ const CellInput: React.FC<{
   }
 };
 
-const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = [], onChange, subFieldPermissions, readonly: isReadonly, resolvedMap, formData }) => {
+const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = [], onChange, subFieldPermissions, readonly: isReadonly, resolvedMap, formData, form }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   const columns = field.children || [];
+
+  // ═══ searchApi 模式：value 为 ID 数组，记录存储在 _details 中 ═══
+  const hasSearchApi = !!field.searchApi;
+  const [modalOpen, setModalOpen] = useState(false);
+  const selectedMapRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+
+  // searchApi 模式下，从 _details 或 selectedMapRef 读取记录数据
+  const searchApiRecords = useMemo(() => {
+    if (!hasSearchApi) return [];
+    const detailsData = formData?._details as Record<string, unknown> | undefined;
+    const records = detailsData?.[field.key] as Record<string, unknown>[] | undefined;
+    if (records && records.length > 0) return records;
+    // 兆底：从 selectedMapRef 读取
+    const ids = (Array.isArray(value) ? value : []) as unknown[];
+    return ids.map(id => selectedMapRef.current.get(String(id))).filter(Boolean) as Record<string, unknown>[];
+  }, [hasSearchApi, formData, field.key, value]);
+
+  // searchApi 模式的 selectedIds
+  const selectedIds = useMemo(() => {
+    if (!hasSearchApi) return [];
+    return (Array.isArray(value) ? value : []) as unknown[];
+  }, [hasSearchApi, value]);
+
+  const handleSearchApiConfirm = (keys: unknown[], records: Record<string, unknown>[]) => {
+    // 更新 selectedMapRef
+    for (const r of records) {
+      const key = String(r[field.valueKey || 'id']);
+      selectedMapRef.current.set(key, r);
+    }
+    // 更新表单 value（ID 数组）
+    onChange?.(keys as Record<string, unknown>[]);
+    // 持久化到 _details：通过 form.setFieldsValue 写入 form store，useWatch 自动同步
+    if (formData) {
+      const details = (formData._details as Record<string, unknown>) || {};
+      const newDetails = { ...details, [field.key]: records };
+      form?.setFieldsValue({ _details: newDetails });
+    }
+  };
   // 过滤子字段：hidden 字段 + visibleWhen 条件不满足的列（支持引用父级表单字段）
   const visibleColumns = columns.filter(col => {
     if (col.hidden) return false;
@@ -218,11 +278,14 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   const isDisabled = !!field.disabled;
 
   // 基于内容动态计算列宽（blur 触发重算 + CSS transition 平滑过渡）
-  // 只读模式或整表禁用时使用纯文本 padding；编辑态部分列禁用时仍按编辑列宽计算
+  // searchApi 模式下 value 是 ID 数组，需用实际记录（searchApiRecords）才能测量文本宽度
+  // getControlPadding 会逐列判断 col.disabled，disabled 列自动用纯文本 padding
+  const widthCalcRows = hasSearchApi ? searchApiRecords : value;
   const { widths: colWidths, recalcColumn } = useColumnWidths(
     visibleColumns,
-    value,
+    widthCalcRows,
     { readonly: isReadonly || isDisabled },
+    containerRef,
   );
 
   // ==================== 分摊配置状态 ====================
@@ -252,7 +315,10 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
     label: m === 'by_amount' ? '按金额分摊' : '按数量分摊',
   })) || [];
 
-  // ==================== 只读模式汇总行 ====================
+  // ==================== 数据源与汇总行 ====================
+
+  // searchApi 模式下实际渲染的记录数据（searchApi 用完整行数据，非 searchApi 用 value）
+  const displayValue = hasSearchApi ? searchApiRecords : value;
 
   const formulaChildren = columns.filter(c => c.type === 'formula' && c.formula);
   const statFieldKeys = (field.statField || []).map(s => s.componentId);
@@ -260,7 +326,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
     ...formulaChildren.map(c => c.key),
     ...statFieldKeys,
   ]);
-  const hasSummary = isReadonly && summaryKeys.size > 0 && (value?.length ?? 0) > 0;
+  const hasSummary = isReadonly && summaryKeys.size > 0 && (displayValue?.length ?? 0) > 0;
 
   const handleAdd = useCallback(() => {
     const newRow: Record<string, unknown> = {};
@@ -279,7 +345,9 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   }, [value, onChange]);
 
   const handleCellChange = useCallback((rowIndex: number, key: string, cellValue: unknown) => {
-    const newValue = [...value];
+    // 使用 ref 读取最新 value，避免 useCallback deps 包含 value 导致回调频繁重建
+    const currentValue = valueRef.current;
+    const newValue = [...currentValue];
     const updatedRow = { ...newValue[rowIndex], [key]: cellValue };
 
     // 单位切换联动：当 currUnitName 变化时，从 _goodsUnits 查找选中单位的换算系数
@@ -346,11 +414,16 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
 
     newValue[rowIndex] = recalcRowFormulas(updatedRow, columns, formData);
     onChange?.(newValue);
-  }, [value, onChange, columns, formData]);
+  }, [onChange, columns, formData]);
+
+  // value ref：供 handleCellChange/handleRowUpdate 通过 ref 读取最新值，避免回调重建
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   /** 更新同行多个字段（ERP 字段 nameField + autoFill 写入），同时重算行内公式 */
   const handleRowUpdate = useCallback((rowIndex: number, updates: Record<string, unknown>) => {
-    const newValue = [...value];
+    const currentValue = valueRef.current;
+    const newValue = [...currentValue];
     const updatedRow = { ...newValue[rowIndex], ...updates };
     // autoFill 写入 currUnitId 时，始终同步 _goodsUnitTag（防止切换商品后 tag 陈旧）
     if (updates.currUnitId) {
@@ -358,7 +431,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
     }
     newValue[rowIndex] = recalcRowFormulas(updatedRow, columns, formData);
     onChange?.(newValue);
-  }, [value, onChange, columns, formData]);
+  }, [onChange, columns, formData]);
 
   // ─── 构建列定义（支持 columnGroup 分组表头） ───
 
@@ -367,13 +440,36 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
     title: isReadonly ? col.label : col.label + (col.required ? ' *' : ''),
     dataIndex: col.key,
     key: col.key,
-    width: colWidths[col.key] || getColumnWidth(col),
+    width: colWidths[col.key] || 60,
     ...(isReadonly && NUMERIC_ALIGN_TYPES.has(col.type) ? { align: 'right' as const } : {}),
     ...(fixFirstCol && globalIdx === 0 && !isReadonly ? { fixed: 'left' as const } : {}),
     render: (_: unknown, record: Record<string, unknown>, rowIndex: number) => {
       if (isReadonly) {
         return renderCellValue(col, record[col.key], record, resolvedMap);
       }
+      // paymentLines 表格的 money 字段：失焦校验银行转账合计不超过（需付款金额 - 预付款核销）
+      const amountBlurHandler = (col.type === 'money' && field.key === 'paymentLines')
+        ? (currentValue: number | undefined): number | undefined => {
+            const details = (formData?._details as Record<string, unknown>) || undefined;
+            const debtRows = (details?.debtIds || []) as Array<{ paymentAmount?: string; leftAmount?: string }>;
+            const totalDue = debtRows.reduce(
+              (sum, d) => sum + parseFloat(String(d.paymentAmount ?? d.leftAmount ?? 0)), 0);
+            if (totalDue <= 0) return undefined; // 无应付单据数据，不截断
+            // 扣除预付款核销金额
+            const prepayRows = (details?.prepaymentIds || []) as Array<{ useAmount?: string }>;
+            const prepayTotal = prepayRows.reduce(
+              (sum, p) => sum + (parseFloat(String(p.useAmount || 0))), 0);
+            const bankTransferBudget = Math.round(Math.max(0, totalDue - prepayTotal) * 100) / 100;
+            const currentValueNum = parseFloat(String(currentValue ?? 0)) || 0;
+            const otherRowsSum = (valueRef.current || [])
+              .filter((_: unknown, i: number) => i !== rowIndex)
+              .reduce((sum: number, row: Record<string, unknown>) =>
+                sum + (parseFloat(String(row.amount ?? 0)) || 0), 0);
+            const available = Math.round(Math.max(0, bankTransferBudget - otherRowsSum) * 100) / 100;
+            if (currentValueNum > available) return available;
+            return undefined; // 无需截断
+          }
+        : undefined;
       return (
         <CellInput
           childField={col}
@@ -383,6 +479,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
           onRowUpdate={(updates) => handleRowUpdate(rowIndex, updates)}
           disabled={isDisabled || !!col.disabled || subFieldPermissions?.[col.key] === 'readonly'}
           onBlur={() => recalcColumn(col.key)}
+          onAmountBlur={amountBlurHandler}
         />
       );
     },
@@ -436,60 +533,143 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
     }, 0);
   const columnWidthsSum = flattenWidths(tableColumns);
 
+  // 缓存 dataSource 避免每次渲染创建新数组+新对象，减少 Table 全量行重渲染
+  const tableDataSource = useMemo(
+    () => displayValue.map((row, idx) => ({ ...row, _key: idx })),
+    [displayValue],
+  );
+
+  // 自动检测 editField：从 children 中找到第一个非禁用、非 amountKey 的 money 字段
+  // 将用户输入存储字段与 ERP 原始字段分离（如预付款核销：ERP writeOffAmount ≠ 用户输入 useAmount）
+  const editableAmountChildKey = useMemo(() => {
+    if (!field.editableAmount || !field.amountKey) return undefined;
+    const editableChild = (field.children || []).find(
+      c => c.type === 'money' && !c.disabled && c.key !== field.amountKey
+    );
+    return editableChild?.key;
+  }, [field.editableAmount, field.amountKey, field.children]);
+
   return (
     <div ref={containerRef} className={styles.tableFieldWrapper}>
-      {/* 分摊操作区：标准 Form.Item 渲染，与其他表单字段视觉一致 */}
-      {showAllocateBar && (
-        <div className={styles.allocateToolbar}>
-          <Form.Item label="分摊总金额" style={{ marginBottom: 8 }}>
-            <InputNumber
-              style={{ width: 160 }}
-              precision={2}
-              min={0}
-              placeholder="请输入总金额"
-              suffix="元"
-              value={allocateAmount}
-              onChange={(v) => setAllocateAmount(v as number | null)}
+      {/* ═══ 按模式分：只读统一渲染表格，编辑按配置决定交互方式 ═══ */}
+      {isReadonly ? (
+        /* 只读模式：统一渲染表格，不关心数据获取方式（searchApi / editableAmount） */
+        <Table
+          columns={tableColumns}
+          dataSource={tableDataSource}
+          rowKey="_key"
+          size="small"
+          pagination={false}
+          bordered
+          scroll={{ x: columnWidthsSum }}
+          summary={hasSummary ? () => (
+            <Table.Summary.Row>
+              {visibleColumns.map((col, idx) => {
+                if (!summaryKeys.has(col.key)) {
+                  return <Table.Summary.Cell key={col.key} index={idx}>-</Table.Summary.Cell>;
+                }
+                const values = displayValue.map(r => Number(r[col.key]) || 0);
+                const total = values.reduce((a, b) => a + b, 0);
+                const precision = col.formulaPrecision ?? 2;
+                return (
+                  <Table.Summary.Cell key={col.key} index={idx} align="right">
+                    <strong>{total.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}</strong>
+                  </Table.Summary.Cell>
+                );
+              })}
+            </Table.Summary.Row>
+          ) : undefined}
+        />
+      ) : (
+        /* 编辑模式：按配置组合决定交互方式 */
+        <>
+          {/* searchApi + editableAmount：可编辑金额列表 */}
+          {hasSearchApi && selectedIds.length > 0 && field.editableAmount && field.amountKey ? (
+            <EditableAmountList
+              records={searchApiRecords}
+              labelKey={field.labelKey || 'name'}
+              amountKey={field.amountKey}
+              fieldKey={field.key}
+              fakeForm={form ?? null}
+              writeoffMode={field.amountKey === 'availableAmount'}
+              paymentField={field.amountKey === 'amount' ? 'amount' : undefined}
+              editField={editableAmountChildKey}
             />
-          </Form.Item>
-          <Form.Item label="分摊方式" style={{ marginBottom: 8 }}>
-            <Select
-              style={{ width: 140 }}
-              placeholder="选择分摊方式"
-              options={allocateMethodOptions}
-              onChange={handleAllocate}
-              disabled={allocateAmount == null || allocateAmount <= 0}
+          ) : null}
+
+          {/* 分摊操作区：标准 Form.Item 渲染，与其他表单字段视觉一致 */}
+          {showAllocateBar && (
+            <div className={styles.allocateToolbar}>
+              <Form.Item label="分摊总金额" style={{ marginBottom: 8 }}>
+                <InputNumber
+                  style={{ width: 160 }}
+                  precision={2}
+                  min={0}
+                  placeholder="请输入总金额"
+                  suffix="元"
+                  value={allocateAmount}
+                  onChange={(v) => setAllocateAmount(v as number | null)}
+                />
+              </Form.Item>
+              <Form.Item label="分摊方式" style={{ marginBottom: 8 }}>
+                <Select
+                  style={{ width: 140 }}
+                  placeholder="选择分摊方式"
+                  options={allocateMethodOptions}
+                  onChange={handleAllocate}
+                  disabled={allocateAmount == null || allocateAmount <= 0}
+                />
+              </Form.Item>
+            </div>
+          )}
+
+          {/* searchApi 且无 editableAmount：渲染表格展示已选记录 */}
+          {hasSearchApi && !(field.editableAmount && field.amountKey) && (
+            <Table
+              columns={tableColumns}
+              dataSource={tableDataSource}
+              rowKey="_key"
+              size="small"
+              pagination={false}
+              bordered
+              scroll={{ x: columnWidthsSum }}
             />
-          </Form.Item>
-        </div>
+          )}
+
+          {/* 非 searchApi 的常规表格 */}
+          {!hasSearchApi && (
+            <Table
+              columns={tableColumns}
+              dataSource={tableDataSource}
+              rowKey="_key"
+              size="small"
+              pagination={false}
+              bordered
+              scroll={{ x: columnWidthsSum }}
+            />
+          )}
+        </>
       )}
-      <Table
-        columns={tableColumns}
-        dataSource={value.map((row, idx) => ({ ...row, _key: idx }))}
-        rowKey="_key"
-        size="small"
-        pagination={false}
-        bordered
-        scroll={{ x: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum }}
-        summary={hasSummary ? () => (
-          <Table.Summary.Row>
-            {visibleColumns.map((col, idx) => {
-              if (!summaryKeys.has(col.key)) {
-                return <Table.Summary.Cell key={col.key} index={idx}>-</Table.Summary.Cell>;
-              }
-              const values = value!.map(r => Number(r[col.key]) || 0);
-              const total = values.reduce((a, b) => a + b, 0);
-              const precision = col.formulaPrecision ?? 2;
-              return (
-                <Table.Summary.Cell key={col.key} index={idx} align="right">
-                  <strong>{total.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}</strong>
-                </Table.Summary.Cell>
-              );
-            })}
-          </Table.Summary.Row>
-        ) : undefined}
-      />
-      {!isReadonly && !isDisabled && !field.rowLocked && (
+
+      {/* searchApi 模式：选择按钮 */}
+      {hasSearchApi && !isReadonly && !isDisabled && (
+        <Button
+          type="dashed"
+          onClick={() => setModalOpen(true)}
+          icon={<PlusOutlined />}
+          style={{
+            width: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum || '100%',
+            marginTop: 8,
+            justifyContent: 'flex-start',
+            paddingLeft: 24,
+          }}
+        >
+          选择{field.label || ''}
+        </Button>
+      )}
+
+      {/* 无 searchApi 时的添加行按钮 */}
+      {!hasSearchApi && !isReadonly && !isDisabled && !field.rowLocked && (
         <Button
           type="dashed"
           onClick={handleAdd}
@@ -503,6 +683,29 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
         >
           添加一行
         </Button>
+      )}
+
+      {/* searchApi 模式的弹窗选择器 */}
+      {hasSearchApi && (
+        <SearchableModalPicker
+          title={`选择${field.label || ''}`}
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onConfirm={handleSearchApiConfirm}
+          selectedKeys={selectedIds}
+          selectedRecordMap={selectedMapRef.current}
+          searchApi={field.searchApi}
+          columns={field.columns}
+          valueKey={field.valueKey}
+          labelKey={field.labelKey}
+          filters={field.filters}
+          paginated={field.paginated}
+          cascadeParams={field.cascadeParams}
+          defaultQueryParams={field.defaultQueryParams}
+          scopeFromField={field.scopeFromField}
+          options={field.options}
+          formData={formData}
+        />
       )}
     </div>
   );

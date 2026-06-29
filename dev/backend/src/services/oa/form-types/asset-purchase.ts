@@ -25,6 +25,10 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         label: '采购明细',
         type: 'table',
         required: true,
+        statField: [
+          { componentId: 'quantity', label: '数量合计' },
+          { componentId: 'estimatedBudget', label: '预估预算合计' },
+        ],
         children: [
           { key: 'assetName', label: '资产名称', type: 'text', required: true },
           { key: 'specification', label: '规格型号', type: 'text', required: false },
@@ -43,6 +47,9 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         label: '询价结果',
         type: 'table',
         required: false,
+        statField: [
+          { componentId: 'quotationPrice', label: '报价合计' },
+        ],
         children: [
           { key: 'supplierName', label: '供应商', type: 'text', required: true },
           { key: 'quotationPrice', label: '询价单价', type: 'money', required: true },
@@ -117,6 +124,9 @@ export const assetPurchaseFormType: FormTypeDefinition = {
         label: '入库信息',
         type: 'table',
         required: false,
+        statField: [
+          { componentId: 'actualPrice', label: '实际价格合计' },
+        ],
         children: [
           { key: 'actualPrice', label: '实际单价', type: 'money', required: true },
           { key: 'arrivalDate', label: '到货日期', type: 'date', required: true },

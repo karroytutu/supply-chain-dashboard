@@ -24,7 +24,7 @@ export const customerCreditFormType: FormTypeDefinition = {
   category: 'finance',
   sortOrder: 110,
   description: '申请客户授信，包括账期、滚单、压单',
-  version: 7,
+  version: 8,
 
   formSchema: {
     fields: [
@@ -106,7 +106,7 @@ export const customerCreditFormType: FormTypeDefinition = {
       {
         key: 'holdSettlementOrders',
         label: '选择压单结算单',
-        type: 'modal_select',
+        type: 'table',
         required: true,
         multiple: true,
         searchApi: 'erp_settlement_orders',
@@ -119,6 +119,11 @@ export const customerCreditFormType: FormTypeDefinition = {
           { title: '单据日期', dataIndex: 'workTime', format: 'date' as const },
           { title: '结算单号', dataIndex: 'bizStr' },
           { title: '剩余金额', dataIndex: 'leftAmount', format: 'money' as const, align: 'right' as const },
+        ],
+        children: [
+          { key: 'workTime', label: '单据日期', type: 'date', required: false, disabled: true },
+          { key: 'bizStr', label: '结算单号', type: 'text', required: false, disabled: true },
+          { key: 'leftAmount', label: '剩余金额', type: 'money', required: false, disabled: true },
         ],
         filters: [
           { type: 'date-range' as const, key: 'dateRange', label: '单据日期' },

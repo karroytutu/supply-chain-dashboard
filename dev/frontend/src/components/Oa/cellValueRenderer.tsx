@@ -25,13 +25,6 @@ export function renderCellValue(
       return formatCurrency(cellValue as number);
     case 'number':
       return (cellValue as number).toLocaleString();
-    case 'modal_select': {
-      // 第一优先级：行数据中已存储的名称（nameField）
-      const storedName = resolveStoredName(childField.nameField, rowData);
-      if (storedName) return storedName;
-      // 降级：显示原始值
-      return String(cellValue);
-    }
     case 'select': {
       // ERP 数据选择字段（通过 searchApi 配置识别）
       if (childField.searchApi) {

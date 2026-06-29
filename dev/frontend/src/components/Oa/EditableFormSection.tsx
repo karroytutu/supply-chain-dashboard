@@ -122,7 +122,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
 
     // ==================== ERP 字段联动所需的模拟 form 对象 ====================
 
-    /** 模拟 Ant Design Form 接口，供 ErpFieldRenderer 的 autoFill 使用 */
+    /** 模拟 Ant Design Form 接口，供 SelectFieldControl 的 autoFill 使用 */
     const fakeForm = useMemo(() => ({
       setFieldsValue: (values: Record<string, unknown>) =>
         setEditedValues(prev => ({ ...prev, ...values })),
@@ -140,7 +140,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
             if (key === '_details' && val !== formData[key]) {
               // _details 深合并：保留原始 _details 中未被当前编辑覆盖的字段
               // 例：原始 _details 有 receivableOrderIds，编辑只改了 unreconciledOrderIds
-              // 合并后两者都保留，避免后续节点编辑覆盖之前的 modal_select 记录
+              // 合并后两者都保留，避免后续节点编辑覆盖之前的表格选择记录
               const originalDetails = (formData._details as Record<string, unknown>) || {};
               const editedDetails = (val as Record<string, unknown>) || {};
               result._details = { ...originalDetails, ...editedDetails };

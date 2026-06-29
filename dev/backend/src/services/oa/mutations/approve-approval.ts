@@ -74,6 +74,21 @@ export async function approveApproval(
       throw new Error('未找到待审批节点');
     }
 
+    // 审批前校验：如果表单类型定义了 beforeApprove，先执行校验
+    if (formType?.beforeApprove) {
+      const mergedData = inputData
+        ? mergeFormData(instance0.form_data as Record<string, unknown>, inputData)
+        : instance0.form_data;
+      const errors = formType.beforeApprove(
+        currentNode.node_order,
+        mergedData as Record<string, unknown>,
+        inputData
+      );
+      if (errors.length > 0) {
+        throw new Error(`校验失败: ${errors.join('; ')}`);
+      }
+    }
+
     // inputData 合并到 form_data（所有节点类型通用，包括办理型节点）
     if (inputData && Object.keys(inputData).length > 0) {
       const currentFormData = instance0.form_data;

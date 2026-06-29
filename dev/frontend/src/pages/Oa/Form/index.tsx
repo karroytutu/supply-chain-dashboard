@@ -146,19 +146,6 @@ const FormPage: React.FC = () => {
       }
     }
 
-    // 采购付款申请：抹零金额/需付款金额联动计算
-    if (typeCode === 'purchase_payment') {
-      const totalPayable = parseFloat(String(allValues.totalPayableAmount || 0));
-      if (changedValues.discountAmount !== undefined && totalPayable > 0) {
-        const discount = parseFloat(String(changedValues.discountAmount || 0));
-        const payment = Math.round((totalPayable - discount) * 100) / 100;
-        form.setFieldsValue({ paymentAmount: payment > 0 ? payment : 0 });
-      } else if (changedValues.paymentAmount !== undefined && totalPayable > 0) {
-        const payment = parseFloat(String(changedValues.paymentAmount || 0));
-        const discount = Math.round((totalPayable - payment) * 100) / 100;
-        form.setFieldsValue({ discountAmount: discount > 0 ? discount : 0 });
-      }
-    }
   };
 
   // ===== 客户档案修改：欠款与状态选项 =====
@@ -215,64 +202,6 @@ const FormPage: React.FC = () => {
     })();
   }, [formData.settlementIds, typeCode, form]);
 
-  // ===== 采购付款申请：应付单据选中后自动计算应付总额 =====
-  const prevDebtIdsRef = useRef<string[]>([]);
-
-  useEffect(() => {
-    if (typeCode !== 'purchase_payment') return;
-    const debtIds = (formData.debtIds as string[]) || [];
-
-    // 仅当选中应付单据发生变化时触发
-    const prevIds = prevDebtIdsRef.current;
-    const idsChanged = debtIds.length !== prevIds.length ||
-      debtIds.some((id, i) => id !== prevIds[i]);
-    if (!idsChanged) return;
-    prevDebtIdsRef.current = debtIds;
-
-    if (debtIds.length === 0) {
-      form.setFieldsValue({ totalPayableAmount: null, discountAmount: null, paymentAmount: null });
-      return;
-    }
-
-    // 优先从 _details.debtIds 中已持久化的选中记录直接计算（无需 API 请求）
-    const details = (form.getFieldValue('_details') as Record<string, unknown>)?.debtIds as Array<{ leftAmount?: string | number }> | undefined;
-    if (details && details.length > 0) {
-      const selectedBizIds = new Set(debtIds.map(String));
-      const selectedDebts = details.filter(r => selectedBizIds.has(String((r as any).bizId)));
-      const totalCents = selectedDebts.reduce((sum, r) => {
-        return sum + Math.round(parseFloat(String(r.leftAmount || 0)) * 100);
-      }, 0);
-      const totalPayable = +(totalCents / 100).toFixed(2);
-      form.setFieldsValue({
-        totalPayableAmount: totalPayable,
-        discountAmount: 0,
-        paymentAmount: totalPayable,
-      });
-      return;
-    }
-
-    // 兆底：_details 不存在时通过 API 拉取（兼容旧数据）
-    const supplierId = formData.supplierId as string;
-    if (!supplierId) return;
-    (async () => {
-      try {
-        const records = await oaApi.getErpReference('supplier-debts', undefined, { traderId: supplierId });
-        const selectedBizIds = new Set(debtIds.map(String));
-        const selectedDebts = (records || []).filter((r: any) => selectedBizIds.has(String(r.bizId)));
-        const totalCents = selectedDebts.reduce((sum: number, r: any) => {
-          return sum + Math.round(parseFloat(String(r.leftAmount || 0)) * 100);
-        }, 0);
-        const totalPayable = +(totalCents / 100).toFixed(2);
-        form.setFieldsValue({
-          totalPayableAmount: totalPayable,
-          discountAmount: 0,
-          paymentAmount: totalPayable,
-        });
-      } catch {
-        message.error('获取应付单据详情失败');
-      }
-    })();
-  }, [formData.debtIds, formData.supplierId, typeCode, form, form.getFieldValue('_details')]);
 
   // ===== 后端实时预览计算：监听 previewTrigger 字段变化，调 computePreview 回填 =====
   const prevTriggerValuesRef = useRef<Record<string, unknown>>({});
@@ -495,20 +424,33 @@ const FormPage: React.FC = () => {
         </div>
       )}
 
-      {typeCode === 'purchase_payment' && formData.actualAmount != null && (() => {
+      {typeCode === 'purchase_payment' && (() => {
         const paymentType = formData.paymentType as string;
-        const expected = paymentType === 'prepay'
-          ? parseFloat(String(formData.prepayAmount || 0))
-          : parseFloat(String(formData.paymentAmount || 0));
-        const actual = parseFloat(String(formData.actualAmount));
+        // 后付款模式：从 _details.debtIds 各行本次付款求和；预付款模式：用预付款金额字段
+        let expected: number;
+        if (paymentType === 'prepay') {
+          expected = parseFloat(String(formData.prepayAmount || 0));
+        } else {
+          const details = (formData._details as Record<string, unknown> | undefined)?.debtIds as Array<{ paymentAmount?: string }> | undefined;
+          expected = (details || []).reduce((sum, d) => sum + (parseFloat(String(d.paymentAmount || 0))), 0);
+        }
+        // 后付款模式：从 paymentLines 汇总实付金额；预付款模式：用旧字段 actualAmount
+        let actual: number;
+        if (paymentType === 'prepay') {
+          actual = parseFloat(String(formData.actualAmount || 0));
+        } else {
+          const lines = formData.paymentLines as Array<{ amount?: string }> | undefined;
+          actual = (lines || []).reduce((sum, line) => sum + (parseFloat(String(line.amount || 0))), 0);
+        }
         if (expected > 0 && actual > 0 && Math.abs(actual - expected) > 0.01) {
-          const expectedLabel = paymentType === 'prepay' ? '预付金额' : '需付款金额';
+          const expectedLabel = paymentType === 'prepay' ? '预付金额' : '本次付款合计';
+          const actualLabel = paymentType === 'prepay' ? '实付金额' : '银行转账合计';
           return (
             <div style={{ padding: '0 24px', marginBottom: 8 }}>
               <Alert
                 type="warning"
                 showIcon
-                message={`实付金额（¥${actual.toFixed(2)}）与${expectedLabel}（¥${expected.toFixed(2)}）不一致`}
+                message={`${actualLabel}（¥${actual.toFixed(2)}）与${expectedLabel}（¥${expected.toFixed(2)}）不一致`}
               />
             </div>
           );

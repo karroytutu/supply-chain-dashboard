@@ -27,9 +27,9 @@ const mockSend = sendWorkNotification as jest.Mock;
 function makeRecord(overrides: Partial<AssessmentRecordRow> = {}): AssessmentRecordRow {
   return {
     id: 1,
-    category: 'ar_collection',
-    rule_type: 'tier1',
-    source_type: 'ar_collection_task',
+    category: 'return_order',
+    rule_type: 'procurement_confirm_timeout',
+    source_type: 'expiring_return_order',
     source_id: 100,
     source_no: 'SO-001',
     source_name: '订单A',

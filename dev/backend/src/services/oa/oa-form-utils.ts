@@ -174,24 +174,22 @@ export function validateFormData(
         }
         break;
 
-      case 'modal_select':
-        // modal_select 选项来自远程 API，仅校验值类型
-        // 区分多选/单选：多选（multiple: true）要求数组；单选接受标量（表格行内 ErpFieldRenderer 降级场景）
-        if (value != null && value !== '') {
-          if (field.multiple) {
-            if (!Array.isArray(value)) {
-              errors.push(`${field.label}值格式错误`);
-            }
-          } else {
-            if (Array.isArray(value)) {
-              errors.push(`${field.label}值格式错误`);
+      case 'table':
+        if (field.searchApi) {
+          // table + searchApi 模式：选项来自远程 API，仅校验值类型
+          if (value != null && value !== '') {
+            if (field.multiple) {
+              if (!Array.isArray(value)) {
+                errors.push(`${field.label}值格式错误`);
+              }
+            } else {
+              if (Array.isArray(value)) {
+                errors.push(`${field.label}值格式错误`);
+              }
             }
           }
-        }
-        break;
-
-      case 'table':
-        if (field.children && Array.isArray(value)) {
+        } else if (field.children && Array.isArray(value)) {
+          // 普通 table 模式：递归校验子字段
           for (let i = 0; i < value.length; i++) {
             const rowErrors = validateFormData(
               { fields: field.children },
@@ -273,33 +271,40 @@ export function checkCondition(
 ): boolean {
   // 单条件：通过 field 属性识别
   if ('field' in condition) {
-    return checkSingleCondition(data[condition.field], condition.operator, condition.value);
+    return checkSingleCondition(condition.field, data[condition.field], condition.operator, condition.value);
   }
   // AND 数组：全部子条件满足才触发
   if (Array.isArray(condition)) {
-    return condition.every(c => checkSingleCondition(data[c.field], c.operator, c.value));
+    return condition.every(c => checkSingleCondition(c.field, data[c.field], c.operator, c.value));
   }
   // OR 条件组：任一子条件满足即触发
   if (condition.match === 'any') {
-    return condition.conditions.some(c => checkSingleCondition(data[c.field], c.operator, c.value));
+    return condition.conditions.some(c => checkSingleCondition(c.field, data[c.field], c.operator, c.value));
   }
   // AND 条件组：全部子条件满足才触发
   if (condition.match === 'all') {
-    return condition.conditions.every(c => checkSingleCondition(data[c.field], c.operator, c.value));
+    return condition.conditions.every(c => checkSingleCondition(c.field, data[c.field], c.operator, c.value));
   }
   return false;
 }
 
 function checkSingleCondition(
+  fieldKey: string,
   fieldValue: unknown,
   operator: string,
   compareValue: unknown
 ): boolean {
+  // 仅对内部计算字段（_前缀）执行 null→0 降级，避免全局影响
+  const isInternalField = typeof fieldKey === 'string' && fieldKey.startsWith('_');
   switch (operator) {
-    case '==':
-      return fieldValue == compareValue;
-    case '!=':
-      return fieldValue != compareValue;
+    case '==': {
+      const fv = (fieldValue == null && typeof compareValue === 'number' && isInternalField) ? 0 : fieldValue;
+      return fv == compareValue;
+    }
+    case '!=': {
+      const fv = (fieldValue == null && typeof compareValue === 'number' && isInternalField) ? 0 : fieldValue;
+      return fv != compareValue;
+    }
     case '>':
       return Number(fieldValue) > Number(compareValue);
     case '>=':

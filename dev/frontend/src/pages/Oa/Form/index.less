@@ -224,8 +224,7 @@
     }
 
     .ant-table {
-      width: max-content;
-      min-width: 100%; // 内容少时仍然填满容器
+      width: max-content !important; // 覆盖 Ant Design 内联 width（scroll.x），保持内容自适应列宽，不拉伸
     }
   }
 
@@ -249,6 +248,11 @@
   :global {
     .ant-table-cell {
       transition: width 200ms ease-out;
+    }
+
+    // 表头不折行：列宽由内容决定，表头作为标签不应换行
+    .ant-table-thead > tr > th {
+      white-space: nowrap;
     }
   }
 

@@ -22,19 +22,9 @@ jest.mock('../oa/ar-collection-creator', () => ({
   generateCollectionOaInstances: mockGenerateCollectionOaInstances,
 }));
 
-const mockRunCalculation = jest.fn();
-jest.mock('../assessment/assessment-calculate', () => ({
-  runCalculation: mockRunCalculation,
-}));
-
-const mockSendAssessmentNotifications = jest.fn().mockResolvedValue(undefined);
-jest.mock('../assessment/assessment-notify', () => ({
-  sendAssessmentNotifications: mockSendAssessmentNotifications,
-}));
-
-const mockGetRecords = jest.fn();
-jest.mock('../assessment/assessment.repository', () => ({
-  getRecords: mockGetRecords,
+const mockAutoVerifySettledInstances = jest.fn().mockResolvedValue({ checked: 0, closed: 0, updated: 0 });
+jest.mock('../oa/ar-collection-auto-verify', () => ({
+  autoVerifySettledInstances: mockAutoVerifySettledInstances,
 }));
 
 import { runCollectionPipeline } from './collection-pipeline.task';
@@ -44,97 +34,52 @@ describe('runCollectionPipeline', () => {
     jest.clearAllMocks();
     mockCheckHoldMetaExpiry.mockResolvedValue([]);
     mockGenerateCollectionOaInstances.mockResolvedValue(undefined);
-    mockRunCalculation.mockResolvedValue({ totalRecords: 0, newRecords: 0 });
-    mockSendAssessmentNotifications.mockResolvedValue(undefined);
-    mockGetRecords.mockResolvedValue({ rows: [] });
+    mockAutoVerifySettledInstances.mockResolvedValue({ checked: 0, closed: 0, updated: 0 });
   });
 
   it('正常流程：前置清理 + 2 个步骤按序调用', async () => {
     const callOrder: string[] = [];
     mockCheckHoldMetaExpiry.mockImplementation(async () => { callOrder.push('expiry'); });
     mockGenerateCollectionOaInstances.mockImplementation(async () => { callOrder.push('generate'); });
-    mockRunCalculation.mockImplementation(async () => {
-      callOrder.push('assess');
-      return { totalRecords: 5, newRecords: 0 };
-    });
+    mockAutoVerifySettledInstances.mockImplementation(async () => { callOrder.push('verify'); });
 
     await runCollectionPipeline();
 
-    expect(callOrder).toEqual(['expiry', 'generate', 'assess']);
+    expect(callOrder).toEqual(['expiry', 'generate', 'verify']);
     expect(mockCheckHoldMetaExpiry).toHaveBeenCalledTimes(1);
     expect(mockGenerateCollectionOaInstances).toHaveBeenCalledTimes(1);
-    expect(mockRunCalculation).toHaveBeenCalledWith({
-      triggered_by: 'scheduled',
-      category: 'oa_collection',
-    });
+    expect(mockAutoVerifySettledInstances).toHaveBeenCalledTimes(1);
   });
 
   it('前置清理失败时 Step 1、2 仍执行', async () => {
     mockCheckHoldMetaExpiry.mockRejectedValue(new Error('数据库连接失败'));
-    mockRunCalculation.mockResolvedValue({ totalRecords: 0, newRecords: 0 });
 
     await runCollectionPipeline();
 
     expect(mockCheckHoldMetaExpiry).toHaveBeenCalledTimes(1);
     expect(mockGenerateCollectionOaInstances).toHaveBeenCalledTimes(1);
-    expect(mockRunCalculation).toHaveBeenCalledTimes(1);
+    expect(mockAutoVerifySettledInstances).toHaveBeenCalledTimes(1);
   });
 
   it('Step 1 失败时 Step 2 仍执行', async () => {
     mockGenerateCollectionOaInstances.mockRejectedValue(new Error('Advisory lock 获取失败'));
-    mockRunCalculation.mockResolvedValue({ totalRecords: 0, newRecords: 0 });
 
     await runCollectionPipeline();
 
     expect(mockCheckHoldMetaExpiry).toHaveBeenCalledTimes(1);
     expect(mockGenerateCollectionOaInstances).toHaveBeenCalledTimes(1);
-    expect(mockRunCalculation).toHaveBeenCalledTimes(1);
-  });
-
-  it('Step 2 考核有新增记录时发送通知', async () => {
-    mockRunCalculation.mockResolvedValue({ totalRecords: 10, newRecords: 3 });
-    mockGetRecords.mockResolvedValue({
-      rows: [{ id: 1 }, { id: 2 }, { id: 3 }],
-    });
-
-    await runCollectionPipeline();
-
-    expect(mockGetRecords).toHaveBeenCalledWith({
-      category: 'oa_collection',
-      status: 'pending',
-      page: 1,
-      page_size: 1000,
-    });
-    expect(mockSendAssessmentNotifications).toHaveBeenCalledTimes(1);
-    expect(mockSendAssessmentNotifications).toHaveBeenCalledWith([{ id: 1 }, { id: 2 }, { id: 3 }]);
-  });
-
-  it('Step 2 考核无新增记录时不发送通知', async () => {
-    mockRunCalculation.mockResolvedValue({ totalRecords: 10, newRecords: 0 });
-
-    await runCollectionPipeline();
-
-    expect(mockGetRecords).not.toHaveBeenCalled();
-    expect(mockSendAssessmentNotifications).not.toHaveBeenCalled();
-  });
-
-  it('Step 2 考核计算失败时不抛出异常', async () => {
-    mockRunCalculation.mockRejectedValue(new Error('数据库查询失败'));
-
-    // 不应抛出
-    await expect(runCollectionPipeline()).resolves.toBeUndefined();
+    expect(mockAutoVerifySettledInstances).toHaveBeenCalledTimes(1);
   });
 
   it('所有步骤都失败时不抛出异常', async () => {
     mockCheckHoldMetaExpiry.mockRejectedValue(new Error('expiry failed'));
     mockGenerateCollectionOaInstances.mockRejectedValue(new Error('generate failed'));
-    mockRunCalculation.mockRejectedValue(new Error('assess failed'));
+    mockAutoVerifySettledInstances.mockRejectedValue(new Error('verify failed'));
 
     await expect(runCollectionPipeline()).resolves.toBeUndefined();
 
-    // 三步都尝试执行了
     expect(mockCheckHoldMetaExpiry).toHaveBeenCalledTimes(1);
     expect(mockGenerateCollectionOaInstances).toHaveBeenCalledTimes(1);
-    expect(mockRunCalculation).toHaveBeenCalledTimes(1);
+    expect(mockAutoVerifySettledInstances).toHaveBeenCalledTimes(1);
   });
 });

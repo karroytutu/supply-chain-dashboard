@@ -65,7 +65,7 @@ const reconciliationFormSchema: FormSchema = {
     {
       key: 'receivableOrderIds',
       label: '应收单据',
-      type: 'modal_select',
+      type: 'table',
       required: true,
       multiple: true,
       searchApi: 'erp_settlement_orders',
@@ -75,13 +75,23 @@ const reconciliationFormSchema: FormSchema = {
       labelKey: 'bizOrderStr',
       amountKey: 'leftAmount',
       paginated: true,
+      statField: [
+        { componentId: 'leftAmount', label: '剩余欠款合计' },
+      ],
       columns: [
         { title: '单据日期', dataIndex: 'workTime', format: 'date' as const },
         { title: '订单号', dataIndex: 'bizOrderStr' },
         { title: '单据类型', dataIndex: 'billTypeName' },
         { title: '单据金额', dataIndex: 'totalAmount', format: 'money' as const, align: 'right' as const },
         { title: '剩余欠款', dataIndex: 'leftAmount', format: 'money' as const, align: 'right' as const },
-        { title: '订单备注', dataIndex: 'bizOrderNote' },
+      ],
+      children: [
+        { key: 'workTime', label: '单据日期', type: 'date', required: false, disabled: true },
+        { key: 'bizOrderStr', label: '订单号', type: 'text', required: false, disabled: true },
+        { key: 'billTypeName', label: '单据类型', type: 'text', required: false, disabled: true },
+        { key: 'totalAmount', label: '单据金额', type: 'money', required: false, disabled: true },
+        { key: 'leftAmount', label: '剩余欠款', type: 'money', required: false, disabled: true },
+        { key: 'bizOrderNote', label: '订单备注', type: 'text', required: false, disabled: true },
       ],
       filters: [
         { type: 'date-range' as const, key: 'dateRange', label: '单据日期' },
@@ -175,7 +185,7 @@ const reconciliationFormSchema: FormSchema = {
     {
       key: 'unreconciledOrderIds',
       label: '未对账应收单据',
-      type: 'modal_select',
+      type: 'table',
       required: true,
       multiple: true,
       searchApi: 'erp_settlement_orders',
@@ -185,12 +195,22 @@ const reconciliationFormSchema: FormSchema = {
       labelKey: 'bizOrderStr',
       amountKey: 'leftAmount',
       paginated: true,
+      statField: [
+        { componentId: 'leftAmount', label: '剩余欠款合计' },
+      ],
       columns: [
         { title: '单据日期', dataIndex: 'workTime', format: 'date' as const },
         { title: '订单号', dataIndex: 'bizOrderStr' },
         { title: '单据类型', dataIndex: 'billTypeName' },
         { title: '单据金额', dataIndex: 'totalAmount', format: 'money' as const, align: 'right' as const },
         { title: '剩余欠款', dataIndex: 'leftAmount', format: 'money' as const, align: 'right' as const },
+      ],
+      children: [
+        { key: 'workTime', label: '单据日期', type: 'date', required: false, disabled: true },
+        { key: 'bizOrderStr', label: '订单号', type: 'text', required: false, disabled: true },
+        { key: 'billTypeName', label: '单据类型', type: 'text', required: false, disabled: true },
+        { key: 'totalAmount', label: '单据金额', type: 'money', required: false, disabled: true },
+        { key: 'leftAmount', label: '剩余欠款', type: 'money', required: false, disabled: true },
       ],
       filters: [
         { type: 'date-range' as const, key: 'dateRange', label: '单据日期' },
@@ -246,7 +266,7 @@ const reconciliationFormSchema: FormSchema = {
     {
       key: 'differenceOrderIds',
       label: '差异处理单据',
-      type: 'modal_select',
+      type: 'table',
       required: true,
       multiple: true,
       searchApi: 'erp_settlement_orders',
@@ -262,6 +282,13 @@ const reconciliationFormSchema: FormSchema = {
         { title: '单据类型', dataIndex: 'billTypeName' },
         { title: '单据金额', dataIndex: 'totalAmount', format: 'money' as const, align: 'right' as const },
         { title: '剩余欠款', dataIndex: 'leftAmount', format: 'money' as const, align: 'right' as const },
+      ],
+      children: [
+        { key: 'workTime', label: '单据日期', type: 'date', required: false, disabled: true },
+        { key: 'bizOrderStr', label: '订单号', type: 'text', required: false, disabled: true },
+        { key: 'billTypeName', label: '单据类型', type: 'text', required: false, disabled: true },
+        { key: 'totalAmount', label: '单据金额', type: 'money', required: false, disabled: true },
+        { key: 'leftAmount', label: '剩余欠款', type: 'money', required: false, disabled: true },
       ],
       filters: [
         { type: 'date-range' as const, key: 'dateRange', label: '单据日期' },
@@ -368,7 +395,7 @@ export const customerReconciliationFormType: FormTypeDefinition = {
   category: 'finance',
   sortOrder: 100,
   description: '结算会计与客户之间的应收对账流程，支持对账单创建、单据领出、差异审核',
-  version: 1,
+  version: 2,
 
   formSchema: reconciliationFormSchema,
   workflowDef: reconciliationWorkflowDef,

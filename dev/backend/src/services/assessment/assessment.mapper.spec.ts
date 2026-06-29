@@ -10,9 +10,9 @@ import type { AssessmentRecordRow, AssessmentStatsRow } from './assessment.types
 function createMockRow(overrides: Partial<AssessmentRecordRow> = {}): AssessmentRecordRow {
   return {
     id: 1,
-    category: 'ar_collection',
-    rule_type: 'tier1',
-    source_type: 'ar_collection_task',
+    category: 'return_order',
+    rule_type: 'procurement_confirm_timeout',
+    source_type: 'expiring_return_order',
     source_id: 100,
     source_no: 'CS-20260501-001',
     source_name: '测试客户',
@@ -30,7 +30,7 @@ function createMockRow(overrides: Partial<AssessmentRecordRow> = {}): Assessment
     oa_instance_id: null,
     appeal_reason: null,
     appeal_submitted_at: null,
-    rule_snapshot: { tier: 'tier1' },
+    rule_snapshot: { name: 'procurement_confirm_timeout' },
     calculated_at: '2026-05-01 10:00:00',
     created_at: '2026-05-01 10:00:00',
     updated_at: '2026-05-01 10:00:00',
@@ -45,8 +45,8 @@ describe('assessment.mapper', () => {
       const dto = toDTO(row);
 
       expect(dto.id).toBe(1);
-      expect(dto.ruleType).toBe('tier1');
-      expect(dto.sourceType).toBe('ar_collection_task');
+      expect(dto.ruleType).toBe('procurement_confirm_timeout');
+      expect(dto.sourceType).toBe('expiring_return_order');
       expect(dto.sourceId).toBe(100);
       expect(dto.sourceNo).toBe('CS-20260501-001');
       expect(dto.sourceName).toBe('测试客户');
@@ -61,7 +61,7 @@ describe('assessment.mapper', () => {
       expect(dto.oaInstanceId).toBeNull();
       expect(dto.appealReason).toBeNull();
       expect(dto.appealSubmittedAt).toBeNull();
-      expect(dto.ruleSnapshot).toEqual({ tier: 'tier1' });
+      expect(dto.ruleSnapshot).toEqual({ name: 'procurement_confirm_timeout' });
     });
 
     it('将 DECIMAL string 转换为 number', () => {

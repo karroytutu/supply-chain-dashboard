@@ -12,7 +12,7 @@ export function useAssessmentFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // 从 URL 读取筛选条件
-  const category = (searchParams.get('category') || 'ar_collection') as AssessmentCategory;
+  const category = (searchParams.get('category') || 'return_order') as AssessmentCategory;
   const page = parseInt(searchParams.get('page') || '1', 10);
   const pageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
   const keyword = searchParams.get('keyword') || '';

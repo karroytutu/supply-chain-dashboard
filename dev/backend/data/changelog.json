@@ -1,6 +1,26 @@
 {
   "entries": [
     {
+      "version": "v2.17.0",
+      "date": "2026-06-29 16:00",
+      "types": ["feature", "breaking", "optimization"],
+      "changes": [
+        "采购付款申请单大幅增强：应付单据从modal_select改为table明细行，支持逐行填写本次付款/本次抹零金额，未结余额公式自动计算；新增预付款核销功能（后付款专属，选择预付款单并指定核销金额）；纯预付款核销（无需银行转账）自动跳过出纳审批环节",
+        "采购付款回调适配：支持部分付款金额(paymentAmount)和逐行抹零(discountAmount)，预付款核销明细(prepayList)自动创建ERP核销单，纯预付款模式全额结算",
+        "采购审批表单新增isAfterSalesReturn（是否整单售后）字段，选是时跳过营销审批环节，迁移154",
+        "催收考核统一到通用OA节点超时考核：删除oa-collection-node-rules专用规则(262行)，催收OA节点考核统一由oa_node_timeout引擎计算，催收流水线从3步简化为2步（移除独立考核步骤），迁移155清理历史数据",
+        "OA前端控件架构重构（breaking）：ModalSelectControl(716行)和ErpFieldRenderer(337行)删除，能力合并到SelectFieldControl(339行增强)；新增SearchableModalPicker、FilterControls、EditableAmountList三个子组件和useModalFetch Hook",
+        "TableFieldRenderer大幅增强(371行)：支持children子字段渲染（含formula/money/date等类型）、可编辑金额列、统计合计行(statField)、行内公式自动计算，适配table类型从modal_select迁移后的复杂明细场景",
+        "6个OA表单批量适配table children子字段权限：迁移159为modal_select→table迁移后的6个表单补充子字段readonly权限配置",
+        "ERP采购服务增强：新增预付款单查询和核销接口，erp-purchase.types新增PaidBillPrepayItem类型，新增完整单元测试",
+        "OA表单工具增强：oa-form-utils支持table类型子字段校验和数据提取，approve-approval增强auto节点自动通过逻辑",
+        "考核前端优化：AssessmentFilter/AssessmentTable适配通用考核展示，移除催收考核专属列(arCollectionColumns)，CategoryTabs简化",
+        "移动端适配优化：useMobileDetect Hook增强，useContainerWidth/useColumnWidths适配table类型列宽计算",
+        "新增input-filter工具函数：前端输入过滤（金额格式校验、数字限制），供表单控件统一调用",
+        "6项数据库迁移：采购售后字段(154)、催收考核清理(155)、采购付款增强(156)、出纳字段迁移(157)、纯预付款免审(158)、table子字段权限(159)"
+      ]
+    },
+    {
       "version": "v2.16.1",
       "date": "2026-06-28 18:00",
       "types": ["fix", "optimization"],

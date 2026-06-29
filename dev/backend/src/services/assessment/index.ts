@@ -5,7 +5,6 @@
 // 类型导出
 export type {
   AssessmentCategory,
-  ArCollectionRuleType,
   ReturnOrderRuleType,
   AssessmentRuleType,
   AssessmentStatus,
@@ -48,7 +47,6 @@ export { toDTO, toDTOList, toStatsDTO } from './assessment.mapper';
 // 规则注册（导入即执行注册）
 import './rules/return-order-rules';
 import './rules/credit-license-rules';
-import './rules/oa-collection-node-rules';
 import '../oa/timeout/oa-timeout-assessment';
 
 // 计算引擎

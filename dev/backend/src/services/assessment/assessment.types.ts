@@ -6,14 +6,12 @@
 // ==================== 枚举类型 ====================
 
 /** 考核分类 */
-export type AssessmentCategory = 'ar_collection' | 'return_order' | 'credit_license' | 'oa_collection' | 'oa_node_timeout';
+export type AssessmentCategory = 'return_order' | 'credit_license' | 'oa_node_timeout';
 
 /**
  * 规则类型按 category 区分:
- * - ar_collection: 'tier1' | 'tier2' | 'tier3'
  * - return_order: 'procurement_confirm_timeout' | 'marketing_sales_timeout' | 'return_expire_insufficient' | 'erp_entry_timeout' | 'warehouse_execute_timeout'
  */
-export type ArCollectionRuleType = 'tier1' | 'tier2' | 'tier3';
 export type ReturnOrderRuleType =
   | 'procurement_confirm_timeout'
   | 'marketing_sales_timeout'
@@ -21,7 +19,7 @@ export type ReturnOrderRuleType =
   | 'erp_entry_timeout'
   | 'warehouse_execute_timeout';
 export type CreditLicenseRuleType = 'license_timeout';
-export type AssessmentRuleType = ArCollectionRuleType | ReturnOrderRuleType | CreditLicenseRuleType;
+export type AssessmentRuleType = ReturnOrderRuleType | CreditLicenseRuleType;
 
 /** 考核记录状态 */
 export type AssessmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'appealed';
@@ -220,9 +218,7 @@ export const ASSESSMENT_ROLE_LABELS: Record<AssessmentRole, string> = {
 // ==================== 分类标签 ====================
 
 export const ASSESSMENT_CATEGORY_LABELS: Record<AssessmentCategory, string> = {
-  ar_collection: '催收考核',
   return_order: '退货考核',
   credit_license: '执照考核',
-  oa_collection: 'OA催收考核',
   oa_node_timeout: 'OA节点超时考核',
 };

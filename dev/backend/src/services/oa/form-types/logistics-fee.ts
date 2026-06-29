@@ -62,7 +62,7 @@ const logisticsFeeFormSchema: FormSchema = {
     {
       key: 'settlementIds',
       label: '采购结算单',
-      type: 'modal_select',
+      type: 'table',
       required: true,
       multiple: true,
       searchApi: 'purchase_settlements',
@@ -73,9 +73,16 @@ const logisticsFeeFormSchema: FormSchema = {
       columns: [
         { title: '单据日期', dataIndex: 'workTime', format: 'date' as const },
         { title: '采购单号', dataIndex: 'bizStr' },
-        { title: '供应商', dataIndex: 'supplierName', ellipsis: true },
+        { title: '供应商', dataIndex: 'supplierName' },
         { title: '结算金额', dataIndex: 'settleAmount', format: 'money' as const, align: 'right' as const },
-        { title: '仓库', dataIndex: 'warehouseName', ellipsis: true },
+        { title: '仓库', dataIndex: 'warehouseName' },
+      ],
+      children: [
+        { key: 'workTime', label: '单据日期', type: 'date', required: false, disabled: true },
+        { key: 'bizStr', label: '采购单号', type: 'text', required: false, disabled: true },
+        { key: 'supplierName', label: '供应商', type: 'text', required: false, disabled: true },
+        { key: 'settleAmount', label: '结算金额', type: 'money', required: false, disabled: true },
+        { key: 'warehouseName', label: '仓库', type: 'text', required: false, disabled: true },
       ],
       filters: [
         { type: 'keyword' as const, key: 'bizStr', placeholder: '搜索采购单号' },
@@ -116,6 +123,10 @@ const logisticsFeeFormSchema: FormSchema = {
           precision: 2,
         }],
       },
+      statField: [
+        { componentId: 'feeAmount', label: '费用金额合计' },
+        { componentId: 'settleAmount', label: '结算金额合计' },
+      ],
       children: [
         { key: 'billOrderStr', label: '采购单号', type: 'text', required: false, disabled: true },
         { key: 'goodsName', label: '商品名称', type: 'text', required: false, disabled: true },
@@ -342,7 +353,7 @@ export const logisticsFeeFormType: FormTypeDefinition = {
   category: 'supply_chain',
   sortOrder: 60,
   description: '申请支付物流费用、装卸费用，审批通过后自动创建ERP费用单、付款单和费用分摊单',
-  version: 2,
+  version: 3,
 
   formSchema: logisticsFeeFormSchema,
   workflowDef: logisticsFeeWorkflowDef,

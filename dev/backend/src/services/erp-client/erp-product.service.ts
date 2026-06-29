@@ -250,7 +250,7 @@ export interface PromotionGoodsItem {
 
 /**
  * 搜索促销表单可用的商品
- * 返回包含成本价和可用单位的商品列表，供 modal_select 使用
+ * 返回包含成本价和可用单位的商品列表，供商品选择使用
  *
  * @param keyword 搜索关键词（匹配商品名称）
  * @param limit 返回数量限制，默认50

@@ -7,13 +7,6 @@ import { SearchOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design
 import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
 
-/** 催收考核规则类型选项 */
-const AR_RULE_OPTIONS = [
-  { value: 'tier1', label: '一级考核' },
-  { value: 'tier2', label: '二级考核' },
-  { value: 'tier3', label: '三级考核' },
-];
-
 /** 退货考核规则类型选项 */
 const RETURN_RULE_OPTIONS = [
   { value: 'procurement_confirm_timeout', label: '采购确认超时' },
@@ -21,12 +14,6 @@ const RETURN_RULE_OPTIONS = [
   { value: 'return_expire_insufficient', label: '退货保质期不足' },
   { value: 'erp_entry_timeout', label: 'ERP录入超时' },
   { value: 'warehouse_execute_timeout', label: '仓储执行超时' },
-];
-
-/** 催收考核角色选项 */
-const AR_ROLE_OPTIONS = [
-  { value: 'marketer', label: '营销师' },
-  { value: 'marketing_manager', label: '营销经理' },
 ];
 
 /** 退货考核角色选项 */
@@ -67,8 +54,10 @@ const AssessmentFilter: React.FC<AssessmentFilterProps> = ({
   onReset,
   onCalculate,
 }) => {
-  const ruleOptions = category === 'ar_collection' ? AR_RULE_OPTIONS : RETURN_RULE_OPTIONS;
-  const roleOptions = category === 'ar_collection' ? AR_ROLE_OPTIONS : RETURN_ROLE_OPTIONS;
+  // 规则类型和角色筛选仅对退货考核分类显示
+  const showReturnFilters = category === 'return_order';
+  const ruleOptions = showReturnFilters ? RETURN_RULE_OPTIONS : [];
+  const roleOptions = showReturnFilters ? RETURN_ROLE_OPTIONS : [];
 
   return (
     <div className="filter-bar">
@@ -82,22 +71,26 @@ const AssessmentFilter: React.FC<AssessmentFilterProps> = ({
           prefix={<SearchOutlined />}
           allowClear
         />
-        <Select
-          placeholder="规则类型"
-          value={ruleType || undefined}
-          onChange={(val) => onFilter({ ruleType: val || '' })}
-          options={ruleOptions}
-          style={{ width: 160 }}
-          allowClear
-        />
-        <Select
-          placeholder="角色"
-          value={role || undefined}
-          onChange={(val) => onFilter({ role: val || '' })}
-          options={roleOptions}
-          style={{ width: 160 }}
-          allowClear
-        />
+        {showReturnFilters && (
+          <Select
+            placeholder="规则类型"
+            value={ruleType || undefined}
+            onChange={(val) => onFilter({ ruleType: val || '' })}
+            options={ruleOptions}
+            style={{ width: 160 }}
+            allowClear
+          />
+        )}
+        {showReturnFilters && (
+          <Select
+            placeholder="角色"
+            value={role || undefined}
+            onChange={(val) => onFilter({ role: val || '' })}
+            options={roleOptions}
+            style={{ width: 160 }}
+            allowClear
+          />
+        )}
         <Select
           placeholder="状态"
           value={status || undefined}

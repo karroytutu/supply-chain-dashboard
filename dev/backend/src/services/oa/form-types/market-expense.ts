@@ -37,11 +37,11 @@ function resolveGoodsUnitTag(line: Record<string, unknown>): string {
 }
 
 // =====================================================
-// 商品 modal_select 公共配置（参考 promotion-fullgift-offline）
+// 商品选择公共配置（table + searchApi 模式，参考 promotion-fullgift-offline）
 // =====================================================
 
 const GOODS_SELECT_CONFIG = {
-  type: 'modal_select' as const,
+  type: 'select' as const,
   required: true,
   searchApi: 'promotion_goods' as const,
   valueKey: 'goodsId',
@@ -174,6 +174,9 @@ const marketExpenseFormSchema: FormSchema = {
       type: 'table' as const,
       required: true,
       visibleWhen: { field: 'expenseType', operator: '==' as const, value: 'goods' },
+      statField: [
+        { componentId: 'quantity', label: '数量合计' },
+      ],
       children: [
         { key: 'goodsId', label: '商品', ...GOODS_SELECT_CONFIG },
         { key: '_goodsName', label: '商品名称', ...HIDDEN_TEXT },
@@ -545,7 +548,7 @@ export const marketExpenseFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 230,
   description: '申请市场费用（陈列费、临期处理费等），审批通过后自动创建ERP兑付协议',
-  version: 1,
+  version: 2,
 
   formSchema: marketExpenseFormSchema,
 

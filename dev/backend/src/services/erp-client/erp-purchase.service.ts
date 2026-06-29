@@ -374,7 +374,8 @@ export async function listTraderPrepayments(
  * POST /saas/pro/paid/save-and-approve
  *
  * 接收业务输入（CreatePaidBillInput），自动处理 ERP 协议细节：
- * - totalAmount = sum(invoiceList.leftAmount)
+ * - totalAmount = sum(paymentDetails.amount) + wipeOffAmount
+ *   反映本次实际非预付款支付总额（银行转账 + 抹零），预付款核销部分由 prepayList 单独体现
  * - 抹零按 leftAmount 占比分摊到各条 discountAmount（倒挤法保总和）
  * - arrivalTime = workTime
  * - prePaidAmount = "0"
@@ -386,26 +387,45 @@ export async function createPaidBill(
 ): Promise<CreatePaidBillResponse> {
   const { cid, uid } = getErpDefaults();
 
-  // 1. 计算 totalAmount = sum(leftAmount)
-  const totalAmount = input.invoiceList.reduce(
-    (sum, inv) => sum + (parseFloat(inv.leftAmount) || 0), 0
-  );
-
-  // 2. 抹零分摊（倒挤法）
+  // 1. 计算 totalAmount = sum(paymentDetails.amount) + wipeOff
+  //    totalAmount 反映非预付款支付总额（银行转账 + 抹零），预付款核销部分由 prepayList 单独体现
   const wipeOff = parseFloat(input.wipeOffAmount || '0') || 0;
-  const discountAmounts = distributeDiscount(input.invoiceList, wipeOff);
+  const bankTotal = input.paymentDetails.reduce(
+    (sum, pd) => sum + (parseFloat(String(pd.paymentAmount || 0)) || 0), 0
+  );
+  const totalAmount = Math.round((bankTotal + wipeOff) * 100) / 100;
+
+  // 2. 抹零分摊：优先使用每条 invoice 的 discountAmount（单据级手动抹零），
+  //    未传时降级使用整单 wipeOffAmount 按比例分摊（兼容旧逻辑）
+  const hasPerInvoiceDiscount = input.invoiceList.some(inv => inv.discountAmount != null);
+  const discountAmounts = hasPerInvoiceDiscount
+    ? input.invoiceList.map(inv => inv.discountAmount || '0')
+    : distributeDiscount(input.invoiceList, wipeOff);
 
   // 3. 组装 ERP 格式的 invoiceList
-  const invoiceList: PaidBillInvoiceItem[] = input.invoiceList.map((inv, i) => ({
-    bizId: inv.bizId,
-    bizType: inv.bizType,
-    paidAmount: String(inv.leftAmount),
-    discountAmount: discountAmounts[i],
-    preAllocateAmount: '0',
-    leftAmount: String(inv.leftAmount),
-    note: inv.note || '',
-    originNote: inv.originNote || '',
-  }));
+  //    paidAmount：优先使用 inv.paidAmount（部分付款），未传时降级使用 leftAmount（全额核销）
+  //    preAllocateAmount：按顺序将预付核销总额分配到各条明细（每条分配 min(netAmount, 剩余预付额)）
+  const prepayWriteOffTotal = (input.prepayList || []).reduce(
+    (sum, p) => sum + (parseFloat(String(p.writeOffAmount || 0)) || 0), 0
+  );
+  let prepayRemaining = prepayWriteOffTotal;
+  const invoiceList: PaidBillInvoiceItem[] = input.invoiceList.map((inv, i) => {
+    const paid = parseFloat(inv.paidAmount || String(inv.leftAmount)) || 0;
+    const discount = parseFloat(discountAmounts[i]) || 0;
+    const net = Math.round((paid - discount) * 100) / 100;
+    const allocate = prepayRemaining > 0 ? Math.min(net, prepayRemaining) : 0;
+    prepayRemaining = Math.round((prepayRemaining - allocate) * 100) / 100;
+    return {
+      bizId: inv.bizId,
+      bizType: inv.bizType,
+      paidAmount: inv.paidAmount || String(inv.leftAmount),
+      discountAmount: discountAmounts[i],
+      preAllocateAmount: String(Math.round(allocate * 100) / 100),
+      leftAmount: String(inv.leftAmount),
+      note: inv.note || '',
+      originNote: inv.originNote || '',
+    };
+  });
 
   // 4. 构建完整 ERP 请求
   const erpPayload: CreatePaidBillRequest = {
@@ -422,7 +442,7 @@ export async function createPaidBill(
     type: 'PAID',
     totalAmount: String(totalAmount),
     wipeOffAmount: input.wipeOffAmount || '0',
-    writeOffInfo: { invoiceList, prepayList: [] },
+    writeOffInfo: { invoiceList, prepayList: input.prepayList || [] },
   };
 
   const result = (await erpPost(

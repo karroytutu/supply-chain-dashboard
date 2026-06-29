@@ -80,6 +80,18 @@ describe('checkCondition', () => {
   it('未知操作符返回 false', () => {
     expect(checkCondition({ field: 'x', operator: 'unknown' as any, value: 1 }, { x: 1 })).toBe(false);
   });
+
+  it('内部字段（_前缀）缺失时 null→0 降级生效', () => {
+    // _isPurePrepayWriteOff 未设置，== 0 应返回 true（降级为 0）
+    expect(checkCondition({ field: '_isPurePrepayWriteOff', operator: '==' as any, value: 0 }, {})).toBe(true);
+    expect(checkCondition({ field: '_isPurePrepayWriteOff', operator: '!=' as any, value: 0 }, {})).toBe(false);
+  });
+
+  it('外部字段缺失时 null→0 降级不生效', () => {
+    // 非 _ 前缀字段未设置，== 0 应返回 false（不降级）
+    expect(checkCondition({ field: 'amount', operator: '==' as any, value: 0 }, {})).toBe(false);
+    expect(checkCondition({ field: 'amount', operator: '!=' as any, value: 0 }, {})).toBe(true);
+  });
 });
 
 describe('validateFormData', () => {
@@ -127,10 +139,10 @@ describe('validateFormData', () => {
     expect(validateFormData(schema, { type: 'A' })).toEqual([]);
   });
 
-  it('modal_select 多选值类型校验', () => {
+  it('table + searchApi 多选值类型校验', () => {
     const schema: any = {
       fields: [{
-        key: 'settlementIds', label: '采购结算单', type: 'modal_select',
+        key: 'settlementIds', label: '采购结算单', type: 'table',
         multiple: true,
         searchApi: 'purchase_settlements',
       }],
@@ -141,10 +153,10 @@ describe('validateFormData', () => {
     expect(validateFormData(schema, { settlementIds: 'not-array' })).toEqual(['采购结算单值格式错误']);
   });
 
-  it('modal_select 单选（表格行内）标量值通过校验', () => {
+  it('table + searchApi 单选（表格行内）标量值通过校验', () => {
     const schema: any = {
       fields: [{
-        key: 'goodsId', label: '商品', type: 'modal_select',
+        key: 'goodsId', label: '商品', type: 'table',
         searchApi: 'promotion_goods',
       }],
     };
@@ -155,10 +167,10 @@ describe('validateFormData', () => {
     expect(validateFormData(schema, { goodsId: ['a', 'b'] })).toEqual(['商品值格式错误']);
   });
 
-  it('modal_select 多选保持数组校验', () => {
+  it('table + searchApi 多选保持数组校验', () => {
     const schema: any = {
       fields: [{
-        key: 'ids', label: '客户', type: 'modal_select', multiple: true,
+        key: 'ids', label: '客户', type: 'table', multiple: true,
         searchApi: 'erp_customers',
       }],
     };

@@ -277,7 +277,7 @@ export async function getCategoriesConfig(): Promise<
     rules: Array<{ ruleType: string; name: string; description: string }>;
   }>
 > {
-  const categories: AssessmentCategory[] = ['ar_collection', 'return_order', 'credit_license', 'oa_collection'];
+  const categories: AssessmentCategory[] = ['return_order', 'credit_license', 'oa_node_timeout'];
 
   return categories.map(category => {
     const rules = getRulesByCategory(category);

@@ -1,6 +1,9 @@
 /**
  * 移动端检测 Hook
- * 检测当前视口宽度是否小于 768px
+ * @module hooks/useMobileDetect
+ *
+ * useMobileDetect: 基于 resize 事件，固定 768px 断点
+ * useIsMobile: 基于 matchMedia（更高效），支持自定义断点
  */
 import { useState, useEffect } from 'react';
 
@@ -19,6 +22,24 @@ export function useMobileDetect(): boolean {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  return isMobile;
+}
+
+/**
+ * 基于 matchMedia 的移动端检测（比 resize 更高效）
+ * @param breakpoint 断点像素值，默认 768
+ */
+export function useIsMobile(breakpoint = 768): boolean {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    setIsMobile(mql.matches);
+    return () => mql.removeEventListener('change', handler);
+  }, [breakpoint]);
   return isMobile;
 }
 

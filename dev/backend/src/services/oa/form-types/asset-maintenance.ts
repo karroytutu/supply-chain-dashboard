@@ -60,6 +60,9 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
         type: 'table',
         required: false,
         visibleWhen: { field: 'estimatedCost', operator: '>=', value: 500 },
+        statField: [
+          { componentId: 'quotationPrice', label: '报价合计' },
+        ],
         children: [
           { key: 'supplierName', label: '供应商', type: 'text', required: true },
           { key: 'quotationPrice', label: '报价', type: 'money', required: true },

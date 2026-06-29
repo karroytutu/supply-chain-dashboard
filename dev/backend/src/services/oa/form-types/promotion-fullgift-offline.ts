@@ -13,9 +13,9 @@ import {
   onApprovedPromotionFullGiftOffline,
 } from '../promotion-callback';
 
-/** 商品 modal_select 公共配置 */
+/** 商品选择公共配置（table + searchApi 模式） */
 const GOODS_SELECT_CONFIG = {
-  type: 'modal_select' as const,
+  type: 'select' as const,
   required: true,
   searchApi: 'promotion_goods' as const,
   valueKey: 'goodsId',
@@ -37,7 +37,7 @@ const GOODS_SELECT_CONFIG = {
   },
 };
 
-/** 单位选择字段（从 modal_select 带入的 _goodsUnits 中提取选项） */
+/** 单位选择字段（从商品选择带入的 _goodsUnits 中提取选项） */
 const UNIT_SELECT = {
   type: 'select' as const,
   required: true,
@@ -58,7 +58,7 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 220,
   description: '线下满赠促销活动申请，消费满额赠送商品',
-  version: 1,
+  version: 2,
 
   formSchema: {
     fields: [
@@ -123,19 +123,23 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
       {
         key: 'clientIdList',
         label: '客户选择',
-        type: 'modal_select',
+        type: 'table',
         required: true,
         multiple: true,
         searchApi: 'erp_customers',
         valueKey: 'id',
         labelKey: 'name',
         searchPlaceholder: '搜索客户名称',
-        filters: [
-          { key: 'keyword', type: 'keyword', placeholder: '搜索客户名称' },
-        ],
         columns: [
           { title: '客户名称', dataIndex: 'name' },
           { title: '客户编码', dataIndex: 'consumerCode' },
+        ],
+        filters: [
+          { key: 'keyword', type: 'keyword', placeholder: '搜索客户名称' },
+        ],
+        children: [
+          { key: 'name', label: '客户名称', type: 'text', required: false, disabled: true },
+          { key: 'consumerCode', label: '客户编码', type: 'text', required: false, disabled: true },
         ],
         visibleWhen: { field: 'issueRange', operator: '==', value: '2' },
       },
@@ -182,6 +186,10 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
         label: '主品列表',
         type: 'table',
         required: true,
+        statField: [
+          { componentId: 'onSalePrice', label: '促销价合计' },
+          { componentId: 'activeStock', label: '活动数量合计' },
+        ],
         children: [
           { key: 'goodsId', label: '商品', ...GOODS_SELECT_CONFIG },
           { key: '_goodsName', label: '商品名称', ...HIDDEN_TEXT },
@@ -256,6 +264,9 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
         required: true,
         visibleWhen: { field: 'onSaleType', operator: '==', value: 'loop' },
         requiredWhen: { field: 'onSaleType', operator: '==', value: 'loop' },
+        statField: [
+          { componentId: 'quantity', label: '数量合计' },
+        ],
         children: [
           { key: 'goodsId', label: '赠品', ...GOODS_SELECT_CONFIG },
           { key: '_goodsName', label: '赠品名称', ...HIDDEN_TEXT },
@@ -280,6 +291,9 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
         required: true,
         visibleWhen: { field: 'onSaleType', operator: '==', value: 'step' },
         requiredWhen: { field: 'onSaleType', operator: '==', value: 'step' },
+        statField: [
+          { componentId: 'giveCount', label: '任选数量合计' },
+        ],
         children: [
           {
             key: 'seq', label: '阶梯', type: 'number', required: false, disabled: true,
@@ -327,6 +341,9 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
         required: true,
         visibleWhen: { field: 'onSaleType', operator: '==', value: 'step' },
         requiredWhen: { field: 'onSaleType', operator: '==', value: 'step' },
+        statField: [
+          { componentId: 'quantity', label: '数量合计' },
+        ],
         children: [
           {
             key: 'seq', label: '对应阶梯', type: 'number', required: true, min: 1,

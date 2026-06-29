@@ -29,13 +29,14 @@ vi.mock('@/constants/oa-erp', () => ({
 import FieldRenderer from './FormFieldRenderer';
 
 describe('FormFieldRenderer', () => {
-  it('modal_select 从 _details 自动读取结构化明细渲染', () => {
+  it('table + searchApi 从 _details 自动读取结构化明细渲染', () => {
     const field: FormField = {
       key: 'holdSettlementOrders',
       label: '结算单',
-      type: 'modal_select',
+      type: 'table',
       required: false,
       multiple: true,
+      searchApi: 'erp_settlement_orders',
       labelKey: 'bizStr',
       amountKey: 'leftAmount',
     } as any;
@@ -65,13 +66,14 @@ describe('FormFieldRenderer', () => {
     expect(screen.getByText('¥3,000.50')).toBeInTheDocument();
   });
 
-  it('modal_select 无 _details 时降级显示原始 ID', () => {
+  it('table + searchApi 无 _details 时降级显示原始 ID', () => {
     const field: FormField = {
       key: 'holdSettlementOrders',
       label: '结算单',
-      type: 'modal_select',
+      type: 'table',
       required: false,
       multiple: true,
+      searchApi: 'erp_settlement_orders',
       labelKey: 'bizStr',
     } as any;
 

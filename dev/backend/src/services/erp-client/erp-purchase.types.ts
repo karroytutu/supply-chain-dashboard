@@ -284,6 +284,10 @@ export interface PaidBillInvoiceInput {
   bizType: string;
   /** 单据剩余金额（string 类型） */
   leftAmount: string;
+  /** 本次核销金额（部分付款时传入，未传时降级使用 leftAmount = 全额核销） */
+  paidAmount?: string;
+  /** 本次抹零金额（供应商同意少收的零头，手动填写） */
+  discountAmount?: string;
   note?: string;
   originNote?: string;
 }
@@ -306,6 +310,8 @@ export interface CreatePaidBillInput {
   invoiceList: PaidBillInvoiceInput[];
   /** 抹零总额，服务层按 leftAmount 占比分摊到各条 discountAmount（倒挤法） */
   wipeOffAmount?: string;
+  /** 预付款核销列表（混合付款时传入，未传时默认为空数组） */
+  prepayList?: PaidBillPrepayItem[];
 }
 
 /** 创建付款单请求（内部 ERP 格式，服务层使用） */

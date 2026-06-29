@@ -1,10 +1,10 @@
 /**
  * 统一考核类型定义
- * 覆盖催收考核和退货考核的统一数据结构
+ * 覆盖退货考核、执照考核和OA节点超时考核的统一数据结构
  */
 
 // ==================== 考核分类 ====================
-declare type AssessmentCategory = 'ar_collection' | 'return_order';
+declare type AssessmentCategory = 'return_order' | 'credit_license' | 'oa_node_timeout';
 declare type AssessmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'appealed';
 declare type AssessmentRole =
   | 'marketer'

@@ -46,17 +46,17 @@ async function clickSubmit(page: any) {
   await page.locator('button.ant-btn-primary').first().click({ timeout: 10000 });
 }
 
-/** 打开 modal_select 弹窗（点击触发器） */
-async function openModalSelect(page: any, label: string) {
+/** 打开 table + searchApi 弹窗（点击触发器） */
+async function openTableSelect(page: any, label: string) {
   const item = formItem(page, label);
-  // modal_select 触发器是一个带"请选择"文本的 div
+  // 触发器是一个带“请选择”文本的 div
   const trigger = item.locator('div[style*="border"]').first();
   await trigger.click();
   // 等待弹窗出现
   await page.locator('.ant-modal').waitFor({ state: 'visible', timeout: 5000 });
 }
 
-/** 在 modal_select 弹窗中搜索并选中第一条记录 */
+/** 在弹窗中搜索并选中第一条记录 */
 async function searchAndSelectFirst(page: any, keyword: string) {
   const modal = page.locator('.ant-modal').last();
   const searchInput = modal.locator('input[placeholder*="搜索"], input[type="text"]').first();
@@ -385,7 +385,7 @@ test.describe('Task 4: 商品表格编辑', () => {
     await authenticatedPage.locator('button', { hasText: '添加一行' }).click();
     await authenticatedPage.waitForTimeout(300);
 
-    // 点击商品列的 modal_select 触发器
+    // 点击商品列的选择触发器
     const firstRow = authenticatedPage.locator('.ant-table-tbody .ant-table-row').first();
     const goodsTrigger = firstRow.locator('div[style*="border"]').first();
     if (await goodsTrigger.count() > 0) {

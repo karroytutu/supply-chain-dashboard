@@ -1,16 +1,16 @@
 import React from 'react';
-import { Input, InputNumber, Select, DatePicker } from 'antd';
+import { Input, InputNumber, DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import type { FormField, FormSchema } from '@/types/oa';
 import { numberToChineseUpper } from '@/utils/number';
 import { getFieldLinkUrl } from '@/utils/oa';
-import ErpFieldRenderer, { type CustomerLicenseInfo } from './ErpFieldRenderer';
+import type { CustomerLicenseInfo } from '@/services/api/oa';
+import SelectFieldControl from '@/components/Oa/fields/SelectFieldControl';
 import TableFieldRenderer from './TableFieldRenderer';
 import PhotoFieldRenderer from './PhotoFieldRenderer';
 import SignatureFieldControl from '@/components/Oa/fields/SignatureFieldControl';
 import UploadFieldRenderer from './UploadFieldRenderer';
-import ModalSelectControl from '@/components/Oa/fields/ModalSelectControl';
 import TreeSelectModalControl from '@/components/Oa/fields/TreeSelectModalControl';
 import BankAccountSelector, { type BankAccountValue } from '@/components/Oa/BankAccountSelector';
 import styles from '../index.less';
@@ -36,66 +36,15 @@ interface FormFieldConfigProps {
   onCustomerSelect?: (licenseInfo: CustomerLicenseInfo | null) => void;
   /** 客户搜索是否包含所有状态（客户档案修改场景传 true） */
   includeAllStates?: boolean;
-  /** 表单 Schema（传递给 ErpFieldRenderer 用于级联扫描） */
+  /** 表单 Schema（用于 bank_account_selector 级联填充） */
   formSchema?: FormSchema;
-}
-
-/** 判断是否为 ERP 数据选择字段（通过 searchApi 配置识别，而非专用类型名） */
-function isErpFieldType(field: FormField): boolean {
-  return !!field.searchApi;
 }
 
 /** 表单字段渲染组件 */
 const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
   field, formData, form, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect, includeAllStates, formSchema,
 }) => {
-  const { type, placeholder, required, options, maxLength, maxCount, upper } = field;
-
-  // 统一弹窗多选控件
-  if (type === 'modal_select') {
-    return (
-      <ModalSelectControl
-        mode="editable"
-        field={field}
-        value={value}
-        onChange={onChange}
-        formData={formData}
-        fakeForm={form}
-      />
-    );
-  }
-
-  // 树形弹窗选择器
-  if (type === 'tree_select') {
-    return (
-      <TreeSelectModalControl
-        mode="editable"
-        field={field}
-        value={value}
-        onChange={onChange}
-        formData={formData}
-        fakeForm={form}
-      />
-    );
-  }
-
-  // ERP 字段类型统一走 ErpFieldRenderer
-  if (isErpFieldType(field)) {
-    // 获取级联父字段值
-    const cascadeValue = field.cascadeFrom ? formData[field.cascadeFrom] : undefined;
-    return (
-      <ErpFieldRenderer
-        field={field}
-        value={value}
-        onChange={onChange}
-        cascadeValue={cascadeValue}
-        includeAllStates={includeAllStates}
-        form={form}
-        formSchema={formSchema}
-        onCustomerSelect={field.searchApi === 'erp_customers' ? onCustomerSelect : undefined}
-      />
-    );
-  }
+  const { type, placeholder, maxLength, maxCount, upper } = field;
 
   switch (type) {
     case 'text': {
@@ -176,16 +125,19 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
     }
 
     case 'select': {
-      const isMulti = !!field.multiple;
+      const cascadeValue = field.cascadeFrom ? formData?.[field.cascadeFrom] : undefined;
       return (
-        <Select
-          mode={isMulti ? 'multiple' : undefined}
-          value={isMulti ? (value as string[] | undefined) : (value as string | undefined)}
-          onChange={onChange as ((value: string | string[]) => void) | undefined}
-          placeholder={placeholder || `请选择${field.label}`}
-          options={options}
-          disabled={field.disabled}
-          style={{ width: '100%' }}
+        <SelectFieldControl
+          mode="editable"
+          field={field}
+          value={value}
+          onChange={onChange}
+          formData={formData}
+          fakeForm={form}
+          onCustomerSelect={onCustomerSelect}
+          formSchema={formSchema}
+          includeAllStates={includeAllStates}
+          cascadeValue={cascadeValue}
         />
       );
     }
@@ -239,8 +191,20 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
         />
       );
 
+    case 'tree_select':
+      return (
+        <TreeSelectModalControl
+          mode="editable"
+          field={field}
+          value={value}
+          onChange={onChange}
+          formData={formData}
+          fakeForm={form}
+        />
+      );
+
     case 'table':
-      return <TableFieldRenderer field={field} value={value as Record<string, unknown>[] | undefined} onChange={onChange as ((value: Record<string, unknown>[]) => void) | undefined} formData={formData} />;
+      return <TableFieldRenderer field={field} value={value as Record<string, unknown>[] | undefined} onChange={onChange as ((value: Record<string, unknown>[]) => void) | undefined} formData={formData} form={form} />;
 
     case 'signature':
       return (

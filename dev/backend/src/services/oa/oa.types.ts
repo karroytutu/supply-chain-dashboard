@@ -47,7 +47,6 @@ export type FormFieldType =
   | 'table'          // 可编辑明细表
   | 'signature'      // 电子签名
   | 'formula'        // 公式计算（只读）
-  | 'modal_select'   // 弹窗多选（远程搜索+多列表格）
   | 'tree_select'    // 树形弹窗选择器
   | 'bank_account_selector'; // 银行账户选择器
 
@@ -106,7 +105,7 @@ export interface FormField {
   // 类型特定属性
   /** select 类型选项 */
   options?: Array<{ value: string | number; label: string; key?: string }>;
-  /** select 类型：从另一个字段的值动态生成选项（如从 modal_select 带入的 _goodsUnits 中提取单位列表） */
+  /** select 类型：从另一个字段的值动态生成选项（如从商品选择带入的 _goodsUnits 中提取单位列表） */
   optionsFromField?: string;
   /** number 类型单位 */
   unit?: string;
@@ -170,25 +169,27 @@ export interface FormField {
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */
   cascadeFrom?: string;
-  /** modal_select: 级联参数映射 { API参数名: 表单字段名 } */
+  /** table（有 searchApi 时）：级联参数映射 { API参数名: 表单字段名 } */
   cascadeParams?: Record<string, string>;
-  /** modal_select: 静态查询参数（固定过滤条件，与 cascadeParams 的动态参数互补） */
+  /** table（有 searchApi 时）：静态查询参数（固定过滤条件，与 cascadeParams 的动态参数互补） */
   defaultQueryParams?: Record<string, string | number | boolean>;
-  /** modal_select: 值字段（选中后存储的 ID/key） */
+  /** table（有 searchApi 时）：值字段（选中后存储的 ID/key） */
   valueKey?: string;
-  /** modal_select: 显示字段（Tag/小表格主列） */
+  /** table（有 searchApi 时）：显示字段（Tag/小表格主列） */
   labelKey?: string;
-  /** modal_select: 金额字段（只读展示合计行） */
+  /** table（有 searchApi 时）：金额字段（只读展示合计行） */
   amountKey?: string;
-  /** modal_select: 弹窗表格列定义 */
-  columns?: ModalSelectColumn[];
-  /** modal_select: 筛选条件配置 */
-  filters?: ModalSelectFilter[];
-  /** modal_select: 是否启用分页 */
+  /** table（有 searchApi 时）：选中后允许编辑每张单据的付款金额 */
+  editableAmount?: boolean;
+  /** table（有 searchApi 时）：弹窗表格列定义 */
+  columns?: ModalColumnConfig[];
+  /** table（有 searchApi 时）：筛选条件配置 */
+  filters?: FilterConfig[];
+  /** table（有 searchApi 时）：是否启用分页 */
   paginated?: boolean;
-  /** modal_select: 限定可选范围来自另一个 modal_select 字段已选中的记录 */
+  /** table（有 searchApi 时）：限定可选范围来自另一个 table 字段已选中的记录 */
   scopeFromField?: string;
-  /** modal_select: 搜索框提示文字 */
+  /** table（有 searchApi 时）：搜索框提示文字 */
   searchPlaceholder?: string;
   /** tree_select: 树形数据 API 标识 */
   treeSearchApi?: string;
@@ -214,8 +215,8 @@ export interface FormField {
   previewTrigger?: string[];
 }
 
-/** modal_select 弹窗表格列定义 */
-export interface ModalSelectColumn {
+/** 弹窗表格列定义（table + searchApi 模式） */
+export interface ModalColumnConfig {
   title: string;
   dataIndex: string;
   format?: 'date' | 'money' | 'text';
@@ -224,8 +225,8 @@ export interface ModalSelectColumn {
   align?: 'left' | 'right' | 'center';
 }
 
-/** modal_select 筛选条件配置 */
-export interface ModalSelectFilter {
+/** 筛选条件配置（table + searchApi 模式） */
+export interface FilterConfig {
   type: 'keyword' | 'date-range' | 'select';
   /** API 参数名 */
   key: string;
@@ -615,6 +616,12 @@ export interface FormTypeDefinition {
     formData: Record<string, unknown>,
     userId: number
   ) => Promise<Record<string, unknown>>;
+  /** 审批前校验（可选）：审批人点确认时触发，返回错误消息数组则阻断审批 */
+  beforeApprove?: (
+    nodeOrder: number,
+    formData: Record<string, unknown>,
+    inputData?: Record<string, unknown>
+  ) => string[];
   /** 实时预览计算钩子：指定字段变化时，后端根据 formData 计算展示字段值 */
   computePreview?: (
     formData: Record<string, unknown>,

@@ -23,7 +23,7 @@ export const promotionSpecialOfflineFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 210,
   description: '线下限时特价促销活动申请，商品限时降价销售',
-  version: 1,
+  version: 2,
 
   formSchema: {
     fields: [
@@ -90,19 +90,23 @@ export const promotionSpecialOfflineFormType: FormTypeDefinition = {
       {
         key: 'clientIdList',
         label: '客户选择',
-        type: 'modal_select',
+        type: 'table',
         required: true,
         multiple: true,
         searchApi: 'erp_customers',
         valueKey: 'id',
         labelKey: 'name',
         searchPlaceholder: '搜索客户名称',
-        filters: [
-          { key: 'keyword', type: 'keyword', placeholder: '搜索客户名称' },
-        ],
         columns: [
           { title: '客户名称', dataIndex: 'name' },
           { title: '客户编码', dataIndex: 'consumerCode' },
+        ],
+        filters: [
+          { key: 'keyword', type: 'keyword', placeholder: '搜索客户名称' },
+        ],
+        children: [
+          { key: 'name', label: '客户名称', type: 'text', required: false, disabled: true },
+          { key: 'consumerCode', label: '客户编码', type: 'text', required: false, disabled: true },
         ],
         visibleWhen: { field: 'issueRange', operator: '==', value: '2' },
       },
@@ -113,11 +117,15 @@ export const promotionSpecialOfflineFormType: FormTypeDefinition = {
         label: '特价商品列表',
         type: 'table',
         required: true,
+        statField: [
+          { componentId: 'onSalePrice', label: '促销价合计' },
+          { componentId: 'activeStock', label: '活动数量合计' },
+        ],
         children: [
           {
             key: 'goodsId',
             label: '商品',
-            type: 'modal_select',
+            type: 'select',
             required: true,
             searchApi: 'promotion_goods',
             valueKey: 'goodsId',

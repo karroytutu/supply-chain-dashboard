@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Upload, Image, Spin } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { PaperClipOutlined } from '@ant-design/icons';
-import type { CustomerLicenseInfo } from './ErpFieldRenderer';
+import type { CustomerLicenseInfo } from '@/services/api/oa';
 import { createBeforeUpload, validateImageFile } from '@/utils/uploadValidation';
 import styles from '../index.less';
 

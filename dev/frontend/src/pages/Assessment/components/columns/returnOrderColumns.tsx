@@ -5,8 +5,15 @@ import React from 'react';
 import { Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { STATUS_MAP } from './arCollectionColumns';
 import AppealStatusTag from '../AppealStatusTag';
+
+/** 状态标签映射 */
+export const STATUS_MAP: Record<string, { color: string; text: string }> = {
+  pending: { color: 'orange', text: '待处理' },
+  confirmed: { color: 'green', text: '已处理' },
+  cancelled: { color: 'default', text: '无需考核' },
+  appealed: { color: 'purple', text: '申诉中' },
+};
 
 /** 退货考核角色中文映射 */
 const ROLE_LABELS: Record<string, string> = {

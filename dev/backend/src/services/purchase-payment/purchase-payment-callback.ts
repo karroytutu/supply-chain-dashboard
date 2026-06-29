@@ -25,7 +25,7 @@ import {
   buildPurchasePaymentIdemKey,
 } from '../erp-client/erp-purchase.service';
 import { getErpDefaults } from '../erp-client/erp-config';
-import type { CreatePaidBillInput, PaidBillInvoiceInput } from '../erp-client/erp-purchase.types';
+import type { CreatePaidBillInput, PaidBillInvoiceInput, PaidBillPrepayItem } from '../erp-client/erp-purchase.types';
 import { PAYMENT_TYPE } from '../oa/form-types/purchase-payment';
 
 // =====================================================
@@ -82,27 +82,83 @@ async function handlePostpayPayment(
   const paymentSubjectId = formData.paymentSubjectId as number;
   const wipeOffAmount = formData.discountAmount as string || '0';
 
-  if (!actualAmount || !paymentSubjectId || !supplierId) {
-    throw new Error('缺少实付金额、付款账户或供应商');
+  if (!supplierId) {
+    throw new Error('缺少供应商');
   }
 
-  // 从 _details.debtIds 读取自动持久化的应付单据明细
+  // 从 _details.debtIds 读取自动持久化的应付单据明细（含部分付款金额和抹零）
   const details = formData._details as Record<string, unknown> | undefined;
   const debtDetails = details?.debtIds as Array<{
     bizId: number;
     billTypeEnum: string;
     leftAmount: string;
+    paymentAmount?: string;
+    discountAmount?: string;
   }> | undefined;
   if (!debtDetails || debtDetails.length === 0) {
     throw new Error('缺少应付单据明细数据');
   }
 
-  // 构造 invoiceList（仅传业务数据，服务层自动处理 totalAmount/抹零分摊/arrivalTime 等）
+  // 构造 invoiceList：纯预付款核销时用 leftAmount（全额结算），部分付款时用 paymentAmount
+  const isPurePrepay = formData._isPurePrepayWriteOff === 1 || formData._isPurePrepayWriteOff === '1';
   const invoiceList: PaidBillInvoiceInput[] = debtDetails.map(debt => ({
     bizId: debt.bizId,
     bizType: debt.billTypeEnum,
     leftAmount: debt.leftAmount,
+    paidAmount: isPurePrepay
+      ? String(parseFloat(debt.leftAmount) || 0)   // 纯预付款：全额结算，保留原始精度
+      : (debt.paymentAmount || debt.leftAmount),    // 部分付款：用用户填写的金额
+    discountAmount: debt.discountAmount, // 本次抹零金额（用户手动填写）
   }));
+
+  // 构造 prepayList：从 _details.prepaymentIds 读取预付款核销明细
+  const prepayDetails = details?.prepaymentIds as Array<{
+    id: number;
+    paidBillStr: string;
+    availableAmount: string;
+    useAmount?: string;
+  }> | undefined;
+  const prepayList: PaidBillPrepayItem[] = (prepayDetails || [])
+    .filter(p => parseFloat(String(p.useAmount || 0)) > 0)
+    .map(p => ({
+      paidBillId: p.id,
+      paidBillStr: p.paidBillStr,
+      writeOffAmount: String(p.useAmount || '0'),
+      leftAmount: p.availableAmount,
+      wipeOffAmount: '0',
+    }));
+
+  // paymentDetails 构建：纯预付款核销无需银行转账，优先使用 paymentLines，降级使用旧字段
+  // 兼容两种格式：新格式用 id，旧格式用 paymentSubjectId
+  const paymentLines = formData.paymentLines as Array<{
+    id?: number;
+    paymentSubjectId?: number;
+    amount?: string;
+  }> | undefined;
+  let paymentDetails: Array<{ paymentAmount: string; subjectId: number }>;
+  if (isPurePrepay) {
+    // 纯预付款核销：出纳环节被条件跳过，无需银行转账，paymentDetails 留空
+    paymentDetails = [];
+  } else if (paymentLines && paymentLines.length > 0) {
+    paymentDetails = paymentLines
+      .filter(line => {
+        const subjectId = line.paymentSubjectId || line.id;
+        return subjectId && parseFloat(String(line.amount || 0)) > 0;
+      })
+      .map(line => ({
+        paymentAmount: String(line.amount || '0'),
+        subjectId: (line.paymentSubjectId || line.id)!,
+      }));
+    if (paymentDetails.length === 0) {
+      throw new Error('银行转账明细中至少需要一条有效付款记录（金额 > 0 且已选择付款科目）');
+    }
+  } else {
+    // 降级：使用出纳环节的单一付款账户
+    if (!actualAmount || !paymentSubjectId) {
+      throw new Error('缺少实付金额或付款账户');
+    }
+    paymentDetails = [{ paymentAmount: actualAmount, subjectId: paymentSubjectId }];
+  }
 
   const idemKey = buildPurchasePaymentIdemKey('PAID', instance.id, 4);
   const result = await createPaidBill(
@@ -112,9 +168,10 @@ async function handlePostpayPayment(
       deptId: defaultDeptId,
       workTime: beijingDateTime(),
       note: `OA: ${instance.instance_no}`,
-      paymentDetails: [{ paymentAmount: actualAmount, subjectId: paymentSubjectId }],
+      paymentDetails,
       invoiceList,
       wipeOffAmount,
+      prepayList,
     },
     idemKey
   );
@@ -148,10 +205,43 @@ async function handlePrepayPayment(
   const prepayAmount = formData.prepayAmount as string;
   const paymentSubjectId = formData.paymentSubjectId as number;
 
-  // 出纳实付金额优先，兜底使用申请人填写的预付金额
-  const paymentAmount = actualAmount || prepayAmount;
-  if (!paymentAmount || !paymentSubjectId || !supplierId) {
-    throw new Error('缺少实付金额、付款账户或供应商');
+  if (!supplierId) {
+    throw new Error('缺少供应商');
+  }
+
+  // paymentDetails：优先使用多银行账户明细（paymentLines），降级使用出纳单一付款账户
+  const paymentLines = formData.paymentLines as Array<{
+    id?: number;
+    paymentSubjectId?: number;
+    amount?: string;
+  }> | undefined;
+  let paymentDetails: Array<{ paymentAmount: string; subjectId: number }>;
+  let totalPaymentAmount: string;
+
+  if (paymentLines && paymentLines.length > 0) {
+    paymentDetails = paymentLines
+      .filter(line => {
+        const subjectId = line.paymentSubjectId || line.id;
+        return subjectId && parseFloat(String(line.amount || 0)) > 0;
+      })
+      .map(line => ({
+        paymentAmount: String(line.amount || '0'),
+        subjectId: (line.paymentSubjectId || line.id)!,
+      }));
+    if (paymentDetails.length === 0) {
+      throw new Error('银行转账明细中至少需要一条有效付款记录（金额 > 0 且已选择付款科目）');
+    }
+    totalPaymentAmount = String(
+      Math.round(paymentDetails.reduce((sum, d) => sum + parseFloat(d.paymentAmount), 0) * 100) / 100
+    );
+  } else {
+    // 降级：使用旧字段
+    const amount = actualAmount || prepayAmount;
+    if (!amount || !paymentSubjectId) {
+      throw new Error('缺少实付金额或付款账户');
+    }
+    paymentDetails = [{ paymentAmount: amount, subjectId: paymentSubjectId }];
+    totalPaymentAmount = amount;
   }
 
   const idemKey = buildPurchasePaymentIdemKey('PREPAY', instance.id, 4);
@@ -161,8 +251,8 @@ async function handlePrepayPayment(
       traderType: 'SUPPLIER',
       type: 'PRE_PAID',
       prePayType: 'NORMAL',
-      totalAmount: paymentAmount,
-      paymentDetails: [{ paymentAmount, subjectId: paymentSubjectId }],
+      totalAmount: totalPaymentAmount,
+      paymentDetails,
       paymentDirection: 'OUT',
       salesmanId: defaultSalesmanId,
       workTime: beijingDateTime(),
