@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "v2.17.2",
+      "date": "2026-06-29 16:44",
+      "types": ["optimization", "fix"],
+      "changes": [
+        "新增开发数据库同步工具：支持一键将生产服务器数据同步到本地开发库（npm run sync:db），并提供launchd定时任务安装/卸载脚本（每小时自动同步）",
+        "修复OA审批表单_details字段偶发丢失：提交时以form store为唯一数据源，消除onValuesChange同步链路断裂风险"
+      ]
+    },
+    {
       "version": "v2.17.1",
       "date": "2026-06-29 22:30",
       "types": ["fix"],

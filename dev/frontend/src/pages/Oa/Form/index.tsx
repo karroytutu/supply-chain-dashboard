@@ -267,6 +267,11 @@ const FormPage: React.FC = () => {
         if (v !== undefined && v !== null) values[key] = v;
       }
 
+      // _details 以 form store 为最终权威（消除 onValuesChange 同步链路断裂风险）
+      // 所有 _details 写入均通过 form.setFieldsValue，form store 是可靠数据源
+      const storeDetails = form.getFieldValue('_details');
+      if (storeDetails != null) values._details = storeDetails;
+
       // 注入 internalFields 的值（autoFill 通过 setFieldsValue 写入 form store）
       if (formType.formSchema.internalFields) {
         for (const f of formType.formSchema.internalFields) {

@@ -12,7 +12,10 @@
     "lint:fix": "eslint src --fix",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "sync:db": "bash scripts/sync-db-from-prod.sh",
+    "sync:db:install": "ln -sf $(pwd)/scripts/com.supply-chain.sync-db.plist ~/Library/LaunchAgents/com.supply-chain.sync-db.plist && launchctl load ~/Library/LaunchAgents/com.supply-chain.sync-db.plist && echo '定时任务已安装（每小时一次）'",
+    "sync:db:uninstall": "launchctl unload ~/Library/LaunchAgents/com.supply-chain.sync-db.plist 2>/dev/null; rm -f ~/Library/LaunchAgents/com.supply-chain.sync-db.plist && echo '定时任务已卸载'"
   },
   "dependencies": {
     "@alicloud/ding-util": "^1.0.0",
