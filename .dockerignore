@@ -2,6 +2,7 @@
 dev/frontend/
 dev/backend/node_modules/
 dev/backend/src/
+!dev/backend/src/db/migrations/
 dev/backend/tsconfig.json
 dev/backend/tsconfig.orig.json
 dev/backend/.env
