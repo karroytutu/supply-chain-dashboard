@@ -13,10 +13,10 @@ import { appQuery as query } from '../db/appPool';
 import { cache } from '../utils/cache';
 import { CACHE_KEY } from '../utils/cache-keys';
 import { buildSuccessResponse, buildErrorResponse } from '../utils/response';
-import type { OaFormTypeRow, FieldPermissionsOverride, ViewPermissionsOverride } from '../services/oa/oa.types';
+import type { OaFormTypeRow, ViewPermissionsOverride } from '../services/oa/oa.types';
 import { mapFormTypeRow } from '../services/oa/oa-utils';
 import { getFormTypeByCode } from '../services/oa/form-types';
-import { validateCompleteness, validateViewCompleteness } from '../services/oa/field-permission-validator';
+import { validateViewCompleteness } from '../services/oa/field-permission-validator';
 
 /** 清除表单类型缓存 */
 function invalidateFormTypesCache(): void {
@@ -192,74 +192,6 @@ export async function updateFormTypeBasic(req: Request, res: Response): Promise<
   }
 }
 
-/**
- * 更新表单字段权限配置（管理员配置每个环节的字段可见/可编辑/隐藏）
- * PATCH /api/oa/admin/form-types/:code/field-permissions
- *
- * 请求体：{ fieldPermissions: { initiation?: {...}, nodes?: {...} } }
- */
-export async function updateFieldPermissions(req: Request, res: Response): Promise<void> {
-  try {
-    const { code } = req.params;
-    const { fieldPermissions } = req.body;
-
-    // 校验输入
-    if (fieldPermissions !== null && typeof fieldPermissions !== 'object') {
-      res.status(400).json(buildErrorResponse(400, 'fieldPermissions 必须为对象或 null'));
-      return;
-    }
-
-    // 校验权限值合法性（只允许 nodes 键，不再允许 initiation）
-    const validPerms = new Set(['editable', 'readonly', 'hidden']);
-    if (fieldPermissions) {
-      for (const [section, perms] of Object.entries(fieldPermissions)) {
-        if (section !== 'nodes') {
-          res.status(400).json(buildErrorResponse(400, `不支持的配置节: ${section}，仅允许 nodes（initiation 已废弃，请使用 nodes["0"] 代替）`));
-          return;
-        }
-        for (const [nodeOrder, nodePerms] of Object.entries(perms as Record<string, Record<string, string>>)) {
-          for (const [field, perm] of Object.entries(nodePerms)) {
-            if (!validPerms.has(perm)) {
-              res.status(400).json(buildErrorResponse(400, `节点${nodeOrder}字段 ${field} 的权限值 ${perm} 不合法，仅允许 editable/readonly/hidden`));
-              return;
-            }
-          }
-        }
-      }
-    }
-
-    // 校验全量完整性：每个节点必须为所有业务字段声明权限
-    const codeDef = getFormTypeByCode(code);
-    if (codeDef && fieldPermissions) {
-      const { valid, missing } = validateCompleteness(
-        codeDef.formSchema,
-        codeDef.workflowDef,
-        fieldPermissions as FieldPermissionsOverride
-      );
-      if (!valid) {
-        const missingDesc = missing.map(m => `节点${m.node}: ${m.fields.join(', ')}`).join('; ');
-        res.status(400).json(buildErrorResponse(400, `字段权限配置不完整，缺失: ${missingDesc}`));
-        return;
-      }
-    }
-
-    const result = await query(
-      `UPDATE oa_form_types SET field_permissions = $1 WHERE code = $2`,
-      [fieldPermissions ? JSON.stringify(fieldPermissions) : null, code]
-    );
-
-    if (result.rowCount === 0) {
-      res.status(404).json(buildErrorResponse(404, '表单类型不存在'));
-      return;
-    }
-
-    invalidateFormTypesCache();
-    res.json(buildSuccessResponse(null, '字段权限已保存'));
-  } catch (error) {
-    log.error('管理接口-更新字段权限失败:', error);
-    res.status(500).json(buildErrorResponse(500, '更新字段权限失败'));
-  }
-}
 
 /**
  * 获取系统所有岗位列表（供前端配置审批人时使用）

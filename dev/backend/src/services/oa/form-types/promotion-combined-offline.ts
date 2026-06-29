@@ -482,6 +482,13 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
       formDataFields: ['promotionId', 'promotionNo'],
     },
   ],
+  fieldPermissions: {
+    nodes: {
+      "0": { "name": "editable", "remark": "editable", "giftCount": "editable", "goodsList": "editable", "goodsType": "editable", "goodsCount": "editable", "issueRange": "editable", "saleRemark": "editable", "totalCount": "editable", "presentList": "editable", "presentType": "editable", "promotionNo": "readonly", "clientIdList": "editable", "clientAreaIds": "editable", "promotionPeriod": "editable", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "editable", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly" },
+      "1": { "name": "readonly", "remark": "readonly", "giftCount": "readonly", "goodsList": "readonly", "goodsType": "readonly", "goodsCount": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "totalCount": "readonly", "presentList": "readonly", "presentType": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "readonly", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly" },
+      "2": { "name": "readonly", "remark": "readonly", "giftCount": "readonly", "goodsList": "readonly", "goodsType": "readonly", "goodsCount": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "totalCount": "readonly", "presentList": "readonly", "presentType": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "readonly", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly" }
+    },
+  },
 };
 
 export default promotionCombinedOfflineFormType;

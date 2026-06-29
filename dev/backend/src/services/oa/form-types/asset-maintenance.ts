@@ -137,4 +137,13 @@ export const assetMaintenanceFormType: FormTypeDefinition = {
   },
 
   onApproved: handleMaintenanceAutoNode,
+  fieldPermissions: {
+    nodes: {
+      "0": { "assetNo": "editable", "urgency": "editable", "assetName": "editable", "erpAssetId": "editable", "quotations": "editable", "assetSearch": "editable", "description": "editable", "paymentDate": "hidden", "paymentNote": "hidden", "receiptUrls": "hidden", "estimatedCost": "editable", "paymentAmount": "hidden", "attachmentUrls": "editable", "paymentSubjectId": "hidden", "quotations.supplierName": "editable", "quotations.quotationNote": "editable", "quotations.quotationPrice": "editable" },
+      "1": { "assetNo": "readonly", "urgency": "readonly", "assetName": "readonly", "erpAssetId": "readonly", "quotations": "readonly", "assetSearch": "readonly", "description": "readonly", "paymentDate": "hidden", "paymentNote": "hidden", "receiptUrls": "hidden", "estimatedCost": "readonly", "paymentAmount": "hidden", "attachmentUrls": "readonly", "paymentSubjectId": "hidden", "quotations.supplierName": "readonly", "quotations.quotationNote": "readonly", "quotations.quotationPrice": "readonly" },
+      "2": { "assetNo": "readonly", "urgency": "readonly", "assetName": "readonly", "erpAssetId": "readonly", "quotations": "editable", "assetSearch": "readonly", "description": "readonly", "paymentDate": "hidden", "paymentNote": "hidden", "receiptUrls": "hidden", "estimatedCost": "readonly", "paymentAmount": "hidden", "attachmentUrls": "readonly", "paymentSubjectId": "hidden", "quotations.supplierName": "editable", "quotations.quotationNote": "editable", "quotations.quotationPrice": "editable" },
+      "3": { "assetNo": "readonly", "urgency": "readonly", "assetName": "readonly", "erpAssetId": "readonly", "quotations": "readonly", "assetSearch": "readonly", "description": "readonly", "paymentDate": "hidden", "paymentNote": "hidden", "receiptUrls": "hidden", "estimatedCost": "readonly", "paymentAmount": "hidden", "attachmentUrls": "readonly", "paymentSubjectId": "hidden", "quotations.supplierName": "readonly", "quotations.quotationNote": "readonly", "quotations.quotationPrice": "readonly" },
+      "4": { "assetNo": "readonly", "urgency": "readonly", "assetName": "readonly", "erpAssetId": "readonly", "quotations": "readonly", "assetSearch": "readonly", "description": "readonly", "paymentDate": "editable", "paymentNote": "editable", "receiptUrls": "editable", "estimatedCost": "readonly", "paymentAmount": "editable", "attachmentUrls": "readonly", "paymentSubjectId": "editable", "quotations.supplierName": "readonly", "quotations.quotationNote": "readonly", "quotations.quotationPrice": "readonly" }
+    },
+  },
 };

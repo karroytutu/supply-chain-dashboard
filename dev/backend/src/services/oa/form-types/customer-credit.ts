@@ -225,4 +225,11 @@ export const customerCreditFormType: FormTypeDefinition = {
 
   // onApproved: 审批通过后调用 ERP API 更新授信信息
   onApproved: onApprovedCustomerCredit,
+  fieldPermissions: {
+    nodes: {
+      "0": { "remark": "editable", "customer": "editable", "holdDays": "editable", "hoardType": "editable", "contactTel": "editable", "creditType": "editable", "contactName": "editable", "maxOverdueDays": "editable", "holdSettlementOrders": "editable", "businessLicensePhotos": "editable", "rollingMaxOverdueDays": "editable", "rollingMaxOverdueOrders": "editable", "holdSettlementOrders.bizStr": "readonly", "holdSettlementOrders.workTime": "readonly", "holdSettlementOrders.leftAmount": "readonly" },
+      "1": { "remark": "readonly", "customer": "readonly", "holdDays": "readonly", "hoardType": "readonly", "contactTel": "readonly", "creditType": "readonly", "contactName": "readonly", "maxOverdueDays": "readonly", "holdSettlementOrders": "readonly", "businessLicensePhotos": "readonly", "rollingMaxOverdueDays": "readonly", "rollingMaxOverdueOrders": "readonly", "holdSettlementOrders.bizStr": "readonly", "holdSettlementOrders.workTime": "readonly", "holdSettlementOrders.leftAmount": "readonly" },
+      "2": { "remark": "readonly", "customer": "readonly", "holdDays": "readonly", "hoardType": "readonly", "contactTel": "readonly", "creditType": "readonly", "contactName": "readonly", "maxOverdueDays": "readonly", "holdSettlementOrders": "readonly", "businessLicensePhotos": "readonly", "rollingMaxOverdueDays": "readonly", "rollingMaxOverdueOrders": "readonly", "holdSettlementOrders.bizStr": "readonly", "holdSettlementOrders.workTime": "readonly", "holdSettlementOrders.leftAmount": "readonly" }
+    },
+  },
 };

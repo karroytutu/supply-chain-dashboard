@@ -187,4 +187,10 @@ export const customerModifyFormType: FormTypeDefinition = {
 
   // onApproved: 审批通过后更新 ERP 客户档案（含欠款再校验）
   onApproved: onApprovedCustomerModify,
+  fieldPermissions: {
+    nodes: {
+      "0": { "areaId": "editable", "remark": "editable", "gradeId": "editable", "groupId": "editable", "customer": "editable", "contactTel": "editable", "contactName": "editable", "customerName": "editable", "customerState": "editable", "serviceStaffId": "editable", "storefrontPhoto": "editable", "consumerManagerId": "editable" },
+      "1": { "areaId": "readonly", "remark": "readonly", "gradeId": "readonly", "groupId": "readonly", "customer": "readonly", "contactTel": "readonly", "contactName": "readonly", "customerName": "readonly", "customerState": "readonly", "serviceStaffId": "readonly", "storefrontPhoto": "readonly", "consumerManagerId": "readonly" }
+    },
+  },
 };

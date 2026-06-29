@@ -2,8 +2,7 @@
  * 表单字段公共工具函数
  * @module pages/Oa/FormConfig/utils/fieldUtils
  *
- * 从 FieldPermissionMatrix 和 ViewPermissionMatrix 中提取的共享逻辑，
- * 以及从 useFormDetail 中解耦的纯工具函数。
+ * ViewPermissionMatrix 使用的共享工具函数。
  */
 import type { FormField } from '@/types/oa';
 

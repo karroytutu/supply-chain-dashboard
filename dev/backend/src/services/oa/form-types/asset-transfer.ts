@@ -103,4 +103,10 @@ export const assetTransferFormType: FormTypeDefinition = {
   },
 
   onApproved: handleAssetTransferApproved,
+  fieldPermissions: {
+    nodes: {
+      "0": { "lines": "editable", "reason": "editable", "transferDate": "editable", "transferType": "editable", "lines.assetNo": "editable", "lines.toDeptId": "editable", "lines.toUserId": "editable", "lines.assetName": "editable", "lines.erpAssetId": "editable", "lines.toDeptName": "editable", "lines.toUserName": "editable", "lines.assetSearch": "editable", "lines.toDepositAddress": "editable" },
+      "1": { "lines": "readonly", "reason": "readonly", "transferDate": "readonly", "transferType": "readonly", "lines.assetNo": "readonly", "lines.toDeptId": "readonly", "lines.toUserId": "readonly", "lines.assetName": "readonly", "lines.erpAssetId": "readonly", "lines.toDeptName": "readonly", "lines.toUserName": "readonly", "lines.assetSearch": "readonly", "lines.toDepositAddress": "readonly" }
+    },
+  },
 };

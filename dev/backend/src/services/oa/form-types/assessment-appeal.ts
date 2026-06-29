@@ -115,4 +115,10 @@ export const assessmentAppealFormType: FormTypeDefinition = {
 
   onApproved: onApprovedAssessmentAppeal,
   onRejected: onRejectedAssessmentAppeal,
+  fieldPermissions: {
+    nodes: {
+      "0": { "sourceNo": "editable", "sourceName": "editable", "appealReason": "editable", "assessmentId": "editable", "penaltyAmount": "editable", "assessmentCategory": "editable", "assessmentRuleType": "editable", "assessmentUserName": "editable", "supportingDocuments": "editable" },
+      "1": { "sourceNo": "readonly", "sourceName": "readonly", "appealReason": "readonly", "assessmentId": "readonly", "penaltyAmount": "readonly", "assessmentCategory": "readonly", "assessmentRuleType": "readonly", "assessmentUserName": "readonly", "supportingDocuments": "readonly" }
+    },
+  },
 };

@@ -8,25 +8,25 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/karroytutu/Documents/Qoder/supply-chain-dashboard/dev/backend/scripts/sync-db-from-prod.sh</string>
+    <string>/Users/karroytutu/.supply-chain-sync/sync-db-from-prod.sh</string>
   </array>
 
   <key>StartInterval</key>
   <integer>3600</integer>
 
   <key>WorkingDirectory</key>
-  <string>/Users/karroytutu/Documents/Qoder/supply-chain-dashboard/dev/backend</string>
+  <string>/Users/karroytutu/.supply-chain-sync</string>
 
   <key>StandardOutPath</key>
-  <string>/Users/karroytutu/Documents/Qoder/supply-chain-dashboard/dev/backend/logs/sync-db-stdout.log</string>
+  <string>/Users/karroytutu/.supply-chain-sync/logs/sync-db-stdout.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/Users/karroytutu/Documents/Qoder/supply-chain-dashboard/dev/backend/logs/sync-db-stderr.log</string>
+  <string>/Users/karroytutu/.supply-chain-sync/logs/sync-db-stderr.log</string>
 
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+    <string>/opt/homebrew/opt/postgresql@17/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
   </dict>
 </dict>
 </plist>

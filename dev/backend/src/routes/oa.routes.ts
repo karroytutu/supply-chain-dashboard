@@ -67,7 +67,6 @@ import {
   listFormTypesForAdmin,
   updateFormTypeBasic,
   updateWorkflowSettings,
-  updateFieldPermissions,
   updateViewPermissions,
   listRolesForAdmin,
   batchGetUsers,
@@ -776,9 +775,6 @@ router.patch('/admin/form-types/:code', requirePermission('oa:form:manage'), upd
 
 // 更新表单流程管理配置（审批人规则、签署模式、超时时限）
 router.put('/admin/form-types/:code/workflow-settings', requirePermission('oa:form:manage'), updateWorkflowSettings);
-
-// 更新表单字段权限配置（管理员配置每个环节的字段可见/可编辑/隐藏）
-router.patch('/admin/form-types/:code/field-permissions', requirePermission('oa:form:manage'), updateFieldPermissions);
 
 // 更新表单查看权限配置（管理员配置非办理人查看详情的字段可见性）
 router.patch('/admin/form-types/:code/view-permissions', requirePermission('oa:form:manage'), updateViewPermissions);

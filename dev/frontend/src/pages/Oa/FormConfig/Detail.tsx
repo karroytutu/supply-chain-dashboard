@@ -1,6 +1,6 @@
 /**
  * 表单编辑详情页
- * 3 Tab 布局：审批流程 / 字段权限 / 查看权限
+ * 2 Tab 布局：审批流程 / 查看权限
  * 基本信息由列表页内联编辑管理，此页专注复杂配置。
  */
 import React, { useState, useCallback, useMemo } from 'react';
@@ -18,7 +18,6 @@ import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, useParams, useSearchParams } from 'umi';
 import { useFormDetail, type WorkflowNodeEdit } from './hooks/useFormDetail';
 import NodeCard from './components/NodeCard';
-import FieldPermissionMatrix from './components/FieldPermissionMatrix';
 import ViewPermissionMatrix from './components/ViewPermissionMatrix';
 import FlowPreview from './components/FlowPreview';
 import styles from './Detail.less';
@@ -27,7 +26,6 @@ const { Title } = Typography;
 
 const TAB_KEYS = {
   workflow: 'workflow',
-  fieldPerm: 'fieldPerm',
   viewPerm: 'viewPerm',
 } as const;
 
@@ -126,18 +124,6 @@ const FormDetailPage: React.FC = () => {
             </div>
           </div>
         </Card>
-      ),
-    },
-    {
-      key: TAB_KEYS.fieldPerm,
-      label: '字段权限',
-      children: (
-        <FieldPermissionMatrix
-          formCode={formDetail.code}
-          fields={fields}
-          workflowNodes={formDetail.workflowDef.nodes as any}
-          initialPermissions={formDetail.fieldPermissions as any}
-        />
       ),
     },
     {

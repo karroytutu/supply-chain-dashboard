@@ -111,6 +111,14 @@ export const otherPaymentFormType: FormTypeDefinition = {
       { order: 4, name: '抄送出纳', type: 'cc' as const, ccRoles: [OA_ROLE.CASHIER] },
     ],
   },
+  fieldPermissions: {
+    nodes: {
+      "0": { "amount": "editable", "remark": "editable", "payeeName": "editable", "paymentReason": "editable", "attachmentUrls": "editable" },
+      "1": { "amount": "readonly", "remark": "readonly", "payeeName": "readonly", "paymentReason": "readonly", "attachmentUrls": "readonly" },
+      "2": { "amount": "readonly", "remark": "readonly", "payeeName": "readonly", "paymentReason": "readonly", "attachmentUrls": "readonly" },
+      "3": { "amount": "readonly", "remark": "readonly", "payeeName": "readonly", "paymentReason": "readonly", "attachmentUrls": "readonly" }
+    },
+  },
 };
 
 export default otherPaymentFormType;

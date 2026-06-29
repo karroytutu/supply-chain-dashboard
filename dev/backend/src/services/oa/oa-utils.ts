@@ -109,10 +109,8 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     ...(codeDefinition?.resolvePreviewContext && {
       resolvePreviewContext: codeDefinition.resolvePreviewContext,
     }),
-    // fieldPermissions: DB 为唯一来源，不再合并代码默认值
-    ...(row.field_permissions
-      ? { fieldPermissions: row.field_permissions }
-      : {}),
+    // fieldPermissions: 代码固化，唯一数据源
+    fieldPermissions: codeDefinition?.fieldPermissions ?? { nodes: {} },
     // viewPermissions: DB 为唯一来源（非办理人查看详情时使用）
     ...(row.view_permissions
       ? { viewPermissions: row.view_permissions }

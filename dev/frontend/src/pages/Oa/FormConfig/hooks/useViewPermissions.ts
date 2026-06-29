@@ -5,9 +5,7 @@
  * 管理查看权限的加载、编辑、保存状态。
  * 通过 PATCH /api/oa/admin/form-types/:code/view-permissions 持久化配置。
  *
- * 与 useFieldPermissions 的区别：
- * - 权限循环仅 2 态：readonly → hidden（无 editable）
- * - 保存 API 为 updateAdminViewPermissions
+ * 权限循环仅 2 态：readonly → hidden（无 editable）
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { message } from 'antd';

@@ -3,9 +3,7 @@
  * @module pages/Oa/FormConfig/components/ViewPermissionMatrix
  *
  * 展示字段 × 环节的查看权限矩阵表格，管理员可点击单元格切换权限状态。
- * 与 FieldPermissionMatrix 的区别：
- * - 权限状态仅 2 态：只读 / 隐藏（无"可编辑"）
- * - 独立保存按钮，调用 view-permissions 接口
+ * 权限状态仅 2 态：只读 / 隐藏（无“可编辑”），调用 view-permissions 接口保存。
  */
 import React from 'react';
 import { Table, Tag, Button, Card, Typography, Dropdown } from 'antd';

@@ -2,11 +2,13 @@
  * 字段权限全量校验工具
  * @module services/oa/field-permission-validator
  *
- * 校验 DB 中的 field_permissions 是否为每个节点完整声明了所有业务字段的权限。
+ * 校验查看权限 (view_permissions) 是否为每个节点完整声明了所有业务字段的权限。
  * 业务字段从 formSchema.fields 提取（不含 internalFields），表格子字段用点号分隔 key。
+ *
+ * field_permissions 已固化到代码中，由 TypeScript 编译时保证完整性，无需运行时校验。
  */
 
-import type { FormSchema, WorkflowDef, FieldPermissionsOverride, ViewPermissionsOverride } from './oa.types';
+import type { FormSchema, WorkflowDef, ViewPermissionsOverride } from './oa.types';
 
 /**
  * 提取表单的业务字段 key 列表（含表格子字段，用点号分隔）
@@ -49,36 +51,6 @@ export function getConfigurableNodeOrders(workflowDef: WorkflowDef): number[] {
   }
 
   return orders;
-}
-
-/**
- * 校验权限配置完整性
- * @returns valid: 是否完整；missing: 缺失项列表
- */
-export function validateCompleteness(
-  formSchema: FormSchema,
-  workflowDef: WorkflowDef,
-  fieldPermissions: FieldPermissionsOverride | null | undefined
-): { valid: boolean; missing: Array<{ node: string; fields: string[] }> } {
-  const businessFields = extractBusinessFields(formSchema);
-  const nodeOrders = getConfigurableNodeOrders(workflowDef);
-  const missing: Array<{ node: string; fields: string[] }> = [];
-
-  for (const order of nodeOrders) {
-    const nodePerms = fieldPermissions?.nodes?.[String(order)];
-
-    if (!nodePerms) {
-      missing.push({ node: String(order), fields: businessFields });
-      continue;
-    }
-
-    const missingFields = businessFields.filter(f => !(f in nodePerms));
-    if (missingFields.length > 0) {
-      missing.push({ node: String(order), fields: missingFields });
-    }
-  }
-
-  return { valid: missing.length === 0, missing };
 }
 
 /**

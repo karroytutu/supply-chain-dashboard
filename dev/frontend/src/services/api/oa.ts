@@ -774,17 +774,6 @@ export async function updateAdminWorkflowSettings(
   });
 }
 
-/** 更新表单字段权限配置（管理员配置每个环节的字段可见/可编辑/隐藏） */
-export async function updateAdminFieldPermissions(
-  code: string,
-  fieldPermissions: Record<string, unknown> | null
-): Promise<void> {
-  return request<void>(`/oa/admin/form-types/${code}/field-permissions`, {
-    method: 'PATCH',
-    body: { fieldPermissions },
-  });
-}
-
 /** 更新表单查看权限配置（管理员配置非办理人查看详情的字段可见性） */
 export async function updateAdminViewPermissions(
   code: string,

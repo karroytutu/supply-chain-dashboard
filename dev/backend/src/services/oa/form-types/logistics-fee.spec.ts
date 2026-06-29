@@ -58,7 +58,7 @@ describe('logisticsFeeFormType', () => {
     expect(logisticsFeeFormType.code).toBe('logistics_fee');
     expect(logisticsFeeFormType.name).toBe('物流装卸费用申请');
     expect(logisticsFeeFormType.category).toBe('supply_chain');
-    expect(logisticsFeeFormType.version).toBe(2);
+    expect(logisticsFeeFormType.version).toBe(4);
   });
 
   it('formSchema.fields 非空且包含关键字段', () => {
@@ -74,9 +74,33 @@ describe('logisticsFeeFormType', () => {
     expect(keys).toContain('attachmentUrls');
     expect(keys).toContain('remark');
     expect(keys).toContain('bankAccountSelector');
+    expect(keys).toContain('paymentMode');
     expect(keys).toContain('paymentAmount');
     expect(keys).toContain('paymentSubjectId');
     expect(keys).toContain('paymentReceiptUrls');
+  });
+
+  it('支付模式字段包含直接支付和仅登记两个选项', () => {
+    const paymentModeField = logisticsFeeFormType.formSchema.fields.find(f => f.key === 'paymentMode');
+    expect(paymentModeField).toBeDefined();
+    expect(paymentModeField!.required).toBe(true);
+    expect(paymentModeField!.defaultValue).toBe('direct_pay');
+    expect(paymentModeField!.options).toHaveLength(2);
+    const values = paymentModeField!.options!.map(o => o.value);
+    expect(values).toContain('direct_pay');
+    expect(values).toContain('register');
+  });
+
+  it('仅直接支付模式可见的字段配置了 visibleWhen', () => {
+    const { fields } = logisticsFeeFormType.formSchema;
+    const paymentOnlyFields = ['bankAccountSelector', 'paymentAmount', 'paymentSubjectId', 'paymentReceiptUrls'];
+    for (const key of paymentOnlyFields) {
+      const field = fields.find(f => f.key === key);
+      expect(field).toBeDefined();
+      expect(field!.visibleWhen).toEqual(
+        expect.objectContaining({ field: 'paymentMode', operator: '==', value: 'direct_pay' })
+      );
+    }
   });
 
   it('费用类型字段包含物流和装卸两个选项', () => {
@@ -133,6 +157,13 @@ describe('logisticsFeeFormType', () => {
     const internalKeys = internalFields!.map(f => f.key);
     expect(internalKeys).toContain('feeSupplierName');
   });
+
+  it('fieldPermissions 三个节点均包含 paymentMode', () => {
+    const { nodes } = logisticsFeeFormType.fieldPermissions;
+    expect(nodes['0'].paymentMode).toBe('editable');
+    expect(nodes['1'].paymentMode).toBe('readonly');
+    expect(nodes['2'].paymentMode).toBe('readonly');
+  });
 });
 
 // =====================================================
@@ -160,18 +191,29 @@ describe('logisticsFeeFormType.workflowDef', () => {
     expect(nodes[0].type).toBe('approval');
   });
 
-  it('节点2为出纳支付(handle)', () => {
+  it('节点2为出纳支付(handle，仅直接支付模式)', () => {
     expect(nodes[1].name).toBe('出纳支付');
     expect(nodes[1].type).toBe('handle');
+    expect(nodes[1].condition).toEqual(
+      expect.objectContaining({ field: 'paymentMode', value: 'direct_pay' })
+    );
   });
 
-  it('节点3-5为auto节点', () => {
-    expect(nodes[2].type).toBe('auto');
-    expect(nodes[2].name).toBe('创建供应商费用单');
+  it('节点4为auto节点（仅直接支付模式创建付款单）', () => {
     expect(nodes[3].type).toBe('auto');
     expect(nodes[3].name).toBe('创建供应商付款单');
+    expect(nodes[3].condition).toEqual(
+      expect.objectContaining({ field: 'paymentMode', value: 'direct_pay' })
+    );
+  });
+
+  it('节点3和节点5为无条件auto节点', () => {
+    expect(nodes[2].type).toBe('auto');
+    expect(nodes[2].name).toBe('创建供应商费用单');
+    expect(nodes[2].condition).toBeUndefined();
     expect(nodes[4].type).toBe('auto');
     expect(nodes[4].name).toBe('创建费用分摊单');
+    expect(nodes[4].condition).toBeUndefined();
   });
 
   it('节点6为抄送仓储主管(cc)', () => {

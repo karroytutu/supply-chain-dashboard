@@ -119,4 +119,10 @@ export const assetDisposalFormType: FormTypeDefinition = {
   },
 
   onApproved: handleAssetDisposalApproved,
+  fieldPermissions: {
+    nodes: {
+      "0": { "assetNo": "editable", "netValue": "editable", "assetName": "editable", "hasIncome": "editable", "erpAssetId": "editable", "assetSearch": "editable", "disposalDate": "editable", "disposalType": "editable", "disposalValue": "editable", "originalValue": "editable", "attachmentUrls": "editable", "disposalReason": "editable", "accumulatedDepreciation": "editable" },
+      "1": { "assetNo": "readonly", "netValue": "readonly", "assetName": "readonly", "hasIncome": "readonly", "erpAssetId": "readonly", "assetSearch": "readonly", "disposalDate": "readonly", "disposalType": "readonly", "disposalValue": "readonly", "originalValue": "readonly", "attachmentUrls": "readonly", "disposalReason": "readonly", "accumulatedDepreciation": "readonly" }
+    },
+  },
 };

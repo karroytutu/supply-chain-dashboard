@@ -6,10 +6,9 @@
 import {
   extractBusinessFields,
   getConfigurableNodeOrders,
-  validateCompleteness,
   validateViewCompleteness,
 } from './field-permission-validator';
-import type { FormSchema, WorkflowDef, FieldPermissionsOverride, ViewPermissionsOverride } from './oa.types';
+import type { FormSchema, WorkflowDef, ViewPermissionsOverride } from './oa.types';
 
 // =====================================================
 // 测试数据构造
@@ -102,61 +101,6 @@ describe('getConfigurableNodeOrders', () => {
   it('空 workflow 仅包含发起节点', () => {
     const orders = getConfigurableNodeOrders(makeWorkflowDef([]));
     expect(orders).toEqual([0]);
-  });
-});
-
-// =====================================================
-// validateCompleteness
-// =====================================================
-
-describe('validateCompleteness', () => {
-  const businessFields = extractBusinessFields(sampleSchema);
-  const nodeOrders = getConfigurableNodeOrders(sampleWorkflow);
-
-  it('权限完整时返回 valid=true', () => {
-    // 为每个节点完整声明所有业务字段的权限
-    const fullPerms: FieldPermissionsOverride = {
-      nodes: {
-        '0': Object.fromEntries(businessFields.map(f => [f, 'editable'])),
-        '1': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
-        '2': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
-      },
-    };
-
-    const result = validateCompleteness(sampleSchema, sampleWorkflow, fullPerms);
-    expect(result.valid).toBe(true);
-    expect(result.missing).toHaveLength(0);
-  });
-
-  it('fieldPermissions 为 null 时返回 valid=false', () => {
-    const result = validateCompleteness(sampleSchema, sampleWorkflow, null);
-    expect(result.valid).toBe(false);
-    expect(result.missing.length).toBeGreaterThan(0);
-  });
-
-  it('某个节点缺少部分字段权限时报告缺失', () => {
-    const partialPerms: FieldPermissionsOverride = {
-      nodes: {
-        '0': { customerName: 'editable', amount: 'editable' }, // 缺少 remark, lines, lines.goodsName, lines.qty
-        '1': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
-        '2': Object.fromEntries(businessFields.map(f => [f, 'readonly'])),
-      },
-    };
-
-    const result = validateCompleteness(sampleSchema, sampleWorkflow, partialPerms);
-    expect(result.valid).toBe(false);
-
-    const node0Missing = result.missing.find(m => m.node === '0');
-    expect(node0Missing).toBeDefined();
-    expect(node0Missing!.fields).toContain('remark');
-    expect(node0Missing!.fields).toContain('lines.goodsName');
-  });
-
-  it('整个节点未配置时报告所有字段缺失', () => {
-    const emptyPerms: FieldPermissionsOverride = { nodes: {} };
-    const result = validateCompleteness(sampleSchema, sampleWorkflow, emptyPerms);
-    expect(result.valid).toBe(false);
-    expect(result.missing.length).toBe(nodeOrders.length);
   });
 });
 

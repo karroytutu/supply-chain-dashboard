@@ -351,7 +351,7 @@ export interface WorkflowNodeDef {
    * @deprecated inputSchema 机制已废弃，字段统一迁移至 formSchema + fieldPermissions
    */
   inputSchema?: NodeInputSchema;
-  /** @deprecated 字段权限已改为 DB 唯一来源，代码中不再定义 */
+  /** @deprecated 字段权限已固化到各表单类型代码中，此字段仅用于工作流节点内部渲染 */
   fieldPermissions?: Record<string, FieldPermission>;
   /** 下拉选项过滤：控制 select 类型字段的可选选项 */
   fieldOptionFilter?: Record<string, string[]>;
@@ -398,8 +398,8 @@ export interface FormTypeDefinition {
   dataReadUsers?: number[];
   /** 可导出该表单数据的用户ID列表 */
   dataExportUsers?: number[];
-  /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖） */
-  fieldPermissions?: FieldPermissionsOverride;
+  /** 字段权限（代码固化，唯一数据源） */
+  fieldPermissions: FieldPermissionsOverride;
   /** 查看权限 DB 覆盖值（非办理人查看详情时使用） */
   viewPermissions?: ViewPermissionsOverride;
 }
@@ -530,8 +530,8 @@ export interface ApprovalDetail extends ApprovalInstance {
   actions: ApprovalAction[];
   ccUsers: CcUser[];
   erpMeta: ErpMeta | null;
-  /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖） */
-  fieldPermissions?: FieldPermissionsOverride;
+  /** 字段权限（代码固化，唯一数据源） */
+  fieldPermissions: FieldPermissionsOverride;
   /** 查看权限 DB 覆盖值（非办理人查看详情时使用） */
   viewPermissions?: ViewPermissionsOverride;
   /** 可查看该表单数据的角色列表（前端判断数据查看人身份用） */

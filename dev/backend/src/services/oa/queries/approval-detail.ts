@@ -83,7 +83,6 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
       ft.code as form_type_code,
       ft.name as form_type_name,
       ft.icon as form_type_icon,
-      ft.field_permissions as field_permissions,
       ft.view_permissions as view_permissions,
       ft.data_read_roles as data_read_roles,
       ft.data_read_users as data_read_users,
@@ -167,8 +166,8 @@ export async function getApprovalDetail(instanceId: number): Promise<ApprovalDet
     formData: instance.form_data,
     formSchema: codeFallback?.formSchema ?? { fields: [] },
     workflowDef: codeFallback?.workflowDef || null,
-    // fieldPermissions: DB 覆盖值（管理员配置的字段权限）
-    ...(instance.field_permissions && { fieldPermissions: instance.field_permissions }),
+    // fieldPermissions: 代码固化，唯一数据源
+    fieldPermissions: codeFallback?.fieldPermissions ?? { nodes: {} },
     // viewPermissions: DB 覆盖值（非办理人查看详情时使用）
     ...(instance.view_permissions && { viewPermissions: instance.view_permissions }),
     // dataReadRoles: 可查看该表单数据的角色列表（前端判断数据查看人身份用）

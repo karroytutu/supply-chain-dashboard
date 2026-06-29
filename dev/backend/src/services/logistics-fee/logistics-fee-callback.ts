@@ -243,10 +243,10 @@ async function handleCreateExpenseAllocation(
 ): Promise<CallbackResult> {
   const erpMeta = getErpMeta(instance);
   const expenditureBillStr = erpMeta?.responseData?.expenditureBillStr as string;
-  const paymentAmount = formData.paymentAmount as string;
+  const expenditureTotalAmount = erpMeta?.responseData?.expenditureTotalAmount as number;
 
-  if (!expenditureBillStr || !paymentAmount) {
-    throw new Error('缺少费用单号或实付金额');
+  if (!expenditureBillStr || expenditureTotalAmount == null || expenditureTotalAmount <= 0) {
+    throw new Error('缺少费用单号或费用总额');
   }
 
   // 1. 查询费用单的 bizDetailId
@@ -285,19 +285,19 @@ async function handleCreateExpenseAllocation(
     (sum, item) => sum + parseFloat(item.amount || '0'), 0
   );
 
-  const paymentAmountNum = parseFloat(paymentAmount);
+  const totalAmount = expenditureTotalAmount;
   let allocatedSum = 0;
   const settleDetail = settlementLineItems.map((item, idx) => {
     const itemAmount = parseFloat(item.amount || '0');
     const ratio = totalSettleAmount > 0 ? itemAmount / totalSettleAmount : 0;
 
-    // 最后一行用差额补齐，保证 sum(allocationAmount) === paymentAmountNum
+    // 最后一行用差额补齐，保证 sum(allocationAmount) === totalAmount
     if (idx === settlementLineItems.length - 1) {
-      const lastAmount = (paymentAmountNum - allocatedSum).toFixed(2);
+      const lastAmount = (totalAmount - allocatedSum).toFixed(2);
       return { allocationAmount: lastAmount, bizDetailId: item.bizDetailId, bizType: 'PURCHASE' as const };
     }
 
-    const allocAmount = +(paymentAmountNum * ratio).toFixed(2);
+    const allocAmount = +(totalAmount * ratio).toFixed(2);
     allocatedSum += allocAmount;
     return {
       allocationAmount: allocAmount.toFixed(2),
@@ -314,7 +314,7 @@ async function handleCreateExpenseAllocation(
       allocationWay: 'ALL',
       workTime: beijingDateTime(),
       note: `OA: ${instance.instance_no}`,
-      totalAmount: paymentAmountNum,
+      totalAmount,
       expenditureDetail,
       settleDetail,
     },

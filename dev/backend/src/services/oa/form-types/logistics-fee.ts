@@ -3,10 +3,10 @@
  * @module services/oa/form-types/logistics-fee
  *
  * 物流/装卸费用申请流程：
- * 1. 仓储/采购发起：选供应商 → 选采购结算单 → 填费用单价 → 自动计算金额
+ * 1. 仓储/采购发起：选供应商 → 选采购结算单 → 填费用单价 → 自动计算金额 → 选支付模式
  * 2. 往来会计审批
- * 3. 出纳支付（填实付金额、上传回单、选ERP付款账户）
- * 4. 自动节点：创建供应商费用单 → 付款单 → 费用分摊单
+ * 3. 出纳支付（填实付金额、上传回单、选ERP付款账户）— 仅直接支付模式
+ * 4. 自动节点：创建供应商费用单 → 付款单（仅直接支付）→ 费用分摊单
  * 5. 抄送仓储主管
  */
 
@@ -166,31 +166,47 @@ const logisticsFeeFormSchema: FormSchema = {
       placeholder: '请输入备注（可选）',
     },
 
-    // ═══ 区域四：银行账户信息 ═══
+    // ═══ 区域四：支付模式选择 ═══
+    {
+      key: 'paymentMode',
+      label: '支付模式',
+      type: 'select',
+      required: true,
+      defaultValue: 'direct_pay',
+      options: [
+        { value: 'direct_pay', label: '直接支付' },
+        { value: 'register', label: '仅登记（不支付）' },
+      ],
+    },
+    
+    // ═══ 区域五：银行账户信息（仅直接支付模式可见）═══
     // 收款银行账户组件（内联列表），value 为 { accountName, accountNumber, bankName, branchName } 对象
     {
       key: 'bankAccountSelector',
       label: '收款银行账户',
       type: 'bank_account_selector',
-      required: true,
+      required: false,
+      visibleWhen: { field: 'paymentMode', operator: '==', value: 'direct_pay' },
     },
-
-    // ═══ 出纳支付环节字段（handle 节点可编辑） ═══
+    
+    // ═══ 出纳支付环节字段（handle 节点可编辑，仅直接支付模式可见）═══
     {
       key: 'paymentAmount',
       label: '实付金额',
       type: 'money',
       required: false,
       upper: true,
+      visibleWhen: { field: 'paymentMode', operator: '==', value: 'direct_pay' },
     },
     {
       key: 'paymentSubjectId',
       label: '付款账户',
       type: 'select',
-      required: true,
+      required: false,
       searchApi: 'erp_payment_accounts' as const,
       nameField: '_paymentSubjectName',
       autoFill: { _paymentSubjectName: 'name' },
+      visibleWhen: { field: 'paymentMode', operator: '==', value: 'direct_pay' },
     },
     { key: '_paymentSubjectName', label: '付款账户名称', type: 'text', required: false, hidden: true },
     {
@@ -199,6 +215,7 @@ const logisticsFeeFormSchema: FormSchema = {
       type: 'upload',
       required: false,
       maxCount: 5,
+      visibleWhen: { field: 'paymentMode', operator: '==', value: 'direct_pay' },
     },
 
     // ═══ 系统回填字段（auto 节点执行后自动填入，只读） ═══
@@ -229,13 +246,15 @@ const logisticsFeeWorkflowDef: { nodes: WorkflowNodeDef[] } = {
       handler: { roleCode: OA_ROLE.ACCOUNTANT },
       signMode: 'or',
     },
-    // 节点2: 出纳支付（操作型节点，仅付款字段可编辑）
+    // 节点2: 出纳支付（操作型节点，仅付款字段可编辑，仅直接支付模式执行）
     {
       order: 2,
       name: '出纳支付',
       type: 'handle',
       handler: { roleCode: OA_ROLE.CASHIER },
       signMode: 'or',
+      condition: { field: 'paymentMode', operator: '==' as const, value: 'direct_pay' },
+      conditionDescription: '直接支付模式',
     },
     // 节点3: 创建供应商费用单 (auto)
     {
@@ -243,11 +262,13 @@ const logisticsFeeWorkflowDef: { nodes: WorkflowNodeDef[] } = {
       name: '创建供应商费用单',
       type: 'auto',
     },
-    // 节点4: 创建供应商付款单 (auto)
+    // 节点4: 创建供应商付款单 (auto，仅直接支付模式执行)
     {
       order: 4,
       name: '创建供应商付款单',
       type: 'auto',
+      condition: { field: 'paymentMode', operator: '==' as const, value: 'direct_pay' },
+      conditionDescription: '直接支付模式',
     },
     // 节点5: 创建费用分摊单 (auto)
     {
@@ -352,8 +373,8 @@ export const logisticsFeeFormType: FormTypeDefinition = {
   icon: 'CarOutlined',
   category: 'supply_chain',
   sortOrder: 60,
-  description: '申请支付物流费用、装卸费用，审批通过后自动创建ERP费用单、付款单和费用分摊单',
-  version: 3,
+  description: '申请支付或登记物流费用、装卸费用，审批通过后自动创建ERP费用单和费用分摊单（直接支付模式额外创建付款单）',
+  version: 4,
 
   formSchema: logisticsFeeFormSchema,
   workflowDef: logisticsFeeWorkflowDef,
@@ -382,7 +403,7 @@ export const logisticsFeeFormType: FormTypeDefinition = {
     },
     {
       nodeOrder: 4,
-      description: '系统自动创建供应商付款单（核销费用单）',
+      description: '系统自动创建供应商付款单（核销费用单，仅直接支付模式）',
       erpMetaFields: ['paidBillId', 'paidBillStr'],
       formDataFields: ['_paidBillStr'],
     },
@@ -399,4 +420,11 @@ export const logisticsFeeFormType: FormTypeDefinition = {
 
   /** 驳回回滚：反向取消已创建的 ERP 单据 */
   onRejected: handleLogisticsFeeRejected,
+  fieldPermissions: {
+    nodes: {
+      "0": { "remark": "editable", "feeType": "editable", "feeLines": "editable", "feeSupplierId": "editable", "paymentAmount": "hidden", "paymentMode": "editable", "settlementIds": "editable", "attachmentUrls": "editable", "feeTotalAmount": "editable", "paymentSubjectId": "hidden", "feeLines.quantity": "readonly", "feeLines.feeAmount": "readonly", "feeLines.goodsName": "readonly", "paymentReceiptUrls": "hidden", "bankAccountSelector": "editable", "settlementIds.bizStr": "readonly", "feeLines.billOrderStr": "readonly", "feeLines.currUnitName": "readonly", "feeLines.feeUnitPrice": "readonly", "feeLines.settleAmount": "readonly", "settlementIds.workTime": "readonly", "settlementIds.settleAmount": "readonly", "settlementIds.supplierName": "readonly", "settlementIds.warehouseName": "readonly" },
+      "1": { "remark": "readonly", "feeType": "readonly", "feeLines": "readonly", "feeSupplierId": "readonly", "paymentAmount": "hidden", "paymentMode": "readonly", "settlementIds": "readonly", "attachmentUrls": "readonly", "feeTotalAmount": "readonly", "paymentSubjectId": "hidden", "feeLines.quantity": "readonly", "feeLines.feeAmount": "readonly", "feeLines.goodsName": "readonly", "paymentReceiptUrls": "hidden", "bankAccountSelector": "readonly", "settlementIds.bizStr": "readonly", "feeLines.billOrderStr": "readonly", "feeLines.currUnitName": "readonly", "feeLines.feeUnitPrice": "readonly", "feeLines.settleAmount": "readonly", "settlementIds.workTime": "readonly", "settlementIds.settleAmount": "readonly", "settlementIds.supplierName": "readonly", "settlementIds.warehouseName": "readonly" },
+      "2": { "remark": "readonly", "feeType": "readonly", "feeLines": "readonly", "feeSupplierId": "readonly", "paymentAmount": "editable", "paymentMode": "readonly", "settlementIds": "readonly", "attachmentUrls": "readonly", "feeTotalAmount": "readonly", "paymentSubjectId": "editable", "feeLines.quantity": "readonly", "feeLines.feeAmount": "readonly", "feeLines.goodsName": "readonly", "paymentReceiptUrls": "editable", "bankAccountSelector": "readonly", "settlementIds.bizStr": "readonly", "feeLines.billOrderStr": "readonly", "feeLines.currUnitName": "readonly", "feeLines.feeUnitPrice": "readonly", "feeLines.settleAmount": "readonly", "settlementIds.workTime": "readonly", "settlementIds.settleAmount": "readonly", "settlementIds.supplierName": "readonly", "settlementIds.warehouseName": "readonly" }
+    },
+  },
 };

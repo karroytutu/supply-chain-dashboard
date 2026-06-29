@@ -655,8 +655,8 @@ export interface FormTypeDefinition {
   ) => Promise<PreviewContextResult>;
   /** auto 节点回填声明列表（可选），声明后框架自动执行回填 */
   nodeBackfills?: NodeBackfill[];
-  /** 字段权限 DB 覆盖值（发起阶段 + 环节覆盖），由 mapFormTypeRow 从 DB 读取 */
-  fieldPermissions?: FieldPermissionsOverride;
+  /** 字段权限（代码固化，唯一数据源） */
+  fieldPermissions: FieldPermissionsOverride;
   /** 查看权限 DB 覆盖值（非办理人查看详情时使用），由 mapFormTypeRow 从 DB 读取 */
   viewPermissions?: ViewPermissionsOverride;
   /** 通用查重配置（可选），声明后框架在提交时自动执行查重并生成提示 */
@@ -712,8 +712,6 @@ export interface OaFormTypeRow {
   allowed_users: number[] | null;
   data_read_users: number[] | null;
   data_export_users: number[] | null;
-  /** 字段权限 DB 覆盖配置（管理员通过表单管理页面配置） */
-  field_permissions?: FieldPermissionsOverride | null;
   /** 查看权限 DB 覆盖配置（非办理人查看详情时使用，NULL=默认全部隐藏） */
   view_permissions?: ViewPermissionsOverride | null;
   /** 流程管理配置 DB 存储（审批人规则、签署模式、超时时限），与代码定义的节点结构分离 */

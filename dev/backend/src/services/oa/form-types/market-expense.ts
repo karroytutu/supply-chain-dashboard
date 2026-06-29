@@ -607,6 +607,13 @@ export const marketExpenseFormType: FormTypeDefinition = {
       formDataFields: ['_expenditureBillStr', '_expenditureBillId'],
     },
   ],
+  fieldPermissions: {
+    nodes: {
+      "0": { "customerId": "editable", "chargeSubject": "editable", "expenseType": "editable", "chargeBrandId": "editable", "periodType": "editable", "belongMonths": "editable", "remark": "editable", "cashAmount": "editable", "goodsList": "editable", "goodsList.goodsId": "editable", "goodsList.currUnitName": "editable", "goodsList.quantity": "editable", "goodsList.wholesalePrice": "editable", "goodsList.lineRemark": "editable", "monthlySalesAmount": "editable", "monthlyApprovedExpense": "editable" },
+      "1": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly" },
+      "2": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly" }
+    },
+  },
 };
 
 export default marketExpenseFormType;

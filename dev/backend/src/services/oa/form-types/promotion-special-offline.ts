@@ -364,6 +364,13 @@ export const promotionSpecialOfflineFormType: FormTypeDefinition = {
       formDataFields: ['promotionId', 'promotionNo'],
     },
   ],
+  fieldPermissions: {
+    nodes: {
+      "0": { "name": "editable", "remark": "editable", "goodsList": "editable", "issueRange": "editable", "saleRemark": "editable", "promotionNo": "readonly", "clientIdList": "editable", "clientAreaIds": "editable", "promotionPeriod": "editable", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly" },
+      "1": { "name": "readonly", "remark": "readonly", "goodsList": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly" },
+      "2": { "name": "readonly", "remark": "readonly", "goodsList": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly" }
+    },
+  },
 };
 
 export default promotionSpecialOfflineFormType;

@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "v2.18.0",
+      "date": "2026-06-29 20:43",
+      "types": ["feature", "breaking"],
+      "changes": [
+        "OA字段权限从数据库管理改为代码固化（breaking）：13个审批表单的字段权限全部内嵌到各表单类型定义中，删除数据库field_permissions列，移除管理页面的字段权限配置Tab和相关API，编译时保证完整性而非运行时校验",
+        "物流费审批新增支付模式选择：支持「直接支付」和「仅登记（不支付）」两种模式，仅登记模式下出纳支付环节和自动付款单创建自动跳过，迁移160",
+        "前后端配套清理：删除FieldPermissionMatrix组件(128行)、useFieldPermissions Hook(84行)、字段权限管理API路由和控制器、field-permission-validator中validateCompleteness函数",
+        "开发数据库同步脚本增强：新增表结构对比、列差异检测、智能跳过系统表等功能",
+        "2项迁移: 物流费登记模式(160)、删除field_permissions列(161)"
+      ]
+    },
+    {
       "version": "v2.17.2",
       "date": "2026-06-29 16:44",
       "types": ["optimization", "fix"],
