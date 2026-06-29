@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "v2.17.1",
+      "date": "2026-06-29 22:30",
+      "types": ["fix"],
+      "changes": [
+        "修复对账领单流程PDF渲染失败：Dockerfile.backend补充COPY print-renderer/assets静态资源（CSS/JS），解决生产环境Playwright渲染对账单PDF时因资源404导致超时的bug"
+      ]
+    },
+    {
       "version": "v2.17.0",
       "date": "2026-06-29 16:00",
       "types": ["feature", "breaking", "optimization"],
