@@ -121,6 +121,11 @@ const ModuleGroup: React.FC<ModuleGroupProps> = ({
     <div className={styles.moduleGroup}>
       <Collapse
         defaultActiveKey={[moduleCode]}
+        styles={{
+          header: { background: '#fafafa', padding: '12px 16px', alignItems: 'center' },
+          body: { padding: '12px 16px' },
+        }}
+        bordered={false}
         items={[{
           key: moduleCode,
           label: (

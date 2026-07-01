@@ -160,7 +160,7 @@ const ArDashboard: React.FC = () => {
   // Loading 状态：200ms 后显示骨架屏，缓存命中时不会闪烁
   if (loading && showSkeleton) {
     return (
-      <div className={styles.page}>
+      <div className={`page-scroll ${styles.page}`}>
         {/* 页头骨架 */}
         <div className={styles.header}>
           <Skeleton.Input active style={{ width: 200, height: 22 }} />
@@ -205,9 +205,9 @@ const ArDashboard: React.FC = () => {
   // 错误状态：保留页面标题 + 可重试的 Result 组件
   if (error) {
     return (
-      <div className={styles.page}>
+      <div className={`page-scroll ${styles.page}`}>
         <div className={styles.header}>
-          <Title level={3} className={styles.title}>应收账款全景看板</Title>
+          <Title level={3} style={{ margin: 0 }}>应收账款全景看板</Title>
         </div>
         <div style={{ padding: 24 }}>
           <Result
@@ -236,9 +236,9 @@ const ArDashboard: React.FC = () => {
   }));
 
   return (
-    <div className={styles.page}>
+    <div className={`page-scroll ${styles.page}`}>
       <div className={styles.header}>
-        <Title level={3} className={styles.title}>应收账款全景看板</Title>
+        <Title level={3} style={{ margin: 0 }}>应收账款全景看板</Title>
         <Text type="secondary">
           数据更新时间：{data.updatedAt?.replace('T', ' ').slice(0, 19) || '--'}
           {data.isStale && <Tag color="orange" style={{ marginLeft: 8 }}>数据正在更新中</Tag>}

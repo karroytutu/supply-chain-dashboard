@@ -1,0 +1,40 @@
+@import '~@/styles/variables.less';
+
+.page {
+  padding: @spacing-md;
+}
+
+.statusCard {
+  :global(.ant-card-body) {
+    padding: @spacing-section @spacing-md;
+  }
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: @spacing-sm;
+  font-size: 13px;
+
+  .label {
+    color: @text-color-tertiary;
+    width: 80px;
+    flex-shrink: 0;
+  }
+}
+
+.freshness {
+  font-size: @font-size-sm;
+  color: @text-color-placeholder;
+
+  &.stale {
+    color: @error-color;
+    font-weight: 500;
+  }
+}
+
+.actions {
+  margin-top: @spacing-section;
+  display: flex;
+  gap: @spacing-sm;
+}

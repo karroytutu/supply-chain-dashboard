@@ -7,6 +7,7 @@ import {
   DollarOutlined, UserOutlined, TeamOutlined, ShopOutlined,
 } from '@ant-design/icons';
 import type { TargetSummary } from '@/types/target-management';
+import { formatCompactAmount } from '@/utils/format';
 import styles from './index.less';
 
 interface SummaryCardsProps {
@@ -14,10 +15,7 @@ interface SummaryCardsProps {
 }
 
 /** 格式化金额（万元） */
-function formatAmount(amount: number): string {
-  if (amount >= 10000) return `¥${(amount / 10000).toFixed(1)}万`;
-  return `¥${amount.toLocaleString()}`;
-}
+const fmtAmt = (n: number) => formatCompactAmount(n, { zeroAs: '¥0' });
 
 interface CardDef {
   key: string;
@@ -30,15 +28,15 @@ interface CardDef {
 const CARDS: CardDef[] = [
   {
     key: 'amount', title: '目标销售额', icon: <DollarOutlined />, color: '#faad14',
-    render: (d) => formatAmount(d.totalTargetAmount),
+    render: (d) => fmtAmt(d.totalTargetAmount),
   },
   {
     key: 'perMarketer', title: '人均销售额', icon: <UserOutlined />, color: '#1890ff',
-    render: (d) => `${formatAmount(d.amountPerMarketer)}/人`,
+    render: (d) => `${fmtAmt(d.amountPerMarketer)}/人`,
   },
   {
     key: 'perCustomer', title: '客均销售额', icon: <TeamOutlined />, color: '#13c2c2',
-    render: (d) => `${formatAmount(d.amountPerCustomer)}/客`,
+    render: (d) => `${fmtAmt(d.amountPerCustomer)}/客`,
   },
   {
     key: 'customers', title: '覆盖客户数', icon: <TeamOutlined />, color: '#52c41a',
@@ -66,4 +64,4 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ summary }) => {
   );
 };
 
-export default SummaryCards;
+export default React.memo(SummaryCards);

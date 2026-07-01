@@ -1,0 +1,64 @@
+@import '../../../../styles/variables.less';
+
+.listContainer {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.groupHeader {
+  padding: 6px @spacing-section;
+  background: @bg-color-hover;
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: @spacing-sm;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: @spacing-sm;
+  padding: @spacing-sm @spacing-section;
+  cursor: pointer;
+  border-bottom: 1px solid @border-color-split;
+  transition: background 0.15s;
+
+  &:hover {
+    background: @bg-color-hover;
+  }
+
+  &:focus-visible {
+    outline: 2px solid @primary-color;
+    outline-offset: -2px;
+  }
+}
+
+.listItemSelected {
+  background: @primary-bg-light;
+
+  &:hover {
+    background: @primary-bg-light;
+  }
+}
+
+.itemName {
+  flex: 1;
+}
+
+.itemPrice {
+  color: @text-color-placeholder;
+  font-size: 12px;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 0;
+  color: @text-color-placeholder;
+}
+
+.footer {
+  margin-top: @spacing-sm;
+  color: @text-color-placeholder;
+  font-size: 12px;
+}

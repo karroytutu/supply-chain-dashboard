@@ -1,19 +1,58 @@
+@import '../../styles/variables.less';
+
 .page {
-  padding: 16px;
-  background: #f5f7fa;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  gap: @spacing-md;
 }
 
-.prototypeBanner {
-  border-radius: 8px;
-}
-
-.mainContent {
-  display: flex;
-  gap: 16px;
+.contentWrapper {
   flex: 1;
   min-height: 0;
+  display: flex;
+  gap: @spacing-md;
+}
+
+// 响应式布局
+@media (max-width: @screen-md) {
+  .contentWrapper {
+    flex-direction: column;
+  }
+
+  .page {
+    overflow: auto;
+    height: auto;
+    min-height: 100%;
+  }
+}
+
+// 加载提示
+.loadingHint {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: @text-color-placeholder;
+}
+
+// 错误边界降级 UI
+.errorFallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px @spacing-lg;
+  text-align: center;
+}
+
+.errorTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: @text-color-regular;
+  margin-bottom: @spacing-sm;
+}
+
+.errorMsg {
+  font-size: 14px;
+  color: @text-color-tertiary;
+  margin-bottom: @spacing-lg;
 }

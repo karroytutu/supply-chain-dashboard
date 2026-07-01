@@ -239,7 +239,7 @@ export default function TokenManager() {
   ];
 
   return (
-    <div className={styles.page}>
+    <div className={`page-scroll ${styles.page}`}>
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           {renderStatusCard(

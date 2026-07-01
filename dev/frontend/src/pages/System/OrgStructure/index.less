@@ -1,15 +1,17 @@
+@import '~@/styles/variables.less';
+
 .orgContainer {
   display: flex;
-  gap: 16px;
-  height: calc(100vh - 180px);
-  min-height: 500px;
+  gap: @spacing-md;
+  flex: 1; // 在 .page-full 内填满剩余空间
+  min-height: 0; // 允许 flex 子元素收缩
 }
 
 .deptTreePanel {
   width: 280px;
   min-width: 280px;
-  background: #fff;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
   padding: 16px;
   overflow-y: auto;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -17,8 +19,8 @@
 
 .detailPanel {
   flex: 1;
-  background: #fff;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
   padding: 16px;
   overflow-y: auto;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -28,5 +30,5 @@
   font-weight: 600;
   font-size: 15px;
   margin-bottom: 12px;
-  color: #333;
+  color: @text-color-regular;
 }

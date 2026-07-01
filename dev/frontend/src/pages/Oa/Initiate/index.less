@@ -1,9 +1,7 @@
 @import '~@/styles/variables.less';
 
 .container {
-  padding: 24px;
-  background: #f5f7fa;
-  min-height: calc(100vh - 64px);
+  // .page-full 已提供 padding + background + height
 }
 
 .loadingContainer {
@@ -17,7 +15,7 @@
 .pageHeader {
   padding: 16px 20px;
   background: var(--color-surface, #fff);
-  border-radius: 8px 8px 0 0;
+  border-radius: @border-radius-base 8px 0 0;
 }
 
 .pageTitle {
@@ -37,7 +35,7 @@
 // 分类区域
 .categorySection {
   background: var(--color-surface, #fff);
-  border-radius: 8px;
+  border-radius: @border-radius-base;
   padding: 16px 20px;
 }
 
@@ -76,7 +74,7 @@
 // 空状态
 .emptyState {
   background: var(--color-surface, #fff);
-  border-radius: 8px;
+  border-radius: @border-radius-base;
   padding: 48px 24px;
   text-align: center;
 }

@@ -137,7 +137,7 @@ export default function RoleManage() {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={`page-scroll ${styles.container}`}>
       <Card>
         <div className={styles.toolbar}>
           <Space>

@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .wrap {
   display: flex;
   flex-direction: column;
@@ -19,21 +21,21 @@
 
 .filterChip {
   padding: 2px 12px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid @border-color-strong;
   border-radius: 999px;
-  background: #fff;
+  background: @bg-color-card;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 
   &.active {
-    border-color: #1677ff;
-    color: #1677ff;
-    background: #e6f4ff;
+    border-color: @primary-color;
+    color: @primary-color;
+    background: @primary-bg-light;
   }
 
   &:hover {
-    border-color: #1677ff;
+    border-color: @primary-color;
   }
 }
 
@@ -69,9 +71,9 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   padding: 12px;
-  background: #fafafa;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
+  background: @bg-color-hover;
+  border-radius: @border-radius-base;
+  border: 1px solid @border-color-split;
 }
 
 .myViewKicker {
@@ -95,7 +97,7 @@
 
 .myViewFocus {
   padding-left: 12px;
-  border-left: 2px solid #1677ff;
+  border-left: 2px solid @primary-color;
 }
 
 .myViewFocusTop {
@@ -107,7 +109,7 @@
 
 .myViewFocusLabel {
   font-size: 12px;
-  color: #1677ff;
+  color: @primary-color;
   font-weight: 500;
 }
 
@@ -115,7 +117,7 @@
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: #fff7e6;
+  background: @warning-alert-bg;
   color: #d48806;
 }
 
@@ -161,9 +163,9 @@
 }
 
 .mobileCard {
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border: 1px solid @border-color-split;
+  border-radius: @border-radius-base;
   padding: 12px 16px;
 }
 
@@ -177,7 +179,7 @@
 .mobileCardName {
   font-weight: 600;
   font-size: 14px;
-  color: #262626;
+  color: @text-color-primary;
 }
 
 .mobileCardSubHeader {
@@ -223,22 +225,7 @@
     grid-row: 1;
     width: 100%;
     min-width: 0;
-
-    :global(.ant-select) {
-      width: 100% !important;
-      min-width: 0 !important;
-    }
-
-    :global(.ant-select-selector) {
-      height: 28px !important;
-      min-height: 28px !important;
-    }
-
-    :global(.ant-select-selection-item),
-    :global(.ant-select-selection-placeholder) {
-      line-height: 26px !important;
-      font-size: 12px;
-    }
+    // Select 组件已通过 size="small" 和 style prop 定制，不需要 CSS 穿透
   }
 
   .ownerSelect {
@@ -246,22 +233,7 @@
     grid-row: 1;
     width: 100%;
     min-width: 0;
-
-    :global(.ant-select) {
-      width: 100% !important;
-      min-width: 0 !important;
-    }
-
-    :global(.ant-select-selector) {
-      height: 28px !important;
-      min-height: 28px !important;
-    }
-
-    :global(.ant-select-selection-item),
-    :global(.ant-select-selection-placeholder) {
-      line-height: 26px !important;
-      font-size: 12px;
-    }
+    // Select 组件已通过 size="small" 和 style prop 定制，不需要 CSS 穿透
   }
 
   .filterSearch {
@@ -302,10 +274,7 @@
   .searchBar {
     flex-direction: column;
     align-items: stretch;
-
-    :global(.ant-select) {
-      width: 100% !important;
-    }
+    // Select 组件已通过 style={{ width: '100%' }} 定制
   }
 
   .myViewSummary {

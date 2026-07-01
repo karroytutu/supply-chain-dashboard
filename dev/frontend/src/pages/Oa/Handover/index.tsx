@@ -151,7 +151,7 @@ const HandoverPage: React.FC = () => {
   const canExecute = scanResult && (selectedCodes.length > 0 || selectedInstanceIds.length > 0) && targetUserId && sourceUserId !== targetUserId;
 
   return (
-    <div className={styles.handoverPage}>
+    <div className={`page-scroll ${styles.handoverPage}`}>
       {/* 操作区 */}
       <Card title="流程交接" className={styles.operationCard}>
         <Space size="large" align="end" wrap>

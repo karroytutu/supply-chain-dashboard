@@ -1,6 +1,8 @@
+@import '~@/styles/variables.less';
+
 .card {
-  background: #fff;
-  border: 1px solid #f0f0f0;
+  background: @bg-color-card;
+  border: 1px solid @border-color-split;
   border-radius: 10px;
   padding: 20px 24px;
   transition: border-color 0.2s;
@@ -9,7 +11,7 @@
 }
 
 .card:hover {
-  border-color: #1890ff;
+  border-color: @primary-color;
 }
 
 .header {
@@ -28,7 +30,7 @@
 .iconWrap {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: @border-radius-base;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -54,13 +56,13 @@
   justify-content: space-between;
   padding: 8px 12px;
   border-radius: 6px;
-  background: #fafafa;
+  background: @bg-color-hover;
   font-size: 13px;
   transition: background 0.15s;
 }
 
 .itemRow:hover {
-  background: #f0f5ff;
+  background: @primary-bg-lighter;
 }
 
 .itemLabel {

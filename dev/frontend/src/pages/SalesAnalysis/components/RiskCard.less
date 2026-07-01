@@ -1,17 +1,19 @@
+@import '~@/styles/variables.less';
+
 .card {
-  border-radius: 8px;
+  border-radius: @border-radius-base;
   cursor: pointer;
 
   &.riskRed {
-    border-left: 4px solid #ff4d4f;
+    border-left: 4px solid @error-color;
   }
 
   &.riskYellow {
-    border-left: 4px solid #faad14;
+    border-left: 4px solid @warning-color;
   }
 
   &.riskBlue {
-    border-left: 4px solid #1677ff;
+    border-left: 4px solid @primary-color;
   }
 }
 
@@ -44,7 +46,7 @@
   gap: 8px;
   margin-bottom: 12px;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid @border-color-split;
 }
 
 .metaRow {
@@ -64,11 +66,11 @@
   flex-direction: column;
   gap: 2px;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid @border-color-split;
 }
 
 .link {
-  color: #1677ff;
+  color: @primary-color;
   font-size: 13px;
   font-weight: 500;
 }

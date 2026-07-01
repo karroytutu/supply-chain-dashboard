@@ -6,26 +6,22 @@ import React, { useState, useMemo } from 'react';
 import { Input, Button, Tag, Empty } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import type { CustomerTarget } from '@/types/target-management';
+import { formatCompactAmount } from '@/utils/format';
 import styles from './index.less';
 
 interface CustomerListPanelProps {
   customers: CustomerTarget[];
-  selectedCustomerId: string | null;
-  onSelectCustomer: (id: string) => void;
+  selectedCustomerId: number | null;
+  onSelectCustomer: (id: number) => void;
   onAddCustomer: () => void;
   getCustomerTotal: (customer: CustomerTarget) => number;
   readOnly: boolean;
-}
-
-/** 格式化金额 */
-function fmtAmount(n: number): string {
-  if (n >= 10000) return `¥${(n / 10000).toFixed(1)}万`;
-  if (n > 0) return `¥${n.toLocaleString()}`;
-  return '¥0';
+  /** 全部营销师视图时显示营销师标签 */
+  showMarketerTag?: boolean;
 }
 
 const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
-  customers, selectedCustomerId, onSelectCustomer, onAddCustomer, getCustomerTotal, readOnly,
+  customers, selectedCustomerId, onSelectCustomer, onAddCustomer, getCustomerTotal, readOnly, showMarketerTag,
 }) => {
   const [keyword, setKeyword] = useState('');
 
@@ -56,22 +52,27 @@ const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
             return (
               <div
                 key={customer.customerId}
+                role="button"
+                tabIndex={0}
+                aria-pressed={isSelected}
                 className={`${styles.item} ${isSelected ? styles.itemSelected : ''} ${customer.isPlannedNew ? styles.itemNew : ''}`}
                 onClick={() => onSelectCustomer(customer.customerId)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectCustomer(customer.customerId); } }}
               >
                 <div className={styles.itemTop}>
                   <div className={styles.itemName}>
                     {customer.isPlannedNew && <Tag color="orange" className={styles.newTag}>新</Tag>}
+                    {showMarketerTag && <Tag color="blue" className={styles.marketerTag}>{customer.marketerName}</Tag>}
                     {customer.customerName}
                   </div>
-                  <span className={styles.itemAmount}>{fmtAmount(total)}</span>
+                  <span className={styles.itemAmount}>{formatCompactAmount(total, { zeroAs: '¥0' })}</span>
                 </div>
                 {topCategories.length > 0 && (
                   <div className={styles.itemCategories}>
                     {topCategories.map((cat, idx) => (
                       <React.Fragment key={cat.categoryId}>
                         {idx > 0 && <span className={styles.catSeparator}> | </span>}
-                        <span>{cat.categoryName}{fmtAmount(cat.products.reduce((s, p) => s + p.targetAmount, 0))}</span>
+                        <span>{cat.categoryName}{formatCompactAmount(cat.products.reduce((s, p) => s + p.targetAmount, 0), { zeroAs: '¥0' })}</span>
                       </React.Fragment>
                     ))}
                   </div>
@@ -92,4 +93,4 @@ const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
   );
 };
 
-export default CustomerListPanel;
+export default React.memo(CustomerListPanel);

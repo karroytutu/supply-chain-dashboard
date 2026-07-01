@@ -160,7 +160,7 @@ export default function UserManage() {
   ];
 
   return (
-    <div className={styles.container}>
+    <div className={`page-scroll ${styles.container}`}>
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}

@@ -1,5 +1,7 @@
+@import '~@/styles/variables.less';
+
 .page {
-  padding: 16px;
+  padding: @spacing-md;
 }
 
 .statusCard {
@@ -7,19 +9,19 @@
 }
 
 .statusRow {
-  margin-bottom: 8px;
+  margin-bottom: @spacing-sm;
   font-size: 13px;
   line-height: 1.8;
 
   .label {
-    color: #666;
+    color: @text-color-tertiary;
     display: inline-block;
     width: 80px;
   }
 }
 
 .actions {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  margin-top: @spacing-section;
+  padding-top: @spacing-section;
+  border-top: 1px solid @border-color-split;
 }

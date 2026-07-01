@@ -10,7 +10,6 @@ import { appQuery } from '../../db/appPool';
 import { beijingDate, beijingDateOffset } from '../../utils/beijingTime';
 import { getEnrichedNonHoardDebts, filterHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 import { computeUpcomingWarnings, type UpcomingWarningDetail } from '../ar-collection/ar-warning.query';
-import { fetchSalesDetails } from '../erp-client/erp-sales-detail.service';
 import type { DashboardContext, OaCollectionInstanceRow } from './ar-dashboard.types';
 import type { EnrichedDebtRecord } from '../erp-debt/erp-debt.types';
 
@@ -31,7 +30,10 @@ export async function buildDashboardContext(): Promise<DashboardContext> {
   const [debtsResult, oaResult, salesResult] = await Promise.allSettled([
     getEnrichedNonHoardDebts(now),
     fetchCollectionOaInstances(),
-    fetchSalesDetails(beijingDateOffset(-30), beijingDate()),
+    appQuery(
+      'SELECT * FROM erp_sales_details WHERE settle_time >= $1 AND settle_time < $2',
+      [beijingDateOffset(-30), beijingDate()]
+    ).then(r => r.rows),
   ]);
 
   const enrichedDebts = settleOrEmpty<EnrichedDebtRecord[]>(debtsResult, 'ERP欠款数据');
@@ -91,12 +93,12 @@ export async function fetchCollectionOaInstances(): Promise<OaCollectionInstance
  */
 function computeDso(
   enrichedDebts: EnrichedDebtRecord[],
-  sales: Awaited<ReturnType<typeof fetchSalesDetails>>
+  sales: Record<string, unknown>[]
 ): number | null {
   if (sales.length === 0) return null;
 
   const totalSales = sales.reduce((sum, s) => {
-    const amount = parseFloat(s.financeSalesAmount) || 0;
+    const amount = parseFloat(s.finance_sales_amount as string) || 0;
     return sum + amount;
   }, 0);
 

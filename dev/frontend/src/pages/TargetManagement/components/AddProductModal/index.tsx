@@ -4,6 +4,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import { Modal, Input, Checkbox, Button, Tag } from 'antd';
+import styles from './index.less';
 
 interface AvailableProduct {
   productId: string;
@@ -20,7 +21,7 @@ interface AddProductModalProps {
   onSuccess: (products: Array<{ productId: string; productName: string; categoryId: string; categoryName: string; unit: string; unitPrice: number }>) => void;
   availableProducts: AvailableProduct[];
   customerName: string;
-  /** 品类过滤：从品类行打开时传入，只显示该品类的商品 */
+  /** 品类过滤：从品类行打开时传入，只显示该品类商品 */
   filterCategoryId?: string;
   filterCategoryName?: string;
 }
@@ -64,6 +65,13 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleProduct(id);
+    }
+  };
+
   const handleOk = () => {
     const result = availableProducts.filter((p) => selected.has(p.productId));
     onSuccess(result.map((p) => ({
@@ -105,39 +113,40 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         onChange={(e) => setKeyword(e.target.value)}
         style={{ marginBottom: 12 }}
       />
-      <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+      <div className={styles.listContainer}>
         {grouped.map(([catId, group]) => (
           <div key={catId}>
             {!filterCategoryId && (
-              <div style={{ padding: '6px 12px', background: '#fafafa', fontWeight: 600, fontSize: 13 }}>
+              <div className={styles.groupHeader}>
                 {group.categoryName}
-                <Tag style={{ marginLeft: 8 }}>{group.products.length}个商品</Tag>
+                <Tag>{group.products.length}个商品</Tag>
               </div>
             )}
-            {group.products.map((product) => (
-              <div
-                key={product.productId}
-                onClick={() => toggleProduct(product.productId)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-                  cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
-                  background: selected.has(product.productId) ? '#e6f7ff' : 'transparent',
-                }}
-              >
-                <Checkbox checked={selected.has(product.productId)} />
-                <span style={{ flex: 1 }}>{product.productName}</span>
-                <span style={{ color: '#999', fontSize: 12 }}>¥{product.unitPrice}/{product.unit}</span>
-              </div>
-            ))}
+            {group.products.map((product) => {
+              const isSelected = selected.has(product.productId);
+              return (
+                <div
+                  key={product.productId}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  onClick={() => toggleProduct(product.productId)}
+                  onKeyDown={(e) => handleKeyDown(e, product.productId)}
+                  className={`${styles.listItem} ${isSelected ? styles.listItemSelected : ''}`}
+                >
+                  <Checkbox checked={isSelected} />
+                  <span className={styles.itemName}>{product.productName}</span>
+                  <span className={styles.itemPrice}>¥{product.unitPrice}/{product.unit}</span>
+                </div>
+              );
+            })}
           </div>
         ))}
         {filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-            暂无可添加的商品
-          </div>
+          <div className={styles.empty}>暂无可添加的商品</div>
         )}
       </div>
-      <div style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
+      <div className={styles.footer}>
         已选择: {selected.size} 个商品
       </div>
     </Modal>

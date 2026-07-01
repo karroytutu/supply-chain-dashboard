@@ -50,7 +50,7 @@ const ApprovalDetailPage: React.FC = () => {
   };
 
   return (
-    <div className={styles.detailPage}>
+    <div className={`page-full ${styles.detailPage}`}>
       <ApprovalDetailContent
         detail={detail}
         actionState={actionState}

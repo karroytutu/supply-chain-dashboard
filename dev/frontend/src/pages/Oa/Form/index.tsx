@@ -364,7 +364,7 @@ const FormPage: React.FC = () => {
   }
 
   return (
-    <div className={styles.container}>
+    <div className={`page-full ${styles.container}`}>
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => history.back()}>

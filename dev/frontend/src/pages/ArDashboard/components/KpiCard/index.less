@@ -1,5 +1,7 @@
+@import '~@/styles/variables.less';
+
 .card {
-  border-radius: 8px;
+  border-radius: @border-radius-base;
   transition: box-shadow 0.2s;
 
   :global(.ant-card-body) {
@@ -7,7 +9,7 @@
   }
 
   &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+    box-shadow: @box-shadow-card;
   }
 }
 
@@ -16,7 +18,7 @@
 
   &:hover {
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
-    border-color: #1890ff;
+    border-color: @primary-color;
   }
 }
 
@@ -55,7 +57,7 @@
 .auxiliary {
   margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid @border-color-split;
   display: flex;
   gap: 8px;
   flex-wrap: nowrap;

@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .bar {
   display: flex;
   gap: 16px;
@@ -5,9 +7,9 @@
 }
 
 .item {
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border: 1px solid @border-color-split;
+  border-radius: @border-radius-base;
   padding: 16px 20px;
   flex: 1;
   display: flex;
@@ -18,7 +20,7 @@
 }
 
 .item:hover {
-  border-color: #1890ff;
+  border-color: @primary-color;
 }
 
 .icon {
@@ -33,23 +35,23 @@
 }
 
 .danger {
-  background: #fff1f0;
-  color: #f5222d;
+  background: @warning-serious-bg;
+  color: @error-color-dark;
 }
 
 .warning {
-  background: #fff7e6;
-  color: #fa8c16;
+  background: @warning-alert-bg;
+  color: @warning-color-dark;
 }
 
 .info {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: @primary-bg-light;
+  color: @primary-color;
 }
 
 .success {
-  background: #f6ffed;
-  color: #52c41a;
+  background: @warning-normal-bg;
+  color: @success-color;
 }
 
 .infoText {

@@ -97,9 +97,9 @@ const DetailHeader: React.FC<{
   <div className={styles.detailHeader}>
     <div className={styles.headerTitleRow}>
       {onBack && (
-        <button className={styles.backBtn} onClick={onBack} type="button">
-          <ArrowLeftOutlined /> 返回
-        </button>
+        <Button type="text" className={styles.backBtn} onClick={onBack} icon={<ArrowLeftOutlined />}>
+          返回
+        </Button>
       )}
       <h2 className={styles.detailTitle}>{detail.formTypeName}</h2>
       <div className={styles.headerStatus}>

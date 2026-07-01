@@ -1,9 +1,7 @@
 @import '~@/styles/variables.less';
 
 .dashboard {
-  min-height: 100vh;
-  background-color: #f5f7fa;
-  padding: 24px;
+  // .page-scroll 已提供 padding + background + min-height
 }
 
 .header {
@@ -16,14 +14,14 @@
     .title {
       font-size: 24px;
       font-weight: 600;
-      color: #262626;
+      color: @text-color-primary;
       margin: 0;
       line-height: 1.4;
     }
 
     .subtitle {
       font-size: 14px;
-      color: #8c8c8c;
+      color: @text-color-secondary;
       margin-top: 4px;
       display: block;
     }
@@ -47,7 +45,7 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: @bg-color-base;
 }
 
 .errorContainer {
@@ -55,8 +53,8 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f5f7fa;
-  color: #ff4d4f;
+  background-color: @bg-color-base;
+  color: @error-color;
   font-size: 16px;
 }
 

@@ -9,20 +9,20 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 16px;
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
+  padding: 14px @spacing-md;
+  background: @bg-color-card;
+  border: 1px solid @border-color-split;
+  border-radius: @border-radius-base;
   position: sticky;
   bottom: 0;
   z-index: 10;
-  margin-top: 16px;
+  margin-top: @spacing-md;
 }
 
 // ── 左侧：垂直图标文字组合区 ──
 .actionLeft {
   display: flex;
-  gap: 16px;
+  gap: @spacing-md;
   align-items: center;
 }
 
@@ -31,10 +31,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: @spacing-xs;
   cursor: pointer;
   user-select: none;
-  padding: 4px 2px;
+  padding: @spacing-xs 2px;
   min-width: 44px;
   transition: opacity 0.2s;
 
@@ -47,21 +47,21 @@
   }
 
   &:focus-visible {
-    outline: 2px solid #1890ff;
+    outline: 2px solid @primary-color;
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: @border-radius-sm;
   }
 }
 
 .actionItemIcon {
   font-size: 20px;
-  color: #666;
+  color: @text-color-tertiary;
   line-height: 1;
 }
 
 .actionItemLabel {
-  font-size: 12px;
-  color: #666;
+  font-size: @font-size-sm;
+  color: @text-color-tertiary;
   line-height: 1;
 }
 
@@ -75,14 +75,14 @@
   }
 
   .actionItemLabel {
-    color: #999;
+    color: @text-color-placeholder;
   }
 }
 
 // ── 右侧：操作按钮区 ──
 .actionRight {
   display: flex;
-  gap: 12px;
+  gap: @spacing-section;
   align-items: center;
 }
 
@@ -93,22 +93,22 @@
   gap: 6px;
   height: 36px;
   padding: 0 20px;
-  border-radius: 4px;
-  border: 1px solid #d9d9d9;
-  background: #fff;
-  color: #595959;
+  border-radius: @border-radius-sm;
+  border: 1px solid @border-color-strong;
+  background: @bg-color-card;
+  color: @text-color-body;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 
   &:hover {
-    border-color: #40a9ff;
-    color: #40a9ff;
+    border-color: @primary-color-hover;
+    color: @primary-color-hover;
   }
 
   &:active {
-    border-color: #1890ff;
-    color: #1890ff;
+    border-color: @primary-color;
+    color: @primary-color;
   }
 }
 
@@ -119,23 +119,23 @@
   gap: 6px;
   height: 36px;
   padding: 0 20px;
-  border-radius: 4px;
-  border: 1px solid #1890FF;
-  background: #1890FF;
-  color: #fff;
+  border-radius: @border-radius-sm;
+  border: 1px solid @primary-color;
+  background: @primary-color;
+  color: @bg-color-card;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 
   &:hover {
-    background: #40a9ff;
-    border-color: #40a9ff;
+    background: @primary-color-hover;
+    border-color: @primary-color-hover;
   }
 
   &:active {
-    background: #1890ff;
-    border-color: #1890ff;
+    background: @primary-color;
+    border-color: @primary-color;
   }
 }
 

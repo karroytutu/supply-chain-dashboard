@@ -30,7 +30,7 @@ const DataPage: React.FC = () => {
   );
 
   return (
-    <div className={styles.dataPage}>
+    <div className={`page-full ${styles.dataPage}`}>
       {/* 主内容区 */}
       <Card className={styles.mainCard}>
         <DataFilterBar

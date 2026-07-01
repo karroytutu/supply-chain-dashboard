@@ -44,6 +44,11 @@ export const PERMISSIONS = {
       READ: 'system:token:read',
       WRITE: 'system:token:write',
     },
+    // ERP 数据同步管理
+    ERP_SYNC: {
+      READ: 'system:erp-sync:read',
+      WRITE: 'system:erp-sync:write',
+    },
     // 组织架构
     ORG: {
       READ: 'system:org:read',

@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 /* 移动端弹窗全屏适配 */
 .mobileModal {
   :global {
@@ -25,9 +27,9 @@
 
 .cardItem {
   padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
-  background: #fff;
+  border-radius: @border-radius-base;
+  border: 1px solid @border-color-split;
+  background: @bg-color-card;
   display: flex;
   flex-direction: column;
   gap: 6px;

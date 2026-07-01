@@ -1,28 +1,30 @@
+@import '../../../../styles/variables.less';
+
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
+  gap: @spacing-md;
 
-  @media (max-width: 1200px) {
+  @media (max-width: @screen-xl) {
     grid-template-columns: repeat(3, 1fr);
   }
-  @media (max-width: 768px) {
+  @media (max-width: @screen-md) {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 .card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
+  padding: @spacing-md;
+  box-shadow: @box-shadow-card;
 }
 
 .cardHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: @spacing-sm;
+  margin-bottom: @spacing-section;
 }
 
 .cardIcon {
@@ -31,11 +33,11 @@
 
 .cardTitle {
   font-size: 13px;
-  color: #999;
+  color: @text-color-placeholder;
 }
 
 .cardValue {
   font-size: 24px;
   font-weight: 600;
-  color: #333;
+  color: @text-color-regular;
 }

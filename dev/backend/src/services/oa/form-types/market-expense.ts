@@ -14,7 +14,6 @@ import { createLogger } from '../../../utils/logger';
 import { appQuery as query } from '../../../db/appPool';
 import { beijingDate } from '../../../utils/beijingTime';
 import { getErpMeta } from '../../fixed-asset/erp-meta-utils';
-import { fetchSalesDetails } from '../../erp-client/erp-sales-detail.service';
 import {
   createChargeContract,
   createCustomerExpenditure,
@@ -294,10 +293,14 @@ async function computeMarketExpensePreview(
   try {
     const monthEnd = beijingDate();            // YYYY-MM-DD
     const monthStart = monthEnd.slice(0, 8) + '01'; // 当月1号
-    const salesDetails = await fetchSalesDetails(monthStart, monthEnd);
-    const customerSales = salesDetails.filter(d => d.consumerId === Number(consumerId));
+    const salesResult = await query(
+      'SELECT consumer_id, finance_sales_amount FROM erp_sales_details WHERE settle_time >= $1 AND settle_time < $2',
+      [monthStart, monthEnd]
+    );
+    const salesDetails = salesResult.rows;
+    const customerSales = salesDetails.filter(d => d.consumer_id === Number(consumerId));
     result.monthlySalesAmount = customerSales.reduce(
-      (sum, d) => sum + parseFloat(d.financeSalesAmount || '0'), 0
+      (sum, d) => sum + parseFloat(d.finance_sales_amount || '0'), 0
     );
   } catch (e) {
     log.warn('查询本月销售额失败:', e instanceof Error ? e.message : e);

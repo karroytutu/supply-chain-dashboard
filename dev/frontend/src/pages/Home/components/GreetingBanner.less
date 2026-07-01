@@ -1,7 +1,9 @@
+@import '~@/styles/variables.less';
+
 .banner {
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 12px;
+  background: @bg-color-card;
+  border: 1px solid @border-color-split;
+  border-radius: @border-radius-lg;
   padding: 28px 32px;
   margin-bottom: 24px;
   display: flex;
@@ -26,7 +28,7 @@
 }
 
 .highlight {
-  color: #f5222d;
+  color: @error-color-dark;
   font-weight: 600;
 }
 
@@ -39,7 +41,7 @@
 .dateNum {
   font-size: 36px;
   font-weight: 600;
-  color: #1890ff;
+  color: @primary-color;
   line-height: 1;
   margin-bottom: 4px;
 }

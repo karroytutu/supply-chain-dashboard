@@ -41,7 +41,7 @@ const Center: React.FC = () => {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={`page-full ${styles.container}`}>
       <ApprovalNav viewMode={filters.viewMode} stats={data.stats} onNavClick={handleNavClick} />
 
       {!mobile.isMobile ? (

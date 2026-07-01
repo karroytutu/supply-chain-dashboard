@@ -1,40 +1,60 @@
+@import '../../../../styles/variables.less';
+
 .toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: @spacing-md @spacing-lg;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
 }
 
 .left {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: @spacing-lg;
 }
 
 .right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: @spacing-sm;
 }
 
 .label {
   font-size: 14px;
-  color: #666;
+  color: @text-color-tertiary;
 }
 
 .monthGroup {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: @spacing-xs;
 }
 
 .monthText {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: @text-color-regular;
   min-width: 100px;
   text-align: center;
+}
+
+// 未保存提示
+.dirtyHint {
+  font-size: 13px;
+  color: @warning-color;
+  font-weight: 500;
+}
+
+// 返回概览按钮
+.backBtn {
+  color: @primary-color;
+  font-weight: 500;
+  margin-right: @spacing-sm;
+
+  &:hover {
+    color: @primary-color-hover;
+  }
 }

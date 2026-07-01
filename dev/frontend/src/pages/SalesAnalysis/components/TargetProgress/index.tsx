@@ -6,12 +6,8 @@ import React, { useState } from 'react';
 import { Progress, Tag } from 'antd';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { TARGET_PROGRESS_DATA } from '@/constants/salesAnalysis';
+import { formatCompactAmount } from '@/utils/format';
 import styles from './index.less';
-
-function fmtAmount(n: number): string {
-  if (n >= 10000) return `¥${(n / 10000).toFixed(0)}万`;
-  return `¥${n.toLocaleString()}`;
-}
 
 const TargetProgress: React.FC = () => {
   const data = TARGET_PROGRESS_DATA;
@@ -47,11 +43,11 @@ const TargetProgress: React.FC = () => {
       <div className={styles.overviewCards}>
         <div className={styles.overviewCard}>
           <span className={styles.overviewLabel}>目标额</span>
-          <span className={styles.overviewValue}>{fmtAmount(data.totalTargetAmount)}</span>
+          <span className={styles.overviewValue}>{formatCompactAmount(data.totalTargetAmount)}</span>
         </div>
         <div className={styles.overviewCard}>
           <span className={styles.overviewLabel}>已完成</span>
-          <span className={styles.overviewValue}>{fmtAmount(data.totalActualAmount)}</span>
+          <span className={styles.overviewValue}>{formatCompactAmount(data.totalActualAmount)}</span>
         </div>
         <div className={styles.overviewCard}>
           <span className={styles.overviewLabel}>完成率</span>
@@ -85,8 +81,8 @@ const TargetProgress: React.FC = () => {
                   {expandedRows.has(marketer.marketerId) ? <DownOutlined className={styles.expandIcon} /> : <RightOutlined className={styles.expandIcon} />}
                   {marketer.marketerName}
                 </span>
-                <span className={styles.rankCol}>{fmtAmount(marketer.targetAmount)}</span>
-                <span className={styles.rankCol}>{fmtAmount(marketer.actualAmount)}</span>
+                <span className={styles.rankCol}>{formatCompactAmount(marketer.targetAmount)}</span>
+                <span className={styles.rankCol}>{formatCompactAmount(marketer.actualAmount)}</span>
                 <span className={styles.rankCol}>
                   <Progress
                     percent={marketer.completionRate}
@@ -112,8 +108,8 @@ const TargetProgress: React.FC = () => {
                     <span className={styles.indent} />
                     {customer.customerName}
                   </span>
-                  <span className={styles.rankCol}>{fmtAmount(customer.targetAmount)}</span>
-                  <span className={styles.rankCol}>{fmtAmount(customer.actualAmount)}</span>
+                  <span className={styles.rankCol}>{formatCompactAmount(customer.targetAmount)}</span>
+                  <span className={styles.rankCol}>{formatCompactAmount(customer.actualAmount)}</span>
                   <span className={styles.rankCol}>
                     <Progress
                       percent={customer.completionRate}

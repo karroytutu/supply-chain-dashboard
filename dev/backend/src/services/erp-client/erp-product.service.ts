@@ -9,6 +9,10 @@ import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 import { invalidateFacadeCache } from './erp-data-facade';
+import { appQuery } from '../../db/appPool';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('ErpProductService');
 
 /** API 返回的商品记录 */
 export interface ErpProduct {
@@ -125,19 +129,8 @@ export async function fetchAllProducts(
   return doFetch();
 }
 
-/**
- * 商品索引缓存（从 fetchAllProducts() 结果延迟构建）
- *
- * _productByNameMap: Map<name, ErpProduct> — 按商品名称 O(1) 查找
- * _productByIdMap:   Map<goodsId, ErpProduct> — 按商品 ID O(1) 查找
- *
- * 生命周期：
- * - 首次调用 getProductByName/getProductById 时延迟构建
- * - 在 invalidateProductCache() 被调用时清除
- * - 清除后下次 get 调用会重新从 MemoryCache 读取原始数据并构建索引
- */
-let _productByNameMap: Map<string, ErpProduct> | null = null;
-let _productByIdMap: Map<number, ErpProduct> | null = null;
+// [ERP本地化] 旧的模块级索引缓存已移除，由本地 PostgreSQL 表 + MemoryCache 接管
+// 原 _productByNameMap / _productByIdMap 已删除
 
 /**
  * 获取商品成本价 Map（延迟构建，多仓库取最高成本）
@@ -169,24 +162,81 @@ async function getCostPriceMap(): Promise<Map<number, number>> {
 
 /**
  * 按商品名称查找
+ * 优先从本地 erp_products 表查询，fallback 到内存缓存
  */
 export async function getProductByName(name: string): Promise<ErpProduct | undefined> {
-  if (!_productByNameMap) {
-    const products = await fetchAllProducts();
-    _productByNameMap = new Map(products.map(p => [p.name, p]));
+  // 优先从本地表查询
+  try {
+    const result = await appQuery<Record<string, unknown>>(
+      `SELECT goods_id, name, category_chain_name, shelf_life, state,
+              base_unit_name, pkg_unit_name, mid_unit_name, unit_factor, mid_unit_factor,
+              brand_name, brand_id, specifications, article_number, warn_days,
+              base_wholesale, mid_wholesale, pkg_wholesale
+       FROM erp_products WHERE name = $1 LIMIT 1`,
+      [name]
+    );
+    if (result.rows.length > 0) {
+      return mapLocalRowToProduct(result.rows[0]);
+    }
+  } catch (err) {
+    log.warn('本地表查询失败，fallback 到内存缓存:', err instanceof Error ? err.message : String(err));
   }
-  return _productByNameMap.get(name);
+
+  // fallback
+  const products = await fetchAllProducts();
+  return products.find(p => p.name === name);
 }
 
 /**
  * 按商品 ID 查找
+ * 优先从本地 erp_products 表查询，fallback 到内存缓存
  */
 export async function getProductById(goodsId: number): Promise<ErpProduct | undefined> {
-  if (!_productByIdMap) {
-    const products = await fetchAllProducts();
-    _productByIdMap = new Map(products.map(p => [p.goodsId, p]));
+  // 优先从本地表查询
+  try {
+    const result = await appQuery<Record<string, unknown>>(
+      `SELECT goods_id, name, category_chain_name, shelf_life, state,
+              base_unit_name, pkg_unit_name, mid_unit_name, unit_factor, mid_unit_factor,
+              brand_name, brand_id, specifications, article_number, warn_days,
+              base_wholesale, mid_wholesale, pkg_wholesale
+       FROM erp_products WHERE goods_id = $1 LIMIT 1`,
+      [goodsId]
+    );
+    if (result.rows.length > 0) {
+      return mapLocalRowToProduct(result.rows[0]);
+    }
+  } catch (err) {
+    log.warn('本地表查询失败，fallback 到内存缓存:', err instanceof Error ? err.message : String(err));
   }
-  return _productByIdMap.get(goodsId);
+
+  // fallback
+  const products = await fetchAllProducts();
+  return products.find(p => p.goodsId === goodsId);
+}
+
+/** 本地表行 -> ErpProduct 映射 */
+function mapLocalRowToProduct(row: Record<string, unknown>): ErpProduct {
+  return {
+    goodsId: row.goods_id as number,
+    id: row.goods_id as number,
+    name: row.name as string,
+    categoryChainName: (row.category_chain_name as string) || '',
+    shelfLife: (row.shelf_life as number) || 0,
+    state: (row.state as number) || 0,
+    baseUnitName: (row.base_unit_name as string) || '',
+    pkgUnitName: (row.pkg_unit_name as string) || '',
+    unitFactor: (row.unit_factor as number) || 1,
+    midUnitName: (row.mid_unit_name as string) || null,
+    midUnitFactor: (row.mid_unit_factor as number) || null,
+    brandName: (row.brand_name as string) || undefined,
+    brandId: (row.brand_id as number) || undefined,
+    specifications: (row.specifications as string) || undefined,
+    articleNumber: (row.article_number as string) || undefined,
+    warnDays: (row.warn_days as number) || undefined,
+    baseWholesale: row.base_wholesale != null ? Number(row.base_wholesale) : null,
+    midWholesale: row.mid_wholesale != null ? Number(row.mid_wholesale) : null,
+    pkgWholesale: row.pkg_wholesale != null ? Number(row.pkg_wholesale) : null,
+  };
 }
 
 /**
@@ -203,8 +253,6 @@ export async function getAllProductNames(): Promise<Set<string>> {
 export function invalidateProductCache(): void {
   cache.invalidate(CACHE_KEY.ERP_PRODUCTS_PREFIX);
   cache.invalidate(CACHE_KEY.ERP_PRODUCT_COST_PRICE_MAP);
-  _productByNameMap = null;
-  _productByIdMap = null;
   invalidateFacadeCache();
 }
 

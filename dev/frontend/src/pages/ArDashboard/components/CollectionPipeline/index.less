@@ -1,5 +1,7 @@
+@import '~@/styles/variables.less';
+
 .card {
-  border-radius: 8px;
+  border-radius: @border-radius-base;
 }
 
 /* 横向流向布局 */
@@ -16,11 +18,11 @@
   min-width: 120px;
   text-align: center;
   padding: 12px 8px;
-  border-radius: 8px;
-  border: 2px solid #f0f0f0;
+  border-radius: @border-radius-base;
+  border: 2px solid @border-color-split;
   cursor: pointer;
   transition: all 0.2s;
-  background: #fafafa;
+  background: @bg-color-hover;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -28,14 +30,14 @@
 
   &:hover {
     border-color: var(--node-color, #1890ff);
-    background: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    background: @bg-color-card;
+    box-shadow: @box-shadow-card;
   }
 }
 
 .nodeActive {
   border-color: var(--node-color, #1890ff);
-  background: #fff;
+  background: @bg-color-card;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--node-color, #1890ff) 20%, transparent);
 }
 
@@ -67,15 +69,15 @@
   margin-top: 6px;
   padding: 2px 8px;
   border-radius: 10px;
-  background: #fff7e6;
-  color: #fa8c16;
+  background: @warning-alert-bg;
+  color: @warning-color-dark;
   font-size: 11px;
   cursor: pointer;
   transition: background 0.2s;
   white-space: nowrap;
 
   &:hover {
-    background: #ffe7ba;
+    background: darken(@warning-alert-bg, 8%);
   }
 }
 
@@ -83,21 +85,21 @@
   margin-top: 4px;
   padding: 2px 8px;
   border-radius: 10px;
-  background: #fff1f0;
-  color: #f5222d;
+  background: @warning-serious-bg;
+  color: @error-color-dark;
   font-size: 11px;
   cursor: pointer;
   transition: background 0.2s;
   white-space: nowrap;
 
   &:hover {
-    background: #ffccc7;
+    background: darken(@warning-serious-bg, 5%);
   }
 }
 
 .arrow {
   flex-shrink: 0;
-  color: #d9d9d9;
+  color: @border-color-strong;
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -107,7 +109,7 @@
 .legalSection {
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid @border-color-split;
 }
 
 .legalTitle {
@@ -134,7 +136,7 @@
 
 .legalIcon {
   font-size: 20px;
-  color: #1890ff;
+  color: @primary-color;
   margin-bottom: 4px;
 }
 
@@ -152,7 +154,7 @@
 }
 
 .legalArrow {
-  color: #d9d9d9;
+  color: @border-color-strong;
   font-size: 14px;
   flex-shrink: 0;
 }
@@ -199,7 +201,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: #e8e8e8;
+    background: @border-color-base;
   }
 
   /* 节点圆点 */
@@ -211,8 +213,8 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #d9d9d9;
-    border: 2px solid #fff;
+    background: @border-color-strong;
+    border: 2px solid @bg-color-card;
     z-index: 1;
   }
 }

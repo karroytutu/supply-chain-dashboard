@@ -1,12 +1,12 @@
 @import '@/styles/variables.less';
 
 .card {
-  border-radius: 8px;
+  border-radius: @border-radius-base;
   cursor: pointer;
   transition: box-shadow 0.2s;
 
   &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+    box-shadow: @box-shadow-card;
   }
 }
 

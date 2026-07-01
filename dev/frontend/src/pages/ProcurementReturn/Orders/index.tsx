@@ -63,7 +63,7 @@ export default function ReturnOrderList() {
   const activeStatusText = getStatusText(statusFilter);
 
   return (
-    <div className={styles.container}>
+    <div className={`page-scroll ${styles.container}`}>
       <Breadcrumb
         className={styles.breadcrumb}
         items={[

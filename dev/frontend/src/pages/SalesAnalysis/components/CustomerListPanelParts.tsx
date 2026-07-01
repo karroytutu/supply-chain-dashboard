@@ -23,7 +23,6 @@ export const Toolbar: React.FC<{
   const [inputValue, setInputValue] = useState(keyword);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const isMobile = useMobileDetect();
-  const compactSize = isMobile ? 'small' as const : undefined;
 
   useEffect(() => {
     timerRef.current = setTimeout(() => onKeywordChange(inputValue), 300);
@@ -39,8 +38,8 @@ export const Toolbar: React.FC<{
               placeholder="状态"
               value={filterKey}
               onChange={(val) => onFilterChange(val)}
-              size={compactSize}
-              style={{ width: '100%' }}
+              size="small"
+              style={{ width: '100%', minWidth: 0 }}
               options={filters.map((f) => ({ value: f.key, label: f.label }))}
             />
           </div>
@@ -51,7 +50,7 @@ export const Toolbar: React.FC<{
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             allowClear
-            size={compactSize}
+            size="small"
             style={{ width: '100%' }}
           />
         </div>
@@ -61,8 +60,8 @@ export const Toolbar: React.FC<{
             value={ownerFilter || undefined}
             onChange={(val) => onOwnerFilterChange(val || '')}
             allowClear
-            size={compactSize}
-            style={{ width: '100%' }}
+            size="small"
+            style={{ width: '100%', minWidth: 0 }}
             options={ownerOptions.map((o) => ({ value: o, label: o }))}
           />
         </div>

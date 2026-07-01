@@ -1,14 +1,16 @@
+@import '~@/styles/variables.less';
+
 .warningBadge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 2px @spacing-sm;
+  border-radius: @border-radius-sm;
+  font-size: @font-size-sm;
   font-weight: 500;
   white-space: nowrap;
 
   .icon {
-    margin-right: 4px;
+    margin-right: @spacing-xs;
   }
 
   .label {
@@ -16,22 +18,22 @@
   }
 
   &.serious {
-    background-color: #fff1f0;
-    color: #ff4d4f;
+    background-color: @warning-serious-bg;
+    color: @warning-serious;
   }
 
   &.warning {
-    background-color: #fffbe6;
-    color: #faad14;
+    background-color: @warning-alert-bg;
+    color: @warning-alert;
   }
 
   &.attention {
-    background-color: #fffff0;
-    color: #fadb14;
+    background-color: @warning-attention-bg;
+    color: @warning-attention;
   }
 
   &.normal {
-    background-color: #f6ffed;
-    color: #52c41a;
+    background-color: @warning-normal-bg;
+    color: @warning-normal;
   }
 }

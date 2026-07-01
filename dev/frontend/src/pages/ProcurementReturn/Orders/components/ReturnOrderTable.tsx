@@ -92,7 +92,7 @@ const ReturnOrderTable: React.FC<ReturnOrderTableProps> = ({
       dataSource={dataSource}
       rowKey="id"
       loading={loading}
-      scroll={{ x: 920 }}
+      scroll={{ x: 920, y: 'calc(100vh - 420px)' }}
       rowSelection={{
         selectedRowKeys,
         onChange: (keys) => onSelectChange(keys as number[]),

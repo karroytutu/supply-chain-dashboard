@@ -22,21 +22,21 @@ import { getTurnoverData } from '../turnover';
 import type { OverviewFull, OverviewStats, TrendData, TrendPoint } from './overview.types';
 
 /**
- * 顺序预热共享 ERP 数据集
- * 在 5 个子服务并行执行前，依次填充各共享数据集的缓存，
- * 避免 Promise.all() 并发时多个服务同时 miss 同一缓存 key 导致冗余 ERP 请求。
+ * 预热共享 ERP 数据集的 MemoryCache 层
+ * [ERP本地化] 数据源已从 ERP API 改为本地 PostgreSQL 表，
+ * 此函数仅预填充 MemoryCache 层，避免并行服务同时 miss 缓存。
+ * sync engine 每 2 分钟自动同步本地表，此处仅作为缓存预热优化。
  */
 async function warmSharedDatasets(): Promise<void> {
-  // 1. 商品列表 → 填充 erp:products:all 缓存（60s TTL）
+  // 1. 商品列表 → 填充 erp:products:all MemoryCache
   await fetchAllProducts();
-  // 2. 库存列表 → 填充 erp:inventory:all 缓存（30s TTL）
+  // 2. 库存列表 → 填充 erp:inventory:all MemoryCache
   await fetchAllInventory();
-  // 3. 近 30 天销售明细 → 填充 erp:sales:recent 缓存（60s TTL）
+  // 3. 日均销量 → 填充 erp:sales:daily:map MemoryCache（数据来自本地 erp_sales_details 表）
   await getDailySalesMap(STANDARD_CALC_DAYS);
-  // 4. 批次库存 → 填充 erp:batch:inventory 缓存（30s TTL）
+  // 4. 批次库存 → 填充 erp:batch:inventory MemoryCache
   await fetchAllBatchInventory();
-  // 5. 近 45 天最后销售日期 → 填充 erp:sales:last_sale 缓存（60s TTL）
-  //    供 getSlowMovingData() 使用，避免并行阶段触发冗余 ERP 请求
+  // 5. 最后销售日期 → 填充 erp:sales:last_sale MemoryCache（数据来自本地 erp_sales_details 表）
   await getLastSaleMap();
 }
 

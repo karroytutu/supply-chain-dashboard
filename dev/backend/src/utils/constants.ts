@@ -159,6 +159,26 @@ export const MARKET_EXPENSE_SUBJECTS = {
 /** ERP 独山云仓仓库 ID @usedBy erp-batch-inventory.service.ts (默认拉取批次库存的仓库) */
 export const ERP_DUSHAN_WAREHOUSE_ID = 17;
 
+/**
+ * ERP 销售结算明细 - 业务属性 ID 过滤列表
+ * 仅包含销售类业务（常规销售、订货履约、换货、兑奖、0元赠、促销销售、促销赠品、常规退货、促销订货、促销加价订货）
+ * 排除费用兑付、物料兑换、采购类单据
+ * @usedBy erp-sales-detail.service.ts (fetchSalesDetails 默认参数)
+ * @usedBy sales-target-erp.service.ts (历史销售数据聚合)
+ */
+export const SALES_BUSINESS_ATTR_IDS = [
+  'SX',      // 常规销售
+  'HH',      // 换货
+  'DJ',      // 兑奖
+  'ZP',      // 0元赠
+  'DH',      // 订货履约
+  'CX',      // 促销销售
+  'CZ',      // 促销赠品
+  'TH',      // 常规退货
+  'WL',      // 物流
+  'CZ_IF',   // 促销加价订货
+] as const;
+
 // ==================== 缓存时间配置 ====================
 
 /** 战略商品缓存过期时间 @usedBy warning-cache.ts (战略商品ID缓存) */

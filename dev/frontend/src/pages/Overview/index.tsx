@@ -48,7 +48,7 @@ const Overview: React.FC = () => {
   }
 
   return (
-    <div className={styles.overviewPage}>
+    <div className={`page-scroll ${styles.overviewPage}`}>
       <div className={styles.pageHeader}>
         <Title level={3}>数据总览</Title>
         <Text type="secondary">数据周期：{stats?.period.current}</Text>

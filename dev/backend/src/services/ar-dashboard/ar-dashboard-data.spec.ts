@@ -12,20 +12,15 @@ jest.mock('../erp-debt/erp-debt-enrichment.service', () => ({
 jest.mock('../ar-collection/ar-warning.query', () => ({
   computeUpcomingWarnings: jest.fn(),
 }));
-jest.mock('../erp-client/erp-sales-detail.service', () => ({
-  fetchSalesDetails: jest.fn(),
-}));
 
 import { buildDashboardContext, fetchCollectionOaInstances } from './ar-dashboard-data';
 import { appQuery } from '../../db/appPool';
 import { getEnrichedNonHoardDebts } from '../erp-debt/erp-debt-enrichment.service';
 import { computeUpcomingWarnings } from '../ar-collection/ar-warning.query';
-import { fetchSalesDetails } from '../erp-client/erp-sales-detail.service';
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 const mockGetEnrichedNonHoardDebts = getEnrichedNonHoardDebts as jest.MockedFunction<typeof getEnrichedNonHoardDebts>;
 const mockComputeUpcomingWarnings = computeUpcomingWarnings as jest.MockedFunction<typeof computeUpcomingWarnings>;
-const mockFetchSalesDetails = fetchSalesDetails as jest.MockedFunction<typeof fetchSalesDetails>;
 
 describe('buildDashboardContext', () => {
   beforeEach(() => {
@@ -48,16 +43,17 @@ describe('buildDashboardContext', () => {
     };
 
     mockGetEnrichedNonHoardDebts.mockResolvedValue(debts);
-    mockAppQuery.mockResolvedValue({ rows: oaInstances } as any);
+    mockAppQuery
+      .mockResolvedValueOnce({ rows: oaInstances } as any) // OA instances
+      .mockResolvedValueOnce({ rows: [
+        { finance_sales_amount: '10000' },
+        { finance_sales_amount: '20000' },
+      ] } as any); // sales details from local table
     mockComputeUpcomingWarnings.mockResolvedValue({
       details: warnings.details,
       summary: warnings.summary,
       pagination: warnings.pagination,
     });
-    mockFetchSalesDetails.mockResolvedValue([
-      { financeSalesAmount: '10000' },
-      { financeSalesAmount: '20000' },
-    ] as any);
 
     const ctx = await buildDashboardContext();
 
@@ -75,7 +71,6 @@ describe('buildDashboardContext', () => {
   it('单个数据源失败时降级为空数组（Promise.allSettled）', async () => {
     mockGetEnrichedNonHoardDebts.mockRejectedValue(new Error('ERP API 超时'));
     mockAppQuery.mockResolvedValue({ rows: [] } as any);
-    mockFetchSalesDetails.mockResolvedValue([]);
 
     const ctx = await buildDashboardContext();
 
@@ -90,7 +85,6 @@ describe('buildDashboardContext', () => {
   it('所有数据源失败时不抛异常，返回全空上下文', async () => {
     mockGetEnrichedNonHoardDebts.mockRejectedValue(new Error('fail'));
     mockAppQuery.mockRejectedValue(new Error('fail'));
-    mockFetchSalesDetails.mockRejectedValue(new Error('fail'));
 
     const ctx = await buildDashboardContext();
 
@@ -109,7 +103,6 @@ describe('buildDashboardContext', () => {
       details: [], summary: { today: { count: 0, amount: 0 }, within2Days: { count: 0, amount: 0 }, within5Days: { count: 0, amount: 0 }, totalCount: 0, totalAmount: 0 },
       pagination: { page: 1, pageSize: 9999, total: 0 },
     });
-    mockFetchSalesDetails.mockResolvedValue([]);
 
     const ctx = await buildDashboardContext();
     expect(ctx.dsoValue).toBeNull();
@@ -121,16 +114,16 @@ describe('buildDashboardContext', () => {
       { leftAmount: 200000, hoardTag: 'NORMAL' },
     ] as any[];
     mockGetEnrichedNonHoardDebts.mockResolvedValue(debts);
-    mockAppQuery.mockResolvedValue({ rows: [] } as any);
+    mockAppQuery
+      .mockResolvedValueOnce({ rows: [] } as any) // OA instances
+      .mockResolvedValueOnce({ rows: [
+        { finance_sales_amount: '150000' },
+        { finance_sales_amount: '150000' },
+      ] } as any); // sales details: 30天销售总额 300000 → 日均 10000
     mockComputeUpcomingWarnings.mockResolvedValue({
       details: [], summary: { today: { count: 0, amount: 0 }, within2Days: { count: 0, amount: 0 }, within5Days: { count: 0, amount: 0 }, totalCount: 0, totalAmount: 0 },
       pagination: { page: 1, pageSize: 9999, total: 0 },
     });
-    // 30天销售总额 300000 → 日均 10000
-    mockFetchSalesDetails.mockResolvedValue([
-      { financeSalesAmount: '150000' },
-      { financeSalesAmount: '150000' },
-    ] as any);
 
     const ctx = await buildDashboardContext();
     // 应收 500000 / 日均 10000 = 50 天

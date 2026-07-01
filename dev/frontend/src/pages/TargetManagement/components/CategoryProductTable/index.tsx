@@ -2,51 +2,36 @@
  * 品类→商品分层表格
  * 列：名称 | 上月目标 | 上月实际 | 上月达成 | 上月环比 | 本月目标 | 预计增长 | 预计环比 | 说明
  */
-import React, { useState } from 'react';
-import { InputNumber, Input, Button, Tag, Dropdown, Tooltip, Empty } from 'antd';
+import React, { useState, useRef } from 'react';
+import { Input, Button, Tag, Dropdown, Tooltip, Empty, Modal, InputNumber } from 'antd';
 import { DownOutlined, RightOutlined, PlusOutlined, ScissorOutlined } from '@ant-design/icons';
-import type { CustomerTarget, SplitMethod } from '@/types/target-management';
-import { useTargetCalculation } from '../../hooks/useTargetCalculation';
+import type { CustomerTarget, CategoryTarget, SplitMethod } from '@/types/target-management';
+import { formatCompactAmount, formatChangeRate, formatAchievementRate } from '@/utils/format';
+import DebouncedInputNumber from '../DebouncedInputNumber';
 import styles from './index.less';
 
 interface CategoryProductTableProps {
   customer: CustomerTarget | null;
   readOnly: boolean;
-  onUpdateProduct: (customerId: string, catId: string, prodId: string, field: 'targetAmount' | 'remark', value: number | string, unitPrice: number) => void;
-  onSplit: (customerId: string, catId: string, method: SplitMethod, targetAmount: number) => void;
-  onAddProduct: (customerId: string, categoryId: string, categoryName: string) => void;
-  onAddCategory: (customerId: string) => void;
-}
-
-function fmtAmt(n: number): string {
-  if (n === 0) return '-';
-  if (n >= 10000) return `¥${(n / 10000).toFixed(1)}万`;
-  return `¥${n.toLocaleString()}`;
-}
-
-function fmtPct(current: number, base: number): { text: string; color: string } {
-  if (base === 0 && current === 0) return { text: '-', color: '#999' };
-  if (base === 0) return { text: '新增', color: '#52c41a' };
-  const pct = ((current - base) / base) * 100;
-  const arrow = pct >= 0 ? '↑' : '↓';
-  const color = pct >= 0 ? '#52c41a' : '#f5222d';
-  return { text: `${arrow}${Math.abs(pct).toFixed(1)}%`, color };
-}
-
-function fmtRate(actual: number, target: number): string {
-  if (target === 0) return '-';
-  return `${((actual / target) * 100).toFixed(1)}%`;
+  getCategoryAggregates: (category: CategoryTarget) => { targetAmount: number; lastMonthTarget: number; actualAmountLastMonth: number; actualAmountPrevMonth: number };
+  onUpdateProduct: (customerId: number, catId: string, prodId: string, field: 'targetAmount' | 'remark', value: number | string, unitPrice: number) => void;
+  onSplit: (customerId: number, catId: string, method: SplitMethod, targetAmount: number) => void;
+  onAddProduct: (customerId: number, categoryId: string, categoryName: string) => void;
+  onAddCategory: (customerId: number) => void;
 }
 
 const CategoryProductTable: React.FC<CategoryProductTableProps> = ({
-  customer, readOnly, onUpdateProduct, onSplit, onAddProduct, onAddCategory,
+  customer, readOnly, getCategoryAggregates, onUpdateProduct, onSplit, onAddProduct, onAddCategory,
 }) => {
-  const calc = useTargetCalculation();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
-  const [pendingTargets, setPendingTargets] = useState<Record<string, number>>({});
+  const splitAmountRef = useRef<Record<string, number>>({});
 
   if (!customer) {
-    return <Empty className={styles.empty} description="请从左侧选择客户" />;
+    return (
+      <div className={styles.table}>
+        <Empty className={styles.empty} description="请从左侧选择客户" />
+      </div>
+    );
   }
 
   const toggleCategory = (catId: string) => {
@@ -57,29 +42,46 @@ const CategoryProductTable: React.FC<CategoryProductTableProps> = ({
     });
   };
 
-  const handleCategoryTargetChange = (catId: string, value: number) => {
-    setPendingTargets((prev) => ({ ...prev, [catId]: value }));
+  // 拆分弹窗：输入目标金额后选择拆分方式
+  const showSplitDialog = (customerId: number, catId: string, currentTotal: number) => {
+    let amount = currentTotal;
+    Modal.confirm({
+      title: '拆分品类目标到商品',
+      content: (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ marginBottom: 8, color: '#666' }}>输入目标总额，将拆分到各商品行：</div>
+          <InputNumber
+            prefix="¥"
+            defaultValue={currentTotal}
+            onChange={(v) => { amount = v || 0; }}
+            style={{ width: '100%' }}
+            precision={0}
+            step={10000}
+            placeholder="品类目标总额"
+          />
+        </div>
+      ),
+      okText: '按比例拆分',
+      cancelText: '取消',
+      onOk: () => onSplit(customerId, catId, 'by_proportion', amount),
+      cancelButtonProps: { style: { display: 'none' } },
+      footer: (_, { OkBtn, CancelBtn }) => (
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <CancelBtn />
+          <Button onClick={() => { onSplit(customerId, catId, 'even', amount); Modal.destroyAll(); }}>平均分摊</Button>
+          <OkBtn />
+        </div>
+      ),
+    });
   };
-
-  const getCategoryDisplayTarget = (catId: string, aggAmount: number): number | undefined => {
-    return pendingTargets[catId] || aggAmount || undefined;
-  };
-
-  const splitMenu = (customerId: string, catId: string) => ({
-    items: [
-      { key: 'by_proportion', label: '按历史销售占比拆分', onClick: () => onSplit(customerId, catId, 'by_proportion', pendingTargets[catId] || 0) },
-      { key: 'even', label: '平均分摊', onClick: () => onSplit(customerId, catId, 'even', pendingTargets[catId] || 0) },
-    ],
-  });
 
   // 品类行数据计算
   const calcCatRow = (cat: typeof customer.categories[0]) => {
-    const agg = calc.getCategoryAggregates(cat);
-    const lastMom = fmtPct(agg.actualAmountLastMonth, agg.actualAmountPrevMonth);
-    const curTarget = pendingTargets[cat.categoryId] || agg.targetAmount;
-    const growth = curTarget - agg.actualAmountLastMonth;
-    const expectedMom = fmtPct(curTarget, agg.actualAmountLastMonth);
-    return { agg, lastMom, curTarget, growth, expectedMom };
+    const agg = getCategoryAggregates(cat);
+    const lastMom = formatChangeRate(agg.actualAmountLastMonth, agg.actualAmountPrevMonth);
+    const growth = agg.targetAmount - agg.actualAmountLastMonth;
+    const expectedMom = formatChangeRate(agg.targetAmount, agg.actualAmountLastMonth);
+    return { agg, lastMom, growth, expectedMom };
   };
 
   return (
@@ -99,7 +101,7 @@ const CategoryProductTable: React.FC<CategoryProductTableProps> = ({
 
       {/* 数据行 */}
       {customer.categories.map((cat) => {
-        const { agg, lastMom, curTarget, growth, expectedMom } = calcCatRow(cat);
+        const { agg, lastMom, growth, expectedMom } = calcCatRow(cat);
         const isExpanded = expandedCats.has(cat.categoryId);
 
         return (
@@ -107,52 +109,47 @@ const CategoryProductTable: React.FC<CategoryProductTableProps> = ({
             {/* 品类行 */}
             <div className={styles.categoryRow}>
               <span className={styles.colName}>
-                <span onClick={() => toggleCategory(cat.categoryId)} className={styles.catNameWrap}>
+                <span
+                  onClick={() => toggleCategory(cat.categoryId)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCategory(cat.categoryId); } }}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  className={styles.catNameWrap}
+                >
                   {isExpanded ? <DownOutlined className={styles.expandIcon} /> : <RightOutlined className={styles.expandIcon} />}
                   <span className={styles.catName}>{cat.categoryName}</span>
                 </span>
                 {!readOnly && (
                   <Tooltip title="添加商品">
-                    <button className={styles.addProductIcon} onClick={() => onAddProduct(customer.customerId, cat.categoryId, cat.categoryName)}>
-                      <PlusOutlined />
-                    </button>
+                    <Button type="text" size="small" className={styles.addProductIcon} onClick={() => onAddProduct(customer.customerId, cat.categoryId, cat.categoryName)} icon={<PlusOutlined />} aria-label="添加商品" />
                   </Tooltip>
                 )}
               </span>
-              <span className={styles.colNum}>{fmtAmt(agg.lastMonthTarget)}</span>
-              <span className={styles.colNum}>{fmtAmt(agg.actualAmountLastMonth)}</span>
-              <span className={styles.colNum}>{fmtRate(agg.actualAmountLastMonth, agg.lastMonthTarget)}</span>
+              <span className={styles.colNum}>{formatCompactAmount(agg.lastMonthTarget)}</span>
+              <span className={styles.colNum}>{formatCompactAmount(agg.actualAmountLastMonth)}</span>
+              <span className={styles.colNum}>{formatAchievementRate(agg.actualAmountLastMonth, agg.lastMonthTarget)}</span>
               <span className={styles.colNum} style={{ color: lastMom.color }}>{lastMom.text}</span>
               <span className={styles.colTarget}>
-                <InputNumber
-                  prefix="¥"
-                  value={getCategoryDisplayTarget(cat.categoryId, agg.targetAmount)}
-                  onChange={(v) => handleCategoryTargetChange(cat.categoryId, v || 0)}
-                  disabled={readOnly}
-                  size="small"
-                  precision={0}
-                  step={10000}
-                  placeholder="品类目标"
-                  className={styles.targetInput}
-                />
+                <span className={styles.catTotal}>
+                  {agg.targetAmount > 0 ? formatCompactAmount(agg.targetAmount) : <span className={styles.noTarget}>未设置</span>}
+                </span>
                 {!readOnly && (
-                  <Dropdown menu={splitMenu(customer.customerId, cat.categoryId)}>
-                    <Button size="small" className={styles.splitBtn}>
-                      <ScissorOutlined /> 拆分 <DownOutlined style={{ fontSize: 10 }} />
-                    </Button>
-                  </Dropdown>
+                  <Button size="small" className={styles.splitBtn} onClick={() => showSplitDialog(customer.customerId, cat.categoryId, agg.targetAmount)}>
+                    <ScissorOutlined /> 拆分
+                  </Button>
                 )}
               </span>
-              <span className={`${styles.colNum} ${growth > 0 ? styles.positive : growth < 0 ? styles.negative : ''}`}>{fmtAmt(growth)}</span>
+              <span className={`${styles.colNum} ${growth > 0 ? styles.positive : growth < 0 ? styles.negative : ''}`}>{formatCompactAmount(growth)}</span>
               <span className={styles.colNum} style={{ color: expectedMom.color }}>{expectedMom.text}</span>
               <span className={styles.colRemark} />
             </div>
 
             {/* 商品行 */}
             {isExpanded && cat.products.map((product) => {
-              const pLastMom = fmtPct(product.actualAmountLastMonth, product.actualAmountPrevMonth);
+              const pLastMom = formatChangeRate(product.actualAmountLastMonth, product.actualAmountPrevMonth);
               const pGrowth = product.targetAmount - product.actualAmountLastMonth;
-              const pExpectedMom = fmtPct(product.targetAmount, product.actualAmountLastMonth);
+              const pExpectedMom = formatChangeRate(product.targetAmount, product.actualAmountLastMonth);
 
               return (
                 <div key={product.productId} className={styles.productRow}>
@@ -162,18 +159,18 @@ const CategoryProductTable: React.FC<CategoryProductTableProps> = ({
                     <span className={styles.unit}>({product.unit})</span>
                     {product.isPlannedNew && <Tag color="orange" className={styles.newTag}>新</Tag>}
                   </span>
-                  <span className={styles.colNum}>{fmtAmt(product.lastMonthTarget)}</span>
-                  <span className={styles.colNum}>{fmtAmt(product.actualAmountLastMonth)}</span>
-                  <span className={styles.colNum}>{fmtRate(product.actualAmountLastMonth, product.lastMonthTarget)}</span>
+                  <span className={styles.colNum}>{formatCompactAmount(product.lastMonthTarget)}</span>
+                  <span className={styles.colNum}>{formatCompactAmount(product.actualAmountLastMonth)}</span>
+                  <span className={styles.colNum}>{formatAchievementRate(product.actualAmountLastMonth, product.lastMonthTarget)}</span>
                   <span className={styles.colNum} style={{ color: pLastMom.color }}>{pLastMom.text}</span>
                   <span className={styles.colTarget}>
                     {readOnly ? (
-                      <span>{fmtAmt(product.targetAmount)}</span>
+                      <span>{formatCompactAmount(product.targetAmount, { zeroAs: '0' })}</span>
                     ) : (
-                      <InputNumber
+                      <DebouncedInputNumber
                         prefix="¥"
-                        value={product.targetAmount || undefined}
-                        onChange={(v) => onUpdateProduct(customer.customerId, cat.categoryId, product.productId, 'targetAmount', v || 0, product.unitPrice)}
+                        value={product.targetAmount}
+                        onChange={(v) => onUpdateProduct(customer.customerId, cat.categoryId, product.productId, 'targetAmount', v, product.unitPrice)}
                         size="small"
                         precision={0}
                         step={10000}
@@ -182,7 +179,7 @@ const CategoryProductTable: React.FC<CategoryProductTableProps> = ({
                       />
                     )}
                   </span>
-                  <span className={`${styles.colNum} ${pGrowth > 0 ? styles.positive : pGrowth < 0 ? styles.negative : ''}`}>{fmtAmt(pGrowth)}</span>
+                  <span className={`${styles.colNum} ${pGrowth > 0 ? styles.positive : pGrowth < 0 ? styles.negative : ''}`}>{formatCompactAmount(pGrowth)}</span>
                   <span className={styles.colNum} style={{ color: pExpectedMom.color }}>{pExpectedMom.text}</span>
                   <span className={styles.colRemark}>
                     {readOnly ? (
@@ -217,4 +214,4 @@ const CategoryProductTable: React.FC<CategoryProductTableProps> = ({
   );
 };
 
-export default CategoryProductTable;
+export default React.memo(CategoryProductTable);

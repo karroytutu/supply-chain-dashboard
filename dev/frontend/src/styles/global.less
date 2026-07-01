@@ -23,6 +23,19 @@ body {
   background-color: @bg-color-base;
 }
 
+// 全屏模式：内容填满视口剩余高度，内部用 flex 分配，适合一屏展示页面
+.page-full {
+  height: calc(100vh - @layout-header-height);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+// 滚动模式：内容可能超出视口，页面整体滚动，适合表单/列表页
+.page-scroll {
+  min-height: calc(100vh - @layout-header-height);
+}
+
 // 卡片基础样式
 .dashboard-card {
   background: @bg-color-card;

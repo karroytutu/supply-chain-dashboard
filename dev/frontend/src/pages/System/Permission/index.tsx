@@ -65,7 +65,7 @@ export default function PermissionManage() {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={`page-scroll ${styles.container}`}>
       <Card>
         <div className={styles.toolbar}>
           <span style={{ fontSize: 16, fontWeight: 500 }}>权限管理</span>

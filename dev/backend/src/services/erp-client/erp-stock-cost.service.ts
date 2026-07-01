@@ -6,7 +6,7 @@
  */
 
 import { fetchAllInventory } from './erp-inventory.service';
-import { fetchSalesDetails } from './erp-sales-detail.service';
+import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
 
 /** 月度库存成本汇总 */
@@ -38,16 +38,20 @@ export async function getStockCostByMonth(month: string): Promise<MonthlyStockCo
   // 从库存 API 获取当前库存成本
   const allInventory = await fetchAllInventory();
 
-  // 从销售明细 API 获取月度出入库成本
-  const salesDetails = await fetchSalesDetails(monthStart, monthEnd);
+  // 从本地表获取月度销售明细（只查需要的列）
+  const salesResult = await appQuery(
+    'SELECT finance_cost_price, base_quantity FROM erp_sales_details WHERE settle_time >= $1 AND settle_time < $2',
+    [monthStart, monthEnd]
+  );
+  const salesDetails = salesResult.rows;
 
   // 计算月度出库成本（从销售明细）
   let totalCostAmount = 0;
   let totalQuantity = 0;
 
   for (const detail of salesDetails) {
-    const costPrice = parseFloat(detail.financeCostPrice) || 0;
-    const qty = detail.baseQuantity || 0;
+    const costPrice = parseFloat(detail.finance_cost_price) || 0;
+    const qty = detail.base_quantity || 0;
     totalCostAmount += costPrice * qty;
     totalQuantity += qty;
   }

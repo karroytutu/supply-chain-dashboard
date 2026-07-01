@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .dev-user-switcher-popover {
   .ant-popover-inner {
     padding: 0;
@@ -16,7 +18,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid @border-color-split;
 
     .panel-title {
       font-size: 13px;
@@ -37,7 +39,7 @@
       font-size: 10px;
       padding: 1px 5px;
       background: rgba(24, 144, 255, 0.1);
-      color: #1890ff;
+      color: @primary-color;
       border-radius: 3px;
       border: 1px solid rgba(24, 144, 255, 0.2);
     }
@@ -45,7 +47,7 @@
 
   .panel-search {
     padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid @border-color-split;
   }
 
   .panel-body {
@@ -87,7 +89,7 @@
     transition: background 0.15s;
 
     &:hover {
-      background: #f5f5f5;
+      background: @bg-color-muted;
     }
 
     &.active {
@@ -104,13 +106,13 @@
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: #1890ff;
+    background: @primary-color;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 12px;
     font-weight: 600;
-    color: #fff;
+    color: @bg-color-card;
     flex-shrink: 0;
     overflow: hidden;
 
@@ -144,7 +146,7 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    border: 2px solid #d9d9d9;
+    border: 2px solid @border-color-strong;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -153,15 +155,15 @@
     flex-shrink: 0;
 
     .active & {
-      border-color: #1890ff;
-      background: #1890ff;
-      color: #fff;
+      border-color: @primary-color;
+      background: @primary-color;
+      color: @bg-color-card;
     }
   }
 
   .panel-footer {
     padding: 7px 12px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid @border-color-split;
     font-size: 11px;
     color: rgba(0, 0, 0, 0.45);
     text-align: center;

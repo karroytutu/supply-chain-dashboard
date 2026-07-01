@@ -9,6 +9,7 @@ import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 import { createLogger } from '../../utils/logger';
+import { appQuery } from '../../db/appPool';
 
 const log = createLogger('ErpCustomer');
 import type {} from './erp-client.types';
@@ -161,27 +162,65 @@ export async function searchErpCustomers(
 }
 
 /**
- * 按关键字搜索 ERP 客户（仅查第一页，用于下拉搜索）
- * POST /redcoast/store-query/search
+ * 按关键字搜索 ERP 客户（优先查本地表，fallback 到 ERP API）
  *
  * @param keyword 搜索关键词
  * @param options.includeAllStates 是否包含所有状态客户（默认仅启用）
- *   客户档案修改场景需传 true，其他场景保持默认
  */
 export async function searchErpCustomersByKeyword(
   keyword: string,
   options?: { includeAllStates?: boolean }
 ): Promise<ErpCustomer[]> {
-  // 缓存键需区分两种模式，避免同关键词返回错误模式的缓存结果
+  // 缓存键需区分两种模式
   const stateSuffix = options?.includeAllStates ? ':all' : '';
   const cacheKey = CACHE_KEY.ERP_CUSTOMER_SEARCH(`${keyword}${stateSuffix}`);
 
   const cached = cache.get<ErpCustomer[]>(cacheKey);
   if (cached) return cached;
 
+  // 优先从本地表查询
+  try {
+    let sql = `SELECT id, name, short_name, consumer_code, contact_name, contact_tel,
+                      doc_state, state
+               FROM erp_customers`;
+    const params: unknown[] = [];
+    const conditions: string[] = [];
+
+    if (keyword) {
+      params.push(`%${keyword}%`);
+      conditions.push(`name ILIKE $${params.length}`);
+    }
+    if (!options?.includeAllStates) {
+      params.push(1);
+      conditions.push(`doc_state = $${params.length}`);
+    }
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+    sql += ' LIMIT 50';
+
+    const result = await appQuery<Record<string, unknown>>(sql, params);
+    if (result.rows.length > 0) {
+      const records: ErpCustomer[] = result.rows.map(row => ({
+        id: row.id as number,
+        name: row.name as string,
+        code: (row.consumer_code as string) || '',
+        shortName: row.short_name as string | undefined,
+        consumerCode: row.consumer_code as string | undefined,
+        docState: row.doc_state as number | undefined,
+        contactName: row.contact_name as string | undefined,
+        contactTel: row.contact_tel as string | undefined,
+      }));
+      cache.set(cacheKey, records, CACHE_TTL.LOW_FREQUENCY);
+      return records;
+    }
+  } catch (err) {
+    log.warn('本地表查询失败，fallback 到 ERP API:', err instanceof Error ? err.message : String(err));
+  }
+
+  // fallback: ERP API
   const { cid, uid } = getErpDefaults();
   const body: Record<string, unknown> = { current: 1, size: 50, cid, uid, queryText: keyword };
-  // 默认仅查启用客户（docState=1），客户档案修改场景需传 includeAllStates=true
   if (!options?.includeAllStates) {
     body.docState = 1;
   }
@@ -197,32 +236,59 @@ export async function searchErpCustomersByKeyword(
 
 /**
  * 获取客户完整资料
- * GET /redcoast/store-query/query-store-web?id=xxx
+ * 优先从本地 erp_customers 表查询，fallback 到 ERP Profile API
  *
- * 响应常用字段（ErpCustomerProfile）：
- *   id                  - 客户ID
- *   name                - 客户名称
- *   shortName           - 客户简称
- *   consumerCode        - 客户编码
- *   contactName         - 联系人
- *   contactTel          - 联系电话
- *   state               - 状态
- *   areaId / groupId    - 区域ID / 分组ID
- *   consumerManagerId   - 客户经理ID
- *   settleConsumerId    - 结算客户ID
- *   maxDebtDays         - 最大欠款天数
- *   maxDebtOrderNum     - 最大欠款单数
- *   maxDebtAmount       - 最大欠款金额
- *   settleMethod        - 结算方式
- *   scanFullPay         - 扫码全额付款
- *   autoWriteOff        - 自动核销
- *   ext.attachedPicIds  - 营业执照图片ID数组
+ * 注意：本地表存储搜索 API 的 92 字段，Profile API 可能返回额外字段（如完整 ext 对象）。
+ * 如果消费方需要 Profile API 特有字段，应直接调用 ERP API。
  */
 export async function getErpCustomerProfile(customerId: number): Promise<ErpCustomerProfile> {
   const cacheKey = CACHE_KEY.ERP_CUSTOMER_PROFILE(customerId);
   const cached = cache.get<ErpCustomerProfile>(cacheKey);
   if (cached) return cached;
 
+  // 优先从本地表查询
+  try {
+    const result = await appQuery<Record<string, unknown>>(
+      `SELECT id, name, short_name, consumer_code, contact_name, contact_tel,
+              state, area_id, group_id, consumer_manager_id, settle_consumer_id,
+              max_debt_amount, max_debt_days, max_debt_order_num, settle_method,
+              scan_full_pay, auto_write_off, attached_pic_urls
+       FROM erp_customers WHERE id = $1`,
+      [customerId]
+    );
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      const profile: ErpCustomerProfile = {
+        id: row.id as number,
+        name: row.name as string,
+        shortName: row.short_name as string | undefined,
+        consumerCode: row.consumer_code as string | undefined,
+        contactName: row.contact_name as string | undefined,
+        contactTel: row.contact_tel as string | undefined,
+        state: row.state as number | undefined,
+        areaId: row.area_id as number | undefined,
+        groupId: row.group_id as number | undefined,
+        consumerManagerId: row.consumer_manager_id as number | undefined,
+        settleConsumerId: row.settle_consumer_id as number | undefined,
+        maxDebtAmount: row.max_debt_amount != null ? String(row.max_debt_amount) : undefined,
+        maxDebtDays: row.max_debt_days != null ? String(row.max_debt_days) : undefined,
+        maxDebtOrderNum: row.max_debt_order_num != null ? String(row.max_debt_order_num) : undefined,
+        settleMethod: row.settle_method as number | undefined,
+        scanFullPay: (row.scan_full_pay as number) === 1 ? true : undefined,
+        autoWriteOff: (row.auto_write_off as number) === 1 ? true : undefined,
+        attachedPicUrls: (() => {
+          try { return row.attached_pic_urls ? JSON.parse(row.attached_pic_urls as string) : undefined; }
+          catch { return undefined; }
+        })(),
+      };
+      cache.set(cacheKey, profile, CACHE_TTL.LOW_FREQUENCY);
+      return profile;
+    }
+  } catch (err) {
+    log.warn('本地表查询失败，fallback 到 ERP API:', err instanceof Error ? err.message : String(err));
+  }
+
+  // fallback: ERP Profile API
   const { cid, uid } = getErpDefaults();
   const response = await erpGet<unknown>(
     '/store-query/query-store-web',

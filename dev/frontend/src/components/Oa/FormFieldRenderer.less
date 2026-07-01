@@ -35,14 +35,14 @@
 .erpLicenseSection {
   margin-bottom: 8px;
   padding: 10px 12px;
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
+  background: @warning-normal-bg;
+  border: 1px solid @success-color-light;
   border-radius: 6px;
 }
 
 .erpLicenseTip {
   font-size: 13px;
-  color: #52c41a;
+  color: @success-color;
   margin-bottom: 8px;
 }
 
@@ -84,14 +84,14 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #d9d9d9;
+    background: @border-color-strong;
     border-radius: 2px;
   }
 
   // 固定列白色背景（阴影由 Ant Design v5 原生 ping-left/ping-right 机制条件性控制）
   :global {
     .ant-table-cell-fix-left {
-      background: #fff;
+      background: @bg-color-card;
     }
   }
 
@@ -111,7 +111,7 @@
 
       // 固定列背景改为浅灰，与普通单元格形成对比
       .ant-table-cell-fix-left {
-        background: #fafafa;
+        background: @bg-color-hover;
       }
     }
   }

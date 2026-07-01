@@ -24,8 +24,10 @@ import dingtalkSyncRoutes from './routes/dingtalk-sync.routes';
 import tokenAdminRoutes from './routes/token-admin.routes';
 import arDashboardRoutes from './routes/ar-dashboard.routes';
 import orgRoutes from './routes/org.routes';
+import salesTargetRoutes from './routes/sales-target.routes';
 import changelogRoutes from './routes/changelog.routes';
 import devErpCleanupRoutes from './routes/dev-erp-cleanup.routes';
+import erpSyncRoutes from './routes/erp-sync.routes';
 import { errorHandler, requestLogger } from './middleware/errorHandler';
 import { startScheduler } from './services/scheduler';
 import { startDingtalkStream, stopDingtalkStream } from './services/dingtalk-stream.service';
@@ -170,7 +172,9 @@ app.use('/api/dingtalk-sync', dingtalkSyncRoutes);
 app.use('/api/token-admin', tokenAdminRoutes);
 app.use('/api/ar-dashboard', arDashboardRoutes);
 app.use('/api/org', orgRoutes);
+app.use('/api/sales/targets', salesTargetRoutes);
 app.use('/api/changelog', changelogRoutes);
+app.use('/api/erp-sync', erpSyncRoutes);
 
 // 开发环境专用 ERP 清理端点（供 E2E 测试清理生产数据）
 if (process.env.NODE_ENV === 'development') {
@@ -213,10 +217,7 @@ app.listen(config.port, async () => {
   // 校验审批流程岗位编码合法性（仅日志告警，不阻断启动）
   import('./services/oa/oa-form-type.query').then(m => m.validateFormTypeRoleCodes()).catch(() => {});
 
-  // 非阻塞全局缓存预热（环境变量控制，设为 false 可一键禁用）
-  if (process.env.CACHE_WARMUP_ENABLED !== 'false') {
-    import('./services/cache-warmup.service').then(m => m.runStartupWarmup()).catch(() => {});
-  }
+  // [ERP本地化] 旧缓存预热已移除，由 sync engine 接管数据预填充
 
   // 启动钉钉 Stream 事件总线（WebSocket 长连接）
   startDingtalkStream();

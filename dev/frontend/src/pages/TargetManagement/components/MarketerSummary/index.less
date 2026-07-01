@@ -1,0 +1,33 @@
+@import '../../../../styles/variables.less';
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: @spacing-md;
+  padding: @spacing-sm @spacing-lg;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
+  box-shadow: @box-shadow-card;
+  font-size: 14px;
+  color: @text-color-tertiary;
+}
+
+.name {
+  font-size: 15px;
+  font-weight: 600;
+  color: @text-color-regular;
+}
+
+.divider {
+  color: @border-color-base;
+}
+
+.item {
+  color: @text-color-tertiary;
+
+  strong {
+    margin-left: @spacing-xs;
+    color: @text-color-regular;
+    font-weight: 600;
+  }
+}

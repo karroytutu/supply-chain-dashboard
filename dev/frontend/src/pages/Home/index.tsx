@@ -31,7 +31,7 @@ const Home: React.FC = () => {
 
   if (error && !data) {
     return (
-      <div className={styles.page}>
+      <div className={`page-scroll ${styles.page}`}>
         <Result
           status="error"
           title="加载失败"
@@ -50,7 +50,7 @@ const Home: React.FC = () => {
   const summary = data?.summary || null;
 
   return (
-    <div className={styles.page}>
+    <div className={`page-scroll ${styles.page}`}>
       <GreetingBanner pendingCount={summary?.totalPending || 0} />
       <RecentUpdates />
       <SummaryBar summary={summary} />

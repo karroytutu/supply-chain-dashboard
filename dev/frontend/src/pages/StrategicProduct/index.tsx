@@ -66,7 +66,7 @@ export default function StrategicProductManage() {
   }, [loadStrategicProducts, selectedCategoryPath, statusFilter, page, pageSize]);
 
   return (
-    <div className={styles.container}>
+    <div className={`page-scroll ${styles.container}`}>
       <CategorySidebar
         isMobile={isMobile}
         categoryDrawerVisible={categoryDrawerVisible}

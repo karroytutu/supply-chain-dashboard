@@ -4,9 +4,10 @@
  */
 import React, { useState, useMemo } from 'react';
 import { Modal, Input, Checkbox, Button, Tag } from 'antd';
+import styles from './index.less';
 
 interface AvailableCustomer {
-  customerId: string;
+  customerId: number;
   customerName: string;
   industry: string;
   status: string;
@@ -15,25 +16,32 @@ interface AvailableCustomer {
 interface AddCustomerModalProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: (customers: Array<{ customerId: string; customerName: string }>) => void;
+  onSuccess: (customers: Array<{ customerId: number; customerName: string }>) => void;
   availableCustomers: AvailableCustomer[];
 }
 
 const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ visible, onClose, onSuccess, availableCustomers }) => {
   const [keyword, setKeyword] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const filtered = useMemo(() => {
     if (!keyword) return availableCustomers;
     return availableCustomers.filter((c) => c.customerName.includes(keyword));
   }, [availableCustomers, keyword]);
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = (id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, id: number) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleSelect(id);
+    }
   };
 
   const handleOk = () => {
@@ -71,26 +79,28 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ visible, onClose, o
         onChange={(e) => setKeyword(e.target.value)}
         style={{ marginBottom: 12 }}
       />
-      <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-        {filtered.map((customer) => (
-          <div
-            key={customer.customerId}
-            onClick={() => toggleSelect(customer.customerId)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-              cursor: 'pointer', borderRadius: 4,
-              background: selected.has(customer.customerId) ? '#e6f7ff' : 'transparent',
-              borderBottom: '1px solid #f5f5f5',
-            }}
-          >
-            <Checkbox checked={selected.has(customer.customerId)} />
-            <span style={{ flex: 1 }}>{customer.customerName}</span>
-            <Tag>{customer.industry}</Tag>
-            <Tag color={customer.status === '已合作' ? 'green' : 'default'}>{customer.status}</Tag>
-          </div>
-        ))}
+      <div className={styles.listContainer}>
+        {filtered.map((customer) => {
+          const isSelected = selected.has(customer.customerId);
+          return (
+            <div
+              key={customer.customerId}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              onClick={() => toggleSelect(customer.customerId)}
+              onKeyDown={(e) => handleKeyDown(e, customer.customerId)}
+              className={`${styles.listItem} ${isSelected ? styles.listItemSelected : ''}`}
+            >
+              <Checkbox checked={isSelected} />
+              <span className={styles.itemName}>{customer.customerName}</span>
+              <Tag>{customer.industry}</Tag>
+              <Tag color={customer.status === '已合作' ? 'green' : 'default'}>{customer.status}</Tag>
+            </div>
+          );
+        })}
       </div>
-      <div style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
+      <div className={styles.footer}>
         已选择: {selected.size} 个客户
       </div>
     </Modal>

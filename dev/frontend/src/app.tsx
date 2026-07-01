@@ -1,6 +1,6 @@
 import React from 'react';
 import './styles/global.less';
-import { App as AntdApp, Dropdown, Spin, Tag } from 'antd';
+import { App as AntdApp, ConfigProvider, Dropdown, Spin, Tag } from 'antd';
 import { LogoutOutlined, SwapOutlined } from '@ant-design/icons';
 import { getCurrentUser } from '@/services/api/auth';
 import UserAvatar from '@/components/UserAvatar';
@@ -224,10 +224,29 @@ export function rootContainer(container: React.ReactElement): React.ReactElement
     ChunkErrorBoundary,
     null,
     React.createElement(
-      AntdApp,
-      null,
-      React.createElement(AppMessageBridge),
-      container,
+      ConfigProvider,
+      {
+        theme: {
+          // CSS 变量模式：Ant Design 输出 CSS 变量而非高优先级 CSS-in-JS，
+          // 让外部 LESS 选择器能自然覆盖组件样式，消除 !important 依赖
+          cssVar: true,
+          token: {
+            borderRadius: 8,
+            colorBgContainer: '#ffffff',
+            colorBgLayout: '#f5f7fa',
+            // Disabled 状态：浅底+深色文字，提升可读性
+            colorTextDisabled: 'rgba(0, 0, 0, 0.45)',
+            colorBgContainerDisabled: '#fafafa',
+            colorBorderDisabled: '#d9d9d9',
+          },
+        },
+      },
+      React.createElement(
+        AntdApp,
+        null,
+        React.createElement(AppMessageBridge),
+        container,
+      ),
     ),
   );
 }

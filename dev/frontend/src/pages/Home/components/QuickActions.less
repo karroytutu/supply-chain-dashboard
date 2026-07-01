@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -5,9 +7,9 @@
 }
 
 .card {
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border: 1px solid @border-color-split;
+  border-radius: @border-radius-base;
   padding: 20px 16px;
   text-align: center;
   cursor: pointer;
@@ -15,12 +17,12 @@
 }
 
 .card:hover {
-  border-color: #1890ff;
+  border-color: @primary-color;
 }
 
 .icon {
   font-size: 28px;
-  color: #1890ff;
+  color: @primary-color;
   margin-bottom: 8px;
 }
 

@@ -1,7 +1,9 @@
+@import '~@/styles/variables.less';
+
 .statsBar {
   margin-bottom: 16px;
   padding: 12px 16px;
-  background: #fafafa;
+  background: @bg-color-hover;
   border-radius: 6px;
   white-space: nowrap;
   overflow: hidden;
@@ -16,14 +18,17 @@
   }
 }
 
-/* 桌面端：即将逾期行高亮 */
-.expiryRow {
-  background: #fff7e6 !important;
-  box-shadow: inset 3px 0 0 #fa8c16;
+/* 即将逾期行高亮——通过 td 选择器提升优先级，不用 !important */
+tr.expiryRow > td {
+  background: @warning-alert-bg;
+}
 
-  &:hover > td {
-    background: #ffe7ba !important;
-  }
+tr.expiryRow:hover > td {
+  background: darken(@warning-alert-bg, 8%);
+}
+
+.expiryRow {
+  box-shadow: inset 3px 0 0 @warning-alert;
 }
 
 /* 移动端弹窗全屏适配 */
@@ -53,17 +58,17 @@
 
 .cardItem {
   padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
-  background: #fff;
+  border-radius: @border-radius-base;
+  border: 1px solid @border-color-split;
+  background: @bg-color-card;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
 .cardItemExpiry {
-  border-left: 3px solid #fa8c16;
-  background: #fff7e6;
+  border-left: 3px solid @warning-color-dark;
+  background: @warning-alert-bg;
 }
 
 .cardHeader {

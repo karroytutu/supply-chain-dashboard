@@ -3,6 +3,7 @@
  * 管理所有定时任务的注册和启动
  */
 import { createLogger } from '../../utils/logger';
+import { config } from '../../config';
 const log = createLogger('Scheduler');
 
 import cron from 'node-cron';
@@ -31,8 +32,9 @@ import {
 import { runOaTimeoutTask, runOaTimeoutAssessmentTask } from '../oa/timeout';
 import { processOaAsyncTasks } from '../oa/oa-async-task.service';
 import { reconcileProcessInstanceStatus } from '../oa/oa-process-centre';
-import { runPeriodicWarmup } from '../cache-warmup.service';
 import { runOaOrphanCleanup } from '../oa/oa-orphan-cleanup.task';
+import { initializeSyncEngine } from '../erp-sync/sync-config';
+import { syncAllSnapshots, syncHotWindow, syncWarmWindow, syncColdWindow } from '../erp-sync/sync-orchestrator';
 
 /**
  * 启动所有定时任务
@@ -354,27 +356,99 @@ export function startScheduler(): void {
     { timezone: 'Asia/Shanghai' }
   );
 
-  // ==================== 全局缓存预热（仅生产环境） ====================
-  // 每 2 分钟刷新 ERP 基础数据集缓存，确保用户请求始终命中缓存
-  // 开发环境无 ERP 连接配置，预热会产生无用的请求失败和错误日志
-  if (isProduction) {
-    let isCacheWarming = false;
+  // ==================== ERP 数据同步引擎（所有环境） ====================
+  // 5 个 snapshot 数据集：每 2 分钟全量 UPSERT
+  // 1 个 flow-window 数据集（销售明细）：
+  //   - 热窗口(7天): 每 2 分钟
+  //   - 温窗口(8-30天): 每周一凌晨 03:00
+  //   - 冷窗口(30天+): 每月 1 号和 15 号凌晨 04:00
+  // 同步引擎仅读取 ERP API + 写入本地表，不涉及外部系统写入，开发环境可安全运行
+  {
+    // 检查 ERP 凭据是否已配置（erpUsername/erpPassword 默认空字符串）
+    if (!config.tokenManager.erpUsername || !config.tokenManager.erpPassword) {
+      log.warn('[Scheduler] ERP 凭据不完整（ERP_LOGIN_USERNAME / ERP_LOGIN_PASSWORD），跳过同步引擎启动');
+    } else {
+    // 初始化同步引擎（注册所有数据集配置）
+    initializeSyncEngine();
+
+    // 热窗口: snapshot 数据集 + 销售明细热窗口（每 2 分钟）
+    let isSyncEngineRunning = false;
     cron.schedule(
       '*/2 * * * *',
       async () => {
-        if (isCacheWarming) return;
-        isCacheWarming = true;
+        if (isSyncEngineRunning) return;
+        isSyncEngineRunning = true;
         try {
-          await runPeriodicWarmup();
+          // 1. 同步所有 snapshot 数据集（欠款、商品、库存、批次库存、客户）
+          const snapshotResults = await syncAllSnapshots();
+          const snapshotOk = snapshotResults.filter(r => r.success).length;
+          const snapshotFail = snapshotResults.filter(r => !r.success).length;
+
+          // 2. 同步销售明细热窗口（近 7 天）
+          const hotResult = await syncHotWindow('sales');
+          const hotOk = hotResult?.success ? 1 : 0;
+          const hotFail = hotResult && !hotResult.success ? 1 : 0;
+
+          const totalOk = snapshotOk + hotOk;
+          const totalFail = snapshotFail + hotFail;
+          if (totalFail > 0 || totalOk > 0) {
+            log.info(`ERP 同步引擎: ${totalOk} 成功, ${totalFail} 失败`);
+          }
+
+          // 同步成功后异步预热页面级聚合缓存（不阻塞同步流程）
+          if (totalOk > 0) {
+            import('../ar-dashboard/ar-dashboard-data')
+              .then(m => m.buildDashboardContext())
+              .catch((err: Error) => log.warn('应收看板缓存预热失败:', err));
+            import('../overview/overview.service')
+              .then(m => m.getOverviewStats())
+              .catch((err: Error) => log.warn('数据总览缓存预热失败:', err));
+          }
         } catch (error) {
-          log.error('全局缓存预热失败:', error);
+          log.error('ERP 同步引擎执行异常:', error);
         } finally {
-          isCacheWarming = false;
+          isSyncEngineRunning = false;
         }
       },
       { timezone: 'Asia/Shanghai' }
     );
-  } // end 缓存预热
+
+    // 温窗口: 销售明细 8-30 天（每周一凌晨 03:00）
+    cron.schedule(
+      '0 3 * * 1',
+      async () => {
+        try {
+          const result = await syncWarmWindow('sales');
+          if (result) {
+            log.info(`温窗口同步: ${result.recordsFetched} 条, 耗时 ${result.durationMs}ms`);
+          }
+        } catch (error) {
+          log.error('温窗口同步失败:', error);
+        }
+      },
+      { timezone: 'Asia/Shanghai' }
+    );
+
+    // 冷窗口: 销售明细 30 天之前（每月 1 号和 15 号凌晨 04:00）
+    cron.schedule(
+      '0 4 1,15 * *',
+      async () => {
+        try {
+          const result = await syncColdWindow('sales');
+          if (result) {
+            log.info(`冷窗口同步: ${result.recordsFetched} 条, 耗时 ${result.durationMs}ms`);
+          }
+        } catch (error) {
+          log.error('冷窗口同步失败:', error);
+        }
+      },
+      { timezone: 'Asia/Shanghai' }
+    );
+  } // end ERP 同步引擎
+
+  } // end ERP 凭据检查 else 分支
+
+  // [ERP本地化] 旧缓存预热已移除，由 sync engine 接管数据预填充
 
   // ==================== 钉钉组织架构同步（仅生产环境） ====================
   if (isProduction) {
@@ -428,8 +502,11 @@ export function startScheduler(): void {
 
   log.info('定时任务已注册:');
   log.info('  - Token 管理检查: 每5分钟 (Asia/Shanghai) [所有环境]');
+  log.info('  - ERP snapshot 数据集: 每2分钟 (Asia/Shanghai) [5个, 所有环境]');
+  log.info('  - ERP 销售明细热窗口: 每2分钟 (Asia/Shanghai) [近7天, 所有环境]');
+  log.info('  - ERP 销售明细温窗口: 每周一03:00 (Asia/Shanghai) [8-30天, 所有环境]');
+  log.info('  - ERP 销售明细冷窗口: 每月1/15号04:00 (Asia/Shanghai) [30天前, 所有环境]');
   if (isProduction) {
-    log.info('  - 全局缓存预热: 每2分钟 (Asia/Shanghai)');
     log.info('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
     log.info('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');
     log.info('  - 退货考核计算: 每天 08:45 (Asia/Shanghai)');

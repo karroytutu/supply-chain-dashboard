@@ -1,16 +1,16 @@
 @import '@/styles/variables.less';
 
 .card {
-  border-radius: 8px;
+  border-radius: @border-radius-base;
   transition: box-shadow 0.2s;
 
   &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+    box-shadow: @box-shadow-card;
   }
 }
 
 .secondary {
-  background: #fafafa;
+  background: @bg-color-hover;
 }
 
 .label {
@@ -64,7 +64,7 @@
 .sparkline {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid @border-color-split;
 }
 
 // 移动端：同比环比改为纵向排列，避免折行

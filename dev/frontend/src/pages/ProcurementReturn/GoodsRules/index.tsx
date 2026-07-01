@@ -96,7 +96,7 @@ export default function GoodsRulesPage() {
   }, [handleBatchSet]);
 
   return (
-    <div className={styles.container}>
+    <div className={`page-scroll ${styles.container}`}>
       {/* 面包屑 */}
       <Breadcrumb
         className={styles.breadcrumb}

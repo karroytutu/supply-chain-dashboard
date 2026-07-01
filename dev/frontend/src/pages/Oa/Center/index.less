@@ -2,8 +2,7 @@
 
 .container {
   display: flex;
-  height: calc(100vh - 64px);
-  background: #f5f7fa;
+  flex-direction: row; // 覆盖 .page-full 的 column，左侧导航 + 右侧内容
 }
 
 .loadingContainer {
@@ -16,8 +15,8 @@
 // 左侧导航
 .nav {
   width: 140px;
-  background: #fff;
-  border-right: 1px solid #e8e8e8;
+  background: @bg-color-card;
+  border-right: 1px solid @border-color-base;
   padding: 16px 0;
   flex-shrink: 0;
 }
@@ -31,45 +30,45 @@
   border-left: 3px solid transparent;
 
   &:hover {
-    background: #f5f5f5;
+    background: @bg-color-muted;
   }
 }
 
 .navItemActive {
-  background: #e6f7ff;
-  border-left-color: #1890ff;
+  background: @primary-bg-light;
+  border-left-color: @primary-color;
 
   .navLabel {
-    color: #1890ff;
+    color: @primary-color;
     font-weight: 500;
   }
 
   .navIcon {
-    color: #1890ff;
+    color: @primary-color;
   }
 
   .navShortLabel {
-    color: #1890ff;
+    color: @primary-color;
     font-weight: 500;
   }
 }
 
 .navIcon {
   font-size: 14px;
-  color: #666;
+  color: @text-color-tertiary;
   margin-right: 8px;
 }
 
 .navLabel {
   flex: 1;
   font-size: 14px;
-  color: #333;
+  color: @text-color-regular;
 }
 
 .navShortLabel {
   display: none;
   font-size: 10px;
-  color: #333;
+  color: @text-color-regular;
   line-height: 1.2;
   text-align: center;
 }
@@ -77,8 +76,8 @@
 // 中间列表
 .listPanel {
   width: 300px;
-  background: #fff;
-  border-right: 1px solid #e8e8e8;
+  background: @bg-color-card;
+  border-right: 1px solid @border-color-base;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -88,7 +87,7 @@
   display: flex;
   gap: 12px;
   padding: 12px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid @border-color-base;
 }
 
 .searchInput {
@@ -102,18 +101,18 @@
 
 .listItem {
   padding: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid @border-color-split;
   cursor: pointer;
   transition: all 0.3s;
 
   &:hover {
-    background: #fafafa;
+    background: @bg-color-hover;
   }
 }
 
 .listItemActive {
-  background: #e6f7ff;
-  border-left: 3px solid #1890ff;
+  background: @primary-bg-light;
+  border-left: 3px solid @primary-color;
   padding-left: 13px;
 }
 
@@ -127,7 +126,7 @@
 .itemTitle {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: @text-color-regular;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -136,14 +135,14 @@
 
 .itemDate {
   font-size: 12px;
-  color: #999;
+  color: @text-color-placeholder;
   flex-shrink: 0;
   margin-left: 8px;
 }
 
 .itemInfo {
   font-size: 13px;
-  color: #666;
+  color: @text-color-tertiary;
   margin-bottom: 8px;
 }
 
@@ -152,7 +151,7 @@
 }
 
 .itemType {
-  color: #999;
+  color: @text-color-placeholder;
 }
 
 .itemFooter {
@@ -163,7 +162,7 @@
 .itemPreview {
   margin-bottom: 8px;
   padding: 6px 0 2px;
-  border-top: 1px dashed #f0f0f0;
+  border-top: 1px dashed @border-color-split;
 }
 
 .previewField {
@@ -175,11 +174,11 @@
 }
 
 .previewLabel {
-  color: #aaa;
+  color: @text-color-disabled;
 }
 
 .previewValue {
-  color: #666;
+  color: @text-color-tertiary;
 }
 
 .listFooter {
@@ -188,9 +187,9 @@
   align-items: center;
   gap: 16px;
   padding: 8px;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid @border-color-base;
   font-size: 13px;
-  color: #666;
+  color: @text-color-tertiary;
 }
 
 // 右侧详情面板容器
@@ -198,7 +197,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #f5f7fa;
+  background: @bg-color-base;
   min-height: 0; // 允许 flex 子元素正确收缩
   min-width: 0; // 防止内容撑宽面板（flex-direction:row 的 flex 子项）
 }
@@ -211,7 +210,7 @@
 .mobileBackTitle {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: @text-color-regular;
 }
 
 // 详情可滚动内容区
@@ -227,15 +226,15 @@
 
 // 表单数据
 .formDataSection {
-  background: #fff;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
   padding: 16px;
   margin-bottom: 16px;
 
   h3 {
     font-size: 14px;
     font-weight: 500;
-    color: #333;
+    color: @text-color-regular;
     margin: 0 0 12px 0;
   }
 }
@@ -254,27 +253,27 @@
 
 .formLabel {
   width: 100px;
-  color: #666;
+  color: @text-color-tertiary;
   flex-shrink: 0;
 }
 
 .formValue {
   flex: 1;
-  color: #333;
+  color: @text-color-regular;
   word-break: break-all;
 }
 
 // 审批流程
 .flowSection {
-  background: #fff;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
   padding: 16px;
   flex: 1;
 
   h3 {
     font-size: 14px;
     font-weight: 500;
-    color: #333;
+    color: @text-color-regular;
     margin: 0 0 16px 0;
   }
 }
@@ -354,7 +353,7 @@
     }
 
     .navItemActive {
-      border-bottom-color: #1890ff;
+      border-bottom-color: @primary-color;
       border-left-color: transparent;
     }
 
@@ -425,8 +424,8 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: #fff;
-    border-bottom: 1px solid #f0f0f0;
+    background: @bg-color-card;
+    border-bottom: 1px solid @border-color-split;
     flex-shrink: 0;
   }
 }

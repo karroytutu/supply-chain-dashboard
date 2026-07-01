@@ -3,10 +3,11 @@
 .container {
   display: flex;
   flex-direction: column;
-  height: calc(var(--vh, 1vh) * 100 - 64px);  // 钉钉 JS 修正高度
-  height: calc(100dvh - 64px);                  // 现代浏览器：动态视口高度
-  height: calc(100vh - 64px);                    // 回退：不支持 dvh 的浏览器
-  background: #f5f7fa;
+  padding: 0; // 表单页内部管理自己的间距，不用全局 padding
+  // 钉钉环境使用 JS 修正的视口高度，现代浏览器用 dvh，回退用 vh
+  height: calc(var(--vh, 1vh) * 100 - @layout-header-height);
+  height: calc(100dvh - @layout-header-height);
+  height: calc(100vh - @layout-header-height);
 }
 
 .loadingContainer {
@@ -21,8 +22,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
+  background: @bg-color-card;
+  border-bottom: 1px solid @border-color-base;
 }
 
 .headerLeft {
@@ -34,19 +35,19 @@
 .divider {
   width: 1px;
   height: 20px;
-  background: #e8e8e8;
+  background: @border-color-base;
 }
 
 .formTitle {
   font-size: 16px;
   font-weight: 500;
-  color: #333;
+  color: @text-color-regular;
 }
 
 .version {
   font-size: 12px;
-  color: #999;
-  background: #f5f5f5;
+  color: @text-color-placeholder;
+  background: @bg-color-muted;
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -69,90 +70,36 @@
 
 .form {
   max-width: 100%;           // 确保不超出父容器
-  background: #fff;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: @box-shadow-card;
 
   // ========== Disabled 字段可读性优化 ==========
-  // 覆盖 Ant Design 默认 disabled 样式（灰底+浅色文字），
-  // 改为浅底+正常深色文字，保留输入框外观
+  // 颜色/背景/边框由 ConfigProvider theme.token 全局配置（colorTextDisabled, colorBgContainerDisabled, colorBorderDisabled）
+  // 这里只处理 cursor 和 hover 行为（非 theme token）
   :global {
-    // Input / TextArea
+    // cursor: default（不用 not-allowed）
     .ant-input[disabled],
-    .ant-input-disabled {
-      color: rgba(0, 0, 0, 0.85) !important;
-      background-color: #fafafa !important;
-      cursor: default !important;
-    }
-
-    .ant-input-textarea textarea[disabled] {
-      color: rgba(0, 0, 0, 0.85) !important;
-      background-color: #fafafa !important;
-      cursor: default !important;
-    }
-
-    // InputNumber（含公式字段）
-    .ant-input-number-disabled {
-      color: rgba(0, 0, 0, 0.85) !important;
-      background-color: #fafafa !important;
-      cursor: default !important;
-
-      .ant-input-number-input {
-        color: rgba(0, 0, 0, 0.85) !important;
-        cursor: default !important;
-      }
-
-      .ant-input-number-group-addon {
-        color: rgba(0, 0, 0, 0.65) !important;
-        background-color: #fafafa !important;
-      }
-    }
-
-    // Select / Multi-Select
-    .ant-select-disabled:not(.ant-select-customize-input) .ant-select-selector {
-      color: rgba(0, 0, 0, 0.85) !important;
-      background-color: #fafafa !important;
-      cursor: default !important;
-    }
-
-    .ant-select-disabled .ant-select-selection-item {
-      color: rgba(0, 0, 0, 0.85) !important;
-      border-color: #d9d9d9 !important;
-    }
-
-    // DatePicker / RangePicker
+    .ant-input-disabled,
+    .ant-input-textarea textarea[disabled],
+    .ant-input-number-disabled,
+    .ant-select-disabled:not(.ant-select-customize-input) .ant-select-selector,
     .ant-picker-disabled {
-      color: rgba(0, 0, 0, 0.85) !important;
-      background-color: #fafafa !important;
-      cursor: default !important;
+      cursor: default;
+    }
 
-      .ant-picker-input > input {
-        color: rgba(0, 0, 0, 0.85) !important;
-        cursor: default !important;
-      }
-
-      .ant-picker-range-separator {
-        color: rgba(0, 0, 0, 0.45) !important;
-      }
+    .ant-input-number-disabled .ant-input-number-input {
+      cursor: default;
     }
 
     // 禁用 hover 时边框不变色
     .ant-input[disabled]:hover,
-    .ant-input-disabled:hover {
-      border-color: #d9d9d9 !important;
-    }
-
-    .ant-input-number-disabled:hover {
-      border-color: #d9d9d9 !important;
-    }
-
-    .ant-select-disabled:hover:not(.ant-select-customize-input) .ant-select-selector {
-      border-color: #d9d9d9 !important;
-    }
-
+    .ant-input-disabled:hover,
+    .ant-input-number-disabled:hover,
+    .ant-select-disabled:hover:not(.ant-select-customize-input) .ant-select-selector,
     .ant-picker-disabled:hover {
-      border-color: #d9d9d9 !important;
+      border-color: @border-color-base;
     }
   }
 }
@@ -160,12 +107,12 @@
 .amountUpper {
   margin-top: 8px;
   font-size: 12px;
-  color: #f5222d;
+  color: @error-color-dark;
 }
 
 .uploadTip {
   margin-left: 8px;
-  color: #999;
+  color: @text-color-placeholder;
   font-size: 12px;
 }
 
@@ -173,14 +120,14 @@
 .existingLicense {
   margin-bottom: 12px;
   padding: 12px;
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
+  background: @warning-normal-bg;
+  border: 1px solid @success-color-light;
   border-radius: 6px;
 }
 
 .existingLicenseTip {
   font-size: 13px;
-  color: #52c41a;
+  color: @success-color;
   margin-bottom: 8px;
 }
 
@@ -191,7 +138,7 @@
 }
 
 .licenseThumbnail {
-  border: 1px solid #d9d9d9;
+  border: 1px solid @border-color-strong;
   border-radius: 4px;
   cursor: pointer;
 }
@@ -207,8 +154,8 @@
   justify-content: center;
   gap: 16px;
   padding: 16px 24px;
-  background: #fff;
-  border-top: 1px solid #e8e8e8;
+  background: @bg-color-card;
+  border-top: 1px solid @border-color-base;
 }
 
 // 表格字段滚动容器
@@ -233,14 +180,14 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #d9d9d9;
+    background: @border-color-strong;
     border-radius: 2px;
   }
 
   // 固定列白色背景（阴影由 Ant Design v5 原生 ping-left/ping-right 机制条件性控制）
   :global {
     .ant-table-cell-fix-left {
-      background: #fff;
+      background: @bg-color-card;
     }
   }
 
@@ -319,7 +266,7 @@
       .ant-input-number,
       .ant-select-selector,
       .ant-picker {
-        height: 34px !important;
+        height: 34px;
         font-size: 13px;
       }
 
@@ -332,11 +279,11 @@
       }
 
       .ant-select-selection-item {
-        line-height: 32px !important;
+        line-height: 32px;
       }
 
       .ant-select-selection-placeholder {
-        line-height: 32px !important;
+        line-height: 32px;
       }
 
       .ant-picker-input > input {
@@ -425,7 +372,7 @@
       .ant-input-number,
       .ant-select-selector,
       .ant-picker {
-        height: 32px !important;
+        height: 32px;
         font-size: 13px;
       }
 
@@ -438,12 +385,12 @@
       }
 
       .ant-select-selection-item {
-        line-height: 30px !important;
+        line-height: 30px;
         font-size: 13px;
       }
 
       .ant-select-selection-placeholder {
-        line-height: 30px !important;
+        line-height: 30px;
         font-size: 13px;
       }
 
@@ -453,7 +400,7 @@
 
       .ant-input-textarea textarea {
         font-size: 13px;
-        min-height: 56px !important;
+        min-height: 56px;
       }
     }
   }
@@ -493,7 +440,7 @@
       .ant-input-number,
       .ant-select-selector,
       .ant-picker {
-        height: 30px !important;
+        height: 30px;
         font-size: 12px;
       }
 
@@ -506,12 +453,12 @@
       }
 
       .ant-select-selection-item {
-        line-height: 28px !important;
+        line-height: 28px;
         font-size: 12px;
       }
 
       .ant-select-selection-placeholder {
-        line-height: 28px !important;
+        line-height: 28px;
         font-size: 12px;
       }
 
@@ -521,7 +468,7 @@
 
       .ant-input-textarea textarea {
         font-size: 12px;
-        min-height: 48px !important;
+        min-height: 48px;
       }
     }
   }

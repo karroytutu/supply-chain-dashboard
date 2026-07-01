@@ -1,16 +1,18 @@
+@import '~@/styles/variables.less';
+
 .metricCard {
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: @bg-color-card;
+  border-radius: @border-radius-lg;
+  box-shadow: @box-shadow-card;
   transition: all 0.3s ease;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: @box-shadow-hover;
   }
 
   :global {
     .ant-card-body {
-      padding: 20px;
+      padding: @spacing-card;
     }
   }
 
@@ -18,7 +20,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: @spacing-md;
 
     .titleWrapper {
       display: flex;
@@ -26,19 +28,19 @@
 
       .icon {
         font-size: 18px;
-        margin-right: 8px;
-        color: #1890ff;
+        margin-right: @spacing-sm;
+        color: @primary-color;
       }
 
       .title {
-        font-size: 14px;
-        color: #8c8c8c;
+        font-size: @font-size-base;
+        color: @text-color-secondary;
         font-weight: 500;
       }
     }
 
     .extra {
-      font-size: 12px;
+      font-size: @font-size-sm;
     }
   }
 
@@ -46,73 +48,73 @@
     .valueWrapper {
       display: flex;
       align-items: baseline;
-      margin-bottom: 8px;
+      margin-bottom: @spacing-sm;
 
       .value {
         font-size: 36px;
         font-weight: 600;
-        color: #262626;
+        color: @text-color-primary;
         line-height: 1;
       }
 
       .unit {
-        font-size: 14px;
-        color: #8c8c8c;
-        margin-left: 4px;
+        font-size: @font-size-base;
+        color: @text-color-secondary;
+        margin-left: @spacing-xs;
       }
     }
 
     .trend {
       display: flex;
       align-items: center;
-      font-size: 12px;
+      font-size: @font-size-sm;
       font-weight: 500;
 
       .trendArrow {
-        margin-right: 4px;
+        margin-right: @spacing-xs;
       }
 
       .trendText {
-        color: #8c8c8c;
-        margin-left: 4px;
+        color: @text-color-secondary;
+        margin-left: @spacing-xs;
       }
     }
   }
 
   .body {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #f0f0f0;
+    margin-top: @spacing-md;
+    padding-top: @spacing-md;
+    border-top: 1px solid @border-color-split;
   }
 
   .footer {
-    margin-top: 12px;
+    margin-top: @spacing-section;
   }
 
   .action {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid #f0f0f0;
+    margin-top: @spacing-md;
+    padding-top: @spacing-section;
+    border-top: 1px solid @border-color-split;
     text-align: center;
 
     a {
-      color: #1890ff;
+      color: @primary-color;
       font-size: 13px;
       cursor: pointer;
 
       &:hover {
-        color: #40a9ff;
+        color: @primary-color-hover;
       }
     }
   }
 }
 
 // 响应式
-@media (max-width: 768px) {
+@media (max-width: @screen-md) {
   .metricCard {
     :global {
       .ant-card-body {
-        padding: 16px;
+        padding: @spacing-md;
       }
     }
 

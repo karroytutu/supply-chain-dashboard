@@ -4,19 +4,24 @@
 # 生产数据库同步脚本
 #
 # 将云服务器 (8.130.26.73) 的 PostgreSQL 数据通过 SSH 管道同步到本地开发库
-# 同步方式：DROP + CREATE，完全覆盖开发库
+# 同步方式：影子库恢复 + 原子切换（零停机）
 #
 # 用法：
-#   bash scripts/sync-db-from-prod.sh
-#   npm run sync:db
-#
-# 定时任务管理（launchd）：
-#   安装：npm run sync:db:install
-#   卸载：npm run sync:db:uninstall
-#   查看：launchctl list | grep sync-db
+#   bash scripts/sync-db-from-prod.sh           # 完整同步（dump + 下载 + 恢复 + 切换）
+#   bash scripts/sync-db-from-prod.sh --local   # 本地调试（跳过下载，用已有 dump）
+#   npm run sync:db                              # 完整同步
+#   npm run sync:db -- --local                   # 本地调试
 # ==============================================================================
 
 set -euo pipefail
+
+# ==================== 参数解析 ====================
+LOCAL_MODE=false
+for arg in "$@"; do
+  case "$arg" in
+    --local) LOCAL_MODE=true ;;
+  esac
+done
 
 # ==================== 配置 ====================
 PROD_HOST="root@8.130.26.73"
@@ -104,43 +109,41 @@ log_ok "SSH 连接正常"
 
 # ==================== 执行同步 ====================
 START_TIME=$(date +%s)
+DUMP_START=$START_TIME
+DUMP_END=$START_TIME
+TRANSFER_START=$START_TIME
+TRANSFER_END=$START_TIME
 
-# 3. DROP + CREATE 开发库（完全替换）
-log "重建开发库（DROP + CREATE）..."
+DB_NEW="${DB_NAME}_new"
+DB_OLD="${DB_NAME}_old"
 
-# 断开所有活跃连接后删除重建
-psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "
-  SELECT pg_terminate_backend(pid)
-  FROM pg_stat_activity
-  WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();
-" &>/dev/null
-
-psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "
-  DROP DATABASE IF EXISTS ${DB_NAME};
-" &>/dev/null
-
-psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "
-  CREATE DATABASE ${DB_NAME};
-" &>/dev/null
-
-log_ok "开发库已重建"
-
-# 4. 数据传输与恢复（远端 dump → scp 传回 → 本地恢复）
+# 3. 数据传输与恢复（远端 dump → scp 传回 → 影子库恢复 → 原子切换）
 REMOTE_DUMP="/tmp/sync-db-${DB_NAME}.dump"
 LOCAL_DUMP="/tmp/sync-db-${DB_NAME}.dump"
 
-# 4a. 在生产服务器执行 pg_dump 到临时文件
-log "步骤 1/3：在生产服务器执行 pg_dump..."
+if $LOCAL_MODE; then
+  # 本地模式：跳过下载，直接用已有 dump 文件
+  log "本地模式（--local）：跳过步骤 1/4 和 2/4"
+  if [ ! -s "$LOCAL_DUMP" ]; then
+    log_error "本地 dump 文件不存在或为空：$LOCAL_DUMP"
+    log_error "请先执行完整同步（不带 --local）下载 dump 文件"
+    exit 1
+  fi
+  LOCAL_SIZE=$(du -h "$LOCAL_DUMP" | cut -f1)
+  log_ok "找到本地 dump 文件：${LOCAL_SIZE}"
+else
+# 3a. 在生产服务器执行 pg_dump 到临时文件
+log "步骤 1/4：在生产服务器执行 pg_dump..."
 DUMP_START=$(date +%s)
 
 set +e
-ssh "$PROD_HOST" "docker exec ${PROD_CONTAINER} pg_dump -U ${DB_USER} -Fc ${DB_NAME} > ${REMOTE_DUMP}" 2>/dev/null
-REMOTE_DUMP_EXIT=$?
+ssh "$PROD_HOST" "docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME} > ${REMOTE_DUMP}" 2>&1 | grep -E "dumping|saving|done|finished"
+REMOTE_DUMP_EXIT=${PIPESTATUS[0]}
 if [ $REMOTE_DUMP_EXIT -ne 0 ]; then
   # OpenSSH 10.2+ 回退到管道方式
-  printf "docker exec ${PROD_CONTAINER} pg_dump -U ${DB_USER} -Fc ${DB_NAME} > ${REMOTE_DUMP}\nexit\n" \
-    | ssh "$PROD_HOST" 2>/dev/null
-  REMOTE_DUMP_EXIT=$?
+  printf "docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME} > ${REMOTE_DUMP}\nexit\n" \
+    | ssh "$PROD_HOST" 2>&1 | grep -E "dumping|saving|done|finished"
+  REMOTE_DUMP_EXIT=${PIPESTATUS[0]}
 fi
 set -e
 
@@ -167,13 +170,34 @@ REMOTE_SIZE_MB=$((REMOTE_FILE_SIZE / 1024 / 1024))
 DUMP_END=$(date +%s)
 log_ok "远端 dump 完成，大小: ${REMOTE_SIZE_MB}MB，耗时: $((DUMP_END - DUMP_START)) 秒"
 
-# 4b. 从生产服务器传输 dump 文件到本地（scp 保证二进制完整）
-log "步骤 2/3：scp 传输 dump 文件到本地（${REMOTE_SIZE_MB}MB）..."
+# 3b. 从生产服务器传输 dump 文件到本地（scp 保证二进制完整）
+log "步骤 2/4：scp 传输 dump 文件到本地（${REMOTE_SIZE_MB}MB）..."
 TRANSFER_START=$(date +%s)
 
 set +e
-scp "${PROD_HOST}:${REMOTE_DUMP}" "$LOCAL_DUMP" 2>&1
+# 后台进度监控（每3秒输出百分比）
+(
+  while true; do
+    sleep 3
+    if [ -f "$LOCAL_DUMP" ]; then
+      CURRENT_SIZE=$(stat -f%z "$LOCAL_DUMP" 2>/dev/null || echo 0)
+      if [ "$REMOTE_FILE_SIZE" -gt 0 ] 2>/dev/null; then
+        PCT=$((CURRENT_SIZE * 100 / REMOTE_FILE_SIZE))
+        [ $PCT -gt 100 ] && PCT=100
+        CURRENT_MB=$((CURRENT_SIZE / 1024 / 1024))
+        echo -ne "\r  进度: ${CURRENT_MB}MB / ${REMOTE_SIZE_MB}MB (${PCT}%)"
+      fi
+    fi
+  done
+) &
+MONITOR_PID=$!
+
+scp "${PROD_HOST}:${REMOTE_DUMP}" "$LOCAL_DUMP" 2>/dev/null
 SCP_EXIT=$?
+
+kill $MONITOR_PID 2>/dev/null
+wait $MONITOR_PID 2>/dev/null
+echo ""  # 换行
 set -e
 
 # 清理远端临时文件（后台执行，不阻塞）
@@ -188,37 +212,106 @@ fi
 LOCAL_SIZE=$(du -h "$LOCAL_DUMP" | cut -f1)
 TRANSFER_END=$(date +%s)
 log_ok "传输完成，大小: ${LOCAL_SIZE}，耗时: $((TRANSFER_END - TRANSFER_START)) 秒"
+fi  # end of non-local mode (steps 1-2)
 
-# 4c. 并行恢复到本地数据库
-log "步骤 3/3：并行恢复到本地数据库（4 worker）..."
+# 3c. 创建影子库并恢复
+log "步骤 3/4：恢复到影子库 ${DB_NEW}（4 worker）..."
+
+# 创建干净的影子库
+psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "
+  SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+  WHERE datname = '${DB_NEW}' AND pid <> pg_backend_pid();
+" &>/dev/null
+psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "
+  DROP DATABASE IF EXISTS ${DB_NEW};
+" &>/dev/null
+psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "
+  CREATE DATABASE ${DB_NEW};
+" &>/dev/null
+
 RESTORE_START=$(date +%s)
 
 set +e  # 临时关闭 set -e，pg_restore 的退出码 1 表示警告（可接受）
-pg_restore -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d "$DB_NAME" \
-  -j 4 --no-owner --clean --if-exists "$LOCAL_DUMP"
-RESTORE_EXIT=$?
+pg_restore -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d "$DB_NEW" \
+  -j 4 --no-owner -v "$LOCAL_DUMP" 2>&1 | grep "TABLE DATA"
+RESTORE_EXIT=${PIPESTATUS[0]}
 set -e
 
-rm -f "$LOCAL_DUMP"
+# 保留 dump 文件，供 --local 模式调试使用（不删除）
 
 if [ $RESTORE_EXIT -eq 0 ]; then
   log_ok "恢复成功（无警告）"
 elif [ $RESTORE_EXIT -eq 1 ]; then
-  log_warn "恢复完成（有警告，通常为正常现象，如 DROP 不存在的对象）"
+  log_warn "恢复完成（有警告，通常为正常现象）"
 else
   log_error "数据同步失败（pg_restore 退出码: $RESTORE_EXIT）"
+  # 清理影子库
+  psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "DROP DATABASE IF EXISTS ${DB_NEW};" &>/dev/null
   exit 1
 fi
 
 RESTORE_END=$(date +%s)
 log_ok "恢复耗时: $((RESTORE_END - RESTORE_START)) 秒"
 
+# 3d. 原子切换：影子库 → 正式库
+log "步骤 4/4：原子切换（${DB_NEW} → ${DB_NAME}）..."
+SWITCH_START=$(date +%s)
+SWITCH_LOG="/tmp/sync-switch-output.log"
+
+# 禁止新连接（先设置 CONNECTION LIMIT，后续杀连接才不会被重连）
+psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "
+  ALTER DATABASE ${DB_NAME} CONNECTION LIMIT 0;
+" 2>&1
+
+# 重试切换（最多 5 次，每次间隔 1 秒）
+SWITCH_OK=0
+for i in 1 2 3 4 5; do
+  # 杀连接（SELECT 可以在事务内）
+  psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "
+    SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+    WHERE datname IN ('${DB_NAME}', '${DB_OLD}') AND pid <> pg_backend_pid();
+  " >"$SWITCH_LOG" 2>&1
+
+  # 以下每条 DDL 必须单独执行（DROP/ALTER DATABASE 不能在事务块内）
+  if psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres \
+       -c "DROP DATABASE IF EXISTS ${DB_OLD};" >"$SWITCH_LOG" 2>&1 && \
+     psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres \
+       -c "ALTER DATABASE ${DB_NAME} RENAME TO ${DB_OLD};" >"$SWITCH_LOG" 2>&1 && \
+     psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres \
+       -c "ALTER DATABASE ${DB_NEW} RENAME TO ${DB_NAME};" >"$SWITCH_LOG" 2>&1 && \
+     psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres \
+       -c "ALTER DATABASE ${DB_NAME} CONNECTION LIMIT -1;" >"$SWITCH_LOG" 2>&1 && \
+     psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres \
+       -c "DROP DATABASE ${DB_OLD};" >"$SWITCH_LOG" 2>&1; then
+    SWITCH_OK=1
+    break
+  fi
+
+  log_warn "切换尝试 $i/5 失败，1 秒后重试..."
+  sleep 1
+done
+
+if [ "$SWITCH_OK" -ne 1 ]; then
+  log_error "原子切换失败（5 次重试均失败）"
+  log_error "最后错误：$(cat "$SWITCH_LOG" 2>/dev/null)"
+  # 恢复连接限制
+  psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "ALTER DATABASE ${DB_NAME} CONNECTION LIMIT -1;" 2>/dev/null
+  # 清理影子库
+  psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d postgres -c "DROP DATABASE IF EXISTS ${DB_NEW};" 2>/dev/null
+  rm -f "$SWITCH_LOG"
+  exit 1
+fi
+rm -f "$SWITCH_LOG"
+
+SWITCH_END=$(date +%s)
+log_ok "切换完成，耗时: $((SWITCH_END - SWITCH_START)) 秒"
+
 # ==================== 结果输出 ====================
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
 
 echo ""
-log_ok "同步完成！总耗时 ${ELAPSED} 秒（dump: $((DUMP_END - DUMP_START))秒 + 传输: $((TRANSFER_END - TRANSFER_START))秒 + 恢复: $((RESTORE_END - RESTORE_START))秒）"
+log_ok "同步完成！总耗时 ${ELAPSED} 秒（dump: $((DUMP_END - DUMP_START))秒 + 传输: $((TRANSFER_END - TRANSFER_START))秒 + 恢复: $((RESTORE_END - RESTORE_START))秒 + 切换: $((SWITCH_END - SWITCH_START))秒）"
 
 # 查询同步后的表数量作为验证
 TABLE_COUNT=$(psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d "$DB_NAME" -tAc "

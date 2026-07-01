@@ -25,7 +25,7 @@ function aggregateCategory(category: CategoryTarget) {
 }
 
 /** 按历史销售占比拆分品类目标到商品 */
-function splitByProportion(category: CategoryTarget, targetAmount: number): ProductTarget[] {
+export function splitByProportion(category: CategoryTarget, targetAmount: number): ProductTarget[] {
   const totalActual = category.products.reduce((sum, p) => sum + p.actualAmountLastMonth, 0);
   if (totalActual === 0) {
     return splitEvenly(category, targetAmount);
@@ -38,7 +38,7 @@ function splitByProportion(category: CategoryTarget, targetAmount: number): Prod
 }
 
 /** 平均分摊品类目标到商品 */
-function splitEvenly(category: CategoryTarget, targetAmount: number): ProductTarget[] {
+export function splitEvenly(category: CategoryTarget, targetAmount: number): ProductTarget[] {
   const count = category.products.length;
   if (count === 0) return [];
   const perAmount = Math.round(targetAmount / count);
@@ -54,7 +54,7 @@ function calcSummary(customers: CustomerTarget[]): TargetSummary {
   let coveredCustomers = 0;
   let totalProducts = 0;
   let coveredProducts = 0;
-  const marketerIds = new Set<string>();
+  const marketerIds = new Set<number>();
 
   for (const c of customers) {
     let customerHasTarget = false;
@@ -103,7 +103,7 @@ export function useTargetCalculation() {
 
   const updateProductTarget = useCallback((
     customers: CustomerTarget[],
-    customerId: string,
+    customerId: number,
     categoryId: string,
     productId: string,
     field: 'targetAmount' | 'remark',
@@ -134,7 +134,7 @@ export function useTargetCalculation() {
 
   const updateCategoryTarget = useCallback((
     customers: CustomerTarget[],
-    customerId: string,
+    customerId: number,
     categoryId: string,
     field: 'targetAmount',
     value: number,
@@ -153,7 +153,7 @@ export function useTargetCalculation() {
 
   const applySplit = useCallback((
     customers: CustomerTarget[],
-    customerId: string,
+    customerId: number,
     categoryId: string,
     method: SplitMethod,
     targetAmount: number,
@@ -173,8 +173,8 @@ export function useTargetCalculation() {
 
   const addCustomers = useCallback((
     existing: CustomerTarget[],
-    newCustomers: Array<{ customerId: string; customerName: string }>,
-    marketerId: string,
+    newCustomers: Array<{ customerId: number; customerName: string }>,
+    marketerId: number,
     marketerName: string,
   ): CustomerTarget[] => {
     const existingIds = new Set(existing.map((c) => c.customerId));
@@ -193,7 +193,7 @@ export function useTargetCalculation() {
 
   const addProductsToCustomer = useCallback((
     customers: CustomerTarget[],
-    customerId: string,
+    customerId: number,
     newProducts: Array<{ productId: string; productName: string; categoryId: string; categoryName: string; unit: string; unitPrice: number }>,
   ): CustomerTarget[] => {
     return customers.map((c) => {

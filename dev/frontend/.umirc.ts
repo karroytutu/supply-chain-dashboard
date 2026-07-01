@@ -224,6 +224,12 @@ export default defineConfig({
           access: PERMISSIONS.SYSTEM.TOKEN.READ,
         },
         {
+          path: 'erp-sync',
+          name: 'ERP数据同步',
+          component: '@/pages/System/ErpSync',
+          access: PERMISSIONS.SYSTEM.ERP_SYNC.READ,
+        },
+        {
           path: 'changelog',
           name: '更新日志',
           component: '@/pages/System/Changelog',

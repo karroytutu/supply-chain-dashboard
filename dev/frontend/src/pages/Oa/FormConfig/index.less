@@ -1,26 +1,25 @@
+@import '~@/styles/variables.less';
+
 /* 表单管理列表页样式 */
 
 .container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: #f5f5f5;
+  // .page-full 已提供 flex + column + height
 }
 
 .header {
   padding: 16px 20px;
-  background: #fff;
+  background: @bg-color-card;
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid @border-color-split;
 }
 
 /* 顶部分类 Tabs */
 .categoryTabs {
-  background: #fff;
+  background: @bg-color-card;
   padding: 0 20px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid @border-color-split;
 }
 
 /* 表格区域 */
@@ -28,7 +27,7 @@
   flex: 1;
   padding: 16px;
   overflow: auto;
-  background: #fff;
+  background: @bg-color-card;
   margin: 0 12px 12px;
   border-radius: 0 0 4px 4px;
 }
@@ -81,10 +80,10 @@
 /* 数据权限摘要 */
 .permissionSummary {
   font-size: 12px;
-  color: #666;
+  color: @text-color-tertiary;
 
   .permissionLabel {
-    color: #999;
+    color: @text-color-placeholder;
     margin-right: 4px;
   }
 }

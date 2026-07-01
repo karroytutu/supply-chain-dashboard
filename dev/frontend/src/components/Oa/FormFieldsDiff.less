@@ -9,14 +9,14 @@
 
 .formLabel {
   width: 100px;
-  color: #666;
+  color: @text-color-tertiary;
   flex-shrink: 0;
 }
 
 .formValue {
   flex: 1;
   min-width: 0; // 阻断 flex 子项 min-width:auto 默认行为，防止表格内容撑开父级
-  color: #333;
+  color: @text-color-regular;
 }
 
 // 变更对比 - 单字段值区域
@@ -29,14 +29,14 @@
 
 // 旧值：红色 + 删除线
 .diffOld {
-  color: #ff4d4f;
+  color: @error-color;
   text-decoration: line-through;
   opacity: 0.8;
   font-size: 13px;
 
   // 覆盖内部 Text 组件的颜色
   :global(.ant-typography) {
-    color: #ff4d4f;
+    color: @error-color;
     text-decoration: line-through;
   }
 
@@ -45,22 +45,22 @@
     text-decoration: none;
     opacity: 0.6;
     border-color: #ffccc7;
-    color: #ff4d4f;
-    background: #fff2f0;
+    color: @error-color;
+    background: @warning-serious-bg;
   }
 }
 
 // 箭头分隔符
 .diffArrow {
   font-size: 12px;
-  color: #999;
+  color: @text-color-placeholder;
   line-height: 1;
   padding: 1px 0;
 }
 
 // 新值：绿色 + 加粗
 .diffNew {
-  color: #333;
+  color: @text-color-regular;
   font-weight: 500;
   font-size: 13px;
 
@@ -81,13 +81,13 @@
 }
 
 .diffBadgeChanged {
-  background: #fff7e6;
-  color: #fa8c16;
+  background: @warning-alert-bg;
+  color: @warning-color-dark;
 }
 
 .diffBadgeNew {
-  background: #f6ffed;
-  color: #52c41a;
+  background: @warning-normal-bg;
+  color: @success-color;
 }
 
 // 未变更行（默认隐藏）
@@ -101,22 +101,22 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #1890ff;
+  color: @primary-color;
   cursor: pointer;
-  padding: 8px 0 0;
+  padding: @spacing-sm 0 0;
   border: none;
   background: none;
 
   &:hover {
-    color: #40a9ff;
+    color: @primary-color-hover;
   }
 }
 
 // 变更统计
 .diffSummary {
   font-size: 12px;
-  color: #999;
-  margin-bottom: 8px;
+  color: @text-color-placeholder;
+  margin-bottom: @spacing-sm;
 }
 
 // Descriptions 布局下的 diff 行样式

@@ -10,7 +10,11 @@ import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 import { fetchAllPagesParallel } from './erp-pagination';
+import { appQuery } from '../../db/appPool';
 import type { ERPDebtRecord } from '../erp-debt/erp-debt.types';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('ErpDebtService');
 
 /** API 返回的原始欠款记录 */
 interface ApiDebtRecord {
@@ -79,21 +83,120 @@ function toERPDebtRecord(api: ApiDebtRecord): ERPDebtRecord {
 }
 
 /**
- * 从 ERP API 全量拉取客户欠款明细
+ * 从本地 erp_debts 表读取欠款数据（同步引擎已预填充）
+ * 返回格式与原 ERPDebtRecord 完全一致，消费方无需修改
+ */
+async function fetchDebtsFromLocalTable(): Promise<ERPDebtRecord[] | null> {
+  try {
+    const result = await appQuery<Record<string, unknown>>(
+      `SELECT bill_id, biz_str, biz_order_str, consumer_name, manager_users,
+              total_amount, left_amount, settle_method, consumer_expire_day,
+              bill_type_name, work_time, hoard_tag, write_off_amount, bill_note
+       FROM erp_debts WHERE left_amount > 0`
+    );
+    if (result.rows.length === 0) return null;
+
+    return result.rows.map(row => ({
+      billId: String(row.bill_id),
+      bizStr: row.biz_str as string | undefined,
+      bizOrderStr: row.biz_order_str as string,
+      consumerName: row.consumer_name as string,
+      managerUsers: row.manager_users as string,
+      totalAmount: Number(row.total_amount) || 0,
+      leftAmount: Number(row.left_amount) || 0,
+      settleMethod: row.settle_method as number,
+      consumerExpireDay: row.consumer_expire_day as number,
+      billTypeName: row.bill_type_name as string,
+      workTime: row.work_time as string,
+      hoardTag: (row.hoard_tag as string) || null,
+      writeOffAmount: Number(row.write_off_amount) || 0,
+      billNote: (row.bill_note as string) || '',
+    }));
+  } catch (err) {
+    log.warn('本地表查询失败，将 fallback 到 ERP API:', err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+/**
+ * 直接从 ERP API 拉取全量欠款数据（不经过本地表、不触发 forceSync）
+ * 供同步引擎的 fetchAll 调用，避免循环调用链
+ * @returns leftAmount > 0 的所有欠款记录
+ */
+export async function fetchDebtsFromErpApi(): Promise<ERPDebtRecord[]> {
+  const { cid, uid } = getErpDefaults();
+  const workEndDate = beijingDate();
+
+  const fetchPage = async (current: number) => {
+    const result = await erpPost<ApiDebtResponse>(
+      '/consumer-collect/detail',
+      {
+        workStartDate: '2020-01-01',
+        workEndDate,
+        size: DEFAULT_PAGE_SIZE,
+        total: 0,
+        current,
+        settlementStateIds: ['NONE', 'PART'],
+        timeType: ['WORK'],
+        ifShowSubtotal: false,
+        groupingDims: ['settlerName'],
+        cid,
+        uid,
+      },
+      {
+        pathPrefix: '/toliman/',
+        businessType: 'debt_fetch',
+      }
+    );
+    return {
+      records: result?.data?.records || [],
+      total: result?.data?.total || 0,
+    };
+  };
+
+  const allRecords = await fetchAllPagesParallel<ApiDebtRecord>(fetchPage, DEFAULT_PAGE_SIZE);
+  return allRecords.filter(r => parseFloat(r.leftAmount) > 0).map(toERPDebtRecord);
+}
+
+/**
+ * 从本地表或 ERP API 获取客户欠款明细
  *
- * @param skipCache - 为 true 时绕过缓存（定时同步任务使用）
+ * 迁移策略：先查本地 erp_debts 表（同步引擎每 2 分钟填充），
+ * 表为空或查询失败时 fallback 到 ERP API（过渡期降级方案）。
+ * 函数签名不变，消费方无需修改。
+ *
+ * @param skipCache - 为 true 时强制刷新（触发同步引擎后读取最新数据）
  * @returns leftAmount > 0 的所有欠款记录
  */
 export async function fetchAllErpDebts(skipCache = false): Promise<ERPDebtRecord[]> {
+  // skipCache=true：先尝试触发同步引擎强制同步，再读本地表
+  if (skipCache) {
+    try {
+      const { forceSync } = await import('../erp-sync/sync-orchestrator');
+      await forceSync('debts');
+    } catch {
+      // 同步引擎未初始化或失败，忽略
+    }
+    const localDebts = await fetchDebtsFromLocalTable();
+    if (localDebts) return localDebts;
+    log.warn('本地表无数据，fallback 到 ERP API');
+  }
+
+  // 正常路径：先查本地表
+  if (!skipCache) {
+    const localDebts = await fetchDebtsFromLocalTable();
+    if (localDebts) return localDebts;
+  }
+
   const cacheKey = CACHE_KEY.ERP_DEBTS_ALL;
 
-  // 缓存检查（仅非 skipCache 模式）
+  // 缓存检查（fallback 路径）
   if (!skipCache) {
     const cached = cache.get<ERPDebtRecord[]>(cacheKey);
     if (cached) return cached;
   }
 
-  // in-flight 去重：多个并发调用共享同一 Promise
+  // in-flight 去重
   if (!skipCache && _debtsInFlight) return _debtsInFlight;
 
   const doFetch = async (): Promise<ERPDebtRecord[]> => {
@@ -148,7 +251,7 @@ export async function fetchAllErpDebts(skipCache = false): Promise<ERPDebtRecord
 
 /**
  * 检查指定的 billId 是否仍在 ERP 欠款列表中
- * 用于核销时验证 ERP 数据是否仍存在
+ * 优先查本地 erp_debts 表，fallback 到全量缓存
  *
  * @param billIds 要检查的 billId 列表
  * @returns 仍存在于 ERP 中的 billId 集合
@@ -156,9 +259,21 @@ export async function fetchAllErpDebts(skipCache = false): Promise<ERPDebtRecord
 export async function checkExistingBillIds(billIds: string[]): Promise<Set<string>> {
   if (billIds.length === 0) return new Set();
 
-  // 复用全量缓存数据（如果有的话）
+  // 优先从本地表查询（精确匹配，避免全量加载）
+  try {
+    const result = await appQuery<{ bill_id: string }>(
+      'SELECT bill_id FROM erp_debts WHERE bill_id = ANY($1)',
+      [billIds]
+    );
+    if (result.rows.length > 0) {
+      return new Set(result.rows.map(r => r.bill_id));
+    }
+  } catch (err) {
+    log.warn('本地表查询失败，fallback 到全量缓存:', err instanceof Error ? err.message : String(err));
+  }
+
+  // fallback：复用全量缓存数据
   const allDebts = await fetchAllErpDebts();
   const existingIds = new Set(allDebts.map(d => d.billId));
-
   return new Set(billIds.filter(id => existingIds.has(id)));
 }

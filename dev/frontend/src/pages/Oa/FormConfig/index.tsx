@@ -133,7 +133,7 @@ const FormConfigPage: React.FC = () => {
   ];
 
   return (
-    <div className={styles.container}>
+    <div className={`page-full ${styles.container}`}>
       <div className={styles.header}>
         <Title level={4} style={{ margin: 0 }}>表单管理</Title>
         <div style={{ flex: 1 }} />

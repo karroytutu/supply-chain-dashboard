@@ -105,6 +105,52 @@ export function formatFileSize(bytes: number | null | undefined): string {
 }
 
 /**
+ * 紧凑金额格式化（万级缩写）
+ * @param n 金额数值
+ * @param options.zeroAs 值为0时的显示文本，默认 '-'
+ * @example formatCompactAmount(0) => '-'
+ * @example formatCompactAmount(123456) => '¥12.3万'
+ * @example formatCompactAmount(5000) => '¥5,000'
+ */
+export function formatCompactAmount(
+  n: number,
+  options?: { zeroAs?: string }
+): string {
+  if (n === 0) return options?.zeroAs ?? '-';
+  if (Math.abs(n) >= 10000) return `¥${(n / 10000).toFixed(1)}万`;
+  return `¥${n.toLocaleString()}`;
+}
+
+/**
+ * 变化率格式化（环比/增长）
+ * @param current 当前值
+ * @param base 基准值
+ * @returns { text, color } 文本和颜色
+ */
+export function formatChangeRate(
+  current: number,
+  base: number
+): { text: string; color: string } {
+  if (base === 0 && current === 0) return { text: '-', color: '#8c8c8c' };
+  if (base === 0) return { text: '新增', color: '#52c41a' };
+  const pct = ((current - base) / base) * 100;
+  const arrow = pct >= 0 ? '↑' : '↓';
+  const color = pct >= 0 ? '#52c41a' : '#ff4d4f';
+  return { text: `${arrow}${Math.abs(pct).toFixed(1)}%`, color };
+}
+
+/**
+ * 达成率格式化
+ * @param actual 实际值
+ * @param target 目标值
+ * @returns 达成率字符串，如 '85.3%'
+ */
+export function formatAchievementRate(actual: number, target: number): string {
+  if (target === 0) return '-';
+  return `${((actual / target) * 100).toFixed(1)}%`;
+}
+
+/**
  * 相对时间格式化
  */
 export function formatRelativeTime(date: string | Date | null | undefined): string {

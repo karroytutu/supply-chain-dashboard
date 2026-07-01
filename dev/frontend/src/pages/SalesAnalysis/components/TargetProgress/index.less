@@ -1,8 +1,10 @@
+@import '~@/styles/variables.less';
+
 .section {
-  background: #fff;
-  border-radius: 8px;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
   padding: 20px 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: @box-shadow-card;
   margin-bottom: 16px;
 }
 
@@ -16,13 +18,13 @@
 .sectionTitle {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: @text-color-regular;
   margin: 0;
 }
 
 .monthLabel {
   font-size: 14px;
-  color: #999;
+  color: @text-color-placeholder;
 }
 
 .timeProgress {
@@ -30,14 +32,14 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: #f6f8fa;
+  background: @bg-color-muted;
   border-radius: 6px;
   margin-bottom: 16px;
 }
 
 .timeLabel {
   font-size: 13px;
-  color: #666;
+  color: @text-color-tertiary;
   white-space: nowrap;
 }
 
@@ -50,15 +52,15 @@
 
 .overviewCard {
   padding: 16px;
-  background: #f6f8fa;
-  border-radius: 8px;
+  background: @bg-color-muted;
+  border-radius: @border-radius-base;
   text-align: center;
 }
 
 .overviewLabel {
   display: block;
   font-size: 13px;
-  color: #999;
+  color: @text-color-placeholder;
   margin-bottom: 8px;
 }
 
@@ -66,11 +68,11 @@
   display: block;
   font-size: 22px;
   font-weight: 600;
-  color: #333;
+  color: @text-color-regular;
 }
 
 .rankTable {
-  border: 1px solid #f0f0f0;
+  border: 1px solid @border-color-split;
   border-radius: 6px;
   overflow: hidden;
 }
@@ -79,10 +81,10 @@
   display: flex;
   align-items: center;
   padding: 10px 16px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  background: @bg-color-hover;
+  border-bottom: 1px solid @border-color-split;
   font-size: 13px;
-  color: #666;
+  color: @text-color-tertiary;
   font-weight: 500;
 }
 
@@ -90,30 +92,30 @@
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid @bg-color-muted;
   cursor: pointer;
   transition: background 0.2s;
 
   &:hover {
-    background: #f6f8fa;
+    background: @bg-color-muted;
   }
 }
 
 .rankRowWarning {
-  border-left: 3px solid #f5222d;
+  border-left: 3px solid @error-color-dark;
 }
 
 .customerRow {
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  border-bottom: 1px solid #f5f5f5;
-  background: #fafafa;
+  border-bottom: 1px solid @bg-color-muted;
+  background: @bg-color-hover;
   font-size: 13px;
 }
 
 .customerRowWarning {
-  border-left: 3px solid #f5222d;
+  border-left: 3px solid @error-color-dark;
 }
 
 .rankColName {
@@ -128,12 +130,12 @@
 .rankCol {
   flex: 1;
   font-size: 13px;
-  color: #333;
+  color: @text-color-regular;
 }
 
 .expandIcon {
   font-size: 10px;
-  color: #999;
+  color: @text-color-placeholder;
 }
 
 .indent {

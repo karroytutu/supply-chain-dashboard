@@ -1,37 +1,37 @@
 @import '~@/styles/variables.less';
 
 .summaryCard {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: @bg-color-card;
+  border-radius: @border-radius-lg;
+  padding: @spacing-card;
+  box-shadow: @box-shadow-card;
   transition: all 0.3s ease;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: @box-shadow-hover;
   }
 
   .header {
     display: flex;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: @spacing-md;
 
     .iconWrapper {
       width: 36px;
       height: 36px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+      border-radius: @border-radius-base;
+      background: linear-gradient(135deg, @primary-bg-light 0%, #bae7ff 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-right: 12px;
+      margin-right: @spacing-section;
       font-size: 18px;
-      color: #1890ff;
+      color: @primary-color;
     }
 
     .title {
-      font-size: 14px;
-      color: #595959;
+      font-size: @font-size-base;
+      color: @text-color-tertiary;
       flex: 1;
     }
   }
@@ -43,61 +43,61 @@
     .valueWrapper {
       display: flex;
       align-items: baseline;
-      margin-bottom: 8px;
+      margin-bottom: @spacing-sm;
 
       .value {
         font-size: 32px;
         font-weight: 600;
-        color: #262626;
+        color: @text-color-primary;
         line-height: 1;
       }
 
       .unit {
-        font-size: 14px;
-        color: #8c8c8c;
-        margin-left: 4px;
+        font-size: @font-size-base;
+        color: @text-color-secondary;
+        margin-left: @spacing-xs;
       }
     }
 
     .trendWrapper {
       display: flex;
       align-items: center;
-      margin-left: 8px;
+      margin-left: @spacing-sm;
       font-size: 13px;
 
       :global {
         .anticon {
-          margin-right: 4px;
+          margin-right: @spacing-xs;
         }
       }
     }
 
     .statsWrapper {
       display: flex;
-      gap: 16px;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #f0f0f0;
+      gap: @spacing-md;
+      margin-top: @spacing-section;
+      padding-top: @spacing-section;
+      border-top: 1px solid @border-color-split;
 
       .statItem {
         display: flex;
         flex-direction: column;
 
         .statLabel {
-          font-size: 12px;
-          color: #8c8c8c;
-          margin-bottom: 4px;
+          font-size: @font-size-sm;
+          color: @text-color-secondary;
+          margin-bottom: @spacing-xs;
         }
 
         .statValue {
-          font-size: 14px;
+          font-size: @font-size-base;
           font-weight: 500;
-          color: #262626;
+          color: @text-color-primary;
 
           .statPercent {
-            font-size: 12px;
-            color: #ff4d4f;
-            margin-left: 4px;
+            font-size: @font-size-sm;
+            color: @error-color;
+            margin-left: @spacing-xs;
           }
         }
       }
@@ -105,8 +105,8 @@
 
     .periodComparison {
       display: flex;
-      gap: 16px;
-      margin-top: 8px;
+      gap: @spacing-md;
+      margin-top: @spacing-sm;
 
       .periodItem {
         display: flex;
@@ -114,14 +114,14 @@
 
         .periodLabel {
           font-size: 11px;
-          color: #8c8c8c;
+          color: @text-color-secondary;
           margin-bottom: 2px;
         }
 
         .periodValue {
           font-size: 13px;
           font-weight: 500;
-          color: #262626;
+          color: @text-color-primary;
         }
       }
     }
@@ -129,39 +129,39 @@
 }
 
 .summaryCardClickable {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: @bg-color-card;
+  border-radius: @border-radius-lg;
+  padding: @spacing-card;
+  box-shadow: @box-shadow-card;
   transition: all 0.3s ease;
   cursor: pointer;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: @box-shadow-modal;
     transform: translateY(-2px);
   }
 
   .header {
     display: flex;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: @spacing-md;
 
     .iconWrapper {
       width: 36px;
       height: 36px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+      border-radius: @border-radius-base;
+      background: linear-gradient(135deg, @primary-bg-light 0%, #bae7ff 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-right: 12px;
+      margin-right: @spacing-section;
       font-size: 18px;
-      color: #1890ff;
+      color: @primary-color;
     }
 
     .title {
-      font-size: 14px;
-      color: #595959;
+      font-size: @font-size-base;
+      color: @text-color-tertiary;
       flex: 1;
     }
   }
@@ -173,56 +173,56 @@
     .valueWrapper {
       display: flex;
       align-items: baseline;
-      margin-bottom: 8px;
+      margin-bottom: @spacing-sm;
 
       .value {
         font-size: 32px;
         font-weight: 600;
-        color: #262626;
+        color: @text-color-primary;
         line-height: 1;
       }
 
       .unit {
-        font-size: 14px;
-        color: #8c8c8c;
-        margin-left: 4px;
+        font-size: @font-size-base;
+        color: @text-color-secondary;
+        margin-left: @spacing-xs;
       }
     }
 
     .trendWrapper {
       display: flex;
       align-items: center;
-      margin-left: 8px;
+      margin-left: @spacing-sm;
       font-size: 13px;
 
       :global {
         .anticon {
-          margin-right: 4px;
+          margin-right: @spacing-xs;
         }
       }
     }
 
     .statsWrapper {
       display: flex;
-      gap: 16px;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #f0f0f0;
+      gap: @spacing-md;
+      margin-top: @spacing-section;
+      padding-top: @spacing-section;
+      border-top: 1px solid @border-color-split;
 
       .statItem {
         display: flex;
         flex-direction: column;
 
         .statLabel {
-          font-size: 12px;
-          color: #8c8c8c;
-          margin-bottom: 4px;
+          font-size: @font-size-sm;
+          color: @text-color-secondary;
+          margin-bottom: @spacing-xs;
         }
 
         .statValue {
-          font-size: 14px;
+          font-size: @font-size-base;
           font-weight: 500;
-          color: #262626;
+          color: @text-color-primary;
         }
       }
     }

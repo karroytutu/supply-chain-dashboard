@@ -1,11 +1,7 @@
 @import '~@/styles/variables.less';
 
 .detailPage {
-  padding: 24px 24px 0; // 底部留白移至 .content 的 padding-bottom
-  background: #f0f2f5;
-  min-height: calc(100vh - 64px);
-  display: flex;
-  flex-direction: column;
+  padding: @spacing-lg @spacing-lg 0; // 底部留白移至 .content 的 padding-bottom
   max-width: 100%; // 防止内容撑宽页面
   overflow-x: hidden; // 表格等宽内容通过自身滚动条处理
 

@@ -1,3 +1,5 @@
+@import '~@/styles/variables.less';
+
 .distributionList {
   margin-top: 8px;
 }
@@ -14,14 +16,14 @@
   .rangeLabel {
     width: 70px;
     font-size: 12px;
-    color: #8c8c8c;
+    color: @text-color-secondary;
     flex-shrink: 0;
   }
 
   .barWrapper {
     flex: 1;
     height: 8px;
-    background-color: #f0f0f0;
+    background-color: @border-color-split;
     border-radius: 4px;
     overflow: hidden;
     margin: 0 8px;
@@ -38,6 +40,6 @@
     font-size: 12px;
     font-weight: 500;
     text-align: right;
-    color: #262626;
+    color: @text-color-primary;
   }
 }

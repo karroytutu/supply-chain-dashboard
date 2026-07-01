@@ -10,6 +10,10 @@ import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 import { aggregateSum } from '../../utils/arrayAggregation';
 import { invalidateFacadeCache } from './erp-data-facade';
+import { appQuery } from '../../db/appPool';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('ErpInventoryService');
 
 /** API 返回的库存记录 */
 export interface ErpInventoryRecord {
@@ -108,10 +112,7 @@ export async function fetchAllInventory(skipCache = false): Promise<ErpInventory
     // 写入缓存（TTL 30s）
     cache.set(cacheKey, allRecords, CACHE_TTL.ERP_BASE);
 
-    // 清除预聚合缓存
-    _stockSummaryMap = null;
-    _stockByNameMap = null;
-    _costPriceByNameMap = null;
+    // [ERP本地化] 旧的模块级预聚合缓存已移除，由本地表 + MemoryCache 接管
 
     return allRecords;
   };
@@ -124,90 +125,101 @@ export async function fetchAllInventory(skipCache = false): Promise<ErpInventory
   }
 }
 
-/**
- * 二级预聚合缓存（从 MemoryCache 中的原始库存数据派生）
- *
- * 这些变量是对 fetchAllInventory() 返回的原始数据做聚合计算后的结果缓存，
- * 目的是避免每次调用 getStockSummaryMap/getStockByNameMap/getCostPriceByNameMap 时都重新聚合。
- *
- * 生命周期：
- * - 首次访问时延迟构建（lazy init），由对应的 get 函数触发
- * - 在 fetchAllInventory() 获取到新数据后自动清除（见上方 lines 104-106）
- * - 在 invalidateInventoryCache() 被外部调用时也会清除
- * - 清除后下次 get 调用会重新从 MemoryCache 读取原始数据并聚合
- *
- * 注意：这些缓存不走 MemoryCache 的 TTL 机制，但与原始缓存保持一致——
- * 原始缓存过期后 fetchAllInventory() 会重新拉取，同时清除这些预聚合缓存。
- */
-let _stockSummaryMap: Map<number, number> | null = null;
-let _stockByNameMap: Map<string, number> | null = null;
-let _costPriceByNameMap: Map<string, number> | null = null;
+// [ERP本地化] 旧的模块级预聚合缓存已移除，由本地 PostgreSQL 表 + MemoryCache 接管
+// 原 _stockSummaryMap / _stockByNameMap / _costPriceByNameMap 已删除
 
 /**
  * 获取库存汇总 Map（按 goodsId 聚合可用库存）
- * 替代 SQL: SELECT goodsId, SUM(availableBaseQuantity) GROUP BY goodsId
+ * 优先从本地 erp_inventory 表 SQL 聚合，fallback 到内存聚合
  */
 export async function getStockSummaryMap(): Promise<Map<number, number>> {
-  if (_stockSummaryMap) return _stockSummaryMap;
+  // 优先从本地表 SQL 聚合
+  try {
+    const result = await appQuery<{ goods_id: number; total_qty: string }>(
+      'SELECT goods_id, SUM(available_base_quantity) AS total_qty FROM erp_inventory GROUP BY goods_id'
+    );
+    if (result.rows.length > 0) {
+      const map = new Map<number, number>();
+      result.rows.forEach(r => map.set(r.goods_id, Number(r.total_qty) || 0));
+      return map;
+    }
+  } catch (err) {
+    log.warn('本地表聚合失败，fallback 到内存聚合:', err instanceof Error ? err.message : String(err));
+  }
 
+  // fallback：内存聚合
   const inventory = await fetchAllInventory();
-  const rawMap = aggregateSum(
-    inventory,
-    r => String(r.goodsId),
-    r => r.availableBaseQuantity
-  );
-
-  // aggregateSum returns Map<string, number>, convert to Map<number, number>
+  const rawMap = aggregateSum(inventory, r => String(r.goodsId), r => r.availableBaseQuantity);
   const result = new Map<number, number>();
   rawMap.forEach((val, key) => result.set(Number(key), val));
-  _stockSummaryMap = result;
-
-  return _stockSummaryMap;
+  return result;
 }
 
 /**
  * 获取库存汇总 Map（按 goodsName 聚合可用库存）
+ * 优先从本地 erp_inventory 表 SQL 聚合，fallback 到内存聚合
  */
 export async function getStockByNameMap(): Promise<Map<string, number>> {
-  if (_stockByNameMap) return _stockByNameMap;
+  // 优先从本地表 SQL 聚合
+  try {
+    const result = await appQuery<{ goods_name: string; total_qty: string }>(
+      'SELECT goods_name, SUM(available_base_quantity) AS total_qty FROM erp_inventory GROUP BY goods_name'
+    );
+    if (result.rows.length > 0) {
+      const map = new Map<string, number>();
+      result.rows.forEach(r => map.set(r.goods_name, Number(r.total_qty) || 0));
+      return map;
+    }
+  } catch (err) {
+    log.warn('本地表聚合失败，fallback 到内存聚合:', err instanceof Error ? err.message : String(err));
+  }
 
+  // fallback：内存聚合
   const inventory = await fetchAllInventory();
-  _stockByNameMap = aggregateSum(
-    inventory,
-    r => r.goodsName,
-    r => r.availableBaseQuantity
-  );
-
-  return _stockByNameMap;
+  return aggregateSum(inventory, r => r.goodsName, r => r.availableBaseQuantity);
 }
 
 /**
  * 获取加权平均成本价 Map（按 goodsName）
- * 替代 SQL: SUM(baseCostPrice * availableBaseQuantity) / SUM(availableBaseQuantity)
+ * 优先从本地 erp_inventory 表 SQL 聚合，fallback 到内存聚合
  */
 export async function getCostPriceByNameMap(): Promise<Map<string, number>> {
-  if (_costPriceByNameMap) return _costPriceByNameMap;
+  // 优先从本地表 SQL 聚合（加权平均成本）
+  try {
+    const result = await appQuery<{ goods_name: string; avg_cost: string }>(
+      `SELECT goods_name,
+              CASE WHEN SUM(available_base_quantity) > 0
+                THEN SUM(base_cost_price::numeric * available_base_quantity) / SUM(available_base_quantity)
+                ELSE 0
+              END AS avg_cost
+       FROM erp_inventory WHERE available_base_quantity > 0 GROUP BY goods_name`
+    );
+    if (result.rows.length > 0) {
+      const map = new Map<string, number>();
+      result.rows.forEach(r => map.set(r.goods_name, Number(r.avg_cost) || 0));
+      return map;
+    }
+  } catch (err) {
+    log.warn('本地表聚合失败，fallback 到内存聚合:', err instanceof Error ? err.message : String(err));
+  }
 
+  // fallback：内存聚合
   const inventory = await fetchAllInventory();
   const costMap = new Map<string, { totalCost: number; totalQty: number }>();
-
   for (const record of inventory) {
     const costPrice = parseFloat(record.baseCostPrice) || 0;
     const qty = record.availableBaseQuantity;
     if (qty <= 0) continue;
-
     const existing = costMap.get(record.goodsName) || { totalCost: 0, totalQty: 0 };
     existing.totalCost += costPrice * qty;
     existing.totalQty += qty;
     costMap.set(record.goodsName, existing);
   }
-
-  _costPriceByNameMap = new Map<string, number>();
+  const result = new Map<string, number>();
   costMap.forEach((val, key) => {
-    _costPriceByNameMap!.set(key, val.totalQty > 0 ? val.totalCost / val.totalQty : 0);
+    result.set(key, val.totalQty > 0 ? val.totalCost / val.totalQty : 0);
   });
-
-  return _costPriceByNameMap;
+  return result;
 }
 
 /**
@@ -215,8 +227,5 @@ export async function getCostPriceByNameMap(): Promise<Map<string, number>> {
  */
 export function invalidateInventoryCache(): void {
   cache.invalidate(CACHE_KEY.ERP_INVENTORY_PREFIX);
-  _stockSummaryMap = null;
-  _stockByNameMap = null;
-  _costPriceByNameMap = null;
   invalidateFacadeCache();
 }

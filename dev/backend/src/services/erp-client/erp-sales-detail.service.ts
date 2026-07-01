@@ -9,9 +9,12 @@ import { beijingDate, beijingDateOffset } from '../../utils/beijingTime';
 import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
-import { LAST_SALE_LOOKBACK_DAYS } from '../../utils/constants';
-import { aggregateSum, lastBy } from '../../utils/arrayAggregation';
-import { fetchAllPagesParallel } from './erp-pagination';
+import { LAST_SALE_LOOKBACK_DAYS, SALES_BUSINESS_ATTR_IDS } from '../../utils/constants';
+import { fetchAllPagesParallel, fetchAllPagesSequential, fetchAllPagesVerified } from './erp-pagination';
+import { appQuery } from '../../db/appPool';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('ErpSalesDetail');
 
 /** API 返回的销售明细记录 */
 export interface ErpSalesDetail {
@@ -133,7 +136,8 @@ export async function fetchSalesDetails(
       };
     };
 
-    const result = await fetchAllPagesParallel<ErpSalesDetail>(fetchPage, DEFAULT_PAGE_SIZE);
+    const verified = await fetchAllPagesVerified<ErpSalesDetail>(fetchPage, DEFAULT_PAGE_SIZE, `sales:${dateFrom}~${dateTo}`);
+    const result = verified.records;
 
     // 写入持久缓存（5分钟 TTL）
     cache.set(persistKey, result, CACHE_TTL.ERP_SLOW);
@@ -151,43 +155,35 @@ export async function fetchSalesDetails(
 
 /**
  * 获取近 N 天的日均销量 Map
- * 替代 SQL: SELECT goodsName, SUM(baseQuantity)/days GROUP BY goodsName
+ * 从本地 erp_sales_details 表 SQL 聚合
  *
  * @param days - 计算天数，默认 30
  */
 export async function getDailySalesMap(days = 30): Promise<Map<string, number>> {
   const cacheKey = CACHE_KEY.ERP_SALES_DAILY_MAP;
 
-  // 检查缓存
   const cached = cache.get<Map<string, number>>(cacheKey);
   if (cached) return cached;
 
   const dateFrom = beijingDateOffset(-days);
-  const dateTo = beijingDate();
-
-  const details = await fetchSalesDetails(dateFrom, dateTo);
-
-  // 按商品名汇总销量，除以天数得到日均
-  const totalSalesMap = aggregateSum(
-    details,
-    d => d.goodsName,
-    d => d.baseQuantity
+  const result = await appQuery<{ goods_name: string; total_qty: string }>(
+    `SELECT goods_name, SUM(base_quantity) AS total_qty
+     FROM erp_sales_details
+     WHERE settle_time >= $1 AND business_attr = ANY($2)
+     GROUP BY goods_name`,
+    [dateFrom, SALES_BUSINESS_ATTR_IDS]
   );
-
   const dailyMap = new Map<string, number>();
-  totalSalesMap.forEach((total, name) => {
-    dailyMap.set(name, total / days);
+  result.rows.forEach(r => {
+    dailyMap.set(r.goods_name, (Number(r.total_qty) || 0) / days);
   });
-
-  // 缓存（TTL 60s）
   cache.set(cacheKey, dailyMap, CACHE_TTL.DASHBOARD);
-
   return dailyMap;
 }
 
 /**
  * 获取每个商品的最后销售时间 Map
- * 替代 SQL: SELECT goodsName, MAX(settleTime) GROUP BY goodsName
+ * 从本地 erp_sales_details 表 SQL 聚合
  */
 export async function getLastSaleMap(): Promise<Map<string, string>> {
   const cacheKey = CACHE_KEY.ERP_SALES_LAST_SALE;
@@ -195,40 +191,60 @@ export async function getLastSaleMap(): Promise<Map<string, string>> {
   const cached = cache.get<Map<string, string>>(cacheKey);
   if (cached) return cached;
 
-  const details = await fetchSalesDetails(
-    beijingDateOffset(-LAST_SALE_LOOKBACK_DAYS),
-    beijingDate()
+  const dateFrom = beijingDateOffset(-LAST_SALE_LOOKBACK_DAYS);
+  const result = await appQuery<{ goods_name: string; last_settle_time: string }>(
+    `SELECT goods_name, MAX(settle_time) AS last_settle_time
+     FROM erp_sales_details
+     WHERE settle_time >= $1 AND business_attr = ANY($2)
+     GROUP BY goods_name`,
+    [dateFrom, SALES_BUSINESS_ATTR_IDS]
   );
-
-  const lastSaleMap = lastBy(
-    details,
-    d => d.goodsName,
-    d => d.settleTime
-  );
-
-  // 转换为 Map<string, string>
-  const result = new Map<string, string>();
-  lastSaleMap.forEach((detail, name) => {
-    result.set(name, detail.settleTime);
-  });
-
-  // 缓存（TTL 60s）
-  cache.set(cacheKey, result, CACHE_TTL.DASHBOARD);
-
-  return result;
+  const resultMap = new Map<string, string>();
+  result.rows.forEach(r => resultMap.set(r.goods_name, r.last_settle_time));
+  cache.set(cacheKey, resultMap, CACHE_TTL.DASHBOARD);
+  return resultMap;
 }
 
 /**
  * 按订单号查询销售明细（用于退货同步获取客户名/营销师）
+ * 从本地 erp_sales_details 表查询
  */
 export async function getSalesDetailByOriginStr(originStr: string): Promise<ErpSalesDetail | null> {
-  // 先尝试从缓存中查找
-  const details = await fetchSalesDetails(
-    beijingDateOffset(-90),
-    beijingDate()
+  const result = await appQuery<Record<string, unknown>>(
+    `SELECT goods_name, goods_id, base_quantity, settle_time, consumer_name,
+            consumer_id, origin_str, biz_str, salesman_name, dept_name,
+            finance_cost_price, finance_sales_amount, sign_amount,
+            actual_quantity, base_unit_name, category_name, brand_name
+     FROM erp_sales_details WHERE origin_str = $1 LIMIT 1`,
+    [originStr]
   );
+  if (result.rows.length > 0) {
+    return mapLocalRowToSalesDetail(result.rows[0]);
+  }
+  return null;
+}
 
-  return details.find(d => d.originStr === originStr) || null;
+/** 本地表行 -> ErpSalesDetail 映射 */
+function mapLocalRowToSalesDetail(row: Record<string, unknown>): ErpSalesDetail {
+  return {
+    goodsName: (row.goods_name as string) || '',
+    goodsId: (row.goods_id as number) || 0,
+    baseQuantity: Number(row.base_quantity) || 0,
+    settleTime: (row.settle_time as string) || '',
+    consumerName: (row.consumer_name as string) || '',
+    consumerId: (row.consumer_id as number) || 0,
+    originStr: (row.origin_str as string) || '',
+    bizStr: (row.biz_str as string) || '',
+    salesmanName: (row.salesman_name as string) || '',
+    deptName: (row.dept_name as string) || '',
+    financeCostPrice: (row.finance_cost_price as string) || '0',
+    financeSalesAmount: (row.finance_sales_amount as string) || '0',
+    signAmount: (row.sign_amount as string) || '0',
+    actualQuantity: Number(row.actual_quantity) || 0,
+    baseUnitName: (row.base_unit_name as string) || '',
+    categoryName: (row.category_name as string) || '',
+    brandName: (row.brand_name as string) || '',
+  };
 }
 
 /**

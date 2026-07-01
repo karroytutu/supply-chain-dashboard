@@ -22,7 +22,7 @@ export default function OrgStructure() {
   } = useOrgData();
 
   return (
-    <div className={styles.orgContainer}>
+    <div className={`page-full ${styles.orgContainer}`}>
       <div className={styles.deptTreePanel}>
         <div className={styles.treeTitle}>部门架构</div>
         <DeptTree

@@ -1,9 +1,6 @@
 @import '~@/styles/variables.less';
 
 .dataPage {
-  padding: 24px;
-  background: #f0f2f5;
-  min-height: calc(100vh - 64px);
 
   .mainCard {
     border-radius: 4px;
@@ -19,7 +16,7 @@
   .filterSection {
     margin-bottom: 16px;
     padding-bottom: 16px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid @border-color-split;
   }
 
   .toolbar {
@@ -32,7 +29,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      color: #666;
+      color: @text-color-tertiary;
       font-size: 13px;
 
       :global {
@@ -46,7 +43,7 @@
   :global {
     .ant-table-wrapper {
       .ant-table-thead > tr > th {
-        background: #fafafa;
+        background: @bg-color-hover;
         font-weight: 600;
       }
 
@@ -95,27 +92,27 @@
 }
 
 .card {
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
+  background: @bg-color-card;
+  border-radius: @border-radius-base;
+  border: 1px solid @border-color-split;
   padding: 14px;
-  border-left: 3px solid #d9d9d9;
+  border-left: 3px solid @border-color-strong;
 
   &[data-status='pending'] {
-    border-left-color: #1890ff;
+    border-left-color: @primary-color;
   }
 
   &[data-status='approved'] {
-    border-left-color: #52c41a;
+    border-left-color: @success-color;
   }
 
   &[data-status='rejected'] {
-    border-left-color: #ff4d4f;
+    border-left-color: @error-color;
   }
 
   &[data-status='withdrawn'],
   &[data-status='cancelled'] {
-    border-left-color: #d9d9d9;
+    border-left-color: @border-color-strong;
   }
 }
 
@@ -149,13 +146,13 @@
 
 .cardFieldLabel {
   font-size: 11px;
-  color: #999;
+  color: @text-color-placeholder;
   margin-bottom: 2px;
 }
 
 .cardFieldValue {
   font-size: 13px;
-  color: #333;
+  color: @text-color-regular;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -164,7 +161,7 @@
 .cardFooter {
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid @border-color-split;
   display: flex;
   justify-content: flex-end;
 }

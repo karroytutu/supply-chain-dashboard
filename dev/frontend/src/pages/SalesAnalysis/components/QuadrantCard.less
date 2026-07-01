@@ -1,27 +1,29 @@
+@import '~@/styles/variables.less';
+
 .card {
   padding: 16px;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid @border-color-split;
+  border-radius: @border-radius-base;
+  background: @bg-color-card;
   border-left: 4px solid;
   display: grid;
   gap: 4px;
 }
 
 .star {
-  border-left-color: #faad14;
+  border-left-color: @warning-color;
 }
 
 .traffic {
-  border-left-color: #1890ff;
+  border-left-color: @primary-color;
 }
 
 .potential {
-  border-left-color: #52c41a;
+  border-left-color: @success-color;
 }
 
 .problem {
-  border-left-color: #8c8c8c;
+  border-left-color: @text-color-secondary;
 }
 
 .top {
@@ -50,7 +52,7 @@
 }
 
 .divider {
-  border-top: 1px dashed #f0f0f0;
+  border-top: 1px dashed @border-color-split;
   padding-top: 8px;
   margin-top: 8px;
 }
@@ -72,13 +74,13 @@
 }
 
 .up {
-  color: #389e0d;
-  background: #f6ffed;
+  color: @success-color;
+  background: @warning-normal-bg;
 }
 
 .down {
-  color: #cf1322;
-  background: #fff1f0;
+  color: @error-color-dark;
+  background: @warning-serious-bg;
 }
 
 .dimTitle {

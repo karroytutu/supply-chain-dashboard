@@ -144,12 +144,12 @@ const ActionBar: React.FC<ActionBarProps> = ({
             {renderLeftItems(leftItems, isMobile)}
           </div>
           <div className={styles.actionRight}>
-            <button type="button" className={styles.secondaryBtn} onClick={() => onOpenAction('update')}>
-              <SaveOutlined /> <span>保存</span>
-            </button>
-            <button type="button" className={styles.primaryBtn} onClick={() => onOpenAction('approve')}>
-              <CheckOutlined /> <span>完成</span>
-            </button>
+            <Button className={styles.secondaryBtn} onClick={() => onOpenAction('update')} icon={<SaveOutlined />}>
+              保存
+            </Button>
+            <Button type="primary" className={styles.primaryBtn} onClick={() => onOpenAction('approve')} icon={<CheckOutlined />}>
+              完成
+            </Button>
           </div>
         </div>
       );
@@ -169,12 +169,12 @@ const ActionBar: React.FC<ActionBarProps> = ({
           {renderLeftItems(leftItems, isMobile)}
         </div>
         <div className={styles.actionRight}>
-          <button type="button" className={styles.secondaryBtn} onClick={() => onOpenAction('reject')}>
-            <CloseOutlined /> <span>拒绝</span>
-          </button>
-          <button type="button" className={styles.primaryBtn} onClick={() => onOpenAction('approve')}>
-            <CheckOutlined /> <span>同意</span>
-          </button>
+          <Button danger className={styles.secondaryBtn} onClick={() => onOpenAction('reject')} icon={<CloseOutlined />}>
+              拒绝
+            </Button>
+            <Button type="primary" className={styles.primaryBtn} onClick={() => onOpenAction('approve')} icon={<CheckOutlined />}>
+              同意
+            </Button>
         </div>
       </div>
     );

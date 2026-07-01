@@ -1,7 +1,7 @@
+@import '~@/styles/variables.less';
+
 .page {
-  padding: 0 0 24px;
-  background: #f0f2f5;
-  min-height: 100vh;
+  padding: 0 0 @spacing-lg; // 无顶部/侧边内边距，仅底部留白
 }
 
 .alert {
@@ -13,10 +13,6 @@
   align-items: baseline;
   justify-content: space-between;
   padding: 0 24px 16px;
-}
-
-.title {
-  margin: 0 !important;
 }
 
 .section {
