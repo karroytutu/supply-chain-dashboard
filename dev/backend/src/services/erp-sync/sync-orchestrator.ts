@@ -6,7 +6,7 @@
 
 import { createLogger } from '../../utils/logger';
 import { appQuery } from '../../db/appPool';
-import { syncDataset, syncWindowedRange, executeInitialFullLoad } from './sync-engine';
+import { syncDataset, syncWindowedRange } from './sync-engine';
 import type { SyncSourceConfig, SyncResult, CircuitState } from './sync-types';
 import { SYNC_DEFAULTS } from './sync-types';
 
@@ -143,19 +143,6 @@ export async function syncAllSnapshots(): Promise<SyncResult[]> {
   return syncResults;
 }
 
-/**
- * 同步 Type B（flow-window）数据集
- * 由调度器按窗口配置独立触发
- */
-export async function syncFlowWindow(sourceId: string): Promise<SyncResult | null> {
-  const source = registeredSources.get(sourceId);
-  if (!source || source.type !== 'flow-window') {
-    log.warn(`未找到 flow-window 数据集: ${sourceId}`);
-    return null;
-  }
-  return syncWithCircuitBreaker(source);
-}
-
 // =====================================================
 // 窗口范围同步（windowed-replace 模式）
 // =====================================================
@@ -168,23 +155,6 @@ function beijingDateOffset(days: number): string {
   const utc = d.getTime() + d.getTimezoneOffset() * 60000;
   const beijing = new Date(utc + 8 * 3600000);
   return beijing.toISOString().split('T')[0];
-}
-
-/** 首次全量加载（按月分块 + 断点续传） */
-export async function initialFullLoad(sourceId: string): Promise<SyncResult | null> {
-  const source = registeredSources.get(sourceId);
-  if (!source) {
-    log.warn(`未找到数据集: ${sourceId}`);
-    return null;
-  }
-  if (source.syncMode !== 'windowed-replace') {
-    log.warn(`全量加载仅支持 windowed-replace 模式: ${sourceId}`);
-    return null;
-  }
-
-  log.info(`全量加载: ${source.name} (${sourceId}), 起始: 2020-01-01`);
-  resetCircuitBreaker(sourceId);
-  return executeInitialFullLoad(source, '2020-01-01');
 }
 
 /** 热窗口同步：近 7 天，每 2 分钟 */
@@ -202,12 +172,12 @@ export async function syncHotWindow(sourceId: string): Promise<SyncResult | null
   const dateFrom = beijingDateOffset(-source.windows.hot);
   const dateTo = beijingDateOffset(1); // 包含今天
   log.info(`热窗口同步: ${source.name} (${sourceId}) [${dateFrom} ~ ${dateTo}]`);
-  const result = await syncWindowedRange(source, dateFrom, dateTo);
+  const result = await syncWindowedRange(source, dateFrom, dateTo, 'hot');
   recordCircuitResult(sourceId, result.success);
   return result;
 }
 
-/** 温窗口同步：8-30 天，每周 */
+/** 温窗口同步：8-60 天，每周 */
 export async function syncWarmWindow(sourceId: string): Promise<SyncResult | null> {
   const source = registeredSources.get(sourceId);
   if (!source || !source.windows) {
@@ -222,12 +192,12 @@ export async function syncWarmWindow(sourceId: string): Promise<SyncResult | nul
   const dateFrom = beijingDateOffset(-source.windows.warm);
   const dateTo = beijingDateOffset(-source.windows.hot);
   log.info(`温窗口同步: ${source.name} (${sourceId}) [${dateFrom} ~ ${dateTo}]`);
-  const result = await syncWindowedRange(source, dateFrom, dateTo);
+  const result = await syncWindowedRange(source, dateFrom, dateTo, 'warm');
   recordCircuitResult(sourceId, result.success);
   return result;
 }
 
-/** 冷窗口同步：30 天之前，每半月 */
+/** 冷窗口同步：60 天之前，每半月 */
 export async function syncColdWindow(sourceId: string): Promise<SyncResult | null> {
   const source = registeredSources.get(sourceId);
   if (!source || !source.windows) {
@@ -242,7 +212,7 @@ export async function syncColdWindow(sourceId: string): Promise<SyncResult | nul
   const dateFrom = null; // 无下界，拉取所有历史
   const dateTo = beijingDateOffset(-source.windows.cold);
   log.info(`冷窗口同步: ${source.name} (${sourceId}) [ALL ~ ${dateTo}]`);
-  const result = await syncWindowedRange(source, dateFrom, dateTo);
+  const result = await syncWindowedRange(source, dateFrom, dateTo, 'cold');
   recordCircuitResult(sourceId, result.success);
   return result;
 }
@@ -294,7 +264,7 @@ export async function forceSync(sourceId: string, window?: SyncWindow): Promise<
     }
 
     log.info(`强制窗口同步: ${source.name} (${sourceId}) window=${window} [${dateFrom ?? 'ALL'} ~ ${dateTo ?? 'NOW'}]`);
-    return syncWindowedRange(source, dateFrom, dateTo);
+    return syncWindowedRange(source, dateFrom, dateTo, window);
   }
 
   log.info(`强制同步: ${source.name} (${sourceId})`);
@@ -332,8 +302,8 @@ async function syncWithCircuitBreaker(source: SyncSourceConfig): Promise<SyncRes
 
     // 记录 circuit-open 日志
     await appQuery(
-      `INSERT INTO erp_sync_log (source_id, started_at, completed_at, duration_ms, status, records_fetched, records_upserted, records_changed, error_message)
-       VALUES ($1, NOW(), NOW(), 0, 'circuit-open', 0, 0, 0, '熔断器阻断，跳过同步')`,
+      `INSERT INTO erp_sync_log (source_id, started_at, completed_at, duration_ms, status, records_fetched, records_upserted, records_changed, error_message, sync_window)
+       VALUES ($1, NOW(), NOW(), 0, 'circuit-open', 0, 0, 0, '熔断器阻断，跳过同步', NULL)`,
       [source.id]
     ).catch(() => {});
 

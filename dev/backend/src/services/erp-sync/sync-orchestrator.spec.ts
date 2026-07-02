@@ -12,30 +12,26 @@ jest.mock('../../db/appPool', () => ({
 jest.mock('./sync-engine', () => ({
   syncDataset: jest.fn(),
   syncWindowedRange: jest.fn(),
-  executeInitialFullLoad: jest.fn(),
 }));
 
 import {
   registerSource,
   getRegisteredSources,
   syncAllSnapshots,
-  syncFlowWindow,
   syncHotWindow,
   syncWarmWindow,
   syncColdWindow,
   forceSync,
   resetCircuitBreaker,
   getAllCircuitBreakerStates,
-  initialFullLoad,
 } from './sync-orchestrator';
-import { syncDataset, syncWindowedRange, executeInitialFullLoad } from './sync-engine';
+import { syncDataset, syncWindowedRange } from './sync-engine';
 import { appQuery } from '../../db/appPool';
 import type { SyncSourceConfig, SyncResult } from './sync-types';
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 const mockSyncDataset = syncDataset as jest.MockedFunction<typeof syncDataset>;
 const mockSyncWindowedRange = syncWindowedRange as jest.MockedFunction<typeof syncWindowedRange>;
-const mockExecuteInitialFullLoad = executeInitialFullLoad as jest.MockedFunction<typeof executeInitialFullLoad>;
 
 // =====================================================
 // 测试辅助
@@ -73,7 +69,7 @@ function buildFlowWindowConfig(overrides: Partial<SyncSourceConfig> = {}): SyncS
     enableFallback: false,
     timeColumn: 'settle_time',
     windows: {
-      hot: 7, warm: 30, cold: 30,
+      hot: 7, warm: 60, cold: 60,
       hotIntervalMs: 120000, warmIntervalMs: 604800000, coldIntervalMs: 1296000000,
     },
     ...overrides,
@@ -337,6 +333,7 @@ describe('窗口同步', () => {
       expect.objectContaining({ id: flowId }),
       expect.any(String), // dateFrom
       expect.any(String), // dateTo
+      'hot',
     );
     const [, dateFrom, dateTo] = mockSyncWindowedRange.mock.calls[0];
     // dateFrom 应该在今天前 7 天左右，dateTo 应该在明天左右
@@ -344,13 +341,17 @@ describe('窗口同步', () => {
     expect(dateTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it('syncWarmWindow：dateFrom=beijingDateOffset(-30), dateTo=beijingDateOffset(-7)', async () => {
+  it('syncWarmWindow：dateFrom=beijingDateOffset(-60), dateTo=beijingDateOffset(-7)', async () => {
     mockSyncWindowedRange.mockResolvedValue(successResult(flowId));
 
     const result = await syncWarmWindow(flowId);
 
     expect(result).not.toBeNull();
     expect(mockSyncWindowedRange).toHaveBeenCalled();
+    const [, dateFrom, , window] = mockSyncWindowedRange.mock.calls[0];
+    expect(window).toBe('warm');
+    // dateFrom 应该是60天前左右（跨午夜可能差1天）
+    expect(dateFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('syncColdWindow：dateFrom=null（无下界）', async () => {
@@ -359,9 +360,10 @@ describe('窗口同步', () => {
     const result = await syncColdWindow(flowId);
 
     expect(result).not.toBeNull();
-    const [, dateFrom, dateTo] = mockSyncWindowedRange.mock.calls[0];
+    const [, dateFrom, dateTo, window] = mockSyncWindowedRange.mock.calls[0];
     expect(dateFrom).toBeNull();
     expect(dateTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(window).toBe('cold');
   });
 
   it('缺少 windows 配置 → 返回 null', async () => {
@@ -422,43 +424,63 @@ describe('forceSync', () => {
     const result = await forceSync('nonexistent_dataset');
     expect(result).toBeNull();
   });
-});
 
-// =====================================================
-// initialFullLoad
-// =====================================================
+  describe('窗口路由', () => {
+    const flowId = 'force_flow_test';
 
-describe('initialFullLoad', () => {
-  const testId = 'full_load_test';
+    beforeEach(() => {
+      registerSource(buildFlowWindowConfig({ id: flowId }));
+      resetCircuitBreaker(flowId);
+      mockSyncWindowedRange.mockResolvedValue(successResult(flowId));
+    });
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockAppQuery.mockResolvedValue({ rows: [] } as any);
-    resetCircuitBreaker(testId);
-  });
+    it("window='hot' → syncWindowedRange，dateFrom 约为 -7 天", async () => {
+      const result = await forceSync(flowId, 'hot');
 
-  it('仅 windowed-replace 模式支持', async () => {
-    registerSource(buildFlowWindowConfig({ id: testId, syncMode: 'windowed-replace' }));
-    mockExecuteInitialFullLoad.mockResolvedValue(successResult(testId));
+      expect(result?.success).toBe(true);
+      expect(mockSyncWindowedRange).toHaveBeenCalledWith(
+        expect.objectContaining({ id: flowId }),
+        expect.any(String), // dateFrom
+        expect.any(String), // dateTo
+        'hot',
+      );
+    });
 
-    const result = await initialFullLoad(testId);
+    it("window='warm' → dateFrom 约为 -60 天, dateTo 约为 -7 天", async () => {
+      const result = await forceSync(flowId, 'warm');
 
-    expect(result).not.toBeNull();
-    expect(mockExecuteInitialFullLoad).toHaveBeenCalledWith(
-      expect.objectContaining({ id: testId }),
-      '2020-01-01'
-    );
-  });
+      expect(result?.success).toBe(true);
+      const [, dateFrom, dateTo, window] = mockSyncWindowedRange.mock.calls[0];
+      expect(window).toBe('warm');
+      expect(dateFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(dateTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
 
-  it('非 windowed-replace 模式 → 返回 null', async () => {
-    registerSource(buildSnapshotConfig({ id: testId, syncMode: 'upsert' }));
+    it("window='cold' → dateFrom=null, dateTo 约为 -60 天", async () => {
+      const result = await forceSync(flowId, 'cold');
 
-    const result = await initialFullLoad(testId);
-    expect(result).toBeNull();
-  });
+      expect(result?.success).toBe(true);
+      const [, dateFrom, dateTo, window] = mockSyncWindowedRange.mock.calls[0];
+      expect(window).toBe('cold');
+      expect(dateFrom).toBeNull();
+      expect(dateTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
 
-  it('未注册的数据集 → 返回 null', async () => {
-    const result = await initialFullLoad('unknown_dataset');
-    expect(result).toBeNull();
+    it("window='all' → dateFrom=null, dateTo=null", async () => {
+      const result = await forceSync(flowId, 'all');
+
+      expect(result?.success).toBe(true);
+      const [, dateFrom, dateTo, window] = mockSyncWindowedRange.mock.calls[0];
+      expect(window).toBe('all');
+      expect(dateFrom).toBeNull();
+      expect(dateTo).toBeNull();
+    });
+
+    it('无效窗口参数 → 返回 success:false + 错误信息', async () => {
+      const result = await forceSync(flowId, 'invalid' as any);
+
+      expect(result?.success).toBe(false);
+      expect(result?.error).toContain('无效的窗口参数');
+    });
   });
 });

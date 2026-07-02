@@ -10,8 +10,13 @@ jest.mock('../../db/appPool', () => ({
   appQuery: jest.fn(),
   getAppClient: jest.fn(),
 }));
+jest.mock('../../config', () => ({
+  config: {
+    erpSync: { timeout: 30000, retryMax: 0 },
+  },
+}));
 
-import { syncDataset, syncWindowedRange, executeInitialFullLoad } from './sync-engine';
+import { syncDataset, syncWindowedRange } from './sync-engine';
 import { appQuery, getAppClient } from '../../db/appPool';
 import type { SyncSourceConfig } from './sync-types';
 
@@ -374,7 +379,7 @@ describe('syncWindowedRange', () => {
       expect(deleteSql).toBe('DELETE FROM erp_test_table');
     });
 
-    it('dateFrom=null, dateTo=某日 → DELETE WHERE time < dateTo', async () => {
+    it('dateFrom=null, dateTo=某日 → 冷窗口逐月 DELETE+INSERT', async () => {
       const mockClient = setupWindowedConfig();
       testRows = [{ settle_time: '2026-01-15', amount: 100 }];
 
@@ -388,12 +393,124 @@ describe('syncWindowedRange', () => {
         transform: jest.fn((r: any) => ({ settle_time: r.settle_time, amount: r.amount })),
       });
 
-      const result = await syncWindowedRange(config, null, '2026-07-01');
+      const result = await syncWindowedRange(config, null, '2026-07-01', 'cold');
 
       expect(result.success).toBe(true);
       const sqls = mockClient._queries.map(q => q.sql);
-      const deleteSql = sqls.find(s => s.startsWith('DELETE'));
-      expect(deleteSql).toContain('settle_time < $1');
+      const deleteSqls = sqls.filter(s => s.startsWith('DELETE'));
+      // 冷窗口路径：每月一条 DELETE，使用 >= $1 AND < $2 范围
+      expect(deleteSqls.length).toBeGreaterThan(0);
+      expect(deleteSqls[0]).toContain('settle_time::timestamptz >= $1::timestamptz');
+      expect(deleteSqls[0]).toContain('settle_time::timestamptz < $2::timestamptz');
+      // 验证 writeSyncLog 被调用时 sync_window = 'cold'
+      const logCalls = mockAppQuery.mock.calls.filter(
+        ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO erp_sync_log')
+      );
+      expect(logCalls.length).toBeGreaterThan(0);
+      const logParams = logCalls[0][1] as unknown[];
+      // $9 = syncWindow，应为 'cold'
+      expect(logParams[8]).toBe('cold');
+    });
+
+    it('冷窗口：fetchByRange 成功时正常处理', async () => {
+      const mockClient = setupWindowedConfig();
+      testRows = [{ settle_time: '2026-01-15', amount: 100 }];
+
+      const fetchByRange = jest.fn().mockResolvedValue([
+        { settle_time: '2026-01-15', amount: 100 },
+      ]);
+
+      const config = buildConfig({
+        type: 'flow-window',
+        syncMode: 'windowed-replace',
+        timeColumn: 'settle_time',
+        fetchByRange,
+        transform: jest.fn((r: any) => ({ settle_time: r.settle_time, amount: r.amount })),
+      });
+
+      const result = await syncWindowedRange(config, null, '2026-03-01', 'cold');
+      expect(result.success).toBe(true);
+      // fetchByRange 每个月被调用一次
+      expect(fetchByRange.mock.calls.length).toBeGreaterThan(0);
+    });
+
+    it('冷窗口：超过 retryMax 次后跳过该月并继续', async () => {
+      const mockClient = setupWindowedConfig();
+      testRows = [{ settle_time: '2026-02-15', amount: 100 }];
+
+      // 第一个月总是失败，第二个月成功
+      const fetchByRange = jest.fn(async (from: string) => {
+        if (from.startsWith('2026-01')) throw new Error('ERP month 1 failure');
+        return [{ settle_time: '2026-02-15', amount: 100 }];
+      });
+
+      const config = buildConfig({
+        type: 'flow-window',
+        syncMode: 'windowed-replace',
+        timeColumn: 'settle_time',
+        fetchByRange,
+        transform: jest.fn((r: any) => ({ settle_time: r.settle_time, amount: r.amount })),
+      });
+
+      const result = await syncWindowedRange(config, null, '2026-03-01', 'cold');
+      // 部分成功 → status = 'partial'
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('跳过');
+    });
+
+    it('冷窗口：部分月份成功、部分跳过 → status = partial', async () => {
+      const mockClient = setupWindowedConfig();
+      testRows = [{ settle_time: '2026-01-15', amount: 100 }];
+
+      // 只有第一个月成功，其他月全部失败
+      const fetchByRange = jest.fn(async (from: string) => {
+        if (from === '2026-01-01') return [{ settle_time: '2026-01-15', amount: 100 }];
+        throw new Error(`ERP failure for ${from}`);
+      });
+
+      const config = buildConfig({
+        type: 'flow-window',
+        syncMode: 'windowed-replace',
+        timeColumn: 'settle_time',
+        fetchByRange,
+        transform: jest.fn((r: any) => ({ settle_time: r.settle_time, amount: r.amount })),
+      });
+
+      const result = await syncWindowedRange(config, null, '2026-04-01', 'cold');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('跳过');
+      // 验证 writeSyncLog 使用了 'partial' 状态
+      const logCalls = mockAppQuery.mock.calls.filter(
+        ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO erp_sync_log')
+      );
+      expect(logCalls.length).toBeGreaterThan(0);
+      const logParams = logCalls[0][1] as unknown[];
+      expect(logParams[3]).toBe('partial');
+    });
+
+    it('冷窗口：所有月份失败 → status = failed', async () => {
+      mockLockSuccess();
+      mockStatusAndLog();
+
+      const fetchByRange = jest.fn().mockRejectedValue(new Error('ERP total failure'));
+
+      const config = buildConfig({
+        type: 'flow-window',
+        syncMode: 'windowed-replace',
+        timeColumn: 'settle_time',
+        fetchByRange,
+        transform: jest.fn((r: any) => r),
+      });
+
+      const result = await syncWindowedRange(config, null, '2026-03-01', 'cold');
+      expect(result.success).toBe(false);
+      // 验证 writeSyncLog 使用了 'failed' 状态
+      const logCalls = mockAppQuery.mock.calls.filter(
+        ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO erp_sync_log')
+      );
+      expect(logCalls.length).toBeGreaterThan(0);
+      const logParams = logCalls[0][1] as unknown[];
+      expect(logParams[3]).toBe('failed');
     });
 
     it('dateFrom=某日, dateTo=null → DELETE WHERE time >= dateFrom', async () => {
@@ -528,194 +645,5 @@ describe('syncWindowedRange', () => {
       expect(fetchAllHistory).toHaveBeenCalled();
       expect(fetchByRange).not.toHaveBeenCalled();
     });
-  });
-});
-
-// =====================================================
-// executeInitialFullLoad
-// =====================================================
-
-describe('executeInitialFullLoad', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    testRows = [];
-  });
-
-  it('缺少 timeColumn → 返回错误', async () => {
-    const config = buildConfig({ timeColumn: undefined });
-    const result = await executeInitialFullLoad(config, '2020-01-01');
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('timeColumn');
-  });
-
-  it('缺少 fetchByRange → 返回错误', async () => {
-    const config = buildConfig({
-      timeColumn: 'settle_time',
-      fetchByRange: undefined,
-    });
-    const result = await executeInitialFullLoad(config, '2020-01-01');
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('fetchByRange');
-  });
-
-  it('waitForLock 超时 → 返回错误', async () => {
-    // 始终获取不到锁
-    mockAppQuery.mockResolvedValue({ rows: [{ locked: false }] } as any);
-
-    const config = buildConfig({
-      timeColumn: 'settle_time',
-      fetchByRange: jest.fn().mockResolvedValue([]),
-    });
-
-    // 使用 fake timers 加速 waitForLock 的 setTimeout
-    jest.useFakeTimers();
-    const resultPromise = executeInitialFullLoad(config, '2020-01-01');
-    // 快进 61 秒让 waitForLock 超时
-    await jest.advanceTimersByTimeAsync(61000);
-    const result = await resultPromise;
-    jest.useRealTimers();
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('advisory lock');
-  }, 15000);
-
-  it('无 checkpoint → DELETE 全表，从 startDate 开始按月遍历', async () => {
-    // lock success on first try
-    mockAppQuery
-      .mockResolvedValueOnce({ rows: [{ locked: true }] } as any) // waitForLock
-      .mockResolvedValueOnce({ rows: [{ full_load_checkpoint: null, full_load_complete: false }] } as any) // readCheckpoint
-      .mockResolvedValueOnce({ rowCount: 0 } as any) // DELETE full table
-      .mockResolvedValue({ rows: [], rowCount: 0 } as any); // subsequent calls
-
-    const fetchByRange = jest.fn().mockResolvedValue([]);
-    const config = buildConfig({
-      timeColumn: 'settle_time',
-      fetchByRange,
-      transform: jest.fn((r: any) => r),
-    });
-
-    const result = await executeInitialFullLoad(config, '2026-06-01');
-
-    expect(result.success).toBe(true);
-    // 验证 DELETE 全表被调用
-    const deleteCall = mockAppQuery.mock.calls.find(
-      ([sql]) => typeof sql === 'string' && sql === 'DELETE FROM erp_test_table'
-    );
-    expect(deleteCall).toBeDefined();
-  });
-
-  it('有 checkpoint → 从 checkpoint 月份开始（isResume=true）', async () => {
-    mockAppQuery
-      .mockResolvedValueOnce({ rows: [{ locked: true }] } as any) // waitForLock
-      .mockResolvedValueOnce({ rows: [{ full_load_checkpoint: '2026-03', full_load_complete: false }] } as any) // readCheckpoint
-      .mockResolvedValueOnce({ rowCount: 0 } as any) // DELETE from checkpoint
-      .mockResolvedValue({ rows: [], rowCount: 0 } as any); // subsequent calls
-
-    const fetchByRange = jest.fn().mockResolvedValue([]);
-    const config = buildConfig({
-      timeColumn: 'settle_time',
-      fetchByRange,
-      transform: jest.fn((r: any) => r),
-    });
-
-    const result = await executeInitialFullLoad(config, '2020-01-01');
-
-    expect(result.success).toBe(true);
-    // 验证 DELETE WHERE timeColumn >= checkpoint_month 被调用
-    const deleteCall = mockAppQuery.mock.calls.find(
-      ([sql]) => typeof sql === 'string' && sql.includes('settle_time') && sql.includes('>=')
-    );
-    expect(deleteCall).toBeDefined();
-    expect(deleteCall![1]).toEqual(['2026-03-01']);
-  });
-
-  it('全部完成后标记 full_load_complete=TRUE', async () => {
-    mockAppQuery
-      .mockResolvedValueOnce({ rows: [{ locked: true }] } as any) // waitForLock
-      .mockResolvedValueOnce({ rows: [{ full_load_checkpoint: null, full_load_complete: false }] } as any) // readCheckpoint
-      .mockResolvedValueOnce({ rowCount: 0 } as any) // DELETE
-      .mockResolvedValue({ rows: [], rowCount: 0 } as any);
-
-    const fetchByRange = jest.fn().mockResolvedValue([]);
-    const config = buildConfig({
-      timeColumn: 'settle_time',
-      fetchByRange,
-      transform: jest.fn((r: any) => r),
-    });
-
-    await executeInitialFullLoad(config, '2026-06-01');
-
-    // 验证 markFullLoadComplete 被调用
-    const completeCall = mockAppQuery.mock.calls.find(
-      ([sql]) => typeof sql === 'string' && sql.includes('full_load_complete = TRUE')
-    );
-    expect(completeCall).toBeDefined();
-  });
-
-  it('某月 fetchByRange 抛异常 → checkpoint 保留在最后成功月', async () => {
-    mockAppQuery
-      .mockResolvedValueOnce({ rows: [{ locked: true }] } as any)
-      .mockResolvedValueOnce({ rows: [{ full_load_checkpoint: null, full_load_complete: false }] } as any)
-      .mockResolvedValueOnce({ rowCount: 0 } as any) // DELETE
-      .mockResolvedValue({ rows: [], rowCount: 0 } as any);
-
-    let callCount = 0;
-    const fetchByRange = jest.fn(async () => {
-      callCount++;
-      if (callCount <= 1) return [{ settle_time: '2026-06-15', amount: 100 }];
-      throw new Error('Month 2 fetch failed');
-    });
-
-    const mockClient = createMockClient();
-    mockGetAppClient.mockResolvedValue(mockClient as any);
-
-    const config = buildConfig({
-      timeColumn: 'settle_time',
-      fetchByRange,
-      transform: jest.fn((r: any) => ({ settle_time: r.settle_time, amount: r.amount })),
-    });
-
-    const result = await executeInitialFullLoad(config, '2026-06-01');
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('Month 2 fetch failed');
-    // 验证 checkpoint 被写入了第一个月
-    const checkpointCalls = mockAppQuery.mock.calls.filter(
-      ([sql]) => typeof sql === 'string' && sql.includes('full_load_checkpoint')
-    );
-    expect(checkpointCalls.length).toBeGreaterThanOrEqual(1);
-  });
-});
-
-// =====================================================
-// generateMonthRange (内部函数，通过行为验证)
-// =====================================================
-
-describe('generateMonthRange (通过 executeInitialFullLoad 间接验证)', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('2020-01 到 2020-03 生成 3 个月份', async () => {
-    mockAppQuery
-      .mockResolvedValueOnce({ rows: [{ locked: true }] } as any)
-      .mockResolvedValueOnce({ rows: [{ full_load_checkpoint: null, full_load_complete: false }] } as any)
-      .mockResolvedValueOnce({ rowCount: 0 } as any) // DELETE
-      .mockResolvedValue({ rows: [], rowCount: 0 } as any);
-
-    const fetchByRange = jest.fn().mockResolvedValue([]);
-    const config = buildConfig({
-      timeColumn: 'settle_time',
-      fetchByRange,
-      transform: jest.fn((r: any) => r),
-    });
-
-    // 使用一个只有3个月的范围: 需要mock currentMonthLabel 返回 2020-03
-    // 由于 currentMonthLabel 基于系统时间，我们直接验证 fetchByRange 被调用次数
-    await executeInitialFullLoad(config, '2020-01-01');
-
-    // fetchByRange 被调用的次数 = 月份数量
-    // 从 2020-01 到当前月份（很多月），所以只验证它被调用了多次
-    expect(fetchByRange.mock.calls.length).toBeGreaterThan(0);
   });
 });

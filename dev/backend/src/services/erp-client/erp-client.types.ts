@@ -79,6 +79,8 @@ export interface ErpRequestOptions {
   headers?: Record<string, string>;
   /** 限流分组键；不传时按完整端点路径自动分组 */
   rateLimitGroup?: string;
+  /** 自定义超时时间（ms）；不传时使用全局 config.erpApi.timeout */
+  timeout?: number;
 }
 
 /** ERP API 响应基础结构 */

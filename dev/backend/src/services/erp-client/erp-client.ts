@@ -92,7 +92,7 @@ export async function erpRequest<T = any>(
         method: method.toUpperCase() as any,
         url,
         headers,
-        timeout: config.timeout,
+        timeout: options?.timeout ?? config.timeout,
         httpAgent: erpHttpAgent,
         httpsAgent: erpHttpsAgent,
       };

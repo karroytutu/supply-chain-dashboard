@@ -109,6 +109,12 @@ export const config = {
     maxGlobalConcurrency: parseInt(process.env.ERP_API_MAX_GLOBAL_CONCURRENCY || '12', 10),
   },
 
+  // ERP 同步引擎专用配置（批量拉取需要更长的超时和更多重试）
+  erpSync: {
+    timeout: parseInt(process.env.ERP_SYNC_TIMEOUT || '30000', 10),
+    retryMax: parseInt(process.env.ERP_SYNC_RETRY_MAX || '5', 10),
+  },
+
   // Token 管理模块（内置 Token 获取，替代外部 API）
   tokenManager: {
     erpUsername: process.env.ERP_LOGIN_USERNAME || '',

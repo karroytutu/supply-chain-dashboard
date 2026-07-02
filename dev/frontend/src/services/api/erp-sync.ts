@@ -3,6 +3,15 @@
  */
 import request from './request';
 
+/** 各窗口同步状态 */
+export interface WindowStatusItem {
+  window: 'hot' | 'warm' | 'cold' | 'all';
+  last_success_at: string | null;
+  last_duration_ms: number | null;
+  last_status: string | null;
+  total_records: number;
+}
+
 export interface SyncStatusItem {
   source_id: string;
   name: string;
@@ -16,8 +25,8 @@ export interface SyncStatusItem {
   circuit_state: 'closed' | 'open' | 'half-open';
   circuit_opened_at: string | null;
   last_error_message: string | null;
-  full_load_checkpoint: string | null;
-  full_load_complete: boolean;
+  windows_status?: WindowStatusItem[];
+  window_counts?: { hot: number; warm: number; cold: number } | null;
 }
 
 export interface SyncLogItem {
@@ -26,11 +35,12 @@ export interface SyncLogItem {
   started_at: string;
   completed_at: string | null;
   duration_ms: number | null;
-  status: 'success' | 'failed' | 'circuit-open';
+  status: 'success' | 'failed' | 'partial' | 'circuit-open';
   records_fetched: number;
   records_upserted: number;
   records_changed: number;
   error_message: string | null;
+  sync_window: string | null;
 }
 
 export interface ForceSyncResult {
@@ -49,15 +59,15 @@ export async function getSyncStatus(): Promise<SyncStatusItem[]> {
 }
 
 /** 获取同步日志 */
-export async function getSyncLog(params: { limit?: number; source_id?: string }): Promise<SyncLogItem[]> {
+export async function getSyncLog(params: { limit?: number; source_id?: string; window?: string }): Promise<SyncLogItem[]> {
   return request.get<SyncLogItem[]>('/erp-sync/log', { params });
 }
 
 export type SyncWindow = 'hot' | 'warm' | 'cold' | 'all';
 
-/** 强制触发同步 */
+/** 强制触发同步（冷窗口分块同步可能需要数分钟，超时设为 10 分钟） */
 export async function forceSync(sourceId: string, window?: SyncWindow): Promise<ForceSyncResult> {
-  return request.post<ForceSyncResult>(`/erp-sync/${sourceId}/force-sync`, { window });
+  return request.post<ForceSyncResult>(`/erp-sync/${sourceId}/force-sync`, { window }, { timeout: 600_000 });
 }
 
 /** 重置熔断器 */
@@ -65,7 +75,3 @@ export async function resetCircuit(sourceId: string): Promise<void> {
   await request.post(`/erp-sync/${sourceId}/reset-circuit`);
 }
 
-/** 触发全量加载（仅 windowed-replace 模式数据集） */
-export async function triggerFullLoad(sourceId: string): Promise<ForceSyncResult> {
-  return request.post<ForceSyncResult>(`/erp-sync/${sourceId}/full-load`);
-}

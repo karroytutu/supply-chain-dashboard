@@ -360,8 +360,8 @@ export function startScheduler(): void {
   // 5 个 snapshot 数据集：每 2 分钟全量 UPSERT
   // 1 个 flow-window 数据集（销售明细）：
   //   - 热窗口(7天): 每 2 分钟
-  //   - 温窗口(8-30天): 每周一凌晨 03:00
-  //   - 冷窗口(30天+): 每月 1 号和 15 号凌晨 04:00
+  //   - 温窗口(8-60天): 每周一凌晨 03:00
+  //   - 冷窗口(60天+): 每月 1 号和 15 号凌晨 04:00
   // 同步引擎仅读取 ERP API + 写入本地表，不涉及外部系统写入，开发环境可安全运行
   {
     // 检查 ERP 凭据是否已配置（erpUsername/erpPassword 默认空字符串）
@@ -413,7 +413,7 @@ export function startScheduler(): void {
       { timezone: 'Asia/Shanghai' }
     );
 
-    // 温窗口: 销售明细 8-30 天（每周一凌晨 03:00）
+    // 温窗口: 销售明细 8-60 天（每周一凌晨 03:00）
     cron.schedule(
       '0 3 * * 1',
       async () => {
@@ -429,7 +429,7 @@ export function startScheduler(): void {
       { timezone: 'Asia/Shanghai' }
     );
 
-    // 冷窗口: 销售明细 30 天之前（每月 1 号和 15 号凌晨 04:00）
+    // 冷窗口: 销售明细 60 天之前（每月 1 号和 15 号凌晨 04:00）
     cron.schedule(
       '0 4 1,15 * *',
       async () => {
@@ -504,8 +504,8 @@ export function startScheduler(): void {
   log.info('  - Token 管理检查: 每5分钟 (Asia/Shanghai) [所有环境]');
   log.info('  - ERP snapshot 数据集: 每2分钟 (Asia/Shanghai) [5个, 所有环境]');
   log.info('  - ERP 销售明细热窗口: 每2分钟 (Asia/Shanghai) [近7天, 所有环境]');
-  log.info('  - ERP 销售明细温窗口: 每周一03:00 (Asia/Shanghai) [8-30天, 所有环境]');
-  log.info('  - ERP 销售明细冷窗口: 每月1/15号04:00 (Asia/Shanghai) [30天前, 所有环境]');
+  log.info('  - ERP 销售明细温窗口: 每周一03:00 (Asia/Shanghai) [8-60天, 所有环境]');
+  log.info('  - ERP 销售明细冷窗口: 每月1/15号04:00 (Asia/Shanghai) [60天前, 所有环境]');
   if (isProduction) {
     log.info('  - 退货数据同步: 每天 08:30 (Asia/Shanghai)');
     log.info('  - 待填ERP提醒: 每天 08:35 (Asia/Shanghai)');

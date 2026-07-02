@@ -2,14 +2,18 @@
  * 销售明细数据集配置
  * Type B (flow-window): 滑动窗口分频同步
  *   热窗口(7天): 每 2 分钟同步
- *   温窗口(8-30天): 每周一凌晨 03:00 同步
- *   冷窗口(30天+): 每月 1 号和 15 号凌晨 04:00 同步
+ *   温窗口(8-60天): 每周一凌晨 03:00 同步
+ *   冷窗口(60天+): 每月 1 号和 15 号凌晨 04:00 同步
  * @module services/erp-sync/datasets/sales-detail
  */
 
 import { fetchSalesDetails } from '../../erp-client/erp-sales-detail.service';
 import { beijingDateOffset, beijingDate } from '../../../utils/beijingTime';
+import { config } from '../../../config';
 import type { SyncSourceConfig } from '../sync-types';
+
+/** 同步引擎专用超时时间（批量拉取需要更长超时） */
+const syncTimeout = config.erpSync.timeout;
 
 export const salesDetailConfig: SyncSourceConfig = {
   id: 'sales',
@@ -21,14 +25,14 @@ export const salesDetailConfig: SyncSourceConfig = {
     // 默认拉取近 30 天（兼容旧接口）
     const dateFrom = beijingDateOffset(-30);
     const dateTo = beijingDate();
-    return fetchSalesDetails(dateFrom, dateTo);
+    return fetchSalesDetails(dateFrom, dateTo, false, syncTimeout);
   },
   fetchByRange: async (dateFrom: string, dateTo: string) => {
-    return fetchSalesDetails(dateFrom, dateTo);
+    return fetchSalesDetails(dateFrom, dateTo, false, syncTimeout);
   },
   fetchAllHistory: async () => {
     // 拉取 2020 年至今的历史数据（按月分块加载，避免一次性拉取过多）
-    return fetchSalesDetails('2020-01-01', beijingDate());
+    return fetchSalesDetails('2020-01-01', beijingDate(), false, syncTimeout);
   },
   transform: (api: unknown) => {
     const r = api as Record<string, unknown>;
@@ -99,8 +103,8 @@ export const salesDetailConfig: SyncSourceConfig = {
   enableFallback: true,
   windows: {
     hot: 7,
-    warm: 30,
-    cold: 30,                  // 30天之前为冷数据
+    warm: 60,
+    cold: 60,                  // 60天之前为冷数据
     hotIntervalMs: 120000,     // 2 分钟
     warmIntervalMs: 604800000, // 7 天
     coldIntervalMs: 1296000000, // 15 天

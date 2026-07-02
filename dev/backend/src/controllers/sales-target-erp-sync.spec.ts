@@ -26,7 +26,6 @@ jest.mock('../services/erp-sync/sync-orchestrator', () => ({
   resetCircuitBreaker: jest.fn(),
   getAllCircuitBreakerStates: jest.fn(),
   getRegisteredSources: jest.fn(),
-  initialFullLoad: jest.fn(),
 }));
 
 import {
@@ -35,7 +34,7 @@ import {
 } from './sales-target.controller';
 import {
   getSyncStatus, getSyncLog, handleForceSync,
-  handleResetCircuit, handleFullLoad,
+  handleResetCircuit,
 } from './erp-sync-status.controller';
 import { appQuery } from '../db/appPool';
 import {
@@ -46,7 +45,6 @@ import {
 } from '../services/sales-target';
 import {
   forceSync, resetCircuitBreaker, getRegisteredSources,
-  initialFullLoad,
 } from '../services/erp-sync/sync-orchestrator';
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
@@ -231,15 +229,6 @@ describe('handleForceSync', () => {
   });
 });
 
-describe('handleFullLoad', () => {
-  it('非 windowed-replace 数据集 → 404', async () => {
-    (initialFullLoad as jest.Mock).mockResolvedValue(null);
-    const res = mockRes();
-    await handleFullLoad(mockReq({ params: { id: 'products' } }), res, jest.fn());
-    expect(res.status).toHaveBeenCalledWith(404);
-  });
-});
-
 describe('getSyncStatus', () => {
   it('补充数据集名称', async () => {
     mockAppQuery.mockResolvedValue({
@@ -256,6 +245,75 @@ describe('getSyncStatus', () => {
         expect.objectContaining({ source_id: 'debts', name: '客户欠款' }),
       ]),
     }));
+  });
+
+  it('flow-window 数据源 → 返回 windows_status 和 window_counts 填充的 total_records', async () => {
+    // 第一次查询: erp_sync_status
+    mockAppQuery
+      .mockResolvedValueOnce({
+        rows: [{
+          source_id: 'sales',
+          total_records: 100000,
+          window_counts: { hot: 5000, warm: 12000, cold: 80000 },
+        }],
+      } as any)
+      // 第二次查询: DISTINCT ON (各窗口最近同步日志)
+      .mockResolvedValueOnce({
+        rows: [
+          { source_id: 'sales', sync_window: 'hot', last_success_at: '2026-07-03T10:00:00Z', last_duration_ms: 2000, last_status: 'success' },
+          { source_id: 'sales', sync_window: 'warm', last_success_at: '2026-06-30T03:00:00Z', last_duration_ms: 5000, last_status: 'success' },
+          { source_id: 'sales', sync_window: 'cold', last_success_at: '2026-07-01T04:00:00Z', last_duration_ms: 60000, last_status: 'success' },
+        ],
+      } as any);
+
+    (getRegisteredSources as jest.Mock).mockReturnValue([
+      { id: 'sales', name: '销售明细', type: 'flow-window' },
+    ]);
+
+    const res = mockRes();
+    await getSyncStatus(mockReq(), res, jest.fn());
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          source_id: 'sales',
+          name: '销售明细',
+          windows_status: expect.arrayContaining([
+            expect.objectContaining({ window: 'hot', total_records: 5000 }),
+            expect.objectContaining({ window: 'warm', total_records: 12000 }),
+            expect.objectContaining({ window: 'cold', total_records: 80000 }),
+          ]),
+        }),
+      ]),
+    }));
+  });
+
+  it('flow-window 数据源 + window_counts 为 null → total_records 兜底为 0', async () => {
+    mockAppQuery
+      .mockResolvedValueOnce({
+        rows: [{ source_id: 'sales', total_records: 0, window_counts: null }],
+      } as any)
+      .mockResolvedValueOnce({
+        rows: [
+          { source_id: 'sales', sync_window: 'hot', last_success_at: null, last_duration_ms: null, last_status: 'failed' },
+        ],
+      } as any);
+
+    (getRegisteredSources as jest.Mock).mockReturnValue([
+      { id: 'sales', name: '销售明细', type: 'flow-window' },
+    ]);
+
+    const res = mockRes();
+    await getSyncStatus(mockReq(), res, jest.fn());
+
+    const callData = res.json.mock.calls[0][0];
+    const salesItem = callData.data.find((d: any) => d.source_id === 'sales');
+    expect(salesItem).toBeDefined();
+    expect(salesItem.windows_status).toBeDefined();
+    // window_counts 为 null 时，total_records 应该为 0
+    for (const w of salesItem.windows_status) {
+      expect(w.total_records).toBe(0);
+    }
   });
 });
 

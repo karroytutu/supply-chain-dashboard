@@ -60,7 +60,8 @@ const _salesInFlight = new Map<string, Promise<ErpSalesDetail[]>>();
 export async function fetchSalesDetails(
   dateFrom: string,
   dateTo: string,
-  skipCache = false
+  skipCache = false,
+  timeout?: number
 ): Promise<ErpSalesDetail[]> {
   // 持久缓存检查（5分钟 TTL，按日期范围区分缓存键）
   const persistKey = `${CACHE_KEY.ERP_SALES_RECENT}:${dateFrom}:${dateTo}`;
@@ -128,6 +129,7 @@ export async function fetchSalesDetails(
         {
           pathPrefix: '/toliman/',
           businessType: 'sales_detail_fetch',
+          ...(timeout ? { timeout } : {}),
         }
       );
       return {
@@ -148,7 +150,7 @@ export async function fetchSalesDetails(
   const promise = doFetch();
   if (!skipCache) {
     _salesInFlight.set(inflightKey, promise);
-    promise.finally(() => _salesInFlight.delete(inflightKey));
+    promise.finally(() => _salesInFlight.delete(inflightKey)).catch(() => {});
   }
   return promise;
 }

@@ -7,6 +7,7 @@
 import { createLogger } from '../../utils/logger';
 import { appQuery, getAppClient } from '../../db/appPool';
 import { createHash } from 'crypto';
+import { config as appConfig } from '../../config';
 import type { SyncSourceConfig, SyncResult } from './sync-types';
 import { processDebtChangelog } from './post-processors/changelog.processor';
 import { processDebtDailySummary, processSalesDailySummary } from './post-processors/daily-summary.processor';
@@ -172,6 +173,7 @@ export async function syncWindowedRange(
   config: SyncSourceConfig,
   dateFrom: string | null,  // null 表示无下界（冷窗口/全量）
   dateTo: string | null,    // null 表示无上界（全量）
+  window?: string,           // 窗口类型标识: hot/warm/cold/all
 ): Promise<SyncResult> {
   const startTime = Date.now();
   const sourceId = config.id;
@@ -188,8 +190,11 @@ export async function syncWindowedRange(
   const rangeLabel = `${dateFrom ?? 'ALL'} ~ ${dateTo ?? 'NOW'}`;
   log.info(`开始窗口同步: ${config.name} (${sourceId}) [${rangeLabel}]`);
 
-  // 1. 获取 advisory lock
-  const lockAcquired = await tryAcquireLock(sourceId);
+  // 1. 获取窗口级别的 advisory lock（非阻塞，同一数据集不同窗口可并行）
+  //    当 window='all' 时使用基础锁（不带窗口后缀），与所有窗口锁互斥，
+  //    防止全量 DELETE 与正在运行的热/温/冷窗口产生数据冲突
+  const lockWindow = window === 'all' ? undefined : window;
+  const lockAcquired = await tryAcquireLock(sourceId, lockWindow);
   if (!lockAcquired) {
     log.warn(`跳过窗口同步: ${sourceId} (另一个同步进程正在运行)`);
     return {
@@ -212,8 +217,138 @@ export async function syncWindowedRange(
         throw new Error('全量加载需要配置 fetchAllHistory');
       }
       allRecords = await config.fetchAllHistory();
+    } else if (dateFrom === null && dateTo !== null) {
+      // 冷窗口：逐月原子替换（每月事务内 DELETE + INSERT），单月失败可跳过
+      if (!config.fetchByRange) {
+        throw new Error('窗口范围拉取需要配置 fetchByRange');
+      }
+      log.info(`${sourceId}: 冷窗口逐月同步开始 [ALL ~ ${dateTo}]`);
+
+      // 逐月 fetch + transform + 原子替换（DELETE 该月 + INSERT 该月，同一事务）
+      const months = generateMonthRange('2020-01', dateTo.substring(0, 7));
+      let totalFetchedChunked = 0;
+      let totalUpsertedChunked = 0;
+      const skippedMonths: string[] = [];
+
+      for (let i = 0; i < months.length; i++) {
+        const chunk = months[i];
+        let monthRecords: unknown[] = [];
+        let retries = 0;
+        const maxRetries = appConfig.erpSync.retryMax;
+
+        while (retries <= maxRetries) {
+          try {
+            monthRecords = await config.fetchByRange(chunk.from, chunk.to);
+            break;
+          } catch (err) {
+            retries++;
+            if (retries > maxRetries) {
+              log.warn(`${sourceId}: 冷窗口 ${chunk.label} 失败（${maxRetries}次重试后），跳过`);
+              skippedMonths.push(chunk.label);
+              monthRecords = [];
+            } else {
+              log.warn(`${sourceId}: 冷窗口 ${chunk.label} 失败，第${retries}次重试`);
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+        }
+
+        if (monthRecords.length > 0) {
+          const rows = monthRecords.map(record => {
+            const transformed = config.transform(record);
+            transformed.raw_data = JSON.stringify(record);
+            transformed.content_hash = computeContentHash(transformed, config.primaryKey);
+            transformed.synced_at = new Date().toISOString();
+            return transformed;
+          });
+
+          // 逐月原子替换：同一事务中 DELETE 该月旧数据 + INSERT 该月新数据
+          // DB 事务失败时跳过该月（不中断整个冷窗口同步）
+          try {
+            const client = await getAppClient();
+            try {
+              await client.query('BEGIN');
+              await client.query(
+                `DELETE FROM ${config.targetTable} WHERE ${timeColumn}::timestamptz >= $1::timestamptz AND ${timeColumn}::timestamptz < $2::timestamptz`,
+                [chunk.from, chunk.to]
+              );
+              const inserted = await batchInsertInTransaction(client, config.targetTable, rows);
+              await client.query('COMMIT');
+              totalFetchedChunked += monthRecords.length;
+              totalUpsertedChunked += inserted;
+            } catch (err) {
+              await client.query('ROLLBACK');
+              log.warn(`${sourceId}: 冷窗口 ${chunk.label} DB写入失败，跳过`, { error: err });
+              skippedMonths.push(chunk.label);
+            } finally {
+              client.release();
+            }
+          } catch (outerErr) {
+            // getAppClient 本身失败也跳过
+            log.warn(`${sourceId}: 冷窗口 ${chunk.label} 获取DB连接失败，跳过`, { error: outerErr });
+            skippedMonths.push(chunk.label);
+          }
+        } else {
+          // 仅在 ERP 成功返回空数据时删除旧数据；fetch 失败（已在 skippedMonths 中）则跳过，保留本地已有数据
+          if (!skippedMonths.includes(chunk.label)) {
+            try {
+              const client = await getAppClient();
+              try {
+                await client.query(
+                  `DELETE FROM ${config.targetTable} WHERE ${timeColumn}::timestamptz >= $1::timestamptz AND ${timeColumn}::timestamptz < $2::timestamptz`,
+                  [chunk.from, chunk.to]
+                );
+              } finally {
+                client.release();
+              }
+            } catch (err) {
+              log.warn(`${sourceId}: 冷窗口 ${chunk.label} 清空旧数据失败，跳过`, { error: err });
+              skippedMonths.push(chunk.label);
+            }
+          }
+        }
+
+        if (skippedMonths.includes(chunk.label)) {
+          log.warn(`${sourceId}: 冷窗口 ${chunk.label} 跳过 (fetch/写入失败) ${i + 1}/${months.length}`);
+        } else {
+          log.info(`${sourceId}: 冷窗口 ${chunk.label} 完成 (${monthRecords.length}条) ${i + 1}/${months.length}`);
+        }
+      }
+
+      recordsFetched = totalFetchedChunked;
+      recordsUpserted = totalUpsertedChunked;
+
+      if (skippedMonths.length > 0) {
+        log.warn(`${sourceId}: 冷窗口同步部分完成，跳过月份: ${skippedMonths.join(', ')}`);
+      }
+
+      // 直接更新状态/日志并返回（不走通用写入路径）
+      const durationMs = Date.now() - startTime;
+      const syncSuccess = skippedMonths.length === 0;
+      const logStatus: 'success' | 'failed' | 'partial' = skippedMonths.length === 0
+        ? 'success'
+        : skippedMonths.length === months.length
+          ? 'failed'
+          : 'partial';
+      const errorMsg = skippedMonths.length > 0
+        ? `跳过 ${skippedMonths.length} 个月: ${skippedMonths.join(', ')}`
+        : undefined;
+
+      await updateSyncStatus(sourceId, recordsFetched, recordsUpserted, 0, durationMs, syncSuccess, errorMsg);
+      await writeSyncLog(sourceId, startTime, logStatus, recordsFetched, recordsUpserted, 0, errorMsg, window);
+
+      // 更新窗口数据量预计算值（仅成功或部分成功时）
+      if (recordsUpserted > 0 || recordsFetched > 0) {
+        await updateWindowCounts(config);
+      }
+
+      return {
+        sourceId, success: syncSuccess, recordsFetched,
+        recordsUpserted, recordsChanged: 0, durationMs,
+        error: errorMsg,
+      };
     } else {
-      // 窗口范围拉取
+      // 窗口范围拉取（热/温窗口）
       if (!config.fetchByRange) {
         throw new Error('窗口范围拉取需要配置 fetchByRange');
       }
@@ -228,7 +363,7 @@ export async function syncWindowedRange(
     if (recordsFetched === 0) {
       log.warn(`${sourceId}: ERP 返回空数据，跳过写入`);
       await updateSyncStatus(sourceId, 0, 0, 0, Date.now() - startTime, true);
-      await writeSyncLog(sourceId, startTime, 'success', 0, 0, 0);
+      await writeSyncLog(sourceId, startTime, 'success', 0, 0, 0, undefined, window);
       return {
         sourceId, success: true, recordsFetched: 0,
         recordsUpserted: 0, recordsChanged: 0,
@@ -260,7 +395,12 @@ export async function syncWindowedRange(
     // 5. 更新状态 + 日志
     const durationMs = Date.now() - startTime;
     await updateSyncStatus(sourceId, recordsFetched, recordsUpserted, recordsChanged, durationMs, true);
-    await writeSyncLog(sourceId, startTime, 'success', recordsFetched, recordsUpserted, recordsChanged);
+    await writeSyncLog(sourceId, startTime, 'success', recordsFetched, recordsUpserted, recordsChanged, undefined, window);
+
+    // 更新窗口数据量预计算值（热窗口跳过，避免每2分钟全表扫描）
+    if (window !== 'hot') {
+      await updateWindowCounts(config);
+    }
 
     return {
       sourceId, success: true, recordsFetched,
@@ -272,7 +412,7 @@ export async function syncWindowedRange(
     log.error(`${sourceId}: 窗口同步失败 [${rangeLabel}]`, { error: errorMsg, durationMs });
 
     await updateSyncStatus(sourceId, recordsFetched, 0, 0, durationMs, false, errorMsg);
-    await writeSyncLog(sourceId, startTime, 'failed', recordsFetched, 0, 0, errorMsg);
+    await writeSyncLog(sourceId, startTime, 'failed', recordsFetched, 0, 0, errorMsg, window);
 
     return {
       sourceId, success: false, recordsFetched,
@@ -280,7 +420,7 @@ export async function syncWindowedRange(
       durationMs, error: errorMsg,
     };
   } finally {
-    await releaseLock(sourceId);
+    await releaseLock(sourceId, lockWindow);
   }
 }
 
@@ -398,227 +538,39 @@ function generateMonthRange(startMonth: string, endMonth: string): MonthChunk[] 
   return chunks;
 }
 
-/** 获取当前月份标签（北京时间） */
-function currentMonthLabel(): string {
-  const now = new Date();
-  const beijing = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
-  return `${beijing.getFullYear()}-${String(beijing.getMonth() + 1).padStart(2, '0')}`;
-}
-
-/** 读取全量加载检查点 */
-async function readCheckpoint(sourceId: string): Promise<string | null> {
-  const result = await appQuery<{ full_load_checkpoint: string | null; full_load_complete: boolean }>(
-    'SELECT full_load_checkpoint, full_load_complete FROM erp_sync_status WHERE source_id = $1',
-    [sourceId]
-  );
-  if (result.rows.length === 0) return null;
-  if (result.rows[0].full_load_complete) return null; // 已完成，不需要续传
-  return result.rows[0].full_load_checkpoint;
-}
-
-/** 写入全量加载检查点 */
-async function writeCheckpoint(sourceId: string, month: string): Promise<void> {
-  await appQuery(
-    'UPDATE erp_sync_status SET full_load_checkpoint = $2 WHERE source_id = $1',
-    [sourceId, month]
-  );
-}
-
-/** 标记全量加载完成 */
-async function markFullLoadComplete(sourceId: string): Promise<void> {
-  await appQuery(
-    'UPDATE erp_sync_status SET full_load_complete = TRUE, full_load_checkpoint = NULL WHERE source_id = $1',
-    [sourceId]
-  );
-}
-
-/** 分批 INSERT（不含 DELETE，用于全量加载的逐月写入） */
-async function batchInsertOnly(
+/** 分批 INSERT（复用已有连接/事务，用于冷窗口逐月写入） */
+async function batchInsertInTransaction(
+  client: { query: (sql: string, params?: unknown[]) => Promise<{ rowCount: number | null }> },
   tableName: string,
   rows: Record<string, unknown>[]
 ): Promise<number> {
   if (rows.length === 0) return 0;
-
-  const client = await getAppClient();
-  try {
-    await client.query('BEGIN');
-    let totalInserted = 0;
-    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      const batch = rows.slice(i, i + BATCH_SIZE);
-      const columns = Object.keys(batch[0]);
-      const insertColumns = columns.filter(col => col !== 'id');
-
-      const valuePlaceholders: string[] = [];
-      const allValues: unknown[] = [];
-      let paramIndex = 1;
-
-      for (const row of batch) {
-        const rowPlaceholders: string[] = [];
-        for (const col of insertColumns) {
-          rowPlaceholders.push(`$${paramIndex}`);
-          allValues.push(row[col] ?? null);
-          paramIndex++;
-        }
-        valuePlaceholders.push(`(${rowPlaceholders.join(', ')})`);
-      }
-
-      const columnList = insertColumns.join(', ');
-      const sql = `INSERT INTO ${tableName} (${columnList}) VALUES ${valuePlaceholders.join(', ')}`;
-      const result = await client.query(sql, allValues);
-      totalInserted += result.rowCount ?? 0;
-    }
-    await client.query('COMMIT');
-    return totalInserted;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-/**
- * 阻塞式获取 advisory lock（带超时）
- * 用于全量加载等需要等待 cron 释放锁的场景
- */
-async function waitForLock(
-  sourceId: string,
-  timeoutMs = 60000,
-  retryIntervalMs = 2000
-): Promise<boolean> {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeoutMs) {
-    const acquired = await tryAcquireLock(sourceId);
-    if (acquired) return true;
-    log.info(`等待锁释放: ${sourceId} (${Math.round((Date.now() - startTime) / 1000)}s / ${timeoutMs / 1000}s)`);
-    await new Promise(resolve => setTimeout(resolve, retryIntervalMs));
-  }
-  return false;
-}
-
-/**
- * 执行全量加载（按月分块 + 断点续传）
- * 参照 Airbyte Initial Sync 模式：
- * 1. 阻塞式获取 advisory lock（等待 cron 释放）
- * 2. 读取 checkpoint，确定起始月份
- * 3. 清除未完成部分的数据
- * 4. 按月遍历：fetchByRange -> transform -> batchInsert -> 更新 checkpoint
- * 5. 全部完成后标记 full_load_complete
- */
-export async function executeInitialFullLoad(
-  config: SyncSourceConfig,
-  startDate: string  // '2020-01-01'
-): Promise<SyncResult> {
-  const startTime = Date.now();
-  const sourceId = config.id;
-  const timeColumn = config.timeColumn;
-
-  if (!timeColumn || !config.fetchByRange) {
-    return {
-      sourceId, success: false, recordsFetched: 0,
-      recordsUpserted: 0, recordsChanged: 0, durationMs: 0,
-      error: '全量加载需要配置 timeColumn 和 fetchByRange',
-    };
-  }
-
-  // 1. 阻塞式获取 advisory lock（等待 cron 释放，最多等 60 秒）
-  const lockAcquired = await waitForLock(sourceId, 60000, 2000);
-  if (!lockAcquired) {
-    log.warn(`全量加载超时: ${sourceId} (无法获取 advisory lock)`);
-    return {
-      sourceId, success: false, recordsFetched: 0,
-      recordsUpserted: 0, recordsChanged: 0, durationMs: 0,
-      error: '无法获取 advisory lock（等待超时）',
-    };
-  }
-
-  let totalFetched = 0;
   let totalInserted = 0;
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
+    const columns = Object.keys(batch[0]);
+    const insertColumns = columns.filter(col => col !== 'id');
 
-  try {
-    // 2. 读取 checkpoint
-    const checkpoint = await readCheckpoint(sourceId);
-    const startMonth = checkpoint ?? startDate.substring(0, 7); // '2020-01'
-    const endMonth = currentMonthLabel();
-    const isResume = checkpoint !== null;
+    const valuePlaceholders: string[] = [];
+    const allValues: unknown[] = [];
+    let paramIndex = 1;
 
-    log.info(`全量加载: ${config.name} (${sourceId}) ${isResume ? `从检查点 ${checkpoint} 续传` : `从 ${startDate} 开始`}`);
-
-    // 3. 清除未完成部分的数据
-    if (isResume) {
-      const deleteFrom = `${startMonth}-01`;
-      const deleteResult = await appQuery(
-        `DELETE FROM ${config.targetTable} WHERE ${timeColumn}::timestamp >= $1::timestamp`,
-        [deleteFrom]
-      );
-      log.info(`全量加载: 清除检查点后数据 (${deleteFrom} ~), ${deleteResult.rowCount} 条`);
-    } else {
-      await appQuery(`DELETE FROM ${config.targetTable}`);
-      log.info(`全量加载: 清空表 ${config.targetTable}`);
-    }
-
-    // 4. 生成月份列表
-    const months = generateMonthRange(startMonth, endMonth);
-    log.info(`全量加载: 共 ${months.length} 个月需要加载 (${startMonth} ~ ${endMonth})`);
-
-    // 5. 按月遍历
-    for (let i = 0; i < months.length; i++) {
-      const { from, to, label } = months[i];
-
-      // 拉取当月数据
-      const records = await config.fetchByRange(from, to);
-      totalFetched += records.length;
-
-      // transform + batchInsert
-      if (records.length > 0) {
-        const rows = records.map(record => {
-          const transformed = config.transform(record);
-          transformed.raw_data = JSON.stringify(record);
-          transformed.content_hash = computeContentHash(transformed, config.primaryKey);
-          transformed.synced_at = new Date().toISOString();
-          return transformed;
-        });
-
-        const inserted = await batchInsertOnly(config.targetTable, rows);
-        totalInserted += inserted;
+    for (const row of batch) {
+      const rowPlaceholders: string[] = [];
+      for (const col of insertColumns) {
+        rowPlaceholders.push(`$${paramIndex}`);
+        allValues.push(row[col] ?? null);
+        paramIndex++;
       }
-
-      // 更新 checkpoint
-      await writeCheckpoint(sourceId, label);
-
-      log.info(`全量加载进度: ${label} 完成, 当月 ${records.length} 条, 累计 ${totalInserted} 条, ${i + 1}/${months.length} 月`);
+      valuePlaceholders.push(`(${rowPlaceholders.join(', ')})`);
     }
 
-    // 6. 标记完成
-    await markFullLoadComplete(sourceId);
-
-    const durationMs = Date.now() - startTime;
-    log.info(`全量加载完成: ${config.name} (${sourceId}), 共 ${totalInserted} 条, 耗时 ${Math.round(durationMs / 1000)}s`);
-
-    await updateSyncStatus(sourceId, totalFetched, totalInserted, totalInserted, durationMs, true);
-    await writeSyncLog(sourceId, startTime, 'success', totalFetched, totalInserted, totalInserted);
-
-    return {
-      sourceId, success: true, recordsFetched: totalFetched,
-      recordsUpserted: totalInserted, recordsChanged: totalInserted,
-      durationMs,
-    };
-  } catch (error) {
-    const durationMs = Date.now() - startTime;
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    log.error(`全量加载失败: ${sourceId}, 已加载 ${totalInserted} 条`, { error: errorMsg, durationMs });
-
-    await updateSyncStatus(sourceId, totalFetched, 0, 0, durationMs, false, errorMsg);
-    await writeSyncLog(sourceId, startTime, 'failed', totalFetched, 0, 0, errorMsg);
-
-    return {
-      sourceId, success: false, recordsFetched: totalFetched,
-      recordsUpserted: 0, recordsChanged: 0,
-      durationMs, error: errorMsg,
-    };
-  } finally {
-    await releaseLock(sourceId);
+    const columnList = insertColumns.join(', ');
+    const sql = `INSERT INTO ${tableName} (${columnList}) VALUES ${valuePlaceholders.join(', ')}`;
+    const result = await client.query(sql, allValues);
+    totalInserted += result.rowCount ?? 0;
   }
+  return totalInserted;
 }
 
 // =====================================================
@@ -626,8 +578,8 @@ export async function executeInitialFullLoad(
 // =====================================================
 
 /** 尝试获取数据集级别的 advisory lock */
-async function tryAcquireLock(sourceId: string): Promise<boolean> {
-  const lockId = computeLockId(sourceId);
+async function tryAcquireLock(sourceId: string, window?: string): Promise<boolean> {
+  const lockId = computeLockId(sourceId, window);
   const result = await appQuery<{ locked: boolean }>(
     'SELECT pg_try_advisory_lock($1) AS locked', [lockId]
   );
@@ -635,14 +587,21 @@ async function tryAcquireLock(sourceId: string): Promise<boolean> {
 }
 
 /** 释放 advisory lock */
-async function releaseLock(sourceId: string): Promise<void> {
-  const lockId = computeLockId(sourceId);
+async function releaseLock(sourceId: string, window?: string): Promise<void> {
+  const lockId = computeLockId(sourceId, window);
   await appQuery('SELECT pg_advisory_unlock($1)', [lockId]).catch(() => {});
 }
 
-/** 计算 advisory lock ID（基于 source_id 的哈希） */
-function computeLockId(sourceId: string): number {
-  const hash = createHash('md5').update(`erp_sync:${sourceId}`).digest('hex');
+/**
+ * 计算 advisory lock ID（基于 source_id + window 的哈希）
+ *
+ * 注意：锁粒度为 source_id + window，意味着同一数据集的不同窗口可以并行执行。
+ * 并行安全的前提是各窗口的日期范围不重叠（热=7天/温=60天/冷=更早），
+ * 如果未来新增窗口的日期范围有重叠，需要重新评估并发策略。
+ */
+function computeLockId(sourceId: string, window?: string): number {
+  const key = window ? `erp_sync:${sourceId}:${window}` : `erp_sync:${sourceId}`;
+  const hash = createHash('md5').update(key).digest('hex');
   return parseInt(hash.substring(0, 8), 16);
 }
 
@@ -854,20 +813,56 @@ async function updateSyncStatus(
 async function writeSyncLog(
   sourceId: string,
   startedAt: number,
-  status: 'success' | 'failed' | 'circuit-open',
+  status: 'success' | 'failed' | 'partial' | 'circuit-open',
   recordsFetched: number,
   recordsUpserted: number,
   recordsChanged: number,
-  errorMessage?: string
+  errorMessage?: string,
+  syncWindow?: string
 ): Promise<void> {
   try {
     await appQuery(
       `INSERT INTO erp_sync_log
-        (source_id, started_at, completed_at, duration_ms, status, records_fetched, records_upserted, records_changed, error_message)
-      VALUES ($1, to_timestamp($2 / 1000.0), NOW(), $3, $4, $5, $6, $7, $8)`,
-      [sourceId, startedAt, Date.now() - startedAt, status, recordsFetched, recordsUpserted, recordsChanged, errorMessage ?? null]
+        (source_id, started_at, completed_at, duration_ms, status, records_fetched, records_upserted, records_changed, error_message, sync_window)
+      VALUES ($1, to_timestamp($2 / 1000.0), NOW(), $3, $4, $5, $6, $7, $8, $9)`,
+      [sourceId, startedAt, Date.now() - startedAt, status, recordsFetched, recordsUpserted, recordsChanged, errorMessage ?? null, syncWindow ?? null]
     );
   } catch (err) {
     log.error(`写入同步日志失败: ${sourceId}`, err);
+  }
+}
+
+// =====================================================
+// 窗口数据量预计算（存储到 erp_sync_status.window_counts）
+// =====================================================
+
+/** 查询目标表各窗口数据量并存入 erp_sync_status.window_counts */
+async function updateWindowCounts(sourceConfig: SyncSourceConfig): Promise<void> {
+  const timeColumn = sourceConfig.timeColumn;
+  if (!timeColumn) return;
+
+  try {
+    const hotDays = sourceConfig.windows?.hot ?? 7;
+    const warmDays = sourceConfig.windows?.warm ?? 60;
+    const countResult = await appQuery(
+      `SELECT
+         COUNT(*) FILTER (WHERE ${timeColumn}::timestamptz >= NOW() - make_interval(days => $1)) AS hot,
+         COUNT(*) FILTER (WHERE ${timeColumn}::timestamptz >= NOW() - make_interval(days => $2) AND ${timeColumn}::timestamptz < NOW() - make_interval(days => $1)) AS warm,
+         COUNT(*) FILTER (WHERE ${timeColumn}::timestamptz < NOW() - make_interval(days => $2)) AS cold
+       FROM ${sourceConfig.targetTable}`,
+      [hotDays, warmDays]
+    );
+    const counts = countResult.rows[0];
+    const windowCounts = {
+      hot: parseInt(counts.hot, 10),
+      warm: parseInt(counts.warm, 10),
+      cold: parseInt(counts.cold, 10),
+    };
+    await appQuery(
+      `UPDATE erp_sync_status SET window_counts = $1 WHERE source_id = $2`,
+      [JSON.stringify(windowCounts), sourceConfig.id]
+    );
+  } catch (err) {
+    log.warn(`${sourceConfig.id}: 更新窗口数据量失败`, err);
   }
 }

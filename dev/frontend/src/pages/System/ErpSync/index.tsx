@@ -1,54 +1,78 @@
 /**
  * ERP 数据同步管理页面
- * 展示 6 个数据源的同步状态 + 强制同步操作 + 同步历史日志
+ * 状态表格 + 可展开子行 + 折叠日志区
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Card, Row, Col, Tag, Button, Table, Space, message, Tooltip, Dropdown } from 'antd';
+import { Card, Tag, Button, Table, Space, message, Tooltip, Collapse } from 'antd';
 import {
   ReloadOutlined,
-  SyncOutlined,
   ThunderboltOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  DownOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import {
   getSyncStatus,
   getSyncLog,
   forceSync,
   resetCircuit,
-  triggerFullLoad,
   type SyncStatusItem,
   type SyncLogItem,
   type SyncWindow,
+  type WindowStatusItem,
 } from '@/services/api/erp-sync';
 import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
 import styles from './index.less';
 
-/** 熔断器状态 -> Tag 配置 */
+// =====================================================
+// 常量与映射
+// =====================================================
+
+// 日志表格的名称回退映射（日志 API 不返回 name 字段，仅用于日志展示）
+const LOG_SOURCE_NAME_MAP: Record<string, string> = {
+  debts: '客户欠款',
+  products: '商品档案',
+  inventory: '实时库存',
+  batch_inventory: '批次库存',
+  customers: '客户档案',
+  sales: '销售明细',
+};
+
+const WINDOW_NAME_MAP: Record<string, string> = {
+  hot: '热窗口',
+  warm: '温窗口',
+  cold: '冷窗口',
+  all: '全部历史',
+};
+
+const WINDOW_DESC_MAP: Record<string, string> = {
+  hot: '近7天',
+  warm: '8-60天',
+  cold: '60天前',
+};
+
 const CIRCUIT_CONFIG: Record<string, { color: string; text: string }> = {
   closed: { color: 'green', text: '正常' },
   open: { color: 'red', text: '熔断' },
   'half-open': { color: 'orange', text: '恢复中' },
 };
 
-/** 同步日志状态 -> Tag 配置 */
 const LOG_STATUS_CONFIG: Record<string, { color: string; text: string }> = {
   success: { color: 'green', text: '成功' },
   failed: { color: 'red', text: '失败' },
+  partial: { color: 'orange', text: '部分成功' },
   'circuit-open': { color: 'orange', text: '熔断跳过' },
 };
 
-/** 计算数据新鲜度文本 */
-function getFreshness(lastSuccessAt: string | null): { text: string; isStale: boolean } {
-  if (!lastSuccessAt) return { text: '从未同步', isStale: true };
-  const diffMs = Date.now() - new Date(lastSuccessAt).getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 3) return { text: `${diffMin} 分钟前`, isStale: false };
-  if (diffMin < 60) return { text: `${diffMin} 分钟前`, isStale: diffMin > 10 };
-  const diffHour = Math.floor(diffMin / 60);
-  return { text: `${diffHour} 小时前`, isStale: true };
+const SNAPSHOT_INTERVAL_MS = 120_000;
+
+// =====================================================
+// 工具函数
+// =====================================================
+
+function formatDuration(ms: number | null): string {
+  if (ms == null) return '-';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 const formatTime = (iso: string | null) => {
@@ -60,11 +84,141 @@ const formatTime = (iso: string | null) => {
   }
 };
 
+function getRelativeTime(iso: string | null): string {
+  if (!iso) return '从未同步';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return '刚刚';
+  if (diffMin < 60) return `${diffMin}分钟前`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}小时前`;
+  const diffDay = Math.floor(diffHour / 24);
+  return `${diffDay}天前`;
+}
+
+function getNextSyncForSnapshot(lastSuccessAt: string | null): string {
+  if (!lastSuccessAt) return '-';
+  const next = new Date(lastSuccessAt).getTime() + SNAPSHOT_INTERVAL_MS;
+  const diffMs = next - Date.now();
+  if (diffMs <= 0) return '即将执行';
+  const diffSec = Math.ceil(diffMs / 1000);
+  if (diffSec < 60) return `${diffSec}秒后`;
+  return `${Math.ceil(diffSec / 60)}分钟后`;
+}
+
+/**
+ * 获取当前北京时间的日期和时间组件
+ * 后端调度器使用 Asia/Shanghai 时区，前端推算下次同步时间也需基于北京时间
+ */
+function getBeijingNow(): { dayOfWeek: number; hour: number; day: number; month: number; year: number } {
+  // 使用 Intl.DateTimeFormat 获取北京时间的各组件，避免依赖浏览器本地时区
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', weekday: 'short',
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    dayOfWeek: weekdayMap[get('weekday')] ?? 0,
+    hour: parseInt(get('hour'), 10) % 24,
+    day: parseInt(get('day'), 10),
+    month: parseInt(get('month'), 10) - 1, // 0-indexed，与 Date.getMonth() 一致
+    year: parseInt(get('year'), 10),
+  };
+}
+
+function getNextWarmSync(): string {
+  const { dayOfWeek, hour } = getBeijingNow();
+
+  let daysUntilMonday = (8 - dayOfWeek) % 7; // 周一=0, 周二=6, 周日=1
+
+  // 周一且已过 03:00 -> 等下周一
+  if (daysUntilMonday === 0 && hour >= 3) daysUntilMonday = 7;
+
+  if (daysUntilMonday === 0) return '今天 03:00';
+  if (daysUntilMonday === 1) return '明天 03:00';
+  return `${daysUntilMonday}天后 (周一 03:00)`;
+}
+
+function getNextColdSync(): string {
+  const { day, hour, month, year } = getBeijingNow();
+  if (day === 1 && hour < 4) return '今天 04:00';
+  if (day < 15 || (day === 15 && hour < 4)) return `${15 - day}天后 (15号 04:00)`;
+  // 使用 Date.UTC 计算天数差，完全避免浏览器本地时区干扰
+  const todayMidnight = Date.UTC(year, month, day);
+  const nextMonthTs = Date.UTC(year, month + 1, 1);
+  const diffDays = Math.ceil((nextMonthTs - todayMidnight) / 86400000);
+  return `${diffDays}天后 (下月1号 04:00)`;
+}
+
+/** 获取销售明细各窗口的下次同步推算 */
+function getWindowNextSync(windowType: string, lastSuccessAt: string | null): string {
+  switch (windowType) {
+    case 'hot': return getNextSyncForSnapshot(lastSuccessAt);
+    case 'warm': return getNextWarmSync();
+    case 'cold': return getNextColdSync();
+    default: return '-';
+  }
+}
+
+/** 兜底生成全部3个窗口行（后端未返回的窗口也显示，保证操作按钮可用） */
+function ensureAllWindows(windows: WindowStatusItem[]): WindowStatusItem[] {
+  const existing = new Map(windows.map(w => [w.window, w]));
+  const allWindows: WindowStatusItem[] = (['hot', 'warm', 'cold'] as const).map(w =>
+    existing.get(w) || {
+      window: w as 'hot' | 'warm' | 'cold',
+      last_success_at: null,
+      last_duration_ms: null,
+      last_status: null,
+      total_records: 0,
+    }
+  );
+  return allWindows;
+}
+
+/** 获取销售明细父行的"上次同步"（取所有窗口中最近一次） */
+function getLatestWindowSync(item: SyncStatusItem): { time: string | null; relative: string } {
+  const ws = ensureAllWindows(item.windows_status || []);
+  let latest: string | null = null;
+  for (const w of ws) {
+    if (w.last_success_at) {
+      if (!latest || new Date(w.last_success_at).getTime() > new Date(latest).getTime()) {
+        latest = w.last_success_at;
+      }
+    }
+  }
+  // fallback to item.last_success_at if no window data
+  const final = latest || item.last_success_at;
+  return { time: final, relative: getRelativeTime(final) };
+}
+
+/** 计算销售明细所有窗口的数据总量合计 */
+function getWindowTotalSum(windows: WindowStatusItem[]): number {
+  return ensureAllWindows(windows).reduce((sum, w) => sum + (w.total_records || 0), 0);
+}
+
+// =====================================================
+// 组件
+// =====================================================
+
 export default function ErpSync() {
   const [statuses, setStatuses] = useState<SyncStatusItem[]>([]);
   const [logs, setLogs] = useState<SyncLogItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionLoadingKeys, setActionLoadingKeys] = useState<Set<string>>(new Set());
+
+  const addActionLoading = (key: string) => {
+    setActionLoadingKeys(prev => new Set(prev).add(key));
+  };
+  const removeActionLoading = (key: string) => {
+    setActionLoadingKeys(prev => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  };
 
   const loadStatus = useCallback(async () => {
     try {
@@ -86,11 +240,12 @@ export default function ErpSync() {
   }, [loadStatus, loadLogs]);
 
   const handleForceSync = async (sourceId: string, window?: SyncWindow) => {
-    setActionLoading(`sync-${sourceId}`);
+    const key = `sync-${sourceId}-${window || 'default'}`;
+    addActionLoading(key);
     try {
       const result = await forceSync(sourceId, window);
       if (result.success) {
-        message.success(`同步完成: 拉取 ${result.recordsFetched} 条, 写入 ${result.recordsUpserted} 条, 耗时 ${result.durationMs}ms`);
+        message.success(`同步完成: 拉取 ${result.recordsFetched} 条, 写入 ${result.recordsUpserted} 条, 耗时 ${formatDuration(result.durationMs)}`);
       } else {
         message.error(`同步失败: ${result.error || '未知错误'}`);
       }
@@ -99,12 +254,13 @@ export default function ErpSync() {
     } catch (error: any) {
       message.error(error?.message || '同步失败');
     } finally {
-      setActionLoading(null);
+      removeActionLoading(key);
     }
   };
 
   const handleResetCircuit = async (sourceId: string) => {
-    setActionLoading(`reset-${sourceId}`);
+    const key = `reset-${sourceId}`;
+    addActionLoading(key);
     try {
       await resetCircuit(sourceId);
       message.success(`熔断器已重置: ${sourceId}`);
@@ -112,156 +268,219 @@ export default function ErpSync() {
     } catch (error: any) {
       message.error(error?.message || '重置失败');
     } finally {
-      setActionLoading(null);
+      removeActionLoading(key);
     }
   };
 
-  const handleFullLoad = async (sourceId: string) => {
-    setActionLoading(`fullload-${sourceId}`);
-    try {
-      const result = await triggerFullLoad(sourceId);
-      if (result.success) {
-        message.success(`全量加载完成: 拉取 ${result.recordsFetched} 条, 写入 ${result.recordsUpserted} 条, 耗时 ${result.durationMs}ms`);
-      } else {
-        message.error(`全量加载失败: ${result.error || '未知错误'}`);
-      }
-      await loadStatus();
-      await loadLogs();
-    } catch (error: any) {
-      message.error(error?.message || '全量加载失败');
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  // ---- 主表格列定义 ----
 
-  const renderStatusCard = (item: SyncStatusItem) => {
-    const circuit = CIRCUIT_CONFIG[item.circuit_state] || CIRCUIT_CONFIG.closed;
-    const freshness = getFreshness(item.last_success_at);
-
-    return (
-      <Card
-        key={item.source_id}
-        title={<Space><SyncOutlined /><span>{item.name}</span></Space>}
-        size="small"
-        className={styles.statusCard}
-      >
-        <div className={styles.statusRow}>
-          <span className={styles.label}>熔断器：</span>
-          <Tag color={circuit.color}>{circuit.text}</Tag>
-        </div>
-        <div className={styles.statusRow}>
-          <span className={styles.label}>本地记录：</span>
-          <span>{item.total_records.toLocaleString()} 条</span>
-        </div>
-        <div className={styles.statusRow}>
-          <span className={styles.label}>同步次数：</span>
-          <span>{item.total_syncs} 次 / 失败 {item.total_failures} 次</span>
-        </div>
-        <div className={styles.statusRow}>
-          <span className={styles.label}>数据新鲜：</span>
-          <span className={`${styles.freshness} ${freshness.isStale ? styles.stale : ''}`}>
-            {freshness.text}
-          </span>
-        </div>
-        {item.last_duration_ms && (
-          <div className={styles.statusRow}>
-            <span className={styles.label}>上次耗时：</span>
-            <span>{item.last_duration_ms}ms</span>
+  const columns = [
+    {
+      title: '数据集',
+      dataIndex: 'source_id',
+      key: 'source_id',
+      width: 140,
+      render: (_v: string, record: any) => <span style={{ fontWeight: 500 }}>{record.name || record.source_id}</span>,
+    },
+    {
+      title: '状态',
+      dataIndex: 'circuit_state',
+      key: 'circuit_state',
+      width: 80,
+      render: (v: string) => {
+        const cfg = CIRCUIT_CONFIG[v] || CIRCUIT_CONFIG.closed;
+        return <Tag color={cfg.color}>{cfg.text}</Tag>;
+      },
+    },
+    {
+      title: '数据总量',
+      dataIndex: 'total_records',
+      key: 'total_records',
+      width: 110,
+      render: (v: number, record: SyncStatusItem) => {
+        if (record.source_id === 'sales') {
+          const sum = getWindowTotalSum(record.windows_status || []);
+          return sum > 0 ? `${sum.toLocaleString()} 条` : '-';
+        }
+        return `${v.toLocaleString()} 条`;
+      },
+    },
+    {
+      title: '上次同步',
+      key: 'last_sync',
+      width: 240,
+      render: (_: unknown, record: SyncStatusItem) => {
+        const isSales = record.source_id === 'sales';
+        const syncInfo = isSales
+          ? getLatestWindowSync(record)
+          : { time: record.last_success_at, relative: getRelativeTime(record.last_success_at) };
+        return (
+          <div>
+            <span className={styles.syncTime}>
+              {formatTime(syncInfo.time)}
+            </span>
+            <span className={styles.relativeTime}>({syncInfo.relative})</span>
           </div>
-        )}
-        {item.last_error_message && (
-          <div className={styles.statusRow}>
-            <span className={styles.label}>最近错误：</span>
-            <Tooltip title={item.last_error_message}>
-              <span style={{ color: '#f5222d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {item.last_error_message.slice(0, 50)}
-              </span>
-            </Tooltip>
-          </div>
-        )}
-        {item.source_id === 'sales' && (
-          <div className={styles.statusRow}>
-            <span className={styles.label}>全量加载：</span>
-            {item.full_load_complete
-              ? <Tag color="green">已完成</Tag>
-              : <Tag color="orange">{item.full_load_checkpoint ? `已加载到 ${item.full_load_checkpoint}` : '未开始'}</Tag>
-            }
-          </div>
-        )}
-        <div className={styles.actions}>
+        );
+      },
+    },
+    {
+      title: '下次同步',
+      key: 'next_sync',
+      width: 140,
+      render: (_: unknown, record: SyncStatusItem) => {
+        if (record.source_id === 'sales') return '-';
+        return getNextSyncForSnapshot(record.last_success_at);
+      },
+    },
+    {
+      title: '耗时',
+      dataIndex: 'last_duration_ms',
+      key: 'last_duration_ms',
+      width: 80,
+      render: (v: number | null) => formatDuration(v),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 120,
+      render: (_: unknown, record: SyncStatusItem) => {
+        if (record.source_id === 'sales') return <span style={{ color: '#999' }}>-</span>;
+        return (
           <Authorized permission={PERMISSIONS.SYSTEM.ERP_SYNC.WRITE}>
-            {item.source_id === 'sales' ? (
-              <Dropdown
-                menu={{
-                  items: [
-                    { key: 'hot', label: '热窗口（近7天）' },
-                    { key: 'warm', label: '温窗口（8-30天）' },
-                    { key: 'cold', label: '冷窗口（30天前）' },
-                    { key: 'all', label: '全部历史' },
-                    ...(item.full_load_complete !== true
-                      ? [{ key: 'full-load', label: '全量加载历史' }]
-                      : []),
-                  ],
-                  onClick: ({ key }) => {
-                    if (key === 'full-load') {
-                      handleFullLoad(item.source_id);
-                    } else {
-                      handleForceSync(item.source_id, key as SyncWindow);
-                    }
-                  },
-                }}
-              >
-                <Button
-                  size="small"
-                  type="primary"
-                  icon={<ThunderboltOutlined />}
-                  loading={actionLoading === `sync-${item.source_id}`}
-                >
-                  强制同步 <DownOutlined />
-                </Button>
-              </Dropdown>
-            ) : (
-              <Button
-                size="small"
-                type="primary"
-                icon={<ThunderboltOutlined />}
-                loading={actionLoading === `sync-${item.source_id}`}
-                onClick={() => handleForceSync(item.source_id)}
-              >
-                强制同步
-              </Button>
-            )}
+            <Button
+              size="small"
+              type="primary"
+              icon={<ThunderboltOutlined />}
+              loading={actionLoadingKeys.has(`sync-${record.source_id}-default`)}
+              onClick={() => handleForceSync(record.source_id)}
+            >
+              强制同步
+            </Button>
           </Authorized>
-          {item.circuit_state === 'open' && (
-            <Authorized permission={PERMISSIONS.SYSTEM.ERP_SYNC.WRITE}>
-              <Button
-                size="small"
-                icon={<ReloadOutlined />}
-                loading={actionLoading === `reset-${item.source_id}`}
-                onClick={() => handleResetCircuit(item.source_id)}
-              >
-                重置熔断
-              </Button>
-            </Authorized>
-          )}
-        </div>
-      </Card>
+        );
+      },
+    },
+  ];
+
+  // ---- 展开行：窗口子表格 ----
+
+  const windowColumns = [
+    {
+      title: '窗口',
+      key: 'window',
+      width: 140,
+      render: (_: unknown, record: WindowStatusItem) => (
+        <span style={{ paddingLeft: 8 }}>
+          <span style={{ fontWeight: 500 }}>{WINDOW_NAME_MAP[record.window] || record.window}</span>
+          <span className={styles.windowDesc}>
+            ({WINDOW_DESC_MAP[record.window] || ''})
+          </span>
+        </span>
+      ),
+    },
+    {
+      title: '状态',
+      key: 'status',
+      width: 80,
+      render: () => <span style={{ color: '#999' }}>-</span>,
+    },
+    {
+      title: '数据总量',
+      dataIndex: 'total_records',
+      key: 'total_records',
+      width: 110,
+      render: (v: number) => v > 0 ? `${v.toLocaleString()} 条` : '-',
+    },
+    {
+      title: '上次同步',
+      key: 'last_sync',
+      width: 240,
+      render: (_: unknown, record: WindowStatusItem) => {
+        return (
+          <div>
+            <span className={styles.syncTime}>
+              {formatTime(record.last_success_at)}
+            </span>
+            <span className={styles.relativeTime}>({getRelativeTime(record.last_success_at)})</span>
+          </div>
+        );
+      },
+    },
+    {
+      title: '下次同步',
+      key: 'next_sync',
+      width: 140,
+      render: (_: unknown, record: WindowStatusItem) => (
+        <span className={styles.nextSync}>
+          {getWindowNextSync(record.window, record.last_success_at)}
+        </span>
+      ),
+    },
+    {
+      title: '耗时',
+      key: 'duration',
+      width: 80,
+      render: (_: unknown, record: WindowStatusItem) => formatDuration(record.last_duration_ms),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 120,
+      render: (_: unknown, record: WindowStatusItem) => (
+        <Authorized permission={PERMISSIONS.SYSTEM.ERP_SYNC.WRITE}>
+          <Button
+            size="small"
+            type="primary"
+            icon={<ThunderboltOutlined />}
+            loading={actionLoadingKeys.has(`sync-sales-${record.window}`)}
+            onClick={() => handleForceSync('sales', record.window as SyncWindow)}
+          >
+            强制同步
+          </Button>
+        </Authorized>
+      ),
+    },
+  ];
+
+  const expandedRowRender = (record: SyncStatusItem) => {
+    const windows = ensureAllWindows(record.windows_status || []);
+    return (
+      <div className={styles.expandTable}>
+        <Table
+          dataSource={windows}
+          columns={windowColumns}
+          rowKey="window"
+          size="small"
+          pagination={false}
+          showHeader={false}
+        />
+      </div>
     );
   };
+
+  // ---- 日志表格列 ----
 
   const logColumns = [
     {
       title: '数据源',
       dataIndex: 'source_id',
       key: 'source_id',
-      width: 100,
-      render: (v: string) => <Tag>{v}</Tag>,
+      width: 90,
+      render: (v: string) => LOG_SOURCE_NAME_MAP[v] || v,
+    },
+    {
+      title: '窗口',
+      dataIndex: 'sync_window',
+      key: 'sync_window',
+      width: 80,
+      render: (v: string | null) => v ? WINDOW_NAME_MAP[v] || v : '-',
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 90,
+      width: 80,
       render: (v: string) => {
         const cfg = LOG_STATUS_CONFIG[v] || { color: 'default', text: v };
         return <Tag color={cfg.color}>{cfg.text}</Tag>;
@@ -290,7 +509,7 @@ export default function ErpSync() {
       dataIndex: 'duration_ms',
       key: 'duration_ms',
       width: 80,
-      render: (v: number | null) => (v != null ? `${v}ms` : '-'),
+      render: (v: number | null) => formatDuration(v),
     },
     {
       title: '错误',
@@ -314,33 +533,89 @@ export default function ErpSync() {
 
   return (
     <div className={`page-scroll ${styles.page}`}>
-      <Row gutter={[16, 16]}>
-        {statuses.map(item => (
-          <Col xs={24} sm={12} md={8} key={item.source_id}>
-            {renderStatusCard(item)}
-          </Col>
-        ))}
-      </Row>
-
       <Card
-        title="同步历史"
         size="small"
-        style={{ marginTop: 16 }}
+        title="数据同步状态"
         extra={
-          <Button size="small" icon={<ReloadOutlined />} onClick={() => loadLogs()}>
-            刷新
-          </Button>
+          <Space>
+            {statuses.some(s => s.circuit_state === 'open') && (
+              <Authorized permission={PERMISSIONS.SYSTEM.ERP_SYNC.WRITE}>
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined />}
+                  loading={actionLoadingKeys.has('reset-all-circuits')}
+                  onClick={async () => {
+                    const key = 'reset-all-circuits';
+                    addActionLoading(key);
+                    try {
+                      const openCircuits = statuses.filter(s => s.circuit_state === 'open');
+                      const results = await Promise.allSettled(
+                        openCircuits.map(s => resetCircuit(s.source_id))
+                      );
+                      const failed = results.filter(r => r.status === 'rejected').length;
+                      if (failed === 0) {
+                        message.success(`已重置 ${openCircuits.length} 个熔断器`);
+                      } else {
+                        message.warning(`${openCircuits.length - failed} 个重置成功，${failed} 个失败`);
+                      }
+                      await loadStatus();
+                    } catch (err: any) {
+                      message.error(err?.message || '重置熔断器失败');
+                    } finally {
+                      removeActionLoading(key);
+                    }
+                  }}
+                >
+                  重置所有熔断
+                </Button>
+              </Authorized>
+            )}
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => { loadStatus(); loadLogs(); }}>
+              刷新
+            </Button>
+          </Space>
         }
       >
         <Table
-          dataSource={logs}
-          columns={logColumns}
-          rowKey="id"
+          dataSource={statuses}
+          columns={columns}
+          rowKey="source_id"
           size="small"
           loading={loading}
-          pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 条` }}
+          pagination={false}
+          expandable={{
+            expandedRowRender,
+            rowExpandable: (record) => record.source_id === 'sales',
+            expandIcon: ({ expanded, onExpand, record }) =>
+              record.source_id === 'sales' ? (
+                <RightOutlined
+                  className={styles.expandIcon}
+                  rotate={expanded ? 90 : 0}
+                  onClick={(e) => onExpand(record, e)}
+                />
+              ) : null,
+          }}
         />
       </Card>
+
+      <Collapse
+        className={styles.logSection}
+        ghost
+        expandIcon={({ isActive }) => <RightOutlined rotate={isActive ? 90 : 0} />}
+        items={[{
+          key: 'log',
+          label: <span style={{ fontWeight: 500 }}>同步历史</span>,
+          children: (
+            <Table
+              dataSource={logs}
+              columns={logColumns}
+              rowKey="id"
+              size="small"
+              pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 条` }}
+            />
+          ),
+        }]}
+      />
     </div>
   );
 }

@@ -23,8 +23,8 @@ export type PostProcessorConfig =
 /** 滑动窗口配置 */
 export interface WindowConfig {
   hot: number;             // 热窗口天数 (7)
-  warm: number;            // 温窗口天数 (30)
-  cold: number;            // 冷窗口起始天数 (30，表示 30 天之前)
+  warm: number;            // 温窗口天数 (60)
+  cold: number;            // 冷窗口起始天数 (60，表示 60 天之前)
   hotIntervalMs: number;   // 热窗口同步间隔 (120000 = 2分钟)
   warmIntervalMs: number;  // 温窗口同步间隔 (604800000 = 7天)
   coldIntervalMs: number;  // 冷窗口同步间隔 (1296000000 = 15天)
@@ -78,6 +78,7 @@ export interface SyncStatus {
   circuit_state: 'closed' | 'open' | 'half-open';
   circuit_opened_at: Date | null;
   last_error_message: string | null;
+  window_counts: Record<string, number> | null;
 }
 
 /** 同步日志条目（对应 erp_sync_log 表） */
@@ -87,11 +88,12 @@ export interface SyncLogEntry {
   started_at: Date;
   completed_at: Date | null;
   duration_ms: number | null;
-  status: 'success' | 'failed' | 'circuit-open';
+  status: 'success' | 'failed' | 'partial' | 'circuit-open';
   records_fetched: number;
   records_upserted: number;
   records_changed: number;
   error_message: string | null;
+  sync_window: string | null;
 }
 
 // =====================================================

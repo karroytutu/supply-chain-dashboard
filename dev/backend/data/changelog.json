@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "v2.20.0",
+      "date": "2026-07-03 01:44",
+      "types": ["optimization", "breaking"],
+      "changes": [
+        "ERP同步引擎窗口化重构：全量加载(full_load)模式完全移除，改为hot/warm/cold三级窗口分级同步策略，每次同步记录窗口类型，同步状态预计算各窗口数据量",
+        "ERP同步状态页重构：前端页面全面改版，展示各窗口同步状态、数据量统计和同步历史记录，样式优化",
+        "ERP同步调度优化：定时调度任务适配新窗口策略，同步编排器增强错误处理",
+        "清理full-load遗留代码：删除sales-full-load.ts脚本(177行)，移除erp_sync_status表中full_load_checkpoint和full_load_complete死列",
+        "环境变量新增同步窗口配置项，.env.example同步更新",
+        "3项迁移: 同步日志窗口字段(168)、状态表窗口计数(169)、清理full-load死列(170)"
+      ]
+    },
+    {
       "version": "v2.19.0",
       "date": "2026-07-02 02:16",
       "types": ["feature", "optimization"],
