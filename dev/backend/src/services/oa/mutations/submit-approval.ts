@@ -58,16 +58,26 @@ export async function submitApproval(
   let autoNodeToExecute: OaNodeRow | null = null;
 
   const result = await transaction(async client => {
+    // 前置检查：确认表单类型在数据库中存在
+    const ftCheck = await client.query<{ id: number }>(
+      'SELECT id FROM oa_form_types WHERE code = $1',
+      [req.formTypeCode]
+    );
+    if (ftCheck.rows.length === 0) {
+      throw new Error(`表单类型 "${req.formTypeCode}" 尚未完成数据库初始化，请联系管理员执行迁移`);
+    }
+    const formTypeId = ftCheck.rows[0].id;
+
     // 插入审批实例（current_node_order = 0，由 evaluateAndTriggerNodes 创建节点后决定）
     const instanceResult = await client.query<OaInstanceRow>(
       `INSERT INTO oa_approval_instances
         (instance_no, form_type_id, title, form_data, status, applicant_id, applicant_name, applicant_dept, current_node_order)
        VALUES
-        ($1, (SELECT id FROM oa_form_types WHERE code = $2), $3, $4, 'processing', $5, $6, $7, 0)
+        ($1, $2, $3, $4, 'processing', $5, $6, $7, 0)
        RETURNING *`,
       [
         instanceNo,
-        req.formTypeCode,
+        formTypeId,
         req.title,
         JSON.stringify(req.formData),
         userId,

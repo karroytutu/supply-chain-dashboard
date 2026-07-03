@@ -67,18 +67,20 @@ export async function runMigrations(
       await query('INSERT INTO migrations_history (filename) VALUES ($1)', [file]);
       log.info(`完成: ${file}`);
     } catch (error) {
-      log.error(`迁移失败 (已跳过): ${file}`);
+      log.error(`迁移失败: ${file}`);
       log.error('错误信息:', getErrorMessage(error));
       failedMigrations.push(file);
-      // 记录失败的迁移，避免下次重复尝试
-      await query('INSERT INTO migrations_history (filename) VALUES ($1)', [file]);
+      // 不记录到 migrations_history，下次启动时自动重试
+      break;  // 停止执行后续迁移，避免级联失败
     }
   }
 
   if (failedMigrations.length > 0) {
-    log.info(`\n⚠ ${failedMigrations.length} 个迁移执行失败并已跳过（可能依赖外部业务数据库表）`);
+    log.warn(`\n迁移 ${failedMigrations[0]} 执行失败，后续迁移已中止`);
+    log.warn('请检查上方错误信息，修复问题后重启应用，迁移将自动重试');
+  } else {
+    log.info('\n所有迁移处理完成!');
   }
-  log.info('\n所有迁移处理完成!');
 }
 
 /**

@@ -95,7 +95,9 @@ describe('submitApproval', () => {
     // transaction 需要提供 instance 行，然后 evaluateAndTriggerNodes 返回空数组触发异常
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
-        query: jest.fn().mockResolvedValueOnce({ rows: [{ id: 1, instance_no: 'OA-001' }] }),
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // ftCheck
+          .mockResolvedValueOnce({ rows: [{ id: 1, instance_no: 'OA-001' }] }), // INSERT instance
       };
       return fn(mockClient);
     });
@@ -111,6 +113,7 @@ describe('submitApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // ftCheck
           .mockResolvedValueOnce({ rows: [mockInstance] }) // INSERT instance
           .mockResolvedValueOnce({ rows: [] }) // UPDATE status
           .mockResolvedValueOnce({ rows: [] }), // INSERT action
@@ -133,6 +136,7 @@ describe('submitApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // ftCheck
           .mockResolvedValueOnce({ rows: [mockInstance] })
           .mockResolvedValueOnce({ rows: [] })
           .mockResolvedValueOnce({ rows: [] }),
@@ -157,6 +161,7 @@ describe('submitApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // ftCheck
           .mockResolvedValueOnce({ rows: [mockInstance] }) // INSERT instance
           .mockResolvedValueOnce({ rows: [] }) // UPDATE status
           .mockResolvedValueOnce({ rows: [] }), // INSERT action
@@ -184,6 +189,7 @@ describe('submitApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // ftCheck
           .mockResolvedValueOnce({ rows: [mockInstance] }) // INSERT instance
           .mockResolvedValueOnce({ rows: [] }) // UPDATE status
           .mockResolvedValueOnce({ rows: [] }), // INSERT action
@@ -205,6 +211,7 @@ describe('submitApproval', () => {
     mockTransaction.mockImplementationOnce(async (fn: any) => {
       const mockClient = {
         query: jest.fn()
+          .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // ftCheck
           .mockResolvedValueOnce({ rows: [mockInstance] })
           .mockResolvedValueOnce({ rows: [] })
           .mockResolvedValueOnce({ rows: [] }),
@@ -218,5 +225,19 @@ describe('submitApproval', () => {
       baseReq.formData,
       { paymentSubjectId: 'hidden' }
     );
+  });
+
+  it('表单类型在数据库中不存在时抛出明确错误', async () => {
+    mockTransaction.mockImplementationOnce(async (fn: any) => {
+      const mockClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }), // ftCheck 返回空
+      };
+      return fn(mockClient);
+    });
+
+    await expect(
+      submitApproval(baseReq, baseFormType, 1, '张三', null)
+    ).rejects.toThrow('尚未完成数据库初始化');
   });
 });
