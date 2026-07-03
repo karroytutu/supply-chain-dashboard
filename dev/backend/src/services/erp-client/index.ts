@@ -79,7 +79,17 @@ export type {
 // ==================== 供应商收入单 ====================
 export {
   searchSupplierIncomes,
+  createSupplierIncomeBill,
 } from './erp-supplier-income.service';
+export type {
+  CreateSupplierIncomeBillParams,
+  SupplierIncomeBillResponse,
+} from './erp-supplier-income.service';
+// ==================== 供应商收入类别 ====================
+export {
+  getIncomeCategories,
+} from './erp-income-category.service';
+export type { IncomeCategory } from './erp-income-category.service';
 // ==================== 日均销售报表 ====================
 export {
   getDailySalesData,

@@ -154,4 +154,8 @@ export const CACHE_KEY = {
   OA_FORM_TYPES_ACTIVE: 'oa:form-types:active' as const,
   /** OA 表单类型前缀（用于 invalidate 批量清除） */
   OA_FORM_TYPES_PREFIX: 'oa:form-types' as const,
+
+  // ==================== 供应商收入类别 ====================
+  /** 供应商收入类别列表（展平后的叶子节点） */
+  ERP_INCOME_CATEGORIES_SUPPLIER: 'erp:income:categories:supplier' as const,
 } as const;

@@ -12,7 +12,7 @@ import { OA_ROLE } from '../oa-role-codes';
 import { MARKET_EXPENSE_SUBJECTS } from '../../../utils/constants';
 import { createLogger } from '../../../utils/logger';
 import { appQuery as query } from '../../../db/appPool';
-import { beijingDate } from '../../../utils/beijingTime';
+import { beijingDate, beijingDateTime } from '../../../utils/beijingTime';
 import { getErpMeta } from '../../fixed-asset/erp-meta-utils';
 import {
   createChargeContract,
@@ -21,7 +21,9 @@ import {
   getChargeContractDetail,
 } from '../../erp-client/erp-market-expense.service';
 import { resolveBrandOriginId } from '../../erp-client/erp-brand.service';
-import { cleanupExpenditureBill } from '../../erp-client/erp-cleanup';
+import { cleanupExpenditureBill, cleanupIncomeBill } from '../../erp-client/erp-cleanup';
+import { createSupplierIncomeBill } from '../../erp-client/erp-supplier-income.service';
+import { getErpDefaults } from '../../erp-client/erp-config';
 
 const log = createLogger('MarketExpense');
 
@@ -234,6 +236,65 @@ const marketExpenseFormSchema: FormSchema = {
       formulaPrecision: 2,
     },
 
+    // ─── 供应商承担区 ──────────────────────────────────
+    {
+      key: 'supplierBorne',
+      label: '是否需要供应商承担',
+      type: 'select' as const,
+      required: true,
+      options: [
+        { value: 'yes', label: '是' },
+        { value: 'no', label: '否' },
+      ],
+      defaultValue: 'no',
+    },
+    {
+      key: 'supplierId',
+      label: '供应商',
+      type: 'select' as const,
+      required: true,
+      searchApi: 'erp_suppliers' as const,
+      nameField: '_supplierName',
+      autoFill: { _supplierName: 'name' },
+      visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+    },
+    { key: '_supplierName', label: '供应商名称', ...HIDDEN_TEXT },
+    {
+      key: 'supplierAmount',
+      label: '供应商承担金额',
+      type: 'money' as const,
+      required: true,
+      upper: true,
+      visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+    },
+    {
+      key: 'incomeCategoryId',
+      label: '收入类别',
+      type: 'select' as const,
+      required: true,
+      searchApi: 'erp_income_categories' as const,
+      nameField: '_incomeCategoryName',
+      autoFill: { _incomeCategoryName: 'name' },
+      visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+    },
+    { key: '_incomeCategoryName', label: '收入类别名称', ...HIDDEN_TEXT },
+    {
+      key: 'supplierConfirmScreenshot',
+      label: '供应商确认截图',
+      type: 'upload' as const,
+      required: false,
+      maxCount: 5,
+      visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+    },
+    {
+      key: '_supplierIncomeBillStr',
+      label: '供应商收入单号',
+      type: 'text' as const,
+      required: false,
+      disabled: true,
+      visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+    },
+
     // ─── 系统回填字段 ──────────────────────────────────
     {
       key: '_contractStr',
@@ -256,6 +317,7 @@ const marketExpenseFormSchema: FormSchema = {
     { key: '_contractId', label: '协议ID', type: 'number' as const, required: false },
     { key: '_contractDetailId', label: '协议明细ID', type: 'number' as const, required: false },
     { key: '_expenditureBillId', label: '费用单ID', type: 'number' as const, required: false },
+    { key: '_supplierIncomeBillId', label: '供应商收入单ID', type: 'number' as const, required: false },
   ],
 };
 
@@ -372,6 +434,8 @@ async function handleMarketExpenseAutoNode(
       return handleCreateContract(instance, formData);
     case 4:
       return handleCreateExpenditure(instance, formData);
+    case 6:
+      return handleCreateSupplierIncome(instance, formData);
     default:
       log.warn(`[市场费用] 未知的auto节点: nodeOrder=${nodeOrder}`);
   }
@@ -491,6 +555,60 @@ async function handleCreateExpenditure(
   };
 }
 
+/** 节点6: 创建供应商收入单（仅供应商承担=是时执行） */
+async function handleCreateSupplierIncome(
+  instance: OaInstanceRow,
+  formData: Record<string, unknown>
+): Promise<CallbackResult | void> {
+  if (formData.supplierBorne !== 'yes') return; // 非供应商承担场景跳过
+
+  const supplierId = formData.supplierId as string;
+  const supplierName = (formData._supplierName as string) || '';
+  const supplierAmount = Number(formData.supplierAmount || 0);
+  const incomeCategoryId = formData.incomeCategoryId as number;
+  const incomeCategoryName = (formData._incomeCategoryName as string) || '';
+
+  const { defaultSalesmanId, defaultDeptId, defaultDeptName } = getErpDefaults();
+  const idemKey = `sb-income-${instance.id}-6`;
+
+  const result = await createSupplierIncomeBill(
+    {
+      traderType: 'SUPPLIER',
+      traderId: supplierId,
+      traderName: supplierName,
+      totalAmount: String(supplierAmount),
+      details: [{
+        id: 1,
+        subjectId: incomeCategoryId,
+        subjectName: incomeCategoryName,
+        deptId: defaultDeptId,
+        deptName: defaultDeptName,
+        taxRadio: 0,
+        taxAmount: '',
+        noTaxAmount: supplierAmount.toFixed(2),
+        paymentAmount: supplierAmount,
+      }],
+      salesmanId: defaultSalesmanId,
+      deptId: defaultDeptId,
+      workTime: beijingDateTime(),
+      note: [instance.instance_no, formData.remark].filter(Boolean).join('+'),
+    },
+    idemKey,
+    instance.id
+  );
+
+  return {
+    erpMeta: {
+      supplierIncomeBillId: result.id,
+      supplierIncomeBillStr: result.billStr,
+    },
+    formData: {
+      _supplierIncomeBillStr: result.billStr,
+      _supplierIncomeBillId: result.id,
+    },
+  };
+}
+
 // =====================================================
 // onRejected: 驳回回滚
 // =====================================================
@@ -517,6 +635,19 @@ async function handleMarketExpenseRejected(
       log.info(`[市场费用] 费用单已清理: billId=${expenditureBillId}`);
     } catch (e) {
       const msg = `取消费用单失败(billId=${expenditureBillId}): ${e instanceof Error ? e.message : e}`;
+      log.error(msg);
+      failures.push(msg);
+    }
+  }
+
+  // 供应商承担场景: 反审+取消供应商收入单
+  const supplierIncomeBillId = responseData.supplierIncomeBillId as number;
+  if (supplierIncomeBillId) {
+    try {
+      await cleanupIncomeBill(supplierIncomeBillId);
+      log.info(`[市场费用] 供应商收入单已清理: billId=${supplierIncomeBillId}`);
+    } catch (e) {
+      const msg = `取消供应商收入单失败(billId=${supplierIncomeBillId}): ${e instanceof Error ? e.message : e}`;
       log.error(msg);
       failures.push(msg);
     }
@@ -551,7 +682,7 @@ export const marketExpenseFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 230,
   description: '申请市场费用（陈列费、临期处理费等），审批通过后自动创建ERP兑付协议',
-  version: 2,
+  version: 3,
 
   formSchema: marketExpenseFormSchema,
 
@@ -581,13 +712,26 @@ export const marketExpenseFormType: FormTypeDefinition = {
         name: '兑付生成客户费用单',
         type: 'auto',
       },
+      {
+        order: 5,
+        name: '往来会计审批',
+        type: 'handle',
+        handler: { roleCode: OA_ROLE.ACCOUNTANT },
+        signMode: 'or',
+        condition: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      {
+        order: 6,
+        name: '创建供应商收入单',
+        type: 'auto',
+      },
     ],
   },
 
   duplicateCheck: {
     matchFields: ['customerId', 'chargeSubject', 'belongMonths'],
     includeStatuses: ['processing', 'approved'],
-    displayFields: ['chargeSubject', 'cashAmount', 'belongMonths'],
+    displayFields: ['chargeSubject', 'cashAmount', 'belongMonths', 'supplierAmount'],
     subjectLabel: '该客户',
   },
 
@@ -609,12 +753,19 @@ export const marketExpenseFormType: FormTypeDefinition = {
       erpMetaFields: ['expenditureBillId', 'expenditureBillStr'],
       formDataFields: ['_expenditureBillStr', '_expenditureBillId'],
     },
+    {
+      nodeOrder: 6,
+      description: '供应商收入单创建后回填单号',
+      erpMetaFields: ['supplierIncomeBillId', 'supplierIncomeBillStr'],
+      formDataFields: ['_supplierIncomeBillStr', '_supplierIncomeBillId'],
+    },
   ],
   fieldPermissions: {
     nodes: {
-      "0": { "customerId": "editable", "chargeSubject": "editable", "expenseType": "editable", "chargeBrandId": "editable", "periodType": "editable", "belongMonths": "editable", "remark": "editable", "cashAmount": "editable", "goodsList": "editable", "goodsList.goodsId": "editable", "goodsList.currUnitName": "editable", "goodsList.quantity": "editable", "goodsList.wholesalePrice": "editable", "goodsList.lineRemark": "editable", "monthlySalesAmount": "editable", "monthlyApprovedExpense": "editable" },
-      "1": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly" },
-      "2": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly" }
+      "0": { "customerId": "editable", "chargeSubject": "editable", "expenseType": "editable", "chargeBrandId": "editable", "periodType": "editable", "belongMonths": "editable", "remark": "editable", "cashAmount": "editable", "goodsList": "editable", "goodsList.goodsId": "editable", "goodsList.currUnitName": "editable", "goodsList.quantity": "editable", "goodsList.wholesalePrice": "editable", "goodsList.lineRemark": "editable", "monthlySalesAmount": "editable", "monthlyApprovedExpense": "editable", "supplierBorne": "editable", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "editable" },
+      "1": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
+      "2": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
+      "5": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "editable", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" }
     },
   },
 };

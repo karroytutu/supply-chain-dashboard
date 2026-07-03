@@ -338,7 +338,7 @@ export async function exportData(
 // ERP 参考数据接口
 // =====================================================
 
-export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'areas-tree' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details' | 'supplier-debts' | 'brands' | 'promotion-goods';
+export type ErpReferenceType = 'assets' | 'departments' | 'staff' | 'payment-accounts' | 'asset-categories' | 'customers' | 'settlement-orders' | 'grades' | 'groups' | 'areas' | 'areas-tree' | 'suppliers' | 'prepayments' | 'supplier-incomes' | 'purchase-orders' | 'purchase-settlements' | 'allocatable-purchase-details' | 'allocatable-expense-details' | 'supplier-debts' | 'brands' | 'promotion-goods' | 'income-categories';
 
 /** ERP ID 解析结果项 */
 export interface ErpResolvedItem {

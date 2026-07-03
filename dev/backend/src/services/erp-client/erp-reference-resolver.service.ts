@@ -20,6 +20,7 @@ import {
   getErpAreaTree,
 } from './erp-customer-reference.service';
 import { fetchAllBrands } from './erp-brand.service';
+import { getIncomeCategories } from './erp-income-category.service';
 import { searchErpSettlementOrders } from './erp-settlement.service';
 import { searchSuppliers } from './erp-supplier.service';
 import { searchPurchaseOrders } from './erp-purchase-order.service';
@@ -54,6 +55,7 @@ export const LABEL_FIELDS: Record<string, string> = {
   'supplier-debts': 'bizStr',
   'promotion-goods': 'name',
   brands: 'name',
+  'income-categories': 'name',
 };
 
 /** 各 ERP 类型的值字段映射（选中后存储的 ID/key） */
@@ -77,6 +79,7 @@ export const VALUE_FIELDS: Record<string, string> = {
   'supplier-debts': 'bizId',
   'promotion-goods': 'goodsId',
   brands: 'originBrandId',
+  'income-categories': 'id',
 };
 
 /** 递归展平树形结构 */
@@ -236,6 +239,12 @@ export async function resolveErpReference(
     case 'brands': {
       const all = await fetchAllBrands();
       const map = new Map(all.map(b => [b.originBrandId, b.name]));
+      return ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
+    }
+
+    case 'income-categories': {
+      const all = await getIncomeCategories();
+      const map = new Map(all.map(c => [c.id, c.name]));
       return ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
     }
 

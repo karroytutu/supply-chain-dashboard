@@ -5,12 +5,21 @@
  * 审批流：利润率分级（≥5%自动 / <5%营销经理 / <0%总经理）→ auto节点创建ERP促销并上架
  */
 
-import { FormTypeDefinition } from '../oa.types';
+import { FormTypeDefinition, CallbackResult, OaInstanceRow } from '../oa.types';
 import { OA_ROLE } from '../oa-role-codes';
 import {
   beforeSubmitPromotion,
   onApprovedPromotionCombinedOffline,
 } from '../promotion-callback';
+import { createSupplierIncomeBill } from '../../erp-client/erp-supplier-income.service';
+import { cleanupIncomeBill } from '../../erp-client/erp-cleanup';
+import { getErpDefaults } from '../../erp-client/erp-config';
+import { getErpMeta } from '../../fixed-asset/erp-meta-utils';
+import { beijingDateTime } from '../../../utils/beijingTime';
+import { appQuery as query } from '../../../db/appPool';
+import { createLogger } from '../../../utils/logger';
+
+const log = createLogger('PromotionCombined');
 
 /**
  * 线下组合搭赠促销表单类型定义
@@ -23,7 +32,7 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 200,
   description: '线下组合搭赠促销活动申请，购买主品赠送赠品',
-  version: 2,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -428,10 +437,69 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
         formulaPrecision: 2,
         suffix: '%',
       },
+      // ─── 供应商承担区 ────────────────────────────────
+      {
+        key: 'supplierBorne',
+        label: '是否需要供应商承担',
+        type: 'select' as const,
+        required: true,
+        options: [
+          { value: 'yes', label: '是' },
+          { value: 'no', label: '否' },
+        ],
+        defaultValue: 'no',
+      },
+      {
+        key: 'supplierId',
+        label: '供应商',
+        type: 'select' as const,
+        required: true,
+        searchApi: 'erp_suppliers' as const,
+        nameField: '_supplierName',
+        autoFill: { _supplierName: 'name' },
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      { key: '_supplierName', label: '供应商名称', type: 'text' as const, required: false, hidden: true },
+      {
+        key: 'supplierAmount',
+        label: '供应商承担金额',
+        type: 'money' as const,
+        required: true,
+        upper: true,
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      {
+        key: 'incomeCategoryId',
+        label: '收入类别',
+        type: 'select' as const,
+        required: true,
+        searchApi: 'erp_income_categories' as const,
+        nameField: '_incomeCategoryName',
+        autoFill: { _incomeCategoryName: 'name' },
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      { key: '_incomeCategoryName', label: '收入类别名称', type: 'text' as const, required: false, hidden: true },
+      {
+        key: 'supplierConfirmScreenshot',
+        label: '供应商确认截图',
+        type: 'upload' as const,
+        required: false,
+        maxCount: 5,
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      {
+        key: '_supplierIncomeBillStr',
+        label: '供应商收入单号',
+        type: 'text' as const,
+        required: false,
+        disabled: true,
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
     ],
     // 系统内部字段：不参与权限配置和前端渲染
     internalFields: [
       { key: 'promotionId', label: '促销活动ID', type: 'number', required: false },
+      { key: '_supplierIncomeBillId', label: '供应商收入单ID', type: 'number', required: false },
     ],
   },
 
@@ -469,11 +537,25 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
         name: '创建ERP促销活动',
         type: 'auto',
       },
+      {
+        order: 4,
+        name: '往来会计审批',
+        type: 'handle',
+        handler: { roleCode: OA_ROLE.ACCOUNTANT },
+        signMode: 'or',
+        condition: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      {
+        order: 5,
+        name: '创建供应商收入单',
+        type: 'auto',
+      },
     ],
   },
 
   beforeSubmit: beforeSubmitPromotion,
-  onApproved: onApprovedPromotionCombinedOffline,
+  onApproved: handlePromotionCombinedAutoNode,
+  onRejected: handlePromotionCombinedRejected,
 
   nodeBackfills: [
     {
@@ -481,14 +563,109 @@ export const promotionCombinedOfflineFormType: FormTypeDefinition = {
       description: 'ERP促销活动创建后回填单号',
       formDataFields: ['promotionId', 'promotionNo'],
     },
+    {
+      nodeOrder: 5,
+      description: '供应商收入单创建后回填单号',
+      erpMetaFields: ['supplierIncomeBillId', 'supplierIncomeBillStr'],
+      formDataFields: ['_supplierIncomeBillStr', '_supplierIncomeBillId'],
+    },
   ],
   fieldPermissions: {
     nodes: {
-      "0": { "name": "editable", "remark": "editable", "giftCount": "editable", "goodsList": "editable", "goodsType": "editable", "goodsCount": "editable", "issueRange": "editable", "saleRemark": "editable", "totalCount": "editable", "presentList": "editable", "presentType": "editable", "promotionNo": "readonly", "clientIdList": "editable", "clientAreaIds": "editable", "promotionPeriod": "editable", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "editable", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly" },
-      "1": { "name": "readonly", "remark": "readonly", "giftCount": "readonly", "goodsList": "readonly", "goodsType": "readonly", "goodsCount": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "totalCount": "readonly", "presentList": "readonly", "presentType": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "readonly", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly" },
-      "2": { "name": "readonly", "remark": "readonly", "giftCount": "readonly", "goodsList": "readonly", "goodsType": "readonly", "goodsCount": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "totalCount": "readonly", "presentList": "readonly", "presentType": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "readonly", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly" }
+      "0": { "name": "editable", "remark": "editable", "giftCount": "editable", "goodsList": "editable", "goodsType": "editable", "goodsCount": "editable", "issueRange": "editable", "saleRemark": "editable", "totalCount": "editable", "presentList": "editable", "presentType": "editable", "promotionNo": "readonly", "clientIdList": "editable", "clientAreaIds": "editable", "promotionPeriod": "editable", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "editable", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly", "supplierBorne": "editable", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "editable" },
+      "1": { "name": "readonly", "remark": "readonly", "giftCount": "readonly", "goodsList": "readonly", "goodsType": "readonly", "goodsCount": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "totalCount": "readonly", "presentList": "readonly", "presentType": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "readonly", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
+      "2": { "name": "readonly", "remark": "readonly", "giftCount": "readonly", "goodsList": "readonly", "goodsType": "readonly", "goodsCount": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "totalCount": "readonly", "presentList": "readonly", "presentType": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "readonly", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
+      "4": { "name": "readonly", "remark": "readonly", "giftCount": "readonly", "goodsList": "readonly", "goodsType": "readonly", "goodsCount": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "totalCount": "readonly", "presentList": "readonly", "presentType": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.quantity": "readonly", "limitCountPerClient": "readonly", "presentList.goodsId": "readonly", "goodsList.mustSelect": "readonly", "presentList.quantity": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "presentList.mustSelect": "readonly", "presentList.currUnitName": "readonly", "clientIdList.consumerCode": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "editable", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" }
     },
   },
 };
+
+// =====================================================
+// auto 节点分发 + 供应商收入单创建
+// =====================================================
+
+async function handlePromotionCombinedAutoNode(
+  instance: OaInstanceRow,
+  formData: Record<string, unknown>
+): Promise<CallbackResult | void> {
+  const nodeResult = await query<{ node_order: number; node_name: string }>(
+    `SELECT node_order, node_name FROM oa_approval_nodes
+     WHERE instance_id = $1 AND node_type = 'auto' AND status = 'processing'
+     ORDER BY node_order LIMIT 1`,
+    [instance.id]
+  );
+  const nodeOrder = nodeResult.rows[0]?.node_order;
+  log.info(`[组合搭赠] auto节点执行: instanceId=${instance.id}, nodeOrder=${nodeOrder}`);
+
+  switch (nodeOrder) {
+    case 3:
+      return onApprovedPromotionCombinedOffline(instance, formData);
+    case 5:
+      return handleCreateSupplierIncome(instance, formData);
+    default:
+      log.warn(`[组合搭赠] 未知的auto节点: nodeOrder=${nodeOrder}`);
+  }
+}
+
+async function handleCreateSupplierIncome(
+  instance: OaInstanceRow,
+  formData: Record<string, unknown>
+): Promise<CallbackResult | void> {
+  if (formData.supplierBorne !== 'yes') return;
+
+  const { defaultSalesmanId, defaultDeptId, defaultDeptName } = getErpDefaults();
+  const supplierAmount = Number(formData.supplierAmount || 0);
+  const result = await createSupplierIncomeBill(
+    {
+      traderType: 'SUPPLIER',
+      traderId: formData.supplierId as string,
+      traderName: (formData._supplierName as string) || '',
+      totalAmount: String(supplierAmount),
+      details: [{
+        id: 1,
+        subjectId: formData.incomeCategoryId as number,
+        subjectName: (formData._incomeCategoryName as string) || '',
+        deptId: defaultDeptId,
+        deptName: defaultDeptName,
+        taxRadio: 0,
+        taxAmount: '',
+        noTaxAmount: supplierAmount.toFixed(2),
+        paymentAmount: supplierAmount,
+      }],
+      salesmanId: defaultSalesmanId,
+      deptId: defaultDeptId,
+      workTime: beijingDateTime(),
+      note: [instance.instance_no, formData.remark].filter(Boolean).join('+'),
+    },
+    `sb-income-${instance.id}-5`,
+    instance.id
+  );
+
+  return {
+    erpMeta: { supplierIncomeBillId: result.id, supplierIncomeBillStr: result.billStr },
+    formData: { _supplierIncomeBillStr: result.billStr, _supplierIncomeBillId: result.id },
+  };
+}
+
+async function handlePromotionCombinedRejected(
+  instance: OaInstanceRow,
+  _formData: Record<string, unknown>
+): Promise<void> {
+  const erpMeta = getErpMeta(instance);
+  const responseData = erpMeta?.responseData;
+  if (!responseData) return;
+
+  const supplierIncomeBillId = responseData.supplierIncomeBillId as number;
+  if (supplierIncomeBillId) {
+    try {
+      await cleanupIncomeBill(supplierIncomeBillId);
+      log.info(`[组合搭赠] 供应商收入单已清理: billId=${supplierIncomeBillId}`);
+    } catch (e) {
+      const msg = `取消供应商收入单失败(billId=${supplierIncomeBillId}): ${e instanceof Error ? e.message : e}`;
+      log.error(`[组合搭赠] ${msg}`);
+      throw new Error(`组合搭赠促销回滚失败: ${msg}`);
+    }
+  }
+}
 
 export default promotionCombinedOfflineFormType;

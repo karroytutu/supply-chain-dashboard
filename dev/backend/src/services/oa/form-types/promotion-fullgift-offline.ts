@@ -6,12 +6,21 @@
  * 审批流：利润率分级（≥5%自动 / <5%营销经理 / <0%总经理）→ auto节点创建ERP促销并上架
  */
 
-import { FormTypeDefinition } from '../oa.types';
+import { FormTypeDefinition, CallbackResult, OaInstanceRow } from '../oa.types';
 import { OA_ROLE } from '../oa-role-codes';
 import {
   beforeSubmitPromotion,
   onApprovedPromotionFullGiftOffline,
 } from '../promotion-callback';
+import { createSupplierIncomeBill } from '../../erp-client/erp-supplier-income.service';
+import { cleanupIncomeBill } from '../../erp-client/erp-cleanup';
+import { getErpDefaults } from '../../erp-client/erp-config';
+import { getErpMeta } from '../../fixed-asset/erp-meta-utils';
+import { beijingDateTime } from '../../../utils/beijingTime';
+import { appQuery as query } from '../../../db/appPool';
+import { createLogger } from '../../../utils/logger';
+
+const log = createLogger('PromotionFullGift');
 
 /** 商品选择公共配置（table + searchApi 模式） */
 const GOODS_SELECT_CONFIG = {
@@ -58,7 +67,7 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 220,
   description: '线下满赠促销活动申请，消费满额赠送商品',
-  version: 2,
+  version: 3,
 
   formSchema: {
     fields: [
@@ -383,9 +392,43 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
         formulaPrecision: 2,
         suffix: '%',
       },
+      // ─── 供应商承担区 ────────────────────────────────
+      {
+        key: 'supplierBorne', label: '是否需要供应商承担', type: 'select' as const, required: true,
+        options: [{ value: 'yes', label: '是' }, { value: 'no', label: '否' }], defaultValue: 'no',
+      },
+      {
+        key: 'supplierId', label: '供应商', type: 'select' as const, required: true,
+        searchApi: 'erp_suppliers' as const, nameField: '_supplierName',
+        autoFill: { _supplierName: 'name' },
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      { key: '_supplierName', label: '供应商名称', type: 'text' as const, required: false, hidden: true },
+      {
+        key: 'supplierAmount', label: '供应商承担金额', type: 'money' as const, required: true, upper: true,
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      {
+        key: 'incomeCategoryId', label: '收入类别', type: 'select' as const, required: true,
+        searchApi: 'erp_income_categories' as const, nameField: '_incomeCategoryName',
+        autoFill: { _incomeCategoryName: 'name' },
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      { key: '_incomeCategoryName', label: '收入类别名称', type: 'text' as const, required: false, hidden: true },
+      {
+        key: 'supplierConfirmScreenshot', label: '供应商确认截图', type: 'upload' as const,
+        required: false, maxCount: 5,
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      {
+        key: '_supplierIncomeBillStr', label: '供应商收入单号', type: 'text' as const,
+        required: false, disabled: true,
+        visibleWhen: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
     ],
     internalFields: [
       { key: 'promotionId', label: '促销活动ID', type: 'number', required: false },
+      { key: '_supplierIncomeBillId', label: '供应商收入单ID', type: 'number', required: false },
     ],
   },
 
@@ -420,11 +463,18 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
         name: '创建ERP促销活动',
         type: 'auto',
       },
+      {
+        order: 4, name: '往来会计审批', type: 'handle',
+        handler: { roleCode: OA_ROLE.ACCOUNTANT }, signMode: 'or',
+        condition: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
+      },
+      { order: 5, name: '创建供应商收入单', type: 'auto' },
     ],
   },
 
   beforeSubmit: beforeSubmitPromotion,
-  onApproved: onApprovedPromotionFullGiftOffline,
+  onApproved: handlePromotionFullGiftAutoNode,
+  onRejected: handlePromotionFullGiftRejected,
 
   nodeBackfills: [
     {
@@ -432,14 +482,91 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
       description: 'ERP促销活动创建后回填单号',
       formDataFields: ['promotionId', 'promotionNo'],
     },
+    {
+      nodeOrder: 5,
+      description: '供应商收入单创建后回填单号',
+      erpMetaFields: ['supplierIncomeBillId', 'supplierIncomeBillStr'],
+      formDataFields: ['_supplierIncomeBillStr', '_supplierIncomeBillId'],
+    },
   ],
   fieldPermissions: {
     nodes: {
-      "0": { "name": "editable", "remark": "editable", "stepRules": "editable", "issueRange": "editable", "onSaleType": "editable", "saleRemark": "editable", "promotionNo": "readonly", "clientIdList": "editable", "loopPresents": "editable", "stepPresents": "editable", "clientAreaIds": "editable", "loopGiveCount": "editable", "mainGoodsList": "editable", "stepRules.seq": "readonly", "loopCountLatch": "editable", "loopPresentType": "editable", "promotionPeriod": "editable", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly" },
-      "1": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly" },
-      "2": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly" }
+      "0": { "name": "editable", "remark": "editable", "stepRules": "editable", "issueRange": "editable", "onSaleType": "editable", "saleRemark": "editable", "promotionNo": "readonly", "clientIdList": "editable", "loopPresents": "editable", "stepPresents": "editable", "clientAreaIds": "editable", "loopGiveCount": "editable", "mainGoodsList": "editable", "stepRules.seq": "readonly", "loopCountLatch": "editable", "loopPresentType": "editable", "promotionPeriod": "editable", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "editable", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "editable" },
+      "1": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
+      "2": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
+      "4": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "editable", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" }
     },
   },
 };
+
+// =====================================================
+// auto 节点分发 + 供应商收入单创建
+// =====================================================
+
+async function handlePromotionFullGiftAutoNode(
+  instance: OaInstanceRow,
+  formData: Record<string, unknown>
+): Promise<CallbackResult | void> {
+  const nodeResult = await query<{ node_order: number }>(
+    `SELECT node_order FROM oa_approval_nodes
+     WHERE instance_id = $1 AND node_type = 'auto' AND status = 'processing'
+     ORDER BY node_order LIMIT 1`,
+    [instance.id]
+  );
+  const nodeOrder = nodeResult.rows[0]?.node_order;
+  log.info(`[满赠] auto节点执行: instanceId=${instance.id}, nodeOrder=${nodeOrder}`);
+  switch (nodeOrder) {
+    case 3: return onApprovedPromotionFullGiftOffline(instance, formData);
+    case 5: return handleCreateSupplierIncomeFullGift(instance, formData);
+    default:
+      log.warn(`[满赠] 未知的auto节点: nodeOrder=${nodeOrder}`);
+  }
+}
+
+async function handleCreateSupplierIncomeFullGift(
+  instance: OaInstanceRow,
+  formData: Record<string, unknown>
+): Promise<CallbackResult | void> {
+  if (formData.supplierBorne !== 'yes') return;
+  const { defaultSalesmanId, defaultDeptId, defaultDeptName } = getErpDefaults();
+  const supplierAmount = Number(formData.supplierAmount || 0);
+  const result = await createSupplierIncomeBill(
+    {
+      traderType: 'SUPPLIER', traderId: formData.supplierId as string,
+      traderName: (formData._supplierName as string) || '',
+      totalAmount: String(supplierAmount),
+      details: [{ id: 1, subjectId: formData.incomeCategoryId as number,
+        subjectName: (formData._incomeCategoryName as string) || '',
+        deptId: defaultDeptId, deptName: defaultDeptName,
+        taxRadio: 0, taxAmount: '', noTaxAmount: supplierAmount.toFixed(2),
+        paymentAmount: supplierAmount }],
+      salesmanId: defaultSalesmanId, deptId: defaultDeptId,
+      workTime: beijingDateTime(),
+      note: [instance.instance_no, formData.remark].filter(Boolean).join('+'),
+    },
+    `sb-income-${instance.id}-5`, instance.id
+  );
+  return {
+    erpMeta: { supplierIncomeBillId: result.id, supplierIncomeBillStr: result.billStr },
+    formData: { _supplierIncomeBillStr: result.billStr, _supplierIncomeBillId: result.id },
+  };
+}
+
+async function handlePromotionFullGiftRejected(
+  instance: OaInstanceRow, _formData: Record<string, unknown>
+): Promise<void> {
+  const erpMeta = getErpMeta(instance);
+  const supplierIncomeBillId = erpMeta?.responseData?.supplierIncomeBillId as number;
+  if (supplierIncomeBillId) {
+    try {
+      await cleanupIncomeBill(supplierIncomeBillId);
+      log.info(`[满赠] 供应商收入单已清理: billId=${supplierIncomeBillId}`);
+    } catch (e) {
+      const msg = `取消供应商收入单失败(billId=${supplierIncomeBillId}): ${e instanceof Error ? e.message : e}`;
+      log.error(`[满赠] ${msg}`);
+      throw new Error(`满赠促销回滚失败: ${msg}`);
+    }
+  }
+}
 
 export default promotionFullGiftOfflineFormType;

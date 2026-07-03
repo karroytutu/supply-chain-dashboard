@@ -36,8 +36,10 @@ export interface ErpApiConfig {
   assetUpdatePath: string;
   /** 资产清理 API 路径 */
   assetClearPath: string;
-  /** 收入单 API 路径 */
+  /** 收入单 API 路径（现金收入单） */
   incomeBillPath: string;
+  /** 供应商收入单 API 路径（贸易类收入单） */
+  supplierIncomeBillPath?: string;
   /** 费用单反审 API 路径 */
   expenditureBillReApprovePath: string;
   /** 费用单取消 API 路径 */

@@ -164,7 +164,8 @@ export interface FormField {
     | 'erp_supplier_debts'
     | 'purchase_settlements'
     | 'promotion_goods'
-    | 'erp_brands';
+    | 'erp_brands'
+    | 'erp_income_categories';
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
   autoFill?: Record<string, string>;
   /** 级联字段key（如 erp_staff 级联 erp_department 的值） */

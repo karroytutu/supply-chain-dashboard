@@ -40,6 +40,8 @@ export function getErpConfig(): ErpApiConfig {
       assetUpdatePath: erpApi?.assetUpdatePath || '/asset/update',
       assetClearPath: erpApi?.assetClearPath || '/asset-clear/do-clear',
       incomeBillPath: erpApi?.incomeBillPath || '/income/save-approve-cash-income',
+      supplierIncomeBillPath:
+        erpApi?.supplierIncomeBillPath || '/income/save-approve-trade-income',
       // 清理 API 路径配置
       expenditureBillReApprovePath:
         erpApi?.expenditureBillReApprovePath || '/expenditure-bill/re-approve-expenditure',
@@ -68,6 +70,7 @@ export function getErpDefaults(): {
   defaultPaymentSubjectId: number;
   defaultSalesmanId: number;
   defaultDeptId: number;
+  defaultDeptName: string;
 } {
   const cfg = getErpConfig();
   return {
@@ -76,6 +79,7 @@ export function getErpDefaults(): {
     defaultPaymentSubjectId: cfg.defaultPaymentSubjectId,
     defaultSalesmanId: cfg.defaultSalesmanId,
     defaultDeptId: cfg.defaultDeptId,
+    defaultDeptName: '贵州鑫众合商贸有限公司',
   };
 }
 

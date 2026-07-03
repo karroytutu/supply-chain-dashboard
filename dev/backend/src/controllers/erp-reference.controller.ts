@@ -39,6 +39,7 @@ import {
 import {
   searchSupplierIncomes,
 } from '../services/erp-client/erp-supplier-income.service';
+import { getIncomeCategories } from '../services/erp-client/erp-income-category.service';
 import {
   searchPurchaseOrders,
 } from '../services/erp-client/erp-purchase-order.service';
@@ -356,6 +357,12 @@ export async function getErpReference(
         const pgKeyword = (req.query.keyword as string) || '';
         const pgLimit = parseInt((req.query.limit as string) || '50', 10);
         data = await searchPromotionGoods(pgKeyword, pgLimit);
+        break;
+      }
+
+      case 'income-categories': {
+        // 供应商收入类别列表（展平后的叶子节点）
+        data = await getIncomeCategories();
         break;
       }
 

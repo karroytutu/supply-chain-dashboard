@@ -31,6 +31,7 @@ export const ERP_SEARCH_API_MAP: Record<string, ErpReferenceType> = {
   erp_supplier_debts: 'supplier-debts',
   erp_brands: 'brands',
   promotion_goods: 'promotion-goods',
+  erp_income_categories: 'income-categories',
 };
 
 /** treeSearchApi 到 erp-reference 路由 type 参数的映射（树形数据专用） */

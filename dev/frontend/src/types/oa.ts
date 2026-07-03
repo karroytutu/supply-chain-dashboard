@@ -127,7 +127,7 @@ export interface FormField {
   /** 条件必填（满足条件时字段变为必填） */
   requiredWhen?: ConditionDef | ConditionDef[] | ConditionGroup;
   /** ERP参考数据API标识 */
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'erp_supplier_debts' | 'erp_brands' | 'purchase_settlements' | 'promotion_goods';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'erp_supplier_debts' | 'erp_brands' | 'purchase_settlements' | 'promotion_goods' | 'erp_income_categories';
   /** tree_select: 树形数据 API 标识 */
   treeSearchApi?: string;
   /** 选择后自动填充其他字段，key=目标字段名，value=选中对象的属性名 */
@@ -321,7 +321,7 @@ export interface NodeInputField {
   defaultValue?: unknown;
   readonly?: boolean;
   columns?: NodeInputField[];
-  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'erp_brands';
+  searchApi?: 'erp_assets' | 'erp_departments' | 'erp_staff' | 'erp_payment_accounts' | 'erp_asset_categories' | 'erp_customers' | 'erp_settlement_orders' | 'erp_grades' | 'erp_groups' | 'erp_areas' | 'erp_suppliers' | 'erp_prepayments' | 'erp_supplier_incomes' | 'erp_purchase_orders' | 'erp_brands' | 'erp_income_categories';
   autoFill?: Record<string, string>;
   cascadeFrom?: string;
   multiple?: boolean;
