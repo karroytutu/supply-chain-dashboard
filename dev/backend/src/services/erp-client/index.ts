@@ -23,6 +23,14 @@ export type {
   CreateCustomerReceiptResult,
 } from './erp-customer-receipt.service';
 export { createLogEntry, writeErpLog } from './erp-logger';
+export { withInFlightDedup, withInFlightDedupByKey } from './erp-inflight';
+export {
+  CircuitBreaker,
+  getErpCircuitBreaker,
+  getCircuitBreakerStats,
+  ErpCircuitOpenError,
+} from './erp-circuit-breaker';
+export type { CircuitState, CircuitBreakerConfig, CircuitBreakerStats } from './erp-circuit-breaker';
 export { ErpApiError } from './erp-client.types';
 export type {
   ErpApiConfig,
@@ -33,6 +41,7 @@ export type {
   ErpPageResponse,
   ErpLogEntry,
 } from './erp-client.types';
+// ==================== 采购订单 ====================
 export {
   searchPurchaseOrders,
   getPurchaseOrderDetail,
@@ -40,37 +49,68 @@ export {
   approvePurchaseOrder,
   deApprovePurchaseOrder,
   cancelPurchaseOrder,
+  buildProcurementIdemKey,
+  buildPurchasePaymentIdemKey,
+} from './erp-purchase-order.service';
+// ==================== 预付款 ====================
+export {
   createPurchasePrepayment,
   createNormalPrepayment,
   deApprovePrepayment,
   cancelPrepayment,
   listTraderPrepayments,
+} from './erp-prepayment.service';
+// ==================== 付款单（供应商侧） ====================
+export {
   createPaidBill,
   deApprovePaidBill,
   cancelPaidBill,
+} from './erp-paid-bill.service';
+// ==================== 收付款单统一服务 ====================
+export {
+  submitPaymentBill,
+} from './erp-payment-bill.service';
+export type {
+  SubmitPaymentBillParams,
+  SubmitPaymentBillResponse,
+  PaymentBillInvoiceItem,
+  PaymentBillPrepayItem,
+} from './erp-payment-bill.service';
+// ==================== 供应商收入单 ====================
+export {
   searchSupplierIncomes,
+} from './erp-supplier-income.service';
+// ==================== 日均销售报表 ====================
+export {
   getDailySalesData,
+} from './erp-daily-sales.service';
+// ==================== 供应商欠款 ====================
+export {
   searchSupplierDebts,
   searchSupplierDebtsPaged,
+} from './erp-supplier-debt.service';
+export type { SupplierDebtPagedResult } from './erp-supplier-debt.service';
+// ==================== 供应商查询 ====================
+export {
   searchSuppliers,
-  buildProcurementIdemKey,
-  buildPurchasePaymentIdemKey,
-} from './erp-purchase.service';
+} from './erp-supplier.service';
 export {
   searchPurchaseSettlements,
   getAllocatablePurchaseDetails,
   getAllocatableExpenseDetails,
 } from './erp-purchase-settlement.service';
+// ==================== 欠款列表统一查询 ====================
+export {
+  fetchDebtList,
+  fetchDebtListPaged,
+} from './erp-debt-list-query.service';
+export type { DebtListQueryParams } from './erp-debt-list-query.service';
 export {
   fetchReceivableOrders,
   createReconciliationDraft,
   approveReconciliation,
   cancelReconciliation,
   fetchPrintTemplate,
-} from './erp-reconciliation.service';
-export type {
-  ReceivableOrder,
-  StatementDetailItem,
 } from './erp-reconciliation.service';
 export type {
   PurchaseSettlementListResult,
@@ -137,3 +177,9 @@ export type {
   AllocatablePurchaseDetail,
   AllocatableExpenseDetail,
 } from './erp-purchase.types';
+// ==================== 独立类型文件 re-export ====================
+export type { ErpCustomer, ErpCustomerProfile, CustomerLicenseInfo } from './erp-customer.types';
+export type { ErpSettlementOrder, ErpSettlementOrderPagedResult } from './erp-settlement.types';
+export type { ReceivableOrder, StatementDetailItem } from './erp-reconciliation.types';
+export type { ErpProduct, PromotionGoodsItem } from './erp-product.types';
+export type { ErpInventoryRecord } from './erp-inventory.types';

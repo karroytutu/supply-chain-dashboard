@@ -1,39 +1,19 @@
 /**
  * ERP 结算单查询服务
  * 代理舟谱欠款明细列表 API
+ * @domain 结算 (Settlement)
  * @module services/erp-client/erp-settlement.service
  */
 import { createLogger } from '../../utils/logger';
 const log = createLogger('ERP');
 
-import { erpGet, erpPost, extractErpData } from './erp-client';
+import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
+import { fetchDebtList, fetchDebtListPaged } from './erp-debt-list-query.service';
+import type { DebtListQueryParams } from './erp-debt-list-query.service';
+import type { ErpSettlementOrder, ErpSettlementOrderPagedResult } from './erp-settlement.types';
 
-// =====================================================
-// 类型定义
-// =====================================================
-
-/** ERP 结算单（欠款明细） */
-export interface ErpSettlementOrder {
-  /** 欠款明细记录ID（list-debt-list API 返回，不可用于 update-hoard） */
-  id: number;
-  /** 结算单业务ID（update-hoard API 使用此ID标记压单） */
-  bizId: number;
-  bizStr: string;
-  bizOrderStr: string;
-  totalAmount: string;
-  /** 已结金额（ERP 可能不返回，需兜底计算 totalAmount - leftAmount） */
-  paidAmount?: string;
-  leftAmount: string;
-  workTime: string;
-  billTypeName: string;
-  collectState: string;
-  /** 压单标记（结算单 API 返回字段名为 hoardTag，值为 'NORMAL' / 'HOARD'） */
-  hoardTag?: string;
-  /** 单据类型枚举（如 FUNDS_SALES, FUNDS_SALES_BACK, INIT），对账单 save 接口需要 */
-  billTypeEnum?: string;
-  [key: string]: unknown;
-}
+export type { ErpSettlementOrder, ErpSettlementOrderPagedResult };
 
 // =====================================================
 // 查询方法
@@ -77,48 +57,17 @@ export async function searchErpSettlementOrders(params: {
   /** 是否查询债务明细，默认不传 */
   queryDebt?: boolean;
 }): Promise<ErpSettlementOrder[]> {
-  const { cid, uid } = getErpDefaults();
-  const maxRecords = params.maxRecords || 100;
-  const allOrders: ErpSettlementOrder[] = [];
-  let current = 1;
-  const pageSize = 100;
-
-  while (allOrders.length < maxRecords) {
-    const apiParams: Record<string, unknown> = {
-      size: pageSize,
-      total: 0,
-      current,
-      traderId: params.traderId,
-      traderType: 'STORE',
-      cid,
-      uid,
-    };
-    // 仅在调用方显式传入时才添加过滤参数，避免影响需要全量数据的场景
-    if (params.writeOffQueryStates !== undefined) apiParams.writeOffQueryStates = params.writeOffQueryStates;
-    if (params.consumerCollectTypes !== undefined) apiParams.consumerCollectTypes = params.consumerCollectTypes;
-    if (params.queryDebt !== undefined) apiParams.queryDebt = params.queryDebt;
-
-    const response = await erpGet<unknown>(
-      '/invoice/list-debt-list',
-      apiParams,
-      { pathPrefix: '/saas/pro/', businessType: 'settlement_order_search' }
-    );
-    const data = extractErpData<{ records?: ErpSettlementOrder[] }>(response);
-    const records: ErpSettlementOrder[] = data?.records ?? [];
-    allOrders.push(...records);
-    if (records.length < pageSize) break;
-    current++;
-  }
-
-  return allOrders;
-}
-
-/** 分页查询结果 */
-export interface ErpSettlementOrderPagedResult {
-  records: ErpSettlementOrder[];
-  total: number;
-  page: number;
-  pageSize: number;
+  const queryParams: DebtListQueryParams = {
+    traderId: params.traderId,
+    traderType: 'STORE',
+    writeOffQueryStates: params.writeOffQueryStates,
+    consumerCollectTypes: params.consumerCollectTypes,
+    queryDebt: params.queryDebt,
+  };
+  return fetchDebtList<ErpSettlementOrder>(queryParams, {
+    maxRecords: params.maxRecords || 100,
+    businessType: 'settlement_order_search',
+  });
 }
 
 /**
@@ -145,13 +94,24 @@ export async function searchErpSettlementOrdersPaged(params: {
   /** 是否查询债务明细，默认不传 */
   queryDebt?: boolean;
 }): Promise<ErpSettlementOrderPagedResult> {
-  const { cid, uid } = getErpDefaults();
   const page = params.page || 1;
   const pageSize = Math.min(params.pageSize || 20, 100);
 
+  const queryParams: DebtListQueryParams = {
+    traderId: params.traderId,
+    traderType: 'STORE',
+    writeOffQueryStates: params.writeOffQueryStates,
+    consumerCollectTypes: params.consumerCollectTypes,
+    queryDebt: params.queryDebt,
+    startDate: params.startDate,
+    endDate: params.endDate,
+  };
+
   // 有关键词时：ERP API 不支持搜索，需全量拉取后内存过滤
   if (params.keyword?.trim()) {
-    const allOrders = await searchErpSettlementOrders({ traderId: params.traderId });
+    const allOrders = await fetchDebtList<ErpSettlementOrder>(queryParams, {
+      businessType: 'settlement_order_search',
+    });
     const kw = params.keyword.toLowerCase();
     const filtered = allOrders.filter(
       r => r.bizStr?.toLowerCase().includes(kw) || r.bizOrderStr?.toLowerCase().includes(kw)
@@ -163,33 +123,14 @@ export async function searchErpSettlementOrdersPaged(params: {
   }
 
   // 无关键词：直接利用 ERP API 分页
-  const apiParams: Record<string, any> = {
-    size: pageSize,
-    total: 0,
-    current: page,
-    traderId: params.traderId,
-    traderType: 'STORE',
-    cid,
-    uid,
-  };
-  // 仅在调用方显式传入时才添加过滤参数
-  if (params.writeOffQueryStates !== undefined) apiParams.writeOffQueryStates = params.writeOffQueryStates;
-  if (params.consumerCollectTypes !== undefined) apiParams.consumerCollectTypes = params.consumerCollectTypes;
-  if (params.queryDebt !== undefined) apiParams.queryDebt = params.queryDebt;
-  if (params.startDate) apiParams.startDate = params.startDate;
-  if (params.endDate) apiParams.endDate = params.endDate;
-
-  const response = await erpGet<unknown>(
-    '/invoice/list-debt-list',
-    apiParams,
-    { pathPrefix: '/saas/pro/', businessType: 'settlement_order_search' }
+  const result = await fetchDebtListPaged<ErpSettlementOrder>(
+    queryParams,
+    page,
+    pageSize,
+    'settlement_order_search'
   );
 
-  const data = extractErpData<{ records?: ErpSettlementOrder[]; total?: number }>(response);
-  const records: ErpSettlementOrder[] = data?.records ?? [];
-  const total: number = data?.total ?? 0;
-
-  return { records, total, page, pageSize };
+  return { records: result.records, total: result.total, page, pageSize };
 }
 
 /**

@@ -19,8 +19,7 @@ import { erpUploadImageToErp } from './erp-image-upload';
  * 更新最大欠款天数
  * POST /saas/pro/web/consumer/batch-edit-max-debt-days
  *
- * 请求参数：ids=[customerId], maxDebtDays=String(天数)
- * 对应 ERP 客户字段：maxDebtDays
+ * @invalidates ERP_CUSTOMER_PROFILE_PREFIX
  */
 export async function erpUpdateMaxDebtDays(customerId: number, maxDebtDays: number): Promise<void> {
   const { cid, uid } = getErpDefaults();
@@ -29,14 +28,14 @@ export async function erpUpdateMaxDebtDays(customerId: number, maxDebtDays: numb
     { ids: [customerId], maxDebtDays: String(maxDebtDays), cid, uid },
     { pathPrefix: '/saas/pro/', businessType: 'credit_update_debt_days' }
   );
+  cache.invalidate(CACHE_KEY.ERP_CUSTOMER_PROFILE_PREFIX);
 }
 
 /**
  * 更新最大欠款单数
  * POST /saas/pro/web/consumer/batch-edit-max-debt-order-num
  *
- * 请求参数：ids=[customerId], maxDebtOrderNum=String(单数)
- * 对应 ERP 客户字段：maxDebtOrderNum
+ * @invalidates ERP_CUSTOMER_PROFILE_PREFIX
  */
 export async function erpUpdateMaxDebtOrderNum(
   customerId: number,
@@ -48,6 +47,7 @@ export async function erpUpdateMaxDebtOrderNum(
     { ids: [customerId], maxDebtOrderNum: String(maxDebtOrderNum), cid, uid },
     { pathPrefix: '/saas/pro/', businessType: 'credit_update_debt_order_num' }
   );
+  cache.invalidate(CACHE_KEY.ERP_CUSTOMER_PROFILE_PREFIX);
 }
 
 /** erpUploadBusinessLicense / erpUpdateCustomerProfile 可同时更新的客户字段 */

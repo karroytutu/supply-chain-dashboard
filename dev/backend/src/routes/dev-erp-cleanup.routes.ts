@@ -6,7 +6,7 @@
 import { Router, type Request, type Response } from 'express';
 import { beijingDate } from '../utils/beijingTime';
 import { authMiddleware } from '../middleware/auth';
-import { cancelPurchaseOrder, createPurchaseOrder } from '../services/erp-client/erp-purchase.service';
+import { cancelPurchaseOrder, createPurchaseOrder } from '../services/erp-client/erp-purchase-order.service';
 import { processOaAsyncTasks } from '../services/oa/oa-async-task.service';
 
 const router = Router();

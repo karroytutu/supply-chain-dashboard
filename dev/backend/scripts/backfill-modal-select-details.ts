@@ -17,7 +17,7 @@
 
 import { appQuery, closeAppPool } from '../src/db/appPool';
 import { searchErpSettlementOrders } from '../src/services/erp-client/erp-settlement.service';
-import { searchSupplierDebts } from '../src/services/erp-client/erp-purchase.service';
+import { searchSupplierDebts } from '../src/services/erp-client/erp-supplier-debt.service';
 import { searchPurchaseSettlements } from '../src/services/erp-client/erp-purchase-settlement.service';
 import { fetchReceivableOrders } from '../src/services/erp-client/erp-reconciliation.service';
 

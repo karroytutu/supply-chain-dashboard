@@ -464,6 +464,14 @@ export interface SupplierDebtRecord {
   note?: string;
 }
 
+/** 供应商欠款分页查询结果 */
+export interface SupplierDebtPagedResult {
+  records: SupplierDebtRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // =====================================================
 // 采购结算单（funds-purchase）
 // =====================================================

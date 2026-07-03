@@ -22,7 +22,7 @@ jest.mock('../erp-client/erp-expense-allocation.service', () => ({
   buildLogisticsFeeIdemKey: jest.fn((type: string, id: number, node: number) => `LOGISTICS_${type}_${id}_${node}`),
 }));
 
-jest.mock('../erp-client/erp-purchase.service', () => ({
+jest.mock('../erp-client/erp-paid-bill.service', () => ({
   createPaidBill: jest.fn(),
   deApprovePaidBill: jest.fn(),
   cancelPaidBill: jest.fn(),
@@ -60,7 +60,7 @@ import {
   createPaidBill,
   deApprovePaidBill,
   cancelPaidBill,
-} from '../erp-client/erp-purchase.service';
+} from '../erp-client/erp-paid-bill.service';
 import { getAllocatableExpenseDetails, getAllocatablePurchaseDetails } from '../erp-client/erp-purchase-settlement.service';
 import { cleanupExpenditureBill } from '../erp-client/erp-cleanup';
 import {

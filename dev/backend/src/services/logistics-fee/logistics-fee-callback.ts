@@ -25,7 +25,7 @@ import {
 } from '../erp-client/erp-expense-allocation.service';
 import {
   createPaidBill,
-} from '../erp-client/erp-purchase.service';
+} from '../erp-client/erp-paid-bill.service';
 import type { PaidBillInvoiceInput } from '../erp-client/erp-purchase.types';
 import {
   getAllocatableExpenseDetails,
@@ -400,7 +400,7 @@ export async function handleLogisticsFeeRejected(
   const paidBillId = responseData.paidBillId as number;
   if (paidBillId) {
     try {
-      const { deApprovePaidBill, cancelPaidBill } = await import('../erp-client/erp-purchase.service');
+      const { deApprovePaidBill, cancelPaidBill } = await import('../erp-client/erp-paid-bill.service');
       await deApprovePaidBill(paidBillId);
       await cancelPaidBill(paidBillId);
       log.info(`[物流费用] 付款单回滚成功: billId=${paidBillId}`);

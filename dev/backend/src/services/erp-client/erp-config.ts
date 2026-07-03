@@ -15,7 +15,7 @@ let _erpConfig: ErpApiConfig | null = null;
  */
 export function getErpConfig(): ErpApiConfig {
   if (!_erpConfig) {
-    const erpApi = (config as any).erpApi;
+    const erpApi = config.erpApi as Partial<ErpApiConfig> | undefined;
     _erpConfig = {
       baseUrl: erpApi?.baseUrl || 'https://portal.zhoupudata.com',
       cid: erpApi?.cid || '10008421',

@@ -11,34 +11,13 @@ import { CACHE_KEY } from '../../utils/cache-keys';
 import { invalidateFacadeCache } from './erp-data-facade';
 import { appQuery } from '../../db/appPool';
 import { createLogger } from '../../utils/logger';
+import { fetchAllPagesParallel } from './erp-pagination';
+import { withInFlightDedup } from './erp-inflight';
+import type { ErpProduct, PromotionGoodsItem } from './erp-product.types';
+
+export type { ErpProduct, PromotionGoodsItem };
 
 const log = createLogger('ErpProductService');
-
-/** API 返回的商品记录 */
-export interface ErpProduct {
-  goodsId: number;
-  id: number;
-  name: string;
-  categoryChainName: string;
-  shelfLife: number;
-  state: number;
-  baseUnitName: string;
-  pkgUnitName: string;
-  unitFactor: number;
-  midUnitName?: string | null;
-  midUnitFactor?: number | null;
-  brandName?: string;
-  brandId?: number;
-  specifications?: string;
-  articleNumber?: string;
-  warnDays?: number;
-  /** 基本单位批发价 */
-  baseWholesale?: number | null;
-  /** 中单位批发价 */
-  midWholesale?: number | null;
-  /** 包装单位批发价 */
-  pkgWholesale?: number | null;
-}
 
 /** API 分页响应 */
 interface ApiProductResponse {
@@ -61,9 +40,6 @@ const DEFAULT_PAGE_SIZE = 2000;
  * @param skipCache - 为 true 时绕过缓存
  * @returns 商品记录数组
  */
-/** in-flight 去重：多个并发调用共享同一 Promise，避免冷缓存时重复请求 ERP */
-let _productsInFlight: Promise<ErpProduct[]> | null = null;
-
 export async function fetchAllProducts(
   state: number | '' = 0,
   skipCache = false
@@ -75,15 +51,10 @@ export async function fetchAllProducts(
     if (cached) return cached;
   }
 
-  // in-flight 去重（仅对默认参数 state=0 生效）
-  if (!skipCache && state === 0 && _productsInFlight) return _productsInFlight;
-
   const doFetch = async (): Promise<ErpProduct[]> => {
     const { cid, uid } = getErpDefaults();
-    const allRecords: ErpProduct[] = [];
-    let current = 1;
 
-    while (true) {
+    const fetchPage = async (current: number) => {
       const result = await erpPost<ApiProductResponse>(
         '/spu-query/search',
         {
@@ -99,16 +70,13 @@ export async function fetchAllProducts(
           businessType: 'product_fetch',
         }
       );
+      return {
+        records: result?.data?.records || [],
+        total: result?.data?.total || 0,
+      };
+    };
 
-      const records = result?.data?.records || [];
-      allRecords.push(...records);
-
-      const total = result?.data?.total || 0;
-      if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
-        break;
-      }
-      current++;
-    }
+    const allRecords = await fetchAllPagesParallel(fetchPage, DEFAULT_PAGE_SIZE);
 
     // 仅在有数据时写入缓存，避免 ERP 暂时不可用时空结果被缓存
     if (allRecords.length > 0) {
@@ -118,13 +86,9 @@ export async function fetchAllProducts(
     return allRecords;
   };
 
-  if (state === 0) {
-    _productsInFlight = doFetch();
-    try {
-      return await _productsInFlight;
-    } finally {
-      _productsInFlight = null;
-    }
+  // in-flight 去重（仅对默认参数 state=0 生效）
+  if (!skipCache && state === 0) {
+    return withInFlightDedup('erp:products:all', doFetch);
   }
   return doFetch();
 }
@@ -259,42 +223,6 @@ export function invalidateProductCache(): void {
 // =====================================================
 // 促销表单商品搜索（含成本价、可用单位）
 // =====================================================
-
-/** 促销商品搜索结果 */
-export interface PromotionGoodsItem {
-  goodsId: number;
-  name: string;
-  /** 基本单位名称（如"瓶"、"包"） */
-  baseUnitName: string;
-  /** 包装单位名称（如"箱"、"件"） */
-  pkgUnitName: string;
-  /** 包装换算系数（1箱=24瓶） */
-  unitFactor: number;
-  /** 中单位名称（如"盒"、"组"），可能为空 */
-  midUnitName?: string | null;
-  /** 中单位换算系数（1盒=20包），可能为空 */
-  midUnitFactor?: number | null;
-  /** 可用单位列表（含换算系数） */
-  units: Array<{ id: string; name: string; factor: number }>;
-  /** 成本价（基本单位） */
-  costPrice: number;
-  /** 保质期天数 */
-  shelfLife: number;
-  /** 预警天数 */
-  warnDays?: number;
-  /** 品牌 */
-  brandName?: string;
-  /** 品牌ID */
-  brandId?: number;
-  /** 分类 */
-  categoryChainName?: string;
-  /** 基本单位批发价 */
-  baseWholesale?: number | null;
-  /** 中单位批发价 */
-  midWholesale?: number | null;
-  /** 包装单位批发价 */
-  pkgWholesale?: number | null;
-}
 
 /**
  * 搜索促销表单可用的商品

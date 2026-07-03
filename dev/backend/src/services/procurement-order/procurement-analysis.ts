@@ -8,8 +8,10 @@ const log = createLogger('ProcurementAnalysis');
 
 import {
   getPurchaseOrderDetail,
+} from '../erp-client/erp-purchase-order.service';
+import {
   getDailySalesData,
-} from '../erp-client/erp-purchase.service';
+} from '../erp-client/erp-daily-sales.service';
 import type {
   PurchaseOrderDetailResponse,
   PurchaseOrderLineItem,

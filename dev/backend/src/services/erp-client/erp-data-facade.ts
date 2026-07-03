@@ -33,7 +33,7 @@ export interface ProductWithStock extends ErpProduct {
 }
 
 /**
- * 获取商品 + 库存 JOIN 结果（带缓存，TTL 30s）
+ * 获取商品 + 库存 JOIN 结果（带缓存，TTL 60s）
  * 替代 SQL: 商品档案 LEFT JOIN 实时库存表 ON goodsId
  */
 export async function getProductsWithStock(): Promise<ProductWithStock[]> {
@@ -47,7 +47,7 @@ export async function getProductsWithStock(): Promise<ProductWithStock[]> {
     return { ...p, totalStock, hasStock: totalStock > 0 };
   });
 
-  cache.set(CACHE_KEY.ERP_FACADE_PRODUCTS_WITH_STOCK, result, CACHE_TTL.HIGH_FREQUENCY);
+  cache.set(CACHE_KEY.ERP_FACADE_PRODUCTS_WITH_STOCK, result, CACHE_TTL.DASHBOARD);
   return result;
 }
 

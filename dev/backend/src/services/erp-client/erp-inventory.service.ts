@@ -12,26 +12,13 @@ import { aggregateSum } from '../../utils/arrayAggregation';
 import { invalidateFacadeCache } from './erp-data-facade';
 import { appQuery } from '../../db/appPool';
 import { createLogger } from '../../utils/logger';
+import { fetchAllPagesParallel } from './erp-pagination';
+import { withInFlightDedup } from './erp-inflight';
+import type { ErpInventoryRecord } from './erp-inventory.types';
+
+export type { ErpInventoryRecord };
 
 const log = createLogger('ErpInventoryService');
-
-/** API 返回的库存记录 */
-export interface ErpInventoryRecord {
-  goodsId: number;
-  goodsName: string;
-  availableBaseQuantity: number;
-  baseCostPrice: string;
-  warehouseId: number;
-  warehouseName: string;
-  typeChainName: string;
-  qualityType: string;
-  physicalBaseQuantity: number;
-  lockedBaseQuantity: number;
-  availablePkgQuantity: number;
-  pkgCostPrice: string;
-  baseUnitName: string;
-  brandName?: string;
-}
 
 /** API 分页响应 */
 interface ApiInventoryResponse {
@@ -53,9 +40,6 @@ const DEFAULT_PAGE_SIZE = 2000;
  * @param skipCache - 为 true 时绕过缓存
  * @returns 库存记录数组（含零库存）
  */
-/** in-flight 去重：多个并发调用共享同一 Promise，避免冷缓存时重复请求 ERP */
-let _inventoryInFlight: Promise<ErpInventoryRecord[]> | null = null;
-
 export async function fetchAllInventory(skipCache = false): Promise<ErpInventoryRecord[]> {
   const cacheKey = CACHE_KEY.ERP_INVENTORY_ALL;
 
@@ -64,15 +48,10 @@ export async function fetchAllInventory(skipCache = false): Promise<ErpInventory
     if (cached) return cached;
   }
 
-  // in-flight 去重
-  if (!skipCache && _inventoryInFlight) return _inventoryInFlight;
-
   const doFetch = async (): Promise<ErpInventoryRecord[]> => {
     const { cid, uid } = getErpDefaults();
-    const allRecords: ErpInventoryRecord[] = [];
-    let current = 1;
 
-    while (true) {
+    const fetchPage = async (current: number) => {
       const result = await erpPost<ApiInventoryResponse>(
         '/stock/report/query-realtime-stock-search',
         {
@@ -98,31 +77,25 @@ export async function fetchAllInventory(skipCache = false): Promise<ErpInventory
           businessType: 'inventory_fetch',
         }
       );
+      return {
+        records: result?.data?.records || [],
+        total: result?.data?.total || 0,
+      };
+    };
 
-      const records = result?.data?.records || [];
-      allRecords.push(...records);
+    const allRecords = await fetchAllPagesParallel(fetchPage, DEFAULT_PAGE_SIZE);
 
-      const total = result?.data?.total || 0;
-      if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
-        break;
-      }
-      current++;
-    }
-
-    // 写入缓存（TTL 30s）
+    // 写入缓存
     cache.set(cacheKey, allRecords, CACHE_TTL.ERP_BASE);
-
-    // [ERP本地化] 旧的模块级预聚合缓存已移除，由本地表 + MemoryCache 接管
 
     return allRecords;
   };
 
-  _inventoryInFlight = doFetch();
-  try {
-    return await _inventoryInFlight;
-  } finally {
-    _inventoryInFlight = null;
+  // in-flight 去重
+  if (!skipCache) {
+    return withInFlightDedup('erp:inventory:all', doFetch);
   }
+  return doFetch();
 }
 
 // [ERP本地化] 旧的模块级预聚合缓存已移除，由本地 PostgreSQL 表 + MemoryCache 接管

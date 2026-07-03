@@ -1,6 +1,7 @@
 /**
  * ERP 客户收款单服务
  * 封装客户收款单创建（核销对冲）、反审核、取消的 ERP API 调用
+ * @domain 结算 (Settlement)
  * @module services/erp-client/erp-customer-receipt.service
  */
 
@@ -8,6 +9,7 @@ import { erpPost } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { createLogger } from '../../utils/logger';
 import { beijingDateTime } from '../../utils/beijingTime';
+import { submitPaymentBill } from './erp-payment-bill.service';
 
 const log = createLogger('CustomerReceipt');
 
@@ -61,77 +63,51 @@ export interface CreateCustomerReceiptResult {
  * - totalAmount 固定为 '0'（全额对冲）
  * - consumerId = traderId
  *
+ * @invalidates ERP_DEBTS_ALL (customer debt cache)
  * @usedBy bad-debt-callback.ts
  */
 export async function createCustomerReceipt(
   params: CreateCustomerReceiptParams,
   idemKey?: string
 ): Promise<CreateCustomerReceiptResult> {
-  const { cid, uid, defaultSalesmanId, defaultDeptId } = getErpDefaults();
+  const { defaultSalesmanId, defaultDeptId } = getErpDefaults();
   const now = beijingDateTime();
 
-  const body = {
-    operatorId: String(defaultSalesmanId),
-    traderId: params.traderId,
-    consumerId: params.traderId,
-    salesmanId: defaultSalesmanId,
-    deptId: defaultDeptId,
-    workTime: now,
-    arrivalTime: now,
-    note: params.note || '',
-    paymentDetails: [],
-    paymentDirection: 'IN',
-    traderType: 'STORE',
-    type: 'RECEIVE',
-    totalAmount: '0',
-    wipeOffAmount: '0',
-    prePaidAmount: '0',
-    ifAutoCollect: true,
-    ifAutoCollectBill: true,
-    imgIds: [],
-    writeOffInfo: {
+  log.info(`创建收款单核销: traderId=${params.traderId}, invoiceList=${params.invoiceList.length}行`);
+
+  const result = await submitPaymentBill(
+    {
+      paymentDirection: 'IN',
+      traderType: 'STORE',
+      type: 'RECEIVE',
+      traderId: params.traderId,
+      consumerId: params.traderId,
+      salesmanId: defaultSalesmanId,
+      deptId: defaultDeptId,
+      operatorId: String(defaultSalesmanId),
+      workTime: now,
+      arrivalTime: now,
+      note: params.note || '',
+      totalAmount: '0',
+      paymentDetails: [],
       invoiceList: params.invoiceList.map(item => ({
         bizId: item.bizId,
         bizType: item.bizType,
         paidAmount: item.paidAmount,
-        discountAmount: item.discountAmount || '0',
-        preAllocateAmount: '0',
-        bonusPreAmount: '0',
         leftAmount: item.leftAmount,
-        note: item.note || '',
-        originNote: '',
-        brandPreAmount: '0',
+        discountAmount: item.discountAmount,
       })),
-      prepayList: [],
+      ifAutoCollect: true,
+      ifAutoCollectBill: true,
     },
-    useBrandPreList: [],
-    bonusPreAmount: null,
-    cid,
-    uid,
-    time: Date.now(),
-  };
-
-  log.info(`创建收款单核销: traderId=${params.traderId}, invoiceList=${params.invoiceList.length}行`);
-
-  const response = (await erpPost(
-    '/paid/save-and-approve',
-    body,
-    {
-      pathPrefix: '/saas/pro/',
-      businessType: 'create_customer_receipt',
-      headers: idemKey ? { idemkey: idemKey } : undefined,
-    }
-  )) as any;
-
-  const data = response?.data;
-  if (!data?.id) {
-    throw new Error(`创建收款单失败: ${JSON.stringify(response)}`);
-  }
+    idemKey,
+    'create_customer_receipt'
+  );
 
   return {
-    id: data.id,
-    paidBillStr: data.paidBillStr,
-    state: data.state || 'APPROVED',
+    id: result.id,
+    paidBillStr: result.paidBillStr,
+    state: result.state,
   };
 }
 

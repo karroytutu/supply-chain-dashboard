@@ -9,7 +9,6 @@ const log = createLogger('ErpReference');
 import { Request, Response, NextFunction } from 'express';
 import {
   searchErpAssets,
-  getErpAssetDetail,
   getErpDepartments,
   getErpStaff,
   getErpPaymentAccounts,
@@ -17,7 +16,6 @@ import {
 } from '../services/fixed-asset/fixed-asset.query';
 import {
   searchErpCustomersByKeyword,
-  getErpCustomerProfile,
   getCustomerLicenseInfo,
   getCustomerDebtTotal,
 } from '../services/erp-client/erp-customer.service';
@@ -34,88 +32,37 @@ import {
 } from '../services/erp-client/erp-settlement.service';
 import {
   searchSuppliers,
+} from '../services/erp-client/erp-supplier.service';
+import {
   listTraderPrepayments,
+} from '../services/erp-client/erp-prepayment.service';
+import {
   searchSupplierIncomes,
+} from '../services/erp-client/erp-supplier-income.service';
+import {
   searchPurchaseOrders,
+} from '../services/erp-client/erp-purchase-order.service';
+import {
   searchSupplierDebts,
   searchSupplierDebtsPaged,
-} from '../services/erp-client/erp-purchase.service';
+} from '../services/erp-client/erp-supplier-debt.service';
 import {
   searchPurchaseSettlements,
   getAllocatablePurchaseDetails,
   getAllocatableExpenseDetails,
 } from '../services/erp-client/erp-purchase-settlement.service';
-import { searchPromotionGoods, getProductById } from '../services/erp-client/erp-product.service';
+import { searchPromotionGoods } from '../services/erp-client/erp-product.service';
 import { analyzePurchaseOrder, buildPurchaseLines } from '../services/procurement-order/procurement-analysis';
-import type { PurchaseOrderListItem } from '../services/erp-client/erp-purchase.types';
 import { retryErpOperation as retryErpOp } from '../services/fixed-asset/erp-meta-utils';
 import { cache, CACHE_TTL } from '../utils/cache';
 import { CACHE_KEY } from '../utils/cache-keys';
 import { retryAutoNode as retryAutoNodeService } from '../services/oa/oa.mutation';
-
-/** 解析结果项 */
-interface ResolvedItem {
-  id: number;
-  label: string;
-}
-
-/** 递归展平树形结构 */
-function flattenTree<T extends { children?: T[] | null }>(nodes: T[]): T[] {
-  const result: T[] = [];
-  for (const node of nodes) {
-    result.push(node);
-    if (node.children?.length) {
-      result.push(...flattenTree(node.children));
-    }
-  }
-  return result;
-}
-
-/** 各 ERP 类型的标签字段映射 */
-const LABEL_FIELDS: Record<string, string> = {
-  assets: 'name',
-  departments: 'deptName',
-  staff: 'name',
-  'payment-accounts': 'name',
-  'asset-categories': 'name',
-  customers: 'name',
-  'settlement-orders': 'bizStr',
-  grades: 'name',
-  groups: 'name',
-  areas: 'name',
-  suppliers: 'name',
-  prepayments: 'paidBillStr',
-  'supplier-incomes': 'billStr',
-  'purchase-settlements': 'billStr',
-  'allocatable-purchase-details': 'billStr',
-  'allocatable-expense-details': 'billStr',
-  'supplier-debts': 'bizStr',
-  'promotion-goods': 'name',
-  brands: 'name',
-};
-
-/** 各 ERP 类型的值字段映射（选中后存储的 ID/key） */
-const VALUE_FIELDS: Record<string, string> = {
-  assets: 'id',
-  departments: 'id',
-  staff: 'id',
-  'payment-accounts': 'id',
-  'asset-categories': 'id',
-  customers: 'id',
-  'settlement-orders': 'bizId',
-  grades: 'id',
-  groups: 'id',
-  areas: 'id',
-  suppliers: 'originId',
-  prepayments: 'billId',
-  'supplier-incomes': 'id',
-  'purchase-settlements': 'billId',
-  'allocatable-purchase-details': 'id',
-  'allocatable-expense-details': 'id',
-  'supplier-debts': 'bizId',
-  'promotion-goods': 'goodsId',
-  brands: 'originBrandId',
-};
+import {
+  resolveErpReference as resolveErpReferenceService,
+  LABEL_FIELDS,
+  VALUE_FIELDS,
+  flattenTree,
+} from '../services/erp-client/erp-reference-resolver.service';
 
 /**
  * 获取所有 ERP 参考类型配置
@@ -547,180 +494,8 @@ export async function resolveErpReference(
       return;
     }
 
-    const labelField = LABEL_FIELDS[type] || 'name';
-    let resolved: ResolvedItem[];
-
-    switch (type) {
-      case 'customers': {
-        const results = await Promise.allSettled(
-          ids.map(async id => {
-            const profile = await getErpCustomerProfile(id);
-            return { id, label: String((profile as Record<string, unknown>)[labelField] ?? id) };
-          })
-        );
-        resolved = results.map((r, i) =>
-          r.status === 'fulfilled' ? r.value : { id: ids[i], label: String(ids[i]) }
-        );
-        break;
-      }
-
-      case 'assets': {
-        const results = await Promise.allSettled(
-          ids.map(async id => {
-            const asset = await getErpAssetDetail(id);
-            return { id, label: String(asset?.[labelField as keyof typeof asset] ?? id) };
-          })
-        );
-        resolved = results.map((r, i) =>
-          r.status === 'fulfilled' ? r.value : { id: ids[i], label: String(ids[i]) }
-        );
-        break;
-      }
-
-      case 'departments': {
-        const all = await getErpDepartments();
-        const map = new Map(all.map(d => [d.deptId, d.deptName]));
-        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
-        break;
-      }
-
-      case 'staff': {
-        const all = await getErpStaff();
-        const map = new Map(all.map(s => [s.id, s.name]));
-        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
-        break;
-      }
-
-      case 'payment-accounts': {
-        const all = flattenTree(await getErpPaymentAccounts());
-        const map = new Map(all.map(a => [a.id, a.name]));
-        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
-        break;
-      }
-
-      case 'asset-categories': {
-        const all = flattenTree(await getErpAssetCategories());
-        const map = new Map(all.map(c => [c.id, c.name]));
-        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
-        break;
-      }
-
-      case 'settlement-orders': {
-        const consumerId = req.query.consumerId as string;
-        if (!consumerId) {
-          res.status(400).json({ code: 400, message: '结算单解析需要 consumerId 参数' });
-          return;
-        }
-        const all = await searchErpSettlementOrders({ traderId: consumerId });
-        // 构建含金额的 label（如 "THJS241214000001 (¥12,345.00)"）
-        const buildLabel = (order: { bizStr: string; leftAmount: string }) => {
-          const amount = parseFloat(order.leftAmount);
-          if (isNaN(amount)) return order.bizStr;
-          return `${order.bizStr} (¥${Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
-        };
-        // 双模式查找：新数据用 bizId，旧数据用 id
-        const bizIdMap = new Map(all.map(o => [o.bizId, buildLabel(o)]));
-        const idMap = new Map(all.map(o => [o.id, buildLabel(o)]));
-        resolved = ids.map(id => ({
-          id,
-          label: String(bizIdMap.get(id) ?? idMap.get(id) ?? id),
-        }));
-        break;
-      }
-
-      case 'grades': {
-        const all = await getErpGrades();
-        const map = new Map(all.map(g => [g.id, g.name]));
-        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
-        break;
-      }
-
-      case 'groups': {
-        const all = await getErpGroups();
-        const map = new Map(all.map(g => [g.id, g.name]));
-        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
-        break;
-      }
-
-      case 'areas': {
-        const all = await getErpAreas();
-        const map = new Map(all.map(a => [a.id, a.name]));
-        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? map.get(String(id)) ?? id) }));
-        break;
-      }
-
-      case 'areas-tree': {
-        // 展平树以构建 id→name 映射
-        const tree = await getErpAreaTree();
-        const flatList: Array<{ id: number | string; name: string }> = [];
-        function flattenForResolve(nodes: Array<{ id: number | string; name: string; children?: any[] }>) {
-          for (const node of nodes) {
-            flatList.push({ id: node.id, name: node.name });
-            if (node.children?.length) flattenForResolve(node.children);
-          }
-        }
-        flattenForResolve(tree);
-        const treeMap = new Map(flatList.map(a => [a.id, a.name]));
-        resolved = ids.map(id => ({ id, label: String(treeMap.get(id) ?? treeMap.get(String(id)) ?? id) }));
-        break;
-      }
-
-      case 'purchase-orders': {
-        // 解析采购订单 ID → 富标签（单号 | 日期 | ¥金额）
-        const buildPOLabel = (o: PurchaseOrderListItem) => {
-          const amount = parseFloat(o.totalAmount);
-          const amountStr = isNaN(amount) ? '' : `¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-          const date = String(o.operDateTime || '').slice(0, 10);
-          return [o.billStr, date, amountStr].filter(Boolean).join(' | ');
-        };
-        // 查询所有供应商的待审核订单（resolve 时可能不知道具体供应商，全量拉取后按 ID 匹配）
-        const poResult = await searchPurchaseOrders({ states: ['UN_APPROVED'], size: 1000 });
-        const poMap = new Map(poResult.records.map(o => [o.billId, buildPOLabel(o)]));
-        resolved = ids.map(id => ({ id, label: String(poMap.get(id) ?? id) }));
-        break;
-      }
-
-      case 'suppliers': {
-        // 供应商 ID → 名称解析（分页循环拉取全量供应商，避免截断）
-        const allSuppliers: Awaited<ReturnType<typeof searchSuppliers>> = [];
-        let page = 1;
-        while (true) {
-          const batch = await searchSuppliers(undefined, page, 200);
-          allSuppliers.push(...batch);
-          if (batch.length < 200) break;
-          page++;
-        }
-        const supplierMap = new Map(allSuppliers.map(s => [s.originId, s.name]));
-        resolved = ids.map(id => ({ id, label: String(supplierMap.get(id) ?? id) }));
-        break;
-      }
-
-      case 'promotion-goods': {
-        const pgResults = await Promise.allSettled(
-          ids.map(async id => {
-            const p = await getProductById(id);
-            return { id, label: String(p?.name ?? id) };
-          })
-        );
-        resolved = pgResults.map((r, i) =>
-          r.status === 'fulfilled' ? r.value : { id: ids[i], label: String(ids[i]) }
-        );
-        break;
-      }
-
-      case 'brands': {
-        const all = await fetchAllBrands();
-        // ERP 业务 API 使用 originBrandId，以此作 key 进行映射
-        const map = new Map(all.map(b => [b.originBrandId, b.name]));
-        resolved = ids.map(id => ({ id, label: String(map.get(id) ?? id) }));
-        break;
-      }
-
-      default:
-        res.status(400).json({ code: 400, message: `不支持的参考数据类型: ${type}` });
-        return;
-    }
-
+    const consumerId = req.query.consumerId as string | undefined;
+    const resolved = await resolveErpReferenceService(type, ids, consumerId);
     res.json({ code: 200, data: resolved });
   } catch (error) {
     next(error);

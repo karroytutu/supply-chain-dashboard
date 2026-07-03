@@ -7,47 +7,16 @@
 import { createLogger } from '../../utils/logger';
 const log = createLogger('ERP-Reconciliation');
 
-import { erpGet, erpPost, extractErpData } from './erp-client';
+import { erpPost, extractErpData } from './erp-client';
 import { beijingDateTime } from '../../utils/beijingTime';
 import { getErpDefaults } from './erp-config';
 import { getErpAccessToken } from './erp-auth';
 import { getTokenRecord } from '../token-manager/token-repository';
+import { fetchDebtList } from './erp-debt-list-query.service';
+import type { ReceivableOrder, StatementDetailItem } from './erp-reconciliation.types';
 import axios from 'axios';
 
-// =====================================================
-// 类型定义
-// =====================================================
-
-/** 应收单据（扩展版，包含对账单 save 接口需要的 bizId 和 billTypeEnum） */
-export interface ReceivableOrder {
-  /** 欠款记录ID → save 接口的 billId */
-  id: number;
-  /** 业务ID → save 接口的 bizId */
-  bizId: number;
-  /** 业务类型（内部枚举：SALES/RETURNED），不用于 save 接口 */
-  bizType: string;
-  /** 单据类型枚举（FUNDS_SALES/FUNDS_SALES_BACK）→ save 接口的 bizType */
-  billTypeEnum: string;
-  bizStr?: string;
-  bizOrderStr?: string;
-  totalAmount: string;
-  leftAmount: string;
-  billTypeName: string;
-  workTime: string;
-  salesmanId?: number;
-  note?: string;
-}
-
-/** 对账单明细项（save 接口的 detail 数组元素） */
-export interface StatementDetailItem {
-  billId: number;
-  bizId: number;
-  leftAmount: string;
-  totalAmount: string;
-  note: string | null;
-  bizType: string;
-  seq: number;
-}
+export type { ReceivableOrder, StatementDetailItem };
 
 /** 对账单保存请求参数 */
 interface SaveStatementParams {
@@ -105,46 +74,21 @@ export async function fetchReceivableOrders(params: {
   startDate?: string;
   endDate?: string;
 }): Promise<ReceivableOrder[]> {
-  const { cid, uid } = getErpDefaults();
-
-  const queryParams: Record<string, any> = {
-    size: 100,
-    total: 0,
-    current: 1,
-    traderId: params.traderId,
-    traderType: 'STORE',
-    writeOffQueryStates: 'INIT,PART',
-    consumerCollectTypes: 'NORMAL',
-    queryDebt: false,
-    cid,
-    uid,
-  };
-
-  if (params.startDate) queryParams.startDate = params.startDate;
-  if (params.endDate) queryParams.endDate = params.endDate;
-
-  // 分页拉取全部数据（安全上限 100 页 = 最多 10000 条）
-  const MAX_PAGES = 100;
-  const allRecords: ReceivableOrder[] = [];
-  let current = 1;
-
-  while (current <= MAX_PAGES) {
-    queryParams.current = current;
-    const response = await erpGet<unknown>(
-      '/invoice/list-debt-list',
-      queryParams,
-      { pathPrefix: '/saas/pro/', businessType: 'receivable_orders' }
-    );
-
-    const data = extractErpData<{ records?: ReceivableOrder[]; total?: number }>(response);
-    const records = data?.records ?? [];
-    allRecords.push(...records);
-
-    if (records.length < 100) break;
-    current++;
-  }
-
-  return allRecords;
+  return fetchDebtList<ReceivableOrder>(
+    {
+      traderId: params.traderId,
+      traderType: 'STORE',
+      writeOffQueryStates: 'INIT,PART',
+      consumerCollectTypes: 'NORMAL',
+      queryDebt: false,
+      startDate: params.startDate,
+      endDate: params.endDate,
+    },
+    {
+      maxRecords: 10000, // 安全上限 100 页 = 最多 10000 条
+      businessType: 'receivable_orders',
+    }
+  );
 }
 
 // =====================================================

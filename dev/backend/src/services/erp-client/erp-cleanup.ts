@@ -15,13 +15,19 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ErpCleanup');
 
 /**
- * 费用单清理：先反审再取消
+ * 费用单清理：可选撤销交单 + 反审 + 取消
  * @param billId ERP 返回的费用单 ID
+ * @param revokeFirst 是否在反审前先撤销交单（默认 false，当费用单已交单时传 true）
  */
-export async function cleanupExpenditureBill(billId: number): Promise<void> {
+export async function cleanupExpenditureBill(billId: number, revokeFirst = false): Promise<void> {
   const config = getErpConfig();
   const { cid, uid } = getErpDefaults();
   const time = Date.now();
+
+  // 步骤0（可选）：撤销交单
+  if (revokeFirst) {
+    await revokeBillSubmission([{ billId, billType: 'CONSUMER_EXPENDITURE' }]);
+  }
 
   // 步骤1：反审
   await erpPost(
@@ -45,13 +51,19 @@ export async function cleanupExpenditureBill(billId: number): Promise<void> {
 }
 
 /**
- * 收入单清理：先反审再取消
+ * 收入单清理：可选撤销交单 + 反审 + 取消
  * @param billId ERP 返回的收入单 ID
+ * @param revokeFirst 是否在反审前先撤销交单（默认 false，当收入单已交单时传 true）
  */
-export async function cleanupIncomeBill(billId: number): Promise<void> {
+export async function cleanupIncomeBill(billId: number, revokeFirst = false): Promise<void> {
   const config = getErpConfig();
   const { cid, uid } = getErpDefaults();
   const time = Date.now();
+
+  // 步骤0（可选）：撤销交单
+  if (revokeFirst) {
+    await revokeBillSubmission([{ billId, billType: 'CASH_INCOME' }]);
+  }
 
   // 步骤1：反审
   await erpPost(

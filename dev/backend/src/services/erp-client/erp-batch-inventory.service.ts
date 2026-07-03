@@ -11,6 +11,8 @@ import { CACHE_KEY } from '../../utils/cache-keys';
 import { ERP_DUSHAN_WAREHOUSE_ID } from '../../utils/constants';
 import { appQuery } from '../../db/appPool';
 import { createLogger } from '../../utils/logger';
+import { fetchAllPagesParallel } from './erp-pagination';
+import { withInFlightDedup } from './erp-inflight';
 
 const log = createLogger('ErpBatchInventory');
 
@@ -65,45 +67,48 @@ export async function fetchAllBatchInventory(
     if (cached) return cached;
   }
 
-  const { cid, uid } = getErpDefaults();
-  const allRecords: ErpBatchInventory[] = [];
-  let current = 1;
+  const doFetch = async (): Promise<ErpBatchInventory[]> => {
+    const { cid, uid } = getErpDefaults();
 
-  while (true) {
-    const result = await erpPost<ApiBatchResponse>(
-      '/cwms/stock/wms-stock-detail',
-      {
-        current,
-        size: DEFAULT_PAGE_SIZE,
-        searchImage: true,
-        warehouseId: String(warehouseId),
-        unitDisplayType: 'BASE_UNIT',
-        onlyZeroStockFile: false,
-        isJoiner: false,
-        cid,
-        uid,
-        total: 0,
-      },
-      {
-        pathPrefix: '/toliman/',
-        businessType: 'batch_inventory_fetch',
-      }
-    );
+    const fetchPage = async (current: number) => {
+      const result = await erpPost<ApiBatchResponse>(
+        '/cwms/stock/wms-stock-detail',
+        {
+          current,
+          size: DEFAULT_PAGE_SIZE,
+          searchImage: true,
+          warehouseId: String(warehouseId),
+          unitDisplayType: 'BASE_UNIT',
+          onlyZeroStockFile: false,
+          isJoiner: false,
+          cid,
+          uid,
+          total: 0,
+        },
+        {
+          pathPrefix: '/toliman/',
+          businessType: 'batch_inventory_fetch',
+        }
+      );
+      return {
+        records: result?.data?.records || [],
+        total: result?.data?.total || 0,
+      };
+    };
 
-    const records = result?.data?.records || [];
-    allRecords.push(...records);
+    const allRecords = await fetchAllPagesParallel(fetchPage, DEFAULT_PAGE_SIZE);
 
-    const total = result?.data?.total || 0;
-    if (allRecords.length >= total || records.length < DEFAULT_PAGE_SIZE) {
-      break;
-    }
-    current++;
+    // 缓存
+    cache.set(cacheKey, allRecords, CACHE_TTL.ERP_BASE);
+
+    return allRecords;
+  };
+
+  // in-flight 去重
+  if (!skipCache) {
+    return withInFlightDedup('erp:batch-inventory:all', doFetch);
   }
-
-  // 缓存（TTL 30s）
-  cache.set(cacheKey, allRecords, CACHE_TTL.ERP_BASE);
-
-  return allRecords;
+  return doFetch();
 }
 
 /**

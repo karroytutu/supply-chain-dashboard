@@ -8,6 +8,7 @@
 import { fetchAllInventory } from './erp-inventory.service';
 import { appQuery } from '../../db/appPool';
 import { cache, CACHE_TTL } from '../../utils/cache';
+import { CACHE_KEY } from '../../utils/cache-keys';
 
 /** 月度库存成本汇总 */
 export interface MonthlyStockCost {
@@ -24,7 +25,7 @@ export interface MonthlyStockCost {
  * @param month 月份（YYYY-MM 格式）
  */
 export async function getStockCostByMonth(month: string): Promise<MonthlyStockCost> {
-  const cacheKey = `erp:stock:cost:${month}`;
+  const cacheKey = CACHE_KEY.ERP_STOCK_COST(month);
 
   const cached = cache.get<MonthlyStockCost>(cacheKey);
   if (cached) return cached;

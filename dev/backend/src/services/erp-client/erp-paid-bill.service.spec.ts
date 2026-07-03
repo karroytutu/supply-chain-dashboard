@@ -9,7 +9,7 @@ jest.mock('../../utils/logger', () => ({
 jest.mock('./erp-client', () => ({
   erpPost: jest.fn().mockResolvedValue({ data: { id: 1, billStr: 'YF-test-001' } }),
   erpGet: jest.fn(),
-  extractErpData: jest.fn((r: any) => r),
+  extractErpData: jest.fn((r: any) => r?.data !== undefined ? r.data : r),
 }));
 jest.mock('./erp-config', () => ({
   getErpDefaults: () => ({ cid: '10008421', uid: '1', defaultSalesmanId: 1, defaultDeptId: 1, defaultPaymentSubjectId: 1 }),
@@ -20,7 +20,7 @@ jest.mock('crypto', () => ({
   createHash: () => ({ update: () => ({ digest: () => 'test-hash' }) }),
 }));
 
-import { createPaidBill } from './erp-purchase.service';
+import { createPaidBill } from './erp-paid-bill.service';
 import { erpPost } from './erp-client';
 import type { CreatePaidBillInput } from './erp-purchase.types';
 

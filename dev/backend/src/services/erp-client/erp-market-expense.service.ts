@@ -4,7 +4,7 @@
  * @module services/erp-client/erp-market-expense.service
  */
 
-import { erpPost, erpGet } from './erp-client';
+import { erpPost, erpGet, extractErpData } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { createLogger } from '../../utils/logger';
 import { beijingDate, beijingDateTime } from '../../utils/beijingTime';
@@ -141,21 +141,21 @@ export async function createChargeContract(
 
   log.info(`创建兑付协议: type=${params.type}, consumer=${params.consumerName}, chargeType=${params.chargeType}`);
 
-  const response = (await erpPost(
+  const response = await erpPost<unknown>(
     '/bill/contract/cost/approve',
     body,
     { pathPrefix: '/saas/pro/', businessType: 'create_charge_contract' }
-  )) as any;
+  );
 
   // 响应结构: { code: 0, data: { code: 0, data: "DFXYxxx", state: "APPROVED" } }
-  const inner = response?.data;
-  if (!inner || inner.code !== 0) {
-    throw new Error(`创建兑付协议失败: ${inner?.message || JSON.stringify(response)}`);
+  const outer = extractErpData<{ code?: number; data?: string; state?: string; message?: string }>(response);
+  if (!outer || outer.code !== 0) {
+    throw new Error(`创建兑付协议失败: ${outer?.message || JSON.stringify(response)}`);
   }
 
   return {
-    contractStr: inner.data,
-    state: inner.state,
+    contractStr: outer.data || '',
+    state: outer.state || 'APPROVED',
   };
 }
 
@@ -210,20 +210,20 @@ export async function createCustomerExpenditure(
 
   log.info(`兑付生成费用单: trader=${params.traderName}, amount=${params.totalAmount}, contract=${params.contractStr}`);
 
-  const response = (await erpPost(
+  const response = await erpPost<unknown>(
     '/expenditure-bill/save-approve-trade-expenditure',
     body,
     { pathPrefix: '/saas/pro/', businessType: 'create_customer_expenditure' }
-  )) as any;
+  );
 
-  const data = response?.data;
-  if (!data) {
+  const data = extractErpData<{ id?: number; billStr?: string; state?: string }>(response);
+  if (!data?.id) {
     throw new Error(`兑付生成费用单失败: ${JSON.stringify(response)}`);
   }
 
   return {
     id: data.id,
-    billStr: data.billStr,
+    billStr: data.billStr || '',
     state: data.state || 'APPROVED',
   };
 }
@@ -296,7 +296,7 @@ export async function createBadDebtExpenditure(
 
   log.info(`坏账创建费用单: trader=${params.traderName}, amount=${params.totalAmount}`);
 
-  const response = (await erpPost(
+  const response = await erpPost<unknown>(
     '/expenditure-bill/save-approve-trade-expenditure',
     body,
     {
@@ -304,16 +304,16 @@ export async function createBadDebtExpenditure(
       businessType: 'create_bad_debt_expenditure',
       headers: idemKey ? { idemkey: idemKey } : undefined,
     }
-  )) as any;
+  );
 
-  const data = response?.data;
-  if (!data) {
+  const data = extractErpData<{ id?: number; billStr?: string; state?: string }>(response);
+  if (!data?.id) {
     throw new Error(`坏账创建费用单失败: ${JSON.stringify(response)}`);
   }
 
   return {
     id: data.id,
-    billStr: data.billStr,
+    billStr: data.billStr || '',
     state: data.state || 'APPROVED',
   };
 }
@@ -333,18 +333,18 @@ export async function getChargeContractDetail(billStr: string): Promise<{
 }> {
   const { cid, uid } = getErpDefaults();
 
-  const response = (await erpGet(
+  const response = await erpGet<unknown>(
     '/bill/contract/cost/detail',
     { billStr, cid, uid },
     { pathPrefix: '/saas/pro/', businessType: 'get_charge_contract_detail' }
-  )) as any;
+  );
 
-  const data = response?.data;
-  if (!data || !data.billId) {
+  const data = extractErpData<{ billId?: number; billStr?: string; details?: Array<{ detailId?: number }> }>(response);
+  if (!data?.billId) {
     throw new Error(`查询兑付协议详情失败: billStr=${billStr}`);
   }
 
-  const detailIds = (data.details || []).map((d: any) => d.detailId).filter(Boolean);
+  const detailIds = (data.details || []).map(d => d.detailId).filter((id): id is number => id != null);
 
   return {
     billId: data.billId,

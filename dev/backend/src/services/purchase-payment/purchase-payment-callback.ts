@@ -17,13 +17,17 @@ import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
 import { getErpMeta } from '../fixed-asset/erp-meta-utils';
 import {
   createPaidBill,
-  createNormalPrepayment,
   deApprovePaidBill,
   cancelPaidBill,
+} from '../erp-client/erp-paid-bill.service';
+import {
+  createNormalPrepayment,
   deApprovePrepayment,
   cancelPrepayment,
+} from '../erp-client/erp-prepayment.service';
+import {
   buildPurchasePaymentIdemKey,
-} from '../erp-client/erp-purchase.service';
+} from '../erp-client/erp-purchase-order.service';
 import { getErpDefaults } from '../erp-client/erp-config';
 import type { CreatePaidBillInput, PaidBillInvoiceInput, PaidBillPrepayItem } from '../erp-client/erp-purchase.types';
 import { PAYMENT_TYPE } from '../oa/form-types/purchase-payment';

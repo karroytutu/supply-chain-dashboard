@@ -10,65 +10,12 @@ import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 import { createLogger } from '../../utils/logger';
 import { appQuery } from '../../db/appPool';
+import { fetchAllPagesSequential } from './erp-pagination';
+import type { ErpCustomer, ErpCustomerProfile, CustomerLicenseInfo } from './erp-customer.types';
+
+export type { ErpCustomer, ErpCustomerProfile, CustomerLicenseInfo };
 
 const log = createLogger('ErpCustomer');
-import type {} from './erp-client.types';
-
-// =====================================================
-// 类型定义
-// =====================================================
-
-/** ERP 客户对象 */
-export interface ErpCustomer {
-  id: number;
-  name: string;
-  code: string;
-  shortName?: string;
-  consumerCode?: string;
-  docState?: number;
-  contactName?: string;
-  contactTel?: string;
-  [key: string]: unknown;
-}
-
-/** ERP 客户详情（含完整字段） */
-export interface ErpCustomerProfile {
-  id: number;
-  name: string;
-  shortName?: string;
-  consumerCode?: string;
-  contactName?: string;
-  contactTel?: string;
-  state?: number;
-  areaId?: number;
-  groupId?: number;
-  ext?: {
-    attachedPicIds?: string[];
-    [key: string]: unknown;
-  };
-  consumerManagerId?: number;
-  settleConsumerId?: number;
-  maxDebtAmount?: string;
-  maxDebtDays?: string;
-  maxDebtOrderNum?: string;
-  settleMethod?: number;
-  scanFullPay?: boolean;
-  autoWriteOff?: boolean;
-  cid?: string;
-  uid?: string;
-  /** 营业执照原图 URL 数组（CDN 直链） */
-  attachedPicUrls?: string[];
-  /** 营业执照缩略图 URL（CDN 直链，带 OSS 缩放） */
-  attachedPicUrl?: string;
-  [key: string]: unknown;
-}
-
-/** 客户执照信息 */
-export interface CustomerLicenseInfo {
-  hasLicense: boolean;
-  imageCount: number;
-  attachedPicUrls: string[];
-}
 
 // =====================================================
 // 查询方法
@@ -148,17 +95,9 @@ export async function searchErpCustomers(
     return [...first.records, ...restRecords];
   }
 
-  // 无 total 或只有一页 → 串行兜底（保守策略，确保数据完整性）
+  // 无 total 或只有一页 → 串行兗底（保守策略，确保数据完整性）
   if (first.records.length < size) return first.records;
-  const allCustomers = [...first.records];
-  let current = 2;
-  while (true) {
-    const page = await fetchPage(current);
-    allCustomers.push(...page.records);
-    if (page.records.length < size) break;
-    current++;
-  }
-  return allCustomers;
+  return fetchAllPagesSequential(fetchPage, size);
 }
 
 /**
@@ -351,11 +290,34 @@ export async function getCustomerDebtTotal(customerId: number): Promise<number> 
   const cached = cache.get<number>(cacheKey);
   if (cached !== null) return cached;
 
-  // 动态导入避免循环依赖
+  // 优先从本地 erp_debts 表 SQL 聚合，避免 N+1 API 调用
+  try {
+    // 先查客户名称（erp_debts 表按 consumer_name 存储）
+    const nameResult = await appQuery<{ name: string }>(
+      'SELECT name FROM erp_customers WHERE id = $1',
+      [customerId]
+    );
+    if (nameResult.rows.length > 0) {
+      const consumerName = nameResult.rows[0].name;
+      const debtResult = await appQuery<{ total: string }>(
+        `SELECT COALESCE(SUM(left_amount::numeric), 0)::text AS total
+         FROM erp_debts WHERE consumer_name = $1 AND left_amount::numeric > 0`,
+        [consumerName]
+      );
+      if (debtResult.rows.length > 0) {
+        const total = parseFloat(debtResult.rows[0].total) || 0;
+        cache.set(cacheKey, total, CACHE_TTL.HIGH_FREQUENCY);
+        return total;
+      }
+    }
+  } catch (err) {
+    log.warn('本地表聚合失败，fallback 到 ERP API:', err instanceof Error ? err.message : String(err));
+  }
+
+  // fallback: 通过 settlement API 查询
   const { searchErpSettlementOrders } = await import('./erp-settlement.service');
   const orders = await searchErpSettlementOrders({ traderId: customerId, maxRecords: 1000 });
   const rawTotal = orders.reduce((sum, o) => sum + (parseFloat(o.leftAmount) || 0), 0);
-  // 修正浮点精度：如 107898.05000000003 → 107898.05
   const total = Math.round(rawTotal * 100) / 100;
 
   cache.set(cacheKey, total, CACHE_TTL.HIGH_FREQUENCY);

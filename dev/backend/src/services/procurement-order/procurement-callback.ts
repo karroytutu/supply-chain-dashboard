@@ -19,9 +19,11 @@ import {
 } from '../../services/fixed-asset/erp-meta-utils';
 import {
   createPurchasePrepayment,
+} from '../erp-client/erp-prepayment.service';
+import {
   approvePurchaseOrder,
   buildProcurementIdemKey,
-} from '../erp-client/erp-purchase.service';
+} from '../erp-client/erp-purchase-order.service';
 import { getErpDefaults } from '../erp-client/erp-config';
 import type {
   CreatePurchasePrepaymentRequest,

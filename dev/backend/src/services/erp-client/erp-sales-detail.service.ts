@@ -10,7 +10,7 @@ import { getErpDefaults } from './erp-config';
 import { cache, CACHE_TTL } from '../../utils/cache';
 import { CACHE_KEY } from '../../utils/cache-keys';
 import { LAST_SALE_LOOKBACK_DAYS, SALES_BUSINESS_ATTR_IDS } from '../../utils/constants';
-import { fetchAllPagesParallel, fetchAllPagesSequential, fetchAllPagesVerified } from './erp-pagination';
+import { fetchAllPagesVerified } from './erp-pagination';
 import { appQuery } from '../../db/appPool';
 import { createLogger } from '../../utils/logger';
 

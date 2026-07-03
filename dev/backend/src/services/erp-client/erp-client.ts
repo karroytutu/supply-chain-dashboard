@@ -12,9 +12,10 @@ import https from 'https';
 import { getErpConfig, ERP_API_VERSION } from './erp-config';
 import { getErpAccessToken } from './erp-auth';
 import { createLogEntry, writeErpLog } from './erp-logger';
-import { ErpApiError, type ErpRequestOptions } from './erp-client.types';
+import { ErpApiError, type ErpRequestOptions, type ErpLogEntry } from './erp-client.types';
 import { getErrorMessage } from '../../utils/errorUtils';
 import { acquireRateSlot, defaultRateLimitGroup } from './erp-rate-limiter';
+import { getErpCircuitBreaker, ErpCircuitOpenError } from './erp-circuit-breaker';
 
 /** keepAlive 连接池：复用 TCP/TLS 连接，消除每次握手开销 */
 const erpHttpAgent = new http.Agent({
@@ -57,7 +58,7 @@ async function buildCommonHeaders(
  * 核心 ERP 请求方法
  * 自动注入认证、重试、限流、日志
  */
-export async function erpRequest<T = any>(
+export async function erpRequest<T = unknown>(
   method: string,
   path: string,
   data?: any,
@@ -73,6 +74,7 @@ export async function erpRequest<T = any>(
   let lastError: Error | null = null;
   let lastAxiosResponse: { status: number; data: unknown } | null = null;
   const startTime = Date.now();
+  const upperMethod = method.toUpperCase();
 
   // 构造请求头
   const headers = await buildCommonHeaders(options?.headers);
@@ -81,145 +83,143 @@ export async function erpRequest<T = any>(
   const sanitizedHeaders = { ...headers };
   delete sanitizedHeaders.authorization;
 
-  while (retryCount <= config.retryMax) {
-    let releaseSlot: (() => void) | null = null;
-    try {
-      // 限流：按分组并发控制（仅持有 HTTP 期间的槽位，退避期间释放）
-      const rateGroup = options?.rateLimitGroup ?? defaultRateLimitGroup(pathPrefix, path);
-      releaseSlot = await acquireRateSlot(rateGroup);
+  // 可变日志条目：各路径只更新差异字段，finally 中统一写入一次
+  const logEntry: ErpLogEntry = {
+    requestId,
+    method: upperMethod,
+    path: fullPath,
+    requestHeaders: sanitizedHeaders,
+    requestBody: upperMethod !== 'GET' ? data : undefined,
+    durationMs: 0,
+    retryCount: 0,
+    businessType: options?.businessType,
+    businessId: options?.businessId,
+  };
 
-      const axiosConfig: AxiosRequestConfig = {
-        method: method.toUpperCase() as any,
-        url,
-        headers,
-        timeout: options?.timeout ?? config.timeout,
-        httpAgent: erpHttpAgent,
-        httpsAgent: erpHttpsAgent,
-      };
+  // 断路器检查：ERP 连续不可用时快速失败
+  const cb = getErpCircuitBreaker();
+  if (!cb.allowRequest()) {
+    throw new ErpCircuitOpenError();
+  }
 
-      if (method.toUpperCase() === 'GET') {
-        axiosConfig.params = data;
-      } else {
-        axiosConfig.data = data;
-      }
+  try {
+    while (retryCount <= config.retryMax) {
+      let releaseSlot: (() => void) | null = null;
+      try {
+        // 限流：按分组并发控制（仅持有 HTTP 期间的槽位，退避期间释放）
+        const rateGroup = options?.rateLimitGroup ?? defaultRateLimitGroup(pathPrefix, path);
+        releaseSlot = await acquireRateSlot(rateGroup);
 
-      const response = await erpAxios(axiosConfig);
-      // HTTP 完成，立即释放限流槽位
-      releaseSlot();
-      releaseSlot = null;
+        const axiosConfig: AxiosRequestConfig = {
+          method: upperMethod as any,
+          url,
+          headers,
+          timeout: options?.timeout ?? config.timeout,
+          httpAgent: erpHttpAgent,
+          httpsAgent: erpHttpsAgent,
+        };
 
-      const responseData = response.data;
-
-      // 写入日志（fire-and-forget，不阻塞响应）
-      if (!options?.skipLog) {
-        writeErpLog({
-          requestId,
-          method: method.toUpperCase(),
-          path: fullPath,
-          requestHeaders: sanitizedHeaders,
-          requestBody: method.toUpperCase() !== 'GET' ? data : undefined,
-          responseStatus: response.status,
-          responseBody: responseData,
-          durationMs: Date.now() - startTime,
-          retryCount,
-          businessType: options?.businessType,
-          businessId: options?.businessId,
-        }).catch(err => log.warn('日志写入失败:', err?.message)); // 日志写入失败不影响业务
-      }
-
-      // 舟谱 API 错误码检查
-      if (
-        responseData &&
-        typeof responseData === 'object' &&
-        responseData.code !== undefined &&
-        responseData.code !== 0
-      ) {
-        throw new ErpApiError(
-          responseData.message || `舟谱API错误(code=${responseData.code})`,
-          responseData.code,
-          fullPath,
-          response.status
-        );
-      }
-
-      return responseData as T;
-    } catch (error: any) {
-      // 确保 HTTP 失败后立即释放限流槽位
-      releaseSlot?.();
-
-      lastError = error;
-
-      // ErpApiError（舟谱业务错误）不重试
-      if (error instanceof ErpApiError) {
-        if (!options?.skipLog) {
-          writeErpLog({
-            requestId,
-            method: method.toUpperCase(),
-            path: fullPath,
-            requestHeaders: sanitizedHeaders,
-            requestBody: method.toUpperCase() !== 'GET' ? data : undefined,
-            errorMessage: getErrorMessage(error),
-            durationMs: Date.now() - startTime,
-            retryCount,
-            businessType: options?.businessType,
-            businessId: options?.businessId,
-          }).catch(err => log.warn('日志写入失败:', err?.message)); // 日志写入失败不影响业务
+        if (upperMethod === 'GET') {
+          axiosConfig.params = data;
+        } else {
+          axiosConfig.data = data;
         }
-        throw error;
-      }
 
-      // HTTP 4xx/5xx 错误：保留 Axios 原始响应体用于日志（Axios 对非 2xx 抛 error，response 挂在 error.response 上）
-      if (error?.response) {
-        lastAxiosResponse = { status: error.response.status, data: error.response.data };
-        const respInfo = error.response.data
-          ? ` | response: ${typeof error.response.data === 'object' ? JSON.stringify(error.response.data) : error.response.data}`
-          : '';
-        lastError = new Error(`${error.message}${respInfo}`);
-      }
+        const response = await erpAxios(axiosConfig);
+        // HTTP 完成，立即释放限流槽位
+        releaseSlot();
+        releaseSlot = null;
 
-      // 网络错误或超时，可重试
-      retryCount++;
-      if (retryCount <= config.retryMax) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
-        log.warn(
-          `请求失败，${delay}ms 后第 ${retryCount} 次重试: ${fullPath}`,
-          getErrorMessage(lastError)
-        );
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const responseData = response.data;
+
+        // 更新日志条目的响应字段
+        logEntry.responseStatus = response.status;
+        logEntry.responseBody = responseData;
+
+        // 舟谱 API 错误码检查
+        if (
+          responseData &&
+          typeof responseData === 'object' &&
+          responseData.code !== undefined &&
+          responseData.code !== 0
+        ) {
+          throw new ErpApiError(
+            responseData.message || `舟谱API错误(code=${responseData.code})`,
+            responseData.code,
+            fullPath,
+            response.status
+          );
+        }
+
+        return responseData as T;
+      } catch (error: unknown) {
+        // 确保 HTTP 失败后立即释放限流槽位
+        releaseSlot?.();
+
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // ErpApiError（舟谱业务错误）不重试，但视为 ERP 可达（记录成功）
+        if (error instanceof ErpApiError) {
+          logEntry.errorMessage = getErrorMessage(error);
+          cb.recordSuccess();
+          throw error;
+        }
+
+        // 网络/超时错误：记录失败到断路器
+        cb.recordFailure();
+
+        // HTTP 4xx/5xx 错误：保留 Axios 原始响应体用于日志（Axios 对非 2xx 抛 error，response 挂在 error.response 上）
+        const axiosError = error as { response?: { status: number; data: unknown }; message: string };
+        if (axiosError?.response) {
+          lastAxiosResponse = { status: axiosError.response.status, data: axiosError.response.data };
+          const respInfo = axiosError.response.data
+            ? ` | response: ${typeof axiosError.response.data === 'object' ? JSON.stringify(axiosError.response.data) : axiosError.response.data}`
+            : '';
+          lastError = new Error(`${axiosError.message}${respInfo}`);
+        }
+
+        // 网络错误或超时，可重试
+        retryCount++;
+        if (retryCount <= config.retryMax) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
+          log.warn(
+            `请求失败，${delay}ms 后第 ${retryCount} 次重试: ${fullPath}`,
+            getErrorMessage(lastError)
+          );
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
     }
-  }
 
-  // 重试耗尽
-  if (!options?.skipLog) {
-    writeErpLog({
-      requestId,
-      method: method.toUpperCase(),
-      path: fullPath,
-      requestHeaders: sanitizedHeaders,
-      requestBody: method.toUpperCase() !== 'GET' ? data : undefined,
-      responseStatus: lastAxiosResponse?.status,
-      responseBody: lastAxiosResponse?.data,
-      errorMessage: lastError?.message || '未知错误',
-      durationMs: Date.now() - startTime,
-      retryCount,
-      businessType: options?.businessType,
-      businessId: options?.businessId,
-    }).catch(err => log.warn('日志写入失败:', err?.message)); // 日志写入失败不影响业务
-  }
+    // 重试耗尽：更新日志条目的最终状态
+    logEntry.responseStatus = lastAxiosResponse?.status;
+    logEntry.responseBody = lastAxiosResponse?.data;
+    logEntry.errorMessage = lastError?.message || '未知错误';
 
-  throw new ErpApiError(
-    `ERP API 请求失败(${retryCount}次重试后): ${lastError?.message || '未知错误'}`,
-    -1,
-    fullPath,
-    500
-  );
+    throw new ErpApiError(
+      `ERP API 请求失败(${retryCount}次重试后): ${lastError?.message || '未知错误'}`,
+      -1,
+      fullPath,
+      500
+    );
+  } finally {
+    // 请求成功时记录成功（业务错误已在 catch 中处理）
+    if (!lastError) {
+      cb.recordSuccess();
+    }
+    // 统一写入日志（fire-and-forget，不阻塞响应）
+    logEntry.durationMs = Date.now() - startTime;
+    logEntry.retryCount = retryCount;
+    if (!options?.skipLog) {
+      writeErpLog(logEntry).catch(err => log.warn('日志写入失败:', err?.message));
+    }
+  }
 }
 
 /**
  * GET 请求便捷方法
  */
-export async function erpGet<T = any>(
+export async function erpGet<T = unknown>(
   path: string,
   params?: Record<string, any>,
   options?: ErpRequestOptions
@@ -230,7 +230,7 @@ export async function erpGet<T = any>(
 /**
  * POST 请求便捷方法
  */
-export async function erpPost<T = any>(
+export async function erpPost<T = unknown>(
   path: string,
   data?: any,
   options?: ErpRequestOptions
@@ -241,7 +241,7 @@ export async function erpPost<T = any>(
 /**
  * PUT 请求便捷方法
  */
-export async function erpPut<T = any>(
+export async function erpPut<T = unknown>(
   path: string,
   data?: any,
   options?: ErpRequestOptions
