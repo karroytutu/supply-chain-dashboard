@@ -8,6 +8,7 @@ import { erpPost, erpGet } from './erp-client';
 import { getErpDefaults } from './erp-config';
 import { createLogger } from '../../utils/logger';
 import { beijingDate, beijingDateTime } from '../../utils/beijingTime';
+import { BAD_DEBT_SUBJECT_ID, BAD_DEBT_SUBJECT_NAME } from '../../utils/constants';
 
 const log = createLogger('MarketExpense');
 
@@ -218,6 +219,96 @@ export async function createCustomerExpenditure(
   const data = response?.data;
   if (!data) {
     throw new Error(`兑付生成费用单失败: ${JSON.stringify(response)}`);
+  }
+
+  return {
+    id: data.id,
+    billStr: data.billStr,
+    state: data.state || 'APPROVED',
+  };
+}
+
+// =====================================================
+// 坏账处理：创建客户费用单（无兑付协议）
+// =====================================================
+
+/** 创建坏账费用单请求参数 */
+export interface CreateBadDebtExpenditureParams {
+  traderId: number;
+  traderName: string;
+  totalAmount: number;
+  note?: string;
+}
+
+/**
+ * 创建坏账费用单（无兑付协议）
+ * POST /saas/pro/expenditure-bill/save-approve-trade-expenditure
+ *
+ * 与 createCustomerExpenditure 的差异：
+ * - haveFulfill: false（无兑付协议）
+ * - contractStr/contractId/contractDetailId 均为 null
+ * - subjectId 固定为 339（坏账费用）
+ *
+ * @usedBy bad-debt-callback.ts
+ */
+export async function createBadDebtExpenditure(
+  params: CreateBadDebtExpenditureParams,
+  idemKey?: string
+): Promise<CreateCustomerExpenditureResult> {
+  const { cid, uid, defaultSalesmanId, defaultDeptId } = getErpDefaults();
+  const now = beijingDateTime();
+
+  const body = {
+    operatorId: defaultSalesmanId,
+    traderId: params.traderId,
+    settlerId: params.traderId,
+    traderType: 'STORE',
+    traderName: params.traderName,
+    settlerName: params.traderName,
+    totalAmount: params.totalAmount,
+    salesmanId: defaultSalesmanId,
+    salesmanName: '鑫链云（AI员工）',
+    deptId: defaultDeptId,
+    deptName: '贵州鑫众合商贸有限公司',
+    workTime: now,
+    operatorName: '鑫链云（AI员工）',
+    operateTime: now,
+    state: null,
+    note: params.note || '',
+    fromFollowRebate: false,
+    brandId: '',
+    details: [{
+      subjectId: BAD_DEBT_SUBJECT_ID,
+      subjectName: BAD_DEBT_SUBJECT_NAME,
+      note: params.note || '',
+      paymentAmount: params.totalAmount,
+      contractStr: null,
+      contractId: null,
+      contractDetailId: null,
+      contractName: null,
+      haveFulfill: false,
+      brandId: 0,
+    }],
+    imgIds: [],
+    cid,
+    uid,
+  };
+
+  log.info(`坏账创建费用单: trader=${params.traderName}, amount=${params.totalAmount}`);
+
+  const response = (await erpPost(
+    '/expenditure-bill/save-approve-trade-expenditure',
+    body,
+    {
+      pathPrefix: '/saas/pro/',
+      businessType: 'create_bad_debt_expenditure',
+      headers: idemKey ? { idemkey: idemKey } : undefined,
+    }
+  )) as any;
+
+  const data = response?.data;
+  if (!data) {
+    throw new Error(`坏账创建费用单失败: ${JSON.stringify(response)}`);
   }
 
   return {

@@ -152,8 +152,12 @@ export async function executeAutoNodeCallback(
         );
 
         // 立即执行：复用当前上下文，claim 幂等保护
+        // 合并当前节点的回调结果到 formData，供连续 auto 节点读取
+        const mergedFormData = callbackResult?.formData
+          ? { ...formData, ...callbackResult.formData }
+          : formData;
         setImmediate(() => {
-          executeAutoNodeCallback(instanceId, nextNode, formType, instance, formData)
+          executeAutoNodeCallback(instanceId, nextNode, formType, instance, mergedFormData)
             .catch(err => log.error(`连续auto/cc节点立即执行失败 [instanceId=${instanceId}]:`, err));
         });
       } else {

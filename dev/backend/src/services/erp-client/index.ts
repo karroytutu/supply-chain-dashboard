@@ -6,7 +6,22 @@
 export { getErpConfig, getErpDefaults, ERP_API_VERSION } from './erp-config';
 export { getErpAccessToken, refreshErpToken, invalidateErpToken } from './erp-auth';
 export { erpRequest, erpGet, erpPost, erpPut } from './erp-client';
-export { cleanupExpenditureBill, cleanupIncomeBill } from './erp-cleanup';
+export {
+  cleanupExpenditureBill,
+  cleanupIncomeBill,
+  revokeBillSubmission,
+  cleanupBadDebtBills,
+} from './erp-cleanup';
+export {
+  createCustomerReceipt,
+  deApproveCustomerReceipt,
+  cancelCustomerReceipt,
+} from './erp-customer-receipt.service';
+export type {
+  ReceiptInvoiceItem,
+  CreateCustomerReceiptParams,
+  CreateCustomerReceiptResult,
+} from './erp-customer-receipt.service';
 export { createLogEntry, writeErpLog } from './erp-logger';
 export { ErpApiError } from './erp-client.types';
 export type {
@@ -85,7 +100,9 @@ export type {
   CreateChargeContractResult,
   CreateCustomerExpenditureParams,
   CreateCustomerExpenditureResult,
+  CreateBadDebtExpenditureParams,
 } from './erp-market-expense.service';
+export { createBadDebtExpenditure } from './erp-market-expense.service';
 export type {
   CreateSupplierExpenseBillRequest,
   SupplierExpenseBillResponse,

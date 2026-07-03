@@ -361,3 +361,16 @@ export const PROCUREMENT_DAILY_SALES_PERIOD = 60;
 
 /** beforeSubmit ERP数据获取超时（毫秒） @usedBy procurement-analysis.ts */
 export const PROCUREMENT_ANALYSIS_TIMEOUT_MS = 8000;
+
+// ==================== 坏账处理相关 ====================
+
+/** 坏账费用科目ID（ERP 已配置）
+ * @usedBy bad-debt-callback.ts (创建坏账费用单)
+ * @usedBy bad-debt-write-off.ts (表单常量)
+ */
+export const BAD_DEBT_SUBJECT_ID = 339;
+
+/** 坏账费用科目名称
+ * @usedBy bad-debt-callback.ts (创建坏账费用单)
+ */
+export const BAD_DEBT_SUBJECT_NAME = '坏账费用';

@@ -23,6 +23,7 @@ import { promotionCombinedOfflineFormType } from './promotion-combined-offline';
 import { promotionSpecialOfflineFormType } from './promotion-special-offline';
 import { promotionFullGiftOfflineFormType } from './promotion-fullgift-offline';
 import { marketExpenseFormType } from './market-expense';
+import { badDebtWriteOffFormType } from './bad-debt-write-off';
 
 /**
  * 所有已注册的表单类型
@@ -47,6 +48,7 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   promotionSpecialOfflineFormType,
   promotionFullGiftOfflineFormType,
   marketExpenseFormType,
+  badDebtWriteOffFormType,
 ];
 
 /**
