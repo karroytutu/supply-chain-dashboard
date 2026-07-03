@@ -14,6 +14,7 @@ import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { formatCurrency } from '@/utils/format';
 import { getErpReference } from '@/services/api/oa';
+import { isAbortError } from '@/services/api/request';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
 import { fetchModalData } from '../hooks/useModalFetch';
 import { renderFilterControl, getFilterDefaults } from './FilterControls';
@@ -88,7 +89,7 @@ const SearchableModalPicker: React.FC<SearchableModalPickerProps> = ({
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   const selectedMapRef = useRef<Map<string, Record<string, unknown>>>(new Map());
   const prevPageKeysRef = useRef<Set<string>>(new Set());
-  const skipNextFilterFetchRef = useRef(false);
+  const openFilterDefaultsRef = useRef<Record<string, unknown>>({});
 
   // ═══ 弹窗打开时初始化状态 ═══
   useEffect(() => {
@@ -110,7 +111,7 @@ const SearchableModalPicker: React.FC<SearchableModalPickerProps> = ({
     prevPageKeysRef.current = new Set();
 
     const defaults = getFilterDefaults(filters);
-    skipNextFilterFetchRef.current = true;
+    openFilterDefaultsRef.current = defaults;  // 记录 open 时设定的引用，供 filterValues effect 跳过首次变更
     setFilterValues(defaults);
 
     // 首次 fetch
@@ -236,7 +237,7 @@ const SearchableModalPicker: React.FC<SearchableModalPickerProps> = ({
         }
       }
     } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (isAbortError(error)) return;
       message.error('获取数据失败');
     } finally {
       if (!controller.signal.aborted) setTableLoading(false);
@@ -267,12 +268,17 @@ const SearchableModalPicker: React.FC<SearchableModalPickerProps> = ({
   // 筛选条件变化后自动触发 fetch
   useEffect(() => {
     if (!open) return;
-    if (skipNextFilterFetchRef.current) { skipNextFilterFetchRef.current = false; return; }
+    // 跳过 open effect 设定 defaults 引起的那次 filterValues 变化
+    if (filterValues === openFilterDefaultsRef.current) return;
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
       if (searchApi || scopeFromField) fetchDataRef.current(keyword);
     }, 300);
-  }, [filterValues, open, searchApi, scopeFromField, fetchData, keyword]);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchData 通过 fetchDataRef 访问最新引用，无需加入依赖
+  }, [filterValues, open, searchApi, scopeFromField, keyword]);
 
   // 清理
   useEffect(() => {

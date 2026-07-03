@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "v2.20.3",
+      "date": "2026-07-03 13:33",
+      "types": ["fix", "optimization"],
+      "changes": [
+        "修复OA弹窗选择器打开时重复请求数据的问题：筛选条件初始化不再触发多余的fetch",
+        "统一请求中止错误检测：提取 isAbortError() 工具函数，替换4处内联 DOMException 判断，避免中止错误被误报为超时或网络异常",
+        "补充 isAbortError 单元测试，完善网络错误处理测试用例"
+      ]
+    },
+    {
       "version": "v2.20.2",
       "date": "2026-07-03 13:00",
       "types": ["fix"],

@@ -10,6 +10,7 @@ import { Modal, Tree, Input, Empty, Spin, Typography } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import type { FieldControlProps } from './types';
 import { getErpReference } from '@/services/api/oa';
+import { isAbortError } from '@/services/api/request';
 import { ERP_TREE_SEARCH_API_MAP } from '@/constants/oa-erp';
 
 const { Text } = Typography;
@@ -188,7 +189,7 @@ const TreeSelectModalControl: React.FC<FieldControlProps> = ({
       setExpandedKeys(firstLevelKeys);
       dataLoadedRef.current = true;
     } catch (err) {
-      if ((err as Error)?.name !== 'AbortError') {
+      if (!isAbortError(err)) {
         console.error('获取片区树形数据失败:', err);
       }
     } finally {

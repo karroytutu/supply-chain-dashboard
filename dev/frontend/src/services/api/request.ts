@@ -10,6 +10,16 @@ const TOKEN_KEY = 'auth_token';
 /** 默认请求超时时间（30秒） */
 const DEFAULT_TIMEOUT = 30000;
 
+/**
+ * 判断错误是否为请求中止（超时或外部主动取消）
+ * 兼容浏览器原生 DOMException 和 name 标记的普通 Error
+ */
+export function isAbortError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  return false;
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
@@ -60,8 +70,8 @@ function handleAuthError(status: number, errorData?: any): void {
 }
 
 function normalizeNetworkError(error: unknown): Error {
-  if (error instanceof DOMException && error.name === 'AbortError') {
-    return new Error('请求超时，请稍后重试');
+  if (isAbortError(error)) {
+    return error as Error;  // 保留原始身份，供调用方 isAbortError() 检测
   }
 
   if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
@@ -244,11 +254,10 @@ export async function requestFormData<T = any>(
     });
   } catch (error) {
     clearTimeout(timeoutId);
-    const normalizedError = normalizeNetworkError(error);
-    if (normalizedError.message === '请求超时，请稍后重试') {
+    if (isAbortError(error)) {
       throw new Error('上传超时，请稍后重试');
     }
-    throw normalizedError;
+    throw normalizeNetworkError(error);
   } finally {
     clearTimeout(timeoutId);
   }

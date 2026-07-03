@@ -18,6 +18,7 @@ import { Select, Spin, Typography } from 'antd';
 import type { FieldControlProps } from './types';
 import { ERP_SEARCH_API_MAP, ERP_LABEL_FIELDS, ERP_VALUE_FIELDS, loadErpConfig } from '@/constants/oa-erp';
 import { oaApi } from '@/services/api/oa';
+import { isAbortError } from '@/services/api/request';
 import { getCachedOptions, setCachedOptions, SERVER_KEYWORD_TYPES, MIN_SEARCH_LENGTH, buildCacheKey } from '@/pages/Oa/Form/components/erpSearchCache';
 import SettlementOrderPicker from '@/pages/Oa/Form/components/SettlementOrderPicker';
 import { resolveStoredName } from '../utils/resolveStoredName';
@@ -233,7 +234,7 @@ const ErpSearchSelect: React.FC<ErpSearchSelectProps> = ({
       setOptions(newOptions);
       setCachedOptions(cacheKey, newOptions);
     } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (isAbortError(error)) return;
       setOptions([]);
     } finally {
       setLoading(false);

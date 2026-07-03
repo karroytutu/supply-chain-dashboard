@@ -3,7 +3,7 @@
  * 测试 toSnakeKeys 参数转换、错误处理、响应格式解析
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { request, requestFormData } from './request';
+import { request, requestFormData, isAbortError } from './request';
 
 // Mock 依赖模块
 vi.mock('@/utils/keyConvert', () => ({
@@ -219,20 +219,55 @@ describe('HTTP 错误处理', () => {
   });
 });
 
+// ==================== isAbortError 工具函数 ====================
+
+describe('isAbortError', () => {
+  it('识别 DOMException AbortError', () => {
+    expect(isAbortError(new DOMException('Aborted', 'AbortError'))).toBe(true);
+  });
+
+  it('识别 name 为 AbortError 的普通 Error', () => {
+    const err = new Error('aborted');
+    err.name = 'AbortError';
+    expect(isAbortError(err)).toBe(true);
+  });
+
+  it('不识别普通 Error', () => {
+    expect(isAbortError(new Error('network error'))).toBe(false);
+  });
+
+  it('不识别 null/undefined', () => {
+    expect(isAbortError(null)).toBe(false);
+    expect(isAbortError(undefined)).toBe(false);
+  });
+});
+
 // ==================== 网络错误 ====================
 
 describe('网络错误处理', () => {
-  it('AbortError 转为超时错误', async () => {
+  it('AbortError 保留原始 DOMException 身份', async () => {
     const abortError = new DOMException('Aborted', 'AbortError');
     (fetch as any).mockRejectedValueOnce(abortError);
 
-    await expect(request('/test')).rejects.toThrow('请求超时');
+    try {
+      await request('/test');
+      expect.fail('should have thrown');
+    } catch (error) {
+      expect(isAbortError(error)).toBe(true);
+      expect(error).toBeInstanceOf(DOMException);
+    }
   });
 
-  it('Failed to fetch 转为网络错误', async () => {
+  it('Failed to fetch 仍转为网络错误提示', async () => {
     (fetch as any).mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-    await expect(request('/test')).rejects.toThrow('网络连接失败');
+    try {
+      await request('/test');
+      expect.fail('should have thrown');
+    } catch (error) {
+      expect(isAbortError(error)).toBe(false);
+      expect((error as Error).message).toContain('网络连接失败');
+    }
   });
 
   it('其他 Error 原样抛出', async () => {

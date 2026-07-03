@@ -5,6 +5,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Modal, Table, Button, Input, message } from 'antd';
 import { getSettlementOrdersPaged } from '@/services/api/oa';
+import { isAbortError } from '@/services/api/request';
 import { type SettlementRecord, TABLE_COLUMNS, PAGE_SIZE } from './SettlementOrderPicker';
 import styles from './SettlementOrderPicker.less';
 
@@ -67,7 +68,7 @@ const SettlementOrderPickerModal: React.FC<SettlementOrderPickerModalProps> = ({
         });
       }
     } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (isAbortError(error)) return;
       message.error('获取结算单列表失败');
     } finally {
       if (!controller.signal.aborted) setTableLoading(false);
