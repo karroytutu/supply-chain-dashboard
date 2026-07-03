@@ -292,3 +292,15 @@ export async function getCategoriesConfig(): Promise<
     };
   });
 }
+
+// ==================== 被考核人列表 ====================
+
+/**
+ * 获取有考核记录的被考核人列表（去重，用于前端筛选下拉）
+ * @param keyword 可选关键词模糊搜索
+ */
+export async function getAssessmentUsers(
+  keyword?: string
+): Promise<Array<{ id: number; name: string }>> {
+  return repository.getAssessmentUsers(keyword);
+}

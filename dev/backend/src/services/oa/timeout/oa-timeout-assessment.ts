@@ -114,6 +114,7 @@ registerAssessmentRule({
         penalty_rate: 0,
         overdue_days: overdueDays,
         penalty_amount: tier.penaltyAmount,
+        oa_instance_id: node.instance_id,
         rule_snapshot: {
           tier_name: tier.name,
           tiers: assessmentCfg.tiers,

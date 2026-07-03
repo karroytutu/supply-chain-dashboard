@@ -55,7 +55,7 @@ const AppealModal: React.FC<AppealModalProps> = ({
           <Descriptions column={1} size="small">
             <Descriptions.Item label="被考核人">{record.assessmentUserName}</Descriptions.Item>
             <Descriptions.Item label="考核金额">
-              <span style={{ color: '#f5222d' }}>¥{record.penaltyAmount?.toFixed(2)}</span>
+              <span style={{ color: '#ff4d4f' }}>¥{record.penaltyAmount?.toFixed(2)}</span>
             </Descriptions.Item>
             <Descriptions.Item label="考核规则">{record.ruleType}</Descriptions.Item>
           </Descriptions>

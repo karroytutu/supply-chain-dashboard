@@ -1,11 +1,25 @@
 /**
- * 退货考核表格列定义
+ * 考核中心统一表格列定义
+ * 仅包含所有考核类型共有的字段，不显示类型特有列
  */
 import React from 'react';
 import { Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import AppealStatusTag from '../AppealStatusTag';
+
+// 与 variables.less 中的设计令牌保持一致
+const COLOR = {
+  primary: '#1890ff',       // @primary-color
+  serious: '#ff4d4f',       // @warning-serious (>=7天超时、考核金额)
+  alert: '#fa8c16',         // @warning-color-dark (>=5天超时)
+  attention: '#faad14',     // @warning-color (3-4天超时)
+} as const;
+
+/** 超时天数颜色分级阈值 */
+const OVERDUE_SERIOUS_DAYS = 7;   // 严重：红色
+const OVERDUE_ALERT_DAYS = 5;     // 警告：橙色
+const OVERDUE_ATTENTION_DAYS = 3; // 注意：黄色
 
 /** 状态标签映射 */
 export const STATUS_MAP: Record<string, { color: string; text: string }> = {
@@ -15,39 +29,44 @@ export const STATUS_MAP: Record<string, { color: string; text: string }> = {
   appealed: { color: 'purple', text: '申诉中' },
 };
 
-/** 退货考核角色中文映射 */
-const ROLE_LABELS: Record<string, string> = {
-  procurement_manager: '采购主管',
-  marketing_manager: '营销经理',
-  warehouse_manager: '仓储主管',
-  warehouse_operator: '库管员',
-  logistics_manager: '物流经理',
-  marketer: '营销师',
-  marketing_supervisor: '营销经理',
-};
-
-/** 退货考核类型映射 */
+/** 所有考核规则类型中文映射（合并三套） */
 const RULE_TYPE_LABELS: Record<string, string> = {
+  // 退货考核
   procurement_confirm_timeout: '采购确认超时',
   marketing_sales_timeout: '营销销售超时',
   return_expire_insufficient: '退货保质期不足',
   erp_entry_timeout: 'ERP录入超时',
   warehouse_execute_timeout: '仓储执行超时',
+  // OA节点超时
+  node_timeout: '节点超时',
+  // 执照考核
+  license_timeout: '执照补交超时',
 };
 
-/** 获取退货考核列定义 */
-export function getReturnOrderColumns(): ColumnsType<AssessmentRecord> {
+/** 获取统一考核表格列定义 */
+export function getUnifiedColumns(): ColumnsType<AssessmentRecord> {
   return [
     {
       title: '业务编号',
       dataIndex: 'sourceNo',
-      width: 150,
-      render: (text: string) => (
-        <span style={{ color: '#1890ff', cursor: 'pointer' }}>{text || '-'}</span>
-      ),
+      width: 200,
+      render: (text: string, record: AssessmentRecord) => {
+        if (!text) return '-';
+        if (record.oaInstanceId) {
+          return (
+            <a
+              onClick={() => window.open(`/oa/detail/${record.oaInstanceId}`, '_blank')}
+              style={{ color: COLOR.primary }}
+            >
+              {text}
+            </a>
+          );
+        }
+        return <span>{text}</span>;
+      },
     },
     {
-      title: '商品名称',
+      title: '关联名称',
       dataIndex: 'sourceName',
       width: 150,
       ellipsis: true,
@@ -58,13 +77,7 @@ export function getReturnOrderColumns(): ColumnsType<AssessmentRecord> {
       width: 100,
     },
     {
-      title: '角色',
-      dataIndex: 'assessmentRole',
-      width: 90,
-      render: (role: string) => ROLE_LABELS[role] || role,
-    },
-    {
-      title: '考核类型',
+      title: '考核规则',
       dataIndex: 'ruleType',
       width: 140,
       render: (type: string) => (
@@ -76,7 +89,13 @@ export function getReturnOrderColumns(): ColumnsType<AssessmentRecord> {
       dataIndex: 'overdueDays',
       width: 90,
       align: 'center',
-      render: (n: number) => `${n}天`,
+      render: (n: number) => {
+        const color = n >= OVERDUE_SERIOUS_DAYS ? COLOR.serious
+          : n >= OVERDUE_ALERT_DAYS ? COLOR.alert
+          : n >= OVERDUE_ATTENTION_DAYS ? COLOR.attention
+          : undefined;
+        return <span style={color ? { color } : undefined}>{n}天</span>;
+      },
     },
     {
       title: '考核金额',
@@ -84,7 +103,7 @@ export function getReturnOrderColumns(): ColumnsType<AssessmentRecord> {
       width: 110,
       align: 'right',
       render: (n: number) => (
-        <span style={{ color: '#f5222d' }}>¥{n?.toFixed(2)}</span>
+        <span style={{ color: COLOR.serious }}>¥{n?.toFixed(2)}</span>
       ),
     },
     {

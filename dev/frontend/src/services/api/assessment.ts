@@ -61,3 +61,12 @@ export const calculateAssessment = (
     data || {},
   );
 };
+
+/** 获取有考核记录的被考核人列表 */
+export const getAssessmentUsers = (
+  keyword?: string,
+): Promise<Array<{ id: number; name: string }>> => {
+  return request.get<Array<{ id: number; name: string }>>('/assessment/users', {
+    params: keyword ? { keyword } : {},
+  });
+};

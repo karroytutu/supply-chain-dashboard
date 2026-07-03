@@ -112,6 +112,7 @@ registerAssessmentRule({
         penalty_rate: CREDIT_LICENSE_PENALTY_PER_DAY,
         overdue_days: overdueDays,
         penalty_amount: penaltyAmount,
+        oa_instance_id: record.oa_instance_id ?? undefined,
         rule_snapshot: {
           ruleName: '营业执照补交超时考核',
           penaltyPerDay: CREDIT_LICENSE_PENALTY_PER_DAY,

@@ -66,6 +66,7 @@ export {
   updateAssessmentStatusByAppeal,
   triggerCalculation,
   getCategoriesConfig,
+  getAssessmentUsers,
 } from './assessment.service';
 
 // 工具函数

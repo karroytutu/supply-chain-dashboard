@@ -1,6 +1,6 @@
 /**
  * 考核中心筛选状态管理 Hook
- * 将 category, page, keyword, ruleType, role, status, dateRange 同步到 URL
+ * 将 category, page, keyword, ruleType, assessmentUserId, status, dateRange 同步到 URL
  */
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'umi';
@@ -12,20 +12,15 @@ export function useAssessmentFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // 从 URL 读取筛选条件
-  const category = (searchParams.get('category') || 'return_order') as AssessmentCategory;
+  const category = searchParams.get('category') || '';
   const page = parseInt(searchParams.get('page') || '1', 10);
   const pageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
   const keyword = searchParams.get('keyword') || '';
   const ruleType = searchParams.get('ruleType') || '';
-  const role = searchParams.get('role') || '';
   const status = searchParams.get('status') || '';
+  const assessmentUserId = searchParams.get('assessmentUserId') || '';
   const startDate = searchParams.get('startDate') || '';
   const endDate = searchParams.get('endDate') || '';
-
-  /** 设置分类（切换 Tab 时重置分页和筛选） */
-  const setCategory = useCallback((cat: AssessmentCategory) => {
-    setSearchParams({ category: cat });
-  }, [setSearchParams]);
 
   /** 设置分页 */
   const setPage = useCallback((p: number, ps?: number) => {
@@ -36,44 +31,56 @@ export function useAssessmentFilters() {
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
-  /** 设置筛选条件（重置分页到第1页） */
+  /** 设置筛选条件（重置分页到第1页）
+   * 规则：undefined = 未变更保留旧值，'' = 显式清空，非空字符串 = 设置新值
+   */
   const setFilters = useCallback((filters: {
+    category?: string;
     keyword?: string;
     ruleType?: string;
-    role?: string;
     status?: string;
+    assessmentUserId?: string;
     startDate?: string;
     endDate?: string;
   }) => {
-    const params: Record<string, string> = { category };
-    if (filters.keyword) params.keyword = filters.keyword;
-    if (filters.ruleType) params.ruleType = filters.ruleType;
-    if (filters.role) params.role = filters.role;
-    if (filters.status) params.status = filters.status;
-    if (filters.startDate) params.startDate = filters.startDate;
-    if (filters.endDate) params.endDate = filters.endDate;
+    const params: Record<string, string> = {};
+    // 每个筛选项：undefined 表示未传入（保留旧值），其他值（含 ''）表示显式设置
+    const resolvedCategory = filters.category !== undefined ? filters.category : category;
+    if (resolvedCategory) params.category = resolvedCategory;
+    const resolvedKeyword = filters.keyword !== undefined ? filters.keyword : keyword;
+    if (resolvedKeyword) params.keyword = resolvedKeyword;
+    const resolvedRuleType = filters.ruleType !== undefined ? filters.ruleType : ruleType;
+    if (resolvedRuleType) params.ruleType = resolvedRuleType;
+    const resolvedStatus = filters.status !== undefined ? filters.status : status;
+    if (resolvedStatus) params.status = resolvedStatus;
+    const resolvedAssessmentUserId = filters.assessmentUserId !== undefined ? filters.assessmentUserId : assessmentUserId;
+    if (resolvedAssessmentUserId) params.assessmentUserId = resolvedAssessmentUserId;
+    const resolvedStartDate = filters.startDate !== undefined ? filters.startDate : startDate;
+    if (resolvedStartDate) params.startDate = resolvedStartDate;
+    const resolvedEndDate = filters.endDate !== undefined ? filters.endDate : endDate;
+    if (resolvedEndDate) params.endDate = resolvedEndDate;
     params.page = '1';
     params.pageSize = String(pageSize);
     setSearchParams(params);
-  }, [category, pageSize, setSearchParams]);
+  }, [category, keyword, ruleType, status, assessmentUserId, startDate, endDate, pageSize, setSearchParams]);
 
   /** 重置所有筛选条件 */
   const resetFilters = useCallback(() => {
-    setSearchParams({ category });
-  }, [category, setSearchParams]);
+    setSearchParams({});
+  }, [setSearchParams]);
 
   /** 构建 API 查询参数 */
   const queryParams = useMemo((): AssessmentQueryParams => ({
-    category,
+    category: (category || undefined) as AssessmentCategory | undefined,
     page,
     pageSize,
     keyword: keyword || undefined,
     ruleType: ruleType || undefined,
-    role: (role || undefined) as AssessmentRole | undefined,
     status: (status || undefined) as AssessmentStatus | undefined,
+    assessmentUserId: assessmentUserId ? parseInt(assessmentUserId, 10) : undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
-  }), [category, page, pageSize, keyword, ruleType, role, status, startDate, endDate]);
+  }), [category, page, pageSize, keyword, ruleType, status, assessmentUserId, startDate, endDate]);
 
   return {
     category,
@@ -81,12 +88,11 @@ export function useAssessmentFilters() {
     pageSize,
     keyword,
     ruleType,
-    role,
     status,
+    assessmentUserId,
     startDate,
     endDate,
     queryParams,
-    setCategory,
     setPage,
     setFilters,
     resetFilters,

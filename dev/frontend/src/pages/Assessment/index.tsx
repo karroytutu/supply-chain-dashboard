@@ -1,5 +1,6 @@
 /**
  * 统一考核中心页面入口
+ * 简洁的"筛选栏 + 统一列表"模式
  */
 import React from 'react';
 import { Authorized } from '@/components/Authorized';
@@ -7,13 +8,10 @@ import { PERMISSIONS } from '@/constants/permissions';
 import { useAssessmentFilters } from './hooks/useAssessmentFilters';
 import { useAssessmentData } from './hooks/useAssessmentData';
 import { useAssessmentActions } from './hooks/useAssessmentActions';
-import CategoryTabs from './components/CategoryTabs';
-import AssessmentStatsCard from './components/AssessmentStats';
 import AssessmentFilter from './components/AssessmentFilter';
 import AssessmentTable from './components/AssessmentTable';
 import HandleModal from './components/HandleModal';
 import AppealModal from './components/AppealModal';
-import RulesDescription from './components/RulesDescription';
 import './index.less';
 
 const AssessmentPage: React.FC = () => {
@@ -24,17 +22,16 @@ const AssessmentPage: React.FC = () => {
     pageSize,
     keyword,
     ruleType,
-    role,
     status,
+    assessmentUserId,
     queryParams,
-    setCategory,
     setPage,
     setFilters,
     resetFilters,
   } = useAssessmentFilters();
 
   // 数据获取
-  const { records, total, stats, loading, reloadData } = useAssessmentData(queryParams);
+  const { records, total, loading, reloadData } = useAssessmentData(queryParams);
 
   // 操作控制
   const {
@@ -49,24 +46,19 @@ const AssessmentPage: React.FC = () => {
   return (
     <Authorized permission={PERMISSIONS.ASSESSMENT.READ}>
       <div className="assessment-page">
-        <CategoryTabs
-          category={category}
-          stats={stats}
-          onChange={setCategory}
-        />
-        <AssessmentStatsCard stats={stats} loading={loading} />
         <AssessmentFilter
           category={category}
           keyword={keyword}
           ruleType={ruleType}
-          role={role}
           status={status}
+          assessmentUserId={assessmentUserId}
           onFilter={setFilters}
           onReset={resetFilters}
-          onCalculate={() => triggerCalculation(category)}
+          onCalculate={() => triggerCalculation(
+            (category || undefined) as AssessmentCategory | undefined
+          )}
         />
         <AssessmentTable
-          category={category}
           records={records}
           total={total}
           page={page}
@@ -90,7 +82,6 @@ const AssessmentPage: React.FC = () => {
           onClose={appealModal.close}
           onSubmit={submitAppeal}
         />
-        <RulesDescription category={category} />
       </div>
     </Authorized>
   );

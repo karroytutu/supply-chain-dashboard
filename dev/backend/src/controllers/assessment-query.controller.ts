@@ -12,13 +12,14 @@ import {
   getMyAssessments,
   getAssessmentById,
   getCategoriesConfig,
+  getAssessmentUsers,
   type AssessmentQueryParams,
 } from '../services/assessment';
 
 /**
  * GET /api/assessment
  * 获取考核记录列表
- * Query: category, status, rule_type, role, keyword, start_date, end_date, page, page_size
+ * Query: category, status, rule_type, keyword, start_date, end_date, assessment_user_id, page, page_size
  */
 export async function getRecords(req: Request, res: Response): Promise<void> {
   try {
@@ -26,10 +27,15 @@ export async function getRecords(req: Request, res: Response): Promise<void> {
       category: req.query.category as any,
       status: req.query.status as any,
       rule_type: (req.query.rule_type as string) || (req.query.ruleType as string),
-      role: req.query.role as any,
       keyword: req.query.keyword as string,
       start_date: (req.query.start_date as string) || (req.query.startDate as string),
       end_date: (req.query.end_date as string) || (req.query.endDate as string),
+      assessment_user_id: (() => {
+        const raw = req.query.assessment_user_id || req.query.assessmentUserId;
+        if (!raw) return undefined;
+        const parsed = parseInt(raw as string);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      })(),
       page: parseInt(req.query.page as string) || 1,
       page_size: parseInt((req.query.page_size as string) || (req.query.pageSize as string)) || 20,
     };
@@ -95,6 +101,22 @@ export async function getCategories(req: Request, res: Response): Promise<void> 
     res.json({ code: 200, data: config });
   } catch (error) {
     log.error('查询分类配置失败:', error);
+    res.status(500).json({ code: 500, message: '查询失败' });
+  }
+}
+
+/**
+ * GET /api/assessment/users
+ * 获取有考核记录的被考核人列表（用于前端筛选下拉）
+ * Query: keyword
+ */
+export async function getUsers(req: Request, res: Response): Promise<void> {
+  try {
+    const keyword = req.query.keyword as string | undefined;
+    const users = await getAssessmentUsers(keyword);
+    res.json({ code: 200, data: users });
+  } catch (error) {
+    log.error('查询被考核人列表失败:', error);
     res.status(500).json({ code: 500, message: '查询失败' });
   }
 }

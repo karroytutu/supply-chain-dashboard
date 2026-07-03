@@ -11,6 +11,7 @@ import {
   getStats,
   getMyRecords,
   getCategories,
+  getUsers,
   getDetail,
 } from '../controllers/assessment-query.controller';
 import {
@@ -37,6 +38,9 @@ router.get('/my', requirePermission('assessment:read'), getMyRecords);
 
 /** 获取分类配置（各分类的规则类型列表） */
 router.get('/categories', requirePermission('assessment:read'), getCategories);
+
+/** 获取有考核记录的被考核人列表（用于筛选下拉） */
+router.get('/users', requirePermission('assessment:read'), getUsers);
 
 // ==================== 操作接口（assessment:write 权限）====================
 

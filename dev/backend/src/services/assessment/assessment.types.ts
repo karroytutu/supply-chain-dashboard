@@ -124,10 +124,10 @@ export interface AssessmentQueryParams {
   category?: AssessmentCategory;
   status?: AssessmentStatus;
   rule_type?: string;
-  role?: AssessmentRole;
   keyword?: string;
   start_date?: string;
   end_date?: string;
+  assessment_user_id?: number;
   page: number;
   page_size: number;
 }
@@ -181,6 +181,8 @@ export interface CalculationResult {
   penalty_rate: number;
   overdue_days: number;
   penalty_amount: number;
+  /** 关联的 OA 审批实例 ID（用于前端跳转到审批详情） */
+  oa_instance_id?: number;
   rule_snapshot: Record<string, unknown>;
 }
 

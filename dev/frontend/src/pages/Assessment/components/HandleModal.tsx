@@ -52,7 +52,7 @@ const HandleModal: React.FC<HandleModalProps> = ({
         <Descriptions column={1} size="small" style={{ marginBottom: 16 }}>
           <Descriptions.Item label="被考核人">{record.assessmentUserName}</Descriptions.Item>
           <Descriptions.Item label="考核金额">
-            <span style={{ color: '#f5222d' }}>¥{record.penaltyAmount?.toFixed(2)}</span>
+            <span style={{ color: '#ff4d4f' }}>¥{record.penaltyAmount?.toFixed(2)}</span>
           </Descriptions.Item>
           <Descriptions.Item label="规则类型">{record.ruleType}</Descriptions.Item>
         </Descriptions>

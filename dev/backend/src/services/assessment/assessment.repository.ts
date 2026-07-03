@@ -45,7 +45,7 @@ function invalidateCache(): void {
 
 /**
  * 获取考核记录列表（分页）
- * 支持 category, status, rule_type, role, keyword, date_range 筛选
+ * 支持 category, status, rule_type, keyword, date_range, assessment_user_id 筛选
  * @param params 查询参数
  */
 export async function getRecords(
@@ -61,7 +61,7 @@ export async function getRecords(
   const countSql = `SELECT COUNT(*) FROM assessment_records ${conditions}`;
   const dataSql = `
     SELECT * FROM assessment_records ${conditions}
-    ORDER BY created_at DESC
+    ORDER BY calculated_at DESC NULLS LAST
     LIMIT $${values.length + 1} OFFSET $${values.length + 2}
   `;
 
@@ -133,7 +133,7 @@ export async function getMyRecords(
   const countSql = `SELECT COUNT(*) FROM assessment_records ${conditions}`;
   const dataSql = `
     SELECT * FROM assessment_records ${conditions}
-    ORDER BY created_at DESC
+    ORDER BY calculated_at DESC NULLS LAST
     LIMIT $${values.length + 1} OFFSET $${values.length + 2}
   `;
 
@@ -218,6 +218,7 @@ export async function upsertRecord(data: {
   penalty_rate: number | null;
   overdue_days: number;
   penalty_amount: number;
+  oa_instance_id?: number;
   rule_snapshot: Record<string, unknown>;
 }): Promise<AssessmentRecordRow> {
   const sql = `
@@ -225,8 +226,8 @@ export async function upsertRecord(data: {
       category, rule_type, source_type, source_id, source_no, source_name,
       assessment_user_id, assessment_user_name, assessment_role,
       base_amount, penalty_rate, overdue_days, penalty_amount,
-      rule_snapshot, calculated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+      rule_snapshot, oa_instance_id, calculated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
     ON CONFLICT (source_id, source_type, rule_type, assessment_user_id)
     DO UPDATE SET
       source_no = EXCLUDED.source_no,
@@ -237,6 +238,7 @@ export async function upsertRecord(data: {
       overdue_days = EXCLUDED.overdue_days,
       penalty_amount = EXCLUDED.penalty_amount,
       rule_snapshot = EXCLUDED.rule_snapshot,
+      oa_instance_id = EXCLUDED.oa_instance_id,
       calculated_at = NOW(),
       updated_at = NOW()
     WHERE assessment_records.status = 'pending'
@@ -258,6 +260,7 @@ export async function upsertRecord(data: {
     data.overdue_days,
     data.penalty_amount,
     JSON.stringify(data.rule_snapshot),
+    data.oa_instance_id ?? null,
   ];
 
   const result = await query(sql, values);
@@ -368,6 +371,7 @@ export async function batchUpsertRecords(
     penalty_rate: number | null;
     overdue_days: number;
     penalty_amount: number;
+    oa_instance_id?: number;
     rule_snapshot: Record<string, unknown>;
   }>
 ): Promise<number> {
@@ -384,8 +388,8 @@ export async function batchUpsertRecords(
         category, rule_type, source_type, source_id, source_no, source_name,
         assessment_user_id, assessment_user_name, assessment_role,
         base_amount, penalty_rate, overdue_days, penalty_amount,
-        rule_snapshot, calculated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+        rule_snapshot, oa_instance_id, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
       ON CONFLICT (source_id, source_type, rule_type, assessment_user_id)
       DO UPDATE SET
         source_no = EXCLUDED.source_no,
@@ -396,6 +400,7 @@ export async function batchUpsertRecords(
         overdue_days = EXCLUDED.overdue_days,
         penalty_amount = EXCLUDED.penalty_amount,
         rule_snapshot = EXCLUDED.rule_snapshot,
+        oa_instance_id = EXCLUDED.oa_instance_id,
         calculated_at = NOW(),
         updated_at = NOW()
       WHERE assessment_records.status = 'pending'
@@ -418,6 +423,7 @@ export async function batchUpsertRecords(
         record.overdue_days,
         record.penalty_amount,
         JSON.stringify(record.rule_snapshot),
+        record.oa_instance_id ?? null,
       ];
       const result = await client.query(sql, values);
       successCount += result.rowCount || 0;
@@ -471,8 +477,13 @@ function buildWhereClause(
   let paramIndex = 1;
 
   if (userId !== undefined) {
+    // “我的考核”视图：强制按当前用户筛选，忽略前端传入的 assessment_user_id
     clauses.push(`assessment_user_id = $${paramIndex++}`);
     values.push(userId);
+  } else if (params.assessment_user_id) {
+    // “全部考核”视图：允许按被考核人筛选
+    clauses.push(`assessment_user_id = $${paramIndex++}`);
+    values.push(params.assessment_user_id);
   }
 
   if (params.category) {
@@ -488,11 +499,6 @@ function buildWhereClause(
   if (params.rule_type) {
     clauses.push(`rule_type = $${paramIndex++}`);
     values.push(params.rule_type);
-  }
-
-  if (params.role) {
-    clauses.push(`assessment_role = $${paramIndex++}`);
-    values.push(params.role);
   }
 
   if (params.keyword) {
@@ -517,4 +523,45 @@ function buildWhereClause(
 
   const conditions = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
   return { conditions, values };
+}
+
+// ==================== 被考核人列表 ====================
+
+/**
+ * 获取有考核记录的被考核人列表（去重，用于前端筛选下拉）
+ * @param keyword 可选关键词模糊搜索
+ */
+export async function getAssessmentUsers(
+  keyword?: string
+): Promise<Array<{ id: number; name: string }>> {
+  const cacheKey = generateCacheKey('users', { keyword: keyword || 'all' });
+  const cached = cache.get<Array<{ id: number; name: string }>>(cacheKey);
+  if (cached) return cached;
+
+  const clauses = ['assessment_user_name IS NOT NULL'];
+  const values: unknown[] = [];
+  let paramIndex = 1;
+
+  if (keyword) {
+    clauses.push(`assessment_user_name ILIKE $${paramIndex++}`);
+    values.push(`%${escapeLikePattern(keyword)}%`);
+  }
+
+  const whereClause = `WHERE ${clauses.join(' AND ')}`;
+  const sql = `
+    SELECT DISTINCT assessment_user_id AS id, assessment_user_name AS name
+    FROM assessment_records
+    ${whereClause}
+    ORDER BY assessment_user_name
+    LIMIT 200
+  `;
+
+  const result = await query(sql, values);
+  const users = result.rows.map((r: { id: number; name: string }) => ({
+    id: r.id,
+    name: r.name,
+  }));
+
+  cache.set(cacheKey, users, CACHE_TTL.DASHBOARD);
+  return users;
 }

@@ -60,10 +60,10 @@ declare interface AssessmentQueryParams {
   category?: AssessmentCategory;
   status?: AssessmentStatus;
   ruleType?: string;
-  role?: AssessmentRole;
   keyword?: string;
   startDate?: string;
   endDate?: string;
+  assessmentUserId?: number;
   page?: number;
   pageSize?: number;
 }

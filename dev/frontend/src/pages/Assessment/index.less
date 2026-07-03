@@ -1,34 +1,28 @@
 @import '~@/styles/variables.less';
 
 .assessment-page {
+  height: calc(100vh - @layout-header-height);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   padding: @spacing-lg;
 
-  .stat-card {
-    margin-bottom: 16px;
-
-    .ant-card-body {
-      padding: 16px;
-    }
-  }
-
   .filter-bar {
-    margin-bottom: 16px;
-    padding: 16px;
+    flex-shrink: 0;
+    margin-bottom: @spacing-md;
+    padding: @spacing-md;
     background: @bg-color-card;
-    border-radius: 4px;
-  }
-
-  .rules-card {
-    margin-top: 16px;
-
-    p {
-      line-height: 1.8;
-      margin-bottom: 8px;
-    }
+    border-radius: @border-radius-sm;
   }
 
   .penalty-amount {
     color: @error-color-dark;
     font-weight: 500;
+  }
+
+  // 表格区域占满剩余空间，内部滚动
+  .table-container {
+    flex: 1;
+    min-height: 0;
   }
 }
