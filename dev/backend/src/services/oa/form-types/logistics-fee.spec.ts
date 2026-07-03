@@ -232,6 +232,35 @@ describe('logisticsFeeFormType.beforeSubmit', () => {
     expect(typeof logisticsFeeFormType.beforeSubmit).toBe('function');
   });
 
+  it('beforeSubmit 调用 getAllocatablePurchaseDetails 时不传 supplierIdList', async () => {
+    // 从 mock 获取函数引用
+    const { getAllocatablePurchaseDetails: mockGetDetails } = jest.requireMock('../../erp-client/erp-purchase-settlement.service');
+    mockGetDetails.mockResolvedValue({
+      records: [
+        { id: 1, amount: '100.00', goodsName: '商品A', billStr: 'JS001' },
+      ],
+      total: 1,
+      current: 1,
+      size: 100,
+    });
+
+    const formData = {
+      settlementIds: ['JS001'],
+      feeSupplierId: 150, // 费用供应商（物流公司），不应传给 ERP 查询
+      feeLines: [
+        { settlementBillStr: 'JS001', goodsName: '商品A' },
+      ],
+    };
+
+    await logisticsFeeFormType.beforeSubmit!(formData, 1);
+
+    // 验证调用时只传了 billStr，没有传 supplierIdList
+    expect(mockGetDetails).toHaveBeenCalledWith({ billStr: 'JS001' });
+    expect(mockGetDetails).not.toHaveBeenCalledWith(
+      expect.objectContaining({ supplierIdList: expect.anything() })
+    );
+  });
+
   it('onApproved 回调已定义', () => {
     expect(logisticsFeeFormType.onApproved).toBeDefined();
   });

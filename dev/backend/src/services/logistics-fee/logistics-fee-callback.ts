@@ -29,6 +29,7 @@ import {
 import type { PaidBillInvoiceInput } from '../erp-client/erp-purchase.types';
 import {
   getAllocatableExpenseDetails,
+  getAllocatablePurchaseDetails,
 } from '../erp-client/erp-purchase-settlement.service';
 import { getErpDefaults, getErpConfig } from '../erp-client/erp-config';
 import { FEE_SUBJECT_MAP } from '../oa/form-types/logistics-fee';
@@ -273,11 +274,33 @@ async function handleCreateExpenseAllocation(
       settlementLineItems = JSON.parse(rawItems);
     }
   } catch {
-    throw new Error('结算单行项数据解析失败');
+    log.warn('[物流费用] 预存的结算单行项数据解析失败，将重新查询 ERP');
+  }
+
+  // 兜底：如果预存数据为空，按结算单号重新查询 ERP
+  // （已失败的申请因 beforeSubmit 的 supplierIdList bug 导致预存为空）
+  if (settlementLineItems.length === 0) {
+    log.info('[物流费用] 预存的结算单行项为空，重新查询可分摊明细');
+    try {
+      const feeLines = (formData.feeLines as Array<Record<string, unknown>>) || [];
+      const billStrSet = new Set<string>();
+      for (const line of feeLines) {
+        if (line.settlementBillStr) billStrSet.add(line.settlementBillStr as string);
+      }
+      for (const billStr of billStrSet) {
+        const details = await getAllocatablePurchaseDetails({ billStr });
+        for (const d of details.records) {
+          settlementLineItems.push({ bizDetailId: d.id, amount: d.amount });
+        }
+      }
+    } catch (err) {
+      log.warn('[物流费用] 兜底重查 ERP 失败:', err instanceof Error ? err.message : err);
+      // 不 throw，让下面的空检查统一处理
+    }
   }
 
   if (settlementLineItems.length === 0) {
-    throw new Error('结算单行项数据为空，无法创建费用分摊单');
+    throw new Error('结算单行项数据为空，无法创建费用分摊单（含兜底重查）');
   }
 
   // 3. 按商品金额比例计算 allocationAmount（最后一行用倒挤法保证总和精确）

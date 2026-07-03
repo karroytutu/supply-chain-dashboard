@@ -30,6 +30,7 @@ jest.mock('../erp-client/erp-purchase.service', () => ({
 
 jest.mock('../erp-client/erp-purchase-settlement.service', () => ({
   getAllocatableExpenseDetails: jest.fn(),
+  getAllocatablePurchaseDetails: jest.fn(),
 }));
 
 jest.mock('../erp-client/erp-config', () => ({
@@ -60,7 +61,7 @@ import {
   deApprovePaidBill,
   cancelPaidBill,
 } from '../erp-client/erp-purchase.service';
-import { getAllocatableExpenseDetails } from '../erp-client/erp-purchase-settlement.service';
+import { getAllocatableExpenseDetails, getAllocatablePurchaseDetails } from '../erp-client/erp-purchase-settlement.service';
 import { cleanupExpenditureBill } from '../erp-client/erp-cleanup';
 import {
   handleLogisticsFeeAutoNode,
@@ -275,7 +276,7 @@ describe('节点5: 费用分摊倒挤法', () => {
     setupNode5Query();
 
     mockGetErpMeta.mockReturnValueOnce({
-      responseData: { expenditureBillStr: 'FY001' },
+      responseData: { expenditureBillStr: 'FY001', expenditureTotalAmount: 1000 },
     } as any);
 
     (getAllocatableExpenseDetails as jest.Mock).mockResolvedValueOnce({
@@ -311,25 +312,103 @@ describe('节点5: 费用分摊倒挤法', () => {
     expect(settleDetail).toHaveLength(3);
   });
 
-  it('结算单行项为空时应抛出错误', async () => {
+  it('结算单行项为空时应兜底重查 ERP', async () => {
     setupNode5Query();
 
     mockGetErpMeta.mockReturnValueOnce({
-      responseData: { expenditureBillStr: 'FY001' },
+      responseData: { expenditureBillStr: 'FY001', expenditureTotalAmount: 1000 },
     } as any);
 
     (getAllocatableExpenseDetails as jest.Mock).mockResolvedValueOnce({
       records: [{ id: 100, amount: 1000 }],
     });
 
+    // 兜底重查返回数据
+    (getAllocatablePurchaseDetails as jest.Mock).mockResolvedValueOnce({
+      records: [
+        { id: 1, amount: '500.00', goodsName: '商品A', billStr: 'JS001' },
+        { id: 2, amount: '500.00', goodsName: '商品B', billStr: 'JS001' },
+      ],
+    });
+
+    (createExpenseAllocation as jest.Mock).mockResolvedValueOnce({
+      id: 3001,
+      billStr: 'FT001',
+    });
+
     const instance = makeInstance();
     const formData = {
       paymentAmount: '1000',
       _settlementLineItems: JSON.stringify([]),
+      feeLines: [
+        { settlementBillStr: 'JS001', goodsName: '商品A' },
+      ],
+    };
+
+    await handleLogisticsFeeAutoNode(instance, formData);
+
+    // 应调用兜底重查
+    expect(getAllocatablePurchaseDetails).toHaveBeenCalledWith({ billStr: 'JS001' });
+    // 应成功创建分摊单
+    expect(createExpenseAllocation).toHaveBeenCalledTimes(1);
+  });
+
+  it('兜底重查 ERP 也返回空时应抛出错误', async () => {
+    setupNode5Query();
+
+    mockGetErpMeta.mockReturnValueOnce({
+      responseData: { expenditureBillStr: 'FY001', expenditureTotalAmount: 1000 },
+    } as any);
+
+    (getAllocatableExpenseDetails as jest.Mock).mockResolvedValueOnce({
+      records: [{ id: 100, amount: 1000 }],
+    });
+
+    // 兜底重查返回空
+    (getAllocatablePurchaseDetails as jest.Mock).mockResolvedValueOnce({
+      records: [],
+    });
+
+    const instance = makeInstance();
+    const formData = {
+      paymentAmount: '1000',
+      _settlementLineItems: JSON.stringify([]),
+      feeLines: [
+        { settlementBillStr: 'JS001', goodsName: '商品A' },
+      ],
     };
 
     await expect(handleLogisticsFeeAutoNode(instance, formData))
-      .rejects.toThrow('结算单行项数据为空');
+      .rejects.toThrow(/结算单行项数据为空.*兜底重查/);
+  });
+
+  it('兜底重查 ERP 调用异常时应记录 warn 并抛出错误', async () => {
+    setupNode5Query();
+
+    mockGetErpMeta.mockReturnValueOnce({
+      responseData: { expenditureBillStr: 'FY001', expenditureTotalAmount: 1000 },
+    } as any);
+
+    (getAllocatableExpenseDetails as jest.Mock).mockResolvedValueOnce({
+      records: [{ id: 100, amount: 1000 }],
+    });
+
+    // 兜底重查抛出异常
+    (getAllocatablePurchaseDetails as jest.Mock).mockRejectedValueOnce(
+      new Error('ERP 接口超时')
+    );
+
+    const instance = makeInstance();
+    const formData = {
+      paymentAmount: '1000',
+      _settlementLineItems: JSON.stringify([]),
+      feeLines: [
+        { settlementBillStr: 'JS001', goodsName: '商品A' },
+      ],
+    };
+
+    await expect(handleLogisticsFeeAutoNode(instance, formData))
+      .rejects.toThrow(/结算单行项数据为空.*兜底重查/);
   });
 });
 

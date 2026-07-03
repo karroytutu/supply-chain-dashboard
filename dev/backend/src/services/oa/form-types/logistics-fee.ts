@@ -303,26 +303,18 @@ async function beforeSubmitLogisticsFee(
     // 从 feeLines 中提取结算单号列表
     const feeLines = (formData.feeLines as Array<Record<string, unknown>>) || [];
     const billStrSet = new Set<string>();
-    const supplierIdSet = new Set<string>();
     for (const line of feeLines) {
       if (line.settlementBillStr) billStrSet.add(line.settlementBillStr as string);
     }
-    // 供应商ID从 feeSupplierId 获取
-    if (formData.feeSupplierId) {
-      supplierIdSet.add(String(formData.feeSupplierId));
-    }
 
     const billStrs = Array.from(billStrSet);
-    const supplierIds = Array.from(supplierIdSet);
 
-    // 查询可分摊明细（按结算单号 + 供应商）
+    // 查询可分摊明细（只按结算单号查询，与前端行为一致；
+    // 不按供应商过滤，因为费用供应商≠采购结算单的货物供应商）
     const lineItems: Array<{ bizDetailId: number; amount: string; goodsName: string; settlementBillStr: string }> = [];
 
     for (const billStr of billStrs) {
-      const details = await getAllocatablePurchaseDetails({
-        billStr,
-        supplierIdList: supplierIds,
-      });
+      const details = await getAllocatablePurchaseDetails({ billStr });
       for (const d of details.records) {
         lineItems.push({
           bizDetailId: d.id,
