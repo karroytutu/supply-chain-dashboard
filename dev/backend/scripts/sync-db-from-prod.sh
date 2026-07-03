@@ -7,21 +7,37 @@
 # 同步方式：影子库恢复 + 原子切换（零停机）
 #
 # 用法：
-#   bash scripts/sync-db-from-prod.sh           # 完整同步（dump + 下载 + 恢复 + 切换）
-#   bash scripts/sync-db-from-prod.sh --local   # 本地调试（跳过下载，用已有 dump）
-#   npm run sync:db                              # 完整同步
-#   npm run sync:db -- --local                   # 本地调试
+#   bash scripts/sync-db-from-prod.sh                          # 完整同步
+#   bash scripts/sync-db-from-prod.sh --local                  # 本地调试（跳过下载）
+#   bash scripts/sync-db-from-prod.sh --tables t1,t2,t3        # 定向同步指定表（覆盖已有数据）
+#   npm run sync:db                                            # 完整同步
+#   npm run sync:db -- --local                                 # 本地调试
 # ==============================================================================
 
 set -euo pipefail
 
 # ==================== 参数解析 ====================
 LOCAL_MODE=false
-for arg in "$@"; do
-  case "$arg" in
-    --local) LOCAL_MODE=true ;;
+TABLES=""
+TABLES_MODE=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --local) LOCAL_MODE=true; shift ;;
+    --tables=*) TABLES="${1#*=}"; TABLES_MODE=true; shift ;;
+    --tables) TABLES="$2"; TABLES_MODE=true; shift 2 ;;
+    *) shift ;;
   esac
 done
+
+# 构造 pg_dump 的 -t 参数（将逗号分隔转为多个 -t tablename）
+PG_DUMP_TABLE_ARGS=""
+if $TABLES_MODE && [ -n "$TABLES" ]; then
+  IFS=',' read -ra TABLE_ARRAY <<< "$TABLES"
+  for t in "${TABLE_ARRAY[@]}"; do
+    t=$(echo "$t" | xargs)  # trim whitespace
+    PG_DUMP_TABLE_ARGS="$PG_DUMP_TABLE_ARGS -t $t"
+  done
+fi
 
 # ==================== 配置 ====================
 PROD_HOST="root@8.130.26.73"
@@ -78,8 +94,20 @@ mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 # ==================== 前置检查 ====================
-log "开始同步：${PROD_HOST} → localhost"
-log "目标数据库：${DB_NAME}"
+# 禁止 --tables 与 --local 同时使用
+if $TABLES_MODE && $LOCAL_MODE; then
+  log_error "不支持 --tables 与 --local 同时使用"
+  exit 1
+fi
+
+if $TABLES_MODE; then
+  log "开始定向同步：${PROD_HOST} → localhost"
+  log "目标数据库：${DB_NAME}"
+  log "同步表：${TABLES}"
+else
+  log "开始完整同步：${PROD_HOST} → localhost"
+  log "目标数据库：${DB_NAME}"
+fi
 echo ""
 
 # 1. 检查本地 PostgreSQL 是否运行
@@ -136,12 +164,18 @@ else
 log "步骤 1/4：在生产服务器执行 pg_dump..."
 DUMP_START=$(date +%s)
 
+if $TABLES_MODE; then
+  DUMP_CMD="docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME}${PG_DUMP_TABLE_ARGS} > ${REMOTE_DUMP}"
+else
+  DUMP_CMD="docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME} > ${REMOTE_DUMP}"
+fi
+
 set +e
-ssh "$PROD_HOST" "docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME} > ${REMOTE_DUMP}" 2>&1 | grep -E "dumping|saving|done|finished"
+ssh "$PROD_HOST" "$DUMP_CMD" 2>&1 | grep -E "dumping|saving|done|finished"
 REMOTE_DUMP_EXIT=${PIPESTATUS[0]}
 if [ $REMOTE_DUMP_EXIT -ne 0 ]; then
   # OpenSSH 10.2+ 回退到管道方式
-  printf "docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME} > ${REMOTE_DUMP}\nexit\n" \
+  printf "%s\nexit\n" "$DUMP_CMD" \
     | ssh "$PROD_HOST" 2>&1 | grep -E "dumping|saving|done|finished"
   REMOTE_DUMP_EXIT=${PIPESTATUS[0]}
 fi
@@ -214,6 +248,37 @@ TRANSFER_END=$(date +%s)
 log_ok "传输完成，大小: ${LOCAL_SIZE}，耗时: $((TRANSFER_END - TRANSFER_START)) 秒"
 fi  # end of non-local mode (steps 1-2)
 
+# ==================== 定向同步：直接覆盖指定表 ====================
+if $TABLES_MODE; then
+  log "步骤 3/3：恢复指定表到现有库 ${DB_NAME}（--clean 覆盖模式）..."
+  RESTORE_START=$(date +%s)
+
+  set +e
+  pg_restore -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d "$DB_NAME" \
+    --clean -j 4 --no-owner -v "$LOCAL_DUMP" 2>&1 | grep "TABLE DATA"
+  RESTORE_EXIT=${PIPESTATUS[0]}
+  set -e
+
+  RESTORE_END=$(date +%s)
+
+  if [ $RESTORE_EXIT -eq 0 ]; then
+    log_ok "恢复成功（无警告）"
+  elif [ $RESTORE_EXIT -eq 1 ]; then
+    log_warn "恢复完成（有警告，通常为正常现象）"
+  else
+    log_error "定向同步失败（pg_restore 退出码: $RESTORE_EXIT）"
+    exit 1
+  fi
+
+  END_TIME=$(date +%s)
+  ELAPSED=$((END_TIME - START_TIME))
+  echo ""
+  log_ok "定向同步完成！表: ${TABLES}"
+  log_ok "总耗时 ${ELAPSED} 秒（dump: $((DUMP_END - DUMP_START))秒 + 传输: $((TRANSFER_END - TRANSFER_START))秒 + 恢复: $((RESTORE_END - RESTORE_START))秒）"
+  exit 0
+fi
+
+# ==================== 完整同步：影子库恢复 + 原子切换 ====================
 # 3c. 创建影子库并恢复
 log "步骤 3/4：恢复到影子库 ${DB_NEW}（4 worker）..."
 
@@ -311,11 +376,16 @@ END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
 
 echo ""
-log_ok "同步完成！总耗时 ${ELAPSED} 秒（dump: $((DUMP_END - DUMP_START))秒 + 传输: $((TRANSFER_END - TRANSFER_START))秒 + 恢复: $((RESTORE_END - RESTORE_START))秒 + 切换: $((SWITCH_END - SWITCH_START))秒）"
+if $TABLES_MODE; then
+  log_ok "定向同步完成！表: ${TABLES}"
+  log_ok "总耗时 ${ELAPSED} 秒（dump: $((DUMP_END - DUMP_START))秒 + 传输: $((TRANSFER_END - TRANSFER_START))秒 + 恢复: $((RESTORE_END - RESTORE_START))秒 + 切换: $((SWITCH_END - SWITCH_START))秒）"
+else
+  log_ok "同步完成！总耗时 ${ELAPSED} 秒（dump: $((DUMP_END - DUMP_START))秒 + 传输: $((TRANSFER_END - TRANSFER_START))秒 + 恢复: $((RESTORE_END - RESTORE_START))秒 + 切换: $((SWITCH_END - SWITCH_START))秒）"
 
-# 查询同步后的表数量作为验证
-TABLE_COUNT=$(psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d "$DB_NAME" -tAc "
-  SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';
-" 2>/dev/null || echo "?")
+  # 查询同步后的表数量作为验证
+  TABLE_COUNT=$(psql -h "$LOCAL_HOST" -p "$LOCAL_PORT" -U "$DB_USER" -d "$DB_NAME" -tAc "
+    SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';
+  " 2>/dev/null || echo "?")
 
-log "本地库现有 ${TABLE_COUNT} 张表"
+  log "本地库现有 ${TABLE_COUNT} 张表"
+fi

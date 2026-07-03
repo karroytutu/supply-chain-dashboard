@@ -1,7 +1,7 @@
 @import '~@/styles/variables.less';
 
 .detailPage {
-  padding: @spacing-lg @spacing-lg 0; // 底部留白移至 .content 的 padding-bottom
+  padding: @spacing-lg @spacing-lg @spacing-lg;
   max-width: 100%; // 防止内容撑宽页面
   overflow-x: hidden; // 表格等宽内容通过自身滚动条处理
 
@@ -31,7 +31,7 @@
 // ── 平板/小屏 (≤768px) ──
 @media (max-width: @screen-md) {
   .detailPage {
-    padding: 12px 12px 0;
+    padding: 12px;
     min-height: calc(100vh - 64px);
   }
 
@@ -55,7 +55,7 @@
 // ── 小屏手机 (≤576px) ──
 @media (max-width: @screen-sm) {
   .detailPage {
-    padding: 8px 8px 0;
+    padding: 8px;
   }
 
   .card {

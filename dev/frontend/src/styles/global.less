@@ -23,10 +23,13 @@ body {
   background-color: @bg-color-base;
 }
 
-// 全屏模式：内容填满视口剩余高度，内部用 flex 分配，适合一屏展示页面
+// 全屏模式：内容填满视口剩余高度，内部用 flex 分配
+// overflow-y: auto 允许内容超出时纵向滚动；有内部 flex 布局的页面自然适配不会触发滚动条
+// 如果页面自行管理内部滚动（如三栏布局），可在页面 CSS 中添加 overflow: hidden 覆盖
 .page-full {
   height: calc(100vh - @layout-header-height);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
