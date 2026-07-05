@@ -196,6 +196,11 @@ body {
   .mobile-hide {
     display: none !important;
   }
+
+  // 移动端减少布局内边距（覆盖 app.tsx 中 contentStyle 的 inline padding）
+  :global(.ant-layout-content) {
+    padding: @spacing-md !important;
+  }
 }
 
 // 移动端显示/隐藏工具类

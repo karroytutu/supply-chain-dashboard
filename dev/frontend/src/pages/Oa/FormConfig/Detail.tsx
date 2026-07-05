@@ -143,7 +143,7 @@ const FormDetailPage: React.FC = () => {
   ];
 
   return (
-    <div className={styles.container}>
+    <div className="page-scroll">
       {/* 顶部导航 */}
       <div className={styles.header}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => history.push('/oa/form-config')}>

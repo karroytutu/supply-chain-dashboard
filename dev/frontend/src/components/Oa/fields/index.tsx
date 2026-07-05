@@ -29,6 +29,11 @@ const FieldControlDispatcher: React.FC<FieldControlProps> = (props) => {
   if (field.type === 'photo') return <PhotoFieldControl {...props} />;
   if (field.type === 'formula') return <FormulaFieldControl {...props} />;
   if (field.type === 'signature') return <SignatureFieldControl {...props} />;
+  if (field.type === 'user-select') {
+    // TODO: user-select 类型需要实现专用的用户搜索 API（internal_users）
+    // 当前无表单使用此类型，待需要时补充 searchApi 映射和后端端点
+    return <SelectFieldControl {...props} />;
+  }
 
   switch (field.type) {
     case 'text':

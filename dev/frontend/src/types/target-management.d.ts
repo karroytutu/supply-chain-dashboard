@@ -1,7 +1,19 @@
 /**
- * 目标管理模块类型定义
+ * 目标管理模块 - UI 模型类型定义
  * 用于营销师目标制定、品类商品分层编辑
+ *
+ * 本文件是前端 UI 层模型的权威来源。
+ * API 响应类型（DTO）定义在 services/api/sales-target.ts 中，
+ * 两者通过 hooks 层进行映射转换（如 mapInitDataToCustomers）。
+ *
+ * 对应关系：
+ *   API TargetCustomer  →  UI CustomerTarget
+ *   API TargetCategory  →  UI CategoryTarget
+ *   API TargetProduct   →  UI ProductTarget
  */
+
+/** 目标审批状态 */
+export type TargetStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 
 /** 拆分方式 */
 export type SplitMethod = 'by_proportion' | 'even';
@@ -24,6 +36,8 @@ export interface ProductTarget {
   actualAmountLastMonth: number;
   /** 上上月实际（用于计算环比） */
   actualAmountPrevMonth: number;
+  /** 毛利率（上月该商品的平均毛利率） */
+  grossMarginRate: number;
   /** 本月目标 */
   targetAmount: number;
   remark: string;
@@ -37,6 +51,7 @@ export interface CategoryTarget {
   targetAmount: number;
   actualAmountLastMonth: number;
   actualAmountPrevMonth: number;
+  remark: string;
   products: ProductTarget[];
 }
 
@@ -60,6 +75,5 @@ export interface TargetSummary {
   totalProducts: number;
   amountPerMarketer: number;
   amountPerCustomer: number;
-  completionRate: number | null;
   fillProgress: number;
 }

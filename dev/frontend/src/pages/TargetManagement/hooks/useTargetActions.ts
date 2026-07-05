@@ -5,13 +5,16 @@
 import { useCallback } from 'react';
 import { message } from 'antd';
 import type { TargetMonth, CustomerTarget, SplitMethod } from '@/types/target-management';
-import { splitByProportion, splitEvenly } from './useTargetCalculation';
+import { splitByProportion, splitEvenly } from '../utils/target-calculations';
+import { buildSaveItems } from '../utils/build-save-items';
 import { createTarget, updateTarget } from '@/services/api/sales-target';
-import type { MarketerItem, SaveTargetItemParam } from '@/services/api/sales-target';
+import type { MarketerItem } from '@/services/api/sales-target';
+import { useTargetApproval } from './useTargetApproval';
+import { useTargetCrudActions } from './useTargetCrudActions';
 
 interface UseTargetActionsParams {
   customers: CustomerTarget[];
-  setCustomers: React.Dispatch<React.SetStateAction<CustomerTarget[]>>;
+  setCustomers: (customers: CustomerTarget[] | ((prev: CustomerTarget[]) => CustomerTarget[])) => void;
   selectedMarketerId: number | null;
   marketers: MarketerItem[];
   currentTargetId: number | null;
@@ -28,15 +31,12 @@ export function useTargetActions({
   currentMonth,
   loadTargetData,
 }: UseTargetActionsParams) {
+  const approval = useTargetApproval(loadTargetData);
+  const crud = useTargetCrudActions({ customers, setCustomers, selectedMarketerId, marketers });
+
   // 更新商品目标
   const handleUpdateProduct = useCallback(
-    (
-      customerId: number,
-      categoryId: string,
-      productId: string,
-      field: 'targetAmount' | 'remark',
-      value: number | string,
-    ) => {
+    (customerId: number, categoryId: string, productId: string, field: 'targetAmount' | 'remark', value: number | string) => {
       setCustomers((prev) =>
         prev.map((c) => {
           if (c.customerId !== customerId) return c;
@@ -46,10 +46,7 @@ export function useTargetActions({
               if (cat.categoryId !== categoryId) return cat;
               return {
                 ...cat,
-                products: cat.products.map((p) => {
-                  if (p.productId !== productId) return p;
-                  return { ...p, [field]: value };
-                }),
+                products: cat.products.map((p) => (p.productId !== productId ? p : { ...p, [field]: value })),
               };
             }),
           };
@@ -59,132 +56,51 @@ export function useTargetActions({
     [setCustomers],
   );
 
-  // 保存目标
-  const handleSave = useCallback(async () => {
+  // 更新品类说明
+  const handleUpdateCategoryRemark = useCallback(
+    (customerId: number, categoryId: string, remark: string) => {
+      setCustomers((prev) =>
+        prev.map((c) => {
+          if (c.customerId !== customerId) return c;
+          return { ...c, categories: c.categories.map((cat) => (cat.categoryId !== categoryId ? cat : { ...cat, remark })) };
+        }),
+      );
+    },
+    [setCustomers],
+  );
+
+  // 保存目标，返回 { success, targetId }
+  const handleSave = useCallback(async (): Promise<{ success: boolean; targetId: number | null }> => {
     if (!selectedMarketerId) {
       message.warning('请先选择一个营销师');
-      return;
+      return { success: false, targetId: null };
     }
 
-    const items: SaveTargetItemParam[] = [];
-    for (const c of customers) {
-      if (c.marketerId !== selectedMarketerId) continue;
-      for (const cat of c.categories) {
-        for (const p of cat.products) {
-          items.push({
-            erpConsumerId: c.customerId || null,
-            consumerName: c.customerName,
-            isPlannedNew: c.isPlannedNew,
-            erpGoodsId: Number(p.productId) || null,
-            goodsName: p.productName,
-            categoryName: cat.categoryName,
-            unit: p.unit,
-            unitPrice: p.unitPrice,
-            targetAmount: p.targetAmount,
-            remark: p.remark,
-          });
-        }
-      }
-    }
+    const items = buildSaveItems(customers, selectedMarketerId);
 
     try {
       if (currentTargetId) {
         await updateTarget(currentTargetId, items);
         message.success('目标已更新');
+        loadTargetData();
+        return { success: true, targetId: currentTargetId };
       } else {
-        await createTarget({
+        const result = await createTarget({
           marketerId: selectedMarketerId,
           year: currentMonth.year,
           month: currentMonth.month,
           items,
         });
         message.success('目标已创建');
+        loadTargetData();
+        return { success: true, targetId: result.id };
       }
-      loadTargetData();
-    } catch (error: any) {
-      message.error(error?.message || '保存失败');
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : '保存失败';
+      message.error(errMsg);
+      return { success: false, targetId: null };
     }
   }, [selectedMarketerId, customers, currentTargetId, currentMonth, loadTargetData]);
-
-  // 添加客户
-  const handleAddCustomers = useCallback(
-    (newCustomers: Array<{ customerId: number; customerName: string }>) => {
-      if (!selectedMarketerId) return;
-      const existingIds = new Set(customers.map((c) => c.customerId));
-      const marketerName = marketers.find((m) => m.id === selectedMarketerId)?.name || '';
-      const additions: CustomerTarget[] = newCustomers
-        .filter((nc) => !existingIds.has(nc.customerId))
-        .map((nc) => ({
-          customerId: nc.customerId,
-          customerName: nc.customerName,
-          isPlannedNew: true,
-          marketerId: selectedMarketerId,
-          marketerName,
-          categories: [],
-        }));
-      setCustomers((prev) => [...prev, ...additions]);
-    },
-    [customers, selectedMarketerId, marketers, setCustomers],
-  );
-
-  // 添加商品到客户
-  const handleAddProducts = useCallback(
-    (
-      customerId: number,
-      products: Array<{
-        productId: string;
-        productName: string;
-        categoryId: string;
-        categoryName: string;
-        unit: string;
-        unitPrice: number;
-      }>,
-    ) => {
-      setCustomers((prev) =>
-        prev.map((c) => {
-          if (c.customerId !== customerId) return c;
-          const cats = [...c.categories];
-          for (const np of products) {
-            let catIdx = cats.findIndex((cat) => cat.categoryId === np.categoryId);
-            if (catIdx === -1) {
-              cats.push({
-                categoryId: np.categoryId,
-                categoryName: np.categoryName,
-                targetAmount: 0,
-                actualAmountLastMonth: 0,
-                actualAmountPrevMonth: 0,
-                products: [],
-              });
-              catIdx = cats.length - 1;
-            }
-            const existingIds = new Set(cats[catIdx].products.map((p) => p.productId));
-            if (!existingIds.has(np.productId)) {
-              cats[catIdx] = {
-                ...cats[catIdx],
-                products: [
-                  ...cats[catIdx].products,
-                  {
-                    productId: np.productId,
-                    productName: np.productName,
-                    unit: np.unit,
-                    unitPrice: np.unitPrice,
-                    targetAmount: 0,
-                    lastMonthTarget: 0,
-                    actualAmountLastMonth: 0,
-                    actualAmountPrevMonth: 0,
-                    remark: '',
-                    isPlannedNew: true,
-                  },
-                ],
-              };
-            }
-          }
-          return { ...c, categories: cats };
-        }),
-      );
-    },
-    [setCustomers],
-  );
 
   // 拆分品类目标到商品
   const handleSplit = useCallback(
@@ -192,26 +108,45 @@ export function useTargetActions({
       setCustomers((prev) =>
         prev.map((c) => {
           if (c.customerId !== customerId) return c;
-          return {
-            ...c,
-            categories: c.categories.map((cat) => {
-              if (cat.categoryId !== categoryId) return cat;
-              const splitFn = method === 'by_proportion' ? splitByProportion : splitEvenly;
-              const newProducts = splitFn(cat, targetAmount);
-              return { ...cat, targetAmount, products: newProducts };
-            }),
-          };
+          return { ...c, categories: c.categories.map((cat) => {
+            if (cat.categoryId !== categoryId) return cat;
+            const splitFn = method === 'by_proportion' ? splitByProportion : splitEvenly;
+            return { ...cat, targetAmount, products: splitFn(cat, targetAmount) };
+          }) };
         }),
       );
     },
     [setCustomers],
   );
 
+  // 提交审批：先保存，再弹签名框，返回 targetId 供签名确认使用
+  const handleSubmitApproval = useCallback(async (): Promise<number | null> => {
+    return approval.handleSubmitApproval(handleSave);
+  }, [approval.handleSubmitApproval, handleSave]);
+
+  // 签名确认后完成审批提交（使用传入的 targetId，不依赖闭包中的 currentTargetId）
+  const confirmSignature = useCallback(async (signatureData: string, targetId: number) => {
+    await approval.confirmSignature(signatureData, targetId);
+  }, [approval.confirmSignature]);
+
+  // 取消签名
+  const cancelSignature = useCallback(() => {
+    approval.cancelSignature();
+  }, [approval.cancelSignature]);
+
   return {
     handleUpdateProduct,
-    handleSave,
-    handleAddCustomers,
-    handleAddProducts,
+    handleUpdateCategoryRemark,
+    handleSave: async () => (await handleSave()).success,
+    handleSubmitApproval,
+    confirmSignature,
+    cancelSignature,
+    submitLoading: approval.submitLoading,
+    signatureModalVisible: approval.signatureModalVisible,
+    setSignatureModalVisible: approval.setSignatureModalVisible,
+    handleAddCustomers: crud.handleAddCustomers,
+    handleRemoveCustomer: crud.handleRemoveCustomer,
+    handleAddProducts: crud.handleAddProducts,
     handleSplit,
   };
 }

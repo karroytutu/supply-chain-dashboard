@@ -4,49 +4,10 @@
  * 返回值按 filters / data / actions 分组
  */
 import { useMemo, useEffect, useRef } from 'react';
-import type { CustomerTarget } from '@/types/target-management';
+import { calcSummary } from '../utils/target-calculations';
 import { useTargetFilters } from './useTargetFilters';
 import { useTargetData } from './useTargetData';
 import { useTargetActions } from './useTargetActions';
-
-/** 从客户列表计算汇总数据 */
-function calcSummary(customers: CustomerTarget[]) {
-  let totalTargetAmount = 0;
-  let coveredCustomers = 0;
-  let totalProducts = 0;
-  let coveredProducts = 0;
-  const marketerIds = new Set<number>();
-
-  for (const c of customers) {
-    let customerHasTarget = false;
-    marketerIds.add(c.marketerId);
-    for (const cat of c.categories) {
-      for (const p of cat.products) {
-        totalProducts++;
-        if (p.targetAmount > 0) {
-          coveredProducts++;
-          customerHasTarget = true;
-        }
-        totalTargetAmount += p.targetAmount;
-      }
-    }
-    if (customerHasTarget) coveredCustomers++;
-  }
-
-  const marketerCount = marketerIds.size;
-  return {
-    totalTargetAmount,
-    marketerCount,
-    coveredCustomers,
-    totalCustomers: customers.length,
-    coveredProducts,
-    totalProducts,
-    amountPerMarketer: marketerCount > 0 ? totalTargetAmount / marketerCount : 0,
-    amountPerCustomer: coveredCustomers > 0 ? totalTargetAmount / coveredCustomers : 0,
-    completionRate: null,
-    fillProgress: totalProducts > 0 ? (coveredProducts / totalProducts) * 100 : 0,
-  };
-}
 
 export function useTargetManagement() {
   const filters = useTargetFilters();

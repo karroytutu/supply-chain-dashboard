@@ -1,7 +1,12 @@
 /**
  * 目标管理 API 服务
+ *
+ * 本文件定义 API 响应类型（DTO）和 HTTP 请求封装。
+ * UI 层模型定义在 types/target-management.d.ts 中，
+ * 两者通过 hooks 层进行映射转换（如 mapInitDataToCustomers）。
  */
 import request from './request';
+import type { TargetStatus } from '@/types/target-management';
 
 /** 目标列表项 */
 export interface TargetListItem {
@@ -10,6 +15,7 @@ export interface TargetListItem {
   marketerName: string;
   year: number;
   month: number;
+  status: TargetStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +27,8 @@ export interface TargetDetail {
   marketerName: string;
   year: number;
   month: number;
+  status: TargetStatus;
+  oaInstanceId: number | null;
   createdAt: string;
   updatedAt: string;
   customers: TargetCustomer[];
@@ -50,6 +58,7 @@ export interface TargetProduct {
   remark: string;
   actualAmountLastMonth: number;
   actualAmountPrevMonth: number;
+  grossMarginRate: number;
 }
 
 /** 保存目标的明细行参数 */
@@ -66,12 +75,16 @@ export interface SaveTargetItemParam {
   remark: string;
 }
 
-/** 客户列表项（含公海标记） */
+/** 客户列表项（含公海标记 + 归属标记） */
 export interface CustomerListItem {
   erpConsumerId: number;
   consumerName: string;
   consumerManagerName: string | null;
+  channelName: string | null;
+  areaName: string | null;
+  cooperationTypeName: string | null;
   isPublicSea: boolean;
+  isMine: boolean;
 }
 
 /** 商品目录（按品类分组） */
@@ -86,6 +99,7 @@ export interface ProductItem {
   unit: string;
   unitPrice: number | null;
   brandName: string | null;
+  hasStock: boolean;
 }
 
 /** 历史销售数据 */
@@ -102,6 +116,8 @@ export interface HistoricalSalesItem {
 export interface InitDataResponse {
   isSaved: boolean;
   targetId: number | null;
+  status: TargetStatus;
+  oaInstanceId: number | null;
   marketerId: number;
   marketerName: string;
   year: number;
@@ -117,6 +133,17 @@ export interface OverviewResponse {
     growthRate: number | null;
     marketerCount: number;
     marketersWithTarget: number;
+    targetCustomerCount: number;
+    lastMonthCustomerCount: number;
+    targetSkuCount: number;
+    lastMonthSkuCount: number;
+    targetCategoryCount: number;
+    lastMonthCategoryCount: number;
+    avgCustomerValue: number;
+    lastMonthAvgCustomerValue: number;
+    totalEstimatedGrossProfit: number;
+    totalBaseCommission: number;
+    totalIncrementCommission: number;
   };
   marketers: MarketerOverview[];
 }
@@ -129,7 +156,19 @@ export interface MarketerOverview {
   lastMonthActual: number;
   growthRate: number | null;
   hasSaved: boolean;
+  targetStatus: TargetStatus | null;
   customerCount: number;
+  lastMonthCustomerCount: number;
+  skuCount: number;
+  lastMonthSkuCount: number;
+  categoryCount: number;
+  lastMonthCategoryCount: number;
+  avgCustomerValue: number;
+  lastMonthAvgCustomerValue: number;
+  estimatedGrossProfit: number;
+  lastMonthGrossProfit: number;
+  baseCommission: number;
+  incrementCommission: number;
 }
 
 /**
@@ -208,10 +247,11 @@ export function deleteTarget(id: number): Promise<void> {
 }
 
 /**
- * 获取客户列表（我的客户 + 公海客户标记）
+ * 获取客户列表（含公海标记 + 归属标记）
+ * @param marketerId 当前查看的营销师 ID，用于标记"归属我的"
  */
-export function fetchCustomers(): Promise<CustomerListItem[]> {
-  return request.get('/sales/targets/customers');
+export function fetchCustomers(marketerId?: number): Promise<CustomerListItem[]> {
+  return request.get('/sales/targets/customers', { params: marketerId ? { marketer_id: marketerId } : {} });
 }
 
 /**
@@ -226,4 +266,16 @@ export function fetchProductCatalog(): Promise<ProductCatalogItem[]> {
  */
 export function fetchHistoricalSales(year: number, month: number): Promise<HistoricalSalesItem[]> {
   return request.get('/sales/targets/historical-sales', { params: { year, month } });
+}
+
+/**
+ * 提交目标审批
+ * @param targetId 目标ID
+ * @param submitterSignature 提交人电子签名（base64 data URL）
+ */
+export function submitTargetForApproval(
+  targetId: number,
+  submitterSignature: string,
+): Promise<{ oaInstanceId: number; instanceNo: string }> {
+  return request.post(`/sales/targets/${targetId}/submit-approval`, { submitterSignature });
 }

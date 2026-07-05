@@ -63,7 +63,7 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className={`page-scroll ${styles.dashboard}`}>
+    <div className="page-scroll">
       {/* 页面头部 */}
       <div className={styles.header}>
         <div className={styles.titleSection}>

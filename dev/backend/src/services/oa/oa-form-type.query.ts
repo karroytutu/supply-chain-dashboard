@@ -153,6 +153,8 @@ export async function getFormTypesGroupedByCategory(userRoles?: string[], userId
   };
 
   for (const ft of formTypes) {
+    // 发起页不展示仅通过业务页面入口发起的表单（如目标审批）
+    if (ft.hideFromInitiate) continue;
     if (grouped[ft.category]) {
       grouped[ft.category].push(ft);
     }

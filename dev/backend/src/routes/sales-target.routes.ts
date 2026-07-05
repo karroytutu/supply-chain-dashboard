@@ -12,12 +12,15 @@ import {
   updateHandler,
   deleteHandler,
   initDataHandler,
+} from '../controllers/sales-target.controller';
+import { submitApprovalHandler } from '../controllers/sales-target-approval.controller';
+import {
   overviewHandler,
   marketersHandler,
   customersHandler,
   productsHandler,
   historicalSalesHandler,
-} from '../controllers/sales-target.controller';
+} from '../controllers/sales-target-aux.controller';
 
 const router = Router();
 
@@ -36,6 +39,7 @@ router.get('/:id', requirePermission('sales:target:read'), detailHandler);
 
 // 写入类（write 权限）
 router.post('/', requirePermission('sales:target:write'), createHandler);
+router.post('/:id/submit-approval', requirePermission('sales:target:write'), submitApprovalHandler);
 router.put('/:id', requirePermission('sales:target:write'), updateHandler);
 router.delete('/:id', requirePermission('sales:target:write'), deleteHandler);
 

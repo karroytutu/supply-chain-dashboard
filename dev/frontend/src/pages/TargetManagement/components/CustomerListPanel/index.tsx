@@ -3,8 +3,8 @@
  * 左侧面板：搜索、客户列表、添加计划开发客户
  */
 import React, { useState, useMemo } from 'react';
-import { Input, Button, Tag, Empty } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Input, Button, Tag, Empty, Modal } from 'antd';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { CustomerTarget } from '@/types/target-management';
 import { formatCompactAmount } from '@/utils/format';
 import styles from './index.less';
@@ -14,6 +14,7 @@ interface CustomerListPanelProps {
   selectedCustomerId: number | null;
   onSelectCustomer: (id: number) => void;
   onAddCustomer: () => void;
+  onRemoveCustomer?: (id: number) => void;
   getCustomerTotal: (customer: CustomerTarget) => number;
   readOnly: boolean;
   /** 全部营销师视图时显示营销师标签 */
@@ -21,7 +22,7 @@ interface CustomerListPanelProps {
 }
 
 const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
-  customers, selectedCustomerId, onSelectCustomer, onAddCustomer, getCustomerTotal, readOnly, showMarketerTag,
+  customers, selectedCustomerId, onSelectCustomer, onAddCustomer, onRemoveCustomer, getCustomerTotal, readOnly, showMarketerTag,
 }) => {
   const [keyword, setKeyword] = useState('');
 
@@ -47,7 +48,6 @@ const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
           filtered.map((customer) => {
             const total = getCustomerTotal(customer);
             const isSelected = customer.customerId === selectedCustomerId;
-            const topCategories = customer.categories.slice(0, 2);
 
             return (
               <div
@@ -65,18 +65,31 @@ const CustomerListPanel: React.FC<CustomerListPanelProps> = ({
                     {showMarketerTag && <Tag color="blue" className={styles.marketerTag}>{customer.marketerName}</Tag>}
                     {customer.customerName}
                   </div>
-                  <span className={styles.itemAmount}>{formatCompactAmount(total, { zeroAs: '¥0' })}</span>
-                </div>
-                {topCategories.length > 0 && (
-                  <div className={styles.itemCategories}>
-                    {topCategories.map((cat, idx) => (
-                      <React.Fragment key={cat.categoryId}>
-                        {idx > 0 && <span className={styles.catSeparator}> | </span>}
-                        <span>{cat.categoryName}{formatCompactAmount(cat.products.reduce((s, p) => s + p.targetAmount, 0), { zeroAs: '¥0' })}</span>
-                      </React.Fragment>
-                    ))}
+                  <div className={styles.itemActions}>
+                    <span className={styles.itemAmount}>{formatCompactAmount(total, { zeroAs: '¥0' })}</span>
+                    {!readOnly && (
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        className={styles.deleteBtn}
+                        icon={<DeleteOutlined />}
+                        aria-label="删除客户"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          Modal.confirm({
+                            title: '确认删除',
+                            content: `确定要从目标中移除「${customer.customerName}」吗？该客户当月目标为 ${formatCompactAmount(getCustomerTotal(customer))}，保存后生效。`,
+                            okText: '删除',
+                            okButtonProps: { danger: true },
+                            cancelText: '取消',
+                            onOk: () => onRemoveCustomer?.(customer.customerId),
+                          });
+                        }}
+                      />
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             );
           })

@@ -13,6 +13,11 @@ export interface ErpCustomer {
   docState?: number;
   contactName?: string;
   contactTel?: string;
+  consumerManagerId?: number | null;
+  consumerManagerName?: string | null;
+  areaName?: string | null;
+  groupName?: string | null;
+  cooperationTypeName?: string | null;
   [key: string]: unknown;
 }
 

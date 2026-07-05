@@ -1,44 +1,36 @@
 @import '../../../../styles/variables.less';
 
-.listContainer {
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.listItem {
+.filterArea {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: @spacing-sm;
-  padding: @spacing-sm @spacing-section;
-  cursor: pointer;
-  border-radius: 4px;
-  border-bottom: 1px solid @border-color-split;
-  transition: background 0.15s;
-
-  &:hover {
-    background: @bg-color-hover;
-  }
-
-  &:focus-visible {
-    outline: 2px solid @primary-color;
-    outline-offset: -2px;
-  }
+  margin-bottom: @spacing-sm;
 }
 
-.listItemSelected {
-  background: @primary-bg-light;
-
-  &:hover {
-    background: @primary-bg-light;
-  }
+.filterRow {
+  display: flex;
+  gap: @spacing-sm;
+  align-items: center;
 }
 
-.itemName {
-  flex: 1;
-}
-
-.footer {
-  margin-top: @spacing-sm;
+.countHint {
   color: @text-color-placeholder;
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.tableContainer {
+  :global {
+    .ant-table {
+      border-radius: @border-radius-base;
+    }
+    .ant-table-thead > tr > th {
+      background: @bg-color-base;
+      font-weight: 500;
+      font-size: 13px;
+    }
+    .ant-table-tbody > tr > td {
+      font-size: 13px;
+    }
+  }
 }

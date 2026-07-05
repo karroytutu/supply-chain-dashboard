@@ -32,13 +32,21 @@ export async function submitApproval(
   userName: string,
   userDept: string | null
 ): Promise<{ instanceId: number; instanceNo: string }> {
-  // 1. 校验表单数据（传入发起阶段字段权限，使 hidden 字段跳过必填校验）
+  // 1. beforeSubmit 钩子：业务校验和数据增强（先于表单校验执行，使计算字段可被校验）
+  // ⚠️ 约束：beforeSubmit 必须是纯计算/查询，不能有不可回滚的副作用
+  //   因为后续表单校验可能失败，导致请求被拒绝，而 beforeSubmit 的副作用无法回滚
+  if (formType.beforeSubmit) {
+    const extraData = await formType.beforeSubmit(req.formData, userId);
+    req.formData = { ...req.formData, ...extraData };
+  }
+
+  // 2. 校验表单数据（beforeSubmit 注入的字段已包含在内）
   const errors = validateFormData(formType.formSchema, req.formData, formType.fieldPermissions?.nodes?.['0']);
   if (errors.length > 0) {
     throw new Error(`表单校验失败: ${errors.join('; ')}`);
   }
 
-  // 1.4 通用查重（在 beforeSubmit 前执行，使用用户原始 formData）
+  // 3. 通用查重（在 beforeSubmit 后执行，使用完整 formData）
   if (formType.duplicateCheck) {
     const warning = await checkDuplicate(formType.code, req.formData, formType.duplicateCheck);
     if (warning) {
@@ -46,13 +54,7 @@ export async function submitApproval(
     }
   }
 
-  // 1.5 beforeSubmit 钩子：业务校验和数据增强
-  if (formType.beforeSubmit) {
-    const extraData = await formType.beforeSubmit(req.formData, userId);
-    req.formData = { ...req.formData, ...extraData };
-  }
-
-  // 2. 生成审批编号
+  // 4. 生成审批编号
   const instanceNo = await generateInstanceNo();
 
   let autoNodeToExecute: OaNodeRow | null = null;

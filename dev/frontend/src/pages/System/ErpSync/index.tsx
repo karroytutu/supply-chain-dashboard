@@ -532,7 +532,7 @@ export default function ErpSync() {
   ];
 
   return (
-    <div className={`page-scroll ${styles.page}`}>
+    <div className="page-scroll">
       <Card
         size="small"
         title="数据同步状态"

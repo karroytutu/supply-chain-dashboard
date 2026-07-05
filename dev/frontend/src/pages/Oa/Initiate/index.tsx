@@ -128,7 +128,7 @@ const Initiate: React.FC = () => {
   const hasResults = filteredFormTypes && Object.values(filteredFormTypes).some((arr) => arr.length > 0);
 
   return (
-    <div className={`page-full ${styles.container}`}>
+    <div className="page-full">
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>发起流程</h1>
       </div>

@@ -3,10 +3,37 @@
  * @module pages/TargetManagement/hooks/useTargetFilters.spec.ts
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+
+// Mock umi useSearchParams
+const mockSearchParams = new URLSearchParams();
+const mockSetSearchParams = vi.fn((updater: any) => {
+  const next = typeof updater === 'function' ? updater(mockSearchParams) : updater;
+  // Apply changes to mockSearchParams
+  for (const [key, value] of next.entries()) {
+    mockSearchParams.set(key, value);
+  }
+  // Remove keys not in next
+  for (const key of Array.from(mockSearchParams.keys())) {
+    if (!next.has(key)) mockSearchParams.delete(key);
+  }
+});
+
+vi.mock('umi', () => ({
+  useSearchParams: () => [mockSearchParams, mockSetSearchParams],
+}));
+
 import { useTargetFilters } from './useTargetFilters';
 import dayjs from 'dayjs';
+
+beforeEach(() => {
+  // Reset search params between tests
+  for (const key of Array.from(mockSearchParams.keys())) {
+    mockSearchParams.delete(key);
+  }
+  mockSetSearchParams.mockClear();
+});
 
 describe('useTargetFilters', () => {
   describe('月份导航', () => {
@@ -105,18 +132,18 @@ describe('useTargetFilters', () => {
       expect(result.current.selectedMarketerId).toBeNull();
     });
 
-    it('setSelectedMarketerId 更新状态', () => {
+    it('setSelectedMarketerId 更新 URL 参数', () => {
       const { result } = renderHook(() => useTargetFilters());
 
       act(() => { result.current.setSelectedMarketerId(100); });
-      expect(result.current.selectedMarketerId).toBe(100);
+      expect(mockSetSearchParams).toHaveBeenCalled();
     });
 
-    it('setSelectedCustomerId 更新状态', () => {
+    it('setSelectedCustomerId 更新 URL 参数', () => {
       const { result } = renderHook(() => useTargetFilters());
 
       act(() => { result.current.setSelectedCustomerId(200); });
-      expect(result.current.selectedCustomerId).toBe(200);
+      expect(mockSetSearchParams).toHaveBeenCalled();
     });
   });
 });

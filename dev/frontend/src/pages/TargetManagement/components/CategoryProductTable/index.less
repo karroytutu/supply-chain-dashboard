@@ -5,11 +5,15 @@
   background: @bg-color-card;
   border-radius: @border-radius-base;
   box-shadow: @box-shadow-card;
-  overflow-x: auto;
-  overflow-y: auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+
+  // Sticky 列右侧滚动阴影指示
+  :global(.ant-table-cell-fix-left-last::after) {
+    box-shadow: 6px 0 6px 0 rgba(0, 0, 0, 0.05);
+  }
 }
 
 .empty {
@@ -20,41 +24,31 @@
   justify-content: center;
 }
 
-.thead {
-  display: flex;
-  align-items: center;
-  padding: 10px @spacing-md;
-  background: @bg-color-hover;
-  border-bottom: 1px solid @border-color-split;
-  font-size: 13px;
-  color: @text-color-tertiary;
-  font-weight: 500;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
+// 行样式（通过 rowClassName 应用）
 .categoryRow {
-  display: flex;
-  align-items: center;
-  padding: 10px @spacing-md;
-  background: @primary-bg-lighter;
-  border-bottom: 1px solid @primary-bg-light;
+  background: @bg-color-card;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
 
+  // 展开图标与品类名称同行显示
+  :global(.ant-table-cell:first-child) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   &:hover {
-    background: @primary-bg-light;
+    background: @primary-bg-lighter;
+
+    .addProductIcon,
+    .splitIcon {
+      opacity: 1;
+    }
   }
 }
 
 .productRow {
-  display: flex;
-  align-items: center;
-  padding: @spacing-sm @spacing-md;
-  border-bottom: 1px solid @border-color-split;
   transition: background 0.2s;
 
   &:hover {
@@ -62,45 +56,44 @@
   }
 }
 
+// 底部添加品类（贴底显示，与客户列表 footer 视觉一致）
 .addRow {
-  padding: @spacing-section @spacing-md;
-  border-top: 1px dashed @border-color-base;
+  padding: @spacing-section;
+  border-top: 1px solid @border-color-split;
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
-// 列宽定义
-.colName {
-  width: 220px;
-  min-width: 220px;
+// 名称列单元格
+.colNameCell {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
-.colNum {
-  width: 100px;
-  min-width: 100px;
+// 数值列单元格
+.numCell {
   font-size: 13px;
   color: @text-color-regular;
-  text-align: right;
-  padding-right: @spacing-sm;
 }
 
-.colTarget {
-  width: 260px;
-  min-width: 260px;
+.numCellSmall {
+  font-size: 13px;
+  color: @text-color-regular;
+}
+
+// 目标列单元格
+.targetCell {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
 }
 
-.colRemark {
-  flex: 1;
-  min-width: 140px;
-}
-
-// 品类行样式
+// 品类行展开图标
 .expandIcon {
-  font-size: 10px;
+  font-size: @font-size-sm;
   color: @text-color-placeholder;
   cursor: pointer;
 }
@@ -123,6 +116,7 @@
   color: @text-color-regular;
 }
 
+// 品类行添加商品按钮
 .addProductIcon {
   width: 20px;
   height: 20px;
@@ -134,10 +128,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: @font-size-sm;
   padding: 0;
   transition: all 0.2s;
   flex-shrink: 0;
+  opacity: 0;
 
   &:hover {
     color: @primary-color;
@@ -146,38 +141,72 @@
   }
 }
 
-.splitBtn {
-  font-size: 12px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-// 商品行样式
-.productIndent {
-  width: 24px;
-  display: inline-block;
-}
-
-.unit {
-  font-size: 12px;
+// 品类行拆分按钮
+.splitIcon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   color: @text-color-placeholder;
-  margin-left: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all 0.2s;
+
+  &:hover {
+    color: @primary-color;
+    background: @primary-bg-light;
+  }
 }
 
+// 拆分 Popover 内部
+.splitPopover {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-section;
+  width: 220px;
+}
+
+.splitLabel {
+  font-size: 13px;
+  color: @text-color-regular;
+  font-weight: 500;
+}
+
+.splitInput {
+  width: 100%;
+}
+
+.splitConfirmBtn {
+  margin-top: 2px;
+}
+
+// 商品行缩进
+.productIndent {
+  width: @spacing-lg;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+// 新商品标签
 .newTag {
-  font-size: 10px;
+  font-size: 12px; // caption token
   line-height: 16px;
   padding: 0 4px;
   margin-left: 4px;
 }
 
-// 品类合计显示
+// 品类合计
 .catTotal {
   font-size: 14px;
   font-weight: 600;
   color: @text-color-regular;
-  min-width: 80px;
-  display: inline-block;
+  text-align: right;
+  flex: 1;
 }
 
 .noTarget {
@@ -186,23 +215,56 @@
   color: @text-color-placeholder;
 }
 
-// 输入框
+// 输入框（可编辑性感知增强：虚线边框 + 浅灰底色 + focus 态蓝色边框）
 .targetInput {
   width: 110px;
+  background: @bg-color-base;
+  border-color: @border-color-base;
+  border-style: dashed;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: @primary-color;
+    border-style: solid;
+    background: @bg-color-card;
+  }
+
+  &:focus-within {
+    border-color: @primary-color;
+    border-style: solid;
+    background: @bg-color-card;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.15);
+  }
 }
 
-.remarkInput {
-  width: 100%;
-}
-
-.remarkText {
+// 说明列
+.remarkTrigger {
+  cursor: pointer;
   font-size: 13px;
   color: @text-color-tertiary;
+  padding: 2px 4px;
+  border-radius: @border-radius-sm;
+  transition: background 0.2s;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+
+  &:hover {
+    background: @bg-color-hover;
+  }
+}
+
+.remarkEmpty {
+  color: @text-color-disabled;
+  font-style: italic;
+  font-size: 12px;
 }
 
 // 增长/环比颜色
 .positive {
-  color: @success-color;
+  color: @positive-color;
 }
 
 .negative {

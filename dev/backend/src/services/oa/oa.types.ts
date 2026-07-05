@@ -48,7 +48,8 @@ export type FormFieldType =
   | 'signature'      // 电子签名
   | 'formula'        // 公式计算（只读）
   | 'tree_select'    // 树形弹窗选择器
-  | 'bank_account_selector'; // 银行账户选择器
+  | 'bank_account_selector' // 银行账户选择器
+  | 'user-select';   // 系统用户选择器（存储 userId）
 
 /**
  * 表格一键分摊配置（table 类型字段的通用能力）
@@ -320,6 +321,8 @@ export interface HandlerRule {
   userId?: number;
   /** 按发起人：将节点分配给审批实例的发起人 */
   useApplicant?: boolean;
+  /** 从 formData 中读取指定字段的值作为处理人 userId（由 beforeSubmit 注入） */
+  formDataUserIdField?: string;
 }
 
 /**
@@ -602,6 +605,8 @@ export interface FormTypeDefinition {
   workflowDef: WorkflowDef;
   /** 允许发起此表单的角色编码列表。null/undefined 表示不限制 */
   allowedRoles?: string[];
+  /** 是否在 OA 发起页隐藏此表单（仅通过业务页面入口发起，如目标管理页提交审批） */
+  hideFromInitiate?: boolean;
   /** 可查看该表单数据的角色编码列表。null/undefined 表示不限制 */
   dataReadRoles?: string[];
   /** 可导出该表单数据的角色编码列表。null/undefined 表示不限制 */

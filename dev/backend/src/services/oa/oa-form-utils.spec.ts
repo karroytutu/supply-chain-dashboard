@@ -282,6 +282,32 @@ describe('validateFormData', () => {
         .toContain('附加不能为空');
     });
   });
+
+  describe('user-select 类型校验', () => {
+    const schema: any = {
+      fields: [{ key: 'userId', label: '目标营销师', type: 'user-select', required: true }],
+    };
+
+    it('有效正整数 userId -> 校验通过', () => {
+      expect(validateFormData(schema, { userId: 42 })).toEqual([]);
+    });
+
+    it('非数字值 -> 报错值无效', () => {
+      expect(validateFormData(schema, { userId: 'abc' })).toEqual(['目标营销师的值无效']);
+    });
+
+    it('负数 -> 报错值无效', () => {
+      expect(validateFormData(schema, { userId: -1 })).toEqual(['目标营销师的值无效']);
+    });
+
+    it('null + required -> 报错不能为空', () => {
+      expect(validateFormData(schema, { userId: null })).toEqual(['目标营销师不能为空']);
+    });
+
+    it('undefined + required -> 报错不能为空', () => {
+      expect(validateFormData(schema, {})).toEqual(['目标营销师不能为空']);
+    });
+  });
 });
 
 describe('validateInputData', () => {

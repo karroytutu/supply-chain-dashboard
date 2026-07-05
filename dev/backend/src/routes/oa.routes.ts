@@ -5,7 +5,7 @@
 import { createLogger } from '../utils/logger';
 const log = createLogger('Routes');
 
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import express, { Router, type Request, type Response, type NextFunction } from 'express';
 import multer from 'multer';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
@@ -177,8 +177,8 @@ router.post(
       const { resolvePreviewApproversForNodes } = await import('../services/oa/oa.query');
       const visibleNodes = filterNodesByCondition(formType.workflowDef.nodes, enrichedData);
 
-      // 3. 解析审批人：仅为可见节点解析审批人
-      const approvers = await resolvePreviewApproversForNodes(visibleNodes, userId);
+      // 3. 解析审批人：仅为可见节点解析审批人（传递 enrichedData 以支持 formDataUserIdField 类型节点）
+      const approvers = await resolvePreviewApproversForNodes(visibleNodes, userId, enrichedData);
 
       res.json({ code: 200, data: { visibleNodes, approvers } });
     } catch (error) {
@@ -240,8 +240,8 @@ router.get('/instances', requirePermission('oa:read'), listApprovals);
 // 获取审批详情
 router.get('/instances/:id', requirePermission('oa:read'), getDetail);
 
-// 提交审批
-router.post('/instances', requirePermission('oa:read'), submit);
+// 提交审批（OA 表单含签名 base64 数据，需 1MB 限制）
+router.post('/instances', express.json({ limit: '1mb' }), requirePermission('oa:read'), submit);
 
 // 同意审批
 router.post('/instances/:id/approve', requirePermission('oa:read'), approve);

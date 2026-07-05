@@ -24,6 +24,7 @@ import { promotionSpecialOfflineFormType } from './promotion-special-offline';
 import { promotionFullGiftOfflineFormType } from './promotion-fullgift-offline';
 import { marketExpenseFormType } from './market-expense';
 import { badDebtWriteOffFormType } from './bad-debt-write-off';
+import { salesTargetApprovalFormType } from './sales-target-approval';
 
 /**
  * 所有已注册的表单类型
@@ -49,6 +50,7 @@ export const ALL_FORM_TYPES: FormTypeDefinition[] = [
   promotionFullGiftOfflineFormType,
   marketExpenseFormType,
   badDebtWriteOffFormType,
+  salesTargetApprovalFormType,
 ];
 
 /**
@@ -105,3 +107,4 @@ export { promotionCombinedOfflineFormType } from './promotion-combined-offline';
 export { promotionSpecialOfflineFormType } from './promotion-special-offline';
 export { promotionFullGiftOfflineFormType } from './promotion-fullgift-offline';
 export { marketExpenseFormType } from './market-expense';
+export { salesTargetApprovalFormType } from './sales-target-approval';

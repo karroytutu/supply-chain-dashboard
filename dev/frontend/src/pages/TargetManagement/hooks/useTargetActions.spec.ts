@@ -13,6 +13,7 @@ import type { CustomerTarget, CategoryTarget, ProductTarget } from '@/types/targ
 vi.mock('@/services/api/sales-target', () => ({
   createTarget: vi.fn().mockResolvedValue({ id: 1 }),
   updateTarget: vi.fn().mockResolvedValue(undefined),
+  submitTargetForApproval: vi.fn().mockResolvedValue({ oaInstanceId: 1, instanceNo: 'OA001' }),
 }));
 
 vi.mock('antd', () => ({
@@ -40,7 +41,9 @@ function buildProduct(overrides: Partial<ProductTarget> = {}): ProductTarget {
     lastMonthTarget: 0,
     actualAmountLastMonth: 50,
     actualAmountPrevMonth: 30,
+    grossMarginRate: 0,
     remark: '',
+    isPlannedNew: false,
     ...overrides,
   };
 }
@@ -52,6 +55,7 @@ function buildCategory(products: ProductTarget[] = [], overrides: Partial<Catego
     targetAmount: 0,
     actualAmountLastMonth: 0,
     actualAmountPrevMonth: 0,
+    remark: '',
     products,
     ...overrides,
   };
@@ -246,7 +250,7 @@ describe('useTargetActions', () => {
       const { result } = renderHook(() => useTestActions([initialCustomer]));
 
       act(() => {
-        result.current.actions.handleSplit(1, 'cat_1', 'evenly', 1000);
+        result.current.actions.handleSplit(1, 'cat_1', 'even', 1000);
       });
     });
   });

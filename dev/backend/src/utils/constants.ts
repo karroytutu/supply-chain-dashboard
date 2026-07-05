@@ -164,7 +164,7 @@ export const ERP_DUSHAN_WAREHOUSE_ID = 17;
  * 仅包含销售类业务（常规销售、订货履约、换货、兑奖、0元赠、促销销售、促销赠品、常规退货、促销订货、促销加价订货）
  * 排除费用兑付、物料兑换、采购类单据
  * @usedBy erp-sales-detail.service.ts (fetchSalesDetails 默认参数)
- * @usedBy sales-target-erp.service.ts (历史销售数据聚合)
+ * @usedBy sales-target-historical.service.ts (历史销售数据聚合)
  */
 export const SALES_BUSINESS_ATTR_IDS = [
   'SX',      // 常规销售
@@ -178,6 +178,28 @@ export const SALES_BUSINESS_ATTR_IDS = [
   'WL',      // 物流
   'CZ_IF',   // 促销加价订货
 ] as const;
+
+// ==================== 目标管理参数 ====================
+
+/** 目标年份最小值 @usedBy sales-target.controller.ts (创建目标年份校验) */
+export const TARGET_YEAR_MIN = 2020;
+
+/** 目标年份最大值 @usedBy sales-target.controller.ts (创建目标年份校验) */
+export const TARGET_YEAR_MAX = 2030;
+
+// ==================== 目标提成阶梯参数 ====================
+
+/** 提成比例 - 增量部分（本月利润 ≥ 基线时，增量 × 此比例） @usedBy sales-target-overview.service.ts, frontend/useTargetCalculation.ts */
+export const COMMISSION_RATE_INCREMENT = 0.10;
+
+/** 提成比例 - 基准部分（本月利润 ≥ 基线80%时，× 此比例） @usedBy sales-target-overview.service.ts, frontend/useTargetCalculation.ts */
+export const COMMISSION_RATE_BASE = 0.07;
+
+/** 提成比例 - 低达成率（本月利润 < 基线80%时，× 此比例） @usedBy sales-target-overview.service.ts, frontend/useTargetCalculation.ts */
+export const COMMISSION_RATE_LOW = 0.05;
+
+/** 提成基线阈值比例（本月利润 ≥ 基线 × 此比例时适用基准比例） @usedBy sales-target-overview.service.ts, frontend/useTargetCalculation.ts */
+export const COMMISSION_BASELINE_THRESHOLD = 0.8;
 
 // ==================== 缓存时间配置 ====================
 

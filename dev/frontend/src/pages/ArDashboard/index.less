@@ -1,7 +1,7 @@
 @import '~@/styles/variables.less';
 
 .page {
-  padding: 0 0 @spacing-lg; // 无顶部/侧边内边距，仅底部留白
+  padding: 0; // 全局布局已提供 24px padding
 }
 
 .alert {
@@ -12,12 +12,12 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 0 24px 16px;
+  padding: 0 0 16px;
 }
 
 .section {
   margin-bottom: 16px;
-  padding: 0 24px;
+  padding: 0;
 }
 
 /* KPI 卡片网格：一行六列 */
@@ -45,21 +45,16 @@
   }
 
   .section {
-    padding: 0 12px;
     margin-bottom: 12px;
   }
 
   .header {
-    padding: 0 12px 8px;
     flex-direction: column;
     gap: 4px;
+    padding-bottom: 8px;
   }
 
   .alert {
     margin-bottom: 8px;
-  }
-
-  .page {
-    padding-bottom: 16px;
   }
 }

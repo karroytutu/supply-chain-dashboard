@@ -13,13 +13,16 @@
 }
 
 .name {
-  font-size: 15px;
+  font-size: @font-size-lg;
   font-weight: 600;
   color: @text-color-regular;
 }
 
 .divider {
   color: @border-color-base;
+  font-size: 16px;
+  margin: 0 @spacing-xs;
+  opacity: 0.6;
 }
 
 .item {
@@ -30,4 +33,13 @@
     color: @text-color-regular;
     font-weight: 600;
   }
+}
+
+// 增长率颜色（使用深色以满足 WCAG AA 对比度）
+.positive {
+  color: @positive-color;
+}
+
+.negative {
+  color: @error-color;
 }

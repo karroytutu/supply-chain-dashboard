@@ -130,7 +130,8 @@ export interface PreviewApprover {
  */
 export async function resolvePreviewApproversForNodes(
   nodes: WorkflowNodeDef[],
-  userId: number
+  userId: number,
+  formData?: Record<string, unknown>
 ): Promise<PreviewApprover[]> {
   const { resolveHandlerRule } = await import('../oa-utils');
   const results: PreviewApprover[] = [];
@@ -138,7 +139,7 @@ export async function resolvePreviewApproversForNodes(
   for (const node of nodes) {
     if (node.type === 'auto') continue;
 
-    const { userIds } = await resolveHandlerRule(node, userId);
+    const { userIds } = await resolveHandlerRule(node, userId, formData);
 
     if (userIds.length === 0) {
       results.push({

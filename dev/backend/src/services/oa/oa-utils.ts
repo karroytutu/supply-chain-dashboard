@@ -106,6 +106,9 @@ export function mapFormTypeRow(row: OaFormTypeRow): FormTypeDefinition {
     ...(codeDefinition?.computePreview && { computePreview: codeDefinition.computePreview }),
     ...(codeDefinition?.onNodeCompleted && { onNodeCompleted: codeDefinition.onNodeCompleted }),
     ...(codeDefinition?.onApproved && { onApproved: codeDefinition.onApproved }),
+    ...(codeDefinition?.onRejected && { onRejected: codeDefinition.onRejected }),
+    ...(codeDefinition?.hideFromInitiate && { hideFromInitiate: codeDefinition.hideFromInitiate }),
+    ...(codeDefinition?.duplicateCheck && { duplicateCheck: codeDefinition.duplicateCheck }),
     ...(codeDefinition?.resolvePreviewContext && {
       resolvePreviewContext: codeDefinition.resolvePreviewContext,
     }),

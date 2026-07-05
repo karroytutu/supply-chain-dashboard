@@ -27,6 +27,7 @@ import {
   getTargetItems,
   createTarget,
   updateTargetItems,
+  updateTargetStatus,
   deleteTarget,
 } from './sales-target.repository';
 import { appQuery, getAppClient } from '../../db/appPool';
@@ -252,7 +253,8 @@ describe('createTarget', () => {
 
     await createTarget({ marketer_id: 100, year: 2026, month: 7, items: sampleItems });
 
-    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:');
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:items:');
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:list:');
   });
 });
 
@@ -263,7 +265,7 @@ describe('createTarget', () => {
 describe('updateTargetItems', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('事务中 UPDATE updated_at + DELETE items + INSERT items + COMMIT', async () => {
+  it('事务中 UPDATE updated_at + status=draft + DELETE items + INSERT items + COMMIT', async () => {
     const mockClient = createMockClient();
     mockGetAppClient.mockResolvedValue(mockClient as any);
 
@@ -272,10 +274,14 @@ describe('updateTargetItems', () => {
     const sqls = mockClient._queries.map(q => q.sql);
     expect(sqls[0]).toBe('BEGIN');
     expect(sqls[1]).toContain('UPDATE sales_targets SET updated_at');
+    expect(sqls[1]).toContain("status = 'draft'");
+    expect(sqls[1]).toContain('oa_instance_id = NULL');
+    expect(sqls[1]).toContain("status != 'pending'");
     expect(sqls[2]).toContain('DELETE FROM sales_target_items');
     expect(sqls[3]).toContain('INSERT INTO sales_target_items');
     expect(sqls[4]).toBe('COMMIT');
-    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:');
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:items:');
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:list:');
   });
 
   it('items 为空数组时清空明细', async () => {
@@ -318,14 +324,121 @@ describe('updateTargetItems', () => {
 describe('deleteTarget', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('DELETE 主表 + 失效缓存', async () => {
-    mockAppQuery.mockResolvedValue({ rowCount: 1 } as any);
+  it('事务内 DELETE 主表 + 失效缓存', async () => {
+    const mockClient = createMockClient();
+    mockGetAppClient.mockResolvedValue(mockClient as any);
 
     await deleteTarget(1);
 
+    const sqls = mockClient._queries.map(q => q.sql);
+    expect(sqls[0]).toBe('BEGIN');
+    expect(sqls[1]).toContain('DELETE FROM sales_targets WHERE id = $1');
+    expect(sqls[2]).toBe('COMMIT');
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:items:');
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:list:');
+  });
+
+  it('目标不存在时抛出错误', async () => {
+    const mockClient = createMockClient();
+    mockClient.query.mockImplementation(async (sql: string) => {
+      if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return { rows: [], rowCount: 0 } as any;
+      if (sql.startsWith('DELETE')) return { rowCount: 0 } as any; // 目标不存在
+      return { rows: [], rowCount: 0 } as any;
+    });
+    mockGetAppClient.mockResolvedValue(mockClient as any);
+
+    await expect(deleteTarget(999)).rejects.toThrow('目标不存在');
+  });
+});
+
+// =====================================================
+// updateTargetStatus
+// =====================================================
+
+describe('updateTargetStatus', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('更新状态（无 oaInstanceId）', async () => {
+    mockAppQuery.mockResolvedValue({ rowCount: 1 } as any);
+
+    const result = await updateTargetStatus(42, 'pending', ['draft', 'rejected']);
+
     const [sql, params] = (mockAppQuery as jest.Mock).mock.calls[0];
-    expect(sql).toContain('DELETE FROM sales_targets WHERE id = $1');
-    expect(params).toEqual([1]);
-    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:');
+    expect(sql).toContain('UPDATE sales_targets SET status = $1');
+    expect(sql).toContain('status = ANY($3)');
+    expect(params).toEqual(['pending', 42, ['draft', 'rejected']]);
+    expect(result).toBe(true);
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:items:');
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:list:');
+  });
+
+  it('更新状态（含 oaInstanceId）', async () => {
+    mockAppQuery.mockResolvedValue({ rowCount: 1 } as any);
+
+    const result = await updateTargetStatus(42, 'pending', ['draft', 'rejected'], 100);
+
+    const [sql, params] = (mockAppQuery as jest.Mock).mock.calls[0];
+    expect(sql).toContain('oa_instance_id = $2');
+    expect(sql).toContain('status = ANY($4)');
+    expect(params).toEqual(['pending', 100, 42, ['draft', 'rejected']]);
+    expect(result).toBe(true);
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:items:');
+    expect(mockCache.invalidate).toHaveBeenCalledWith('sales:target:list:');
+  });
+
+  it('并发冲突时返回 false', async () => {
+    mockAppQuery.mockResolvedValue({ rowCount: 0 } as any);
+
+    const result = await updateTargetStatus(42, 'pending', ['draft', 'rejected']);
+
+    expect(result).toBe(false);
+  });
+});
+
+// =====================================================
+// listTargets 状态过滤
+// =====================================================
+
+describe('listTargets status filter', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('按 status 过滤生成正确 WHERE 条件', async () => {
+    mockAppQuery.mockResolvedValue({ rows: [] } as any);
+
+    await listTargets({ year: 2026, month: 7, status: 'approved' });
+
+    const [sql] = (mockAppQuery as jest.Mock).mock.calls[0];
+    expect(sql).toContain('t.year = $1');
+    expect(sql).toContain('t.month = $2');
+    expect(sql).toContain('t.status = $3');
+  });
+});
+
+// =====================================================
+// createTarget upsert 状态回退
+// =====================================================
+
+describe('createTarget upsert status reset', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('INSERT 语句包含 status = draft 和 ON CONFLICT 回退', async () => {
+    const mockClient = createMockClient();
+    mockClient.query.mockImplementation(async (sql: string) => {
+      if (sql === 'BEGIN' || sql === 'COMMIT') return { rows: [], rowCount: 0 } as any;
+      if (typeof sql === 'string' && sql.includes('INSERT INTO sales_targets')) {
+        return { rows: [{ id: 1, marketer_id: 100, year: 2026, month: 7, status: 'draft' }], rowCount: 1 } as any;
+      }
+      return { rows: [], rowCount: 0 } as any;
+    });
+    mockGetAppClient.mockResolvedValue(mockClient as any);
+
+    await createTarget({ marketer_id: 100, year: 2026, month: 7, items: [] });
+
+    const insertCall = mockClient.query.mock.calls.find(
+      (args: unknown[]) => typeof args[0] === 'string' && (args[0] as string).includes('INSERT INTO sales_targets')
+    );
+    expect(insertCall).toBeDefined();
+    expect(insertCall![0]).toContain("status = 'draft'");
+    expect(insertCall![0]).toContain('DO UPDATE SET updated_at = NOW(), status = \'draft\', oa_instance_id = NULL');
   });
 });

@@ -151,6 +151,19 @@ export function formatAchievementRate(actual: number, target: number): string {
 }
 
 /**
+ * 增长率格式化（目标 vs 基线）
+ * @param rate 增长率小数（如 0.15 = 15%）
+ * @returns { text, sign } text 为格式化文本，sign 为 'positive' | 'negative' | ''
+ */
+export function formatGrowthRate(rate: number | null): { text: string; sign: 'positive' | 'negative' | '' } {
+  if (rate === null) return { text: '-', sign: '' };
+  const pct = (rate * 100).toFixed(1);
+  if (rate > 0) return { text: `+${pct}%`, sign: 'positive' };
+  if (rate < 0) return { text: `${pct}%`, sign: 'negative' };
+  return { text: `${pct}%`, sign: '' };
+}
+
+/**
  * 相对时间格式化
  */
 export function formatRelativeTime(date: string | Date | null | undefined): string {

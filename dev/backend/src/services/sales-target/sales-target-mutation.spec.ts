@@ -6,20 +6,26 @@
 jest.mock('../../utils/logger', () => ({
   createLogger: () => ({ warn: jest.fn(), info: jest.fn(), error: jest.fn(), debug: jest.fn() }),
 }));
+jest.mock('../../utils/cache', () => ({
+  cache: { invalidate: jest.fn() },
+  CACHE_TTL: { DASHBOARD: 60000, LOW_FREQUENCY: 300000 },
+}));
 jest.mock('./sales-target.repository', () => ({
   createTarget: jest.fn(),
   updateTargetItems: jest.fn(),
   deleteTarget: jest.fn(),
   getTargetById: jest.fn(),
+  updateTargetStatus: jest.fn(),
 }));
 
-import { saveTarget, updateTarget, removeTarget } from './sales-target-mutation.service';
-import { createTarget, updateTargetItems, deleteTarget, getTargetById } from './sales-target.repository';
+import { saveTarget, updateTarget, removeTarget, changeTargetStatus } from './sales-target-mutation.service';
+import { createTarget, updateTargetItems, deleteTarget, getTargetById, updateTargetStatus } from './sales-target.repository';
 
 const mockCreateTarget = createTarget as jest.MockedFunction<typeof createTarget>;
 const mockUpdateTargetItems = updateTargetItems as jest.MockedFunction<typeof updateTargetItems>;
 const mockDeleteTarget = deleteTarget as jest.MockedFunction<typeof deleteTarget>;
 const mockGetTargetById = getTargetById as jest.MockedFunction<typeof getTargetById>;
+const mockUpdateTargetStatus = updateTargetStatus as jest.MockedFunction<typeof updateTargetStatus>;
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -59,19 +65,22 @@ describe('updateTarget', () => {
 });
 
 describe('removeTarget', () => {
-  it('目标不存在 → 抛出 "目标不存在"', async () => {
-    mockGetTargetById.mockResolvedValue(null);
-
-    await expect(removeTarget(999)).rejects.toThrow('目标不存在');
-    expect(mockDeleteTarget).not.toHaveBeenCalled();
-  });
-
-  it('目标存在 → 调用 deleteTarget', async () => {
-    mockGetTargetById.mockResolvedValue({ id: 1, marketer_id: 100 } as any);
+  it('直接调用 deleteTarget（存在性校验由控制器负责）', async () => {
     mockDeleteTarget.mockResolvedValue(undefined as any);
 
     await removeTarget(1);
 
     expect(mockDeleteTarget).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('changeTargetStatus', () => {
+  it('调用 updateTargetStatus 并返回结果', async () => {
+    mockUpdateTargetStatus.mockResolvedValue(true);
+
+    const result = await changeTargetStatus(1, 'pending', ['draft', 'rejected'], 100);
+
+    expect(result).toBe(true);
+    expect(mockUpdateTargetStatus).toHaveBeenCalledWith(1, 'pending', ['draft', 'rejected'], 100);
   });
 });

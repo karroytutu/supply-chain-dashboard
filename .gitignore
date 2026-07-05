@@ -67,3 +67,6 @@ uploads/
 
 # Trae IDE 自动生成文件
 .trae/
+
+# 调试截图
+modal-*.png

@@ -218,6 +218,16 @@ export function validateFormData(
         }
         break;
       }
+
+      case 'user-select': {
+        if (value != null && value !== '') {
+          const uid = Number(value);
+          if (!Number.isInteger(uid) || uid <= 0) {
+            errors.push(`${field.label}的值无效`);
+          }
+        }
+        break;
+      }
     }
   }
 

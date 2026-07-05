@@ -1,6 +1,26 @@
 {
   "entries": [
     {
+      "version": "v2.21.0",
+      "date": "2026-07-05 15:29",
+      "types": ["feature", "optimization"],
+      "changes": [
+        "目标管理新增OA审批流程：营销师制定月度销售目标后需提交审批，支持草稿→提交→审批→生效的完整状态流转，审批通过后目标自动生效",
+        "目标管理页面架构重构：前端拆解为OverviewPanel、CategoryProductTable、CustomerListPanel等独立组件，hooks按职责拆分为useTargetData、useTargetFilters、useTargetActions等模块，代码量减少约40%",
+        "后端目标服务层重构：原536行单体sales-target-erp.service.ts拆解为customer、product、historical、overview、marketer、init等6个独立服务，职责更清晰",
+        "新增目标管理DTO Mapper层：sales-target.mapper.ts统一处理snake_case↔camelCase转换，消除控制器层手动字段映射",
+        "新增销售聚合服务：erp-sales-aggregation.service.ts统一封装ERP销售数据的聚合查询逻辑",
+        "目标管理性能优化：新增4个数据库索引（迁移176-177），覆盖ERP销售明细、目标明细、目标主表的核心查询路径",
+        "前端全局padding架构优化：统一页面内边距由global.less管理，各页面移除冗余padding定义，布局更一致",
+        "目标计算逻辑提取为纯函数：target-calculations.ts和build-save-items.ts集中管理毛利、提成、完成率等计算规则",
+        "新增片区、提成、目标常量文件：业务规则集中管理，消除散落在各组件中的魔法数字",
+        "目标管理新增RemarkEditModal和SplitPopover组件，品类商品表格交互体验优化",
+        "迁移174：sales_targets新增status和oa_instance_id字段，支持审批状态流转",
+        "迁移175：注册sales_target_approval审批表单类型到OA系统",
+        "迁移176-177：目标管理模块性能索引优化，清理冗余索引"
+      ]
+    },
+    {
       "version": "v2.20.8",
       "date": "2026-07-03 23:30",
       "types": ["feature"],

@@ -136,7 +136,15 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
-app.use(express.json());
+// 全局 JSON 解析限制（默认 100KB）
+// OA 提交路由含签名 base64 数据，需要 1MB 限制，跳过全局解析由路由级中间件处理
+const _globalJsonParser = express.json();
+app.use((req, _res, next) => {
+  if (req.method === 'POST' && req.path === '/api/oa/instances') {
+    return next();
+  }
+  _globalJsonParser(req, _res, next);
+});
 app.use(requestLogger);
 
 // 静态文件服务（上传文件访问）

@@ -4,8 +4,8 @@
  */
 import React from 'react';
 import { Select, Tag, Button } from 'antd';
-import { LeftOutlined, RightOutlined, SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import type { TargetMonth } from '@/types/target-management';
+import { LeftOutlined, RightOutlined, SaveOutlined, SendOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import type { TargetMonth, TargetStatus } from '@/types/target-management';
 import styles from './index.less';
 
 interface TargetToolbarProps {
@@ -21,7 +21,13 @@ interface TargetToolbarProps {
   canSave: boolean;
   /** 是否有未保存的变更 */
   isDirty?: boolean;
+  /** 目标审批状态 */
+  targetStatus?: TargetStatus;
   onSave: () => void;
+  /** 提交审批 */
+  onSubmitApproval?: () => void;
+  /** 提交审批加载中 */
+  submitLoading?: boolean;
   /** 返回概览视图（编辑模式下显示） */
   onBackToOverview?: () => void;
 }
@@ -38,7 +44,10 @@ const TargetToolbar: React.FC<TargetToolbarProps> = ({
   readOnly,
   canSave,
   isDirty,
+  targetStatus,
   onSave,
+  onSubmitApproval,
+  submitLoading,
   onBackToOverview,
 }) => {
   const isEditMode = !!selectedMarketerId;
@@ -81,8 +90,35 @@ const TargetToolbar: React.FC<TargetToolbarProps> = ({
       <div className={styles.right}>
         {isHistoryMonth && <Tag color="orange">历史月份（只读）</Tag>}
         {readOnly && !isHistoryMonth && isEditMode && <Tag color="default">只读</Tag>}
+        {/* 审批状态标签 */}
+        {targetStatus === 'pending' && <Tag color="processing">审批中</Tag>}
+        {targetStatus === 'approved' && <Tag color="success">已审批</Tag>}
+        {targetStatus === 'rejected' && <Tag color="error">已驳回</Tag>}
         {isDirty && <span className={styles.dirtyHint}>有未保存的变更</span>}
-        {canSave && isEditMode && (
+        {/* 草稿/驳回状态：显示保存 + 提交审批按钮 */}
+        {canSave && isEditMode && (targetStatus === 'draft' || targetStatus === 'rejected') && (
+          <>
+            <Button
+              icon={<SaveOutlined />}
+              onClick={onSave}
+              size="middle"
+              style={isDirty ? { background: '#faad14', borderColor: '#faad14' } : undefined}
+            >
+              保存目标
+            </Button>
+            <Button
+              type="primary"
+              icon={<SendOutlined />}
+              onClick={onSubmitApproval}
+              loading={submitLoading}
+              size="middle"
+            >
+              提交审批
+            </Button>
+          </>
+        )}
+        {/* 已审批状态：显示保存按钮（点击后弹确认弹框，由父组件处理） */}
+        {canSave && isEditMode && targetStatus === 'approved' && (
           <Button
             type="primary"
             icon={<SaveOutlined />}

@@ -235,6 +235,58 @@ describe('oa-workflow-utils', () => {
 
       expect(result.userIds).toEqual([42]);
     });
+
+    it('formDataUserIdField: formData 中存在有效 userId -> 返回对应 userIds', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '签名',
+        type: 'handle',
+        handler: { formDataUserIdField: '_marketerUserId' },
+      };
+
+      const result = await resolveHandlerRule(node, 99, { _marketerUserId: 42 });
+
+      expect(result.userIds).toEqual([42]);
+    });
+
+    it('formDataUserIdField: formData 中字段缺失 -> 返回空 userIds', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '签名',
+        type: 'handle',
+        handler: { formDataUserIdField: '_marketerUserId' },
+      };
+
+      const result = await resolveHandlerRule(node, 99, {});
+
+      expect(result.userIds).toEqual([]);
+    });
+
+    it('formDataUserIdField: formData 中字段值非数字 -> 返回空 userIds', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '签名',
+        type: 'handle',
+        handler: { formDataUserIdField: '_marketerUserId' },
+      };
+
+      const result = await resolveHandlerRule(node, 99, { _marketerUserId: 'abc' });
+
+      expect(result.userIds).toEqual([]);
+    });
+
+    it('formDataUserIdField: 不传 formData 时 -> 返回空 userIds', async () => {
+      const node: WorkflowNodeDef = {
+        order: 1,
+        name: '签名',
+        type: 'handle',
+        handler: { formDataUserIdField: '_marketerUserId' },
+      };
+
+      const result = await resolveHandlerRule(node, 99);
+
+      expect(result.userIds).toEqual([]);
+    });
   });
 
   describe('findUserIdsByRoleCodes', () => {

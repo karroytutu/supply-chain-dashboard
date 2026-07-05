@@ -4,8 +4,9 @@
  * - 概览模式（selectedMarketerId === null）：展示全局概览 + 营销师明细表
  * - 编辑模式（selectedMarketerId 有值）：展示客户列表 + 品类商品明细表
  */
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { message } from 'antd';
+import React, { useCallback, useState, useRef } from 'react';
+import { message, Spin, Modal, Button } from 'antd';
+import { SignaturePad } from '@/components/Oa';
 import TargetErrorBoundary from './TargetErrorBoundary';
 import TargetToolbar from './components/TargetToolbar';
 import OverviewPanel from './components/OverviewPanel';
@@ -16,167 +17,83 @@ import AddCustomerModal from './components/AddCustomerModal';
 import AddProductModal from './components/AddProductModal';
 import { useTargetManagement } from './hooks/useTargetManagement';
 import { useTargetCalculation } from './hooks/useTargetCalculation';
-import type { MarketerOverview } from '@/services/api/sales-target';
+import { useTargetDerivedData } from './hooks/useTargetDerivedData';
+import { useTargetModalState } from './hooks/useTargetModalState';
 import styles from './index.less';
 
 const TargetManagementPage: React.FC = () => {
   const { filters, data, actions } = useTargetManagement();
   const calc = useTargetCalculation();
 
-  // 弹窗状态
-  const [customerModalVisible, setCustomerModalVisible] = useState(false);
-  const [productModalVisible, setProductModalVisible] = useState(false);
-  const [productModalCategory, setProductModalCategory] = useState<{
-    categoryId: string;
-    categoryName: string;
-  } | null>(null);
+  // 派生数据（弹窗选项、营销师摘要）
+  const derived = useTargetDerivedData({
+    marketers: data.marketers,
+    customers: data.customers,
+    customerList: data.customerList,
+    productCatalog: data.productCatalog,
+    overviewData: data.overviewData,
+    currentTargetId: data.currentTargetId,
+    selectedMarketerId: filters.selectedMarketerId,
+    selectedCustomerId: filters.selectedCustomerId,
+  });
 
-  // 脏状态追踪：通过比较 customers 引用判断是否有未保存的编辑
-  const savedSnapshotRef = useRef(data.customers);
-  const [dirtyVersion, setDirtyVersion] = useState(0);
+  // 弹窗状态 + 脏状态追踪
+  const modal = useTargetModalState({
+    customers: data.customers,
+    selectedMarketerId: filters.selectedMarketerId,
+    isHistoryMonth: filters.isHistoryMonth,
+    canEdit: data.canEdit,
+    loading: data.loading,
+    productCatalog: data.productCatalog,
+    loadCustomerList: data.loadCustomerList,
+    loadProductCatalog: data.loadProductCatalog,
+    actions,
+    handleSave: actions.handleSave,
+  });
 
-  // 数据重新加载时重置快照
-  useEffect(() => {
-    savedSnapshotRef.current = data.customers;
-    setDirtyVersion((v) => v + 1);
-  }, [data.marketers, filters.selectedMarketerId, filters.currentMonth]);
-
-  const isDirty = data.customers !== savedSnapshotRef.current
-    && !!filters.selectedMarketerId
-    && !filters.isHistoryMonth
-    && data.canEdit;
-
-  const markDirty = useCallback(() => setDirtyVersion((v) => v + 1), []);
-
-  // 保存后更新快照
-  const handleSave = useCallback(async () => {
-    await actions.handleSave();
-    savedSnapshotRef.current = data.customers;
-    markDirty();
-  }, [actions, data.customers, markDirty]);
-
-  // useMemo 缓存数据转换
-  const marketerOptions = useMemo(
-    () => data.marketers.map((m) => ({ id: String(m.id), name: m.name })),
-    [data.marketers],
-  );
-
-  const availableCustomers = useMemo(
-    () =>
-      data.customerList.map((c) => ({
-        customerId: c.erpConsumerId,
-        customerName: c.consumerName,
-        industry: c.consumerManagerName || '公海客户',
-        status: c.isPublicSea ? '公海' : '已分配',
-      })),
-    [data.customerList],
-  );
-
-  const availableProducts = useMemo(
-    () =>
-      data.productCatalog.flatMap((cat) =>
-        cat.products.map((p) => ({
-          productId: String(p.erpGoodsId),
-          productName: p.goodsName,
-          categoryId: cat.categoryName,
-          categoryName: cat.categoryName,
-          unit: p.unit,
-          unitPrice: p.unitPrice || 0,
-        })),
-      ),
-    [data.productCatalog],
-  );
-
-  // 从已加载的客户数据构建当前营销师摘要（编辑模式用）
-  const currentMarketerSummary: MarketerOverview | null = useMemo(() => {
-    if (!filters.selectedMarketerId || !data.customers.length) return null;
-    const firstCustomer = data.customers[0];
-    let targetAmount = 0;
-    let lastMonthActual = 0;
-    for (const c of data.customers) {
-      for (const cat of c.categories) {
-        targetAmount += cat.targetAmount;
-        lastMonthActual += cat.actualAmountLastMonth;
-      }
-    }
-    const growthRate = lastMonthActual > 0
-      ? (targetAmount - lastMonthActual) / lastMonthActual
-      : null;
-    const overviewMarketer = data.overviewData?.marketers.find(
-      (m) => m.id === filters.selectedMarketerId,
-    );
-    return {
-      id: filters.selectedMarketerId,
-      name: firstCustomer.marketerName || overviewMarketer?.name || '',
-      targetAmount: Math.round(targetAmount * 100) / 100,
-      lastMonthActual: Math.round(lastMonthActual * 100) / 100,
-      growthRate: growthRate !== null ? Math.round(growthRate * 10000) / 10000 : null,
-      hasSaved: !!data.currentTargetId,
-      customerCount: data.customers.length,
-    };
-  }, [filters.selectedMarketerId, data.customers, data.currentTargetId, data.overviewData]);
-
-  // 弹窗操作
-  const handleAddProduct = useCallback(
-    (customerId: number, categoryId: string, categoryName: string) => {
-      setProductModalCategory({ categoryId, categoryName });
-      setProductModalVisible(true);
-    },
-    [],
-  );
-
-  const handleAddCategory = useCallback(() => {
-    setProductModalCategory(null);
-    setProductModalVisible(true);
-  }, []);
-
-  const handleOpenCustomerModal = useCallback(() => {
-    data.loadCustomerList();
-    setCustomerModalVisible(true);
-  }, [data.loadCustomerList]);
-
-  const handleOpenProductModal = useCallback(
-    (customerId: number, categoryId: string, categoryName: string) => {
-      data.loadProductCatalog();
-      handleAddProduct(customerId, categoryId, categoryName);
-    },
-    [data.loadProductCatalog, handleAddProduct],
-  );
-
-  const handleOpenAddCategory = useCallback(() => {
-    data.loadProductCatalog();
-    handleAddCategory();
-  }, [data.loadProductCatalog, handleAddCategory]);
-
-  // 包装 actions，在每次编辑后标记脏状态
-  const wrappedActions = useMemo(() => ({
-    handleUpdateProduct: (...args: Parameters<typeof actions.handleUpdateProduct>) => {
-      actions.handleUpdateProduct(...args);
-      markDirty();
-    },
-    handleAddCustomers: (...args: Parameters<typeof actions.handleAddCustomers>) => {
-      actions.handleAddCustomers(...args);
-      markDirty();
-    },
-    handleAddProducts: (...args: Parameters<typeof actions.handleAddProducts>) => {
-      actions.handleAddProducts(...args);
-      markDirty();
-    },
-    handleSplit: (...args: Parameters<typeof actions.handleSplit>) => {
-      actions.handleSplit(...args);
-      markDirty();
-    },
-  }), [actions, markDirty]);
-
-  // 视图模式
   const isOverviewMode = filters.selectedMarketerId === null;
 
-  // 从概览点击营销师进入编辑模式
+  // 存储待审批的 targetId，供签名确认后使用（避免闭包过时）
+  const pendingApprovalTargetIdRef = useRef<number | null>(null);
+
+  const handleSubmitApprovalWithId = useCallback(async () => {
+    const targetId = await actions.handleSubmitApproval();
+    if (targetId) {
+      pendingApprovalTargetIdRef.current = targetId;
+    }
+  }, [actions.handleSubmitApproval]);
+
+  const handleConfirmSignature = useCallback(async (signatureData: string) => {
+    const targetId = pendingApprovalTargetIdRef.current;
+    if (!targetId) return;
+    pendingApprovalTargetIdRef.current = null;
+    await actions.confirmSignature(signatureData, targetId);
+  }, [actions.confirmSignature]);
+
+  // 已审批状态下保存时弹出确认弹框（修改后需重新提交审批）
+  const handleSaveWithConfirm = useCallback(async () => {
+    if (data.targetStatus === 'approved') {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        let resolved = false;
+        Modal.confirm({
+          title: '确认修改',
+          content: '修改后目标将回退为草稿，需重新提交审批。是否继续？',
+          okText: '继续修改',
+          cancelText: '取消',
+          onOk: () => { resolved = true; resolve(true); },
+          onCancel: () => { resolved = true; resolve(false); },
+          afterClose: () => { if (!resolved) resolve(false); },
+        });
+      });
+      if (!confirmed) return;
+    }
+    await modal.handleSave();
+  }, [data.targetStatus, modal.handleSave]);
+
   const handleClickMarketer = useCallback((marketerId: number) => {
     filters.setSelectedMarketerId(marketerId);
   }, [filters.setSelectedMarketerId]);
 
-  // 返回概览
   const handleBackToOverview = useCallback(() => {
     filters.setSelectedMarketerId(null);
   }, [filters.setSelectedMarketerId]);
@@ -184,7 +101,7 @@ const TargetManagementPage: React.FC = () => {
   return (
     <div className={`page-full ${styles.page}`}>
       <TargetToolbar
-        marketers={marketerOptions}
+        marketers={derived.marketerOptions}
         selectedMarketerId={filters.selectedMarketerId ? String(filters.selectedMarketerId) : ''}
         onSelectMarketer={(id) => filters.setSelectedMarketerId(id ? Number(id) : null)}
         currentMonth={filters.currentMonth}
@@ -192,10 +109,13 @@ const TargetManagementPage: React.FC = () => {
         onNextMonth={filters.handleNextMonth}
         canPrevMonth={filters.canPrevMonth}
         isHistoryMonth={filters.isHistoryMonth}
-        readOnly={filters.readOnly}
-        canSave={data.canEdit && !filters.isHistoryMonth && !!filters.selectedMarketerId}
-        isDirty={isDirty}
-        onSave={handleSave}
+        readOnly={filters.readOnly || data.targetStatus === 'pending'}
+        canSave={data.canEdit && !filters.isHistoryMonth && !!filters.selectedMarketerId && data.targetStatus !== 'pending'}
+        isDirty={modal.isDirty}
+        targetStatus={data.targetStatus}
+        onSave={handleSaveWithConfirm}
+        onSubmitApproval={handleSubmitApprovalWithId}
+        submitLoading={actions.submitLoading}
         onBackToOverview={!isOverviewMode ? handleBackToOverview : undefined}
       />
 
@@ -206,64 +126,119 @@ const TargetManagementPage: React.FC = () => {
             onClickMarketer={handleClickMarketer}
           />
         ) : (
-          <div className={styles.loadingHint}>正在加载概览数据...</div>
+          <div className={styles.loadingHint}><Spin /> 正在加载概览数据...</div>
         )
       ) : (
         <>
-          {currentMarketerSummary && (
-            <MarketerSummary marketer={currentMarketerSummary} />
-          )}
-          <div className={styles.contentWrapper}>
-            <CustomerListPanel
-              customers={data.customers}
-              selectedCustomerId={filters.selectedCustomerId}
-              onSelectCustomer={(id) => filters.setSelectedCustomerId(id)}
-              onAddCustomer={handleOpenCustomerModal}
-              getCustomerTotal={calc.getCustomerTotal}
-              readOnly={filters.readOnly}
-              showMarketerTag={false}
-            />
+          {data.loading ? (
+            <div className={styles.loadingHint}><Spin /> 加载目标数据...</div>
+          ) : (
+            <>
+              {derived.currentMarketerSummary && (
+                <MarketerSummary marketer={derived.currentMarketerSummary} />
+              )}
+              <div className={styles.contentWrapper}>
+                <CustomerListPanel
+                  customers={data.customers}
+                  selectedCustomerId={filters.selectedCustomerId}
+                  onSelectCustomer={(id) => filters.setSelectedCustomerId(id)}
+                  onAddCustomer={modal.handleOpenCustomerModal}
+                  onRemoveCustomer={modal.wrappedActions.handleRemoveCustomer}
+                  getCustomerTotal={calc.getCustomerTotal}
+                  readOnly={filters.readOnly}
+                  showMarketerTag={false}
+                />
 
-            <CategoryProductTable
-              customer={data.selectedCustomer}
-              readOnly={filters.readOnly}
-              getCategoryAggregates={calc.getCategoryAggregates}
-              onUpdateProduct={wrappedActions.handleUpdateProduct}
-              onSplit={wrappedActions.handleSplit}
-              onAddProduct={handleOpenProductModal}
-              onAddCategory={() => handleOpenAddCategory()}
-            />
-          </div>
+                <CategoryProductTable
+                  customer={data.selectedCustomer}
+                  readOnly={filters.readOnly}
+                  getCategoryAggregates={calc.getCategoryAggregates}
+                  onUpdateProduct={modal.wrappedActions.handleUpdateProduct}
+                  onUpdateCategoryRemark={modal.wrappedActions.handleUpdateCategoryRemark}
+                  onSplit={modal.wrappedActions.handleSplit}
+                  onAddProduct={modal.handleOpenProductModal}
+                  onAddCategory={modal.handleOpenAddCategory}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
 
       <AddCustomerModal
-        visible={customerModalVisible}
-        onClose={() => setCustomerModalVisible(false)}
+        visible={modal.customerModalVisible}
+        loading={data.customerListLoading}
+        onClose={() => modal.setCustomerModalVisible(false)}
         onSuccess={(customers) => {
-          wrappedActions.handleAddCustomers(customers);
-          setCustomerModalVisible(false);
+          modal.wrappedActions.handleAddCustomers(customers);
+          modal.setCustomerModalVisible(false);
           message.success(`已添加 ${customers.length} 个客户`);
         }}
-        availableCustomers={availableCustomers}
+        availableCustomers={derived.availableCustomers}
+        myCustomerIds={derived.myCustomerIds}
       />
 
       <AddProductModal
-        visible={productModalVisible}
-        onClose={() => setProductModalVisible(false)}
+        visible={modal.productModalVisible}
+        onClose={() => modal.setProductModalVisible(false)}
         onSuccess={(products) => {
           if (filters.selectedCustomerId) {
-            wrappedActions.handleAddProducts(filters.selectedCustomerId, products);
+            modal.wrappedActions.handleAddProducts(filters.selectedCustomerId, products);
           }
-          setProductModalVisible(false);
-          setProductModalCategory(null);
+          modal.setProductModalVisible(false);
+          modal.setProductModalCategory(null);
           message.success(`已添加 ${products.length} 个商品`);
         }}
-        availableProducts={availableProducts}
+        availableProducts={derived.availableProducts}
+        existingProductIds={derived.existingProductIds}
         customerName={data.selectedCustomer?.customerName || ''}
-        filterCategoryId={productModalCategory?.categoryId}
-        filterCategoryName={productModalCategory?.categoryName}
+        filterCategoryId={modal.productModalCategory?.categoryId}
+        filterCategoryName={modal.productModalCategory?.categoryName}
       />
+
+      <Modal
+        title="电子签名确认"
+        open={actions.signatureModalVisible}
+        onCancel={() => {
+          pendingApprovalTargetIdRef.current = null;
+          actions.cancelSignature();
+        }}
+        footer={null}
+        destroyOnClose
+        width={520}
+      >
+        <SignatureModalContent
+          onConfirm={handleConfirmSignature}
+        />
+      </Modal>
+    </div>
+  );
+};
+
+/** 签名弹窗内容组件 */
+const SignatureModalContent: React.FC<{
+  onConfirm: (data: string) => void;
+}> = ({ onConfirm }) => {
+  const [signature, setSignature] = useState<string | undefined>();
+
+  return (
+    <div>
+      <p style={{ marginBottom: 12 }}>请在下方签名确认后提交审批</p>
+      <SignaturePad
+        value={signature}
+        onChange={setSignature}
+        width={460}
+        height={200}
+      />
+      <div style={{ marginTop: 16, textAlign: 'right' }}>
+        <Button
+          type="primary"
+          disabled={!signature}
+          onClick={() => signature && onConfirm(signature)}
+        >
+          确认签名并提交
+        </Button>
+      </div>
     </div>
   );
 };

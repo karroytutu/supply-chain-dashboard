@@ -45,6 +45,8 @@ export async function queryTargetDetail(targetId: number): Promise<TargetDetailD
     marketer_name: target.marketer_name,
     year: target.year,
     month: target.month,
+    status: target.status,
+    oa_instance_id: target.oa_instance_id,
     created_at: target.created_at,
     updated_at: target.updated_at,
     customers,
@@ -99,6 +101,7 @@ function buildCustomerTree(items: SalesTargetItem[]): TargetCustomerDTO[] {
       remark: item.remark || '',
       actual_amount_last_month: 0, // 由 ERP 服务补充
       actual_amount_prev_month: 0,
+      gross_margin_rate: 0,        // 由 ERP 服务补充
     });
 
     category.target_amount += Number(item.target_amount) || 0;

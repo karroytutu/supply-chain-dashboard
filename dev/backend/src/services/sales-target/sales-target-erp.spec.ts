@@ -17,28 +17,32 @@ jest.mock('../erp-client/erp-customer.service', () => ({
 jest.mock('../erp-client/erp-product.service', () => ({
   fetchAllProducts: jest.fn(),
 }));
+jest.mock('../erp-client/erp-inventory.service', () => ({
+  getStockSummaryMap: jest.fn(() => new Map()),
+}));
 jest.mock('../fixed-asset/fixed-asset.query', () => ({
   getErpStaff: jest.fn(),
 }));
 jest.mock('./sales-target.repository', () => ({
   listTargets: jest.fn(),
   getTargetItems: jest.fn(),
+  getTargetItemsByTargetIds: jest.fn(),
 }));
 
 import {
   getMarketerErpStaffIds,
-  getCustomerList,
-  getProductCatalog,
-  getHistoricalSales,
-  buildInitialTargetData,
-  getOverviewData,
-} from './sales-target-erp.service';
+} from './sales-target-marketer.service';
+import { getCustomerList } from './sales-target-customer.service';
+import { getProductCatalog } from './sales-target-product.service';
+import { getHistoricalSales } from './sales-target-historical.service';
+import { buildInitialTargetData } from './sales-target-init.service';
+import { getOverviewData } from './sales-target-overview.service';
 import { appQuery } from '../../db/appPool';
 import { cache } from '../../utils/cache';
 import { searchErpCustomers } from '../erp-client/erp-customer.service';
 import { fetchAllProducts } from '../erp-client/erp-product.service';
 import { getErpStaff } from '../fixed-asset/fixed-asset.query';
-import { listTargets, getTargetItems } from './sales-target.repository';
+import { listTargets, getTargetItems, getTargetItemsByTargetIds } from './sales-target.repository';
 
 const mockAppQuery = appQuery as jest.MockedFunction<typeof appQuery>;
 const mockCache = cache as jest.Mocked<typeof cache>;
@@ -47,6 +51,7 @@ const mockFetchProducts = fetchAllProducts as jest.MockedFunction<typeof fetchAl
 const mockGetErpStaff = getErpStaff as jest.MockedFunction<typeof getErpStaff>;
 const mockListTargets = listTargets as jest.MockedFunction<typeof listTargets>;
 const mockGetTargetItems = getTargetItems as jest.MockedFunction<typeof getTargetItems>;
+const mockGetTargetItemsByTargetIds = getTargetItemsByTargetIds as jest.MockedFunction<typeof getTargetItemsByTargetIds>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -253,42 +258,43 @@ describe('buildInitialTargetData', () => {
 
 describe('getOverviewData', () => {
   it('lastMonthActual=0 → growthRate=null（不除零）', async () => {
+    // Promise.all 中 appQuery 调用顺序：1.getMarketerUsers(内部appQuery) 2.margin查询 3.客户聚合查询
     mockAppQuery
-      .mockResolvedValueOnce({ rows: [{ id: 1, name: '张三' }] } as any) // marketers
-      .mockResolvedValueOnce({ rows: [] } as any) // sales details
-      .mockResolvedValueOnce({ rows: [] } as any); // more sales details
+      .mockResolvedValueOnce({ rows: [{ id: 1, name: '张三' }] } as any) // getMarketerUsers
+      .mockResolvedValueOnce({ rows: [] } as any) // margin query
+      .mockResolvedValueOnce({ rows: [] } as any); // consumer agg query
     mockGetErpStaff.mockResolvedValue([{ id: 101, name: '张三' }] as any);
-    mockListTargets.mockResolvedValue([{ id: 1, marketer_id: 1 }] as any);
-    mockGetTargetItems.mockResolvedValue([{ target_amount: 1000 }] as any);
+    mockListTargets.mockResolvedValue([{ id: 1, marketer_id: 1, status: 'approved' }] as any);
+    mockGetTargetItemsByTargetIds.mockResolvedValue(new Map([[1, [{ target_amount: 1000 }]]]) as any);
     mockSearchCustomers.mockResolvedValue([] as any);
 
     const result = await getOverviewData(2026, 7);
 
-    // 有目标但无上月实际 → growthRate=null
+    // 有目标但无上月实际 → growth_rate=null
     const marketer = result.marketers[0];
-    expect(marketer.growthRate).toBeNull();
-    expect(marketer.hasSaved).toBe(true);
+    expect(marketer.growth_rate).toBeNull();
+    expect(marketer.has_saved).toBe(true);
   });
 
   it('marketerOverviews 包含概览汇总信息', async () => {
-    // 简化测试：直接验证 getOverviewData 调用各依赖并组装结果
-    mockAppQuery.mockResolvedValue({ rows: [{ id: 1, name: 'A' }] } as any);
+    mockAppQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, name: 'A' }] } as any) // getMarketerUsers
+      .mockResolvedValueOnce({ rows: [] } as any) // margin query
+      .mockResolvedValueOnce({ rows: [] } as any); // consumer agg query
     mockGetErpStaff.mockResolvedValue([{ id: 101, name: 'A' }] as any);
-    mockListTargets.mockResolvedValue([{ id: 1, marketer_id: 1 }] as any);
-    mockGetTargetItems.mockResolvedValue([{ target_amount: 1000 }] as any);
+    mockListTargets.mockResolvedValue([{ id: 1, marketer_id: 1, status: 'approved' }] as any);
+    mockGetTargetItemsByTargetIds.mockResolvedValue(new Map([[1, [{ target_amount: 1000 }]]]) as any);
     mockSearchCustomers.mockResolvedValue([
       { id: 1, name: 'C1', consumerManagerId: 101 },
     ] as any);
 
     try {
       const result = await getOverviewData(2026, 7);
-      // 验证返回结构正确
       expect(result).toHaveProperty('summary');
       expect(result).toHaveProperty('marketers');
-      expect(result.summary).toHaveProperty('marketerCount');
-      expect(result.summary).toHaveProperty('growthRate');
+      expect(result.summary).toHaveProperty('marketer_count');
+      expect(result.summary).toHaveProperty('growth_rate');
     } catch (e) {
-      // 如果抛出异常，记录详细信息
       console.error('getOverviewData error:', e);
       throw e;
     }

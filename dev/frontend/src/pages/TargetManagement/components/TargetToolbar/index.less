@@ -43,9 +43,20 @@
 
 // 未保存提示
 .dirtyHint {
-  font-size: 13px;
-  color: @warning-color;
-  font-weight: 500;
+  font-size: @font-size-sm;
+  color: @text-color-body;
+  font-weight: 400;
+
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: @warning-color;
+    margin-right: @spacing-xs;
+    vertical-align: middle;
+  }
 }
 
 // 返回概览按钮

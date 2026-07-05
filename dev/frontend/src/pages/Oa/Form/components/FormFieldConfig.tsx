@@ -225,6 +225,17 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
         />
       );
 
+    case 'user-select':
+      return (
+        <SelectFieldControl
+          mode={field.disabled ? 'readonly' : 'editable'}
+          field={field}
+          value={value}
+          onChange={onChange as ((value: unknown) => void) | undefined}
+          formData={formData}
+        />
+      );
+
     case 'formula':
       // 公式字段：只读展示计算结果，由 formula-evaluator 自动填充值
       return (

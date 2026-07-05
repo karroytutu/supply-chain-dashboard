@@ -38,7 +38,8 @@ export function filterNodesByCondition(
  */
 export async function resolveHandlerRule(
   node: WorkflowNodeDef,
-  applicantId: number
+  applicantId: number,
+  formData?: Record<string, unknown>
 ): Promise<{ userIds: number[]; signMode: SignMode }> {
   const signMode = node.signMode || 'or';
   const userIds: number[] = [];
@@ -57,6 +58,15 @@ export async function resolveHandlerRule(
   }
   if (handler.useApplicant) {
     userIds.push(applicantId);
+  }
+  if (handler.formDataUserIdField) {
+    const rawUserId = formData?.[handler.formDataUserIdField];
+    const parsedId = Number(rawUserId);
+    if (rawUserId != null && !isNaN(parsedId) && parsedId > 0) {
+      userIds.push(parsedId);
+    } else {
+      log.warn(`formDataUserIdField '${handler.formDataUserIdField}' 值无效: ${rawUserId}，节点 '${node.name}' 可能无人处理`);
+    }
   }
 
   return { userIds: [...new Set(userIds)], signMode };
@@ -189,7 +199,7 @@ export async function evaluateAndTriggerNodes(
       createdNodes.push(insertResult.rows[0]);
     } else {
       // approval/handle 节点：解析处理人
-      const { userIds, signMode } = await resolveHandlerRule(nodeDef, applicantId);
+      const { userIds, signMode } = await resolveHandlerRule(nodeDef, applicantId, formData);
 
       const insertResult = await client.query<OaNodeRow>(
         `INSERT INTO oa_approval_nodes

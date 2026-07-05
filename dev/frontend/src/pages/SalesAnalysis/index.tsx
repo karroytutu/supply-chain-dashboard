@@ -35,7 +35,7 @@ const SalesAnalysis: React.FC = () => {
   const drilldown = useCustomerDrilldown();
 
   return (
-    <div className={`page-scroll ${styles.page}`}>
+    <div className="page-scroll">
       <Alert
         className={styles.prototypeBanner}
         type="warning"

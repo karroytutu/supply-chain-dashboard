@@ -91,4 +91,17 @@ test.describe('目标管理', () => {
       }
     });
   });
+
+  test.describe('表格渲染', () => {
+    test('概览营销师表使用 Ant Design Table 渲染', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto(`${BASE_URL}/sales/targets`);
+      await authenticatedPage.waitForLoadState('networkidle');
+
+      // 验证 Ant Design Table 结构存在
+      await expect(authenticatedPage.locator('.ant-table')).toBeVisible({ timeout: 10000 });
+      // 表头和数据行都在 ant-table 内
+      await expect(authenticatedPage.locator('.ant-table-thead')).toBeVisible();
+      await expect(authenticatedPage.locator('.ant-table-tbody')).toBeVisible();
+    });
+  });
 });

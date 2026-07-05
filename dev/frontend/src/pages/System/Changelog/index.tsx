@@ -74,7 +74,7 @@ export default function Changelog() {
   }, [entries, typeFilter, keyword]);
 
   return (
-    <div className={`page-scroll ${styles.container}`}>
+    <div className="page-scroll">
       {/* 页面标题 */}
       <div className={styles.header}>
         <Title level={4} style={{ marginBottom: 4 }}>更新日志</Title>
