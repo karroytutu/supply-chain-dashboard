@@ -60,7 +60,7 @@ export async function createPaidBill(
     const paid = parseFloat(inv.paidAmount || String(inv.leftAmount)) || 0;
     const discount = parseFloat(discountAmounts[i]) || 0;
     const net = Math.round((paid - discount) * 100) / 100;
-    const allocate = prepayRemaining > 0 ? Math.min(net, prepayRemaining) : 0;
+    const allocate = prepayRemaining > 0 && net > 0 ? Math.min(net, prepayRemaining) : 0;
     prepayRemaining = Math.round((prepayRemaining - allocate) * 100) / 100;
     return {
       bizId: inv.bizId,

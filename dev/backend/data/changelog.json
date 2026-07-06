@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "v2.21.1",
+      "date": "2026-07-06 11:25",
+      "types": ["fix", "optimization"],
+      "changes": [
+        "采购付款申请支持退货单据（负数金额）：ERP退货应付单现在可以在付款申请中正常结算，前后端均支持负数金额输入、校验和预付款分配",
+        "退货单据抹零限制：退货应付单不允许抹零，前端自动禁用抹零输入框并强制归零",
+        "金额输入框支持负号：filterNumberInput新增allowNegative参数，退货场景下允许输入负数金额",
+        "付款申请表格布局优化：EditableAmountList在editableAmount场景下按钮宽度不再超出容器",
+        "新增input-filter单元测试：覆盖正数、负数、边界值等金额输入过滤场景",
+        "项目规范文档架构升级：旧的英文/中文规则文件已迁移至新架构，统一管理"
+      ]
+    },
+    {
       "version": "v2.21.0",
       "date": "2026-07-05 15:29",
       "types": ["feature", "optimization"],

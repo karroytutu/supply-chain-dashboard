@@ -357,11 +357,23 @@ async function beforeSubmitPurchasePayment(
       const left = parseFloat(String(debt.leftAmount || 0));
       const paid = parseFloat(String(debt.paymentAmount || 0));
       const discount = parseFloat(String(debt.discountAmount || 0));
-      if (paid <= 0) throw new Error(`单据 ${debt.bizStr} 的本次付款金额必须大于0`);
-      if (paid > left) throw new Error(`单据 ${debt.bizStr} 的本次付款金额不能超过剩余金额`);
+
+      // 按 left 正负方向分别校验：正常应付 [0, left]，退货应付 [left, 0]
+      if (left >= 0) {
+        if (paid <= 0) throw new Error(`单据 ${debt.bizStr} 的本次付款金额必须大于0`);
+        if (paid > left) throw new Error(`单据 ${debt.bizStr} 的本次付款金额不能超过剩余金额`);
+      } else {
+        if (paid >= 0) throw new Error(`单据 ${debt.bizStr} 的本次结算金额应为负数`);
+        if (paid < left) throw new Error(`单据 ${debt.bizStr} 的本次结算金额不能超过退货金额`);
+        if (discount > 0.01) throw new Error(`单据 ${debt.bizStr} 为退货单据，不允许抹零`);
+      }
+
       const remaining = Math.round((left - paid - discount) * 100) / 100;
-      if (remaining < -0.01) {
+      if (left >= 0 && remaining < -0.01) {
         throw new Error(`单据 ${debt.bizStr} 的本次付款 + 抹零不能超过剩余金额`);
+      }
+      if (left < 0 && remaining > 0.01) {
+        throw new Error(`单据 ${debt.bizStr} 的本次付款金额不能超过退货金额`);
       }
       totalPayment += paid;
     }
@@ -498,10 +510,11 @@ export const purchasePaymentFormType: FormTypeDefinition = {
         }
         const validLines = paymentLines.filter(line => {
           const subjectId = line.paymentSubjectId || line.id;
-          return subjectId && parseFloat(String(line.amount || 0)) > 0;
+          const amount = parseFloat(String(line.amount || 0));
+          return subjectId && amount !== 0;
         });
         if (validLines.length === 0) {
-          errors.push('银行转账明细中至少需要一条有效付款记录（金额 > 0 且已选择付款科目）');
+          errors.push('银行转账明细中至少需要一条有效记录（金额 ≠ 0 且已选择付款科目）');
         }
       }
     }

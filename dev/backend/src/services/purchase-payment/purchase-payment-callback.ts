@@ -147,14 +147,15 @@ async function handlePostpayPayment(
     paymentDetails = paymentLines
       .filter(line => {
         const subjectId = line.paymentSubjectId || line.id;
-        return subjectId && parseFloat(String(line.amount || 0)) > 0;
+        const amount = parseFloat(String(line.amount || 0));
+        return subjectId && amount !== 0;
       })
       .map(line => ({
         paymentAmount: String(line.amount || '0'),
         subjectId: (line.paymentSubjectId || line.id)!,
       }));
     if (paymentDetails.length === 0) {
-      throw new Error('银行转账明细中至少需要一条有效付款记录（金额 > 0 且已选择付款科目）');
+      throw new Error('银行转账明细中至少需要一条有效记录（金额 ≠ 0 且已选择付款科目）');
     }
   } else {
     // 降级：使用出纳环节的单一付款账户
@@ -226,14 +227,15 @@ async function handlePrepayPayment(
     paymentDetails = paymentLines
       .filter(line => {
         const subjectId = line.paymentSubjectId || line.id;
-        return subjectId && parseFloat(String(line.amount || 0)) > 0;
+        const amount = parseFloat(String(line.amount || 0));
+        return subjectId && amount !== 0;
       })
       .map(line => ({
         paymentAmount: String(line.amount || '0'),
         subjectId: (line.paymentSubjectId || line.id)!,
       }));
     if (paymentDetails.length === 0) {
-      throw new Error('银行转账明细中至少需要一条有效付款记录（金额 > 0 且已选择付款科目）');
+      throw new Error('银行转账明细中至少需要一条有效记录（金额 ≠ 0 且已选择付款科目）');
     }
     totalPaymentAmount = String(
       Math.round(paymentDetails.reduce((sum, d) => sum + parseFloat(d.paymentAmount), 0) * 100) / 100

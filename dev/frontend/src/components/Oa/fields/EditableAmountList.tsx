@@ -13,7 +13,7 @@
  * - 写入：用户编辑后，将 paymentAmount/discountAmount 存入 _details 记录中，
  *         表格合计行自动展示各行本次付款/抹零/未结余额的汇总
  */
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Input, Typography } from 'antd';
 import { formatCurrency } from '@/utils/format';
 import { filterNumberInput, AMOUNT_MAX_LENGTH } from '@/utils/input-filter';
@@ -63,11 +63,39 @@ export function EditableAmountList({
   // 例：预付款核销 editField='useAmount'，避免读取 ERP 的 writeOffAmount（已核销累计值）预填输入框
   const inputFieldName = editField || fieldName;
   const isMobile = useIsMobile();
+
+  // 初始化函数：当 inputFieldName 为空时回退到 amountKey（leftAmount），实现自动填充剩余金额
+  const initRowAmounts = (recs: Record<string, unknown>[]) =>
+    recs.map(r => {
+      const existing = r[inputFieldName];
+      const left = r[amountKey];
+      const leftNum = parseFloat(String(left || 0));
+      const paidDefault = existing != null && String(existing) !== ''
+        ? String(existing)
+        : (left != null ? Number(left).toFixed(2) : '');
+      // 退货单据（left < 0）不允许抹零，强制为 0
+      const discountDefault = leftNum < 0 ? '0' : String(r.discountAmount || '');
+      return { paid: paidDefault, discount: discountDefault };
+    });
+
+  // 同步默认值到 _details，确保后端 beforeSubmit 能读到 paymentAmount
+  const syncToDetails = (recs: Record<string, unknown>[], amounts: { paid: string; discount: string }[]) => {
+    if (!fakeForm) return;
+    const details = (fakeForm.getFieldValue('_details') as Record<string, unknown>) || {};
+    const updated = recs.map((r, i) => {
+      const leftNum = parseFloat(String(r[amountKey] || 0));
+      return {
+        ...r,
+        [inputFieldName]: amounts[i].paid || '0',
+        // 退货行强制抹零为 0，确保 _details 与 UI 一致
+        ...(leftNum < 0 ? { discountAmount: '0' } : {}),
+      };
+    });
+    fakeForm.setFieldsValue({ _details: { ...details, [fieldKey]: updated } });
+  };
+
   const [rowAmounts, setRowAmounts] = useState<{ paid: string; discount: string }[]>(
-    () => records.map(r => ({
-      paid: String(r[inputFieldName] || ''),
-      discount: String(r.discountAmount || ''),
-    }))
+    () => initRowAmounts(records)
   );
 
   // 仅在单据选择变化时重新初始化（用 ID 指纹判断，避免父组件重渲染时反复重置）
@@ -75,11 +103,20 @@ export function EditableAmountList({
   const prevFingerprintRef = useRef(recordFingerprint);
   if (prevFingerprintRef.current !== recordFingerprint) {
     prevFingerprintRef.current = recordFingerprint;
-    setRowAmounts(records.map(r => ({
-      paid: String(r[inputFieldName] || ''),
-      discount: String(r.discountAmount || ''),
-    })));
+    const nextAmounts = initRowAmounts(records);
+    setRowAmounts(nextAmounts);
+    // 单据变更时直接用新计算的值同步 _details，避免 useEffect 闭包陈旧值问题
+    syncToDetails(records, nextAmounts);
   }
+
+  // 首次挂载同步：确保初始值写入 _details（在 commit 阶段执行）
+  const mountSyncedRef = useRef(false);
+  useEffect(() => {
+    if (!mountSyncedRef.current) {
+      mountSyncedRef.current = true;
+      syncToDetails(records, rowAmounts);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (records.length === 0) return <Text type="secondary">-</Text>;
 
@@ -130,9 +167,12 @@ export function EditableAmountList({
           maxPaid = Math.min(maxPaid, remaining);
         }
       }
-      const clampedPaid = Math.min(Math.max(0, currentPaid), maxPaid);
+      // 根据 left 正负方向分别截断
+      const clampedPaid = left >= 0
+        ? Math.min(Math.max(0, currentPaid), maxPaid)   // [0, maxPaid]
+        : Math.max(Math.min(0, currentPaid), left);     // [left, 0]
       if (clampedPaid !== currentPaid) {
-        const newPaidStr = clampedPaid > 0 ? String(clampedPaid) : '';
+        const newPaidStr = clampedPaid !== 0 ? String(clampedPaid) : '';
         setRowAmounts(prev => {
           const next = [...prev];
           next[index] = { ...next[index], paid: newPaidStr };
@@ -150,14 +190,22 @@ export function EditableAmountList({
       return;
     }
 
-    // 付款模式：校验付款 + 抹零
+    // 付款模式：根据 left 正负方向校验付款 + 抹零
     const currentDiscount = parseFloat(rowAmounts[index]?.discount || '0') || 0;
-    const clampedPaid = Math.min(Math.max(0, currentPaid), left);
-    const maxDiscount = Math.round(Math.max(0, left - clampedPaid) * 100) / 100;
+    let clampedPaid: number;
+    if (left >= 0) {
+      clampedPaid = Math.min(Math.max(0, currentPaid), left);    // [0, left]
+    } else {
+      clampedPaid = Math.max(Math.min(0, currentPaid), left);    // [left, 0]
+    }
+    // 退货单据（left < 0）不需要抹零，抹零强制为 0
+    const maxDiscount = left >= 0
+      ? Math.round(Math.max(0, left - clampedPaid) * 100) / 100
+      : 0;
     const clampedDiscount = Math.min(Math.max(0, currentDiscount), maxDiscount);
 
     if (clampedPaid !== currentPaid || clampedDiscount !== currentDiscount) {
-      const newPaidStr = clampedPaid > 0 ? String(clampedPaid) : '';
+      const newPaidStr = clampedPaid !== 0 ? String(clampedPaid) : '';
       const newDiscountStr = clampedDiscount > 0 ? String(clampedDiscount) : '';
       setRowAmounts(prev => {
         const next = [...prev];
@@ -240,11 +288,12 @@ export function EditableAmountList({
         placeholder="0.00"
         onClick={stopPropagation}
         onBlur={() => validateOnBlur(i)}
-        onChange={(e) => updateAmount(i, inputFieldName, filterNumberInput(e.target.value))}
+        onChange={(e) => updateAmount(i, inputFieldName, filterNumberInput(e.target.value, left < 0))}
       />
     );
 
-    // 抹零输入框
+    // 抹零输入框（退货单据 left < 0 时禁用）
+    const isReturnRow = left < 0;
     const discountInput = disabled ? (
       <span style={{ fontSize: isMobile ? 14 : 13, color: '#333', padding: isMobile ? '4px 0' : undefined }}>{formatCurrency(discount)}</span>
     ) : (
@@ -252,6 +301,7 @@ export function EditableAmountList({
         size="small"
         value={rowAmounts[i]?.discount || ''}
         maxLength={AMOUNT_MAX_LENGTH}
+        disabled={isReturnRow}
         style={isMobile ? { width: '100%' } : { width: 70, textAlign: 'right' }}
         placeholder="0.00"
         onClick={stopPropagation}

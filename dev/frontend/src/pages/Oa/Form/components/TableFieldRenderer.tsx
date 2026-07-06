@@ -658,7 +658,11 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
           onClick={() => setModalOpen(true)}
           icon={<PlusOutlined />}
           style={{
-            width: containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum || '100%',
+            // editableAmount 场景：EditableAmountList 使用 width:100%，按钮宽度不应超出容器
+            // 非 editableAmount 场景：按钮宽度与 Ant Design Table scroll.x 对齐
+            width: field.editableAmount
+              ? (containerWidth > 0 ? containerWidth : '100%')
+              : (containerWidth > 0 ? Math.max(containerWidth, columnWidthsSum) : columnWidthsSum || '100%'),
             marginTop: 8,
             justifyContent: 'flex-start',
             paddingLeft: 24,
