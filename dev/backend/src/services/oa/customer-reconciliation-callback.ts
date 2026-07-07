@@ -29,6 +29,34 @@ import fs, { promises as fsp } from 'fs';
 import path from 'path';
 
 // =====================================================
+// 辅助函数：从 formData + erpMeta 双源读取对账单ID及 erpMeta
+// 优先 formData._erpStatementId（由声明式回填持久化，不受竞态影响）
+// 兜底 erpMeta.responseData.erpStatementId
+// 同时返回 erpMeta 引用，避免调用方重复解析
+// =====================================================
+
+function resolveErpContext(
+  instance: OaInstanceRow,
+  formData: Record<string, unknown>
+): { erpStatementId: number; erpMeta: ReturnType<typeof getErpMeta> } {
+  const erpMeta = getErpMeta(instance);
+
+  // 优先 formData._erpStatementId（由声明式回填持久化，不受竞态影响）
+  if (formData._erpStatementId != null) {
+    const parsed = Number(formData._erpStatementId);
+    if (!isNaN(parsed) && parsed > 0) return { erpStatementId: parsed, erpMeta };
+  }
+
+  // 兜底 erpMeta.responseData.erpStatementId
+  const fromErpMeta = erpMeta?.responseData?.erpStatementId;
+  if (typeof fromErpMeta === 'number' && fromErpMeta > 0) {
+    return { erpStatementId: fromErpMeta, erpMeta };
+  }
+
+  return { erpStatementId: 0, erpMeta }; // 0 → 调用方抛错
+}
+
+// =====================================================
 // onApproved: auto 节点回调入口
 // =====================================================
 
@@ -147,8 +175,7 @@ async function handleUploadStatementPdf(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
 ): Promise<CallbackResult> {
-  const erpMeta = getErpMeta(instance);
-  const erpStatementId = erpMeta?.responseData?.erpStatementId as number;
+  const { erpStatementId, erpMeta } = resolveErpContext(instance, formData);
 
   if (!erpStatementId) {
     throw new Error('上传PDF失败：未找到对账单ID（节点2可能未成功执行）');
@@ -179,8 +206,10 @@ async function handleUploadStatementPdf(
 
   log.info(`[应收对账] PDF保存成功: path=${filePath}, url=${pdfUrl}, size=${pdfBuffer.length}`);
 
-  // 从 erpMeta 取对账单号用于文件名（节点2已回填）
-  const statementNo = (erpMeta?.responseData?.consumerCollectStr as string) || instance.instance_no;
+  // 从 formData 优先读取对账单号（formData.erpStatementNo），兜底 erpMeta
+  const statementNo = (formData.erpStatementNo as string)
+    || (erpMeta?.responseData?.consumerCollectStr as string)
+    || instance.instance_no;
 
   return {
     erpMeta: { pdfUrl },
@@ -199,8 +228,7 @@ async function handleApproveStatement(
   instance: OaInstanceRow,
   formData: Record<string, unknown>
 ): Promise<CallbackResult> {
-  const erpMeta = getErpMeta(instance);
-  const erpStatementId = erpMeta?.responseData?.erpStatementId as number;
+  const { erpStatementId, erpMeta } = resolveErpContext(instance, formData);
 
   if (!erpStatementId) {
     throw new Error('审核对账单失败：未找到对账单ID');
@@ -220,7 +248,9 @@ async function handleApproveStatement(
       erpMeta: {
         statementApproved: false,
         cancelledAt: new Date().toISOString(),
-        consumerCollectStr: (erpMeta?.responseData?.consumerCollectStr as string) || null,
+        consumerCollectStr: (formData.erpStatementNo as string)
+          || (erpMeta?.responseData?.consumerCollectStr as string)
+          || null,
       },
     };
   }

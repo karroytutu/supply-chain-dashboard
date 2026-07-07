@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "v2.22.2",
+      "date": "2026-07-07 13:07",
+      "types": ["fix"],
+      "changes": [
+        "修复应收对账审批回调中对账单ID竞态问题：新增resolveErpContext双源读取机制，优先从formData读取持久化的对账单ID和单号，兜底erpMeta，避免节点2回填数据被并发覆盖导致后续节点（PDF上传、对账审核）取不到对账单ID"
+      ]
+    },
+    {
       "version": "v2.22.1",
       "date": "2026-07-07 12:48",
       "types": ["optimization"],
