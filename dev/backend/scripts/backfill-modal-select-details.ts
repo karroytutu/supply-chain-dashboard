@@ -319,9 +319,22 @@ async function backfillCustomerReconciliation(stats: Stats) {
      FROM oa_approval_instances i
      JOIN oa_form_types ft ON i.form_type_id = ft.id
      WHERE ft.code = 'customer_reconciliation'
-       AND i.form_data ? 'receivableOrderIds'
-       AND jsonb_array_length(COALESCE(i.form_data->'receivableOrderIds', '[]'::jsonb)) > 0
-       AND (NOT (i.form_data ? '_details') OR NOT (i.form_data->'_details' ? 'receivableOrderIds'))`
+       AND (
+         (i.form_data ? 'receivableOrderIds'
+          AND jsonb_array_length(COALESCE(i.form_data->'receivableOrderIds', '[]'::jsonb)) > 0)
+         OR (i.form_data ? 'unreconciledOrderIds'
+          AND jsonb_array_length(COALESCE(i.form_data->'unreconciledOrderIds', '[]'::jsonb)) > 0)
+         OR (i.form_data ? 'differenceOrderIds'
+          AND jsonb_array_length(COALESCE(i.form_data->'differenceOrderIds', '[]'::jsonb)) > 0)
+       )
+       AND (
+         NOT (i.form_data ? '_details')
+         OR NOT (i.form_data->'_details' ? 'receivableOrderIds')
+         OR (i.form_data ? 'unreconciledOrderIds'
+             AND NOT (i.form_data->'_details' ? 'unreconciledOrderIds'))
+         OR (i.form_data ? 'differenceOrderIds'
+             AND NOT (i.form_data->'_details' ? 'differenceOrderIds'))
+       )`
   );
 
   stats.total = result.rows.length;

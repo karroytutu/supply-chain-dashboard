@@ -89,7 +89,7 @@ const PenaltyPage: React.FC = () => {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={`page-scroll ${styles.container}`}>
       {/* 统计卡片 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={4}><Card><Statistic title="总考核金额" value={stats?.totalAmount || 0} prefix="¥" precision={2} /></Card></Col>

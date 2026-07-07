@@ -32,11 +32,14 @@ body {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  // 不加 padding，全屏布局页面内部自行管理间距
 }
 
 // 滚动模式：内容可能超出视口，页面整体滚动，适合表单/列表页
+// padding 由布局类自行管理，不依赖全局框架
 .page-scroll {
   min-height: calc(100vh - @layout-header-height);
+  padding: 24px;
 }
 
 // 卡片基础样式
@@ -187,6 +190,14 @@ body {
   }
 }
 
+// 移动端：缩小外边距，最大化内容区域
+@media (max-width: @screen-md) {
+  .page-scroll {
+    padding: @spacing-md;
+  }
+  // .page-full 不加移动端 padding，全屏布局页面内部自行管理间距
+}
+
 // 更小屏幕适配
 @media (max-width: @screen-sm) {
   body {
@@ -195,11 +206,6 @@ body {
 
   .mobile-hide {
     display: none !important;
-  }
-
-  // 移动端减少布局内边距（覆盖 app.tsx 中 contentStyle 的 inline padding）
-  :global(.ant-layout-content) {
-    padding: @spacing-md !important;
   }
 }
 

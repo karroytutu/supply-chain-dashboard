@@ -20,10 +20,6 @@ const { TextArea } = Input;
 interface FormFieldConfigProps {
   field: FormField;
   formData: Record<string, unknown>;
-  form?: {
-    setFieldsValue: (values: Record<string, unknown>) => void;
-    getFieldValue: (name: string) => unknown;
-  };
   /** Form.Item 注入的 value（由 Ant Design 表单自动传递） */
   value?: unknown;
   /** Form.Item 注入的 onChange（由 Ant Design 表单自动传递） */
@@ -42,7 +38,7 @@ interface FormFieldConfigProps {
 
 /** 表单字段渲染组件 */
 const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
-  field, formData, form, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect, includeAllStates, formSchema,
+  field, formData, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect, includeAllStates, formSchema,
 }) => {
   const { type, placeholder, maxLength, maxCount, upper } = field;
 
@@ -133,7 +129,6 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           value={value}
           onChange={onChange}
           formData={formData}
-          fakeForm={form}
           onCustomerSelect={onCustomerSelect}
           formSchema={formSchema}
           includeAllStates={includeAllStates}
@@ -199,12 +194,11 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
           value={value}
           onChange={onChange}
           formData={formData}
-          fakeForm={form}
         />
       );
 
     case 'table':
-      return <TableFieldRenderer field={field} value={value as Record<string, unknown>[] | undefined} onChange={onChange as ((value: Record<string, unknown>[]) => void) | undefined} formData={formData} form={form} />;
+      return <TableFieldRenderer field={field} value={value as Record<string, unknown>[] | undefined} onChange={onChange as ((value: Record<string, unknown>[]) => void) | undefined} formData={formData} />;
 
     case 'signature':
       return (

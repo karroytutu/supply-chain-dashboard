@@ -34,11 +34,6 @@ interface TableFieldRendererProps {
   resolvedMap?: ErpResolvedMap;
   /** 父级表单数据，供子列 visibleWhen 条件引用 */
   formData?: Record<string, unknown>;
-  /** 父级表单实例，供可编辑金额列表读取跨字段校验值（如预付款核销需读取需付款金额） */
-  form?: {
-    setFieldsValue: (values: Record<string, unknown>) => void;
-    getFieldValue: (name: string) => unknown;
-  };
 }
 
 /** 重算行内公式字段，返回更新后的行数据
@@ -112,7 +107,7 @@ const CellInput: React.FC<{
           if (v === undefined || v === null) onChange(v);
           setTimeout(() => onBlur?.(), 100);
         }}
-        fakeForm={{
+        form={{
           setFieldsValue: (values) => onRowUpdate(values),
           getFieldValue: (name: string) => rowData[name],
         }}
@@ -226,47 +221,34 @@ const CellInput: React.FC<{
   }
 };
 
-const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = [], onChange, subFieldPermissions, readonly: isReadonly, resolvedMap, formData, form }) => {
+const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = [], onChange, subFieldPermissions, readonly: isReadonly, resolvedMap, formData }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   const columns = field.children || [];
 
-  // ═══ searchApi 模式：value 为 ID 数组，记录存储在 _details 中 ═══
+  // ═══ searchApi 模式：value 为完整记录数组（模式一），与非 searchApi 表格统一数据模型 ═══
   const hasSearchApi = !!field.searchApi;
   const [modalOpen, setModalOpen] = useState(false);
-  const selectedMapRef = useRef<Map<string, Record<string, unknown>>>(new Map());
 
-  // searchApi 模式下，从 _details 或 selectedMapRef 读取记录数据
-  const searchApiRecords = useMemo(() => {
-    if (!hasSearchApi) return [];
-    const detailsData = formData?._details as Record<string, unknown> | undefined;
-    const records = detailsData?.[field.key] as Record<string, unknown>[] | undefined;
-    if (records && records.length > 0) return records;
-    // 兆底：从 selectedMapRef 读取
-    const ids = (Array.isArray(value) ? value : []) as unknown[];
-    return ids.map(id => selectedMapRef.current.get(String(id))).filter(Boolean) as Record<string, unknown>[];
-  }, [hasSearchApi, formData, field.key, value]);
-
-  // searchApi 模式的 selectedIds
+  // searchApi 模式：从记录数组中提取 ID，供 SearchableModalPicker 标记已选项
   const selectedIds = useMemo(() => {
     if (!hasSearchApi) return [];
-    return (Array.isArray(value) ? value : []) as unknown[];
-  }, [hasSearchApi, value]);
+    const valueKey = field.valueKey || 'id';
+    return (Array.isArray(value) ? value : []).map(
+      (r: Record<string, unknown>) => r[valueKey]
+    );
+  }, [hasSearchApi, value, field.valueKey]);
 
-  const handleSearchApiConfirm = (keys: unknown[], records: Record<string, unknown>[]) => {
-    // 更新 selectedMapRef
-    for (const r of records) {
-      const key = String(r[field.valueKey || 'id']);
-      selectedMapRef.current.set(key, r);
+  // searchApi 模式：合并新记录到 value（记录数组），按 modal 返回的 keys 顺序排列
+  const handleSearchApiConfirm = useCallback((keys: unknown[], newRecords: Record<string, unknown>[]) => {
+    const valueKey = field.valueKey || 'id';
+    const existing = (Array.isArray(value) ? value : []) as Record<string, unknown>[];
+    const existingMap = new Map(existing.map(r => [String(r[valueKey]), r]));
+    for (const r of newRecords) {
+      existingMap.set(String(r[valueKey]), r);
     }
-    // 更新表单 value（ID 数组）
-    onChange?.(keys as Record<string, unknown>[]);
-    // 持久化到 _details：通过 form.setFieldsValue 写入 form store，useWatch 自动同步
-    if (formData) {
-      const details = (formData._details as Record<string, unknown>) || {};
-      const newDetails = { ...details, [field.key]: records };
-      form?.setFieldsValue({ _details: newDetails });
-    }
-  };
+    const merged = keys.map(k => existingMap.get(String(k))).filter(Boolean) as Record<string, unknown>[];
+    onChange?.(merged);
+  }, [value, onChange, field.valueKey]);
   // 过滤子字段：hidden 字段 + visibleWhen 条件不满足的列（支持引用父级表单字段）
   const visibleColumns = columns.filter(col => {
     if (col.hidden) return false;
@@ -277,10 +259,21 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   const fixFirstCol = visibleColumns.length >= 4;
   const isDisabled = !!field.disabled;
 
+  // 数据源：
+  // - 编辑态：value 就是完整记录数组（模式一）
+  // - 只读态：searchApi 字段的 value 可能是 ID 数组，需从 _details 解析为记录数组
+  const displayValue = useMemo(() => {
+    if (hasSearchApi && isReadonly) {
+      const detailsData = formData?._details as Record<string, unknown> | undefined;
+      const detailRecords = detailsData?.[field.key] as Record<string, unknown>[] | undefined;
+      if (detailRecords && detailRecords.length > 0) return detailRecords;
+    }
+    return value;
+  }, [hasSearchApi, isReadonly, formData, field.key, value]);
+
   // 基于内容动态计算列宽（blur 触发重算 + CSS transition 平滑过渡）
-  // searchApi 模式下 value 是 ID 数组，需用实际记录（searchApiRecords）才能测量文本宽度
   // getControlPadding 会逐列判断 col.disabled，disabled 列自动用纯文本 padding
-  const widthCalcRows = hasSearchApi ? searchApiRecords : value;
+  const widthCalcRows = displayValue;
   const { widths: colWidths, recalcColumn } = useColumnWidths(
     visibleColumns,
     widthCalcRows,
@@ -316,9 +309,6 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   })) || [];
 
   // ==================== 数据源与汇总行 ====================
-
-  // searchApi 模式下实际渲染的记录数据（searchApi 用完整行数据，非 searchApi 用 value）
-  const displayValue = hasSearchApi ? searchApiRecords : value;
 
   const formulaChildren = columns.filter(c => c.type === 'formula' && c.formula);
   const statFieldKeys = (field.statField || []).map(s => s.componentId);
@@ -586,11 +576,10 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
           {/* searchApi + editableAmount：可编辑金额列表 */}
           {hasSearchApi && selectedIds.length > 0 && field.editableAmount && field.amountKey ? (
             <EditableAmountList
-              records={searchApiRecords}
+              records={value as Record<string, unknown>[]}
               labelKey={field.labelKey || 'name'}
               amountKey={field.amountKey}
               fieldKey={field.key}
-              fakeForm={form ?? null}
               writeoffMode={field.amountKey === 'availableAmount'}
               paymentField={field.amountKey === 'amount' ? 'amount' : undefined}
               editField={editableAmountChildKey}
@@ -623,21 +612,8 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
             </div>
           )}
 
-          {/* searchApi 且无 editableAmount：渲染表格展示已选记录 */}
-          {hasSearchApi && !(field.editableAmount && field.amountKey) && (
-            <Table
-              columns={tableColumns}
-              dataSource={tableDataSource}
-              rowKey="_key"
-              size="small"
-              pagination={false}
-              bordered
-              scroll={{ x: columnWidthsSum }}
-            />
-          )}
-
-          {/* 非 searchApi 的常规表格 */}
-          {!hasSearchApi && (
+          {/* 常规表格（searchApi 和非 searchApi 统一渲染） */}
+          {!(hasSearchApi && field.editableAmount && field.amountKey) && (
             <Table
               columns={tableColumns}
               dataSource={tableDataSource}
@@ -697,7 +673,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
           onClose={() => setModalOpen(false)}
           onConfirm={handleSearchApiConfirm}
           selectedKeys={selectedIds}
-          selectedRecordMap={selectedMapRef.current}
+          initialRecords={value as Record<string, unknown>[]}
           searchApi={field.searchApi}
           columns={field.columns}
           valueKey={field.valueKey}

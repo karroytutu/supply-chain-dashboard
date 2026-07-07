@@ -10,6 +10,7 @@
 #   bash scripts/sync-db-from-prod.sh                          # 完整同步
 #   bash scripts/sync-db-from-prod.sh --local                  # 本地调试（跳过下载）
 #   bash scripts/sync-db-from-prod.sh --tables t1,t2,t3        # 定向同步指定表（覆盖已有数据）
+#   bash scripts/sync-db-from-prod.sh --exclude-tables t1,t2   # 完整同步但排除指定表
 #   npm run sync:db                                            # 完整同步
 #   npm run sync:db -- --local                                 # 本地调试
 # ==============================================================================
@@ -20,11 +21,15 @@ set -euo pipefail
 LOCAL_MODE=false
 TABLES=""
 TABLES_MODE=false
+EXCLUDE_TABLES=""
+EXCLUDE_MODE=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --local) LOCAL_MODE=true; shift ;;
     --tables=*) TABLES="${1#*=}"; TABLES_MODE=true; shift ;;
     --tables) TABLES="$2"; TABLES_MODE=true; shift 2 ;;
+    --exclude-tables=*) EXCLUDE_TABLES="${1#*=}"; EXCLUDE_MODE=true; shift ;;
+    --exclude-tables) EXCLUDE_TABLES="$2"; EXCLUDE_MODE=true; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -35,7 +40,17 @@ if $TABLES_MODE && [ -n "$TABLES" ]; then
   IFS=',' read -ra TABLE_ARRAY <<< "$TABLES"
   for t in "${TABLE_ARRAY[@]}"; do
     t=$(echo "$t" | xargs)  # trim whitespace
-    PG_DUMP_TABLE_ARGS="$PG_DUMP_TABLE_ARGS -t $t"
+    PG_DUMP_TABLE_ARGS="$PG_DUMP_TABLE_ARGS -t \"$t\""
+  done
+fi
+
+# 构造 pg_dump 的 -T 参数（排除表）
+PG_DUMP_EXCLUDE_ARGS=""
+if $EXCLUDE_MODE && [ -n "$EXCLUDE_TABLES" ]; then
+  IFS=',' read -ra EXCLUDE_ARRAY <<< "$EXCLUDE_TABLES"
+  for t in "${EXCLUDE_ARRAY[@]}"; do
+    t=$(echo "$t" | xargs)  # trim whitespace
+    PG_DUMP_EXCLUDE_ARGS="$PG_DUMP_EXCLUDE_ARGS -T \"$t\""
   done
 fi
 
@@ -100,10 +115,20 @@ if $TABLES_MODE && $LOCAL_MODE; then
   exit 1
 fi
 
+# 禁止 --tables 与 --exclude-tables 同时使用
+if $TABLES_MODE && $EXCLUDE_MODE; then
+  log_error "不支持 --tables 与 --exclude-tables 同时使用"
+  exit 1
+fi
+
 if $TABLES_MODE; then
   log "开始定向同步：${PROD_HOST} → localhost"
   log "目标数据库：${DB_NAME}"
   log "同步表：${TABLES}"
+elif $EXCLUDE_MODE; then
+  log "开始完整同步（排除表）：${PROD_HOST} → localhost"
+  log "目标数据库：${DB_NAME}"
+  log "排除表：${EXCLUDE_TABLES}"
 else
   log "开始完整同步：${PROD_HOST} → localhost"
   log "目标数据库：${DB_NAME}"
@@ -166,6 +191,8 @@ DUMP_START=$(date +%s)
 
 if $TABLES_MODE; then
   DUMP_CMD="docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME}${PG_DUMP_TABLE_ARGS} > ${REMOTE_DUMP}"
+elif $EXCLUDE_MODE; then
+  DUMP_CMD="docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME}${PG_DUMP_EXCLUDE_ARGS} > ${REMOTE_DUMP}"
 else
   DUMP_CMD="docker exec ${PROD_CONTAINER} pg_dump -v -U ${DB_USER} -Fc ${DB_NAME} > ${REMOTE_DUMP}"
 fi

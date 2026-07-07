@@ -13,11 +13,18 @@ import FormFieldConfig from './components/FormFieldConfig';
 import ConditionalFieldWrapper, { checkCondition } from './components/ConditionalFieldWrapper';
 import { ApprovalFlow } from '@/components/Oa';
 import { evaluateFormula, detectCycles, topologicalSort } from '@/utils/formula-evaluator';
+import { EditableFormProvider } from '@/components/Oa/EditableFormContext';
 import { initDingtalkViewportHeight } from '@/utils/dingtalk/utils';
 import styles from './index.less';
 import { getErrorMessage } from '../../../utils/errorUtils';
 import { computeFeeTotals } from './computeFeeTotals';
 import { recalcRowFormulas } from './components/TableFieldRenderer';
+
+/**
+ * 空值载体控件：用于 hidden Form.Item，向 Ant Design Form 注册字段但不渲染任何 DOM。
+ * 替代 <Input /> 以避免 string/number 类型约束与实际值类型（object、boolean 等）不匹配。
+ */
+const NullField: React.FC = () => null;
 
 const FormPage: React.FC = () => {
   const { typeCode } = useParams<{ typeCode: string }>();
@@ -26,18 +33,13 @@ const FormPage: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
 
-  // 内部辅助字段存储：无 Form.Item 的字段（_前缀 + internalFields），不参与 useWatch 订阅
-  const hiddenFieldsRef = useRef<Record<string, unknown>>({});
-  // 订阅 form store 全部变更（含 setFieldsValue 编程式写入），消除双数据源同步断裂
+  // 订阅 form store 全部变更（含 setFieldsValue 编程式写入）
   const watchedValues = Form.useWatch([], form);
 
-  const formData = useMemo(() => ({
-    ...hiddenFieldsRef.current,
-    ...(watchedValues || {}),
-  }), [watchedValues]);
+  const formData = watchedValues || {};
 
   const { loading, formType, customerLicenseInfo, licenseLoading, loadFormType, handleCustomerSelect } =
-    useFormData(form, hiddenFieldsRef);
+    useFormData(form);
 
   // 钉钉 WebView 视口高度修正
   useEffect(() => {
@@ -63,28 +65,16 @@ const FormPage: React.FC = () => {
   // 监听表单值变化，处理副作用（公式计算、费用联动）
   // formData 已由 useWatch 自动派生，不再需要手动同步状态
   const handleValuesChange = (changedValues: any, allValues: any) => {
-    // 保留无 Form.Item 的内部辅助字段到 hiddenFieldsRef
-    const detailsVal = form.getFieldValue('_details');
-    if (detailsVal != null) hiddenFieldsRef.current._details = detailsVal;
-    if (formType?.formSchema.internalFields) {
-      for (const f of formType.formSchema.internalFields) {
-        if (!f.key.startsWith('_')) {
-          const v = allValues[f.key];
-          if (v !== undefined) hiddenFieldsRef.current[f.key] = v;
-        }
-      }
-    }
-
     // 自动重算公式字段
     // 放在 updater 外部避免违反 React 纯函数规则
     if (formType) {
       // 第一步：预计算隐藏的中间值公式（_ 前缀字段，如 _comboRevenue、_comboCost）
-      // 结果写入计算上下文，供第二步的展示公式引用；不设置 form 值（无对应 Form.Item）
+      // 结果写入计算上下文，供第二步的展示公式引用
       const hiddenFormulas = formType.formSchema.fields.filter(
         f => f.type === 'formula' && f.formula && f.key.startsWith('_')
       );
       const currentValues = form.getFieldsValue();
-      const merged: Record<string, unknown> = { ...hiddenFieldsRef.current, ...currentValues };
+      const merged: Record<string, unknown> = { ...currentValues };
 
       // 第零步：预计算所有表格行内公式字段（解决跨表依赖断裂）
       // 用最新 merged 上下文重算每行的 _stepMinMargin 等公式列，
@@ -104,10 +94,16 @@ const FormPage: React.FC = () => {
         const rounded = Number(result.toFixed(precision));
         merged[hf.key] = rounded;
       }
-      // 将底稿同步到表单存档数据，确保提交时服务端拿到的底稿与利润率计算使用的一致
-      // 隐藏公式字段写入 hiddenFieldsRef（无 Form.Item，useWatch 不捕获）
+      // 将隐藏公式字段批量写回 form store，加脏检查防止 onValuesChange 无限循环
+      const hiddenUpdates: Record<string, unknown> = {};
       for (const hf of hiddenFormulas) {
-        hiddenFieldsRef.current[hf.key] = merged[hf.key];
+        const currentVal = form.getFieldValue(hf.key);
+        if (currentVal !== merged[hf.key]) {
+          hiddenUpdates[hf.key] = merged[hf.key];
+        }
+      }
+      if (Object.keys(hiddenUpdates).length > 0) {
+        form.setFieldsValue(hiddenUpdates);
       }
 
       // 第二步：计算展示公式字段（按拓扑序，确保公式间依赖正确处理）
@@ -261,37 +257,11 @@ const FormPage: React.FC = () => {
       const values = await form.validateFields();
       if (!formType) return;
 
-      // 注入 hiddenFieldsRef 中的内部辅助字段（无 Form.Item 注册，useWatch 不捕获）
-      for (const key of Object.keys(hiddenFieldsRef.current)) {
-        const v = hiddenFieldsRef.current[key];
-        if (v !== undefined && v !== null) values[key] = v;
-      }
-
-      // _details 以 form store 为最终权威（消除 onValuesChange 同步链路断裂风险）
-      // 所有 _details 写入均通过 form.setFieldsValue，form store 是可靠数据源
-      const storeDetails = form.getFieldValue('_details');
-      if (storeDetails != null) values._details = storeDetails;
-
-      // 注入 internalFields 的值（autoFill 通过 setFieldsValue 写入 form store）
-      if (formType.formSchema.internalFields) {
-        for (const f of formType.formSchema.internalFields) {
-          const v = hiddenFieldsRef.current[f.key] ?? form.getFieldValue(f.key);
-          if (v !== undefined && v !== null) values[f.key] = v;
-        }
-      }
-
-      // 收集顶层 schema fields 中 nameField / autoFill 目标值
-      // _ 前缀字段无 Form.Item，validateFields 不捕获；注入以确保 ERP 名称随 formData 持久化
-      // （table children 的 autoFill 值已随每行数据被 TableFieldRenderer 捕获，无需额外处理）
-      for (const f of formType.formSchema.fields) {
-        if (f.type === 'table') continue;
-        const targets: string[] = [];
-        if (f.nameField) targets.push(f.nameField);
-        if (f.autoFill) Object.keys(f.autoFill).forEach(k => targets.push(k));
-        for (const key of targets) {
-          if (values[key] !== undefined) continue;
-          const v = hiddenFieldsRef.current[key] ?? form.getFieldValue(key);
-          if (v !== undefined && v !== null) values[key] = v;
+      // 合并所有已注册字段（含 hidden Form.Item），确保内部字段和 nameField/autoFill 目标值完整
+      const allValues = form.getFieldsValue();
+      for (const key of Object.keys(allValues)) {
+        if (values[key] === undefined && allValues[key] !== undefined && allValues[key] !== null) {
+          values[key] = allValues[key];
         }
       }
 
@@ -378,6 +348,7 @@ const FormPage: React.FC = () => {
 
       <div className={styles.content}>
         <div className={styles.formSection}>
+          <EditableFormProvider value={form}>
           <Form form={form} layout="vertical" onValuesChange={handleValuesChange} className={styles.form}>
             {formType.formSchema.fields
               .filter((field) => {
@@ -399,7 +370,7 @@ const FormPage: React.FC = () => {
                   label={field.label}
                   rules={[{ required: isFieldRequired(field), message: `请输入${field.label}` }]}
                 >
-                  <FormFieldConfig field={fieldWithOptions} formData={formData} form={form}
+                  <FormFieldConfig field={fieldWithOptions} formData={formData}
                     formSchema={formType.formSchema}
                     customerLicenseInfo={customerLicenseInfo}
                     licenseLoading={licenseLoading}
@@ -410,7 +381,30 @@ const FormPage: React.FC = () => {
               </ConditionalFieldWrapper>
               );
             })}
+            {/* 内部辅助字段注册到 form store，useWatch 自动捕获 */}
+            <Form.Item name="_details" hidden><NullField /></Form.Item>
+            <Form.Item name="_hasExistingLicense" hidden><NullField /></Form.Item>
+            {formType.formSchema.internalFields?.map(f =>
+              <Form.Item key={f.key} name={f.key} hidden><NullField /></Form.Item>
+            )}
+            {formType.formSchema.fields
+              .filter(f => f.type === 'formula' && f.key.startsWith('_'))
+              .map(f => <Form.Item key={f.key} name={f.key} hidden><NullField /></Form.Item>)}
+            {/* nameField / autoFill 目标字段注册到 form store，确保提交时 getFieldsValue 可获取 */}
+            {formType.formSchema.fields
+              .filter(f => f.type !== 'table')
+              .flatMap(f => {
+                const targets: string[] = [];
+                if (f.nameField) targets.push(f.nameField);
+                if (f.autoFill) Object.keys(f.autoFill).forEach(k => targets.push(k));
+                return targets;
+              })
+              .filter((key, i, arr) => arr.indexOf(key) === i)
+              // 排除已作为可见字段渲染的 key，避免 Form.Item 重复注册
+              .filter(key => !formType.formSchema.fields.some(f => f.key === key))
+              .map(key => <Form.Item key={key} name={key} hidden><NullField /></Form.Item>)}
           </Form>
+          </EditableFormProvider>
         </div>
 
         <div className={styles.sidebar}>

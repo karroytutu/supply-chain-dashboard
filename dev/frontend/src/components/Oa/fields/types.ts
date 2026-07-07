@@ -26,10 +26,12 @@ export interface FieldControlProps {
   /** select 类型的可选项过滤（fieldOptionFilter） */
   allowedOptionValues?: string[];
   /**
-   * 模拟 Form 对象，供 ERP 字段的 autoFill / nameField 写入使用
-   * 仅 editable 模式下由 EditableFormSection 或 TableFieldRenderer 传入
+   * 表单写入能力覆盖（仅表格行内 CellInput 场景使用）
+   * 表格行内的 ERP 字段 autoFill 需写入行数据而非表单状态，
+   * 通过此 prop 覆盖 Context 提供的表单级别写入能力。
+   * 普通场景下无需传入，组件自动从 EditableFormContext 获取。
    */
-  fakeForm?: {
+  form?: {
     setFieldsValue: (values: Record<string, unknown>) => void;
     getFieldValue: (name: string) => unknown;
   };

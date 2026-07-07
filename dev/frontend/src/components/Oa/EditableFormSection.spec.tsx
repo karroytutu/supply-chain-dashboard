@@ -24,6 +24,52 @@ vi.mock('@/components/Oa', () => ({
   ),
 }));
 
+// mock FieldControlDispatcher：简化渲染，避免加载真实表格组件（ResizeObserver 等）
+vi.mock('./fields', () => ({
+  default: (props: any) => {
+    const mode = props.mode || 'readonly';
+    const field = props.field;
+    if (mode === 'readonly') {
+      return <span data-testid={`readonly-${field?.key}`}>{String(props.value ?? '')}</span>;
+    }
+    // editable mode：渲染简化控件
+    if (field?.type === 'table') {
+      return (
+        <div data-testid={`table-${field.key}`}>
+          <button data-testid={`table-add-${field.key}`} onClick={() => props.onChange?.([...(props.value || []), { id: 999 }])}>
+            添加
+          </button>
+        </div>
+      );
+    }
+    if (field?.type === 'select') {
+      const filtered = props.allowedOptionValues
+        ? field.options?.filter((o: any) => props.allowedOptionValues.includes(o.value))
+        : field.options;
+      return (
+        <div className="ant-select" data-testid={`select-${field.key}`}>
+          <div className="ant-select-selector" onMouseDown={() => {}}>
+            {filtered?.map((o: any) => (
+              <div key={o.value} className="ant-select-item-option-content">{o.label}</div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (field?.type === 'number') {
+      return <div className="ant-input-number" data-testid={`number-${field.key}`} />;
+    }
+    return (
+      <input
+        className="ant-input"
+        data-testid={`input-${field?.key}`}
+        value={String(props.value ?? '')}
+        onChange={(e: any) => props.onChange?.(e.target.value)}
+      />
+    );
+  },
+}));
+
 vi.mock('@/pages/Oa/Form/components/ConditionalFieldWrapper', () => ({
   checkCondition: (condition: any, formData: Record<string, unknown>) => {
     if (Array.isArray(condition)) return condition.every(c => formData[c.field] === c.value);
@@ -353,6 +399,154 @@ describe('EditableFormSection', () => {
         const values = ref.current!.getEditedValues();
         expect(values.verifyRemark).toBe('已核销');
       });
+    });
+  });
+
+  // ---- searchApi 表格字段（模式一：value = 完整记录数组） ----
+
+  describe('searchApi 表格字段（模式一）', () => {
+    const record1 = { id: 101, bizOrderStr: 'XD001', totalAmount: 100 };
+    const record2 = { id: 102, bizOrderStr: 'XD002', totalAmount: 200 };
+    const record3 = { id: 103, bizOrderStr: 'XD003', totalAmount: 300 };
+
+    function makeSearchApiSchema(overrides: Partial<FormField> = {}): FormSchema {
+      return makeSchema([
+        makeField({ key: 'customerId', label: '客户', type: 'text' }),
+        makeField({
+          key: 'orderIds',
+          label: '单据',
+          type: 'table',
+          searchApi: 'erp_settlement_orders',
+          valueKey: 'id',
+          labelKey: 'bizOrderStr',
+          ...overrides,
+        }),
+      ]);
+    }
+
+    it('初始化：从 _details 加载记录数组', () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema();
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      const formData = {
+        customerId: 'C1',
+        orderIds: [101, 102], // 旧格式：ID 数组
+        _details: { orderIds: [record1, record2] },
+      };
+      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
+      // 未变更时 getEditedValues 返回空（记录数组与 _details 一致）
+      const values = ref.current!.getEditedValues();
+      // orderIds 未变更（初始化从 _details 加载，与 formData._details 一致），不出现在 result
+      expect(values.orderIds).toBeUndefined();
+    });
+
+    it('初始化兜底：_details 缺失时初始化空数组', () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema();
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      const formData = { customerId: 'C1', orderIds: [101, 102] };
+      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
+      // _details 不存在，orderIds 初始化为空数组，与 formData 中的 [101, 102] 不同 → 视为变更
+      const values = ref.current!.getEditedValues();
+      expect(values.orderIds).toEqual([]); // 空数组（ID 提取后）
+    });
+
+    it('初始化兜底：_details 为 ID 数组（旧格式）时初始化空数组', () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema();
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      const formData = {
+        customerId: 'C1',
+        orderIds: [101, 102],
+        _details: { orderIds: [101, 102] }, // 旧格式：ID 数组而非记录数组
+      };
+      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
+      const values = ref.current!.getEditedValues();
+      // typeof [0] === 'number' !== 'object'，走兜底空数组
+      expect(values.orderIds).toEqual([]);
+    });
+
+    it('初始化兼容：formData 直接存记录数组时加载', () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema();
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      const formData = {
+        customerId: 'C1',
+        orderIds: [record1, record2], // 新模式保存过的数据
+      };
+      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
+      // formData.orderIds 是记录数组，初始化加载
+      // getEditedValues transform 提取 ID [101, 102] 与 formData.orderIds（记录数组）不同 → 报告变更
+      // 这是过渡期行为，首次保存后 formData 会存储 ID 数组
+      const values = ref.current!.getEditedValues();
+      expect(values.orderIds).toEqual([101, 102]);
+    });
+
+    it('getEditedValues transform：提取 ID 数组 + 存档 _details', () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema();
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      // formData.orderIds 是 ID 数组（标准格式），_details 有对应记录
+      const formData = {
+        customerId: 'C1',
+        orderIds: [101, 102],
+        _details: { orderIds: [record1, record2] },
+      };
+      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
+      // 初始化从 _details 加载 [record1, record2]
+      // transform 提取 ID [101, 102] 与 formData.orderIds=[101,102] 一致 → 无变更
+      const values = ref.current!.getEditedValues();
+      expect(values.orderIds).toBeUndefined();
+    });
+
+    it('mergedValues：searchApi 表格编辑后 _details 实时更新', async () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema();
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      const formData = {
+        customerId: 'C1',
+        orderIds: [101],
+        _details: { orderIds: [record1] },
+      };
+      const { rerender } = render(
+        <EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />
+      );
+
+      // 模拟 formData 变化（用户通过弹窗添加了记录）
+      rerender(
+        <EditableFormSection {...makeProps({
+          formSchema: schema,
+          fieldPermissions: perms,
+          formData: {
+            customerId: 'C1',
+            orderIds: [101, 102, 103],
+            _details: { orderIds: [record1, record2, record3] },
+          },
+        })} ref={ref} />
+      );
+
+      await waitFor(() => {
+        const values = ref.current!.getEditedValues();
+        // _details 变化触发了初始化重置，新 _details 有 3 条记录
+        // formData.orderIds=[101,102,103] 与初始化加载的 3 条记录 ID 一致 → 无变更
+        expect(values.orderIds).toBeUndefined();
+      });
+    });
+
+    it('editableAmount 字段：transform 保留用户编辑金额', () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema({ editableAmount: true, amountKey: 'leftAmount' });
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      const editedRecord = { ...record1, useAmount: 50 }; // 用户编辑了 useAmount
+      const formData = {
+        customerId: 'C1',
+        orderIds: [101], // ID 数组与 _details 记录对应
+        _details: { orderIds: [editedRecord] },
+      };
+      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
+      // 初始化从 _details 加载 editedRecord，formData.orderIds=[101] 与记录 ID 一致 → 无变更
+      const values = ref.current!.getEditedValues();
+      expect(values.orderIds).toBeUndefined();
     });
   });
 });

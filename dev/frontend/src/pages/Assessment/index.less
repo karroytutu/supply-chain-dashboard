@@ -5,6 +5,11 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding: 24px;
+
+  @media (max-width: @screen-md) {
+    padding: @spacing-md;
+  }
 
   .filter-bar {
     flex-shrink: 0;

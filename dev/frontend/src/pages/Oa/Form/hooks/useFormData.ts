@@ -2,11 +2,10 @@
  * 审批表单数据加载 Hook
  * 包含表单类型加载、客户执照信息处理
  *
- * 架构说明：
- * - 内部辅助字段（_hasExistingLicense 等）写入 hiddenFieldsRef，由 Form 页面统一派生 formData
- * - 不再需要 setFormData，消除双数据源同步断裂风险
+ * 内部辅助字段（_hasExistingLicense 等）通过 form.setFieldsValue 写入 form store，
+ * 由 Form 页面 useWatch 自动捕获。
  */
-import { useState, useRef, type MutableRefObject } from 'react';
+import { useState, useRef } from 'react';
 import { message, type FormInstance } from 'antd';
 import { history } from 'umi';
 import { oaApi } from '@/services/api/oa';
@@ -26,7 +25,6 @@ interface UseFormDataReturn {
 
 export function useFormData(
   form: FormInstance,
-  hiddenFieldsRef: MutableRefObject<Record<string, unknown>>,
 ): UseFormDataReturn {
   const [loading, setLoading] = useState(true);
   const [formType, setFormType] = useState<FormTypeDefinition | null>(null);
@@ -47,12 +45,10 @@ export function useFormData(
     }
   };
 
-  /** 客户选中时提取执照信息，内部辅助字段写入 hiddenFieldsRef */
+  /** 客户选中时提取执照信息，内部辅助字段写入 form store */
   const handleCustomerSelect = (licenseInfo: CustomerLicenseInfo | null) => {
     const licenseValue = licenseInfo?.hasLicense ? 'yes' : 'no';
     setCustomerLicenseInfo(licenseInfo);
-    // 内部辅助字段：无 Form.Item，写入 hiddenFieldsRef 供 formData 派生
-    hiddenFieldsRef.current._hasExistingLicense = licenseValue;
     form.setFieldsValue({ _hasExistingLicense: licenseValue });
 
     if (!licenseInfo) {
@@ -74,7 +70,6 @@ export function useFormData(
           if (fetchIdRef.current === currentFetchId) {
             setCustomerLicenseInfo(fullInfo);
             if (!fullInfo.hasLicense) {
-              hiddenFieldsRef.current._hasExistingLicense = 'no';
               form.setFieldsValue({ _hasExistingLicense: 'no' });
             }
           }

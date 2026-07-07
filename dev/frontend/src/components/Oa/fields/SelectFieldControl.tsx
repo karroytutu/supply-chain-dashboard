@@ -16,6 +16,7 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Select, Spin, Typography } from 'antd';
 import type { FieldControlProps } from './types';
+import { useEditableForm, type EditableFormContextValue } from '../EditableFormContext';
 import { ERP_SEARCH_API_MAP, ERP_LABEL_FIELDS, ERP_VALUE_FIELDS, loadErpConfig } from '@/constants/oa-erp';
 import { oaApi } from '@/services/api/oa';
 import { isAbortError } from '@/services/api/request';
@@ -91,8 +92,10 @@ function getErpLabel(item: Record<string, unknown>, type: string, searchApi?: st
 
 const SelectFieldControl: React.FC<FieldControlProps> = ({
   mode, field, value, onChange, allowedOptionValues, formData, resolvedMap,
-  fakeForm, onCustomerSelect, formSchema, includeAllStates, onBlur, cascadeValue: propCascadeValue,
+  form: formOverride, onCustomerSelect, formSchema, includeAllStates, onBlur, cascadeValue: propCascadeValue,
 }) => {
+  const editableForm = useEditableForm();
+  const effectiveForm = formOverride ?? editableForm;
   const isMulti = !!field.multiple;
 
   // 静态/动态选项（非 ERP 模式）
@@ -140,7 +143,7 @@ const SelectFieldControl: React.FC<FieldControlProps> = ({
     return (
       <ErpSearchSelect
         field={field} value={value} onChange={onChange}
-        form={fakeForm} cascadeValue={propCascadeValue}
+        form={effectiveForm} cascadeValue={propCascadeValue}
         onCustomerSelect={onCustomerSelect} formSchema={formSchema}
         includeAllStates={includeAllStates} onBlur={onBlur}
       />
@@ -175,7 +178,7 @@ interface ErpSearchSelectProps {
   field: FieldControlProps['field'];
   value: unknown;
   onChange?: (value: unknown) => void;
-  form?: FieldControlProps['fakeForm'];
+  form?: EditableFormContextValue | null;
   cascadeValue?: unknown;
   onCustomerSelect?: FieldControlProps['onCustomerSelect'];
   formSchema?: FieldControlProps['formSchema'];

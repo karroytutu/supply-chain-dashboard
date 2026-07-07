@@ -5,6 +5,10 @@
   gap: @spacing-md;
   flex: 1; // 在 .page-full 内填满剩余空间
   min-height: 0; // 允许 flex 子元素收缩
+
+  @media (max-width: @screen-md) {
+    padding: @spacing-md;
+  }
 }
 
 .deptTreePanel {

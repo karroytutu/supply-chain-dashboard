@@ -190,7 +190,7 @@ export const layout = () => ({
   logo: '/logo.png',
   siderWidth: 180,
   contentStyle: {
-    padding: 24,
+    padding: 0,
     background: '#f5f7fa',
   },
   // 退出登录

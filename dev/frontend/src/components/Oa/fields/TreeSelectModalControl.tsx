@@ -9,6 +9,7 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { Modal, Tree, Input, Empty, Spin, Typography } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import type { FieldControlProps } from './types';
+import { useEditableForm } from '../EditableFormContext';
 import { getErpReference } from '@/services/api/oa';
 import { isAbortError } from '@/services/api/request';
 import { ERP_TREE_SEARCH_API_MAP } from '@/constants/oa-erp';
@@ -139,8 +140,9 @@ function getMatchedKeys(nodes: TreeNode[], searchValue: string): Set<React.Key> 
 // =====================================================
 
 const TreeSelectModalControl: React.FC<FieldControlProps> = ({
-  mode, field, value, onChange, formData, fakeForm,
+  mode, field, value, onChange, formData,
 }) => {
+  const editableForm = useEditableForm();
   const { valueKey = 'id', labelKey = 'name' } = field;
 
   // 当前表单值（ID 数组）
@@ -217,19 +219,19 @@ const TreeSelectModalControl: React.FC<FieldControlProps> = ({
     onChange?.(leafIds);
 
     // 持久化到 formData._details
-    if (fakeForm) {
+    if (editableForm) {
       const records = leafIds
         .map(id => nodeMap.get(String(id)))
         .filter(Boolean)
         .map(node => ({ [valueKey]: node!.id, [labelKey]: node!.name }));
-      const existingDetails = (fakeForm.getFieldValue('_details') as Record<string, unknown>) || {};
+      const existingDetails = (editableForm.getFieldValue('_details') as Record<string, unknown>) || {};
       if (records.length > 0) {
-        fakeForm.setFieldsValue({
+        editableForm.setFieldsValue({
           _details: { ...existingDetails, [field.key]: records },
         });
       } else {
         const { [field.key]: _, ...rest } = existingDetails;
-        fakeForm.setFieldsValue({ _details: rest });
+        editableForm.setFieldsValue({ _details: rest });
       }
     }
     setModalOpen(false);

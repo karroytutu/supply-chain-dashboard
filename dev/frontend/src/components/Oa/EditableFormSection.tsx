@@ -7,10 +7,11 @@
  *
  * 所有字段渲染委托 FieldControlDispatcher（统一控件 + 模式开关）
  */
-import React, { useState, useImperativeHandle, forwardRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, Descriptions } from 'antd';
 import type { FormField, FormSchema, FieldPermission } from '@/types/oa';
 import FieldControlDispatcher from './fields';
+import { EditableFormProvider } from './EditableFormContext';
 import { checkCondition } from '@/pages/Oa/Form/components/ConditionalFieldWrapper';
 import styles from './ApprovalDetailContent.less';
 
@@ -84,11 +85,24 @@ function getPerm(
 const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSectionProps>(
   ({ formSchema, formData, formTypeCode, fieldPermissions, fieldOptionFilter, resolvedMap, erpLicenseUrls, layout }, ref) => {
     // 内部编辑状态：仅跟踪可编辑字段的值（formula 字段不参与编辑状态跟踪）
+    // searchApi 表格字段（模式一）：从 _details 加载完整记录数组，而非 formData 中的 ID 数组
     const [editedValues, setEditedValues] = useState<Record<string, unknown>>(() => {
       const init: Record<string, unknown> = {};
       formSchema.fields.forEach(f => {
         if (getPerm(fieldPermissions, f.key, formTypeCode) === 'editable' && f.type !== 'formula') {
-          init[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
+          if (f.type === 'table' && f.searchApi) {
+            const details = formData._details as Record<string, unknown> | undefined;
+            const detailRecords = details?.[f.key];
+            if (Array.isArray(detailRecords) && detailRecords.length > 0 && typeof detailRecords[0] === 'object') {
+              init[f.key] = detailRecords;
+            } else if (Array.isArray(formData[f.key]) && (formData[f.key] as unknown[]).length > 0 && typeof (formData[f.key] as unknown[])[0] === 'object') {
+              init[f.key] = formData[f.key];
+            } else {
+              init[f.key] = [];
+            }
+          } else {
+            init[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
+          }
         }
       });
       return init;
@@ -102,38 +116,80 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
       const reset: Record<string, unknown> = {};
       formSchema.fields.forEach(f => {
         if (getPerm(fieldPermissions, f.key, formTypeCode) === 'editable' && f.type !== 'formula') {
-          reset[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
+          if (f.type === 'table' && f.searchApi) {
+            const details = formData._details as Record<string, unknown> | undefined;
+            const detailRecords = details?.[f.key];
+            if (Array.isArray(detailRecords) && detailRecords.length > 0 && typeof detailRecords[0] === 'object') {
+              reset[f.key] = detailRecords;
+            } else if (Array.isArray(formData[f.key]) && (formData[f.key] as unknown[]).length > 0 && typeof (formData[f.key] as unknown[])[0] === 'object') {
+              reset[f.key] = formData[f.key];
+            } else {
+              reset[f.key] = [];
+            }
+          } else {
+            reset[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
+          }
         }
       });
       setEditedValues(reset);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在依赖实际变化时重置
     }, [formDataSignature, permSignature, schemaSignature]);
 
+    // 预构建 field lookup map，避免 mergedValues 和 getEditedValues 中循环 find()
+    const fieldMap = useMemo(
+      () => new Map(formSchema.fields.map(f => [f.key, f])),
+      [formSchema.fields]
+    );
+
     // 合并值：只读字段取 formData，可编辑字段取 editedValues
+    // searchApi 表格字段：实时同步到 _details（供 scopeFromField 等引用）
     const mergedValues = useMemo(() => {
       const merged: Record<string, unknown> = { ...formData };
-      Object.entries(editedValues).forEach(([k, v]) => { merged[k] = v; });
+      const liveDetails: Record<string, unknown> = {
+        ...((formData._details as Record<string, unknown>) || {}),
+        ...((editedValues._details as Record<string, unknown>) || {}),
+      };
+      Object.entries(editedValues).forEach(([k, v]) => {
+        if (k === '_details') return; // _details 由 liveDetails 统一合并
+        merged[k] = v;
+        const field = fieldMap.get(k);
+        if (field?.type === 'table' && field?.searchApi && Array.isArray(v)) {
+          liveDetails[k] = v;
+        }
+      });
+      merged._details = liveDetails;
       return merged;
-    }, [formData, editedValues]);
+    }, [formData, editedValues, fieldMap]);
 
     const handleChange = useCallback((key: string, value: unknown) => {
       setEditedValues(prev => ({ ...prev, [key]: value }));
     }, []);
 
-    // ==================== ERP 字段联动所需的模拟 form 对象 ====================
+    // ==================== Context 表单操作能力（ref 稳定化，引用永不变） ====================
 
-    /** 模拟 Ant Design Form 接口，供 SelectFieldControl 的 autoFill 使用 */
-    const fakeForm = useMemo(() => ({
-      setFieldsValue: (values: Record<string, unknown>) =>
-        setEditedValues(prev => ({ ...prev, ...values })),
-      getFieldValue: (name: string) => editedValues[name],
-    }), [editedValues]);
+    /** useRef 保持 editedValues 最新值，供 getFieldValue 读取 */
+    const editedValuesRef = useRef(editedValues);
+    editedValuesRef.current = editedValues;
+
+    /** 稳定的 setFieldsValue：函数式更新，不依赖闭包 */
+    const stableSetFieldsValue = useCallback((values: Record<string, unknown>) =>
+      setEditedValues(prev => ({ ...prev, ...values })), []);
+
+    /** 稳定的 getFieldValue：从 ref 读取最新值 */
+    const stableGetFieldValue = useCallback((name: string) => editedValuesRef.current[name], []);
+
+    /** Context value：空依赖数组，引用永不变 */
+    const stableContextValue = useMemo(() => ({
+      setFieldsValue: stableSetFieldsValue,
+      getFieldValue: stableGetFieldValue,
+    }), [stableSetFieldsValue, stableGetFieldValue]);
 
     // ==================== Ref 暴露 ====================
 
     useImperativeHandle(ref, () => ({
       getEditedValues(): Record<string, unknown> {
         const result: Record<string, unknown> = {};
+        const detailsUpdates: Record<string, unknown> = {};
         Object.entries(editedValues).forEach(([key, val]) => {
           // _ 前缀的内部数据（如 _details 自动持久化记录）直接透传
           if (key.startsWith('_')) {
@@ -149,15 +205,51 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
             }
             return;
           }
-          const field = formSchema.fields.find(f => f.key === key);
+          const field = fieldMap.get(key);
           if (!field) return;
           // 跳过当前不可见字段
           if (field.visibleWhen && !checkCondition(field.visibleWhen, mergedValues)) return;
+
+          // searchApi 表格字段（模式一）：提交边界 transform
+          // value 是完整记录数组 → 提取 ID 数组给后端 + 存档记录到 _details
+          if (field.type === 'table' && field.searchApi && Array.isArray(val)) {
+            const valueKey = field.valueKey || 'id';
+            const records = val as Record<string, unknown>[];
+            const ids = records.map(r => r[valueKey]);
+            // 变更检测：比较提取的 ID 数组与 formData 原始值
+            const originalIds = Array.isArray(formData[key]) ? formData[key] as unknown[] : [];
+            const idsChanged = ids.length !== originalIds.length ||
+              ids.some((id, i) => String(id) !== String(originalIds[i]));
+            if (idsChanged) {
+              result[key] = ids;
+            }
+            // _details 存档：合并 value 记录与已有 _details 中的用户编辑数据
+            const editedDetails = (editedValues._details as Record<string, unknown>) || {};
+            const existingDetailRecords = editedDetails[key] as Record<string, unknown>[] | undefined;
+            if (field.editableAmount && existingDetailRecords) {
+              // editableAmount 字段：保留用户在 EditableAmountList 中编辑的金额字段
+              const editedMap = new Map(existingDetailRecords.map(r => [String(r[valueKey]), r]));
+              detailsUpdates[key] = records.map(r => ({
+                ...r,
+                ...(editedMap.get(String(r[valueKey])) || {}),
+              }));
+            } else if (idsChanged) {
+              detailsUpdates[key] = records;
+            }
+            return;
+          }
+
           // 只返回变更过的字段（对引用类型如数组，使用引用不等判断）
           if (val !== formData[key]) {
             result[key] = val;
           }
         });
+        // 合并 searchApi 记录到 _details
+        if (Object.keys(detailsUpdates).length > 0) {
+          const originalDetails = (formData._details as Record<string, unknown>) || {};
+          const editedDetails = (result._details as Record<string, unknown>) || {};
+          result._details = { ...originalDetails, ...editedDetails, ...detailsUpdates };
+        }
         return result;
       },
       validate(): string[] {
@@ -183,7 +275,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
         });
         return errors;
       },
-    }), [editedValues, mergedValues, formSchema.fields, fieldPermissions, formData]);
+    }), [editedValues, mergedValues, formSchema.fields, fieldPermissions, formData, fieldMap]);
 
     // ==================== 字段过滤 ====================
 
@@ -214,7 +306,6 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
           resolvedMap={resolvedMap}
           erpLicenseUrls={erpLicenseUrls}
           allowedOptionValues={fieldOptionFilter?.[field.key]}
-          fakeForm={isEditable ? fakeForm : undefined}
           fieldPermissions={fieldPermissions}
         />
       );
@@ -222,6 +313,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
 
     if (layout === 'descriptions') {
       return (
+        <EditableFormProvider value={stableContextValue}>
         <Card title="表单内容" className={styles.card}>
           <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
             {visibleFields.map(field => (
@@ -231,11 +323,13 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
             ))}
           </Descriptions>
         </Card>
+        </EditableFormProvider>
       );
     }
 
     // list 布局
     return (
+      <EditableFormProvider value={stableContextValue}>
       <div className={styles.formDataSection}>
         <h3>表单数据</h3>
         <div className={styles.formDataList}>
@@ -249,6 +343,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
           ))}
         </div>
       </div>
+      </EditableFormProvider>
     );
   }
 );

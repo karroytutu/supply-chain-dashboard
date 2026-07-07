@@ -37,6 +37,8 @@ export interface SearchableModalPickerProps {
   selectedKeys?: unknown[];
   /** 已选中记录的映射（key -> record），用于打开时预填充 selectedMapRef */
   selectedRecordMap?: Map<string, Record<string, unknown>>;
+  /** 初始记录数组（模式一：value = 完整记录数组），用于预填充 selectedMapRef */
+  initialRecords?: Record<string, unknown>[];
 
   // 来自 field 配置
   searchApi?: string;
@@ -63,6 +65,7 @@ const SearchableModalPicker: React.FC<SearchableModalPickerProps> = ({
   onConfirm,
   selectedKeys = [],
   selectedRecordMap,
+  initialRecords,
   searchApi = '',
   columns = [],
   valueKey = 'id',
@@ -95,7 +98,17 @@ const SearchableModalPicker: React.FC<SearchableModalPickerProps> = ({
   useEffect(() => {
     if (!open) return;
 
-    // 预填充 selectedMapRef（从父组件传入的已选记录映射）
+    // 预填充 selectedMapRef
+    // 优先使用 initialRecords（模式一：父组件的 value 就是完整记录数组）
+    if (initialRecords && initialRecords.length > 0) {
+      for (const r of initialRecords) {
+        const key = String(r[valueKey]);
+        if (!selectedMapRef.current.has(key)) {
+          selectedMapRef.current.set(key, r);
+        }
+      }
+    }
+    // 兼容：如果父组件传入了 selectedRecordMap（旧接口），也预填充
     if (selectedRecordMap) {
       selectedRecordMap.forEach((record, key) => {
         if (!selectedMapRef.current.has(key)) {

@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "version": "v2.22.4",
+      "date": "2026-07-07 22:57",
+      "types": ["optimization"],
+      "changes": [
+        "OA审批表单 Context 架构升级：新增 EditableFormContext 统一表单状态管理，EditableAmountList、SearchableModalPicker、SelectFieldControl、TreeSelectModalControl 等字段组件全部改用 useEditableForm() Hook，消除 fakeForm prop drilling，代码更清晰、扩展性更强",
+        "searchApi 表格字段数据流修复：EditableFormSection 初始化/重置时正确从 _details 加载完整记录数组（而非 ID 数组），只读模式下 FormFieldRenderer 同步解析 _details，解决审批节点看不到历史明细记录的问题",
+        "TableFieldRenderer 简化重构：删除冗余状态管理，与 EditableFormContext 对接，统一字段值来源",
+        "全局页面 padding 架构统一：.page-scroll 接管 24px padding（移动端 @spacing-md），app.tsx contentStyle 清零，多个页面（应收看板、考核中心、战略商品、目标管理、系统管理、采购退货、OA 相关页面）移除冗余 padding 声明并补齐移动端响应式间距",
+        "数据回填脚本增强：backfill-modal-select-details 新增未对账单号、差异单号三类字段的 _details 回填支持",
+        "数据库同步脚本新增 --exclude-tables 参数：支持完整同步时排除指定大表，加快调试同步速度",
+        "新增单元测试：EditableFormContext、EditableFormSection、NullField 三个测试文件，覆盖表单上下文、编辑区段、空字段等核心场景"
+      ]
+    },
+    {
       "version": "v2.22.3",
       "date": "2026-07-07 15:37",
       "types": ["optimization"],
