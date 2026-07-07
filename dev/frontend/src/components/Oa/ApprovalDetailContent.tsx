@@ -38,6 +38,8 @@ export interface ApprovalDetailContentProps {
   onBack?: () => void;
   /** 可编辑表单 ref（操作型节点时传入，用于获取表单编辑值和校验） */
   editableFormRef?: React.RefObject<EditableFormSectionRef>;
+  /** auto 节点重试成功后的回调（触发数据刷新/轮询） */
+  onRetrySuccess?: () => void;
 }
 
 // ==================== 超时信息条 ====================
@@ -346,6 +348,7 @@ const FormFieldsSection: React.FC<{
 const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   detail, actionState, formLayout = 'list', extraContentBefore, className,
   canOperateOverride, canWithdrawOverride, showHeader = true, onBack, editableFormRef,
+  onRetrySuccess,
 }) => {
   const { currentUser, roles: userRoles } = usePermission();
   const { resolvedMap } = useErpFieldResolve(detail.formSchema, detail.formData);
@@ -492,6 +495,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
           instanceStatus={detail.status} actions={detail.actions} erpMeta={detail.erpMeta}
           instanceId={detail.id} applicantName={detail.applicantName}
           applicantAvatar={detail.applicantAvatar} submittedAt={detail.submittedAt}
+          onRetrySuccess={onRetrySuccess}
         />
       </div>
       <ActionBar

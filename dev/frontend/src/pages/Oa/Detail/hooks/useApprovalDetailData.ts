@@ -16,6 +16,8 @@ export interface ApprovalDetailData {
   actions: ApprovalAction[];
   errorType: DetailErrorType;
   loadDetail: () => Promise<void>;
+  /** 静默刷新详情（不触发 loading 状态，避免全屏闪屏） */
+  silentRefresh: () => Promise<void>;
 }
 
 export function useApprovalDetailData(id: string | undefined): ApprovalDetailData {
@@ -45,6 +47,19 @@ export function useApprovalDetailData(id: string | undefined): ApprovalDetailDat
       }
     } finally {
       setLoading(false);
+    }
+  }, [id]);
+
+  const silentRefresh = useCallback(async () => {
+    if (!id) return;
+    try {
+      const detailRes = await oaApi.getDetail(parseInt(id));
+      const detailData = detailRes.data;
+      setDetail(detailData);
+      setNodes(detailData.nodes || []);
+      setActions(detailData.actions || []);
+    } catch {
+      // 静默刷新失败不中断用户操作
     }
   }, [id]);
 
@@ -88,5 +103,5 @@ export function useApprovalDetailData(id: string | undefined): ApprovalDetailDat
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
   }, [id, detail?.status]);
 
-  return { loading, detail, nodes, actions, errorType, loadDetail };
+  return { loading, detail, nodes, actions, errorType, loadDetail, silentRefresh };
 }

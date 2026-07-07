@@ -95,6 +95,69 @@
   }
 
   // =====================================================
+  // ERP 自动节点状态卡片（重试按钮）
+  // =====================================================
+
+  .erpStep {
+    margin-top: 8px;
+    background: @bg-color-card;
+    border: 1px solid @border-color-base;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .erpInfoRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: @text-color-secondary;
+    line-height: 20px;
+
+    & + & {
+      margin-top: 4px;
+    }
+  }
+
+  .erpErrorSection {
+    margin-top: 8px;
+    background: #fff2f0;
+    border: 1px solid #ffccc7;
+    border-radius: 4px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .erpErrorMsg {
+    font-size: 12px;
+    color: @error-color-dark;
+    line-height: 20px;
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+  }
+
+  .erpRetryBtn {
+    flex-shrink: 0;
+  }
+
+  .erpProcessingSection {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+  }
+
+  .erpProcessingText {
+    font-size: 12px;
+    color: @text-color-secondary;
+    line-height: 20px;
+  }
+
+  // =====================================================
   // 发起申请节点信息
   // =====================================================
 

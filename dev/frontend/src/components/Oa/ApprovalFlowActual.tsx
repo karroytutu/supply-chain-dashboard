@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Timeline, Image } from 'antd';
 import { SendOutlined, SettingOutlined, ClockCircleOutlined, WarningOutlined, PaperClipOutlined, DownloadOutlined } from '@ant-design/icons';
 import UserAvatar from '@/components/UserAvatar';
-import type { ApprovalNode, ApprovalAction, AttachmentMeta, CcUser, ApprovalStatus, ErpMeta } from '@/types/oa';
+import type { ApprovalNode, ApprovalAction, AttachmentMeta } from '@/types/oa';
 import { formatDateTime } from '@/utils/format';
 import { NODE_TYPE_CONFIG, getTimelineColor, NodeHeader } from './flow-types';
+import type { ApprovalFlowActualProps } from './flow-types';
 import TimelineApprovalGroup from './TimelineApprovalGroup';
 import TimelineCcNode from './TimelineCcNode';
+import ErpStep from './ErpStep';
 import styles from './ApprovalFlow.less';
 
 /** 按 (nodeOrder, round) 复合键分组（退回后同一环节的不同轮次作为独立条目展示） */
@@ -245,26 +247,16 @@ function TimeoutStatusBadge({ node }: { node: ApprovalNode }) {
   );
 }
 
-export interface ApprovalFlowActualProps {
-  nodes: ApprovalNode[];
-  ccUsers?: CcUser[];
-  currentStep: number;
-  instanceStatus: ApprovalStatus;
-  actions?: ApprovalAction[];
-  erpMeta?: ErpMeta | null;
-  instanceId?: number;
-  applicantName?: string;
-  applicantAvatar?: string | null;
-  submittedAt?: string;
-}
-
 const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
   nodes,
   ccUsers,
   actions = [],
+  erpMeta,
+  instanceId,
   applicantName,
   applicantAvatar,
   submittedAt,
+  onRetrySuccess,
 }) => {
   const groupedNodes = groupNodesByOrder(nodes);
   const actionsByNodeOrder = groupActionsByNodeOrder(actions);
@@ -348,7 +340,10 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
     );
     const approvalAttachments = getActionAttachments(approvalAction);
 
-    // auto 节点内容区保持干净（不渲染 ErpStep），其他节点保留操作记录
+    // auto 节点：失败/处理中时渲染 ErpStep（含重试按钮）
+    const showErpStep = firstNode.nodeType === 'auto' && !!erpMeta
+      && (firstNode.status === 'failed' || erpMeta.status === 'erp_failed' || erpMeta.status === 'processing');
+    // 非 auto 节点保留操作记录
     const showApprovalGroup = firstNode.nodeType !== 'auto' && otherActions.length > 0;
 
     items.push(
@@ -370,6 +365,10 @@ const ApprovalFlowActual: React.FC<ApprovalFlowActualProps> = ({
         )}
         {/* 审批附言附件 */}
         <ActionAttachments attachments={approvalAttachments} />
+        {/* auto 节点 ERP 状态卡片（含重试按钮） */}
+        {showErpStep && (
+          <ErpStep erpMeta={erpMeta!} instanceId={instanceId} onRetrySuccess={onRetrySuccess} />
+        )}
         {/* 非 auto 节点的操作记录（转交、加签等非冗余操作） */}
         {showApprovalGroup && (
           <TimelineApprovalGroup nodes={group} actions={otherActions} />

@@ -1,26 +1,20 @@
 import React, { useState } from 'react';
-import { Tag, Button, message } from 'antd';
-import { CloseCircleOutlined, LoadingOutlined, RedoOutlined, SettingOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Tag, Button, message, Spin } from 'antd';
+import { RedoOutlined, LoadingOutlined } from '@ant-design/icons';
 import type { ErpMeta } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import { ERP_STATUS_CONFIG } from './flow-types';
 import styles from './ApprovalFlow.less';
 import { getErrorMessage } from '../../utils/errorUtils';
 
-/** 获取 ERP 节点图标 */
-function getErpStepIcon(status: string) {
-  const iconStyle: React.CSSProperties = { fontSize: 14 };
-  if (status === 'erp_failed') return <CloseCircleOutlined style={{ ...iconStyle, color: '#f5222d' }} />;
-  if (['processing', 'paying', 'purchasing', 'storing'].includes(status)) {
-    return <LoadingOutlined style={{ ...iconStyle, color: '#722ed1' }} spin />;
-  }
-  if (['completed', 'erp_completed'].includes(status)) return <CheckCircleOutlined style={{ ...iconStyle, color: '#52c41a' }} />;
-  return <SettingOutlined style={{ ...iconStyle, color: '#722ed1' }} />;
+export interface ErpStepProps {
+  erpMeta: ErpMeta;
+  instanceId?: number;
+  /** 重试成功后的回调（用于触发数据刷新/轮询） */
+  onRetrySuccess?: () => void;
 }
 
-export { getErpStepIcon };
-
-const ErpStep: React.FC<{ erpMeta: ErpMeta; instanceId?: number }> = ({ erpMeta, instanceId }) => {
+const ErpStep: React.FC<ErpStepProps> = ({ erpMeta, instanceId, onRetrySuccess }) => {
   const [retrying, setRetrying] = useState(false);
 
   const handleRetry = async () => {
@@ -28,7 +22,8 @@ const ErpStep: React.FC<{ erpMeta: ErpMeta; instanceId?: number }> = ({ erpMeta,
     setRetrying(true);
     try {
       await oaApi.retryErpOperation(instanceId);
-      message.success('ERP重试已触发，请稍后刷新查看');
+      message.success('重试已触发，系统处理中...');
+      onRetrySuccess?.();
     } catch (err) {
       message.error(getErrorMessage(err) || '重试失败');
     } finally {
@@ -36,13 +31,25 @@ const ErpStep: React.FC<{ erpMeta: ErpMeta; instanceId?: number }> = ({ erpMeta,
     }
   };
 
+  // 处理中状态：显示加载指示
+  if (erpMeta.status === 'processing') {
+    return (
+      <div className={styles.erpStep}>
+        <div className={styles.erpProcessingSection}>
+          <Spin indicator={<LoadingOutlined style={{ fontSize: 14 }} spin />} />
+          <span className={styles.erpProcessingText}>系统处理中，请稍候...</span>
+        </div>
+      </div>
+    );
+  }
+
   const statusConfig = ERP_STATUS_CONFIG[erpMeta.status] || { color: 'default', text: erpMeta.status };
 
   return (
     <div className={styles.erpStep}>
       <div className={styles.erpInfoRow}>
         <span>状态: <Tag color={statusConfig.color}>{statusConfig.text}</Tag></span>
-        <span>申请编号: {erpMeta.applicationNo || '-'}</span>
+        {erpMeta.applicationNo && <span>申请编号: {erpMeta.applicationNo}</span>}
       </div>
       {erpMeta.retries > 0 && (
         <div className={styles.erpInfoRow}>
@@ -52,7 +59,7 @@ const ErpStep: React.FC<{ erpMeta: ErpMeta; instanceId?: number }> = ({ erpMeta,
       {erpMeta.status === 'erp_failed' && (
         <div className={styles.erpErrorSection}>
           <div className={styles.erpErrorMsg}>
-            {erpMeta.requestLog?.error ? String(erpMeta.requestLog.error) : '请点击重试按钮重新处理'}
+            {erpMeta.requestLog?.error ? String(erpMeta.requestLog.error) : '系统处理失败，请重试'}
           </div>
           {instanceId && (
             <Button

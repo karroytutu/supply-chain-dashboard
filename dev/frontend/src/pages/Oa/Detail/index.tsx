@@ -28,7 +28,7 @@ const ApprovalDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const editableFormRef = useRef<EditableFormSectionRef>(null);
   const {
-    loading, detail, errorType, loadDetail,
+    loading, detail, errorType, loadDetail, silentRefresh,
     actionLoading, actionModalVisible, actionType, actionComment, attachments, transferUsers,
     countersignUserIds, countersignType, sendBackTargets, sendBackTargetNodeOrder,
     canOperate, canWithdraw, canComment, currentStep,
@@ -57,6 +57,7 @@ const ApprovalDetailPage: React.FC = () => {
         formLayout="list"
         onBack={() => history.back()}
         editableFormRef={editableFormRef}
+        onRetrySuccess={silentRefresh}
       />
     </div>
   );

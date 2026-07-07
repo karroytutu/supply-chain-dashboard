@@ -69,6 +69,16 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
     }
   }, [selectedId, onActionComplete, loadDetail]);
 
+  const handleRetrySuccess = useCallback(async () => {
+    if (!selectedId) return;
+    try {
+      const res = await oaApi.getDetail(selectedId);
+      setDetail(res.data);
+    } catch {
+      // 静默刷新失败不中断用户操作
+    }
+  }, [selectedId]);
+
   const actionState = useApprovalActions({
     instanceId: selectedId ?? undefined,
     detail,
@@ -121,6 +131,7 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
           canOperateOverride={canOperate}
           canWithdrawOverride={canWithdraw}
           editableFormRef={editableFormRef}
+          onRetrySuccess={selectedId ? handleRetrySuccess : undefined}
         />
       </div>
     </div>

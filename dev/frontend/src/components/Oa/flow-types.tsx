@@ -106,6 +106,8 @@ export interface ApprovalFlowActualProps {
   applicantAvatar?: string | null;
   /** 提交时间（用于渲染发起申请节点） */
   submittedAt?: string;
+  /** auto 节点重试成功后的回调（触发数据刷新/轮询） */
+  onRetrySuccess?: () => void;
 }
 
 /** 统一 Props（联合类型） */
