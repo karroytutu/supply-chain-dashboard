@@ -1,0 +1,195 @@
+@import '~@/styles/variables.less';
+
+.section {
+  margin-bottom: @spacing-xl;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: @text-color-primary;
+  margin: 0 0 @spacing-md;
+}
+
+/* 概览卡片网格 */
+.overviewGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: @spacing-md;
+  margin-bottom: @spacing-md;
+}
+
+.overviewCard {
+  :global(.ant-card-body) {
+    padding: @spacing-md;
+  }
+}
+
+/* 营销师排名表 */
+.marketerTable {
+  :global(.ant-table) {
+    font-size: @font-size-sm;
+  }
+}
+
+.alertIcon {
+  color: @error-color;
+  margin-left: @spacing-xs;
+  font-size: @font-size-sm;
+}
+
+.alertRow {
+  background: @warning-serious-bg;
+}
+
+.commissionCell {
+  color: @primary-color;
+  font-weight: 500;
+}
+
+/* 移动端卡片 */
+.mobileCards {
+  display: grid;
+  gap: @spacing-sm;
+}
+
+.mobileCard {
+  background: @bg-color-card;
+  border: 1px solid @border-color-base;
+  border-radius: @border-radius-base;
+  padding: @spacing-md;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: @box-shadow-hover;
+  }
+}
+
+.alertCard {
+  border-color: @error-color;
+  background: @warning-serious-bg;
+}
+
+.mobileCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: @spacing-sm;
+}
+
+.mobileName {
+  font-weight: 600;
+  font-size: @font-size-lg;
+}
+
+.alertTag {
+  margin-left: @spacing-xs;
+}
+
+.mobileRate {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.mobileCardBody {
+  display: flex;
+  justify-content: space-between;
+  font-size: @font-size-sm;
+  color: @text-color-secondary;
+}
+
+.mobileExpanded {
+  margin-top: @spacing-md;
+  padding-top: @spacing-md;
+  border-top: 1px solid @border-color-split;
+}
+
+.mobileDetailRow {
+  display: flex;
+  justify-content: space-between;
+  padding: @spacing-xs 0;
+  font-size: @font-size-sm;
+  color: @text-color-body;
+}
+
+/* 四级钻取 */
+.drillDown {
+  padding: @spacing-sm 0;
+}
+
+.drillItem {
+  margin-bottom: 2px;
+}
+
+.drillChild {
+  padding-left: @spacing-lg;
+}
+
+.drillRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 80px 100px;
+  gap: @spacing-sm;
+  padding: @spacing-xs @spacing-sm;
+  border-radius: @border-radius-sm;
+  font-size: @font-size-sm;
+  align-items: center;
+
+  &:hover {
+    background: @bg-color-hover;
+  }
+}
+
+.expandIcon {
+  display: inline-block;
+  width: 14px;
+  font-size: 10px;
+  color: @text-color-secondary;
+}
+
+.drillName {
+  font-weight: 500;
+}
+
+.drillTarget, .drillActual, .drillGap {
+  text-align: right;
+}
+
+.drillRate {
+  text-align: right;
+  font-weight: 500;
+}
+
+.drillChildren {
+  margin-left: @spacing-sm;
+}
+
+.emptyHint {
+  padding: @spacing-md;
+  text-align: center;
+  color: @text-color-secondary;
+  font-size: @font-size-sm;
+}
+
+/* 响应式 */
+@media (max-width: 1023px) {
+  .overviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .overviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: @spacing-sm;
+  }
+
+  .sectionTitle {
+    font-size: 17px;
+  }
+
+  .drillRow {
+    grid-template-columns: 1.5fr 1fr 1fr 60px;
+    font-size: 12px;
+  }
+}

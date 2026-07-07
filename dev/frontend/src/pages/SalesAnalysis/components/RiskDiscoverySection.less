@@ -1,0 +1,171 @@
+@import '~@/styles/variables.less';
+
+.section {
+  margin-bottom: @spacing-xl;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: @text-color-primary;
+  margin: 0 0 @spacing-md;
+}
+
+/* 2x2 网格布局 */
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: @spacing-md;
+}
+
+/* 分类卡片 */
+.categoryCard {
+  background: @bg-color-card;
+  border: 1px solid @border-color-base;
+  border-radius: @border-radius-lg;
+  padding: @spacing-card;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    border-color: @border-color-strong;
+    box-shadow: @box-shadow-hover;
+  }
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: @spacing-md;
+  padding-bottom: @spacing-sm;
+  border-bottom: 1px solid @border-color-split;
+}
+
+.categoryTitle {
+  display: flex;
+  align-items: center;
+  gap: @spacing-sm;
+  font-size: @font-size-lg;
+  font-weight: 600;
+  color: @text-color-primary;
+}
+
+.categoryIcon {
+  font-size: 18px;
+}
+
+.iconWarn {
+  color: #ff4d4f;
+}
+
+.iconAlert {
+  color: #faad14;
+}
+
+.iconInfo {
+  color: #1677ff;
+}
+
+.iconExpense {
+  color: #722ed1;
+}
+
+.totalTag {
+  font-size: @font-size-base;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* 风险项列表 */
+.itemList {
+  display: grid;
+  gap: @spacing-sm;
+}
+
+.itemRow {
+  padding: @spacing-sm @spacing-md;
+  border-radius: @border-radius-base;
+  background: @bg-color-muted;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: @bg-color-hover;
+  }
+}
+
+.itemMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: @spacing-xs;
+}
+
+.itemLabel {
+  font-size: @font-size-base;
+  font-weight: 500;
+  color: @text-color-primary;
+}
+
+.itemCount {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.itemUnit {
+  font-size: @font-size-sm;
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+.itemMeta {
+  display: grid;
+  gap: 2px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: @font-size-sm;
+}
+
+.metaLabel {
+  color: @text-color-secondary;
+}
+
+.metaValue {
+  color: @text-color-body;
+  font-weight: 500;
+}
+
+/* 平板端 */
+@media (max-width: 1023px) {
+  .categoryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 移动端 */
+@media (max-width: 767px) {
+  .categoryGrid {
+    grid-template-columns: 1fr;
+    gap: @spacing-sm;
+  }
+
+  .sectionTitle {
+    font-size: 17px;
+  }
+
+  .categoryCard {
+    padding: @spacing-md;
+  }
+
+  .itemRow {
+    padding: @spacing-xs @spacing-sm;
+  }
+
+  .itemCount {
+    font-size: 16px;
+  }
+}

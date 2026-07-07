@@ -1,0 +1,219 @@
+@import '~@/styles/variables.less';
+
+.section {
+  margin-bottom: @spacing-xl;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: @text-color-primary;
+  margin: 0 0 @spacing-md;
+}
+
+.subSection {
+  margin-bottom: @spacing-md;
+}
+
+.subHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: @spacing-sm;
+}
+
+.subTitle {
+  font-size: @font-size-lg;
+  font-weight: 500;
+  color: @text-color-primary;
+  margin: 0 0 @spacing-sm;
+}
+
+/* 指标卡行 */
+.metricsRow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: @spacing-md;
+  margin-bottom: @spacing-md;
+}
+
+.metricCard {
+  background: @bg-color-card;
+  border: 1px solid @border-color-base;
+  border-radius: @border-radius-base;
+  padding: @spacing-md;
+  text-align: center;
+}
+
+.metricLabel {
+  font-size: @font-size-sm;
+  color: @text-color-secondary;
+  margin-bottom: @spacing-xs;
+}
+
+.metricValue {
+  font-size: 20px;
+  font-weight: 600;
+  color: @text-color-primary;
+  margin-bottom: @spacing-xs;
+}
+
+.metricMom {
+  font-size: @font-size-sm;
+  font-weight: 500;
+}
+
+/* Top 客户排行 */
+.topList {
+  display: grid;
+  gap: 2px;
+}
+
+.topItem {
+  display: grid;
+  grid-template-columns: 28px 1fr 100px 120px;
+  gap: @spacing-sm;
+  align-items: center;
+  padding: @spacing-sm @spacing-md;
+  background: @bg-color-card;
+  border: 1px solid @border-color-split;
+  border-radius: @border-radius-sm;
+  font-size: @font-size-sm;
+}
+
+.topRank {
+  font-weight: 600;
+  color: @text-color-secondary;
+  text-align: center;
+}
+
+.topName {
+  font-weight: 500;
+  color: @text-color-primary;
+}
+
+.topValue {
+  text-align: right;
+  font-weight: 500;
+  color: @primary-color;
+}
+
+.topMeta {
+  text-align: right;
+  color: @text-color-secondary;
+}
+
+/* 横向条形图 */
+.barList {
+  display: grid;
+  gap: @spacing-sm;
+}
+
+.barItem {
+  display: grid;
+  grid-template-columns: 60px 1fr 100px;
+  gap: @spacing-sm;
+  align-items: center;
+  font-size: @font-size-sm;
+}
+
+.barLabel {
+  color: @text-color-secondary;
+}
+
+.barTrack {
+  height: 8px;
+  background: @border-color-split;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: @primary-color;
+  transition: width 0.3s ease;
+}
+
+.barMeta {
+  text-align: right;
+  color: @text-color-secondary;
+}
+
+/* 两列/三列布局 */
+.twoCol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: @spacing-md;
+  margin-bottom: @spacing-md;
+}
+
+.threeCol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: @spacing-md;
+  margin-bottom: @spacing-md;
+}
+
+.infoCard {
+  :global(.ant-statistic-title) {
+    font-size: @font-size-sm;
+    color: @text-color-secondary;
+  }
+
+  :global(.ant-statistic-content) {
+    font-size: 20px;
+  }
+}
+
+.infoSub {
+  font-size: @font-size-sm;
+  color: @text-color-secondary;
+  margin: @spacing-xs 0 @spacing-sm;
+}
+
+/* 响应式 */
+@media (max-width: 1023px) {
+  .metricsRow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .threeCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .metricsRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: @spacing-sm;
+  }
+
+  .twoCol {
+    grid-template-columns: 1fr;
+    gap: @spacing-sm;
+  }
+
+  .topItem {
+    grid-template-columns: 24px 1fr 80px;
+    font-size: 12px;
+  }
+
+  .topMeta {
+    display: none;
+  }
+
+  .barItem {
+    grid-template-columns: 50px 1fr 80px;
+    font-size: 12px;
+  }
+
+  .sectionTitle {
+    font-size: 17px;
+  }
+
+  .metricValue {
+    font-size: 18px;
+  }
+}

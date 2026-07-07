@@ -1,0 +1,89 @@
+@import '~@/styles/variables.less';
+
+.quadrantGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: @spacing-md;
+}
+
+.compact {
+  gap: @spacing-sm;
+}
+
+.quadrantCard {
+  background: @bg-color-card;
+  border: 1px solid @border-color-base;
+  border-radius: @border-radius-lg;
+  padding: @spacing-card;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    border-color: @border-color-strong;
+    box-shadow: @box-shadow-hover;
+  }
+}
+
+.compact .quadrantCard {
+  padding: @spacing-md;
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: @spacing-sm;
+}
+
+.cardLabel {
+  font-size: @font-size-base;
+  font-weight: 500;
+  color: @text-color-primary;
+}
+
+.cardCount {
+  font-size: 28px;
+  font-weight: 600;
+  color: @text-color-primary;
+  line-height: 1.2;
+  margin-bottom: @spacing-sm;
+}
+
+.compact .cardCount {
+  font-size: 22px;
+  margin-bottom: @spacing-xs;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  font-size: @font-size-sm;
+  color: @text-color-secondary;
+}
+
+/* 象限特色边框 */
+.star {
+  border-left: 3px solid #faad14;
+}
+
+.traffic {
+  border-left: 3px solid #1677ff;
+}
+
+.potential {
+  border-left: 3px solid #52c41a;
+}
+
+.problem {
+  border-left: 3px solid #d9d9d9;
+}
+
+@media (max-width: 767px) {
+  .quadrantGrid {
+    gap: @spacing-sm;
+  }
+
+  .cardCount {
+    font-size: 22px;
+  }
+}

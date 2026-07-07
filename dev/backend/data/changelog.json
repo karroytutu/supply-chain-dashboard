@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "v2.22.0",
+      "date": "2026-07-07 09:52",
+      "types": ["feature", "optimization"],
+      "changes": [
+        "销售分析页面架构重构：从原型预览布局升级为五大价值维度板块（经营全景、问题发现、目标追踪、客户分析、商品分析），整体交互和数据展示逻辑全面重写",
+        "新增板块化组件体系：OverviewSection、RiskDiscoverySection、TargetTrackingSection、CustomerAnalysisSection、ProductAnalysisSection、QuadrantView、LinkedDataTable 等独立组件，职责单一、可维护性大幅提升",
+        "常量文件按业务域拆分：原 salesAnalysis.ts 和 customerDrilldown.ts 拆解为 salesAnalysis/ 目录下的 overview、riskDiscovery、targetTracking、customerAnalysis、productAnalysis 等独立模块，消除魔法数字",
+        "类型定义按业务域拆分：原 sales-analysis.d.ts 拆解为 sales-analysis/ 目录下各业务域独立类型文件，类型职责更清晰",
+        "新增分析工具函数及单元测试：analysis-helpers.ts 封装核心计算逻辑，配套 spec 测试覆盖关键场景",
+        ".gitignore 规则优化"
+      ]
+    },
+    {
       "version": "v2.21.1",
       "date": "2026-07-06 11:25",
       "types": ["fix", "optimization"],

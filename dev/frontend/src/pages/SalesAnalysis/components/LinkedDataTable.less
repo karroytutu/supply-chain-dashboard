@@ -1,0 +1,39 @@
+@import '~@/styles/variables.less';
+
+.container {
+  margin-top: @spacing-md;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: @spacing-sm;
+  margin-bottom: @spacing-sm;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  max-width: 280px;
+}
+
+.filterTag {
+  margin: 0;
+}
+
+.table {
+  :global(.ant-table) {
+    font-size: @font-size-sm;
+  }
+
+  :global(.ant-table-thead > tr > th) {
+    font-weight: 500;
+    background: @bg-color-muted;
+  }
+}
+
+@media (max-width: 767px) {
+  .searchInput {
+    max-width: 100%;
+    flex: 1;
+  }
+}

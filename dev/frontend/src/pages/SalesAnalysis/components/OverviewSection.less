@@ -1,0 +1,102 @@
+@import '~@/styles/variables.less';
+
+.section {
+  margin-bottom: @spacing-xl;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: @text-color-primary;
+  margin: 0 0 @spacing-md;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: @spacing-md;
+}
+
+.card {
+  background: @bg-color-card;
+  border: 1px solid @border-color-base;
+  border-radius: @border-radius-lg;
+  padding: @spacing-card;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    border-color: @border-color-strong;
+    box-shadow: @box-shadow-hover;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: @spacing-sm;
+}
+
+.label {
+  font-size: @font-size-base;
+  color: @text-color-secondary;
+}
+
+.momTag {
+  font-size: @font-size-sm;
+  margin: 0;
+}
+
+.value {
+  font-size: 28px;
+  font-weight: 600;
+  color: @text-color-primary;
+  line-height: 1.2;
+  margin-bottom: @spacing-sm;
+}
+
+.assistRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: @spacing-xs;
+}
+
+.assistLabel {
+  font-size: @font-size-sm;
+  color: @text-color-secondary;
+}
+
+.assistValue {
+  font-size: @font-size-base;
+  font-weight: 500;
+  color: @text-color-primary;
+}
+
+.progressBar {
+  margin-bottom: @spacing-sm;
+}
+
+// 桌面端 >= 1024px: 3x2
+// 平板端 768-1023px: 2x3
+@media (max-width: 1023px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+// 移动端 < 768px: 1x6
+@media (max-width: 767px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+    gap: @spacing-sm;
+  }
+
+  .value {
+    font-size: 24px;
+  }
+
+  .sectionTitle {
+    font-size: 17px;
+  }
+}

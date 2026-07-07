@@ -68,5 +68,5 @@ uploads/
 # Trae IDE 自动生成文件
 .trae/
 
-# 调试截图
-modal-*.png
+# 调试产物（截图、HAR 等开发过程临时文件）
+dev/debug/
