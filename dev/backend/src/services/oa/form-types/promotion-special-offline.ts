@@ -32,7 +32,7 @@ export const promotionSpecialOfflineFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 210,
   description: '线下限时特价促销活动申请，商品限时降价销售',
-  version: 3,
+  version: 4,
 
   formSchema: {
     fields: [
@@ -395,8 +395,8 @@ export const promotionSpecialOfflineFormType: FormTypeDefinition = {
         type: 'auto',
       },
       {
-        order: 4, name: '往来会计审批', type: 'handle',
-        handler: { roleCode: OA_ROLE.ACCOUNTANT }, signMode: 'or',
+        order: 4, name: '采购审批', type: 'handle',
+        handler: { roleCode: OA_ROLE.PROCUREMENT_MGR }, signMode: 'or',
         condition: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
       },
       { order: 5, name: '创建供应商收入单', type: 'auto' },
@@ -406,6 +406,18 @@ export const promotionSpecialOfflineFormType: FormTypeDefinition = {
   beforeSubmit: beforeSubmitPromotion,
   onApproved: handlePromotionSpecialAutoNode,
   onRejected: handlePromotionSpecialRejected,
+
+  beforeApprove: (nodeOrder, formData) => {
+    const errors: string[] = [];
+    if (nodeOrder === 4 && formData.supplierBorne === 'yes') {
+      if (!formData.supplierId) errors.push('供应商不能为空');
+      if (!formData._supplierName) errors.push('供应商名称不能为空');
+      if (!formData.supplierAmount || Number(formData.supplierAmount) <= 0) errors.push('供应商承担金额必须大于0');
+      if (!formData.incomeCategoryId) errors.push('收入类别不能为空');
+      if (!formData._incomeCategoryName) errors.push('收入类别名称不能为空');
+    }
+    return errors;
+  },
 
   nodeBackfills: [
     {
@@ -422,10 +434,10 @@ export const promotionSpecialOfflineFormType: FormTypeDefinition = {
   ],
   fieldPermissions: {
     nodes: {
-      "0": { "name": "editable", "remark": "editable", "goodsList": "editable", "issueRange": "editable", "saleRemark": "editable", "promotionNo": "readonly", "clientIdList": "editable", "clientAreaIds": "editable", "promotionPeriod": "editable", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly", "supplierBorne": "editable", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "editable" },
+      "0": { "name": "editable", "remark": "editable", "goodsList": "editable", "issueRange": "editable", "saleRemark": "editable", "promotionNo": "readonly", "clientIdList": "editable", "clientAreaIds": "editable", "promotionPeriod": "editable", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly", "supplierBorne": "editable", "supplierId": "hidden", "supplierAmount": "hidden", "incomeCategoryId": "hidden", "supplierConfirmScreenshot": "editable" },
       "1": { "name": "readonly", "remark": "readonly", "goodsList": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
       "2": { "name": "readonly", "remark": "readonly", "goodsList": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
-      "4": { "name": "readonly", "remark": "readonly", "goodsList": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "editable", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" }
+      "4": { "name": "readonly", "remark": "readonly", "goodsList": "readonly", "issueRange": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "clientAreaIds": "readonly", "promotionPeriod": "readonly", "clientIdList.name": "readonly", "goodsList.goodsId": "readonly", "goodsList.activeStock": "readonly", "goodsList.onSalePrice": "readonly", "goodsList.currUnitName": "readonly", "goodsList.qualifiedNum": "readonly", "goodsList.onSalePriceMin": "readonly", "clientIdList.consumerCode": "readonly", "goodsList.nearExpiryDays1": "readonly", "goodsList.nearExpiryDays2": "readonly", "goodsList.nearExpiryDays3": "readonly", "goodsList.nearExpiryPrice1": "readonly", "goodsList.nearExpiryPrice2": "readonly", "goodsList.nearExpiryPrice3": "readonly", "supplierBorne": "readonly", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "readonly" }
     },
   },
 };

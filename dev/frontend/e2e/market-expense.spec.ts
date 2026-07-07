@@ -367,8 +367,8 @@ test.describe('10.1 表单提交场景', () => {
 let testSupplier: { id: string; name: string } = { id: '', name: '' };
 /** 测试用收入类别（从 ERP 动态获取） */
 let testIncomeCategory: { id: number; name: string } = { id: 0, name: '' };
-/** 往来会计 userId */
-const ACCOUNTANT_USER_ID = 5;
+/** 采购主管 userId：黎静（procurement_manager 角色） */
+const PROCUREMENT_USER_ID = 6;
 
 test.describe('10.4 供应商承担场景', () => {
   test.beforeAll(async ({ request }) => {
@@ -407,20 +407,16 @@ test.describe('10.4 供应商承担场景', () => {
     console.log(`[E2E] 测试收入类别: ${testIncomeCategory.name} (${testIncomeCategory.id})`);
   });
 
-  test('TC-22: 供应商承担=是 → 提交含供应商字段，审批流包含往来会计节点', async ({ apiClient }) => {
+  test('TC-22: 供应商承担=是 → 提交仅含供应商承担开关，审批流包含采购审批节点', async ({ apiClient }) => {
     if (!testSupplier.id || !testIncomeCategory.id) { test.skip(); return; }
 
+    // 提交时仅传 supplierBorne 和 supplierConfirmScreenshot，供应商/金额/收入类别由采购审批节点填写
     const result = await submitMarketExpense(apiClient, {
       chargeSubject: '350',
       expenseType: 'cash',
       periodType: 'once',
       cashAmount: '200',
       supplierBorne: 'yes',
-      supplierId: testSupplier.id,
-      _supplierName: testSupplier.name,
-      supplierAmount: '100',
-      incomeCategoryId: testIncomeCategory.id,
-      _incomeCategoryName: testIncomeCategory.name,
       supplierConfirmScreenshot: [],
     });
     const instanceId = result?.instanceId || result?.data?.instanceId;
@@ -428,21 +424,18 @@ test.describe('10.4 供应商承担场景', () => {
 
     const detail = await getInstanceDetail(apiClient, instanceId);
     expect(detail.formData?.supplierBorne).toBe('yes');
-    expect(detail.formData?.supplierId).toBe(testSupplier.id);
-    expect(detail.formData?.supplierAmount).toBe('100');
-    expect(detail.formData?.incomeCategoryId).toBe(testIncomeCategory.id);
 
-    // 确认节点列表包含往来会计审批和创建供应商收入单
+    // 确认节点列表包含采购审批和创建供应商收入单
     const nodes = detail.nodes || [];
-    const accountantNode = nodes.find((n: any) => n.node_name === '往来会计审批' || n.nodeName === '往来会计审批');
-    expect(accountantNode).toBeTruthy();
+    const procurementNode = nodes.find((n: any) => n.node_name === '采购审批' || n.nodeName === '采购审批');
+    expect(procurementNode).toBeTruthy();
     const incomeNode = nodes.find((n: any) => n.node_name === '创建供应商收入单' || n.nodeName === '创建供应商收入单');
     expect(incomeNode).toBeTruthy();
 
     await rejectInstance(apiClient, instanceId);
   });
 
-  test('TC-23: 供应商承担=否 → 无往来会计节点，流程与改造前一致', async ({ apiClient }) => {
+  test('TC-23: 供应商承担=否 → 无采购审批节点，流程与改造前一致', async ({ apiClient }) => {
     const result = await submitMarketExpense(apiClient, {
       chargeSubject: '350',
       expenseType: 'cash',
@@ -456,17 +449,17 @@ test.describe('10.4 供应商承担场景', () => {
     const detail = await getInstanceDetail(apiClient, instanceId);
     expect(detail.formData?.supplierBorne).toBe('no');
 
-    // 确认往来会计节点被跳过（状态为 skipped 或不存在）
+    // 确认采购审批节点被跳过（状态为 skipped 或不存在）
     const nodes = detail.nodes || [];
-    const accountantNode = nodes.find((n: any) => n.node_name === '往来会计审批' || n.nodeName === '往来会计审批');
-    if (accountantNode) {
-      expect(accountantNode.status).toBe('skipped');
+    const procurementNode = nodes.find((n: any) => n.node_name === '采购审批' || n.nodeName === '采购审批');
+    if (procurementNode) {
+      expect(procurementNode.status).toBe('skipped');
     }
 
     await rejectInstance(apiClient, instanceId);
   });
 
-  test('TC-24: 供应商承担=是，往来会计驳回 → 回滚已创建的 ERP 单据', async ({ apiClient }) => {
+  test('TC-24: 供应商承担=是，采购驳回 → 回滚已创建的 ERP 单据', async ({ apiClient }) => {
     if (!testSupplier.id || !testIncomeCategory.id) { test.skip(); return; }
 
     const result = await submitMarketExpense(apiClient, {
@@ -475,11 +468,6 @@ test.describe('10.4 供应商承担场景', () => {
       periodType: 'once',
       cashAmount: '300',
       supplierBorne: 'yes',
-      supplierId: testSupplier.id,
-      _supplierName: testSupplier.name,
-      supplierAmount: '150',
-      incomeCategoryId: testIncomeCategory.id,
-      _incomeCategoryName: testIncomeCategory.name,
       supplierConfirmScreenshot: [],
     });
     const instanceId = result?.instanceId || result?.data?.instanceId;
@@ -489,8 +477,8 @@ test.describe('10.4 供应商承担场景', () => {
     await approveAll(apiClient, instanceId);
     await waitForAutoNodes(8000);
 
-    // 往来会计驳回
-    await rejectAs(apiClient, instanceId, ACCOUNTANT_USER_ID, 'E2E测试驳回');
+    // 采购驳回
+    await rejectAs(apiClient, instanceId, PROCUREMENT_USER_ID, 'E2E测试驳回');
     await waitForAutoNodes(3000);
 
     // 验证实例状态为 rejected
@@ -499,6 +487,35 @@ test.describe('10.4 供应商承担场景', () => {
 
     // 供应商收入单应被清理（如果已经创建的话）
     // 注意：如果 auto 节点尚未执行到创建供应商收入单，则无单据需清理，这也是正常场景
+  });
+
+  test('TC-25: 供应商承担=是，采购审批时未填供应商字段 → beforeApprove 拦截', async ({ apiClient }) => {
+    if (!testSupplier.id || !testIncomeCategory.id) { test.skip(); return; }
+
+    // 提交时仅传 supplierBorne，不填供应商相关字段（与新流程一致）
+    const result = await submitMarketExpense(apiClient, {
+      chargeSubject: '350',
+      expenseType: 'cash',
+      periodType: 'once',
+      cashAmount: '250',
+      supplierBorne: 'yes',
+      supplierConfirmScreenshot: [],
+    });
+    const instanceId = result?.instanceId || result?.data?.instanceId;
+    if (!instanceId) { test.skip(); return; }
+
+    // 营销经理 + 总经理审批通过（触发 auto 节点创建兑付协议和费用单）
+    await approveAll(apiClient, instanceId);
+    await waitForAutoNodes(8000);
+
+    // 采购审批时不填供应商字段，直接尝试审批通过 → 应被 beforeApprove 拦截
+    const adminToken = getAdminToken(apiClient);
+    const token = await getTokenForUser(adminToken, PROCUREMENT_USER_ID);
+    const approveRes = await apiWithToken(token, 'POST', `/api/oa/instances/${instanceId}/approve`, { comment: '测试beforeApprove拦截' });
+    // 预期返回错误，包含校验失败信息
+    expect(approveRes?.message || approveRes?.error || '').toMatch(/供应商不能为空|供应商名称不能为空|供应商承担金额|收入类别不能为空|收入类别名称不能为空|校验失败/);
+
+    await rejectInstance(apiClient, instanceId);
   });
 });
 

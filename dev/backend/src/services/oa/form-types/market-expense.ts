@@ -682,7 +682,7 @@ export const marketExpenseFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 230,
   description: '申请市场费用（陈列费、临期处理费等），审批通过后自动创建ERP兑付协议',
-  version: 3,
+  version: 4,
 
   formSchema: marketExpenseFormSchema,
 
@@ -714,9 +714,9 @@ export const marketExpenseFormType: FormTypeDefinition = {
       },
       {
         order: 5,
-        name: '往来会计审批',
+        name: '采购审批',
         type: 'handle',
-        handler: { roleCode: OA_ROLE.ACCOUNTANT },
+        handler: { roleCode: OA_ROLE.PROCUREMENT_MGR },
         signMode: 'or',
         condition: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
       },
@@ -740,6 +740,18 @@ export const marketExpenseFormType: FormTypeDefinition = {
   onApproved: handleMarketExpenseAutoNode,
   onRejected: handleMarketExpenseRejected,
 
+  beforeApprove: (nodeOrder, formData) => {
+    const errors: string[] = [];
+    if (nodeOrder === 5 && formData.supplierBorne === 'yes') {
+      if (!formData.supplierId) errors.push('供应商不能为空');
+      if (!formData._supplierName) errors.push('供应商名称不能为空');
+      if (!formData.supplierAmount || Number(formData.supplierAmount) <= 0) errors.push('供应商承担金额必须大于0');
+      if (!formData.incomeCategoryId) errors.push('收入类别不能为空');
+      if (!formData._incomeCategoryName) errors.push('收入类别名称不能为空');
+    }
+    return errors;
+  },
+
   nodeBackfills: [
     {
       nodeOrder: 3,
@@ -762,10 +774,10 @@ export const marketExpenseFormType: FormTypeDefinition = {
   ],
   fieldPermissions: {
     nodes: {
-      "0": { "customerId": "editable", "chargeSubject": "editable", "expenseType": "editable", "chargeBrandId": "editable", "periodType": "editable", "belongMonths": "editable", "remark": "editable", "cashAmount": "editable", "goodsList": "editable", "goodsList.goodsId": "editable", "goodsList.currUnitName": "editable", "goodsList.quantity": "editable", "goodsList.wholesalePrice": "editable", "goodsList.lineRemark": "editable", "monthlySalesAmount": "editable", "monthlyApprovedExpense": "editable", "supplierBorne": "editable", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "editable" },
+      "0": { "customerId": "editable", "chargeSubject": "editable", "expenseType": "editable", "chargeBrandId": "editable", "periodType": "editable", "belongMonths": "editable", "remark": "editable", "cashAmount": "editable", "goodsList": "editable", "goodsList.goodsId": "editable", "goodsList.currUnitName": "editable", "goodsList.quantity": "editable", "goodsList.wholesalePrice": "editable", "goodsList.lineRemark": "editable", "monthlySalesAmount": "editable", "monthlyApprovedExpense": "editable", "supplierBorne": "editable", "supplierId": "hidden", "supplierAmount": "hidden", "incomeCategoryId": "hidden", "supplierConfirmScreenshot": "editable" },
       "1": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
       "2": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
-      "5": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "editable", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" }
+      "5": { "customerId": "readonly", "chargeSubject": "readonly", "expenseType": "readonly", "chargeBrandId": "readonly", "periodType": "readonly", "belongMonths": "readonly", "remark": "readonly", "cashAmount": "readonly", "goodsList": "readonly", "goodsList.goodsId": "readonly", "goodsList.currUnitName": "readonly", "goodsList.quantity": "readonly", "goodsList.wholesalePrice": "readonly", "goodsList.lineRemark": "readonly", "monthlySalesAmount": "readonly", "monthlyApprovedExpense": "readonly", "supplierBorne": "readonly", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "readonly" }
     },
   },
 };

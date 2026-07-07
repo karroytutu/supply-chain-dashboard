@@ -67,7 +67,7 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
   category: 'marketing',
   sortOrder: 220,
   description: '线下满赠促销活动申请，消费满额赠送商品',
-  version: 3,
+  version: 4,
 
   formSchema: {
     fields: [
@@ -464,8 +464,8 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
         type: 'auto',
       },
       {
-        order: 4, name: '往来会计审批', type: 'handle',
-        handler: { roleCode: OA_ROLE.ACCOUNTANT }, signMode: 'or',
+        order: 4, name: '采购审批', type: 'handle',
+        handler: { roleCode: OA_ROLE.PROCUREMENT_MGR }, signMode: 'or',
         condition: { field: 'supplierBorne', operator: '==' as const, value: 'yes' },
       },
       { order: 5, name: '创建供应商收入单', type: 'auto' },
@@ -475,6 +475,18 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
   beforeSubmit: beforeSubmitPromotion,
   onApproved: handlePromotionFullGiftAutoNode,
   onRejected: handlePromotionFullGiftRejected,
+
+  beforeApprove: (nodeOrder, formData) => {
+    const errors: string[] = [];
+    if (nodeOrder === 4 && formData.supplierBorne === 'yes') {
+      if (!formData.supplierId) errors.push('供应商不能为空');
+      if (!formData._supplierName) errors.push('供应商名称不能为空');
+      if (!formData.supplierAmount || Number(formData.supplierAmount) <= 0) errors.push('供应商承担金额必须大于0');
+      if (!formData.incomeCategoryId) errors.push('收入类别不能为空');
+      if (!formData._incomeCategoryName) errors.push('收入类别名称不能为空');
+    }
+    return errors;
+  },
 
   nodeBackfills: [
     {
@@ -491,10 +503,10 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
   ],
   fieldPermissions: {
     nodes: {
-      "0": { "name": "editable", "remark": "editable", "stepRules": "editable", "issueRange": "editable", "onSaleType": "editable", "saleRemark": "editable", "promotionNo": "readonly", "clientIdList": "editable", "loopPresents": "editable", "stepPresents": "editable", "clientAreaIds": "editable", "loopGiveCount": "editable", "mainGoodsList": "editable", "stepRules.seq": "readonly", "loopCountLatch": "editable", "loopPresentType": "editable", "promotionPeriod": "editable", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "editable", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "editable" },
+      "0": { "name": "editable", "remark": "editable", "stepRules": "editable", "issueRange": "editable", "onSaleType": "editable", "saleRemark": "editable", "promotionNo": "readonly", "clientIdList": "editable", "loopPresents": "editable", "stepPresents": "editable", "clientAreaIds": "editable", "loopGiveCount": "editable", "mainGoodsList": "editable", "stepRules.seq": "readonly", "loopCountLatch": "editable", "loopPresentType": "editable", "promotionPeriod": "editable", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "editable", "supplierId": "hidden", "supplierAmount": "hidden", "incomeCategoryId": "hidden", "supplierConfirmScreenshot": "editable" },
       "1": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
       "2": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "readonly", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" },
-      "4": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "readonly", "supplierId": "readonly", "supplierAmount": "editable", "incomeCategoryId": "readonly", "supplierConfirmScreenshot": "readonly" }
+      "4": { "name": "readonly", "remark": "readonly", "stepRules": "readonly", "issueRange": "readonly", "onSaleType": "readonly", "saleRemark": "readonly", "promotionNo": "readonly", "clientIdList": "readonly", "loopPresents": "readonly", "stepPresents": "readonly", "clientAreaIds": "readonly", "loopGiveCount": "readonly", "mainGoodsList": "readonly", "stepRules.seq": "readonly", "loopCountLatch": "readonly", "loopPresentType": "readonly", "promotionPeriod": "readonly", "stepPresents.seq": "readonly", "clientIdList.name": "readonly", "stepRules.giveType": "readonly", "stepRules.giveCount": "readonly", "loopPresents.goodsId": "readonly", "stepPresents.goodsId": "readonly", "stepRules.countLatch": "readonly", "loopPresents.quantity": "readonly", "mainGoodsList.goodsId": "readonly", "stepPresents.quantity": "readonly", "loopPresents.mustSelect": "readonly", "stepPresents.mustSelect": "readonly", "mainGoodsList.mustSelect": "readonly", "clientIdList.consumerCode": "readonly", "loopPresents.currUnitName": "readonly", "mainGoodsList.activeStock": "readonly", "mainGoodsList.onSalePrice": "readonly", "stepPresents.currUnitName": "readonly", "mainGoodsList.currUnitName": "readonly", "mainGoodsList.purchaseLimits": "readonly", "mainGoodsList.startingQuantity": "readonly", "supplierBorne": "readonly", "supplierId": "editable", "supplierAmount": "editable", "incomeCategoryId": "editable", "supplierConfirmScreenshot": "readonly" }
     },
   },
 };
