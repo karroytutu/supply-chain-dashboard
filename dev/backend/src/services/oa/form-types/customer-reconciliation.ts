@@ -385,6 +385,29 @@ async function beforeSubmitCustomerReconciliation(
 }
 
 // =====================================================
+// beforeApprove: 审批前服务端校验（防御前端校验被绕过的场景）
+// =====================================================
+
+function beforeApproveCustomerReconciliation(
+  nodeOrder: number,
+  formData: Record<string, unknown>,
+  inputData?: Record<string, unknown>
+): string[] {
+  const errors: string[] = [];
+
+  // Node 7（差异审核）：校验差异处理单据非空
+  if (nodeOrder === 7) {
+    // formData 已被引擎 mergeFormData 预合并，直接使用
+    const differenceOrderIds = formData.differenceOrderIds as string[];
+    if (!differenceOrderIds?.length) {
+      errors.push('差异处理单据不能为空');
+    }
+  }
+
+  return errors;
+}
+
+// =====================================================
 // 表单类型定义
 // =====================================================
 
@@ -401,6 +424,7 @@ export const customerReconciliationFormType: FormTypeDefinition = {
   workflowDef: reconciliationWorkflowDef,
 
   beforeSubmit: beforeSubmitCustomerReconciliation,
+  beforeApprove: beforeApproveCustomerReconciliation,
   onApproved: handleCustomerReconciliationAutoNode,
 
   /** 通用查重配置：同客户 = 重复 */

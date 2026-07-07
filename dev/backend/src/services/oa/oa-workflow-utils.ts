@@ -152,6 +152,11 @@ export async function evaluateAndTriggerNodes(
   const dbMaxOrder = maxOrderResult.rows[0]?.max_order ?? 0;
   const skipBelowOrder = Math.max(dbMaxOrder, afterNodeOrder);
 
+  log.info(
+    `[evaluateAndTriggerNodes] instanceId=${instanceId}, formType=${formType.code}, ` +
+    `afterNodeOrder=${afterNodeOrder}, dbMaxOrder=${dbMaxOrder}, skipBelowOrder=${skipBelowOrder}`
+  );
+
   // 2. 按 order 升序遍历 workflowDef.nodes
   const sortedNodes = [...formType.workflowDef.nodes].sort((a, b) => a.order - b.order);
   const createdNodes: OaNodeRow[] = [];
@@ -164,6 +169,17 @@ export async function evaluateAndTriggerNodes(
     const conditionMet = nodeDef.condition
       ? checkCondition(nodeDef.condition, formData)
       : true;
+
+    if (nodeDef.condition && !conditionMet) {
+      const cond = nodeDef.condition;
+      const condField = !Array.isArray(cond) && 'field' in cond ? cond.field : JSON.stringify(cond);
+      const condValue = !Array.isArray(cond) && 'field' in cond ? formData[cond.field] : '(complex)';
+      log.info(
+        `[evaluateAndTriggerNodes] node=${nodeDef.order}(${nodeDef.name}): ` +
+        `condition field="${condField}", value=${JSON.stringify(condValue)}, ` +
+        `conditionMet=${conditionMet}`
+      );
+    }
 
     // 6. 条件不满足 → 不创建
     if (!conditionMet) continue;
@@ -222,6 +238,13 @@ export async function evaluateAndTriggerNodes(
       );
       createdNodes.push(insertResult.rows[0]);
     }
+  }
+
+  if (createdNodes.length > 0) {
+    log.info(
+      `[evaluateAndTriggerNodes] instanceId=${instanceId}: created ${createdNodes.length} nodes: ` +
+      createdNodes.map(n => `${n.node_order}(${n.node_name})`).join(', ')
+    );
   }
 
   return createdNodes;

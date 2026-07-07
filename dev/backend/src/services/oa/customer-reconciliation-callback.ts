@@ -294,7 +294,16 @@ async function handleApproveStatement(
     const differenceOrderIds = formData.differenceOrderIds as string[];
 
     if (!differenceOrderIds?.length) {
-      throw new Error('审核失败：存在差异但未选择差异处理单据');
+      // 防御性检查：差异审核节点(Node 7)可能未被创建或被跳过
+      log.error(
+        `[应收对账] 差异处理单据为空: instanceId=${instance.id}, ` +
+        `differenceStatus=${differenceStatus}, reconciliationResult=${reconciliationResult}, ` +
+        `formData.differenceOrderIds=${JSON.stringify(formData.differenceOrderIds)}`
+      );
+      throw new Error(
+        '审核失败：存在差异但未选择差异处理单据。' +
+        '可能原因：差异审核节点未被创建。请联系管理员退回至“提交对账结果”节点重新操作。'
+      );
     }
 
     const allOrders = await fetchReceivableOrders({ traderId: customerId });
