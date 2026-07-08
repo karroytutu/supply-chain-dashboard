@@ -221,13 +221,14 @@ const TimeoutEditor: React.FC<TimeoutEditorProps> = ({ timeout, onChange }) => {
                 <Text>催办间隔：</Text>
                 <InputNumber
                   size="small"
-                  value={Math.round(timeout.reminder.intervalMinutes! / 60)}
-                  min={1}
-                  onChange={(hours) =>
-                    updateReminder({ intervalMinutes: (hours || 1) * 60 })
+                  value={timeout.reminder.intervalMinutes}
+                  min={5}
+                  step={5}
+                  onChange={(v) =>
+                    updateReminder({ intervalMinutes: v || 5 })
                   }
                 />
-                <Text type="secondary">小时</Text>
+                <Text type="secondary">分钟</Text>
               </Space>
               <Space>
                 <Text>最大催办次数：</Text>

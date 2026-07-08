@@ -10,6 +10,8 @@ import { Input, DatePicker, Select } from 'antd';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import type { FilterConfig } from '@/types/oa';
+import { useIsMobile } from '@/hooks/useMobileDetect';
+import { MobileSelect, MobileDateRangePicker } from '@/components/Mobile';
 
 const { RangePicker } = DatePicker;
 
@@ -34,20 +36,20 @@ export function getFilterDefaults(filters?: FilterConfig[]): Record<string, unkn
 // =====================================================
 
 /**
- * 渲染单个筛选条件控件
- * @param filter 筛选条件配置
- * @param value 当前筛选值
- * @param onChange 值变更回调（skipFetch=true 时仅存储值不触发搜索）
- * @param filterOptions select 类型的选项映射
- * @param onKeywordSearch keyword 类型的搜索回调
+ * 筛选条件渲染组件（支持移动端自适应）
  */
-export function renderFilterControl(
-  filter: FilterConfig,
-  value: unknown,
-  onChange: (val: unknown, skipFetch?: boolean) => void,
-  filterOptions: Record<string, { value: string; label: string }[]>,
-  onKeywordSearch?: (val: string) => void,
-) {
+export interface FilterControlRendererProps {
+  filter: FilterConfig;
+  value: unknown;
+  onChange: (val: unknown, skipFetch?: boolean) => void;
+  filterOptions: Record<string, { value: string; label: string }[]>;
+  onKeywordSearch?: (val: string) => void;
+}
+
+export const FilterControlRenderer: React.FC<FilterControlRendererProps> = ({
+  filter, value, onChange, filterOptions, onKeywordSearch,
+}) => {
+  const isMobile = useIsMobile();
   const labelStyle: React.CSSProperties = { fontSize: 12, color: '#666', marginBottom: 4 };
 
   switch (filter.type) {
@@ -61,7 +63,7 @@ export function renderFilterControl(
             value={value as string || ''}
             onChange={e => onChange(e.target.value, true)}
             onSearch={val => { onChange(val); onKeywordSearch?.(val); }}
-            style={{ width: 200 }}
+            style={{ width: isMobile ? '100%' : 200 }}
           />
         </div>
       );
@@ -70,12 +72,25 @@ export function renderFilterControl(
       return (
         <div key={filter.key} style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={labelStyle}>{filter.label}</div>
-          <RangePicker
-            value={dates}
-            onChange={onChange as (dates: [Dayjs | null, Dayjs | null] | null) => void}
-            presets={[{ label: '近7天', value: [dayjs().subtract(7, 'day'), dayjs()] }]}
-            style={{ width: 260 }}
-          />
+          {isMobile ? (
+            <MobileDateRangePicker
+              value={dates ? [dates[0].format('YYYY-MM-DD'), dates[1].format('YYYY-MM-DD')] : null}
+              onChange={(val) => {
+                if (val && val[0] && val[1]) {
+                  onChange([dayjs(val[0]), dayjs(val[1])]);
+                } else {
+                  onChange(null);
+                }
+              }}
+            />
+          ) : (
+            <RangePicker
+              value={dates}
+              onChange={onChange as (dates: [Dayjs | null, Dayjs | null] | null) => void}
+              presets={[{ label: '近7天', value: [dayjs().subtract(7, 'day'), dayjs()] }]}
+              style={{ width: 260 }}
+            />
+          )}
         </div>
       );
     }
@@ -83,21 +98,33 @@ export function renderFilterControl(
       return (
         <div key={filter.key} style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={labelStyle}>{filter.label}</div>
-          <Select
-            showSearch
-            allowClear
-            placeholder={filter.placeholder || `选择${filter.label}`}
-            options={filterOptions[filter.key] || []}
-            value={value as string | undefined}
-            onChange={(val) => onChange(val)}
-            filterOption={(input, option) =>
-              String(option?.label || '').toLowerCase().includes(input.toLowerCase())
-            }
-            style={{ width: 200 }}
-          />
+          {isMobile ? (
+            <MobileSelect
+              value={value as string | undefined}
+              onChange={(val) => onChange(val)}
+              options={filterOptions[filter.key] || []}
+              placeholder={filter.placeholder || `选择${filter.label}`}
+              allowClear
+              title={filter.label}
+              style={{ width: '100%' }}
+            />
+          ) : (
+            <Select
+              showSearch
+              allowClear
+              placeholder={filter.placeholder || `选择${filter.label}`}
+              options={filterOptions[filter.key] || []}
+              value={value as string | undefined}
+              onChange={(val) => onChange(val)}
+              filterOption={(input, option) =>
+                String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+              }
+              style={{ width: 200 }}
+            />
+          )}
         </div>
       );
     default:
       return null;
   }
-}
+};

@@ -7,6 +7,7 @@ import { SearchOutlined, PlusOutlined, DeleteOutlined, CheckOutlined, CloseOutli
 import type { StrategicProductStatus } from '@/types/strategic-product';
 import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
+import { MobileSelect } from '@/components/Mobile';
 import styles from '../index.less';
 
 interface StrategicProductToolbarProps {
@@ -79,11 +80,12 @@ const StrategicProductToolbar: React.FC<StrategicProductToolbarProps> = ({
           prefix={<SearchOutlined />}
         />
         {isMobile ? (
-          <Select
+          <MobileSelect
             value={statusFilter ?? 'all'}
             onChange={(val) => onStatusFilterChange(val === 'all' ? undefined : val as StrategicProductStatus)}
-            style={{ width: '100%' }}
             options={statusOptions}
+            title="状态筛选"
+            style={{ width: '100%' }}
           />
         ) : (
           <Segmented

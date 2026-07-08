@@ -78,6 +78,8 @@ export interface ActionBarProps {
   canOperate: boolean;
   canWithdraw: boolean;
   canComment: boolean;
+  /** 撤回被禁用时的原因提示（如自动环节已执行） */
+  withdrawDisabledReason?: string;
   onOpenAction: (type: 'approve' | 'reject' | 'transfer' | 'countersign' | 'update' | 'comment' | 'send_back') => void;
   onWithdraw: () => void;
 }
@@ -125,7 +127,7 @@ const renderLeftItems = (items: LeftItemData[], isMobile: boolean) => {
 };
 
 const ActionBar: React.FC<ActionBarProps> = ({
-  nodeType, canOperate, canWithdraw, canComment, onOpenAction, onWithdraw,
+  nodeType, canOperate, canWithdraw, canComment, withdrawDisabledReason, onOpenAction, onWithdraw,
 }) => {
   const isMobile = useMobileDetect();
 
@@ -180,6 +182,30 @@ const ActionBar: React.FC<ActionBarProps> = ({
     );
   }
 
+  // ── 撤回模式（含禁用提示）──
+  if (canWithdraw || withdrawDisabledReason) {
+    return (
+      <div className={styles.actionBar}>
+        <div className={styles.actionLeft}>
+          {canComment && (
+            <ActionItem icon={<MessageOutlined />} label="评论" onClick={() => onOpenAction('comment')} />
+          )}
+        </div>
+        <div className={styles.actionRight}>
+          {withdrawDisabledReason ? (
+            <Tooltip title={withdrawDisabledReason}>
+              <Button danger disabled>撤回审批</Button>
+            </Tooltip>
+          ) : (
+            <Popconfirm title="确定要撤回此审批吗？" onConfirm={onWithdraw} okText="确定" cancelText="取消" placement="top">
+              <Button danger>撤回审批</Button>
+            </Popconfirm>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── 仅评论模式 ──
   if (canComment) {
     return (
@@ -188,17 +214,6 @@ const ActionBar: React.FC<ActionBarProps> = ({
           <ActionItem icon={<MessageOutlined />} label="评论" onClick={() => onOpenAction('comment')} />
         </div>
         <div className={styles.actionRight} />
-      </div>
-    );
-  }
-
-  // ── 撤回模式 ──
-  if (canWithdraw) {
-    return (
-      <div className={styles.actionBar}>
-        <Popconfirm title="确定要撤回此审批吗？" onConfirm={onWithdraw} okText="确定" cancelText="取消" placement="top">
-          <Button danger>撤回审批</Button>
-        </Popconfirm>
       </div>
     );
   }

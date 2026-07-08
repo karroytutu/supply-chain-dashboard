@@ -2,13 +2,13 @@
  * 移动端退货单筛选组件
  */
 import React from 'react';
-import { Input, DatePicker, Button, Drawer, Tag, Space } from 'antd';
+import { Input, Button, Drawer, Tag, Space } from 'antd';
 import { SearchOutlined, FilterOutlined, CloseOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import type { ReturnOrderStatus } from '@/types/procurement-return';
+import { MobileDateRangePicker } from '@/components/Mobile';
+import dayjs from 'dayjs';
 import styles from '../index.less';
-
-const { RangePicker } = DatePicker;
 
 // 状态选项配置
 const statusOptions: Array<{ value?: ReturnOrderStatus; label: string; color: string }> = [
@@ -97,11 +97,17 @@ const MobileFilters: React.FC<MobileFiltersProps> = ({
       {/* 日期范围 */}
       <div className={styles.mobileFilterItem}>
         <div className={styles.mobileFilterLabel}>日期范围</div>
-        <RangePicker
-          value={value.dateRange}
-          onChange={handleDateRangeChange}
-          style={{ width: '100%' }}
-          placeholder={['开始日期', '结束日期']}
+        <MobileDateRangePicker
+          value={value.dateRange && value.dateRange[0] && value.dateRange[1]
+            ? [value.dateRange[0].format('YYYY-MM-DD'), value.dateRange[1].format('YYYY-MM-DD')]
+            : null}
+          onChange={(val) => {
+            if (val && val[0] && val[1]) {
+              handleDateRangeChange([dayjs(val[0]), dayjs(val[1])]);
+            } else {
+              handleDateRangeChange(null);
+            }
+          }}
         />
       </div>
 

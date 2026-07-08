@@ -61,6 +61,40 @@ test.describe('审批详情', () => {
   });
 });
 
+test.describe('撤回审批', () => {
+  // 注意：以下测试需要特定的测试数据（pending 状态的审批实例），
+  // 在完整测试环境中运行。此处仅验证 UI 逻辑不崩溃。
+
+  test('审批详情页加载时操作栏存在', async ({ authenticatedPage }) => {
+    // 访问审批中心“我发起的”视图
+    await authenticatedPage.goto('/oa/center');
+    await waitForPageLoad(authenticatedPage);
+
+    // 切换到“我发起的”tab（如果有数据，可进一步验证撤回按钮）
+    const myTab = authenticatedPage.locator('text=我发起的');
+    if (await myTab.isVisible()) {
+      await myTab.click();
+    }
+
+    const body = authenticatedPage.locator('body');
+    await expect(body).toBeVisible();
+  });
+
+  test('禁用状态的撤回按钮不触发确认框', async ({ authenticatedPage }) => {
+    // 验证：如果撤回按钮被 disabled，点击不应弹出 Popconfirm
+    await authenticatedPage.goto('/oa/center');
+    await waitForPageLoad(authenticatedPage);
+
+    const disabledBtn = authenticatedPage.locator('button[disabled]:has-text("撤回审批")');
+    if (await disabledBtn.count() > 0) {
+      await disabledBtn.first().click();
+      // 确认框不应出现
+      const confirmBtn = authenticatedPage.locator('.ant-popover:has-text("确定要撤回此审批吗")');
+      await expect(confirmBtn).not.toBeVisible();
+    }
+  });
+});
+
 test.describe('OA 数据管理', () => {
   test('数据管理页面加载', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/oa/data');

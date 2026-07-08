@@ -17,7 +17,7 @@ import { getErpReference } from '@/services/api/oa';
 import { isAbortError } from '@/services/api/request';
 import { ERP_SEARCH_API_MAP } from '@/constants/oa-erp';
 import { fetchModalData } from '../hooks/useModalFetch';
-import { renderFilterControl, getFilterDefaults } from './FilterControls';
+import { FilterControlRenderer, getFilterDefaults } from './FilterControls';
 import type { FilterConfig, ModalColumnConfig } from '@/types/oa';
 
 // =====================================================
@@ -406,10 +406,15 @@ const SearchableModalPicker: React.FC<SearchableModalPickerProps> = ({
           display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16,
           padding: '12px 16px', background: '#fafafa', borderRadius: 6, alignItems: 'flex-end',
         }}>
-          {filters.map(f => renderFilterControl(
-            f, filterValues[f.key],
-            (val, skip) => handleFilterChange(f.key, val, skip),
-            filterOptions, handleKeywordSearch,
+          {filters.map(f => (
+            <FilterControlRenderer
+              key={f.key}
+              filter={f}
+              value={filterValues[f.key]}
+              onChange={(val, skip) => handleFilterChange(f.key, val, skip)}
+              filterOptions={filterOptions}
+              onKeywordSearch={handleKeywordSearch}
+            />
           ))}
         </div>
       )}

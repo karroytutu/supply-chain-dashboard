@@ -2,6 +2,9 @@ import React from 'react';
 import { Row, Col, Select, DatePicker, Input, Space, Button, Tooltip, Tag } from 'antd';
 import { SearchOutlined, ReloadOutlined, FilterOutlined } from '@ant-design/icons';
 import type { FormTypeDefinition } from '@/types/oa';
+import { useIsMobile } from '@/hooks/useMobileDetect';
+import { MobileSelect, MobileDateRangePicker } from '@/components/Mobile';
+import dayjs from 'dayjs';
 import styles from '../index.less';
 
 const { RangePicker } = DatePicker;
@@ -37,34 +40,80 @@ const DataFilterBar: React.FC<DataFilterBarProps> = ({
   formTypes, setFormTypeCode, setStatus, setDateRange,
   setSearchText, setApplicantName, handleReset, exportMenu,
 }) => {
+  const isMobile = useIsMobile();
   return (
     <>
       {/* 筛选区域 */}
       <div className={styles.filterSection}>
         <Row gutter={[12, 8]}>
           <Col xs={24} sm={12} lg={4}>
-            <Select placeholder="申请类型" allowClear style={{ width: '100%' }} value={formTypeCode} onChange={setFormTypeCode}>
-              {formTypes.map((ft) => (
-                <Option key={ft.code} value={ft.code}>{ft.name}</Option>
-              ))}
-            </Select>
+            {isMobile ? (
+              <MobileSelect
+                value={formTypeCode}
+                onChange={(v) => setFormTypeCode(v as string | undefined)}
+                options={formTypes.map((ft) => ({ value: ft.code, label: ft.name }))}
+                placeholder="申请类型"
+                allowClear
+                title="申请类型"
+                style={{ width: '100%' }}
+              />
+            ) : (
+              <Select placeholder="申请类型" allowClear style={{ width: '100%' }} value={formTypeCode} onChange={setFormTypeCode}>
+                {formTypes.map((ft) => (
+                  <Option key={ft.code} value={ft.code}>{ft.name}</Option>
+                ))}
+              </Select>
+            )}
           </Col>
           <Col xs={24} sm={12} lg={4}>
-            <Select placeholder="审批状态" allowClear style={{ width: '100%' }} value={status} onChange={setStatus}>
-              <Option value="pending">处理中</Option>
-              <Option value="approved">已通过</Option>
-              <Option value="rejected">已拒绝</Option>
-              <Option value="withdrawn">已撤回</Option>
-              <Option value="cancelled">已取消</Option>
-            </Select>
+            {isMobile ? (
+              <MobileSelect
+                value={status}
+                onChange={(v) => setStatus(v as string | undefined)}
+                options={[
+                  { value: 'pending', label: '处理中' },
+                  { value: 'approved', label: '已通过' },
+                  { value: 'rejected', label: '已拒绝' },
+                  { value: 'withdrawn', label: '已撤回' },
+                  { value: 'cancelled', label: '已取消' },
+                ]}
+                placeholder="审批状态"
+                allowClear
+                title="审批状态"
+                style={{ width: '100%' }}
+              />
+            ) : (
+              <Select placeholder="审批状态" allowClear style={{ width: '100%' }} value={status} onChange={setStatus}>
+                <Option value="pending">处理中</Option>
+                <Option value="approved">已通过</Option>
+                <Option value="rejected">已拒绝</Option>
+                <Option value="withdrawn">已撤回</Option>
+                <Option value="cancelled">已取消</Option>
+              </Select>
+            )}
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <RangePicker
-              style={{ width: '100%' }}
-              value={dateRange}
-              onChange={(dates) => setDateRange(dates as [any, any] | null)}
-              placeholder={['开始日期', '结束日期']}
-            />
+            {isMobile ? (
+              <MobileDateRangePicker
+                value={dateRange && dateRange[0] && dateRange[1]
+                  ? [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
+                  : null}
+                onChange={(val) => {
+                  if (val && val[0] && val[1]) {
+                    setDateRange([dayjs(val[0]), dayjs(val[1])]);
+                  } else {
+                    setDateRange(null);
+                  }
+                }}
+              />
+            ) : (
+              <RangePicker
+                style={{ width: '100%' }}
+                value={dateRange}
+                onChange={(dates) => setDateRange(dates as [any, any] | null)}
+                placeholder={['开始日期', '结束日期']}
+              />
+            )}
           </Col>
           <Col xs={24} sm={12} lg={4}>
             <Input placeholder="申请人姓名" allowClear value={applicantName} onChange={(e) => setApplicantName(e.target.value)} />

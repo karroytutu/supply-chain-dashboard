@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Button, List, Spin, Empty, Tag } from 'antd';
+import { Input, Button, List, Spin, Empty, Tag, Badge, Tooltip } from 'antd';
 import { SearchOutlined, FilterOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { ApprovalStatusTag } from '@/components/Oa';
-import type { ApprovalInstance } from '@/types/oa';
+import type { ApprovalInstance, FormTypeDefinition, ViewMode } from '@/types/oa';
+import type { Dayjs } from 'dayjs';
+import FilterPanel, { ActiveFilterTags } from './FilterPanel';
 import styles from '../index.less';
 
 /** 格式化剩余/超时时长 */
@@ -50,6 +52,24 @@ function TimeoutTag({ deadlineAt }: { deadlineAt: string | null }) {
   );
 }
 
+interface FilterProps {
+  viewMode: ViewMode;
+  formTypeCode: string | null;
+  status: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  applicantName: string | null;
+  activeFilterCount: number;
+  filterOpen: boolean;
+  formTypes: FormTypeDefinition[];
+  setFormTypeCode: (val: string | undefined) => void;
+  setStatus: (val: string | undefined) => void;
+  setDateRange: (dates: [Dayjs, Dayjs] | null) => void;
+  setApplicantName: (val: string | undefined) => void;
+  clearFilters: () => void;
+  toggleFilterOpen: () => void;
+}
+
 interface ApprovalListProps {
   loading: boolean;
   list: ApprovalInstance[];
@@ -60,12 +80,35 @@ interface ApprovalListProps {
   onSearchTextChange: (text: string) => void;
   onItemClick: (item: ApprovalInstance) => void;
   onPageChange: (page: number) => void;
+  filterProps: FilterProps;
 }
 
 const ApprovalList: React.FC<ApprovalListProps> = ({
   loading, list, total, page, searchText, selectedId,
   onSearchTextChange, onItemClick, onPageChange,
+  filterProps,
 }) => {
+  const {
+    viewMode, formTypeCode, status, startDate, endDate, applicantName,
+    activeFilterCount, filterOpen, formTypes,
+    setFormTypeCode, setStatus, setDateRange, setApplicantName,
+    clearFilters, toggleFilterOpen,
+  } = filterProps;
+
+  const hasActiveFilters = activeFilterCount > 0;
+
+  const filterButton = (
+    <Button
+      icon={<FilterOutlined />}
+      className={hasActiveFilters ? styles.filterBtnActive : undefined}
+      onClick={hasActiveFilters ? clearFilters : toggleFilterOpen}
+      aria-expanded={filterOpen}
+      aria-label="筛选"
+    >
+      筛选
+    </Button>
+  );
+
   return (
     <div className={styles.listPanel}>
       <div className={styles.listHeader}>
@@ -77,14 +120,51 @@ const ApprovalList: React.FC<ApprovalListProps> = ({
           onChange={(e) => onSearchTextChange(e.target.value)}
           allowClear
         />
-        <Button icon={<FilterOutlined />}>筛选</Button>
+        {hasActiveFilters ? (
+          <Tooltip title="点击清除全部筛选">
+            <Badge count={activeFilterCount} size="small" offset={[-4, 0]}>
+              {filterButton}
+            </Badge>
+          </Tooltip>
+        ) : (
+          filterButton
+        )}
       </div>
+
+      {filterOpen && (
+        <FilterPanel
+          viewMode={viewMode}
+          formTypeCode={formTypeCode}
+          status={status}
+          startDate={startDate}
+          endDate={endDate}
+          applicantName={applicantName}
+          formTypes={formTypes}
+          setFormTypeCode={setFormTypeCode}
+          setStatus={setStatus}
+          setDateRange={setDateRange}
+          setApplicantName={setApplicantName}
+        />
+      )}
+
+      <ActiveFilterTags
+        formTypeCode={formTypeCode}
+        status={status}
+        startDate={startDate}
+        endDate={endDate}
+        applicantName={applicantName}
+        formTypes={formTypes}
+        setFormTypeCode={setFormTypeCode}
+        setStatus={setStatus}
+        setDateRange={setDateRange}
+        setApplicantName={setApplicantName}
+      />
 
       <div className={styles.listContent}>
         {loading ? (
           <div className={styles.loadingContainer}><Spin /></div>
         ) : list.length === 0 ? (
-          <Empty description="暂无数据" />
+          <Empty description={hasActiveFilters ? '没有符合条件的审批流程' : '暂无数据'} />
         ) : (
           <List
             dataSource={list}
@@ -157,4 +237,4 @@ const ApprovalList: React.FC<ApprovalListProps> = ({
   );
 };
 
-export default ApprovalList;
+export default React.memo(ApprovalList);

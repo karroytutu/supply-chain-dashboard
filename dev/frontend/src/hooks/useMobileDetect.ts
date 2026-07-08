@@ -13,13 +13,21 @@ export function useMobileDetect(): boolean {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
     const checkMobile = () => {
-      setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
+      }, 150); // 防抖 150ms，避免窗口在断点边界反复抖动
     };
 
-    checkMobile();
+    // 初始检查（不防抖）
+    setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   return isMobile;
@@ -29,12 +37,12 @@ export function useMobileDetect(): boolean {
  * 基于 matchMedia 的移动端检测（比 resize 更高效）
  * @param breakpoint 断点像素值，默认 768
  */
-export function useIsMobile(breakpoint = 768): boolean {
+export function useIsMobile(breakpoint = MOBILE_BREAKPOINT): boolean {
   const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+    typeof window !== 'undefined' ? window.innerWidth <= breakpoint : false
   );
   useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const mql = window.matchMedia(`(max-width: ${breakpoint}px)`);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mql.addEventListener('change', handler);
     setIsMobile(mql.matches);

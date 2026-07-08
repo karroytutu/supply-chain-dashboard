@@ -1,10 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
 import { message } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
-import type { ApprovalInstance, FormTypeDefinition } from '@/types/oa';
+import { useSearchParams } from 'umi';
+import type { ApprovalInstance, ApprovalStatus, FormTypeDefinition } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import { createLogger } from '../../../../utils/logger';
 const log = createLogger('OaData');
+
+/** 合法的审批状态枚举，用于 URL 参数防御性校验 */
+const VALID_STATUSES: ReadonlySet<string> = new Set<ApprovalStatus>([
+  'pending', 'processing', 'approved', 'rejected', 'erp_failed', 'cancelled', 'withdrawn',
+]);
+
+/** 从 URL 参数安全解析 Dayjs 日期，无效值返回 null */
+function safeParseDate(val: string | null): Dayjs | null {
+  if (!val) return null;
+  const d = dayjs(val, 'YYYY-MM-DD', true);
+  return d.isValid() ? d : null;
+}
+
+/** 从 URL 参数安全解析正整数页码，无效值返回 1 */
+function safeParsePage(val: string | null): number {
+  if (!val) return 1;
+  const n = parseInt(val, 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+/** 从 URL 参数安全解析 pageSize，无效值返回 20 */
+function safeParsePageSize(val: string | null): number {
+  if (!val) return 20;
+  const n = parseInt(val, 10);
+  return Number.isFinite(n) && n >= 1 && n <= 100 ? n : 20;
+}
 
 interface UseDataListReturn {
   // 筛选状态
@@ -24,31 +51,94 @@ interface UseDataListReturn {
   dataSource: ApprovalInstance[];
   formTypes: FormTypeDefinition[];
   pagination: { current: number; pageSize: number; total: number };
-  setPagination: React.Dispatch<React.SetStateAction<{ current: number; pageSize: number; total: number }>>;
 
   // 操作方法
   loadData: () => Promise<void>;
   handleReset: () => void;
   handleExport: (type: 'excel' | 'pdf' | 'print') => Promise<void>;
+  setPage: (page: number, pageSize: number) => void;
 }
 
 export function useDataList(): UseDataListReturn {
-  // 筛选状态
-  const [formTypeCode, setFormTypeCode] = useState<string | undefined>();
-  const [status, setStatus] = useState<string | undefined>();
-  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
-  const [searchText, setSearchText] = useState('');
-  const [applicantName, setApplicantName] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // 数据状态
+  // ── 从 URL 读取筛选状态（带防御性校验） ──
+  const formTypeCode = searchParams.get('formType') || undefined;
+  const statusRaw = searchParams.get('status');
+  const status = statusRaw && VALID_STATUSES.has(statusRaw) ? statusRaw : undefined;
+  // 日期：保留原始字符串用于 API 参数和 useCallback 依赖（避免每次渲染生成新数组引用）
+  const startDateStr = searchParams.get('startDate') || '';
+  const endDateStr = searchParams.get('endDate') || '';
+  const dateStart = safeParseDate(searchParams.get('startDate'));
+  const dateEnd = safeParseDate(searchParams.get('endDate'));
+  const dateRange: [Dayjs, Dayjs] | null = dateStart && dateEnd ? [dateStart, dateEnd] : null;
+  const searchText = searchParams.get('keyword') || '';
+  const applicantName = searchParams.get('applicant') || '';
+
+  // ── 分页从 URL 读取 ──
+  const currentPage = safeParsePage(searchParams.get('page'));
+  const pageSize = safeParsePageSize(searchParams.get('pageSize'));
+
+  /** 更新 URL 参数（保留其他参数） */
+  const updateParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const next: Record<string, string> = {};
+      searchParams.forEach((v, k) => { next[k] = v; });
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === '') {
+          delete next[key];
+        } else {
+          next[key] = value;
+        }
+      });
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // ── setter 函数（写 URL） ──
+  const setFormTypeCode = useCallback((val: string | undefined) => {
+    updateParams({ formType: val ?? null, page: '1' });
+  }, [updateParams]);
+
+  const setStatus = useCallback((val: string | undefined) => {
+    updateParams({ status: val ?? null, page: '1' });
+  }, [updateParams]);
+
+  const setDateRange = useCallback((val: [Dayjs, Dayjs] | null) => {
+    updateParams({
+      startDate: val ? val[0].format('YYYY-MM-DD') : null,
+      endDate: val ? val[1].format('YYYY-MM-DD') : null,
+      page: '1',
+    });
+  }, [updateParams]);
+
+  const setSearchText = useCallback((val: string) => {
+    updateParams({ keyword: val || null, page: '1' });
+  }, [updateParams]);
+
+  const setApplicantName = useCallback((val: string) => {
+    updateParams({ applicant: val || null, page: '1' });
+  }, [updateParams]);
+
+  // ── 数据状态（非 URL，保留 useState） ──
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<ApprovalInstance[]>([]);
   const [formTypes, setFormTypes] = useState<FormTypeDefinition[]>([]);
   const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 20,
+    current: currentPage,
+    pageSize,
     total: 0,
   });
+
+  // 同步 URL 分页参数到 pagination state（URL 变化时驱动）
+  useEffect(() => {
+    setPagination(prev => ({
+      ...prev,
+      current: currentPage,
+      pageSize,
+    }));
+  }, [currentPage, pageSize]);
 
   // 加载表单类型
   const loadFormTypes = async () => {
@@ -60,22 +150,22 @@ export function useDataList(): UseDataListReturn {
     }
   };
 
-  // 加载数据
+  // 加载数据（分页直接从 URL 读取，避免中间 state 导致瞬态不一致）
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, unknown> = {
-        page: pagination.current,
-        pageSize: pagination.pageSize,
+        page: currentPage,
+        pageSize,
         formTypeCode,
         status,
         applicantName,
         keyword: searchText,
       };
 
-      if (dateRange) {
-        params.startDate = dateRange[0].format('YYYY-MM-DD');
-        params.endDate = dateRange[1].format('YYYY-MM-DD');
+      if (startDateStr && endDateStr) {
+        params.startDate = startDateStr;
+        params.endDate = endDateStr;
       }
 
       const res = await oaApi.getDataList(params);
@@ -87,7 +177,7 @@ export function useDataList(): UseDataListReturn {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
-  }, [pagination.current, pagination.pageSize, formTypeCode, status, applicantName, searchText, dateRange]);
+  }, [currentPage, pageSize, formTypeCode, status, applicantName, searchText, startDateStr, endDateStr]);
 
   useEffect(() => {
     loadFormTypes();
@@ -131,20 +221,20 @@ export function useDataList(): UseDataListReturn {
     }
   };
 
-  // 重置筛选
-  const handleReset = () => {
-    setFormTypeCode(undefined);
-    setStatus(undefined);
-    setDateRange(null);
-    setSearchText('');
-    setApplicantName('');
-    setPagination((prev) => ({ ...prev, current: 1 }));
-  };
+  // 重置筛选（清空所有 URL 参数）
+  const handleReset = useCallback(() => {
+    setSearchParams({});
+  }, [setSearchParams]);
+
+  // 分页变更写入 URL
+  const setPage = useCallback((page: number, newPageSize: number) => {
+    updateParams({ page: String(page), pageSize: String(newPageSize) });
+  }, [updateParams]);
 
   return {
     formTypeCode, status, dateRange, searchText, applicantName,
     setFormTypeCode, setStatus, setDateRange, setSearchText, setApplicantName,
-    loading, dataSource, formTypes, pagination, setPagination,
-    loadData, handleReset, handleExport,
+    loading, dataSource, formTypes, pagination,
+    loadData, handleReset, handleExport, setPage,
   };
 }

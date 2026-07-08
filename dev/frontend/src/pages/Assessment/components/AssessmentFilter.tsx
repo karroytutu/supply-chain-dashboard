@@ -8,6 +8,8 @@ import { SearchOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design
 import { Authorized } from '@/components/Authorized';
 import { PERMISSIONS } from '@/constants/permissions';
 import { useAssessmentUsers } from '../hooks/useAssessmentUsers';
+import { useIsMobile } from '@/hooks/useMobileDetect';
+import { MobileSelect } from '@/components/Mobile';
 
 /** 考核类型选项 */
 const CATEGORY_OPTIONS = [
@@ -85,6 +87,7 @@ const AssessmentFilter: React.FC<AssessmentFilterProps> = ({
   onCalculate,
 }) => {
   const { users, loading: usersLoading, searchUsers } = useAssessmentUsers();
+  const isMobile = useIsMobile();
 
   // 组件挂载时加载被考核人列表
   useEffect(() => {
@@ -96,29 +99,53 @@ const AssessmentFilter: React.FC<AssessmentFilterProps> = ({
   return (
     <div className="filter-bar">
       <Space wrap>
-        <Select
-          placeholder="考核类型"
-          value={category || ''}
-          onChange={(val) => onFilter({ category: val || '', ruleType: '' })}
-          options={CATEGORY_OPTIONS}
-          style={{ width: 160 }}
-        />
-        <Select
-          placeholder="规则类型"
-          value={ruleType || undefined}
-          onChange={(val) => onFilter({ ruleType: val || '' })}
-          options={ruleOptions}
-          style={{ width: 200 }}
-          allowClear
-          showSearch
-          optionFilterProp="label"
-        />
+        {isMobile ? (
+          <MobileSelect
+            value={category || undefined}
+            onChange={(v) => onFilter({ category: (v as string) || '', ruleType: '' })}
+            options={CATEGORY_OPTIONS.filter(o => o.value !== '')}
+            placeholder="考核类型"
+            allowClear
+            title="考核类型"
+            style={{ width: '100%' }}
+          />
+        ) : (
+          <Select
+            placeholder="考核类型"
+            value={category || ''}
+            onChange={(val) => onFilter({ category: val || '', ruleType: '' })}
+            options={CATEGORY_OPTIONS}
+            style={{ width: 160 }}
+          />
+        )}
+        {isMobile ? (
+          <MobileSelect
+            value={ruleType || undefined}
+            onChange={(v) => onFilter({ ruleType: (v as string) || '' })}
+            options={ruleOptions}
+            placeholder="规则类型"
+            allowClear
+            title="规则类型"
+            style={{ width: '100%' }}
+          />
+        ) : (
+          <Select
+            placeholder="规则类型"
+            value={ruleType || undefined}
+            onChange={(val) => onFilter({ ruleType: val || '' })}
+            options={ruleOptions}
+            style={{ width: 200 }}
+            allowClear
+            showSearch
+            optionFilterProp="label"
+          />
+        )}
         <Select
           placeholder="被考核人"
           value={assessmentUserId || undefined}
           onChange={(val) => onFilter({ assessmentUserId: val || '' })}
           options={users.map((u) => ({ value: String(u.id), label: u.name }))}
-          style={{ width: 160 }}
+          style={{ width: isMobile ? '100%' : 160 }}
           allowClear
           showSearch
           filterOption={false}
@@ -135,14 +162,26 @@ const AssessmentFilter: React.FC<AssessmentFilterProps> = ({
           prefix={<SearchOutlined />}
           allowClear
         />
-        <Select
-          placeholder="状态"
-          value={status || undefined}
-          onChange={(val) => onFilter({ status: val || '' })}
-          options={STATUS_OPTIONS}
-          style={{ width: 120 }}
-          allowClear
-        />
+        {isMobile ? (
+          <MobileSelect
+            value={status || undefined}
+            onChange={(v) => onFilter({ status: (v as string) || '' })}
+            options={STATUS_OPTIONS}
+            placeholder="状态"
+            allowClear
+            title="状态"
+            style={{ width: '100%' }}
+          />
+        ) : (
+          <Select
+            placeholder="状态"
+            value={status || undefined}
+            onChange={(val) => onFilter({ status: val || '' })}
+            options={STATUS_OPTIONS}
+            style={{ width: 120 }}
+            allowClear
+          />
+        )}
         <Button icon={<ReloadOutlined />} onClick={onReset}>
           重置
         </Button>

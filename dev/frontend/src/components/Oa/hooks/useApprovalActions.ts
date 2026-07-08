@@ -6,6 +6,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { message } from 'antd';
 import type { ApprovalDetail, ApprovalNode, AttachmentMeta } from '@/types/oa';
+import { hasExecutedAutoNode } from '../oaNodeUtils';
 import { oaApi } from '@/services/api/oa';
 import { usePermission } from '@/hooks/usePermission';
 import { getErrorMessage } from '@/utils/errorUtils';
@@ -59,6 +60,7 @@ export interface UseApprovalActionsReturn {
   canWithdraw: boolean;
   canComment: boolean;
   currentStep: number;
+  withdrawDisabledReason?: string;
 }
 
 export function useApprovalActions({
@@ -94,8 +96,16 @@ export function useApprovalActions({
 
   const canWithdraw = useMemo(() => {
     if (!detail || detail.status !== 'pending') return false;
-    return detail.applicantId === currentUser?.id;
-  }, [detail, currentUser?.id]);
+    if (detail.applicantId !== currentUser?.id) return false;
+    return !hasExecutedAutoNode(nodes);
+  }, [detail, nodes, currentUser?.id]);
+
+  const withdrawDisabledReason = useMemo(() => {
+    if (!detail || detail.status !== 'pending') return undefined;
+    if (detail.applicantId !== currentUser?.id) return undefined;
+    if (hasExecutedAutoNode(nodes)) return '自动环节已执行，无法撤回';
+    return undefined;
+  }, [detail, nodes, currentUser?.id]);
 
   const canComment = useMemo(() => {
     if (!detail) return false;
@@ -292,6 +302,6 @@ export function useApprovalActions({
     openActionModal, closeActionModal, executeAction, executeWithdraw,
     setActionComment, setAttachments, setTransferUserId, setCountersignUserIds, setCountersignType,
     setSendBackTargetNodeOrder,
-    canOperate, canWithdraw, canComment, currentStep,
+    canOperate, canWithdraw, canComment, currentStep, withdrawDisabledReason,
   };
 }

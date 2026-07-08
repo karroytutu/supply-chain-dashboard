@@ -1,6 +1,8 @@
 import React from 'react';
 import './styles/global.less';
 import { App as AntdApp, ConfigProvider, Dropdown, Spin, Tag } from 'antd';
+import { ConfigProvider as AntdMobileConfigProvider } from 'antd-mobile';
+import zhCN from 'antd-mobile/es/locales/zh-CN';
 import { LogoutOutlined, SwapOutlined } from '@ant-design/icons';
 import { getCurrentUser } from '@/services/api/auth';
 import UserAvatar from '@/components/UserAvatar';
@@ -245,7 +247,11 @@ export function rootContainer(container: React.ReactElement): React.ReactElement
         AntdApp,
         null,
         React.createElement(AppMessageBridge),
-        container,
+        React.createElement(
+          AntdMobileConfigProvider,
+          { locale: zhCN },
+          container,
+        ),
       ),
     ),
   );

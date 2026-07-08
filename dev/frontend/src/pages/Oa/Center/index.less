@@ -95,6 +95,36 @@
   flex: 1;
 }
 
+// 筛选面板
+.filterPanel {
+  padding: 8px 12px;
+  background: @bg-color-muted;
+  border-bottom: 1px solid @border-color-base;
+  max-height: 300px;
+  opacity: 1;
+  overflow: visible;
+  transition: max-height 0.2s ease, opacity 0.2s ease, padding 0.2s ease;
+}
+
+.filterRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filterTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 12px;
+  border-bottom: 1px solid @border-color-split;
+}
+
+.filterBtnActive {
+  color: @primary-color;
+  border-color: @primary-color;
+}
+
 .listContent {
   flex: 1;
   overflow-y: auto;
@@ -382,6 +412,15 @@
     :global(.ant-btn) {
       width: 100%;
     }
+  }
+
+  // 筛选面板：移动端宽松间距
+  .filterPanel {
+    padding: 12px 16px;
+  }
+
+  .filterRow {
+    gap: 12px;
   }
 
   // 列表项：触摸友好

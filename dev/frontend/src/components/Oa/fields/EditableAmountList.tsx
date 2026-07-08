@@ -278,7 +278,7 @@ export function EditableAmountList({
       <span style={{ fontSize: isMobile ? 14 : 13, color: '#333', padding: isMobile ? '4px 0' : undefined }}>{formatCurrency(paid)}</span>
     ) : (
       <Input
-        size="small"
+        size={isMobile ? undefined : 'small'}
         value={rowAmounts[i]?.paid || ''}
         maxLength={AMOUNT_MAX_LENGTH}
         style={isMobile ? { width: '100%' } : { width: writeoffMode ? 110 : 90, textAlign: 'right' }}
@@ -295,7 +295,7 @@ export function EditableAmountList({
       <span style={{ fontSize: isMobile ? 14 : 13, color: '#333', padding: isMobile ? '4px 0' : undefined }}>{formatCurrency(discount)}</span>
     ) : (
       <Input
-        size="small"
+        size={isMobile ? undefined : 'small'}
         value={rowAmounts[i]?.discount || ''}
         maxLength={AMOUNT_MAX_LENGTH}
         disabled={isReturnRow}

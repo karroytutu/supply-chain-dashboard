@@ -32,6 +32,8 @@ export interface ApprovalDetailContentProps {
   canOperateOverride?: boolean;
   /** 外部覆盖 canWithdraw（Center 根据 viewMode 计算） */
   canWithdrawOverride?: boolean;
+  /** 外部覆盖 withdrawDisabledReason（Center 根据 viewMode 计算） */
+  withdrawDisabledReasonOverride?: string;
   /** 是否显示头部信息 */
   showHeader?: boolean;
   /** 传入时头部显示返回按钮（独立详情页传入，流程中心不传） */
@@ -347,7 +349,7 @@ const FormFieldsSection: React.FC<{
 
 const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
   detail, actionState, formLayout = 'list', extraContentBefore, className,
-  canOperateOverride, canWithdrawOverride, showHeader = true, onBack, editableFormRef,
+  canOperateOverride, canWithdrawOverride, withdrawDisabledReasonOverride, showHeader = true, onBack, editableFormRef,
   onRetrySuccess,
 }) => {
   const { currentUser, roles: userRoles } = usePermission();
@@ -502,6 +504,7 @@ const ApprovalDetailContent: React.FC<ApprovalDetailContentProps> = ({
         nodeType={nodeType}
         canOperate={canOperate}
         canWithdraw={canWithdrawOverride !== undefined ? canWithdrawOverride : actionState.canWithdraw}
+        withdrawDisabledReason={withdrawDisabledReasonOverride ?? actionState.withdrawDisabledReason}
         canComment={actionState.canComment}
         onOpenAction={actionState.openActionModal} onWithdraw={actionState.executeWithdraw}
       />

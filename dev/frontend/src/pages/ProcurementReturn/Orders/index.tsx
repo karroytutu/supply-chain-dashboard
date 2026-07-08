@@ -7,7 +7,7 @@ import { HomeOutlined } from '@ant-design/icons';
 
 import type { ReturnOrder } from '@/types/procurement-return';
 import { useReturnOrders } from './hooks/useReturnOrders';
-import { useMobileDetect } from './hooks/useMobileDetect';
+import { useMobileDetect } from '@/hooks/useMobileDetect';
 import { useOrderActions } from './hooks/useOrderActions';
 import ReturnOrderStats from './components/ReturnOrderStats';
 import ReturnOrderTable from './components/ReturnOrderTable';

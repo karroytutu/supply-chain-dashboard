@@ -4,14 +4,22 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { oaApi } from '@/services/api/oa';
-import type { ApprovalInstance, ApprovalStats, ViewMode } from '@/types/oa';
+import type { ApprovalInstance, ApprovalStats, ApprovalStatus, FormTypeDefinition, ViewMode } from '@/types/oa';
 import { createLogger } from '../../../../utils/logger';
 const log = createLogger('OaCenter');
+
+// 模块级缓存，避免页面来回切换重复请求
+let cachedFormTypes: FormTypeDefinition[] | null = null;
 
 interface FiltersState {
   viewMode: ViewMode;
   page: number;
   searchText: string;
+  formTypeCode?: string | null;
+  status?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  applicantName?: string | null;
 }
 
 export function useApprovalCenterData(filters: FiltersState) {
@@ -21,6 +29,7 @@ export function useApprovalCenterData(filters: FiltersState) {
   });
   const [list, setList] = useState<ApprovalInstance[]>([]);
   const [total, setTotal] = useState(0);
+  const [formTypes, setFormTypes] = useState<FormTypeDefinition[]>(cachedFormTypes ?? []);
 
   const loadStats = useCallback(async () => {
     try {
@@ -39,6 +48,11 @@ export function useApprovalCenterData(filters: FiltersState) {
         page: filters.page,
         pageSize: 20,
         keyword: filters.searchText,
+        formTypeCode: filters.formTypeCode ?? undefined,
+        status: (filters.status ?? undefined) as ApprovalStatus | undefined,
+        startDate: filters.startDate ?? undefined,
+        endDate: filters.endDate ?? undefined,
+        applicantName: filters.applicantName ?? undefined,
       });
       setList(result.data);
       setTotal(result.total);
@@ -49,13 +63,31 @@ export function useApprovalCenterData(filters: FiltersState) {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
-  }, [filters.viewMode, filters.page]);
+  }, [
+    filters.viewMode, filters.page, filters.searchText,
+    filters.formTypeCode, filters.status,
+    filters.startDate, filters.endDate, filters.applicantName,
+  ]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
-  useEffect(() => { loadStats(); }, []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖稳定无需重复触发
-  useEffect(() => { loadList(); }, [filters.viewMode, filters.page, filters.searchText]);
+  /** 加载表单类型（命中缓存则直接赋值） */
+  const loadFormTypes = useCallback(async () => {
+    if (cachedFormTypes) {
+      setFormTypes(cachedFormTypes);
+      return;
+    }
+    try {
+      const res = await oaApi.getFormTypes();
+      cachedFormTypes = res.data;
+      setFormTypes(res.data);
+    } catch (error) {
+      log.error('加载表单类型失败:', error);
+      // formTypes 保持空数组，不弹提示
+    }
+  }, []);
 
-  return { loading, stats, list, total, loadList, loadStats };
+  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { loadList(); }, [loadList]);
+  useEffect(() => { loadFormTypes(); }, [loadFormTypes]);
+
+  return { loading, stats, list, total, loadList, loadStats, formTypes };
 }

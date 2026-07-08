@@ -11,7 +11,7 @@ import {
   CheckCircleOutlined,
 } from '@ant-design/icons';
 import type { ReturnOrderStats as ReturnOrderStatsType, ReturnOrderStatus } from '@/types/procurement-return';
-import { useMobileDetect } from '../hooks/useMobileDetect';
+import { useMobileDetect } from '@/hooks/useMobileDetect';
 import styles from '../index.less';
 
 interface ReturnOrderStatsProps {

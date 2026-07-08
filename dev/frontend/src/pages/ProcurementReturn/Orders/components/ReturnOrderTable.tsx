@@ -5,7 +5,7 @@
 import React from 'react';
 import { Table, Empty, type TablePaginationConfig } from 'antd';
 import type { ReturnOrder } from '@/types/procurement-return';
-import { useMobileDetect } from '../hooks/useMobileDetect';
+import { useMobileDetect } from '@/hooks/useMobileDetect';
 import { getReturnOrderColumns } from './returnOrderColumns';
 import { ExpandedDetail } from './ExpandedDetail';
 import { ReturnOrderCard } from './ReturnOrderCard';

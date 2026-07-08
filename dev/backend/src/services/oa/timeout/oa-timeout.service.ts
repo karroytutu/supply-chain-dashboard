@@ -11,10 +11,6 @@ import { createLogger } from '../../../utils/logger';
 const log = createLogger('OaTimeout');
 
 import {
-  OA_TIMEOUT_FIRST_REMINDER_DELAY_MINUTES,
-  OA_TIMEOUT_REMINDER_INTERVAL_MINUTES,
-  OA_TIMEOUT_MAX_REMINDER_COUNT,
-  OA_TIMEOUT_CC_SUPERVISOR_THRESHOLD,
   OA_TIMEOUT_REMINDER_BATCH_SIZE,
   OA_TIMEOUT_REMINDER_BATCH_INTERVAL_MS,
 } from '../../../utils/constants';
@@ -152,16 +148,21 @@ function shouldCcSupervisor(node: OverdueNode, config: ResolvedReminderConfig | 
 // =====================================================
 
 /**
- * 解析催办配置，合并默认值
+ * 解析催办配置，要求节点提供完整的核心字段（intervalMinutes、maxReminders）。
+ * 可选字段（firstReminderDelayMinutes、ccSupervisorAfterCount）缺失时用零值兜底。
  */
 function resolveReminderConfig(reminder: ReminderConfig | undefined): ResolvedReminderConfig | null {
   if (!reminder) return null;
-
+  // 核心字段缺失则视为未启用催办
+  if (reminder.intervalMinutes == null || reminder.maxReminders == null) {
+    log.warn('催办配置不完整，跳过该节点', { reminder });
+    return null;
+  }
   return {
-    firstReminderDelayMinutes: reminder.firstReminderDelayMinutes ?? OA_TIMEOUT_FIRST_REMINDER_DELAY_MINUTES,
-    intervalMinutes: reminder.intervalMinutes ?? OA_TIMEOUT_REMINDER_INTERVAL_MINUTES,
-    maxReminders: reminder.maxReminders ?? OA_TIMEOUT_MAX_REMINDER_COUNT,
-    ccSupervisorAfterCount: reminder.ccSupervisorAfterCount ?? OA_TIMEOUT_CC_SUPERVISOR_THRESHOLD,
+    firstReminderDelayMinutes: reminder.firstReminderDelayMinutes ?? 0,
+    intervalMinutes: reminder.intervalMinutes,
+    maxReminders: reminder.maxReminders,
+    ccSupervisorAfterCount: reminder.ccSupervisorAfterCount ?? 0,
   };
 }
 

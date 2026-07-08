@@ -15,6 +15,8 @@
  */
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Select, Spin, Typography } from 'antd';
+import { useIsMobile } from '@/hooks/useMobileDetect';
+import { MobileSelect } from '@/components/Mobile';
 import type { FieldControlProps } from './types';
 import { useEditableForm, type EditableFormContextValue } from '../EditableFormContext';
 import { ERP_SEARCH_API_MAP, ERP_LABEL_FIELDS, ERP_VALUE_FIELDS, loadErpConfig } from '@/constants/oa-erp';
@@ -97,6 +99,7 @@ const SelectFieldControl: React.FC<FieldControlProps> = ({
   const editableForm = useEditableForm();
   const effectiveForm = formOverride ?? editableForm;
   const isMulti = !!field.multiple;
+  const isMobile = useIsMobile();
 
   // 静态/动态选项（非 ERP 模式）
   const dynamicOptions = useMemo(() => {
@@ -155,6 +158,23 @@ const SelectFieldControl: React.FC<FieldControlProps> = ({
   if (allowedOptionValues) {
     options = options.filter(opt => allowedOptionValues.includes(String(opt.value)));
   }
+
+  // 移动端单选使用 MobileSelect（多选保持 antd Select）
+  if (isMobile && !isMulti) {
+    return (
+      <MobileSelect
+        value={value as string | number | undefined}
+        onChange={v => onChange?.(v)}
+        options={options.map(o => ({ value: o.value as string | number, label: String(o.label) }))}
+        placeholder={field.placeholder || `请选择${field.label}`}
+        disabled={field.disabled}
+        allowClear
+        title={field.label}
+        style={{ width: '100%' }}
+      />
+    );
+  }
+
   return (
     <Select
       mode={isMulti ? 'multiple' : undefined}

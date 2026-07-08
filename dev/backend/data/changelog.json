@@ -1,6 +1,21 @@
 {
   "entries": [
     {
+      "version": "v2.22.5",
+      "date": "2026-07-08 09:56",
+      "types": ["feature", "optimization"],
+      "changes": [
+        "OA撤回条件增强：自动节点（系统自动执行环节）已执行后禁止撤回，前端同步显示'自动环节已执行，无法撤回'提示，防止误操作导致流程数据不一致",
+        "移动端原生组件库：新增 MobileDatePicker、MobileDateRangePicker、MobileSelect 三个 antd-mobile 封装组件，移动端使用 iOS 原生滚轮选择，桌面端自动降级为 antd 组件",
+        "审批中心筛选升级：新增筛选面板（表单类型、状态、日期范围、申请人），筛选条件完整持久化到 URL 支持分享，移动端展示筛选激活数量角标",
+        "审批数据列表增强：DataFilterBar 新增移动端响应式适配，useDataList 支持筛选条件联动，数据查询逻辑优化",
+        "全局移动端检测 hook 统一：将分散在各页面的 useMobileDetect 整合迁移至 @/hooks/useMobileDetect，消除重复代码",
+        "多页面移动端响应式优化：考核中心、采购退货单、战略商品、用户管理页面筛选栏适配移动端布局",
+        "OA催办常量治理：将催办延迟、间隔、最大次数等配置从全局 constants.ts 移至 oa-timeout.service 内部管理，降低耦合",
+        "新增 E2E 测试：OA撤回场景（含自动节点拦截）、审批中心筛选器单元测试覆盖"
+      ]
+    },
+    {
       "version": "v2.22.4",
       "date": "2026-07-07 22:57",
       "types": ["optimization"],

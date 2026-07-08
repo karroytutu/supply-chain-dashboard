@@ -164,6 +164,18 @@ export async function withdrawApproval(
       throw new Error('只有申请人可以撤回审批');
     }
 
+    // 检查是否有自动节点已执行（状态非 pending/cancelled 即表示曾执行过）
+    const autoNodeResult = await client.query<{ node_name: string }>(
+      `SELECT node_name FROM oa_approval_nodes
+       WHERE instance_id = $1 AND node_type = 'auto'
+         AND status NOT IN ('pending', 'cancelled')
+       LIMIT 1`,
+      [instanceId]
+    );
+    if (autoNodeResult.rows.length > 0) {
+      throw new Error(`自动环节“${autoNodeResult.rows[0].node_name}”已执行，无法撤回`);
+    }
+
     await client.query(
       `UPDATE oa_approval_instances SET status = 'withdrawn', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [instanceId]

@@ -10,8 +10,8 @@ const DataPage: React.FC = () => {
   const {
     formTypeCode, status, dateRange, searchText, applicantName,
     setFormTypeCode, setStatus, setDateRange, setSearchText, setApplicantName,
-    loading, dataSource, formTypes, pagination, setPagination,
-    handleReset, handleExport,
+    loading, dataSource, formTypes, pagination,
+    handleReset, handleExport, setPage,
   } = useDataList();
 
   // 导出菜单
@@ -58,7 +58,7 @@ const DataPage: React.FC = () => {
           loading={loading}
           pagination={pagination}
           onPaginationChange={(page, pageSize) => {
-            setPagination((prev) => ({ ...prev, current: page, pageSize }));
+            setPage(page, pageSize);
           }}
         />
       </Card>

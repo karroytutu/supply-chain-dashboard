@@ -208,6 +208,106 @@ describe('withdrawApproval', () => {
       [1]
     );
   });
+
+  it('存在已执行的 auto 节点（status=approved）时抛出错误', async () => {
+    mockIsApplicant.mockResolvedValue(true);
+    const mockClient = {
+      query: jest.fn().mockImplementation((sql: string) => {
+        if (sql.includes('pg_advisory_xact_lock')) return Promise.resolve({ rows: [] });
+        if (sql.includes('oa_approval_instances') && sql.includes('FOR UPDATE')) {
+          return Promise.resolve({ rows: [{ id: 1, status: 'pending', applicant_id: 100 }] });
+        }
+        if (sql.includes('oa_approval_nodes') && sql.includes("node_type = 'auto'")) {
+          return Promise.resolve({ rows: [{ node_name: '系统处理' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      }),
+    };
+    mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
+
+    await expect(
+      withdrawApproval(1, 100, '张三')
+    ).rejects.toThrow(/自动环节.*已执行，无法撤回/);
+  });
+
+  it('存在失败的 auto 节点（status=failed）时抛出错误', async () => {
+    mockIsApplicant.mockResolvedValue(true);
+    const mockClient = {
+      query: jest.fn().mockImplementation((sql: string) => {
+        if (sql.includes('pg_advisory_xact_lock')) return Promise.resolve({ rows: [] });
+        if (sql.includes('oa_approval_instances') && sql.includes('FOR UPDATE')) {
+          return Promise.resolve({ rows: [{ id: 1, status: 'pending', applicant_id: 100 }] });
+        }
+        if (sql.includes('oa_approval_nodes') && sql.includes("node_type = 'auto'")) {
+          return Promise.resolve({ rows: [{ node_name: 'ERP同步' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      }),
+    };
+    mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
+
+    await expect(
+      withdrawApproval(1, 100, '张三')
+    ).rejects.toThrow(/自动环节.*已执行，无法撤回/);
+  });
+
+  it('存在执行中的 auto 节点（status=processing）时抛出错误', async () => {
+    mockIsApplicant.mockResolvedValue(true);
+    const mockClient = {
+      query: jest.fn().mockImplementation((sql: string) => {
+        if (sql.includes('pg_advisory_xact_lock')) return Promise.resolve({ rows: [] });
+        if (sql.includes('oa_approval_instances') && sql.includes('FOR UPDATE')) {
+          return Promise.resolve({ rows: [{ id: 1, status: 'pending', applicant_id: 100 }] });
+        }
+        if (sql.includes('oa_approval_nodes') && sql.includes("node_type = 'auto'")) {
+          return Promise.resolve({ rows: [{ node_name: '自动处理' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      }),
+    };
+    mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
+
+    await expect(
+      withdrawApproval(1, 100, '张三')
+    ).rejects.toThrow(/自动环节.*已执行，无法撤回/);
+  });
+
+  it('auto 节点均为 pending 时正常撤回', async () => {
+    mockIsApplicant.mockResolvedValue(true);
+    const mockClient = {
+      query: jest.fn().mockImplementation((sql: string) => {
+        if (sql.includes('pg_advisory_xact_lock')) return Promise.resolve({ rows: [] });
+        if (sql.includes('oa_approval_instances') && sql.includes('FOR UPDATE')) {
+          return Promise.resolve({ rows: [{ id: 1, status: 'pending', applicant_id: 100 }] });
+        }
+        if (sql.includes('oa_approval_nodes') && sql.includes("node_type = 'auto'")) {
+          return Promise.resolve({ rows: [] }); // 无已执行的 auto 节点
+        }
+        return Promise.resolve({ rows: [] });
+      }),
+    };
+    mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
+
+    await withdrawApproval(1, 100, '张三');
+
+    expect(mockClient.query).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE oa_approval_instances SET status = 'withdrawn'"),
+      [1]
+    );
+  });
+
+  it('无 auto 节点时正常撤回', async () => {
+    mockIsApplicant.mockResolvedValue(true);
+    const mockClient = createMockClient(); // 默认返回 rows: []
+    mockTransaction.mockImplementation(async (fn: any) => fn(mockClient));
+
+    await withdrawApproval(1, 100, '张三');
+
+    expect(mockClient.query).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE oa_approval_instances SET status = 'withdrawn'"),
+      [1]
+    );
+  });
 });
 
 // =====================================================

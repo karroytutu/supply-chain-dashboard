@@ -2,7 +2,7 @@
  * 流程中心页面
  * 三栏布局：侧边导航 → 审批列表 → 流程详情 + 流程
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApprovalCenter } from './hooks/useApprovalCenter';
 import { markCcRead } from '@/services/api/oa';
 import ApprovalNav from './components/ApprovalNav';
@@ -40,6 +40,32 @@ const Center: React.FC = () => {
     filters.setSelectedId(null);
   };
 
+  // 筛选属性聚合（useMemo 稳定引用，避免 React.memo(ApprovalList) 失效）
+  const filterProps = useMemo(() => ({
+    viewMode: filters.viewMode,
+    formTypeCode: filters.formTypeCode,
+    status: filters.status,
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    applicantName: filters.applicantName,
+    activeFilterCount: filters.activeFilterCount,
+    filterOpen: filters.filterOpen,
+    formTypes: data.formTypes,
+    setFormTypeCode: filters.setFormTypeCode,
+    setStatus: filters.setStatus,
+    setDateRange: filters.setDateRange,
+    setApplicantName: filters.setApplicantName,
+    clearFilters: filters.clearFilters,
+    toggleFilterOpen: filters.toggleFilterOpen,
+  }), [
+    filters.viewMode, filters.formTypeCode, filters.status,
+    filters.startDate, filters.endDate, filters.applicantName,
+    filters.activeFilterCount, filters.filterOpen,
+    data.formTypes,
+    filters.setFormTypeCode, filters.setStatus, filters.setDateRange,
+    filters.setApplicantName, filters.clearFilters, filters.toggleFilterOpen,
+  ]);
+
   return (
     <div className={`page-full ${styles.container}`}>
       <ApprovalNav viewMode={filters.viewMode} stats={data.stats} onNavClick={handleNavClick} />
@@ -57,6 +83,7 @@ const Center: React.FC = () => {
             onSearchTextChange={filters.setSearchText}
             onItemClick={handleItemClick}
             onPageChange={filters.setPage}
+            filterProps={filterProps}
           />
           <ApprovalDetailPanel
             selectedId={filters.selectedId}
@@ -77,6 +104,7 @@ const Center: React.FC = () => {
           onSearchTextChange={filters.setSearchText}
           onItemClick={handleItemClick}
           onPageChange={filters.setPage}
+          filterProps={filterProps}
         />
       ) : (
         // 移动端：详情视图（带返回按钮）

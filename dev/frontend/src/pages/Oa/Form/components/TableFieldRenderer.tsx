@@ -7,6 +7,8 @@ import React, { useCallback, useState, useRef, useMemo } from 'react';
 import { Button, Input, InputNumber, Select, DatePicker, Table, Popconfirm, Form, message } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { useIsMobile } from '@/hooks/useMobileDetect';
+import { MobileSelect, MobileDatePicker } from '@/components/Mobile';
 import type { FormField, FieldPermission } from '@/types/oa';
 import { evaluateFormula } from '@/utils/formula-evaluator';
 import { useContainerWidth, NUMERIC_ALIGN_TYPES } from '@/components/Oa/hooks/useContainerWidth';
@@ -73,6 +75,8 @@ const CellInput: React.FC<{
   /** money 类型失焦业务校验：接收当前值，返回截断后的值；返回 undefined 表示无需修改 */
   onAmountBlur?: (currentValue: number | undefined) => number | undefined;
 }> = ({ childField, value, onChange, rowData, onRowUpdate, disabled, onBlur, onAmountBlur }) => {
+  const isMobile = useIsMobile();
+  const inputSize = isMobile ? undefined : 'small';
   // disabled 模式下渲染为只读文本
   if (disabled) {
     if (value == null || value === '') {
@@ -129,7 +133,7 @@ const CellInput: React.FC<{
           value={value as number | undefined}
           onChange={(v) => onChange(v)}
           onBlur={onBlur}
-          size="small"
+          size={inputSize}
         />
       );
     case 'money':
@@ -152,7 +156,7 @@ const CellInput: React.FC<{
             }
             onBlur?.();
           }}
-          size="small"
+          size={inputSize}
         />
       );
     case 'select': {
@@ -161,6 +165,19 @@ const CellInput: React.FC<{
       if (childField.optionsFromField) {
         const dynamicOpts = buildDynamicOptions(rowData[childField.optionsFromField]);
         if (dynamicOpts) selectOptions = dynamicOpts;
+      }
+      // 移动端使用 MobileSelect
+      if (isMobile) {
+        return (
+          <MobileSelect
+            value={value as string | number | undefined}
+            onChange={(v) => onChange(v)}
+            options={(selectOptions || []).map(o => ({ value: o.value as string | number, label: String(o.label) }))}
+            placeholder={childField.placeholder || `请选择${childField.label}`}
+            title={childField.label}
+            style={{ width: '100%' }}
+          />
+        );
       }
       return (
         <Select
@@ -175,6 +192,17 @@ const CellInput: React.FC<{
       );
     }
     case 'date':
+      // 移动端使用 MobileDatePicker
+      if (isMobile) {
+        return (
+          <MobileDatePicker
+            value={value as string | undefined}
+            onChange={(ds) => onChange(ds)}
+            placeholder={childField.placeholder || '请选择日期'}
+            style={{ width: '100%' }}
+          />
+        );
+      }
       return (
         <DatePicker
           style={{ width: '100%' }}
@@ -193,7 +221,7 @@ const CellInput: React.FC<{
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
           autoSize={{ minRows: 1 }}
-          size="small"
+          size={inputSize}
         />
       );
     case 'formula':
@@ -204,7 +232,7 @@ const CellInput: React.FC<{
           precision={childField.formulaPrecision ?? 2}
           value={value != null ? Number(value) : undefined}
           disabled
-          size="small"
+          size={inputSize}
         />
       );
     case 'text':
@@ -215,7 +243,7 @@ const CellInput: React.FC<{
           value={value as string | undefined}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
-          size="small"
+          size={inputSize}
         />
       );
   }

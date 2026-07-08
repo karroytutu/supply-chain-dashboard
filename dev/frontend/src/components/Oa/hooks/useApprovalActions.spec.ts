@@ -191,6 +191,83 @@ describe('canWithdraw 权限计算', () => {
 
     expect(result.current.canWithdraw).toBe(false);
   });
+
+  it('auto 节点 status=approved 时 → false', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    const nodes = [makeNode({ nodeType: 'auto', status: 'approved' })];
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    expect(result.current.canWithdraw).toBe(false);
+  });
+
+  it('auto 节点 status=failed 时 → false', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    const nodes = [makeNode({ nodeType: 'auto', status: 'failed' })];
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    expect(result.current.canWithdraw).toBe(false);
+  });
+
+  it('auto 节点 status=processing 时 → false', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    const nodes = [makeNode({ nodeType: 'auto', status: 'processing' })];
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    expect(result.current.canWithdraw).toBe(false);
+  });
+
+  it('auto 节点 status=pending 时 → true', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    const nodes = [makeNode({ nodeType: 'auto', status: 'pending' })];
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    expect(result.current.canWithdraw).toBe(true);
+  });
+
+  it('无 auto 节点时 → true', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    const nodes = [makeNode({ nodeType: 'approval', status: 'approved' })];
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    expect(result.current.canWithdraw).toBe(true);
+  });
+
+  it('auto 节点已执行时 withdrawDisabledReason 有值', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    const nodes = [makeNode({ nodeType: 'auto', status: 'approved' })];
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    expect(result.current.withdrawDisabledReason).toBe('自动环节已执行，无法撤回');
+  });
+
+  it('auto 节点未执行时 withdrawDisabledReason 为 undefined', () => {
+    const detail = makeDetail({ status: 'pending', applicantId: 100 });
+    const nodes = [makeNode({ nodeType: 'auto', status: 'pending' })];
+
+    const { result } = renderHook(() =>
+      useApprovalActions({ instanceId: 1, detail, nodes }),
+    );
+
+    expect(result.current.withdrawDisabledReason).toBeUndefined();
+  });
 });
 
 // ==================== B2. 权限计算 — canComment ====================

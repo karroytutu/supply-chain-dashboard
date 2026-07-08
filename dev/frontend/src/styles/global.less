@@ -138,6 +138,17 @@ body {
   }
 }
 
+// antd-mobile 主题色对齐 antd（全局定义，确保桌面端也能正确继承）
+:root {
+  --adm-color-primary: @primary-color;
+  --adm-color-success: @success-color;
+  --adm-color-warning: @warning-color;
+  --adm-color-danger: @error-color;
+  --adm-color-white: #ffffff;
+  --adm-color-border: @border-color-base;
+  --adm-font-size-main: @font-size-base;
+}
+
 // 响应式断点
 @media (max-width: @screen-md) {
   .dashboard-card {
@@ -188,6 +199,7 @@ body {
       line-height: @touch-target-size;
     }
   }
+  // antd-mobile 主题色已在全局 :root 定义
 }
 
 // 移动端：缩小外边距，最大化内容区域

@@ -1,9 +1,10 @@
 /**
  * 移动端检测 Hook 单元测试
+ * 测试全局 useMobileDetect (含 150ms 防抖)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useMobileDetect } from './useMobileDetect';
+import { useMobileDetect } from '@/hooks/useMobileDetect';
 
 describe('useMobileDetect', () => {
   beforeEach(() => {
@@ -29,7 +30,7 @@ describe('useMobileDetect', () => {
     expect(result.current).toBe(true);
   });
 
-  it('窗口 resize 时更新', () => {
+  it('窗口 resize 时更新（含 150ms 防抖）', async () => {
     Object.defineProperty(window, 'innerWidth', { writable: true, value: 1024 });
 
     const { result } = renderHook(() => useMobileDetect());
@@ -39,6 +40,11 @@ describe('useMobileDetect', () => {
     act(() => {
       Object.defineProperty(window, 'innerWidth', { writable: true, value: 375 });
       window.dispatchEvent(new Event('resize'));
+    });
+
+    // 等待 150ms 防抖
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 200));
     });
 
     expect(result.current).toBe(true);

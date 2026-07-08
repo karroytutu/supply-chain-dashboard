@@ -13,6 +13,8 @@ import SignatureFieldControl from '@/components/Oa/fields/SignatureFieldControl'
 import UploadFieldRenderer from './UploadFieldRenderer';
 import TreeSelectModalControl from '@/components/Oa/fields/TreeSelectModalControl';
 import BankAccountSelector, { type BankAccountValue } from '@/components/Oa/BankAccountSelector';
+import { MobileDateRangePicker, MobileDatePicker } from '@/components/Mobile';
+import { useIsMobile } from '@/hooks/useMobileDetect';
 import styles from '../index.less';
 
 const { TextArea } = Input;
@@ -41,6 +43,7 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
   field, formData, value, onChange, customerLicenseInfo, licenseLoading, onCustomerSelect, includeAllStates, formSchema,
 }) => {
   const { type, placeholder, maxLength, maxCount, upper } = field;
+  const isMobile = useIsMobile();
 
   switch (type) {
     case 'text': {
@@ -138,6 +141,18 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
     }
 
     case 'date':
+      // 移动端使用 MobileDatePicker
+      if (isMobile) {
+        return (
+          <MobileDatePicker
+            value={value as string | undefined}
+            onChange={(ds) => onChange?.(ds)}
+            placeholder={placeholder || '请选择日期'}
+            disabled={field.disabled}
+            style={{ width: '100%' }}
+          />
+        );
+      }
       return (
         <DatePicker
           value={value ? dayjs(value as string) : undefined}
@@ -149,6 +164,18 @@ const FormFieldConfig: React.FC<FormFieldConfigProps> = ({
       );
 
     case 'date-range': {
+      // 移动端拆分为两个独立 DatePicker
+      if (isMobile) {
+        return (
+          <MobileDateRangePicker
+            value={Array.isArray(value) && value.length >= 2
+              ? [value[0] as string, value[1] as string] : null}
+            onChange={onChange as ((v: [string, string]) => void) | undefined}
+            disabled={field.disabled}
+          />
+        );
+      }
+      // 桌面端保持 RangePicker
       const rangeValue = Array.isArray(value) && value.length >= 2
         ? [dayjs(value[0] as string), dayjs(value[1] as string)] as [dayjs.Dayjs, dayjs.Dayjs]
         : undefined;

@@ -29,8 +29,9 @@ vi.mock('umi', () => ({
   useSearchParams: () => [mockSearchParams, mockSetSearchParams],
 }));
 
-vi.mock('@/pages/ProcurementReturn/Orders/hooks/useMobileDetect', () => ({
+vi.mock('@/hooks/useMobileDetect', () => ({
   useMobileDetect: () => false,
+  useIsMobile: () => false,
 }));
 
 import { useApprovalCenterFilters } from './useApprovalCenterFilters';
@@ -177,5 +178,155 @@ describe('useApprovalCenterFilters - 保留其他 URL 参数', () => {
     expect(lastCall.customParam).toBe('hello');
     expect(lastCall.tab).toBe('pending');
     expect(lastCall.page).toBe('2');
+  });
+});
+
+// ==================== 筛选维度测试 ====================
+
+describe('useApprovalCenterFilters - 筛选维度 setter', () => {
+  it('setFormTypeCode("expense") → URL 新增 formType=expense + page=1', () => {
+    const { result } = renderHook(() => useApprovalCenterFilters());
+
+    act(() => {
+      result.current.setFormTypeCode('expense');
+    });
+
+    const lastCall = mockSetSearchParams.mock.calls[mockSetSearchParams.mock.calls.length - 1][0];
+    expect(lastCall.formType).toBe('expense');
+    expect(lastCall.page).toBe('1');
+  });
+
+  it('setFormTypeCode(undefined) → 移除 formType', () => {
+    mockSearchParams._store.set('formType', 'expense');
+    const { result } = renderHook(() => useApprovalCenterFilters());
+
+    act(() => {
+      result.current.setFormTypeCode(undefined);
+    });
+
+    const lastCall = mockSetSearchParams.mock.calls[mockSetSearchParams.mock.calls.length - 1][0];
+    expect(lastCall.formType).toBeUndefined();
+  });
+
+  it('setStatus("approved") → URL 新增 status=approved + page=1', () => {
+    const { result } = renderHook(() => useApprovalCenterFilters());
+
+    act(() => {
+      result.current.setStatus('approved');
+    });
+
+    const lastCall = mockSetSearchParams.mock.calls[mockSetSearchParams.mock.calls.length - 1][0];
+    expect(lastCall.status).toBe('approved');
+    expect(lastCall.page).toBe('1');
+  });
+
+  it('setApplicantName("张三") → URL 新增 applicant=张三 + page=1', () => {
+    const { result } = renderHook(() => useApprovalCenterFilters());
+
+    act(() => {
+      result.current.setApplicantName('张三');
+    });
+
+    const lastCall = mockSetSearchParams.mock.calls[mockSetSearchParams.mock.calls.length - 1][0];
+    expect(lastCall.applicant).toBe('张三');
+    expect(lastCall.page).toBe('1');
+  });
+});
+
+describe('useApprovalCenterFilters - 筛选维度 URL 解析', () => {
+  it('URL 中有筛选参数 → 正确解析', () => {
+    mockSearchParams._store.set('formType', 'expense');
+    mockSearchParams._store.set('status', 'approved');
+    mockSearchParams._store.set('startDate', '2026-01-01');
+    mockSearchParams._store.set('endDate', '2026-06-30');
+    mockSearchParams._store.set('applicant', '张三');
+
+    const { result } = renderHook(() => useApprovalCenterFilters());
+
+    expect(result.current.formTypeCode).toBe('expense');
+    expect(result.current.status).toBe('approved');
+    expect(result.current.startDate).toBe('2026-01-01');
+    expect(result.current.endDate).toBe('2026-06-30');
+    expect(result.current.applicantName).toBe('张三');
+  });
+
+  it('URL 参数损坏（空值）→ 回退为 null，不报错', () => {
+    mockSearchParams._store.set('formType', '');
+    mockSearchParams._store.set('status', '');
+
+    const { result } = renderHook(() => useApprovalCenterFilters());
+
+    expect(result.current.formTypeCode).toBeNull();
+    expect(result.current.status).toBeNull();
+  });
+});
+
+describe('useApprovalCenterFilters - clearFilters', () => {
+  it('clearFilters() → 清空所有筛选维度，保留 tab 和 keyword', () => {
+    mockSearchParams._store.set('tab', 'processed');
+    mockSearchParams._store.set('keyword', '测试');
+    mockSearchParams._store.set('formType', 'expense');
+    mockSearchParams._store.set('status', 'approved');
+    mockSearchParams._store.set('startDate', '2026-01-01');
+    mockSearchParams._store.set('endDate', '2026-06-30');
+    mockSearchParams._store.set('applicant', '张三');
+
+    const { result } = renderHook(() => useApprovalCenterFilters());
+
+    act(() => {
+      result.current.clearFilters();
+    });
+
+    const lastCall = mockSetSearchParams.mock.calls[mockSetSearchParams.mock.calls.length - 1][0];
+    expect(lastCall.tab).toBe('processed');
+    expect(lastCall.keyword).toBe('测试');
+    expect(lastCall.formType).toBeUndefined();
+    expect(lastCall.status).toBeUndefined();
+    expect(lastCall.startDate).toBeUndefined();
+    expect(lastCall.endDate).toBeUndefined();
+    expect(lastCall.applicant).toBeUndefined();
+    expect(lastCall.page).toBe('1');
+  });
+});
+
+describe('useApprovalCenterFilters - activeFilterCount', () => {
+  it('无筛选条件 → 返回 0', () => {
+    const { result } = renderHook(() => useApprovalCenterFilters());
+    expect(result.current.activeFilterCount).toBe(0);
+  });
+
+  it('1 个筛选条件 → 返回 1', () => {
+    mockSearchParams._store.set('formType', 'expense');
+    const { result } = renderHook(() => useApprovalCenterFilters());
+    expect(result.current.activeFilterCount).toBe(1);
+  });
+
+  it('多个筛选条件 → 返回正确计数', () => {
+    mockSearchParams._store.set('formType', 'expense');
+    mockSearchParams._store.set('status', 'approved');
+    mockSearchParams._store.set('applicant', '张三');
+    const { result } = renderHook(() => useApprovalCenterFilters());
+    expect(result.current.activeFilterCount).toBe(3);
+  });
+});
+
+describe('useApprovalCenterFilters - filterOpen', () => {
+  it('默认关闭', () => {
+    const { result } = renderHook(() => useApprovalCenterFilters());
+    expect(result.current.filterOpen).toBe(false);
+  });
+
+  it('toggleFilterOpen → 切换开/关', () => {
+    const { result } = renderHook(() => useApprovalCenterFilters());
+
+    act(() => {
+      result.current.toggleFilterOpen();
+    });
+    expect(result.current.filterOpen).toBe(true);
+
+    act(() => {
+      result.current.toggleFilterOpen();
+    });
+    expect(result.current.filterOpen).toBe(false);
   });
 });

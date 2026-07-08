@@ -8,6 +8,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import type { ApprovalDetail, ViewMode } from '@/types/oa';
 import { oaApi } from '@/services/api/oa';
 import { useApprovalActions } from '@/components/Oa/hooks/useApprovalActions';
+import { hasExecutedAutoNode } from '@/components/Oa/oaNodeUtils';
 import { ApprovalDetailContent } from '@/components/Oa';
 import type { EditableFormSectionRef } from '@/components/Oa/EditableFormSection';
 import { usePermission } from '@/hooks/usePermission';
@@ -113,7 +114,10 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
   const isApplicant = detail.applicantId === currentUser?.id;
 
   const canOperate = viewMode === 'pending' && detail.status === 'pending' && isCurrentApprover;
-  const canWithdraw = viewMode === 'my' && detail.status === 'pending' && isApplicant;
+  const hasAutoExecuted = hasExecutedAutoNode(detail.nodes);
+  const canWithdraw = viewMode === 'my' && detail.status === 'pending' && isApplicant && !hasAutoExecuted;
+  const withdrawDisabledReason = viewMode === 'my' && detail.status === 'pending' && isApplicant && hasAutoExecuted
+    ? '自动环节已执行，无法撤回' : undefined;
 
   return (
     <div className={styles.detailPanel}>
@@ -130,6 +134,7 @@ const ApprovalDetailPanel: React.FC<ApprovalDetailPanelProps> = ({
           formLayout="list"
           canOperateOverride={canOperate}
           canWithdrawOverride={canWithdraw}
+          withdrawDisabledReasonOverride={withdrawDisabledReason}
           editableFormRef={editableFormRef}
           onRetrySuccess={selectedId ? handleRetrySuccess : undefined}
         />

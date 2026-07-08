@@ -14,6 +14,11 @@ export function useApprovalCenter() {
     viewMode: filters.viewMode,
     page: filters.page,
     searchText: filters.searchText,
+    formTypeCode: filters.formTypeCode,
+    status: filters.status,
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    applicantName: filters.applicantName,
   });
 
   /** 操作完成后选中列表中对应位置的下一项 */
@@ -57,6 +62,7 @@ export function useApprovalCenter() {
       total: data.total,
       loadList: data.loadList,
       loadStats: data.loadStats,
+      formTypes: data.formTypes,
     },
     pagination: {
       page: filters.page,
@@ -65,10 +71,23 @@ export function useApprovalCenter() {
       viewMode: filters.viewMode,
       searchText: filters.searchText,
       selectedId: filters.selectedId,
+      formTypeCode: filters.formTypeCode,
+      status: filters.status,
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      applicantName: filters.applicantName,
+      activeFilterCount: filters.activeFilterCount,
+      filterOpen: filters.filterOpen,
       switchViewMode: filters.switchViewMode,
       setPage: filters.setPage,
       setSearchText: filters.setSearchText,
       setSelectedId: filters.setSelectedId,
+      setFormTypeCode: filters.setFormTypeCode,
+      setStatus: filters.setStatus,
+      setDateRange: filters.setDateRange,
+      setApplicantName: filters.setApplicantName,
+      clearFilters: filters.clearFilters,
+      toggleFilterOpen: filters.toggleFilterOpen,
     },
     mobile: {
       isMobile: filters.isMobile,

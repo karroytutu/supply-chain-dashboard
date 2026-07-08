@@ -21,6 +21,7 @@
     "@ant-design/charts": "^2.0.3",
     "@ant-design/pro-components": "^2.7.0",
     "antd": "^5.15.0",
+    "antd-mobile": "^5.42.3",
     "dayjs": "^1.11.10",
     "lodash": "^4.17.21",
     "react": "^18.2.0",
