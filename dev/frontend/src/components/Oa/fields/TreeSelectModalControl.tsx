@@ -9,7 +9,6 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { Modal, Tree, Input, Empty, Spin, Typography } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import type { FieldControlProps } from './types';
-import { useEditableForm } from '../EditableFormContext';
 import { getErpReference } from '@/services/api/oa';
 import { isAbortError } from '@/services/api/request';
 import { ERP_TREE_SEARCH_API_MAP } from '@/constants/oa-erp';
@@ -142,15 +141,18 @@ function getMatchedKeys(nodes: TreeNode[], searchValue: string): Set<React.Key> 
 const TreeSelectModalControl: React.FC<FieldControlProps> = ({
   mode, field, value, onChange, formData,
 }) => {
-  const editableForm = useEditableForm();
   const { valueKey = 'id', labelKey = 'name' } = field;
 
-  // 当前表单值（ID 数组）
+  // SSOT: value 可能是 {id, name}[] 对象数组或 number[] ID 数组，统一提取 ID
   const selectedIds: unknown[] = useMemo(() => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string' && value) return value.split(',').map(s => s.trim()).filter(Boolean);
-    return [];
-  }, [value]);
+    if (!Array.isArray(value)) {
+      if (typeof value === 'string' && value) return value.split(',').map(s => s.trim()).filter(Boolean);
+      return [];
+    }
+    return value.map(v =>
+      typeof v === 'object' && v !== null ? (v as Record<string, unknown>)[valueKey] : v
+    );
+  }, [value, valueKey]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [treeData, setTreeData] = useState<DataNode[]>([]);
@@ -214,26 +216,16 @@ const TreeSelectModalControl: React.FC<FieldControlProps> = ({
 
   // 确认选择
   const handleConfirm = () => {
-    // 收集叶子节点 ID 作为提交值
+    // 收集叶子节点 ID
     const leafIds = collectLeafIds(rawTree, draftKeys);
-    onChange?.(leafIds);
 
-    // 持久化到 formData._details
-    if (editableForm) {
-      const records = leafIds
-        .map(id => nodeMap.get(String(id)))
-        .filter(Boolean)
-        .map(node => ({ [valueKey]: node!.id, [labelKey]: node!.name }));
-      const existingDetails = (editableForm.getFieldValue('_details') as Record<string, unknown>) || {};
-      if (records.length > 0) {
-        editableForm.setFieldsValue({
-          _details: { ...existingDetails, [field.key]: records },
-        });
-      } else {
-        const { [field.key]: _, ...rest } = existingDetails;
-        editableForm.setFieldsValue({ _details: rest });
-      }
-    }
+    // SSOT: 将 {id, name} 记录数组写入主字段，废弃 _details
+    const records = leafIds
+      .map(id => nodeMap.get(String(id)))
+      .filter(Boolean)
+      .map(node => ({ [valueKey]: node!.id, [labelKey]: node!.name }));
+    onChange?.(records.length > 0 ? records : leafIds);
+
     setModalOpen(false);
   };
 
@@ -288,14 +280,16 @@ const TreeSelectModalControl: React.FC<FieldControlProps> = ({
       .filter(Boolean) as TreeNode[];
   }, [selectedIds, nodeMap]);
 
-  // 从 _details 读取持久化记录（控件重建后 nodeMap 为空时的兜底）
-  // 用户在弹窗中确认选择时，系统已将完整记录（ID+名称）存入 formData._details[field.key]
+  // SSOT: 从主字段 value 读取持久化记录（控件重建后 nodeMap 为空时的兜底）
+  // 主字段已是 {id, name} 记录数组（SSOT 迁移后）
   const detailsRecords = useMemo(() => {
     if (selectedIds.length === 0) return [];
-    const detailsData = (formData as Record<string, unknown> | undefined)?._details as Record<string, unknown> | undefined;
-    const records = detailsData?.[field.key] as Record<string, unknown>[] | undefined;
-    return records || [];
-  }, [selectedIds, formData, field.key]);
+    const val = value as unknown[] | undefined;
+    if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object' && val[0] !== null) {
+      return val as Record<string, unknown>[];
+    }
+    return [];
+  }, [selectedIds, value]);
 
   // 已选叶子数量
   const selectedLeafCount = useMemo(() => {
@@ -324,9 +318,11 @@ const TreeSelectModalControl: React.FC<FieldControlProps> = ({
 
   // ==================== 只读模式 ====================
   if (mode === 'readonly') {
-    // 从 formData._details 读取持久化的记录
-    const detailsData = (formData as Record<string, unknown> | undefined)?._details as Record<string, unknown> | undefined;
-    const records = detailsData?.[field.key] as Record<string, unknown>[] | undefined;
+    // SSOT: 从主字段 value 读取持久化记录（已是 {id, name} 记录数组）
+    const val = value as unknown[] | undefined;
+    const records = (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object' && val[0] !== null)
+      ? val as Record<string, unknown>[]
+      : undefined;
 
     if (records && records.length > 0) {
       return (

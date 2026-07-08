@@ -19,20 +19,12 @@ const FieldRenderer: React.FC<{
   /** ERP 客户执照图片 URL（由 useErpLicenseResolve 提供，兼容历史数据） */
   erpLicenseUrls?: string[];
 }> = ({ field, value, formData, resolvedMap, erpLicenseUrls }) => {
-  // searchApi 表格字段：value 可能是 ID 数组或 undefined，需从 _details 解析为记录数组
-  let resolvedValue = value;
-  if (field.type === 'table' && field.searchApi) {
-    const details = formData?._details as Record<string, unknown> | undefined;
-    const detailRecords = details?.[field.key];
-    if (Array.isArray(detailRecords) && detailRecords.length > 0 && typeof detailRecords[0] === 'object') {
-      resolvedValue = detailRecords;
-    }
-  }
+  // SSOT: 主字段即唯一数据源，无需从 _details 解析
   return (
     <FieldControlDispatcher
       mode="readonly"
       field={field}
-      value={resolvedValue}
+      value={value}
       formData={formData}
       resolvedMap={resolvedMap}
       erpLicenseUrls={erpLicenseUrls}

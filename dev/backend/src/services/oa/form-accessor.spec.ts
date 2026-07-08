@@ -34,36 +34,16 @@ describe('FormAccessor', () => {
       expect(form.getTableRecords('items')).toEqual([{ id: 1 }, { id: 2 }]);
     });
 
-    // --- _details fallback 场景（历史数据兼容） ---
+    // --- SSOT: _details fallback 已移除，主字段即唯一数据源 ---
 
-    it('fallback: returns records from _details when main field is ID array', () => {
-      const form = new FormAccessor({
-        items: [1, 2],
-        _details: { items: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }] },
-      });
-      expect(form.getTableRecords('items')).toEqual([
-        { id: 1, name: 'A' },
-        { id: 2, name: 'B' },
-      ]);
-    });
-
-    it('fallback: returns empty when main field is ID array and no _details', () => {
+    it('returns empty when main field is ID array (no _details fallback)', () => {
       const form = new FormAccessor({ items: [1, 2] });
       expect(form.getTableRecords('items')).toEqual([]);
     });
 
-    it('fallback: returns empty when main field is ID array and _details has no matching key', () => {
-      const form = new FormAccessor({
-        items: [1, 2],
-        _details: { other: [{ id: 1 }] },
-      });
-      expect(form.getTableRecords('items')).toEqual([]);
-    });
-
-    it('prefers main field over _details when main field has object array', () => {
+    it('returns records when main field is object array', () => {
       const form = new FormAccessor({
         items: [{ id: 10 }],
-        _details: { items: [{ id: 99 }] },
       });
       expect(form.getTableRecords('items')).toEqual([{ id: 10 }]);
     });

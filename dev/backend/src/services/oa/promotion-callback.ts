@@ -37,13 +37,21 @@ function buildClientConfig(formData: Record<string, unknown>): PromotionClientCo
 
   if (issueRange === 1) {
     // 按片区指定
-    const areaIds = formData.clientAreaIds as number[] | undefined;
-    config.clientRule = { areaList: areaIds || [] };
+    // SSOT: clientAreaIds 可能是 number[]（旧格式）或 {id, name}[]（新格式）
+    const rawAreaIds = formData.clientAreaIds as unknown[] | undefined;
+    const areaList = (rawAreaIds || []).map(v =>
+      typeof v === 'object' && v !== null ? Number((v as Record<string, unknown>).id) : Number(v)
+    ).filter(n => !isNaN(n));
+    config.clientRule = { areaList };
     config.clientIdList = null;
   } else {
     // 指定客户
     config.clientRule = null;
-    config.clientIdList = (formData.clientIdList as number[]) || [];
+    // SSOT: clientIdList 可能是 number[]（旧格式）或完整记录对象数组（新格式）
+    const rawClientIds = formData.clientIdList as unknown[] | undefined;
+    config.clientIdList = (rawClientIds || []).map(v =>
+      typeof v === 'object' && v !== null ? Number((v as Record<string, unknown>).id) : Number(v)
+    ).filter(n => !isNaN(n));
   }
 
   return config;

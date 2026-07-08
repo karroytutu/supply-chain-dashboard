@@ -341,19 +341,14 @@ async function beforeSubmitPurchasePayment(
       throw new Error('后付款必须选择至少一条应付单据');
     }
 
-    // 部分付款校验：遍历每张单据，校验本次付款金额和抹零
-    const details = formData._details as Record<string, unknown> | undefined;
-    const debtDetails = details?.debtIds as Array<{
+    // SSOT: 从主字段读取（form.getTableRecords 已返回完整记录数组）
+    const debtDetails = debtIds as Array<{
       bizId: number;
       bizStr: string;
       leftAmount: string;
       paymentAmount?: string;
       discountAmount?: string;
-    }> | undefined;
-
-    if (!debtDetails || debtDetails.length === 0) {
-      throw new Error('缺少应付单据明细数据');
-    }
+    }>;
 
     let totalPayment = 0;
     for (const debt of debtDetails) {
@@ -382,8 +377,8 @@ async function beforeSubmitPurchasePayment(
     }
     totalPayment = Math.round(totalPayment * 100) / 100;
 
-    // 预付款核销校验：预付款核销合计不能超过需付款金额
-    const prepayDetails = details?.prepaymentIds as Array<{ useAmount?: string; availableAmount?: string }> | undefined;
+    // SSOT: 从主字段读取预付款核销记录
+    const prepayDetails = form.getTableRecords('prepaymentIds') as Array<{ useAmount?: string; availableAmount?: string }> | undefined;
     const prepayTotal = (prepayDetails || []).reduce(
       (sum, p) => sum + (parseFloat(String(p.useAmount || 0))), 0
     );
@@ -413,8 +408,8 @@ async function beforeSubmitPurchasePayment(
 
     result._approvalAmount = totalPayment;
 
-    // 应付单据明细已由 TableFieldRenderer 自动持久化到 formData._details.debtIds，
-    // auto 节点回调直接读取，无需后端快照
+    // SSOT: 应付单据明细已存储在主字段 formData.debtIds 中，
+    // auto 节点回调通过 form.getTableRecords('debtIds') 直接读取
   } else if (paymentType === PAYMENT_TYPE.PREPAY) {
     const prepayAmount = parseFloat(String(formData.prepayAmount || 0));
     if (prepayAmount <= 0) {
@@ -440,12 +435,12 @@ async function resolvePurchasePaymentPreviewContext(
   if (!paymentType) return { contextFields: {} };
 
   let amount: number;
+  const form = createFormAccessor(formData);
   if (paymentType === PAYMENT_TYPE.PREPAY) {
     amount = parseFloat(String(formData.prepayAmount || 0));
   } else {
-    // 后付款：从单据明细中汇总本次付款金额
-    const details = formData._details as Record<string, unknown> | undefined;
-    const debtDetails = details?.debtIds as Array<{ paymentAmount?: string }> | undefined;
+    // SSOT: 从主字段读取应付单据明细
+    const debtDetails = form.getTableRecords('debtIds') as Array<{ paymentAmount?: string }> | undefined;
     amount = (debtDetails || []).reduce(
       (sum, d) => sum + (parseFloat(String(d.paymentAmount || 0))), 0
     );
@@ -460,8 +455,8 @@ async function resolvePurchasePaymentPreviewContext(
   if (paymentType === PAYMENT_TYPE.POSTPAY) {
     // 复用上方已计算的 amount 作为后付款合计，避免重复提取 debtDetails
     const totalPayment = amount;
-    const details = formData._details as Record<string, unknown> | undefined;
-    const prepayDetails = details?.prepaymentIds as Array<{ useAmount?: string }> | undefined;
+    // 复用同一 form 实例
+    const prepayDetails = form.getTableRecords('prepaymentIds') as Array<{ useAmount?: string }> | undefined;
     const prepayTotal = (prepayDetails || []).reduce(
       (sum, p) => sum + (parseFloat(String(p.useAmount || 0))), 0
     );

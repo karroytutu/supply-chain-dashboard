@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "v2.22.7",
+      "date": "2026-07-08 16:15",
+      "types": ["optimization"],
+      "changes": [
+        "OA审批表格明细数据架构收尾（SSOT 单一数据源）：应付单据、预付款核销、结算单、客户对账（应收/未对账/差异单）、促销客户与片区等表格字段统一以主字段为唯一数据源，彻底废弃 _details 双副本机制，消除新旧副本不一致导致的明细丢失风险",
+        "后端 FormAccessor 简化：表格记录仅从主字段读取完整数组，对未迁移的历史 ID 数组数据输出去重告警提示",
+        "采购付款提交校验、金额预览与审批回调、促销回调全面改用主字段读取明细记录，不再依赖 _details",
+        "前端字段组件（表格渲染、树形选择、弹窗选择、下拉选择）移除 _details 读写：树形选择确认时直接将完整记录写入主字段，表格渲染新增记录变更回调冒泡机制",
+        "新增 SSOT 数据迁移脚本 ssot-migrate-table-fields.ts：将 13 个历史表格字段的 ID 数组批量富化为完整记录对象数组并清理 _details，支持 dry-run 预演与幂等重跑",
+        "单元测试适配：更新 form-accessor、customer-credit、EditableFormSection、FormFieldRenderer、NullField 等测试覆盖 SSOT 数据流"
+      ]
+    },
+    {
       "version": "v2.22.6",
       "date": "2026-07-08 13:26",
       "types": ["optimization"],

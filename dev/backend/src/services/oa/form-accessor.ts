@@ -11,24 +11,26 @@
 export class FormAccessor {
   constructor(private readonly data: Record<string, unknown>) {}
 
+  /** 未迁移字段告警去重：每个 fieldKey 只告警一次，防止日志泛滥 */
+  private static warnedFields = new Set<string>();
+
   /**
    * 获取 table 字段的完整记录数组
    *
-   * 优先从主字段读取（新格式：完整记录数组）。
-   * 若主字段为历史 ID 数组（非对象元素），尝试从 _details 回退读取。
-   * NOTE: _details fallback 为过渡期兼容，前端存储迁移完成后可移除。
+   * SSOT: 主字段即唯一数据源，从主字段读取完整记录数组。
+   * 历史 ID 数组格式已通过迁移脚本转换为对象数组。
    */
   getTableRecords(fieldKey: string): Record<string, unknown>[] {
     const value = this.data[fieldKey];
-    // 主字段是对象数组 → 直接使用（新格式）
-    if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
-      return value.filter((v): v is Record<string, unknown> => typeof v === 'object' && v !== null);
-    }
-    // 主字段非对象数组（历史 ID 数组）→ 尝试 _details fallback
-    const details = this.data._details as Record<string, unknown> | undefined;
-    const detailValue = details?.[fieldKey];
-    if (Array.isArray(detailValue)) {
-      return detailValue.filter((v): v is Record<string, unknown> => typeof v === 'object' && v !== null);
+    if (Array.isArray(value) && value.length > 0) {
+      if (typeof value[0] === 'object' && value[0] !== null) {
+        return value.filter((v): v is Record<string, unknown> => typeof v === 'object' && v !== null);
+      }
+      // 降级告警：主字段仍为 ID 数组（未迁移数据），返回空数组
+      if (!FormAccessor.warnedFields.has(fieldKey)) {
+        FormAccessor.warnedFields.add(fieldKey);
+        console.warn(`[FormAccessor] getTableRecords('${fieldKey}'): 主字段为 ID 数组（未迁移），返回空数组。请确认迁移脚本已执行。`);
+      }
     }
     return [];
   }

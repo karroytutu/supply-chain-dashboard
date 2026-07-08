@@ -393,7 +393,7 @@ const ErpSearchSelect: React.FC<ErpSearchSelectProps> = ({
         value={(value as number[]) || []}
         consumerId={cascadeValue as string | number | undefined}
         extraQueryParams={field.defaultQueryParams}
-        onChange={(ids, labels, records) => {
+        onChange={(ids, labels) => {
           onChange?.(ids);
           if (field.nameField && form) {
             const nameLabels = labels && labels.length > 0
@@ -401,10 +401,7 @@ const ErpSearchSelect: React.FC<ErpSearchSelectProps> = ({
               : options.filter(opt => ids.includes(opt.value as number)).map(opt => opt.label);
             form.setFieldsValue({ [field.nameField]: nameLabels.join(', ') });
           }
-          if (form && records && records.length > 0) {
-            const existingDetails = (form.getFieldValue('_details') as Record<string, unknown>) || {};
-            form.setFieldsValue({ _details: { ...existingDetails, [field.key]: records } });
-          }
+          // SSOT: 不再写入 _details，主字段即唯一数据源
         }}
         disabled={isDisabled}
         cachedOptions={options}

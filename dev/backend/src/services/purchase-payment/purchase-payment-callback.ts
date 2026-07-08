@@ -91,9 +91,8 @@ async function handlePostpayPayment(
     throw new Error('缺少供应商');
   }
 
-  // 从 _details.debtIds 读取自动持久化的应付单据明细（含部分付款金额和抹零）
-  const details = form.getRaw('_details') as Record<string, unknown> | undefined;
-  const debtDetails = details?.debtIds as Array<{
+  // SSOT: 从主字段读取应付单据明细（含部分付款金额和抹零）
+  const debtDetails = form.getTableRecords('debtIds') as Array<{
     bizId: number;
     billTypeEnum: string;
     leftAmount: string;
@@ -116,8 +115,8 @@ async function handlePostpayPayment(
     discountAmount: debt.discountAmount, // 本次抹零金额（用户手动填写）
   }));
 
-  // 构造 prepayList：从 _details.prepaymentIds 读取预付款核销明细
-  const prepayDetails = details?.prepaymentIds as Array<{
+  // SSOT: 从主字段读取预付款核销明细
+  const prepayDetails = form.getTableRecords('prepaymentIds') as Array<{
     id: number;
     paidBillStr: string;
     availableAmount: string;

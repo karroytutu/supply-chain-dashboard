@@ -473,7 +473,7 @@ describe('EditableFormSection', () => {
       expect(ref.current!.getEditedValues().orderIds).toBeUndefined();
     });
 
-    it('mergedValues：searchApi 表格的 _details 实时同步（供 scopeFromField 使用）', async () => {
+    it('mergedValues：searchApi 表格的主字段实时同步（供 scopeFromField 使用）', async () => {
       const ref = createRef<EditableFormSectionRef>();
       const schema = makeSearchApiSchema();
       const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };

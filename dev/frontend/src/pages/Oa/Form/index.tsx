@@ -382,7 +382,6 @@ const FormPage: React.FC = () => {
               );
             })}
             {/* 内部辅助字段注册到 form store，useWatch 自动捕获 */}
-            <Form.Item name="_details" hidden><NullField /></Form.Item>
             <Form.Item name="_hasExistingLicense" hidden><NullField /></Form.Item>
             {formType.formSchema.internalFields?.map(f =>
               <Form.Item key={f.key} name={f.key} hidden><NullField /></Form.Item>
@@ -425,13 +424,19 @@ const FormPage: React.FC = () => {
 
       {typeCode === 'purchase_payment' && (() => {
         const paymentType = formData.paymentType as string;
-        // 后付款模式：从 _details.debtIds 各行本次付款求和；预付款模式：用预付款金额字段
+        // SSOT: 后付款模式从主字段 debtIds 各行本次付款求和；预付款模式用预付款金额字段
         let expected: number;
         if (paymentType === 'prepay') {
           expected = parseFloat(String(formData.prepayAmount || 0));
         } else {
-          const details = (formData._details as Record<string, unknown> | undefined)?.debtIds as Array<{ paymentAmount?: string }> | undefined;
-          expected = (details || []).reduce((sum, d) => sum + (parseFloat(String(d.paymentAmount || 0))), 0);
+          // SSOT: 从主字段读取，兼容未迁移的 ID 数组格式
+          const rawDebt = formData.debtIds;
+          if (Array.isArray(rawDebt) && rawDebt.length > 0 && typeof rawDebt[0] === 'object' && rawDebt[0] !== null) {
+            expected = (rawDebt as Array<{ paymentAmount?: string }>).reduce(
+              (sum, d) => sum + (parseFloat(String(d.paymentAmount || 0))), 0);
+          } else {
+            expected = parseFloat(String(formData.paymentAmount || 0));
+          }
         }
         // 后付款模式：从 paymentLines 汇总实付金额；预付款模式：用旧字段 actualAmount
         let actual: number;

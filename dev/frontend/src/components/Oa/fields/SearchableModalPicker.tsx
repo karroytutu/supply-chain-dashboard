@@ -182,8 +182,10 @@ const SearchableModalPicker: React.FC<SearchableModalPickerProps> = ({
   const fetchData = useCallback(async (kw: string, page: number = 1, overrideFilters?: Record<string, unknown>) => {
     // scopeFromField 模式
     if (scopeFromField && formData) {
-      const scopeDetails = (formData._details as Record<string, unknown>)?.[scopeFromField];
-      let records = (Array.isArray(scopeDetails) ? scopeDetails : []) as Record<string, unknown>[];
+      // SSOT: 从主字段读取（已是完整记录数组）
+      const scopeValue = formData[scopeFromField];
+      let records = (Array.isArray(scopeValue) && scopeValue.length > 0 && typeof scopeValue[0] === 'object'
+        ? scopeValue : []) as Record<string, unknown>[];
 
       if (filters) {
         for (const f of filters) {

@@ -8,17 +8,17 @@
  *
  * ReadonlyTable: 只读小表格（编号+金额+合计行）
  *
- * 数据流：
- * - 读取：从 formData._details[field.key] 读取记录（含 leftAmount 等原始数据）
- * - 写入：用户编辑后，将 paymentAmount/discountAmount 存入 _details 记录中，
- *         表格合计行自动展示各行本次付款/抹零/未结余额的汇总
+ * 数据流（SSOT 重构后）：
+ * - 读取：从 props.records 读取记录（含 leftAmount 等原始数据）
+ * - 写入：用户编辑后，通过 onRecordsChange 回调将 paymentAmount/discountAmount
+ *         冒泡到父组件（TableFieldRenderer），最终写入主字段
+ * - 表格合计行自动展示各行本次付款/抹零/未结余额的汇总
  */
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { Input, Typography } from 'antd';
 import { formatCurrency } from '@/utils/format';
 import { filterNumberInput, AMOUNT_MAX_LENGTH } from '@/utils/input-filter';
 import { useIsMobile } from '@/hooks/useMobileDetect';
-import { useEditableForm } from '../EditableFormContext';
 
 const { Text } = Typography;
 
@@ -40,6 +40,8 @@ interface EditableAmountListProps {
   editField?: string;
   /** 桌面端表头第一列显示文字（默认根据 labelKey 推断） */
   labelHeader?: string;
+  /** SSOT: 用户编辑金额后，将更新后的完整记录数组冒泡到父组件，写入主字段 */
+  onRecordsChange?: (records: Record<string, unknown>[]) => void;
 }
 
 export function EditableAmountList({
@@ -52,8 +54,8 @@ export function EditableAmountList({
   paymentField = 'paymentAmount',
   editField,
   labelHeader,
+  onRecordsChange,
 }: EditableAmountListProps) {
-  const editableForm = useEditableForm();
   // 内部状态管理：存储原始字符串值，避免 InputNumber 受控模式小数点丢失问题
   const fieldName = writeoffMode ? 'writeOffAmount' : paymentField;
   // editField：用户输入实际存储的字段名，与 ERP 原始字段分离
@@ -75,21 +77,20 @@ export function EditableAmountList({
       return { paid: paidDefault, discount: discountDefault };
     });
 
-  // 同步默认值到 _details，确保后端 beforeSubmit 能读到 paymentAmount
-  const syncToDetails = (recs: Record<string, unknown>[], amounts: { paid: string; discount: string }[]) => {
-    if (!editableForm) return;
-    const details = (editableForm.getFieldValue('_details') as Record<string, unknown>) || {};
+  // SSOT: 将当前编辑金额合并到记录数组，通过 onRecordsChange 冒泡到主字段
+  const emitRecords = useCallback((recs: Record<string, unknown>[], amounts: { paid: string; discount: string }[]) => {
+    if (!onRecordsChange) return;
     const updated = recs.map((r, i) => {
       const leftNum = parseFloat(String(r[amountKey] || 0));
       return {
         ...r,
         [inputFieldName]: amounts[i].paid || '0',
-        // 退货行强制抹零为 0，确保 _details 与 UI 一致
-        ...(leftNum < 0 ? { discountAmount: '0' } : {}),
+        // 退货行强制抹零为 0，正常行始终写入 discountAmount（避免残留旧值）
+        ...(leftNum < 0 ? { discountAmount: '0' } : { discountAmount: amounts[i].discount || '0' }),
       };
     });
-    editableForm.setFieldsValue({ _details: { ...details, [fieldKey]: updated } });
-  };
+    onRecordsChange(updated);
+  }, [onRecordsChange, amountKey, inputFieldName]);
 
   const [rowAmounts, setRowAmounts] = useState<{ paid: string; discount: string }[]>(
     () => initRowAmounts(records)
@@ -102,18 +103,9 @@ export function EditableAmountList({
     prevFingerprintRef.current = recordFingerprint;
     const nextAmounts = initRowAmounts(records);
     setRowAmounts(nextAmounts);
-    // 单据变更时直接用新计算的值同步 _details，避免 useEffect 闭包陈旧值问题
-    syncToDetails(records, nextAmounts);
+    // 单据变更时将初始金额同步到主字段
+    emitRecords(records, nextAmounts);
   }
-
-  // 首次挂载同步：确保初始值写入 _details（在 commit 阶段执行）
-  const mountSyncedRef = useRef(false);
-  useEffect(() => {
-    if (!mountSyncedRef.current) {
-      mountSyncedRef.current = true;
-      syncToDetails(records, rowAmounts);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (records.length === 0) return <Text type="secondary">-</Text>;
 
@@ -122,24 +114,15 @@ export function EditableAmountList({
 
   const updateAmount = (index: number, field: string, rawValue: string) => {
     // 1. 更新内部状态（存储原始字符串，保留小数点输入）
-    setRowAmounts(prev => {
-      const next = [...prev];
-      if (field === 'discountAmount') {
-        next[index] = { ...next[index], discount: rawValue };
-      } else {
-        next[index] = { ...next[index], paid: rawValue };
-      }
-      return next;
-    });
-    // 2. 同步更新 _details（持久化存储）
-    if (editableForm) {
-      const details = (editableForm.getFieldValue('_details') as Record<string, unknown>) || {};
-      const updated = [...((details[fieldKey] || []) as Record<string, unknown>[])];
-      if (updated[index]) {
-        updated[index] = { ...updated[index], [field]: rawValue || '0' };
-        editableForm.setFieldsValue({ _details: { ...details, [fieldKey]: updated } });
-      }
+    const nextAmounts = [...rowAmounts];
+    if (field === 'discountAmount') {
+      nextAmounts[index] = { ...nextAmounts[index], discount: rawValue };
+    } else {
+      nextAmounts[index] = { ...nextAmounts[index], paid: rawValue };
     }
+    setRowAmounts(nextAmounts);
+    // 2. SSOT: 同步到主字段
+    emitRecords(records, nextAmounts);
   };
 
   // 失焦时校验：截断超出范围的值
@@ -150,19 +133,14 @@ export function EditableAmountList({
     // 核销模式：校验付款金额不超过自身可用余额 + 不超过本次付款合计上限
     if (writeoffMode) {
       let maxPaid = left; // 默认上限为自身可用余额
-      // 核销模式：额外校验合计不超过本次付款合计（从 _details.debtIds 各行本次付款求和）
-      // 未编辑过的债务行没有 paymentAmount，回退到 leftAmount（默认全额支付）
-      if (writeoffMode && editableForm) {
-        const details = (editableForm.getFieldValue('_details') as Record<string, unknown>) || {};
-        const debtRows = (details.debtIds || []) as Array<{ paymentAmount?: string; leftAmount?: string }>;
-        const totalPaymentAmount = debtRows.reduce((sum, d) =>
-          sum + (parseFloat(String(d.paymentAmount ?? d.leftAmount ?? 0))), 0);
-        if (totalPaymentAmount > 0) {
-          const otherSum = rowAmounts.reduce((s, r, i) =>
-            s + (i === index ? 0 : (parseFloat(r.paid || '0') || 0)), 0);
-          const remaining = Math.round(Math.max(0, totalPaymentAmount - otherSum) * 100) / 100;
-          maxPaid = Math.min(maxPaid, remaining);
-        }
+      // 额外校验合计不超过本次付款合计（从当前 records 各行本次付款求和）
+      const totalPaymentAmount = records.reduce((sum, d) =>
+        sum + (parseFloat(String(d[inputFieldName] ?? d[amountKey] ?? 0))), 0);
+      if (totalPaymentAmount > 0) {
+        const otherSum = rowAmounts.reduce((s, r, i) =>
+          s + (i === index ? 0 : (parseFloat(r.paid || '0') || 0)), 0);
+        const remaining = Math.round(Math.max(0, totalPaymentAmount - otherSum) * 100) / 100;
+        maxPaid = Math.min(maxPaid, remaining);
       }
       // 根据 left 正负方向分别截断
       const clampedPaid = left >= 0
@@ -170,19 +148,10 @@ export function EditableAmountList({
         : Math.max(Math.min(0, currentPaid), left);     // [left, 0]
       if (clampedPaid !== currentPaid) {
         const newPaidStr = clampedPaid !== 0 ? String(clampedPaid) : '';
-        setRowAmounts(prev => {
-          const next = [...prev];
-          next[index] = { ...next[index], paid: newPaidStr };
-          return next;
-        });
-        if (editableForm) {
-          const details = (editableForm.getFieldValue('_details') as Record<string, unknown>) || {};
-          const updated = [...((details[fieldKey] || []) as Record<string, unknown>[])];
-          if (updated[index]) {
-            updated[index] = { ...updated[index], [inputFieldName]: newPaidStr };
-            editableForm.setFieldsValue({ _details: { ...details, [fieldKey]: updated } });
-          }
-        }
+        const nextAmounts = [...rowAmounts];
+        nextAmounts[index] = { ...nextAmounts[index], paid: newPaidStr };
+        setRowAmounts(nextAmounts);
+        emitRecords(records, nextAmounts);
       }
       return;
     }
@@ -204,23 +173,10 @@ export function EditableAmountList({
     if (clampedPaid !== currentPaid || clampedDiscount !== currentDiscount) {
       const newPaidStr = clampedPaid !== 0 ? String(clampedPaid) : '';
       const newDiscountStr = clampedDiscount > 0 ? String(clampedDiscount) : '';
-      setRowAmounts(prev => {
-        const next = [...prev];
-        next[index] = { paid: newPaidStr, discount: newDiscountStr };
-        return next;
-      });
-      if (editableForm) {
-        const details = (editableForm.getFieldValue('_details') as Record<string, unknown>) || {};
-        const updated = [...((details[fieldKey] || []) as Record<string, unknown>[])];
-        if (updated[index]) {
-          updated[index] = {
-            ...updated[index],
-            [inputFieldName]: newPaidStr || '0',
-            discountAmount: newDiscountStr || '0',
-          };
-          editableForm.setFieldsValue({ _details: { ...details, [fieldKey]: updated } });
-        }
-      }
+      const nextAmounts = [...rowAmounts];
+      nextAmounts[index] = { paid: newPaidStr, discount: newDiscountStr };
+      setRowAmounts(nextAmounts);
+      emitRecords(records, nextAmounts);
     }
   };
 

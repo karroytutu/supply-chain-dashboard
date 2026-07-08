@@ -287,17 +287,8 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
   const fixFirstCol = visibleColumns.length >= 4;
   const isDisabled = !!field.disabled;
 
-  // 数据源：
-  // - 编辑态：value 就是完整记录数组（模式一）
-  // - 只读态：searchApi 字段的 value 可能是 ID 数组，需从 _details 解析为记录数组
-  const displayValue = useMemo(() => {
-    if (hasSearchApi && isReadonly) {
-      const detailsData = formData?._details as Record<string, unknown> | undefined;
-      const detailRecords = detailsData?.[field.key] as Record<string, unknown>[] | undefined;
-      if (detailRecords && detailRecords.length > 0) return detailRecords;
-    }
-    return value;
-  }, [hasSearchApi, isReadonly, formData, field.key, value]);
+  // 数据源：SSOT 后主字段即唯一数据源（完整记录数组）
+  const displayValue = value;
 
   // 基于内容动态计算列宽（blur 触发重算 + CSS transition 平滑过渡）
   // getControlPadding 会逐列判断 col.disabled，disabled 列自动用纯文本 padding
@@ -468,13 +459,20 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
       // paymentLines 表格的 money 字段：失焦校验银行转账合计不超过（需付款金额 - 预付款核销）
       const amountBlurHandler = (col.type === 'money' && field.key === 'paymentLines')
         ? (currentValue: number | undefined): number | undefined => {
-            const details = (formData?._details as Record<string, unknown>) || undefined;
-            const debtRows = (details?.debtIds || []) as Array<{ paymentAmount?: string; leftAmount?: string }>;
+            // SSOT: 从主字段读取，兼容未迁移的 ID 数组格式
+            const rawDebt = formData?.debtIds;
+            const debtRows = (Array.isArray(rawDebt) && rawDebt.length > 0 && typeof rawDebt[0] === 'object' && rawDebt[0] !== null)
+              ? rawDebt as Array<{ paymentAmount?: string; leftAmount?: string }>
+              : [];
             const totalDue = debtRows.reduce(
               (sum, d) => sum + parseFloat(String(d.paymentAmount ?? d.leftAmount ?? 0)), 0);
             if (totalDue <= 0) return undefined; // 无应付单据数据，不截断
             // 扣除预付款核销金额
-            const prepayRows = (details?.prepaymentIds || []) as Array<{ useAmount?: string }>;
+            // SSOT: 从主字段读取预付款核销，兼容未迁移格式
+            const rawPrepay = formData?.prepaymentIds;
+            const prepayRows = (Array.isArray(rawPrepay) && rawPrepay.length > 0 && typeof rawPrepay[0] === 'object' && rawPrepay[0] !== null)
+              ? rawPrepay as Array<{ useAmount?: string }>
+              : [];
             const prepayTotal = prepayRows.reduce(
               (sum, p) => sum + (parseFloat(String(p.useAmount || 0))), 0);
             const bankTransferBudget = Math.round(Math.max(0, totalDue - prepayTotal) * 100) / 100;
@@ -611,6 +609,7 @@ const TableFieldRenderer: React.FC<TableFieldRendererProps> = ({ field, value = 
               writeoffMode={field.amountKey === 'availableAmount'}
               paymentField={field.amountKey === 'amount' ? 'amount' : undefined}
               editField={editableAmountChildKey}
+              onRecordsChange={(updatedRecords) => onChange?.(updatedRecords)}
             />
           ) : null}
 

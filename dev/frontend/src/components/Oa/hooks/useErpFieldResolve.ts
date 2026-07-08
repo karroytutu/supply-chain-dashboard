@@ -86,13 +86,6 @@ export function useErpFieldResolve(
           continue;
         }
 
-        // 第二优先级：_details[field.key] 存在时，渲染器可自行渲染，跳过 resolve
-        const detailsContainer = formData._details as Record<string, unknown> | undefined;
-        const detailsData = detailsContainer?.[field.key];
-        if (Array.isArray(detailsData) && detailsData.length > 0) {
-          continue; // _details 数据完整，无需 resolve
-        }
-
         // 收集需要解析的 ID
         const rawValue = formData[field.key];
         if (rawValue == null) continue;

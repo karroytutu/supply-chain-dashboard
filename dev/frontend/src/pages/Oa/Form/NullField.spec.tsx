@@ -41,7 +41,7 @@ describe('NullField + Form.Item 集成', () => {
       formRef.current = form;
       return (
         <Form form={form}>
-          <Form.Item name="_details" hidden><NullField /></Form.Item>
+          <Form.Item name="_internalData" hidden><NullField /></Form.Item>
           <Form.Item name="_hasExistingLicense" hidden><NullField /></Form.Item>
           <Form.Item name="_ids" hidden><NullField /></Form.Item>
         </Form>
@@ -53,8 +53,8 @@ describe('NullField + Form.Item 集成', () => {
 
     // 对象值
     const detailsValue = { receivableOrderIds: ['A001'], debtIds: [{ id: 1, amount: '100' }] };
-    act(() => { form.setFieldValue('_details', detailsValue); });
-    expect(form.getFieldValue('_details')).toEqual(detailsValue);
+    act(() => { form.setFieldValue('_internalData', detailsValue); });
+    expect(form.getFieldValue('_internalData')).toEqual(detailsValue);
 
     // 布尔值
     act(() => { form.setFieldValue('_hasExistingLicense', true); });
@@ -67,7 +67,7 @@ describe('NullField + Form.Item 集成', () => {
 
     // getFieldsValue 可获取所有已注册字段
     const allValues = form.getFieldsValue();
-    expect(allValues._details).toEqual(detailsValue);
+    expect(allValues._internalData).toEqual(detailsValue);
     expect(allValues._hasExistingLicense).toBe(true);
     expect(allValues._ids).toEqual(idsValue);
   });
@@ -81,7 +81,7 @@ describe('NullField + Form.Item 集成', () => {
       formRef.current = form;
       return (
         <Form form={form}>
-          <Form.Item name="_details" hidden><NullField /></Form.Item>
+          <Form.Item name="_internalData" hidden><NullField /></Form.Item>
         </Form>
       );
     }
@@ -90,7 +90,7 @@ describe('NullField + Form.Item 集成', () => {
 
     // 写入复杂对象
     act(() => {
-      formRef.current.setFieldValue('_details', {
+      formRef.current.setFieldValue('_internalData', {
         records: [{ id: 1, name: 'test' }],
         nested: { deep: { value: true } },
       });

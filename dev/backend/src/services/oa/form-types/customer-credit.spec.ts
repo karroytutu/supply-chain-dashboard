@@ -6,7 +6,7 @@ describe('customerCreditFormType', () => {
   it('holdSettlementOrders 字段不配置 detailsField/nameField，由控件层自动持久化', () => {
     const field = fields.find(f => f.key === 'holdSettlementOrders');
     expect(field).toBeDefined();
-    // detailsField 和 nameField 已从类型定义中移除，控件层自动持久化到 _details
+    // SSOT: detailsField 已从类型定义中移除，主字段即唯一数据源
     expect((field as any).detailsField).toBeUndefined();
     expect((field as any).nameField).toBeUndefined();
   });

@@ -79,25 +79,19 @@ function getPerm(
 }
 
 // =====================================================
-// 辅助：searchApi 表格字段加载（含 _details 历史数据兜底）
+// 辅助：searchApi 表格字段加载（SSOT 后主字段即唯一数据源）
 // =====================================================
 
 /**
  * 加载 searchApi 表格字段的初始值：
  * 1. 主字段为对象数组（新格式）→ 直接使用
- * 2. 主字段为 ID 数组（历史格式）→ 从 _details 兜底读取完整记录
+ * 2. 主字段为 ID 数组（历史格式，迁移前应已处理）→ 原样返回
  * 3. 都不满足 → 返回空数组
  */
 function loadTableField(formData: Record<string, unknown>, key: string): unknown[] {
   const val = formData[key];
   if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object' && val[0] !== null) {
     return val;
-  }
-  // 历史数据兼容：主字段为 ID 数组时从 _details 兜底
-  const details = formData._details as Record<string, unknown> | undefined;
-  const detailRecords = details?.[key];
-  if (Array.isArray(detailRecords) && detailRecords.length > 0 && typeof detailRecords[0] === 'object') {
-    return detailRecords;
   }
   return Array.isArray(val) ? val : [];
 }
@@ -150,24 +144,14 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
     );
 
     // 合并值：只读字段取 formData，可编辑字段取 editedValues
-    // searchApi 表格字段：实时同步到 _details（供 scopeFromField 等引用）
+    // SSOT: 不再构建 liveDetails，主字段即唯一数据源
     const mergedValues = useMemo(() => {
       const merged: Record<string, unknown> = { ...formData };
-      const liveDetails: Record<string, unknown> = {
-        ...((formData._details as Record<string, unknown>) || {}),
-        ...((editedValues._details as Record<string, unknown>) || {}),
-      };
       Object.entries(editedValues).forEach(([k, v]) => {
-        if (k === '_details') return; // _details 由 liveDetails 统一合并
         merged[k] = v;
-        const field = fieldMap.get(k);
-        if (field?.type === 'table' && field?.searchApi && Array.isArray(v)) {
-          liveDetails[k] = v;
-        }
       });
-      merged._details = liveDetails;
       return merged;
-    }, [formData, editedValues, fieldMap]);
+    }, [formData, editedValues]);
 
     const handleChange = useCallback((key: string, value: unknown) => {
       setEditedValues(prev => ({ ...prev, [key]: value }));
@@ -198,14 +182,9 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
       getEditedValues(): Record<string, unknown> {
         const result: Record<string, unknown> = {};
         Object.entries(editedValues).forEach(([key, val]) => {
-          // _ 前缀的内部数据（如 _details 自动持久化记录）直接透传
+          // SSOT: 不再处理 _details，主字段即唯一数据源
           if (key.startsWith('_')) {
-            if (key === '_details' && val !== formData[key]) {
-              // _details 深合并：保留原始 _details 中未被当前编辑覆盖的字段
-              const originalDetails = (formData._details as Record<string, unknown>) || {};
-              const editedDetails = (val as Record<string, unknown>) || {};
-              result._details = { ...originalDetails, ...editedDetails };
-            } else if (val !== formData[key]) {
+            if (val !== formData[key]) {
               result[key] = val;
             }
             return;
@@ -214,7 +193,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
           if (!field) return;
           // 跳过当前不可见字段
           if (field.visibleWhen && !checkCondition(field.visibleWhen, mergedValues)) return;
-
+      
           // 所有字段（含 searchApi 表格）统一变更检测：引用不等即视为变更
           if (val !== formData[key]) {
             result[key] = val;
