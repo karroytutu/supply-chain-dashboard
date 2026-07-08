@@ -14,6 +14,7 @@ const log = createLogger('CustomerReconciliationCallback');
 
 import { appQuery as query } from '../../db/appPool';
 import type { OaInstanceRow, CallbackResult } from './oa.types';
+import type { FormAccessor } from './form-accessor';
 import {
   fetchReceivableOrders,
   createReconciliationDraft,
@@ -37,13 +38,14 @@ import path from 'path';
 
 function resolveErpContext(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): { erpStatementId: number; erpMeta: ReturnType<typeof getErpMeta> } {
   const erpMeta = getErpMeta(instance);
 
   // 优先 formData._erpStatementId（由声明式回填持久化，不受竞态影响）
-  if (formData._erpStatementId != null) {
-    const parsed = Number(formData._erpStatementId);
+  const erpStatementIdStr = form.getString('_erpStatementId');
+  if (erpStatementIdStr != null) {
+    const parsed = Number(erpStatementIdStr);
     if (!isNaN(parsed) && parsed > 0) return { erpStatementId: parsed, erpMeta };
   }
 
@@ -66,7 +68,7 @@ function resolveErpContext(
  */
 export async function handleCustomerReconciliationAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
   const currentNodeResult = await query<{ node_order: number; node_name: string }>(
     `SELECT node_order, node_name FROM oa_approval_nodes
@@ -81,11 +83,11 @@ export async function handleCustomerReconciliationAutoNode(
 
   switch (nodeOrder) {
     case 2:
-      return handleCreateStatement(instance, formData);
+      return handleCreateStatement(instance, form);
     case 3:
-      return handleUploadStatementPdf(instance, formData);
+      return handleUploadStatementPdf(instance, form);
     case 8:
-      return handleApproveStatement(instance, formData);
+      return handleApproveStatement(instance, form);
     default:
       log.warn(`[应收对账] 未知的auto节点: nodeOrder=${nodeOrder}, nodeName=${nodeName}`);
   }
@@ -97,21 +99,21 @@ export async function handleCustomerReconciliationAutoNode(
 
 async function handleCreateStatement(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const customerId = formData.customerId as string;
-  const orderIds = formData.receivableOrderIds as string[];
+  const customerId = form.getString('customerId');
+  const orderRecords = form.getRaw('receivableOrderIds');
 
-  if (!customerId || !orderIds?.length) {
+  if (!customerId || !Array.isArray(orderRecords) || orderRecords.length === 0) {
     throw new Error('创建对账单失败：缺少客户ID或应收单据');
   }
 
   // 获取应收单据完整数据（含 bizId、bizType）
-  log.info(`[应收对账] 查询应收单据: customerId=${customerId}, orderIds=${orderIds.length}条`);
+  log.info(`[应收对账] 查询应收单据: customerId=${customerId}, orderIds=${orderRecords.length}条`);
   const allOrders = await fetchReceivableOrders({ traderId: customerId });
 
   // 按 id 筛选用户选中的单据
-  const selectedIds = new Set(orderIds.map(String));
+  const selectedIds = form.getTableIdSet('receivableOrderIds', 'id');
   const selectedOrders = allOrders.filter(o => selectedIds.has(String(o.id)));
 
   if (selectedOrders.length === 0) {
@@ -173,9 +175,9 @@ async function handleCreateStatement(
 
 async function handleUploadStatementPdf(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const { erpStatementId, erpMeta } = resolveErpContext(instance, formData);
+  const { erpStatementId, erpMeta } = resolveErpContext(instance, form);
 
   if (!erpStatementId) {
     throw new Error('上传PDF失败：未找到对账单ID（节点2可能未成功执行）');
@@ -207,7 +209,7 @@ async function handleUploadStatementPdf(
   log.info(`[应收对账] PDF保存成功: path=${filePath}, url=${pdfUrl}, size=${pdfBuffer.length}`);
 
   // 从 formData 优先读取对账单号（formData.erpStatementNo），兜底 erpMeta
-  const statementNo = (formData.erpStatementNo as string)
+  const statementNo = form.getString('erpStatementNo')
     || (erpMeta?.responseData?.consumerCollectStr as string)
     || instance.instance_no;
 
@@ -226,18 +228,18 @@ async function handleUploadStatementPdf(
 
 async function handleApproveStatement(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const { erpStatementId, erpMeta } = resolveErpContext(instance, formData);
+  const { erpStatementId, erpMeta } = resolveErpContext(instance, form);
 
   if (!erpStatementId) {
     throw new Error('审核对账单失败：未找到对账单ID');
   }
 
-  const differenceStatus = formData.differenceStatus as string;
-  const reconciliationResult = formData.reconciliationResult as string;
-  const unreconciledIds = formData.unreconciledOrderIds as string[];
-  const hasUnreconciled = Array.isArray(unreconciledIds) && unreconciledIds.length > 0;
+  const differenceStatus = form.getString('differenceStatus');
+  const reconciliationResult = form.getString('reconciliationResult');
+  const unreconciledRecords = form.getRaw('unreconciledOrderIds');
+  const hasUnreconciled = Array.isArray(unreconciledRecords) && unreconciledRecords.length > 0;
   const hasDifference = differenceStatus === 'has_difference';
 
   // 未对账：取消对账单
@@ -248,7 +250,7 @@ async function handleApproveStatement(
       erpMeta: {
         statementApproved: false,
         cancelledAt: new Date().toISOString(),
-        consumerCollectStr: (formData.erpStatementNo as string)
+        consumerCollectStr: form.getString('erpStatementNo')
           || (erpMeta?.responseData?.consumerCollectStr as string)
           || null,
       },
@@ -270,7 +272,7 @@ async function handleApproveStatement(
   }
 
   // 解析原始明细
-  const originalDetailJson = formData._erpStatementDetail as string;
+  const originalDetailJson = form.getString('_erpStatementDetail');
   let currentDetail: StatementDetailItem[] = [];
   if (originalDetailJson) {
     try {
@@ -282,7 +284,7 @@ async function handleApproveStatement(
 
   // 步骤1：剔除未对账单据（部分对账场景）
   if (hasUnreconciled) {
-    const unreconciledSet = new Set(unreconciledIds.map(String));
+    const unreconciledSet = form.getTableIdSet('unreconciledOrderIds', 'id');
     const beforeCount = currentDetail.length;
     currentDetail = currentDetail.filter(d => !unreconciledSet.has(String(d.billId)));
     log.info(`[应收对账] 剔除未对账单据: ${beforeCount - currentDetail.length}条 (statementId=${erpStatementId})`);
@@ -290,15 +292,18 @@ async function handleApproveStatement(
 
   // 步骤2：追加差异处理单据（有差异场景）
   if (hasDifference) {
-    const customerId = formData.customerId as string;
-    const differenceOrderIds = formData.differenceOrderIds as string[];
+    const customerId = form.getString('customerId');
+    if (!customerId) {
+      throw new Error('审核失败：缺少客户ID，无法追加差异处理单据');
+    }
+    const differenceRecords = form.getRaw('differenceOrderIds');
 
-    if (!differenceOrderIds?.length) {
+    if (!Array.isArray(differenceRecords) || differenceRecords.length === 0) {
       // 防御性检查：差异审核节点(Node 7)可能未被创建或被跳过
       log.error(
         `[应收对账] 差异处理单据为空: instanceId=${instance.id}, ` +
         `differenceStatus=${differenceStatus}, reconciliationResult=${reconciliationResult}, ` +
-        `formData.differenceOrderIds=${JSON.stringify(formData.differenceOrderIds)}`
+        `form.differenceOrderIds=${JSON.stringify(form.getRaw('differenceOrderIds'))}`
       );
       throw new Error(
         '审核失败：存在差异但未选择差异处理单据。' +
@@ -307,7 +312,7 @@ async function handleApproveStatement(
     }
 
     const allOrders = await fetchReceivableOrders({ traderId: customerId });
-    const diffIds = new Set(differenceOrderIds.map(String));
+    const diffIds = form.getTableIdSet('differenceOrderIds', 'id');
     const diffOrders = allOrders.filter(o => diffIds.has(String(o.id)));
 
     const baseSeq = currentDetail.length;
@@ -334,7 +339,10 @@ async function handleApproveStatement(
   const totalAmount = currentDetail.reduce(
     (sum, d) => sum + (parseFloat(d.leftAmount) || 0), 0
   );
-  const customerId = formData.customerId as string;
+  const customerId = form.getString('customerId');
+  if (!customerId) {
+    throw new Error('审核失败：缺少客户ID，无法审核对账单');
+  }
 
   const parsedApproveSettlerId = parseInt(customerId, 10);
   if (isNaN(parsedApproveSettlerId)) {

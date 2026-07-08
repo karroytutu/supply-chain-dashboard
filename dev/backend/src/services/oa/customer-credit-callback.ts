@@ -26,6 +26,7 @@ import {
   ROLE_CODES,
 } from '../../utils/constants';
 import type { OaInstanceRow, PreviewContextResult } from './oa.types';
+import type { FormAccessor } from './form-accessor';
 
 /**
  * 流程预览上下文：当前无需注入额外字段，返回空上下文
@@ -89,10 +90,10 @@ export async function beforeSubmitCustomerCredit(
  */
 export async function onApprovedCustomerCredit(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
-  const creditType = formData.creditType as string;
-  const customerId = Number(formData.customer);
+  const creditType = form.getString('creditType');
+  const customerId = form.getNumber('customer') ?? 0;
   const instanceId = instance.id;
 
   // 标记 ERP 处理中
@@ -104,14 +105,14 @@ export async function onApprovedCustomerCredit(
     switch (creditType) {
       case 'payment_period':
         creditFields = {
-          maxDebtDays: formData.maxOverdueDays as number,
+          maxDebtDays: form.getNumber('maxOverdueDays'),
           settleMethod: CREDIT_SETTLE_METHOD_ON_ACCOUNT,
         };
         break;
       case 'rolling_order':
         creditFields = {
-          maxDebtDays: formData.rollingMaxOverdueDays as number,
-          maxDebtOrderNum: formData.rollingMaxOverdueOrders as number,
+          maxDebtDays: form.getNumber('rollingMaxOverdueDays'),
+          maxDebtOrderNum: form.getNumber('rollingMaxOverdueOrders'),
           settleMethod: CREDIT_SETTLE_METHOD_ON_ACCOUNT,
         };
         break;
@@ -126,13 +127,14 @@ export async function onApprovedCustomerCredit(
     // 如果有营业执照需要上传，将授信字段一并传入 erpUploadBusinessLicense，
     // 通过同一次 update-consumer 调用同时更新 attachedPicIds 和授信字段，
     // 避免 update-consumer 用旧快照覆盖之前的 batch-edit 结果
+    const businessLicensePhotos = form.getRaw('businessLicensePhotos') as Array<{ url?: string }> | undefined;
     const hasLicenseUpload =
-      formData.businessLicensePhotos &&
-      Array.isArray(formData.businessLicensePhotos) &&
-      (formData.businessLicensePhotos as Array<{ url?: string }>).some(p => p.url);
+      businessLicensePhotos &&
+      Array.isArray(businessLicensePhotos) &&
+      businessLicensePhotos.some(p => p.url);
 
     if (hasLicenseUpload) {
-      const photos = formData.businessLicensePhotos as Array<{ url?: string }>;
+      const photos = businessLicensePhotos as Array<{ url?: string }>;
       const filePaths = photos
         .map(p => p.url)
         .filter((url): url is string => !!url)
@@ -160,7 +162,8 @@ export async function onApprovedCustomerCredit(
 
     // 压单：标记压单结算单
     if (creditType === 'hold_order') {
-      await erpMarkHoldOrders(formData.holdSettlementOrders as number[], customerId);
+      const holdSettlementOrders = form.getTableIds('holdSettlementOrders', 'bizId');
+      await erpMarkHoldOrders(holdSettlementOrders.map(Number), customerId);
 
       // 压单审批通过后：清除 ERP 缓存 + 即时检测催收任务
       cache.invalidate('erp:settlement:hoard:');
@@ -168,16 +171,16 @@ export async function onApprovedCustomerCredit(
       cache.invalidate('erp:customer:debt-name-map');
 
       // 提取压单类型和天数
-      const rawHoardType = formData.hoardType as string;
+      const rawHoardType = form.getString('hoardType');
       const hoardType =
         rawHoardType === AR_HOLD_TYPE_TIME_LIMITED
           ? AR_HOLD_TYPE_TIME_LIMITED
           : AR_HOLD_TYPE_LONG_TERM;
       const holdDays =
-        hoardType === AR_HOLD_TYPE_TIME_LIMITED ? Number(formData.holdDays) || null : null;
+        hoardType === AR_HOLD_TYPE_TIME_LIMITED ? form.getNumber('holdDays') ?? null : null;
       
       // 将压单记录写入 ar_hold_meta 表（替代旧 ar_collection_details 的 hold 字段）
-      const holdOrderIds = ((formData.holdSettlementOrders as number[]) || []).map(String);
+      const holdOrderIds = holdSettlementOrders;
       if (holdOrderIds.length > 0) {
         await upsertHoldMeta(holdOrderIds, hoardType, holdDays, instanceId).catch(
           err => {
@@ -191,13 +194,13 @@ export async function onApprovedCustomerCredit(
     await updateErpMetaStatus(instanceId, 'erp_completed');
 
     // 营业执照延期补交：如果未上传执照，创建延期追踪记录
-    if (formData._licenseDeferred) {
+    if (form.getBoolean('_licenseDeferred')) {
       try {
         const { createDeferredUploadAfterApproval } = await import('../credit-license');
         await createDeferredUploadAfterApproval(
           instanceId,
           customerId,
-          (formData._customerName || formData.customerName) as string,
+          form.getString('_customerName') || form.getString('customerName') || '',
           instance.applicant_id,
           instance.applicant_name
         );

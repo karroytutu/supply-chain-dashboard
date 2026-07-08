@@ -85,6 +85,7 @@ import {
   beforeSubmitCustomerCredit,
   onApprovedCustomerCredit,
 } from './customer-credit-callback';
+import { createFormAccessor } from './form-accessor';
 
 const mockGetUserRoles = getUserRolesAndPermissions as jest.MockedFunction<typeof getUserRolesAndPermissions>;
 const mockUpdateProfile = erpUpdateCustomerProfile as jest.MockedFunction<typeof erpUpdateCustomerProfile>;
@@ -165,7 +166,7 @@ describe('beforeSubmitCustomerCredit', () => {
 describe('onApprovedCustomerCredit', () => {
   it('payment_period 类型更新授信字段', async () => {
     const formData = { creditType: 'payment_period', customer: 100, maxOverdueDays: 30 };
-    await onApprovedCustomerCredit(mkInstance(), formData);
+    await onApprovedCustomerCredit(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateErpMeta).toHaveBeenCalledWith(1, 'processing');
     expect(mockUpdateProfile).toHaveBeenCalledWith(100, expect.objectContaining({ maxDebtDays: 30 }));
     expect(mockUpdateErpMeta).toHaveBeenCalledWith(1, 'erp_completed');
@@ -178,7 +179,7 @@ describe('onApprovedCustomerCredit', () => {
       rollingMaxOverdueDays: 15,
       rollingMaxOverdueOrders: 3,
     };
-    await onApprovedCustomerCredit(mkInstance(), formData);
+    await onApprovedCustomerCredit(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateProfile).toHaveBeenCalledWith(
       100,
       expect.objectContaining({ maxDebtDays: 15, maxDebtOrderNum: 3 }),
@@ -193,7 +194,7 @@ describe('onApprovedCustomerCredit', () => {
       hoardType: 'long_term',
       _customerName: '客户A',
     };
-    await onApprovedCustomerCredit(mkInstance(), formData);
+    await onApprovedCustomerCredit(mkInstance(), createFormAccessor(formData));
     expect(mockMarkHold).toHaveBeenCalledWith([1, 2, 3], 100);
     expect(cache.invalidate).toHaveBeenCalled();
   });
@@ -201,7 +202,7 @@ describe('onApprovedCustomerCredit', () => {
   it('ERP 更新失败时标记 erp_failed 并抛出', async () => {
     mockUpdateProfile.mockRejectedValueOnce(new Error('ERP timeout'));
     const formData = { creditType: 'payment_period', customer: 100, maxOverdueDays: 30 };
-    await expect(onApprovedCustomerCredit(mkInstance(), formData)).rejects.toThrow('ERP timeout');
+    await expect(onApprovedCustomerCredit(mkInstance(), createFormAccessor(formData))).rejects.toThrow('ERP timeout');
     expect(mockMarkFailed).toHaveBeenCalledWith(1, expect.objectContaining({ error: 'ERP timeout' }));
   });
 
@@ -213,7 +214,7 @@ describe('onApprovedCustomerCredit', () => {
       maxOverdueDays: 30,
       businessLicensePhotos: [{ url: 'photo1.jpg' }],
     };
-    await onApprovedCustomerCredit(mkInstance(), formData);
+    await onApprovedCustomerCredit(mkInstance(), createFormAccessor(formData));
     expect(mockUploadLicense).toHaveBeenCalledWith(100, expect.any(Array), expect.any(Object));
   });
 
@@ -225,7 +226,7 @@ describe('onApprovedCustomerCredit', () => {
       _licenseDeferred: true,
       _customerName: '客户B',
     };
-    await onApprovedCustomerCredit(mkInstance(), formData);
+    await onApprovedCustomerCredit(mkInstance(), createFormAccessor(formData));
     expect(createDeferredUploadAfterApproval).toHaveBeenCalled();
   });
 });

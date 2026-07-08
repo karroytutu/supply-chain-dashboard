@@ -329,6 +329,10 @@ function getOverdueDateStr(debt: EnrichedDebtRecord): string {
 /**
  * 查询已有活跃OA实例中的单据ID集合（单据级去重）
  * 使用 SQL jsonb_array_elements 在数据库层提取 billNo，避免传输完整 form_data
+ *
+ * NOTE: 此处保留 SQL JSONB 操作，因为需要在数据库层面做集合去重。
+ * 新格式下 billDetails 元素为完整记录，elem->>'billNo' 正确工作。
+ * 历史数据（ID 数组）中 elem->>'billNo' 返回 NULL，已被 WHERE 过滤。
  */
 async function queryExistingBillIds(): Promise<Set<string>> {
   const result = await query<{ bill_no: string }>(

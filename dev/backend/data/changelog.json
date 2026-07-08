@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "v2.22.6",
+      "date": "2026-07-08 13:26",
+      "types": ["optimization"],
+      "changes": [
+        "OA审批回调架构升级：新增 FormAccessor 类型安全访问器，替代所有回调中直接操作 Record<string, unknown> 的危险断言模式，坏账处理、客户收款、信用额度、市场费用、促销、物流费、采购付款、固定资产等30余个回调全面迁移",
+        "审批回调类型契约统一：beforeApprove、onApproved、onRejected 等回调签名从 formData 改为 FormAccessor，编译期即可捕获类型错误，运行时数据解析更安全",
+        "OA查重防护增强：duplicate-check 新增 table 类型字段 fail-fast 校验，防止将对象数组误配置为查重匹配字段导致运行时异常",
+        "前端表单字段加载统一：EditableFormSection 提取 loadTableField 辅助函数，searchApi 表格字段初始化/重置/提交三处逻辑统一，消除重复代码",
+        "单元测试覆盖：新增 form-accessor.spec.ts，更新坏账、收款、信用、客户修改、物流费等回调测试适配 FormAccessor"
+      ]
+    },
+    {
       "version": "v2.22.5",
       "date": "2026-07-08 09:56",
       "types": ["feature", "optimization"],

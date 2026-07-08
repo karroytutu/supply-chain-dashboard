@@ -11,6 +11,8 @@
 
 import { FormTypeDefinition, FormSchema, PreviewContextResult } from '../oa.types';
 import { OA_ROLE } from '../oa-role-codes';
+import type { FormAccessor } from '../form-accessor';
+import { createFormAccessor } from '../form-accessor';
 import { appQuery as query } from '../../../db/appPool';
 import { createLogger } from '../../../utils/logger';
 import {
@@ -333,7 +335,8 @@ async function beforeSubmitPurchasePayment(
   };
 
   if (paymentType === PAYMENT_TYPE.POSTPAY) {
-    const debtIds = formData.debtIds as unknown[];
+    const form = createFormAccessor(formData);
+    const debtIds = form.getTableRecords('debtIds');
     if (!debtIds || debtIds.length === 0) {
       throw new Error('后付款必须选择至少一条应付单据');
     }
@@ -493,11 +496,11 @@ export const purchasePaymentFormType: FormTypeDefinition = {
   beforeSubmit: beforeSubmitPurchasePayment,
 
   /** 审批前校验：出纳节点（order=3）确认时校验银行转账明细是否有效 */
-  beforeApprove: (nodeOrder, formData, inputData) => {
+  beforeApprove: (nodeOrder, form, inputData) => {
     const errors: string[] = [];
     if (nodeOrder === 3) {
-      const isPurePrepay = formData._isPurePrepayWriteOff === 1 || formData._isPurePrepayWriteOff === '1';
-      const paymentLines = (formData.paymentLines || inputData?.paymentLines) as Array<{
+      const isPurePrepay = form.getRaw('_isPurePrepayWriteOff') === 1 || form.getString('_isPurePrepayWriteOff') === '1';
+      const paymentLines = (form.getRaw('paymentLines') || inputData?.paymentLines) as Array<{
         amount?: string;
         paymentSubjectId?: number;
         id?: number;

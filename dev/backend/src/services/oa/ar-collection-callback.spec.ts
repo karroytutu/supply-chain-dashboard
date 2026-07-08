@@ -34,6 +34,7 @@ jest.mock('./mutations/shared-utils', () => ({
 }));
 
 import { beforeSubmitArCollection, verifyBills, handleArCollectionAutoVerify } from './ar-collection-callback';
+import { createFormAccessor } from './form-accessor';
 import { checkExistingBillIds } from '../erp-client/erp-debt.service';
 import { appQuery, getAppClient } from '../../db/appPool';
 import { enqueueSendApprovalNotification } from './oa-async-task.service';
@@ -94,7 +95,7 @@ describe('beforeSubmitArCollection', () => {
 describe('verifyBills', () => {
   it('无账单明细时返回 not_verified', async () => {
     const instance = createMockInstance();
-    const result = await verifyBills(instance, { billDetails: [] });
+    const result = await verifyBills(instance, createFormAccessor({ billDetails: [] }));
     expect(result).toBe('not_verified');
   });
 
@@ -107,7 +108,7 @@ describe('verifyBills', () => {
       { billNo: 'B2', verifyStatus: '' },
     ];
     const instance = createMockInstance();
-    const result = await verifyBills(instance, { billDetails });
+    const result = await verifyBills(instance, createFormAccessor({ billDetails }));
 
     expect(result).toBe('all_verified');
     expect(billDetails[0].verifyStatus).toBe('已核销');
@@ -124,7 +125,7 @@ describe('verifyBills', () => {
       { billNo: 'B2', verifyStatus: '' },
     ];
     const instance = createMockInstance();
-    const result = await verifyBills(instance, { billDetails });
+    const result = await verifyBills(instance, createFormAccessor({ billDetails }));
 
     expect(result).toBe('partial_verified');
     expect(billDetails[0].verifyStatus).toBe(''); // B1 仍存在
@@ -140,7 +141,7 @@ describe('verifyBills', () => {
       { billNo: 'B2', verifyStatus: '' },
     ];
     const instance = createMockInstance();
-    const result = await verifyBills(instance, { billDetails });
+    const result = await verifyBills(instance, createFormAccessor({ billDetails }));
 
     expect(result).toBe('not_verified');
     expect(billDetails[0].verifyStatus).toBe('');
@@ -156,7 +157,7 @@ describe('verifyBills', () => {
       { billNo: 'B2', verifyStatus: '' },
     ];
     const instance = createMockInstance();
-    await verifyBills(instance, { billDetails });
+    await verifyBills(instance, createFormAccessor({ billDetails }));
 
     // 无核销变化时不应执行 UPDATE
     const updateCalls = mockAppQuery.mock.calls.filter(
@@ -188,7 +189,7 @@ describe('handleArCollectionAutoVerify', () => {
 
     const billDetails = [{ billNo: 'B1', verifyStatus: '' }];
     const instance = createMockInstance();
-    await handleArCollectionAutoVerify(instance, { billDetails });
+    await handleArCollectionAutoVerify(instance, createFormAccessor({ billDetails }));
 
     // 全部核销时不应开启事务操作节点
     expect(mockGetAppClient).not.toHaveBeenCalled();
@@ -213,7 +214,7 @@ describe('handleArCollectionAutoVerify', () => {
       { billNo: 'B2', verifyStatus: '' },
     ];
     const instance = createMockInstance();
-    await handleArCollectionAutoVerify(instance, { billDetails });
+    await handleArCollectionAutoVerify(instance, createFormAccessor({ billDetails }));
 
     expect(mockGetAppClient).toHaveBeenCalled();
     expect(mockClient.release).toHaveBeenCalled();
@@ -247,7 +248,7 @@ describe('handleArCollectionAutoVerify', () => {
       { billNo: 'B2', verifyStatus: '' },
     ];
     const instance = createMockInstance();
-    await handleArCollectionAutoVerify(instance, { billDetails });
+    await handleArCollectionAutoVerify(instance, createFormAccessor({ billDetails }));
 
     expect(mockGetAppClient).toHaveBeenCalled();
     expect(mockSendBackToNode).toHaveBeenCalled();

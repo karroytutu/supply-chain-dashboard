@@ -13,6 +13,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('ArCollectionAutoVerify');
 
 import { appQuery as query, getAppClient } from '../../db/appPool';
+import { createFormAccessor } from './form-accessor';
 import { fetchAllErpDebts } from '../erp-client/erp-debt.service';
 import {
   enqueueFinalizeProcessInstance,
@@ -79,8 +80,10 @@ export async function autoVerifySettledInstances(): Promise<AutoVerifyResult> {
   // 3. 逐实例检查
   for (const instance of instances.rows) {
     try {
-      const billDetails = instance.bill_details;
-      if (!billDetails || billDetails.length === 0) {
+      // 通过 FormAccessor 访问数据（架构一致性）
+      const form = createFormAccessor({ billDetails: instance.bill_details });
+      const billDetails = form.getTableRecords('billDetails');
+      if (billDetails.length === 0) {
         result.unchanged++;
         continue;
       }

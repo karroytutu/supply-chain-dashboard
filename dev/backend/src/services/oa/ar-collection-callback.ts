@@ -11,6 +11,7 @@
 
 import { appQuery as query, getAppClient } from '../../db/appPool';
 import { OaInstanceRow, OaNodeRow } from './oa.types';
+import type { FormAccessor } from './form-accessor';
 import { checkExistingBillIds } from '../erp-client/erp-debt.service';
 import { enqueueSendApprovalNotification } from './oa-async-task.service';
 import { findUserIdsByRoleCodes } from './oa-workflow-utils';
@@ -48,9 +49,9 @@ export async function beforeSubmitArCollection(
  */
 export async function verifyBills(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<'all_verified' | 'partial_verified' | 'not_verified'> {
-  const billDetails = (formData.billDetails as Array<Record<string, unknown>>) || [];
+  const billDetails = form.getTableRecords('billDetails');
   const billIds = billDetails.map(b => b.billNo as string).filter(Boolean);
 
   if (billIds.length === 0) {
@@ -109,9 +110,9 @@ export async function verifyBills(
  */
 export async function handleArCollectionAutoVerify(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void | { sendBack: boolean }> {
-  const result = await verifyBills(instance, formData);
+  const result = await verifyBills(instance, form);
 
   if (result === 'all_verified') {
     // 全部还款：无需操作，框架自动将 node 7 → approved、催收单 → approved
@@ -139,7 +140,7 @@ export async function handleArCollectionAutoVerify(
     const autoNode = autoNodeResult.rows[0];
 
     // 构建评论文本
-    const billDetails = (formData.billDetails as Array<Record<string, unknown>>) || [];
+    const billDetails = form.getTableRecords('billDetails');
     const totalBills = billDetails.filter(b => b.billNo).length;
     const verifiedBills = billDetails.filter(b => b.verifyStatus === '已核销').length;
     const remaining = totalBills - verifiedBills;

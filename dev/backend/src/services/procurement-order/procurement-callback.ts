@@ -14,6 +14,7 @@ const log = createLogger('ProcurementCallback');
 import { appQuery as query } from '../../db/appPool';
 import { beijingDateTime } from '../../utils/beijingTime';
 import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
+import type { FormAccessor } from '../oa/form-accessor';
 import {
   getErpMeta,
 } from '../../services/fixed-asset/erp-meta-utils';
@@ -39,7 +40,7 @@ import type {
  */
 export async function handleProcurementAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
   // 查询当前正在执行的 auto 节点
   const currentNodeResult = await query<{ node_order: number; node_name: string }>(
@@ -59,26 +60,26 @@ export async function handleProcurementAutoNode(
     case 5:
       // v5: 创建采购预付款 / v4旧版: 创建付款单核销（通过nodeName区分）
       if (nodeName === '创建采购预付款') {
-        return handleCreatePrepayment(instance, formData);
+        return handleCreatePrepayment(instance, form);
       }
-      // 旧版v4的"创建付款单核销"——保留兼容，记录日志跳过
+      // 旧版v4的“创建付款单核销”——保留兼容，记录日志跳过
       log.warn(`[采购审批] 旧版v4节点(order=5, name=${nodeName})，跳过`);
       return;
     case 6:
-      return handleApprovePO(instance, formData);
+      return handleApprovePO(instance, form);
     case 7:
       // v4旧版: 创建采购预付款（v5 的“办结检查”已移除）
       if (nodeName === '创建采购预付款') {
-        return handleCreatePrepaymentV4(instance, formData);
+        return handleCreatePrepaymentV4(instance, form);
       }
       log.warn(`[采购审批] 未知的auto节点: nodeOrder=7, nodeName=${nodeName}`);
       return;
     case 8:
       // v4旧版: 审核采购订单
-      return handleApprovePO(instance, formData);
+      return handleApprovePO(instance, form);
     case 10:
       // v4旧版: 办结检查
-      return handleCompletion(instance, formData);
+      return handleCompletion(instance, form);
     default:
       // v4旧版多货子流程 (order > 10)——保留兼容，记录日志
       if (nodeOrder && nodeOrder > 10) {
@@ -99,14 +100,14 @@ export async function handleProcurementAutoNode(
  */
 async function handleCreatePrepayment(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const originalBillId = (formData._originalBillId || formData.erpBillId) as number;
-  const originalBillStr = (formData._originalBillStr || formData.erpBillStr) as string;
-  const supplierId = (formData._supplierId || formData.supplierId) as string;
-  const prepaymentAmount = formData.prepaymentAmount as string;
-  const paymentAmount = formData.paymentAmount as string;
-  const paymentSubjectId = formData.paymentSubjectId as number;
+  const originalBillId = form.getNumber('_originalBillId') ?? form.getNumber('erpBillId');
+  const originalBillStr = form.getString('_originalBillStr') ?? form.getString('erpBillStr') ?? '';
+  const supplierId = form.getString('_supplierId') ?? form.getString('supplierId') ?? '';
+  const prepaymentAmount = form.getString('prepaymentAmount');
+  const paymentAmount = form.getString('paymentAmount');
+  const paymentSubjectId = form.getNumber('paymentSubjectId');
 
   // 优先使用出纳填写的付款金额，其次使用表单预付金额
   const amount = paymentAmount || prepaymentAmount;
@@ -149,13 +150,13 @@ async function handleCreatePrepayment(
  */
 async function handleCreatePrepaymentV4(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const originalBillId = (formData._originalBillId || formData.erpBillId) as number;
-  const originalBillStr = (formData._originalBillStr || formData.erpBillStr) as string;
-  const supplierId = (formData._supplierId || formData.supplierId) as string;
-  const paymentAmount = formData.paymentAmount as string;
-  const paymentSubjectId = formData.paymentSubjectId as number;
+  const originalBillId = form.getNumber('_originalBillId') ?? form.getNumber('erpBillId');
+  const originalBillStr = form.getString('_originalBillStr') ?? form.getString('erpBillStr') ?? '';
+  const supplierId = form.getString('_supplierId') ?? form.getString('supplierId') ?? '';
+  const paymentAmount = form.getString('paymentAmount');
+  const paymentSubjectId = form.getNumber('paymentSubjectId');
 
   if (!originalBillId || !supplierId || !paymentAmount) {
     throw new Error('缺少采购订单ID、供应商ID或付款金额');
@@ -195,9 +196,9 @@ async function handleCreatePrepaymentV4(
  */
 async function handleApprovePO(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
-  const originalBillId = (formData._originalBillId || formData.erpBillId) as number;
+  const originalBillId = form.getNumber('_originalBillId') ?? form.getNumber('erpBillId');
 
   if (!originalBillId) {
     throw new Error('缺少采购订单ID');
@@ -228,7 +229,7 @@ async function handleApprovePO(
  */
 async function handleCompletion(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  _form: FormAccessor
 ): Promise<CallbackResult> {
   log.info(`[采购审批] 办结检查: instanceId=${instance.id}`);
   return {

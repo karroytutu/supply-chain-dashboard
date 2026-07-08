@@ -8,6 +8,7 @@
  */
 
 import { FormTypeDefinition, FormSchema, CallbackResult, OaInstanceRow } from '../oa.types';
+import type { FormAccessor } from '../form-accessor';
 import { OA_ROLE } from '../oa-role-codes';
 import { MARKET_EXPENSE_SUBJECTS } from '../../../utils/constants';
 import { createLogger } from '../../../utils/logger';
@@ -416,7 +417,7 @@ async function beforeSubmitMarketExpense(
 
 async function handleMarketExpenseAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
   const currentNodeResult = await query<{ node_order: number; node_name: string }>(
     `SELECT node_order, node_name FROM oa_approval_nodes
@@ -431,11 +432,11 @@ async function handleMarketExpenseAutoNode(
 
   switch (nodeOrder) {
     case 3:
-      return handleCreateContract(instance, formData);
+      return handleCreateContract(instance, form);
     case 4:
-      return handleCreateExpenditure(instance, formData);
+      return handleCreateExpenditure(instance, form);
     case 6:
-      return handleCreateSupplierIncome(instance, formData);
+      return handleCreateSupplierIncome(instance, form);
     default:
       log.warn(`[市场费用] 未知的auto节点: nodeOrder=${nodeOrder}`);
   }
@@ -444,15 +445,16 @@ async function handleMarketExpenseAutoNode(
 /** 节点3: 创建兑付协议 */
 async function handleCreateContract(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const expenseType = formData.expenseType as string;
+  const expenseType = form.getString('expenseType');
   const isGoods = expenseType === 'goods';
-  const chargeSubject = formData.chargeSubject as string;
+  const chargeSubject = form.getString('chargeSubject') ?? '';
   const subject = MARKET_EXPENSE_SUBJECTS[chargeSubject as keyof typeof MARKET_EXPENSE_SUBJECTS];
 
   // 将品牌内部 ID 转换为 ERP 业务 API 所需的 originBrandId
-  const originBrandId = await resolveBrandOriginId(formData.chargeBrandId as number | string | null);
+  const chargeBrandId = form.getRaw('chargeBrandId');
+  const originBrandId = await resolveBrandOriginId(chargeBrandId as number | string | null);
 
   const params = {
     type: (isGoods ? 'CHARGE_CONTRACT_GOODS' : 'CHARGE_CONTRACT_CASH') as 'CHARGE_CONTRACT_CASH' | 'CHARGE_CONTRACT_GOODS',
@@ -460,15 +462,15 @@ async function handleCreateContract(
     chargeTypeName: subject?.name || chargeSubject,
     chargeBrandId: originBrandId,
     name: instance.title || '市场费用申请',
-    consumerId: Number(formData.customerId),
-    consumerName: (formData._customerName as string) || '',
+    consumerId: form.getNumber('customerId') ?? 0,
+    consumerName: form.getString('_customerName') ?? '',
     details: [] as any[],
     workDate: beijingDate(),
-    note: [instance.instance_no, formData.remark].filter(Boolean).join('+'),
+    note: [instance.instance_no, form.getString('remark')].filter(Boolean).join('+'),
   };
 
   if (isGoods) {
-    const goodsList = (formData.goodsList as Array<Record<string, unknown>>) || [];
+    const goodsList = form.getTableRecords('goodsList');
     params.details = goodsList.map(line => ({
       amount: String(line.amount || 0),
       fulfillPrice: '0',
@@ -478,7 +480,7 @@ async function handleCreateContract(
       goodsUnitTag: resolveGoodsUnitTag(line),
     }));
   } else {
-    params.details = [{ amount: String(formData.cashAmount || 0) }];
+    params.details = [{ amount: String(form.getRaw('cashAmount') || 0) }];
   }
 
   const result = await createChargeContract(params);
@@ -512,15 +514,15 @@ async function handleCreateContract(
 /** 节点4: 兑付生成客户费用单（仅现金） */
 async function handleCreateExpenditure(
   _instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
-  if (formData.expenseType !== 'cash') return; // 商品场景跳过
+  if (form.getString('expenseType') !== 'cash') return; // 商品场景跳过
 
   const erpMeta = getErpMeta(_instance);
-  const contractStr = (erpMeta?.responseData?.contractStr as string) || (formData._contractStr as string);
-  const contractId = (erpMeta?.responseData?.contractId as number) || (formData._contractId as number) || 0;
-  const contractDetailId = (erpMeta?.responseData?.contractDetailId as number) || (formData._contractDetailId as number) || 0;
-  const chargeSubject = formData.chargeSubject as string;
+  const contractStr = (erpMeta?.responseData?.contractStr as string) || form.getString('_contractStr');
+  const contractId = (erpMeta?.responseData?.contractId as number) || form.getNumber('_contractId') || 0;
+  const contractDetailId = (erpMeta?.responseData?.contractDetailId as number) || form.getNumber('_contractDetailId') || 0;
+  const chargeSubject = form.getString('chargeSubject') ?? '';
   const subject = MARKET_EXPENSE_SUBJECTS[chargeSubject as keyof typeof MARKET_EXPENSE_SUBJECTS];
 
   if (!contractStr) {
@@ -528,18 +530,19 @@ async function handleCreateExpenditure(
   }
 
   // 将品牌内部 ID 转换为 ERP 业务 API 所需的 originBrandId
-  const originBrandId = await resolveBrandOriginId(formData.chargeBrandId as number | string | null);
+  const chargeBrandId = form.getRaw('chargeBrandId');
+  const originBrandId = await resolveBrandOriginId(chargeBrandId as number | string | null);
 
   const result = await createCustomerExpenditure({
-    traderId: Number(formData.customerId),
-    traderName: (formData._customerName as string) || '',
-    totalAmount: Number(formData.cashAmount || 0),
+    traderId: form.getNumber('customerId') ?? 0,
+    traderName: form.getString('_customerName') ?? '',
+    totalAmount: form.getNumber('cashAmount') ?? 0,
     subjectId: subject?.chargeType || Number(chargeSubject),
     subjectName: subject?.name || chargeSubject,
     contractStr,
     contractId,
     contractDetailId,
-    note: [_instance.instance_no, formData.remark].filter(Boolean).join('+'),
+    note: [_instance.instance_no, form.getString('remark')].filter(Boolean).join('+'),
     brandId: originBrandId,
   });
 
@@ -558,15 +561,15 @@ async function handleCreateExpenditure(
 /** 节点6: 创建供应商收入单（仅供应商承担=是时执行） */
 async function handleCreateSupplierIncome(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
-  if (formData.supplierBorne !== 'yes') return; // 非供应商承担场景跳过
+  if (form.getString('supplierBorne') !== 'yes') return; // 非供应商承担场景跳过
 
-  const supplierId = formData.supplierId as string;
-  const supplierName = (formData._supplierName as string) || '';
-  const supplierAmount = Number(formData.supplierAmount || 0);
-  const incomeCategoryId = formData.incomeCategoryId as number;
-  const incomeCategoryName = (formData._incomeCategoryName as string) || '';
+  const supplierId = form.getString('supplierId') ?? '';
+  const supplierName = form.getString('_supplierName') ?? '';
+  const supplierAmount = form.getNumber('supplierAmount') ?? 0;
+  const incomeCategoryId = form.getNumber('incomeCategoryId') ?? 0;
+  const incomeCategoryName = form.getString('_incomeCategoryName') ?? '';
 
   const { defaultSalesmanId, defaultDeptId, defaultDeptName } = getErpDefaults();
   const idemKey = `sb-income-${instance.id}-6`;
@@ -591,7 +594,7 @@ async function handleCreateSupplierIncome(
       salesmanId: defaultSalesmanId,
       deptId: defaultDeptId,
       workTime: beijingDateTime(),
-      note: [instance.instance_no, formData.remark].filter(Boolean).join('+'),
+      note: [instance.instance_no, form.getString('remark')].filter(Boolean).join('+'),
     },
     idemKey,
     instance.id
@@ -615,7 +618,7 @@ async function handleCreateSupplierIncome(
 
 async function handleMarketExpenseRejected(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
   const erpMeta = getErpMeta(instance);
   const responseData = erpMeta?.responseData;
@@ -629,7 +632,7 @@ async function handleMarketExpenseRejected(
 
   // 现金场景: 反审核费用单 -> 取消费用单
   const expenditureBillId = responseData.expenditureBillId as number;
-  if (formData.expenseType === 'cash' && expenditureBillId) {
+  if (form.getString('expenseType') === 'cash' && expenditureBillId) {
     try {
       await cleanupExpenditureBill(expenditureBillId);
       log.info(`[市场费用] 费用单已清理: billId=${expenditureBillId}`);
@@ -740,14 +743,15 @@ export const marketExpenseFormType: FormTypeDefinition = {
   onApproved: handleMarketExpenseAutoNode,
   onRejected: handleMarketExpenseRejected,
 
-  beforeApprove: (nodeOrder, formData) => {
+  beforeApprove: (nodeOrder, form) => {
     const errors: string[] = [];
-    if (nodeOrder === 5 && formData.supplierBorne === 'yes') {
-      if (!formData.supplierId) errors.push('供应商不能为空');
-      if (!formData._supplierName) errors.push('供应商名称不能为空');
-      if (!formData.supplierAmount || Number(formData.supplierAmount) <= 0) errors.push('供应商承担金额必须大于0');
-      if (!formData.incomeCategoryId) errors.push('收入类别不能为空');
-      if (!formData._incomeCategoryName) errors.push('收入类别名称不能为空');
+    if (nodeOrder === 5 && form.getString('supplierBorne') === 'yes') {
+      if (!form.getRaw('supplierId')) errors.push('供应商不能为空');
+      if (!form.getString('_supplierName')) errors.push('供应商名称不能为空');
+      const supplierAmount = form.getNumber('supplierAmount');
+      if (!supplierAmount || supplierAmount <= 0) errors.push('供应商承担金额必须大于0');
+      if (!form.getRaw('incomeCategoryId')) errors.push('收入类别不能为空');
+      if (!form.getString('_incomeCategoryName')) errors.push('收入类别名称不能为空');
     }
     return errors;
   },

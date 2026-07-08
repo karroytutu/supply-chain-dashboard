@@ -79,27 +79,43 @@ function getPerm(
 }
 
 // =====================================================
+// 辅助：searchApi 表格字段加载（含 _details 历史数据兜底）
+// =====================================================
+
+/**
+ * 加载 searchApi 表格字段的初始值：
+ * 1. 主字段为对象数组（新格式）→ 直接使用
+ * 2. 主字段为 ID 数组（历史格式）→ 从 _details 兜底读取完整记录
+ * 3. 都不满足 → 返回空数组
+ */
+function loadTableField(formData: Record<string, unknown>, key: string): unknown[] {
+  const val = formData[key];
+  if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object' && val[0] !== null) {
+    return val;
+  }
+  // 历史数据兼容：主字段为 ID 数组时从 _details 兜底
+  const details = formData._details as Record<string, unknown> | undefined;
+  const detailRecords = details?.[key];
+  if (Array.isArray(detailRecords) && detailRecords.length > 0 && typeof detailRecords[0] === 'object') {
+    return detailRecords;
+  }
+  return Array.isArray(val) ? val : [];
+}
+
+// =====================================================
 // 组件
 // =====================================================
 
 const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSectionProps>(
   ({ formSchema, formData, formTypeCode, fieldPermissions, fieldOptionFilter, resolvedMap, erpLicenseUrls, layout }, ref) => {
     // 内部编辑状态：仅跟踪可编辑字段的值（formula 字段不参与编辑状态跟踪）
-    // searchApi 表格字段（模式一）：从 _details 加载完整记录数组，而非 formData 中的 ID 数组
+    // searchApi 表格字段：直接从主字段加载完整记录数组（模式一）
     const [editedValues, setEditedValues] = useState<Record<string, unknown>>(() => {
       const init: Record<string, unknown> = {};
       formSchema.fields.forEach(f => {
         if (getPerm(fieldPermissions, f.key, formTypeCode) === 'editable' && f.type !== 'formula') {
           if (f.type === 'table' && f.searchApi) {
-            const details = formData._details as Record<string, unknown> | undefined;
-            const detailRecords = details?.[f.key];
-            if (Array.isArray(detailRecords) && detailRecords.length > 0 && typeof detailRecords[0] === 'object') {
-              init[f.key] = detailRecords;
-            } else if (Array.isArray(formData[f.key]) && (formData[f.key] as unknown[]).length > 0 && typeof (formData[f.key] as unknown[])[0] === 'object') {
-              init[f.key] = formData[f.key];
-            } else {
-              init[f.key] = [];
-            }
+            init[f.key] = loadTableField(formData, f.key);
           } else {
             init[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
           }
@@ -117,15 +133,7 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
       formSchema.fields.forEach(f => {
         if (getPerm(fieldPermissions, f.key, formTypeCode) === 'editable' && f.type !== 'formula') {
           if (f.type === 'table' && f.searchApi) {
-            const details = formData._details as Record<string, unknown> | undefined;
-            const detailRecords = details?.[f.key];
-            if (Array.isArray(detailRecords) && detailRecords.length > 0 && typeof detailRecords[0] === 'object') {
-              reset[f.key] = detailRecords;
-            } else if (Array.isArray(formData[f.key]) && (formData[f.key] as unknown[]).length > 0 && typeof (formData[f.key] as unknown[])[0] === 'object') {
-              reset[f.key] = formData[f.key];
-            } else {
-              reset[f.key] = [];
-            }
+            reset[f.key] = loadTableField(formData, f.key);
           } else {
             reset[f.key] = formData[f.key] ?? (f.defaultValue ?? null);
           }
@@ -189,14 +197,11 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
     useImperativeHandle(ref, () => ({
       getEditedValues(): Record<string, unknown> {
         const result: Record<string, unknown> = {};
-        const detailsUpdates: Record<string, unknown> = {};
         Object.entries(editedValues).forEach(([key, val]) => {
           // _ 前缀的内部数据（如 _details 自动持久化记录）直接透传
           if (key.startsWith('_')) {
             if (key === '_details' && val !== formData[key]) {
               // _details 深合并：保留原始 _details 中未被当前编辑覆盖的字段
-              // 例：原始 _details 有 receivableOrderIds，编辑只改了 unreconciledOrderIds
-              // 合并后两者都保留，避免后续节点编辑覆盖之前的表格选择记录
               const originalDetails = (formData._details as Record<string, unknown>) || {};
               const editedDetails = (val as Record<string, unknown>) || {};
               result._details = { ...originalDetails, ...editedDetails };
@@ -210,46 +215,11 @@ const EditableFormSection = forwardRef<EditableFormSectionRef, EditableFormSecti
           // 跳过当前不可见字段
           if (field.visibleWhen && !checkCondition(field.visibleWhen, mergedValues)) return;
 
-          // searchApi 表格字段（模式一）：提交边界 transform
-          // value 是完整记录数组 → 提取 ID 数组给后端 + 存档记录到 _details
-          if (field.type === 'table' && field.searchApi && Array.isArray(val)) {
-            const valueKey = field.valueKey || 'id';
-            const records = val as Record<string, unknown>[];
-            const ids = records.map(r => r[valueKey]);
-            // 变更检测：比较提取的 ID 数组与 formData 原始值
-            const originalIds = Array.isArray(formData[key]) ? formData[key] as unknown[] : [];
-            const idsChanged = ids.length !== originalIds.length ||
-              ids.some((id, i) => String(id) !== String(originalIds[i]));
-            if (idsChanged) {
-              result[key] = ids;
-            }
-            // _details 存档：合并 value 记录与已有 _details 中的用户编辑数据
-            const editedDetails = (editedValues._details as Record<string, unknown>) || {};
-            const existingDetailRecords = editedDetails[key] as Record<string, unknown>[] | undefined;
-            if (field.editableAmount && existingDetailRecords) {
-              // editableAmount 字段：保留用户在 EditableAmountList 中编辑的金额字段
-              const editedMap = new Map(existingDetailRecords.map(r => [String(r[valueKey]), r]));
-              detailsUpdates[key] = records.map(r => ({
-                ...r,
-                ...(editedMap.get(String(r[valueKey])) || {}),
-              }));
-            } else if (idsChanged) {
-              detailsUpdates[key] = records;
-            }
-            return;
-          }
-
-          // 只返回变更过的字段（对引用类型如数组，使用引用不等判断）
+          // 所有字段（含 searchApi 表格）统一变更检测：引用不等即视为变更
           if (val !== formData[key]) {
             result[key] = val;
           }
         });
-        // 合并 searchApi 记录到 _details
-        if (Object.keys(detailsUpdates).length > 0) {
-          const originalDetails = (formData._details as Record<string, unknown>) || {};
-          const editedDetails = (result._details as Record<string, unknown>) || {};
-          result._details = { ...originalDetails, ...editedDetails, ...detailsUpdates };
-        }
         return result;
       },
       validate(): string[] {

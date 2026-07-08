@@ -14,6 +14,7 @@ const log = createLogger('PurchasePaymentCallback');
 import { appQuery as query } from '../../db/appPool';
 import { beijingDateTime } from '../../utils/beijingTime';
 import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
+import type { FormAccessor } from '../oa/form-accessor';
 import { getErpMeta } from '../fixed-asset/erp-meta-utils';
 import {
   createPaidBill,
@@ -42,7 +43,7 @@ import { PAYMENT_TYPE } from '../oa/form-types/purchase-payment';
  */
 export async function handlePurchasePaymentAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
   const currentNodeResult = await query<{ node_order: number; node_name: string }>(
     `SELECT node_order, node_name FROM oa_approval_nodes
@@ -59,13 +60,13 @@ export async function handlePurchasePaymentAutoNode(
     return;
   }
 
-  const paymentType = formData.paymentType as string;
+  const paymentType = form.getString('paymentType');
 
   if (paymentType === PAYMENT_TYPE.POSTPAY) {
-    return handlePostpayPayment(instance, formData);
+    return handlePostpayPayment(instance, form);
   }
   if (paymentType === PAYMENT_TYPE.PREPAY) {
-    return handlePrepayPayment(instance, formData);
+    return handlePrepayPayment(instance, form);
   }
 
   log.warn(`[采购付款] 未知的付款类型: ${paymentType}`);
@@ -77,21 +78,21 @@ export async function handlePurchasePaymentAutoNode(
 
 async function handlePostpayPayment(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   const { defaultSalesmanId, defaultDeptId } = getErpDefaults();
 
-  const supplierId = formData.supplierId as string;
-  const actualAmount = formData.actualAmount as string;
-  const paymentSubjectId = formData.paymentSubjectId as number;
-  const wipeOffAmount = formData.discountAmount as string || '0';
+  const supplierId = form.getString('supplierId') ?? '';
+  const actualAmount = form.getString('actualAmount');
+  const paymentSubjectId = form.getNumber('paymentSubjectId');
+  const wipeOffAmount = form.getString('discountAmount') ?? '0';
 
   if (!supplierId) {
     throw new Error('缺少供应商');
   }
 
   // 从 _details.debtIds 读取自动持久化的应付单据明细（含部分付款金额和抹零）
-  const details = formData._details as Record<string, unknown> | undefined;
+  const details = form.getRaw('_details') as Record<string, unknown> | undefined;
   const debtDetails = details?.debtIds as Array<{
     bizId: number;
     billTypeEnum: string;
@@ -104,7 +105,7 @@ async function handlePostpayPayment(
   }
 
   // 构造 invoiceList：纯预付款核销时用 leftAmount（全额结算），部分付款时用 paymentAmount
-  const isPurePrepay = formData._isPurePrepayWriteOff === 1 || formData._isPurePrepayWriteOff === '1';
+  const isPurePrepay = form.getRaw('_isPurePrepayWriteOff') === 1 || form.getString('_isPurePrepayWriteOff') === '1';
   const invoiceList: PaidBillInvoiceInput[] = debtDetails.map(debt => ({
     bizId: debt.bizId,
     bizType: debt.billTypeEnum,
@@ -134,7 +135,7 @@ async function handlePostpayPayment(
 
   // paymentDetails 构建：纯预付款核销无需银行转账，优先使用 paymentLines，降级使用旧字段
   // 兼容两种格式：新格式用 id，旧格式用 paymentSubjectId
-  const paymentLines = formData.paymentLines as Array<{
+  const paymentLines = form.getTableRecords('paymentLines') as Array<{
     id?: number;
     paymentSubjectId?: number;
     amount?: string;
@@ -201,21 +202,21 @@ async function handlePostpayPayment(
 
 async function handlePrepayPayment(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   const { defaultSalesmanId } = getErpDefaults();
 
-  const supplierId = formData.supplierId as string;
-  const actualAmount = formData.actualAmount as string;
-  const prepayAmount = formData.prepayAmount as string;
-  const paymentSubjectId = formData.paymentSubjectId as number;
+  const supplierId = form.getString('supplierId') ?? '';
+  const actualAmount = form.getString('actualAmount');
+  const prepayAmount = form.getString('prepayAmount');
+  const paymentSubjectId = form.getNumber('paymentSubjectId');
 
   if (!supplierId) {
     throw new Error('缺少供应商');
   }
 
   // paymentDetails：优先使用多银行账户明细（paymentLines），降级使用出纳单一付款账户
-  const paymentLines = formData.paymentLines as Array<{
+  const paymentLines = form.getTableRecords('paymentLines') as Array<{
     id?: number;
     paymentSubjectId?: number;
     amount?: string;
@@ -291,7 +292,7 @@ async function handlePrepayPayment(
  */
 export async function handlePurchasePaymentRejected(
   instance: OaInstanceRow,
-  _formData: Record<string, unknown>
+  _form: FormAccessor
 ): Promise<void> {
   const erpMeta = getErpMeta(instance);
   if (!erpMeta?.responseData) {

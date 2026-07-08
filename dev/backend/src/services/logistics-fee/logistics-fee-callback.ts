@@ -14,6 +14,7 @@ const log = createLogger('LogisticsFeeCallback');
 import { appQuery as query } from '../../db/appPool';
 import { beijingDateTime } from '../../utils/beijingTime';
 import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
+import type { FormAccessor } from '../oa/form-accessor';
 import {
   getErpMeta,
 } from '../fixed-asset/erp-meta-utils';
@@ -44,7 +45,7 @@ import { FEE_SUBJECT_MAP } from '../oa/form-types/logistics-fee';
  */
 export async function handleLogisticsFeeAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
   const currentNodeResult = await query<{ node_order: number; node_name: string }>(
     `SELECT node_order, node_name FROM oa_approval_nodes
@@ -59,11 +60,11 @@ export async function handleLogisticsFeeAutoNode(
 
   switch (nodeOrder) {
     case 3:
-      return handleCreateExpenseBill(instance, formData);
+      return handleCreateExpenseBill(instance, form);
     case 4:
-      return handleCreatePaymentBill(instance, formData);
+      return handleCreatePaymentBill(instance, form);
     case 5:
-      return handleCreateExpenseAllocation(instance, formData);
+      return handleCreateExpenseAllocation(instance, form);
     default:
       log.warn(`[物流费用] 未知的auto节点: nodeOrder=${nodeOrder}, nodeName=${nodeName}`);
   }
@@ -82,14 +83,14 @@ export async function handleLogisticsFeeAutoNode(
  */
 async function handleCreateExpenseBill(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   const { defaultSalesmanId, defaultDeptId } = getErpDefaults();
 
-  const feeSupplierId = formData.feeSupplierId as string;
-  const feeSupplierName = formData.feeSupplierName as string;
-  const feeType = formData.feeType as string;
-  const feeLines = (formData.feeLines as Array<Record<string, unknown>>) || [];
+  const feeSupplierId = form.getString('feeSupplierId') ?? '';
+  const feeSupplierName = form.getString('feeSupplierName') ?? '';
+  const feeType = form.getString('feeType') ?? '';
+  const feeLines = form.getTableRecords('feeLines');
 
   if (!feeSupplierId || !feeType || feeLines.length === 0) {
     throw new Error('缺少费用供应商、费用类型或费用明细');
@@ -167,13 +168,13 @@ async function handleCreateExpenseBill(
  */
 async function handleCreatePaymentBill(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   const { defaultSalesmanId, defaultDeptId } = getErpDefaults();
 
-  const paymentAmount = formData.paymentAmount as string;
-  const paymentSubjectId = formData.paymentSubjectId as number;
-  const feeSupplierId = formData.feeSupplierId as string;
+  const paymentAmount = form.getString('paymentAmount') ?? '';
+  const paymentSubjectId = form.getNumber('paymentSubjectId') ?? 0;
+  const feeSupplierId = form.getString('feeSupplierId') ?? '';
 
   if (!paymentAmount || !paymentSubjectId || !feeSupplierId) {
     throw new Error('缺少实付金额、付款账户或费用供应商');
@@ -194,7 +195,7 @@ async function handleCreatePaymentBill(
     bizId: expenditureBillId,
     bizType: 'SUPPLIER_EXPENDITURE',
     leftAmount: String(expenditureTotalAmount || paymentAmount),
-    originNote: `${instance.instance_no} ${formData.feeType === 'logistics_fee' ? '物流费用' : '装卸费用'}`,
+    originNote: `${instance.instance_no} ${form.getString('feeType') === 'logistics_fee' ? '物流费用' : '装卸费用'}`,
   }];
 
   const idemKey = buildLogisticsFeeIdemKey('PAID', instance.id, 4);
@@ -240,7 +241,7 @@ async function handleCreatePaymentBill(
  */
 async function handleCreateExpenseAllocation(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   const erpMeta = getErpMeta(instance);
   const expenditureBillStr = erpMeta?.responseData?.expenditureBillStr as string;
@@ -269,20 +270,20 @@ async function handleCreateExpenseAllocation(
   // 2. 从 formData 获取结算单行项的 bizDetailId + amount
   let settlementLineItems: Array<{ bizDetailId: number; amount: string }> = [];
   try {
-    const rawItems = formData._settlementLineItems as string;
+    const rawItems = form.getString('_settlementLineItems');
     if (rawItems) {
       settlementLineItems = JSON.parse(rawItems);
     }
   } catch {
     log.warn('[物流费用] 预存的结算单行项数据解析失败，将重新查询 ERP');
   }
-
+  
   // 兜底：如果预存数据为空，按结算单号重新查询 ERP
   // （已失败的申请因 beforeSubmit 的 supplierIdList bug 导致预存为空）
   if (settlementLineItems.length === 0) {
     log.info('[物流费用] 预存的结算单行项为空，重新查询可分摊明细');
     try {
-      const feeLines = (formData.feeLines as Array<Record<string, unknown>>) || [];
+      const feeLines = form.getTableRecords('feeLines');
       const billStrSet = new Set<string>();
       for (const line of feeLines) {
         if (line.settlementBillStr) billStrSet.add(line.settlementBillStr as string);
@@ -371,7 +372,7 @@ async function handleCreateExpenseAllocation(
  */
 export async function handleLogisticsFeeRejected(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  _form: FormAccessor
 ): Promise<void> {
   const erpMeta = getErpMeta(instance);
   const responseData = erpMeta?.responseData;

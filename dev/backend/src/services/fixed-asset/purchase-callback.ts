@@ -9,6 +9,7 @@ const log = createLogger('FixedAsset');
 
 import { appQuery as query } from '../../db/appPool';
 import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
+import type { FormAccessor } from '../oa/form-accessor';
 import { getErpStaff, searchErpAssets } from './fixed-asset.query';
 import { getErpMeta, updateErpMetaStatus, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults, type ErpBillResponse } from '../erp-client';
@@ -26,7 +27,7 @@ import {
  */
 export async function handleAssetPurchaseAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
   const currentNodeResult = await query<{ node_order: number; node_name: string }>(
     `SELECT node_order, node_name FROM oa_approval_nodes
@@ -41,9 +42,9 @@ export async function handleAssetPurchaseAutoNode(
 
   switch (nodeOrder) {
     case 6:
-      return handleCreateExpenseBill(instance, formData);
+      return handleCreateExpenseBill(instance, form);
     case 9:
-      return handleCreateAssetCards(instance, formData);
+      return handleCreateAssetCards(instance, form);
     default:
       log.warn(`[固定资产采购] 未知的auto节点: nodeOrder=${nodeOrder}, nodeName=${nodeName}`);
   }
@@ -55,15 +56,15 @@ export async function handleAssetPurchaseAutoNode(
  */
 async function handleCreateExpenseBill(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   try {
     await updateErpMetaStatus(instance.id, 'paying');
 
-    const lines = (formData.purchaseLines as PurchaseLine[]) || [];
-    const paymentAmount = (formData.paymentAmount as string) || '0';
-    const paymentSubjectId = formData.paymentSubjectId as number;
-    const paymentDate = normalizeDateTime(formData.paymentDate as string);
+    const lines = form.getTableRecords('purchaseLines') as unknown as PurchaseLine[];
+    const paymentAmount = form.getString('paymentAmount') ?? '0';
+    const paymentSubjectId = form.getNumber('paymentSubjectId');
+    const paymentDate = normalizeDateTime(form.getString('paymentDate') ?? '');
 
     const { defaultSalesmanId, defaultDeptId } = getErpDefaults();
     const staff = await getErpStaff();
@@ -143,13 +144,13 @@ async function handleCreateExpenseBill(
  */
 async function handleCreateAssetCards(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   try {
     await updateErpMetaStatus(instance.id, 'storing');
 
-    const purchaseLines = (formData.purchaseLines as PurchaseLine[]) || [];
-    const arrivalLines = (formData.arrivalLines as Record<string, unknown>[]) || [];
+    const purchaseLines = form.getTableRecords('purchaseLines') as unknown as PurchaseLine[];
+    const arrivalLines = form.getTableRecords('arrivalLines');
     const lines = purchaseLines.map((line, i) => ({
       ...line,
       ...arrivalLines[i],

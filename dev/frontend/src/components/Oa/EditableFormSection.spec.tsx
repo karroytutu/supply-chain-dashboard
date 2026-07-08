@@ -402,9 +402,9 @@ describe('EditableFormSection', () => {
     });
   });
 
-  // ---- searchApi 表格字段（模式一：value = 完整记录数组） ----
+  // ---- searchApi 表格字段（直接从主字段加载完整记录数组） ----
 
-  describe('searchApi 表格字段（模式一）', () => {
+  describe('searchApi 表格字段', () => {
     const record1 = { id: 101, bizOrderStr: 'XD001', totalAmount: 100 };
     const record2 = { id: 102, bizOrderStr: 'XD002', totalAmount: 200 };
     const record3 = { id: 103, bizOrderStr: 'XD003', totalAmount: 300 };
@@ -424,89 +424,62 @@ describe('EditableFormSection', () => {
       ]);
     }
 
-    it('初始化：从 _details 加载记录数组', () => {
+    it('初始化：从主字段直接加载记录数组', () => {
       const ref = createRef<EditableFormSectionRef>();
       const schema = makeSearchApiSchema();
       const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
       const formData = {
         customerId: 'C1',
-        orderIds: [101, 102], // 旧格式：ID 数组
-        _details: { orderIds: [record1, record2] },
+        orderIds: [record1, record2], // 主字段直接存完整记录数组
       };
       render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
-      // 未变更时 getEditedValues 返回空（记录数组与 _details 一致）
+      // 初始化从 formData.orderIds 加载记录数组，引用相同 → 无变更
       const values = ref.current!.getEditedValues();
-      // orderIds 未变更（初始化从 _details 加载，与 formData._details 一致），不出现在 result
       expect(values.orderIds).toBeUndefined();
     });
 
-    it('初始化兜底：_details 缺失时初始化空数组', () => {
+    it('初始化：主字段为 ID 数组时直接加载（历史数据兼容）', () => {
       const ref = createRef<EditableFormSectionRef>();
       const schema = makeSearchApiSchema();
       const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
       const formData = { customerId: 'C1', orderIds: [101, 102] };
       render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
-      // _details 不存在，orderIds 初始化为空数组，与 formData 中的 [101, 102] 不同 → 视为变更
-      const values = ref.current!.getEditedValues();
-      expect(values.orderIds).toEqual([]); // 空数组（ID 提取后）
-    });
-
-    it('初始化兜底：_details 为 ID 数组（旧格式）时初始化空数组', () => {
-      const ref = createRef<EditableFormSectionRef>();
-      const schema = makeSearchApiSchema();
-      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
-      const formData = {
-        customerId: 'C1',
-        orderIds: [101, 102],
-        _details: { orderIds: [101, 102] }, // 旧格式：ID 数组而非记录数组
-      };
-      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
-      const values = ref.current!.getEditedValues();
-      // typeof [0] === 'number' !== 'object'，走兜底空数组
-      expect(values.orderIds).toEqual([]);
-    });
-
-    it('初始化兼容：formData 直接存记录数组时加载', () => {
-      const ref = createRef<EditableFormSectionRef>();
-      const schema = makeSearchApiSchema();
-      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
-      const formData = {
-        customerId: 'C1',
-        orderIds: [record1, record2], // 新模式保存过的数据
-      };
-      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
-      // formData.orderIds 是记录数组，初始化加载
-      // getEditedValues transform 提取 ID [101, 102] 与 formData.orderIds（记录数组）不同 → 报告变更
-      // 这是过渡期行为，首次保存后 formData 会存储 ID 数组
-      const values = ref.current!.getEditedValues();
-      expect(values.orderIds).toEqual([101, 102]);
-    });
-
-    it('getEditedValues transform：提取 ID 数组 + 存档 _details', () => {
-      const ref = createRef<EditableFormSectionRef>();
-      const schema = makeSearchApiSchema();
-      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
-      // formData.orderIds 是 ID 数组（标准格式），_details 有对应记录
-      const formData = {
-        customerId: 'C1',
-        orderIds: [101, 102],
-        _details: { orderIds: [record1, record2] },
-      };
-      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
-      // 初始化从 _details 加载 [record1, record2]
-      // transform 提取 ID [101, 102] 与 formData.orderIds=[101,102] 一致 → 无变更
+      // typeof 101 !== 'object'，走 else 分支直接加载 [101, 102]，引用相同 → 无变更
       const values = ref.current!.getEditedValues();
       expect(values.orderIds).toBeUndefined();
     });
 
-    it('mergedValues：searchApi 表格编辑后 _details 实时更新', async () => {
+    it('初始化：主字段缺失时初始化为空数组', () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema();
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      const formData = { customerId: 'C1' }; // orderIds 缺失
+      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
+      // formData.orderIds 为 undefined，初始化为 []，[] !== undefined → 视为变更
+      const values = ref.current!.getEditedValues();
+      expect(values.orderIds).toEqual([]);
+    });
+
+    it('getEditedValues：统一变更检测，返回完整记录数组（非 ID 数组）', () => {
       const ref = createRef<EditableFormSectionRef>();
       const schema = makeSearchApiSchema();
       const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
       const formData = {
         customerId: 'C1',
-        orderIds: [101],
-        _details: { orderIds: [record1] },
+        orderIds: [record1],
+      };
+      render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
+      // 未变更时 getEditedValues 返回空
+      expect(ref.current!.getEditedValues().orderIds).toBeUndefined();
+    });
+
+    it('mergedValues：searchApi 表格的 _details 实时同步（供 scopeFromField 使用）', async () => {
+      const ref = createRef<EditableFormSectionRef>();
+      const schema = makeSearchApiSchema();
+      const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
+      const formData = {
+        customerId: 'C1',
+        orderIds: [record1],
       };
       const { rerender } = render(
         <EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />
@@ -519,32 +492,30 @@ describe('EditableFormSection', () => {
           fieldPermissions: perms,
           formData: {
             customerId: 'C1',
-            orderIds: [101, 102, 103],
-            _details: { orderIds: [record1, record2, record3] },
+            orderIds: [record1, record2, record3],
           },
         })} ref={ref} />
       );
 
       await waitFor(() => {
         const values = ref.current!.getEditedValues();
-        // _details 变化触发了初始化重置，新 _details 有 3 条记录
-        // formData.orderIds=[101,102,103] 与初始化加载的 3 条记录 ID 一致 → 无变更
+        // formData 变化触发重置，editedValues.orderIds = [record1, record2, record3]
+        // 与新 formData.orderIds 引用相同 → 无变更
         expect(values.orderIds).toBeUndefined();
       });
     });
 
-    it('editableAmount 字段：transform 保留用户编辑金额', () => {
+    it('editableAmount 字段：记录数组中保留用户编辑的金额', () => {
       const ref = createRef<EditableFormSectionRef>();
       const schema = makeSearchApiSchema({ editableAmount: true, amountKey: 'leftAmount' });
       const perms = { customerId: 'readonly' as FieldPermission, orderIds: 'editable' as FieldPermission };
       const editedRecord = { ...record1, useAmount: 50 }; // 用户编辑了 useAmount
       const formData = {
         customerId: 'C1',
-        orderIds: [101], // ID 数组与 _details 记录对应
-        _details: { orderIds: [editedRecord] },
+        orderIds: [editedRecord], // 主字段直接存完整记录数组（含编辑后的金额）
       };
       render(<EditableFormSection {...makeProps({ formSchema: schema, fieldPermissions: perms, formData })} ref={ref} />);
-      // 初始化从 _details 加载 editedRecord，formData.orderIds=[101] 与记录 ID 一致 → 无变更
+      // 初始化从 formData.orderIds 加载 editedRecord，引用相同 → 无变更
       const values = ref.current!.getEditedValues();
       expect(values.orderIds).toBeUndefined();
     });

@@ -20,6 +20,7 @@ import {
   WorkflowNodeDef,
 } from '../oa.types';
 import { OA_ROLE } from '../oa-role-codes';
+import type { FormAccessor } from '../form-accessor';
 import { createLogger } from '../../../utils/logger';
 import { appQuery } from '../../../db/appPool';
 import {
@@ -390,15 +391,15 @@ async function beforeSubmitCustomerReconciliation(
 
 function beforeApproveCustomerReconciliation(
   nodeOrder: number,
-  formData: Record<string, unknown>,
+  form: FormAccessor,
   inputData?: Record<string, unknown>
 ): string[] {
   const errors: string[] = [];
 
   // Node 7（差异审核）：校验差异处理单据非空
   if (nodeOrder === 7) {
-    // formData 已被引擎 mergeFormData 预合并，直接使用
-    const differenceOrderIds = formData.differenceOrderIds as string[];
+    // form 已被引擎 mergeFormData 预合并，直接使用
+    const differenceOrderIds = form.getTableIds('differenceOrderIds', 'id');
     if (!differenceOrderIds?.length) {
       errors.push('差异处理单据不能为空');
     }

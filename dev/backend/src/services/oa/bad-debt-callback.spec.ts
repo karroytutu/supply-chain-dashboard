@@ -37,6 +37,7 @@ import {
   handleBadDebtRejected,
 } from './bad-debt-callback';
 import type { OaInstanceRow } from './oa.types';
+import { createFormAccessor } from './form-accessor';
 
 // =====================================================
 // 测试辅助
@@ -88,8 +89,7 @@ const billRecords = [
 const baseFormData = {
   customerId: '6288',
   _customerName: '测试客户',
-  billDetails: [114415, 99200], // 前端表格字段存储的是 ID 数组
-  _details: { billDetails: billRecords }, // 完整记录存在 _details 中
+  billDetails: billRecords, // 完整记录数组（模式一）
   badDebtAmount: '1000',
   badDebtReason: '客户失联，无法收回',
 };
@@ -115,7 +115,7 @@ describe('handleBadDebtAutoNode', () => {
     });
 
     const instance = makeInstance();
-    const result = await handleBadDebtAutoNode(instance, { ...baseFormData });
+    const result = await handleBadDebtAutoNode(instance, createFormAccessor({ ...baseFormData }));
 
     expect(mockCreateExpenditure).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -157,7 +157,7 @@ describe('handleBadDebtAutoNode', () => {
       _expenditureBillStr: 'KHFY2607030007',
     };
 
-    const result = await handleBadDebtAutoNode(instance, formDataWithExpense);
+    const result = await handleBadDebtAutoNode(instance, createFormAccessor(formDataWithExpense));
 
     expect(mockCreateReceipt).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -217,7 +217,7 @@ describe('handleBadDebtAutoNode', () => {
       _expenditureBillStr: 'KHFY2607030007',
     };
 
-    await handleBadDebtAutoNode(instance, formDataWithExpense);
+    await handleBadDebtAutoNode(instance, createFormAccessor(formDataWithExpense));
 
     const callArgs = mockCreateReceipt.mock.calls[0][0];
     const expenditureLine = callArgs.invoiceList.find(
@@ -242,7 +242,7 @@ describe('handleBadDebtAutoNode', () => {
       _expenditureBillStr: 'KHFY2607030007',
     };
 
-    const result = await handleBadDebtAutoNode(instance, formDataWithExisting);
+    const result = await handleBadDebtAutoNode(instance, createFormAccessor(formDataWithExisting));
 
     expect(mockCreateExpenditure).not.toHaveBeenCalled();
     expect(result).toEqual({
@@ -267,7 +267,7 @@ describe('handleBadDebtAutoNode', () => {
       _receiptBillStr: 'SK26070300032',
     };
 
-    const result = await handleBadDebtAutoNode(instance, formDataWithExisting);
+    const result = await handleBadDebtAutoNode(instance, createFormAccessor(formDataWithExisting));
 
     expect(mockCreateReceipt).not.toHaveBeenCalled();
     expect(result).toEqual({
@@ -296,7 +296,7 @@ describe('handleBadDebtRejected', () => {
       _receiptBillStr: 'SK26070300032',
     };
 
-    await handleBadDebtRejected(instance, formData);
+    await handleBadDebtRejected(instance, createFormAccessor(formData));
 
     expect(mockCleanup).toHaveBeenCalledWith(9929, 83075);
   });
@@ -311,14 +311,14 @@ describe('handleBadDebtRejected', () => {
       _expenditureBillStr: 'KHFY2607030007',
     };
 
-    await handleBadDebtRejected(instance, formData);
+    await handleBadDebtRejected(instance, createFormAccessor(formData));
 
     expect(mockCleanup).toHaveBeenCalledWith(9929, undefined);
   });
 
   it('驳回回滚（无单据）: 跳过清理', async () => {
     const instance = makeInstance();
-    await handleBadDebtRejected(instance, { ...baseFormData });
+    await handleBadDebtRejected(instance, createFormAccessor({ ...baseFormData }));
 
     expect(mockCleanup).not.toHaveBeenCalled();
   });

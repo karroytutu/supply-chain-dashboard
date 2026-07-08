@@ -21,6 +21,7 @@ import { appQuery } from '../../../db/appPool';
 import { createLogger } from '../../../utils/logger';
 import { getAllocatablePurchaseDetails } from '../../erp-client/erp-purchase-settlement.service';
 import { saveBankAccount } from '../user-bank-account.service';
+import { createFormAccessor } from '../form-accessor';
 import {
   handleLogisticsFeeAutoNode,
   handleLogisticsFeeRejected,
@@ -294,14 +295,15 @@ async function beforeSubmitLogisticsFee(
   formData: Record<string, unknown>,
   userId: number
 ): Promise<Record<string, unknown>> {
+  const form = createFormAccessor(formData);
   const result: Record<string, unknown> = {};
 
   // 1. 获取可分摊采购明细行项（含 bizDetailId + amount）
   // 此数据是 auto 节点5（创建费用分摊单）的必需前置数据，获取失败必须阻断提交
-  const settlementIds = formData.settlementIds as string[];
+  const settlementIds = form.getTableIds('settlementIds', 'billStr');
   if (settlementIds?.length) {
     // 从 feeLines 中提取结算单号列表
-    const feeLines = (formData.feeLines as Array<Record<string, unknown>>) || [];
+    const feeLines = form.getTableRecords('feeLines');
     const billStrSet = new Set<string>();
     for (const line of feeLines) {
       if (line.settlementBillStr) billStrSet.add(line.settlementBillStr as string);
@@ -327,6 +329,9 @@ async function beforeSubmitLogisticsFee(
 
     result._settlementLineItems = JSON.stringify(lineItems);
   }
+
+  // Task 9.1: 提取结算单号标量数组，供查重使用
+  result._settlementBillStrs = form.getTableIds('settlementIds', 'billStr');
 
   // 2. 防重检测已迁移至通用查重引擎（duplicateCheck 配置）
 
@@ -379,7 +384,7 @@ export const logisticsFeeFormType: FormTypeDefinition = {
 
   /** 通用查重配置：同费用类型 + 同结算单 = 重复 */
   duplicateCheck: {
-    matchFields: ['feeType', 'settlementIds'],
+    matchFields: ['feeType', '_settlementBillStrs'],
     includeStatuses: ['processing', 'approved'],
     displayFields: ['feeType', 'feeTotalAmount'],
     subjectLabel: '该结算单',

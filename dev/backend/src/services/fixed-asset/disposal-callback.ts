@@ -7,6 +7,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('FixedAsset');
 
 import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
+import type { FormAccessor } from '../oa/form-accessor';
 import { searchErpAssets, getErpStaff } from './fixed-asset.query';
 import { getErpMeta, updateErpMetaStatus, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults, type ErpBillResponse } from '../erp-client';
@@ -116,14 +117,17 @@ async function createIncomeRecord(
  */
 export async function handleAssetDisposalApproved(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const erpAssetId = formData.erpAssetId as number;
-  const disposalType = formData.disposalType as DisposalType;
-  const disposalDate = formData.disposalDate as string;
-  const hasIncome = formData.hasIncome as boolean;
-  const disposalValue = (formData.disposalValue as string) || '0';
-  const disposalReason = (formData.disposalReason as string) || '';
+  const erpAssetId = form.getNumber('erpAssetId');
+  if (!erpAssetId) {
+    throw new Error('固定资产报废失败：缺少固定资产ID');
+  }
+  const disposalType = form.getString('disposalType') as DisposalType;
+  const disposalDate = form.getString('disposalDate') ?? '';
+  const hasIncome = form.getBoolean('hasIncome') ?? false;
+  const disposalValue = form.getString('disposalValue') || '0';
+  const disposalReason = form.getString('disposalReason') ?? '';
 
   // 获取 APA 编号
   const erpMeta = getErpMeta(instance);

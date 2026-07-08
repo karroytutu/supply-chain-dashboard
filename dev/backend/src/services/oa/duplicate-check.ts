@@ -47,6 +47,13 @@ export async function checkDuplicate(
       }
 
       if (Array.isArray(value)) {
+        // fail-fast: table 类型字段（对象数组）不能直接用于查重
+        if (value.some(v => typeof v === 'object' && v !== null)) {
+          throw new Error(
+            `查重配置错误：字段 "${field}" 包含对象数组，` +
+            `table 类型字段不能用于 matchFields，请在 beforeSubmit 中提取标量辅助字段`
+          );
+        }
         // 数组类型字段（如 belongMonths）：使用 JSONB 包含查询
         // 匹配 form_data 中该字段包含任一相同元素
         paramIndex++;

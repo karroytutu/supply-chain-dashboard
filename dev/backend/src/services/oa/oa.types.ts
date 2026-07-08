@@ -3,6 +3,8 @@
  * @module services/oa/oa.types
  */
 
+import type { FormAccessor } from './form-accessor';
+
 // =====================================================
 // 表单分类相关类型
 // =====================================================
@@ -625,7 +627,7 @@ export interface FormTypeDefinition {
   /** 审批前校验（可选）：审批人点确认时触发，返回错误消息数组则阻断审批 */
   beforeApprove?: (
     nodeOrder: number,
-    formData: Record<string, unknown>,
+    form: FormAccessor,
     inputData?: Record<string, unknown>
   ) => string[];
   /** 实时预览计算钩子：指定字段变化时，后端根据 formData 计算展示字段值 */
@@ -638,9 +640,9 @@ export interface FormTypeDefinition {
    * 返回 { sendBack: true } 时，框架跳过后续的 mark-approved + advanceToNextNode
    * （用于回调内部已执行退回操作的场景）
    */
-  onApproved?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void | CallbackResult>;
+  onApproved?: (instance: OaInstanceRow, form: FormAccessor) => Promise<void | CallbackResult>;
   /** 审批驳回回调（可选） */
-  onRejected?: (instance: OaInstanceRow, formData: Record<string, unknown>) => Promise<void>;
+  onRejected?: (instance: OaInstanceRow, form: FormAccessor) => Promise<void>;
   /** data_input 节点完成回调（可选，按节点序号分发） */
   onNodeCompleted?: (
     instance: OaInstanceRow,

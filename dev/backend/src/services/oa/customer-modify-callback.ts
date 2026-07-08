@@ -24,6 +24,7 @@ import { resolveLicenseFilePath } from '../../middleware/credit-upload';
 import { CUSTOMER_STATE_DISABLED } from '../../utils/constants';
 import fs from 'fs';
 import type { OaInstanceRow } from './oa.types';
+import type { FormAccessor } from './form-accessor';
 
 /**
  * 捕获客户当前 ERP 档案的原始值，用于审批详情页变更对比
@@ -140,11 +141,11 @@ export async function beforeSubmitCustomerModify(
  */
 export async function onApprovedCustomerModify(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
-  const customerId = Number(formData.customer);
+  const customerId = form.getNumber('customer') ?? 0;
   const instanceId = instance.id;
-  const customerState = formData.customerState;
+  const customerState = form.getRaw('customerState');
 
   // 标记 ERP 处理中
   await updateErpMetaStatus(instanceId, 'processing');
@@ -163,13 +164,14 @@ export async function onApprovedCustomerModify(
 
     // ===== 处理门头照上传（如有） =====
     let newPictureImgId: string | undefined;
+    const storefrontPhoto = form.getRaw('storefrontPhoto');
     const hasPhotoUpload =
-      formData.storefrontPhoto &&
-      Array.isArray(formData.storefrontPhoto) &&
-      (formData.storefrontPhoto as Array<{ url?: string }>).some(p => p.url);
+      storefrontPhoto &&
+      Array.isArray(storefrontPhoto) &&
+      (storefrontPhoto as Array<{ url?: string }>).some(p => p.url);
 
     if (hasPhotoUpload) {
-      const photos = formData.storefrontPhoto as Array<{ url?: string }>;
+      const photos = storefrontPhoto as Array<{ url?: string }>;
       const photo = photos.find(p => p.url);
       if (photo?.url) {
         const filePath = resolveLicenseFilePath(photo.url);
@@ -190,64 +192,74 @@ export async function onApprovedCustomerModify(
     const updates: CustomerFieldUpdates = {};
 
     // 基本信息
-    if (formData.customerName !== undefined) updates.name = formData.customerName as string;
-    if (formData.contactName !== undefined) updates.contactName = formData.contactName as string;
-    if (formData.contactTel !== undefined) updates.contactTel = formData.contactTel as string;
-
+    const customerName = form.getString('customerName');
+    if (customerName !== undefined) updates.name = customerName;
+    const contactName = form.getString('contactName');
+    if (contactName !== undefined) updates.contactName = contactName;
+    const contactTel = form.getString('contactTel');
+    if (contactTel !== undefined) updates.contactTel = contactTel;
+    
     // 状态
     if (customerState !== undefined) updates.state = Number(customerState);
-
+    
     // 所属营销：存储 staff ID，需解析为 name 后同步更新 ERP
-    if (formData.consumerManagerId !== undefined && formData.consumerManagerId !== null) {
-      updates.consumerManagerId = Number(formData.consumerManagerId);
+    const consumerManagerId = form.getRaw('consumerManagerId');
+    if (consumerManagerId !== undefined && consumerManagerId !== null) {
+      updates.consumerManagerId = Number(consumerManagerId);
       // 优先使用隐藏字段中的名称（由 erp_staff 下拉 nameField 自动填充）
-      if (formData._consumerManagerName && String(formData._consumerManagerName).trim()) {
-        updates.consumerManagerName = String(formData._consumerManagerName);
+      const consumerManagerName = form.getString('_consumerManagerName');
+      if (consumerManagerName && consumerManagerName.trim()) {
+        updates.consumerManagerName = consumerManagerName;
       } else {
         // 兜底：通过 ERP staff API 解析名称
         const staffList = await getErpStaff();
-        const staff = staffList.find(s => String(s.id) === String(formData.consumerManagerId));
+        const staff = staffList.find(s => String(s.id) === String(consumerManagerId));
         if (staff) {
           updates.consumerManagerName = staff.name;
         }
       }
     }
-
+    
     // 服务员工：同所属营销，需同时更新 ID 和名称
-    if (formData.serviceStaffId !== undefined && formData.serviceStaffId !== null) {
-      updates.serviceStaffId = Number(formData.serviceStaffId);
-      if (formData._serviceStaffName && String(formData._serviceStaffName).trim()) {
-        updates.serviceStaffName = String(formData._serviceStaffName);
+    const serviceStaffId = form.getRaw('serviceStaffId');
+    if (serviceStaffId !== undefined && serviceStaffId !== null) {
+      updates.serviceStaffId = Number(serviceStaffId);
+      const serviceStaffName = form.getString('_serviceStaffName');
+      if (serviceStaffName && serviceStaffName.trim()) {
+        updates.serviceStaffName = serviceStaffName;
       } else {
         const staffList = await getErpStaff();
-        const staff = staffList.find(s => String(s.id) === String(formData.serviceStaffId));
+        const staff = staffList.find(s => String(s.id) === String(serviceStaffId));
         if (staff) {
           updates.serviceStaffName = staff.name;
         }
       }
     }
-
+    
     // 等级：需要同时更新 gradeId 和 gradeName
-    if (formData.gradeId !== undefined && formData.gradeId !== null) {
-      updates.gradeId = formData.gradeId as string | number;
+    const gradeId = form.getRaw('gradeId');
+    if (gradeId !== undefined && gradeId !== null) {
+      updates.gradeId = gradeId as string | number;
       const grades = await getErpGrades();
-      const grade = grades.find(g => String(g.id) === String(formData.gradeId));
+      const grade = grades.find(g => String(g.id) === String(gradeId));
       if (grade) updates.gradeName = grade.name;
     }
-
+    
     // 渠道：需要同时更新 groupId 和 groupName
-    if (formData.groupId !== undefined && formData.groupId !== null) {
-      updates.groupId = formData.groupId as string | number;
+    const groupId = form.getRaw('groupId');
+    if (groupId !== undefined && groupId !== null) {
+      updates.groupId = groupId as string | number;
       const groups = await getErpGroups();
-      const group = groups.find(g => String(g.id) === String(formData.groupId));
+      const group = groups.find(g => String(g.id) === String(groupId));
       if (group) updates.groupName = group.name;
     }
-
+    
     // 片区：需要同时更新 areaId 和 areaName
-    if (formData.areaId !== undefined && formData.areaId !== null) {
-      updates.areaId = formData.areaId as string | number;
+    const areaId = form.getRaw('areaId');
+    if (areaId !== undefined && areaId !== null) {
+      updates.areaId = areaId as string | number;
       const areas = await getErpAreas();
-      const area = areas.find(a => String(a.id) === String(formData.areaId));
+      const area = areas.find(a => String(a.id) === String(areaId));
       if (area) updates.areaName = area.name;
     }
 

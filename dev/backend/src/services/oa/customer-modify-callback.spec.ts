@@ -67,6 +67,7 @@ import {
   beforeSubmitCustomerModify,
   onApprovedCustomerModify,
 } from './customer-modify-callback';
+import { createFormAccessor } from './form-accessor';
 
 const mockGetRoles = getUserRolesAndPermissions as jest.MockedFunction<typeof getUserRolesAndPermissions>;
 const mockGetProfile = getErpCustomerProfile as jest.MockedFunction<typeof getErpCustomerProfile>;
@@ -136,7 +137,7 @@ describe('onApprovedCustomerModify', () => {
       contactName: '新联系人',
       contactTel: '999999',
     };
-    await onApprovedCustomerModify(mkInstance(), formData);
+    await onApprovedCustomerModify(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateMeta).toHaveBeenCalledWith(1, 'processing');
     expect(mockUpdateFields).toHaveBeenCalledWith(100, expect.objectContaining({
       name: '新客户名',
@@ -149,21 +150,21 @@ describe('onApprovedCustomerModify', () => {
   it('停用客户时有新欠款则失败', async () => {
     mockGetDebt.mockResolvedValueOnce(500);
     const formData = { customer: 100, customerState: 0 };
-    await expect(onApprovedCustomerModify(mkInstance(), formData)).rejects.toThrow('审批期间客户产生新欠款');
+    await expect(onApprovedCustomerModify(mkInstance(), createFormAccessor(formData))).rejects.toThrow('审批期间客户产生新欠款');
     expect(mockMarkFailed).toHaveBeenCalled();
   });
 
   it('停用客户时无欠款则成功', async () => {
     mockGetDebt.mockResolvedValueOnce(0);
     const formData = { customer: 100, customerState: 0 };
-    await onApprovedCustomerModify(mkInstance(), formData);
+    await onApprovedCustomerModify(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateFields).toHaveBeenCalledWith(100, expect.objectContaining({ state: 0 }));
   });
 
   it('等级更新时同步 gradeName', async () => {
     (getErpGrades as jest.Mock).mockResolvedValueOnce([{ id: 5, name: 'VIP' }]);
     const formData = { customer: 100, gradeId: 5 };
-    await onApprovedCustomerModify(mkInstance(), formData);
+    await onApprovedCustomerModify(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateFields).toHaveBeenCalledWith(100, expect.objectContaining({
       gradeId: 5,
       gradeName: 'VIP',
@@ -173,7 +174,7 @@ describe('onApprovedCustomerModify', () => {
   it('渠道更新时同步 groupName', async () => {
     (getErpGroups as jest.Mock).mockResolvedValueOnce([{ id: 10, name: '渠道A' }]);
     const formData = { customer: 100, groupId: 10 };
-    await onApprovedCustomerModify(mkInstance(), formData);
+    await onApprovedCustomerModify(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateFields).toHaveBeenCalledWith(100, expect.objectContaining({
       groupId: 10,
       groupName: '渠道A',
@@ -183,7 +184,7 @@ describe('onApprovedCustomerModify', () => {
   it('片区更新时同步 areaName', async () => {
     (getErpAreas as jest.Mock).mockResolvedValueOnce([{ id: 3, name: '华东' }]);
     const formData = { customer: 100, areaId: 3 };
-    await onApprovedCustomerModify(mkInstance(), formData);
+    await onApprovedCustomerModify(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateFields).toHaveBeenCalledWith(100, expect.objectContaining({
       areaId: 3,
       areaName: '华东',
@@ -192,7 +193,7 @@ describe('onApprovedCustomerModify', () => {
 
   it('所属营销更新 - 使用隐藏字段名称', async () => {
     const formData = { customer: 100, consumerManagerId: 20, _consumerManagerName: '李经理' };
-    await onApprovedCustomerModify(mkInstance(), formData);
+    await onApprovedCustomerModify(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateFields).toHaveBeenCalledWith(100, expect.objectContaining({
       consumerManagerId: 20,
       consumerManagerName: '李经理',
@@ -202,7 +203,7 @@ describe('onApprovedCustomerModify', () => {
   it('所属营销更新 - 兜底从 ERP staff 解析名称', async () => {
     (getErpStaff as jest.Mock).mockResolvedValueOnce([{ id: 20, name: '王经理' }]);
     const formData = { customer: 100, consumerManagerId: 20 };
-    await onApprovedCustomerModify(mkInstance(), formData);
+    await onApprovedCustomerModify(mkInstance(), createFormAccessor(formData));
     expect(mockUpdateFields).toHaveBeenCalledWith(100, expect.objectContaining({
       consumerManagerId: 20,
       consumerManagerName: '王经理',
@@ -212,7 +213,7 @@ describe('onApprovedCustomerModify', () => {
   it('ERP 更新失败时标记 erp_failed 并抛出', async () => {
     mockUpdateFields.mockRejectedValueOnce(new Error('ERP error'));
     const formData = { customer: 100, customerName: 'test' };
-    await expect(onApprovedCustomerModify(mkInstance(), formData)).rejects.toThrow('ERP error');
+    await expect(onApprovedCustomerModify(mkInstance(), createFormAccessor(formData))).rejects.toThrow('ERP error');
     expect(mockMarkFailed).toHaveBeenCalledWith(1, expect.objectContaining({ error: 'ERP error' }));
   });
 
@@ -220,7 +221,7 @@ describe('onApprovedCustomerModify', () => {
     (existsSync as jest.Mock).mockReturnValueOnce(true);
     (erpUploadImageToErp as jest.Mock).mockResolvedValueOnce('img-456');
     const formData = { customer: 100, storefrontPhoto: [{ url: 'store.jpg' }] };
-    await onApprovedCustomerModify(mkInstance(), formData);
+    await onApprovedCustomerModify(mkInstance(), createFormAccessor(formData));
     expect(erpUploadImageToErp).toHaveBeenCalled();
     expect(mockUpdateFields).toHaveBeenCalledWith(100, expect.objectContaining({ picture: 'img-456' }));
   });

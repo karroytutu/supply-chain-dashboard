@@ -18,6 +18,7 @@ import {
 } from '../oa-async-task.service';
 
 import { executeAutoNodeCallback } from './auto-node-operations';
+import { createFormAccessor } from '../form-accessor';
 // Re-export for backward compatibility
 export { executeAutoNodeCallback, retryAutoNode } from './auto-node-operations';
 
@@ -81,7 +82,7 @@ export async function approveApproval(
         : instance0.form_data;
       const errors = formType.beforeApprove(
         currentNode.node_order,
-        mergedData as Record<string, unknown>,
+        createFormAccessor(mergedData as Record<string, unknown>),
         inputData
       );
       if (errors.length > 0) {
@@ -267,7 +268,7 @@ export async function approveApproval(
         log.error(`auto/cc节点任务入队失败 [instanceId=${instanceId}]:`, err)
       );
     } else if (isLastNode && formType.onApproved && !hasErpFailed) {
-      formType.onApproved(callbackInstance, callbackFormData || {}).catch(err => {
+      formType.onApproved(callbackInstance, createFormAccessor(callbackFormData || {})).catch(err => {
         log.error(`审批通过回调执行失败 [${ftCode}]:`, err);
       });
     }

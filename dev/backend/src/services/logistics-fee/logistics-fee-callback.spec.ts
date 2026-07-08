@@ -49,6 +49,8 @@ jest.mock('../oa/form-types/logistics-fee', () => ({
   },
 }));
 
+import { createFormAccessor } from '../oa/form-accessor';
+
 import { appQuery } from '../../db/appPool';
 import { getErpMeta } from '../fixed-asset/erp-meta-utils';
 import {
@@ -123,7 +125,7 @@ describe('handleLogisticsFeeAutoNode', () => {
       feeLines: [{ feeAmount: 1000 }],
     };
 
-    const result = await handleLogisticsFeeAutoNode(instance, formData);
+    const result = await handleLogisticsFeeAutoNode(instance, createFormAccessor(formData));
 
     expect(createSupplierExpenseBill).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
@@ -153,7 +155,7 @@ describe('handleLogisticsFeeAutoNode', () => {
       feeType: 'logistics_fee',
     };
 
-    const result = await handleLogisticsFeeAutoNode(instance, formData);
+    const result = await handleLogisticsFeeAutoNode(instance, createFormAccessor(formData));
 
     expect(createPaidBill).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
@@ -167,7 +169,7 @@ describe('handleLogisticsFeeAutoNode', () => {
     } as any);
 
     const instance = makeInstance();
-    const result = await handleLogisticsFeeAutoNode(instance, {});
+    const result = await handleLogisticsFeeAutoNode(instance, createFormAccessor({}));
 
     expect(result).toBeUndefined();
     expect(createSupplierExpenseBill).not.toHaveBeenCalled();
@@ -191,7 +193,7 @@ describe('节点3: 创建费用单', () => {
     const instance = makeInstance();
     const formData = { feeType: 'logistics_fee', feeLines: [{ feeAmount: 100 }] };
 
-    await expect(handleLogisticsFeeAutoNode(instance, formData))
+    await expect(handleLogisticsFeeAutoNode(instance, createFormAccessor(formData)))
       .rejects.toThrow('缺少费用供应商、费用类型或费用明细');
   });
 
@@ -205,7 +207,7 @@ describe('节点3: 创建费用单', () => {
       feeLines: [{ feeAmount: 100 }],
     };
 
-    await expect(handleLogisticsFeeAutoNode(instance, formData))
+    await expect(handleLogisticsFeeAutoNode(instance, createFormAccessor(formData)))
       .rejects.toThrow('未知的费用类型');
   });
 
@@ -224,7 +226,7 @@ describe('节点3: 创建费用单', () => {
       feeLines: [{ feeAmount: 500 }, { feeAmount: 300 }],
     };
 
-    await handleLogisticsFeeAutoNode(instance, formData);
+    await handleLogisticsFeeAutoNode(instance, createFormAccessor(formData));
 
     const callArgs = (createSupplierExpenseBill as jest.Mock).mock.calls[0];
     const payload = callArgs[0];
@@ -253,7 +255,7 @@ describe('节点3: 创建费用单', () => {
       feeLines: [{ feeAmount: 200 }],
     };
 
-    await handleLogisticsFeeAutoNode(instance, formData);
+    await handleLogisticsFeeAutoNode(instance, createFormAccessor(formData));
 
     const payload = (createSupplierExpenseBill as jest.Mock).mock.calls[0][0];
     expect(payload.details[0].subjectId).toBe(400);
@@ -298,7 +300,7 @@ describe('节点5: 费用分摊倒挤法', () => {
       ]),
     };
 
-    await handleLogisticsFeeAutoNode(instance, formData);
+    await handleLogisticsFeeAutoNode(instance, createFormAccessor(formData));
 
     const callArgs = (createExpenseAllocation as jest.Mock).mock.calls[0];
     const payload = callArgs[0];
@@ -345,7 +347,7 @@ describe('节点5: 费用分摊倒挤法', () => {
       ],
     };
 
-    await handleLogisticsFeeAutoNode(instance, formData);
+    await handleLogisticsFeeAutoNode(instance, createFormAccessor(formData));
 
     // 应调用兜底重查
     expect(getAllocatablePurchaseDetails).toHaveBeenCalledWith({ billStr: 'JS001' });
@@ -378,7 +380,7 @@ describe('节点5: 费用分摊倒挤法', () => {
       ],
     };
 
-    await expect(handleLogisticsFeeAutoNode(instance, formData))
+    await expect(handleLogisticsFeeAutoNode(instance, createFormAccessor(formData)))
       .rejects.toThrow(/结算单行项数据为空.*兜底重查/);
   });
 
@@ -407,7 +409,7 @@ describe('节点5: 费用分摊倒挤法', () => {
       ],
     };
 
-    await expect(handleLogisticsFeeAutoNode(instance, formData))
+    await expect(handleLogisticsFeeAutoNode(instance, createFormAccessor(formData)))
       .rejects.toThrow(/结算单行项数据为空.*兜底重查/);
   });
 });
@@ -421,7 +423,7 @@ describe('handleLogisticsFeeRejected', () => {
     mockGetErpMeta.mockReturnValueOnce(null as any);
 
     const instance = makeInstance();
-    await expect(handleLogisticsFeeRejected(instance, {})).resolves.toBeUndefined();
+    await expect(handleLogisticsFeeRejected(instance, createFormAccessor({}))).resolves.toBeUndefined();
 
     expect(cancelExpenseAllocation).not.toHaveBeenCalled();
     expect(deApprovePaidBill).not.toHaveBeenCalled();
@@ -443,7 +445,7 @@ describe('handleLogisticsFeeRejected', () => {
     (cleanupExpenditureBill as jest.Mock).mockResolvedValueOnce(undefined);
 
     const instance = makeInstance();
-    await expect(handleLogisticsFeeRejected(instance, {})).resolves.toBeUndefined();
+    await expect(handleLogisticsFeeRejected(instance, createFormAccessor({}))).resolves.toBeUndefined();
 
     // 验证反向顺序：分摊单 → 付款单 → 费用单
     expect(cancelExpenseAllocation).toHaveBeenCalledWith(3001);
@@ -466,7 +468,7 @@ describe('handleLogisticsFeeRejected', () => {
     (cleanupExpenditureBill as jest.Mock).mockResolvedValueOnce(undefined);
 
     const instance = makeInstance();
-    await expect(handleLogisticsFeeRejected(instance, {}))
+    await expect(handleLogisticsFeeRejected(instance, createFormAccessor({})))
       .rejects.toThrow(/物流费用驳回回滚部分失败.*付款单\(2001\)回滚失败/);
   });
 
@@ -480,7 +482,7 @@ describe('handleLogisticsFeeRejected', () => {
     (cleanupExpenditureBill as jest.Mock).mockResolvedValueOnce(undefined);
 
     const instance = makeInstance();
-    await handleLogisticsFeeRejected(instance, {});
+    await handleLogisticsFeeRejected(instance, createFormAccessor({}));
 
     expect(cancelExpenseAllocation).not.toHaveBeenCalled();
     expect(deApprovePaidBill).not.toHaveBeenCalled();

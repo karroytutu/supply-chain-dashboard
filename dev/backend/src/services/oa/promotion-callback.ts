@@ -8,6 +8,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('PromotionCallback');
 
 import type { OaInstanceRow, CallbackResult } from './oa.types';
+import type { FormAccessor } from './form-accessor';
 import {
   erpCreatePromotion,
   erpSaveCombinedSaleAndShelf,
@@ -210,19 +211,20 @@ export async function beforeSubmitPromotion(
  */
 export async function onApprovedPromotionCombinedOffline(
   _instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const { startDate, endDate } = extractDates(formData);
-  const clientConfig = buildClientConfig(formData);
+  const rawData = form.getRawData();
+  const { startDate, endDate } = extractDates(rawData);
+  const clientConfig = buildClientConfig(rawData);
 
   // 1. 创建促销活动（幂等：重试时复用已创建的 promotionId）
-  let promotionId = formData.promotionId as number | undefined;
-  let promotionNo = formData.promotionNo as string | undefined;
+  let promotionId = form.getNumber('promotionId');
+  let promotionNo = form.getString('promotionNo');
 
   if (!promotionId) {
     const promotion = await erpCreatePromotion(
       'combinedSale',
-      formData.name as string,
+      form.getString('name') ?? '',
       startDate,
       endDate,
       clientConfig,
@@ -233,8 +235,8 @@ export async function onApprovedPromotionCombinedOffline(
   }
 
   // 2. 构建规则（固定模式传字符串，任选模式传数字）
-  const goodsType = Number(formData.goodsType) || 1;
-  const presentType = Number(formData.presentType) || 1;
+  const goodsType = form.getNumber('goodsType') ?? 1;
+  const presentType = form.getNumber('presentType') ?? 1;
   const isGoodsFixed = goodsType === 1;
   const isPresentFixed = presentType === 1;
 
@@ -248,15 +250,15 @@ export async function onApprovedPromotionCombinedOffline(
     goodsType,
     presentType,
     limitCountPerClient: isGoodsFixed && isPresentFixed
-      ? String(formData.limitCountPerClient || 1)
-      : (Number(formData.limitCountPerClient) || 1),
-    totalCount: wrapCount(formData.totalCount, isGoodsFixed && isPresentFixed),
-    goodsCount: wrapCount(formData.goodsCount, isGoodsFixed),
-    giftCount: wrapCount(formData.giftCount, isPresentFixed),
+      ? String(form.getRaw('limitCountPerClient') || 1)
+      : (form.getNumber('limitCountPerClient') ?? 1),
+    totalCount: wrapCount(form.getRaw('totalCount'), isGoodsFixed && isPresentFixed),
+    goodsCount: wrapCount(form.getRaw('goodsCount'), isGoodsFixed),
+    giftCount: wrapCount(form.getRaw('giftCount'), isPresentFixed),
   };
 
-  // 3. 构建主品列表（固定模式：quantity字符串、mustSelect=null；任选模式：quantity数字、mustSelect=true/false）
-  const goodsList = (formData.goodsList as Array<Record<string, unknown>>).map<CombinedSaleGoods>((row, index) => ({
+  // 3. 构建主品列表
+  const goodsList = form.getTableRecords('goodsList').map<CombinedSaleGoods>((row, index) => ({
     goodsId: Number(row.goodsId),
     currUnitId: String(row.currUnitId || 'BASE'),
     currUnitName: row.currUnitName ? String(row.currUnitName) : undefined,
@@ -267,8 +269,8 @@ export async function onApprovedPromotionCombinedOffline(
     seq: index,
   }));
 
-  // 4. 构建赠品列表（固定模式：quantity字符串、mustSelect=null；任选模式：quantity数字、mustSelect=true/false）
-  const presentList = (formData.presentList as Array<Record<string, unknown>>).map<CombinedSalePresent>((row, index) => ({
+  // 4. 构建赠品列表
+  const presentList = form.getTableRecords('presentList').map<CombinedSalePresent>((row, index) => ({
     goodsId: Number(row.goodsId),
     currUnitId: String(row.currUnitId || 'BASE'),
     currUnitName: row.currUnitName ? String(row.currUnitName) : undefined,
@@ -297,19 +299,20 @@ export async function onApprovedPromotionCombinedOffline(
  */
 export async function onApprovedPromotionSpecialOffline(
   _instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const { startDate, endDate } = extractDates(formData);
-  const clientConfig = buildClientConfig(formData);
+  const rawData = form.getRawData();
+  const { startDate, endDate } = extractDates(rawData);
+  const clientConfig = buildClientConfig(rawData);
 
   // 1. 创建促销活动（幂等：重试时复用已创建的 promotionId）
-  let promotionId = formData.promotionId as number | undefined;
-  let promotionNo = formData.promotionNo as string | undefined;
+  let promotionId = form.getNumber('promotionId');
+  let promotionNo = form.getString('promotionNo');
 
   if (!promotionId) {
     const promotion = await erpCreatePromotion(
       'specialOffer',
-      formData.name as string,
+      form.getString('name') ?? '',
       startDate,
       endDate,
       clientConfig,
@@ -320,7 +323,7 @@ export async function onApprovedPromotionSpecialOffline(
   }
 
   // 2. 构建商品列表
-  const goodsList = (formData.goodsList as Array<Record<string, unknown>>).map<SpecialOfferGoods>(row => {
+  const goodsList = form.getTableRecords('goodsList').map<SpecialOfferGoods>(row => {
     const item: SpecialOfferGoods = {
       goodsId: Number(row.goodsId),
       currUnitId: String(row.currUnitId || 'BASE'),
@@ -363,19 +366,20 @@ export async function onApprovedPromotionSpecialOffline(
  */
 export async function onApprovedPromotionFullGiftOffline(
   _instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  const { startDate, endDate } = extractDates(formData);
-  const clientConfig = buildClientConfig(formData);
+  const rawData = form.getRawData();
+  const { startDate, endDate } = extractDates(rawData);
+  const clientConfig = buildClientConfig(rawData);
 
   // 1. 创建促销活动（幂等：重试时复用已创建的 promotionId）
-  let promotionId = formData.promotionId as number | undefined;
-  let promotionNo = formData.promotionNo as string | undefined;
+  let promotionId = form.getNumber('promotionId');
+  let promotionNo = form.getString('promotionNo');
 
   if (!promotionId) {
     const promotion = await erpCreatePromotion(
       'reachGive',
-      formData.name as string,
+      form.getString('name') ?? '',
       startDate,
       endDate,
       clientConfig
@@ -385,7 +389,7 @@ export async function onApprovedPromotionFullGiftOffline(
   }
 
   // 2. 构建规则
-  const onSaleType = (formData.onSaleType as string) || 'loop';
+  const onSaleType = form.getString('onSaleType') ?? 'loop';
   const rule: FullGiftRule = {
     fullGiftType: 'count',
     onSaleType: onSaleType as 'loop' | 'step',
@@ -395,14 +399,14 @@ export async function onApprovedPromotionFullGiftOffline(
 
   if (onSaleType === 'loop') {
     rule.loopRule = {
-      countLatch: Number(formData.loopCountLatch) || 1,
-      presentType: Number(formData.loopPresentType) || 1,
+      countLatch: form.getNumber('loopCountLatch') ?? 1,
+      presentType: form.getNumber('loopPresentType') ?? 1,
     };
-    if (Number(formData.loopPresentType) === 0 && formData.loopGiveCount) {
-      rule.loopRule.giveCount = String(formData.loopGiveCount);
+    if (form.getNumber('loopPresentType') === 0 && form.getRaw('loopGiveCount')) {
+      rule.loopRule.giveCount = String(form.getRaw('loopGiveCount'));
     }
   } else {
-    const stepRules = formData.stepRules as Array<Record<string, unknown>>;
+    const stepRules = form.getTableRecords('stepRules');
     rule.stepRuleList = stepRules.map((row, idx) => ({
       seq: idx + 1,
       countLatch: Number(row.countLatch) || 1,
@@ -412,7 +416,7 @@ export async function onApprovedPromotionFullGiftOffline(
   }
 
   // 3. 构建主品列表
-  const mainGoodsList = (formData.mainGoodsList as Array<Record<string, unknown>>).map<FullGiftMainGoods>(row => ({
+  const mainGoodsList = form.getTableRecords('mainGoodsList').map<FullGiftMainGoods>(row => ({
     goodsId: Number(row.goodsId),
     currUnitId: row.currUnitId ? String(row.currUnitId) : undefined,
     currUnitName: row.currUnitName ? String(row.currUnitName) : undefined,
@@ -427,7 +431,7 @@ export async function onApprovedPromotionFullGiftOffline(
   let presentList: FullGiftLoopPresent[] | FullGiftStepPresent[];
 
   if (onSaleType === 'loop') {
-    const loopPresents = formData.loopPresents as Array<Record<string, unknown>>;
+    const loopPresents = form.getTableRecords('loopPresents');
     presentList = loopPresents.map<FullGiftLoopPresent>(row => ({
       goodsId: Number(row.goodsId),
       currUnitId: row.currUnitId ? String(row.currUnitId) : undefined,
@@ -436,7 +440,7 @@ export async function onApprovedPromotionFullGiftOffline(
       mustSelect: row.mustSelect === true || row.mustSelect === 'true',
     }));
   } else {
-    const stepPresents = formData.stepPresents as Array<Record<string, unknown>>;
+    const stepPresents = form.getTableRecords('stepPresents');
     presentList = stepPresents.map<FullGiftStepPresent>(row => ({
       goodsId: Number(row.goodsId),
       currUnitId: row.currUnitId ? String(row.currUnitId) : undefined,

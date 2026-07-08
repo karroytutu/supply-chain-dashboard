@@ -14,6 +14,7 @@ import {
   FormSchema,
   WorkflowDef,
 } from '../oa.types';
+import { createFormAccessor } from '../form-accessor';
 import { OA_ROLE } from '../oa-role-codes';
 import {
   handleBadDebtAutoNode,
@@ -145,13 +146,15 @@ async function beforeSubmitBadDebt(
   formData: Record<string, unknown>,
   _userId: number
 ): Promise<Record<string, unknown>> {
-  const customerId = formData.customerId;
+  const form = createFormAccessor(formData);
+
+  const customerId = form.getRaw('customerId');
   if (!customerId) throw new Error('请选择客户');
 
-  const billDetails = formData.billDetails as Array<Record<string, unknown>> | undefined;
-  if (!billDetails?.length) throw new Error('请选择应收单据');
+  const billDetails = form.getTableRecords('billDetails');
+  if (billDetails.length === 0) throw new Error('请选择应收单据');
 
-  const reason = formData.badDebtReason as string;
+  const reason = form.getString('badDebtReason');
   if (!reason?.trim()) throw new Error('请填写坏账原因');
 
   return {};

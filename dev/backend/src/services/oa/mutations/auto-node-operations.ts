@@ -12,6 +12,7 @@ import { notifyCc } from '../oa-notify';
 import { finalizeProcessInstance } from '../oa-process-centre';
 import { findUserIdsByRoleCodes } from '../oa-utils';
 import { transaction } from './shared-utils';
+import { createFormAccessor } from '../form-accessor';
 
 /**
  * 通用自动节点异步执行器（含 auto 和 cc 节点）
@@ -80,7 +81,7 @@ export async function executeAutoNodeCallback(
       return;
     }
 
-    const callbackResult = await formType.onApproved!(instance, formData);
+    const callbackResult = await formType.onApproved!(instance, createFormAccessor(formData));
 
     // 回调已处理退回（如核销校验退回营销师续催），跳过后续 mark-approved + advanceToNextNode
     if (callbackResult?.sendBack) {

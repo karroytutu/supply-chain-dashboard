@@ -11,6 +11,7 @@
 import { createLogger } from '../../utils/logger';
 import { appQuery as query } from '../../db/appPool';
 import type { OaInstanceRow, CallbackResult } from './oa.types';
+import type { FormAccessor } from './form-accessor';
 import {
   createBadDebtExpenditure,
   createCustomerReceipt,
@@ -19,23 +20,6 @@ import {
 import type { ReceiptInvoiceItem } from '../erp-client';
 
 const log = createLogger('BadDebtCallback');
-
-// =====================================================
-// 工具函数：从 formData 解析表格明细记录
-// =====================================================
-
-/**
- * 从 formData 解析表格字段的完整记录
- * 前端表格字段存储结构：
- * - formData.billDetails = ID 数组（如 [114415, 99200]）
- * - formData._details.billDetails = 完整记录数组（含 leftAmount, bizId 等）
- */
-function resolveBillDetails(formData: Record<string, unknown>): Array<Record<string, unknown>> | undefined {
-  const details = formData._details as Record<string, unknown> | undefined;
-  const records = details?.billDetails as Array<Record<string, unknown>> | undefined;
-  if (records && records.length > 0) return records;
-  return undefined;
-}
 
 // =====================================================
 // onApproved: auto 节点回调入口
@@ -47,7 +31,7 @@ function resolveBillDetails(formData: Record<string, unknown>): Array<Record<str
  */
 export async function handleBadDebtAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
   const currentNodeResult = await query<{ node_order: number; node_name: string }>(
     `SELECT node_order, node_name FROM oa_approval_nodes
@@ -62,9 +46,9 @@ export async function handleBadDebtAutoNode(
 
   switch (nodeOrder) {
     case 2:
-      return handleCreateExpenditure(instance, formData);
+      return handleCreateExpenditure(instance, form);
     case 3:
-      return handleCreateReceipt(instance, formData);
+      return handleCreateReceipt(instance, form);
     default:
       log.warn(`[坏账处理] 未知的auto节点: nodeOrder=${nodeOrder}, nodeName=${nodeName}`);
   }
@@ -76,23 +60,23 @@ export async function handleBadDebtAutoNode(
 
 async function handleCreateExpenditure(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
-  // 幂等前置检查：如果 formData 已有费用单 ID，说明是重试，跳过创建
-  const existingId = formData._expenditureBillId as number | undefined;
+  // 幂等前置检查：如果 form 已有费用单 ID，说明是重试，跳过创建
+  const existingId = form.getNumber('_expenditureBillId');
   if (existingId) {
     log.info(`[坏账处理] 节点2 幂等跳过: 已有费用单ID=${existingId}`);
     return {
       erpMeta: {
         expenditureBillId: existingId,
-        expenditureBillStr: formData._expenditureBillStr as string,
+        expenditureBillStr: form.getString('_expenditureBillStr'),
       },
     };
   }
 
-  const customerId = Number(formData.customerId);
-  const customerName = (formData._customerName as string) || '';
-  const billDetails = resolveBillDetails(formData);
+  const customerId = form.getNumber('customerId');
+  const customerName = form.getString('_customerName') || '';
+  const billDetails = form.getTableRecords('billDetails');
 
   if (!customerId || !billDetails?.length) {
     throw new Error('创建坏账费用单失败：缺少客户ID或应收单据');
@@ -103,7 +87,7 @@ async function handleCreateExpenditure(
     return sum + (parseFloat(d.leftAmount as string) || 0);
   }, 0);
 
-  const reason = (formData.badDebtReason as string) || '';
+  const reason = form.getString('badDebtReason') || '';
   const note = [instance.instance_no, reason].filter(Boolean).join('+');
   const idemKey = `BADDEBT-EXPENSE-${instance.id}-2`;
 
@@ -140,28 +124,28 @@ async function handleCreateExpenditure(
 
 async function handleCreateReceipt(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   // 幂等前置检查
-  const existingReceiptId = formData._receiptBillId as number | undefined;
+  const existingReceiptId = form.getNumber('_receiptBillId');
   if (existingReceiptId) {
     log.info(`[坏账处理] 节点3 幂等跳过: 已有收款单ID=${existingReceiptId}`);
     return {
       erpMeta: {
         receiptBillId: existingReceiptId,
-        receiptBillStr: formData._receiptBillStr as string,
+        receiptBillStr: form.getString('_receiptBillStr'),
       },
     };
   }
 
-  // 从 formData 读取费用单信息（通过 nodeBackfills 写入，不受 retry 清空影响）
-  const expenditureBillId = formData._expenditureBillId as number;
-  const expenditureBillStr = formData._expenditureBillStr as string;
-  const customerId = Number(formData.customerId);
-  const billDetails = resolveBillDetails(formData);
+  // 从 form 读取费用单信息（通过 nodeBackfills 写入，不受 retry 清空影响）
+  const expenditureBillId = form.getNumber('_expenditureBillId');
+  const expenditureBillStr = form.getString('_expenditureBillStr') || '';
+  const customerId = form.getNumber('customerId');
+  const billDetails = form.getTableRecords('billDetails');
 
-  if (!expenditureBillId || !billDetails?.length) {
-    throw new Error('创建收款单失败：缺少费用单信息或应收单据');
+  if (!expenditureBillId || !customerId || !billDetails?.length) {
+    throw new Error('创建收款单失败：缺少费用单信息、客户ID或应收单据');
   }
 
   // 构造 invoiceList：应收单（正金额）+ 费用单（负金额）
@@ -234,10 +218,10 @@ async function handleCreateReceipt(
  */
 export async function handleBadDebtRejected(
   _instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
-  const expenditureBillId = formData._expenditureBillId as number | undefined;
-  const receiptBillId = formData._receiptBillId as number | undefined;
+  const expenditureBillId = form.getNumber('_expenditureBillId');
+  const receiptBillId = form.getNumber('_receiptBillId');
 
   if (!expenditureBillId) {
     log.info('[坏账处理] 驳回回滚: 无已创建的ERP单据，跳过');

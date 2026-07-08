@@ -8,6 +8,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('OA');
 
 import { OaInstanceRow } from './oa.types';
+import type { FormAccessor } from './form-accessor';
 import { updateAssessmentStatusByAppeal } from '../assessment';
 
 /**
@@ -16,12 +17,12 @@ import { updateAssessmentStatusByAppeal } from '../assessment';
  */
 export async function onApprovedAssessmentAppeal(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
   // 兼容 camelCase 和 snake_case，OA 系统回传 formData 时可能转换键名格式
-  const assessmentId = Number(formData.assessmentId || formData.assessment_id);
+  const assessmentId = form.getNumber('assessmentId') ?? form.getNumber('assessment_id');
   if (!assessmentId) {
-    log.error('回调缺少 assessmentId, formData keys:', Object.keys(formData));
+    log.error('回调缺少 assessmentId, formData keys:', Object.keys(form.getRawData()));
     return;
   }
 
@@ -44,12 +45,12 @@ export async function onApprovedAssessmentAppeal(
  */
 export async function onRejectedAssessmentAppeal(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
   // 兼容 camelCase 和 snake_case，OA 系统回传 formData 时可能转换键名格式
-  const assessmentId = Number(formData.assessmentId || formData.assessment_id);
+  const assessmentId = form.getNumber('assessmentId') ?? form.getNumber('assessment_id');
   if (!assessmentId) {
-    log.error('回调缺少 assessmentId, formData keys:', Object.keys(formData));
+    log.error('回调缺少 assessmentId, formData keys:', Object.keys(form.getRawData()));
     return;
   }
 

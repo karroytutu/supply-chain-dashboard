@@ -11,6 +11,7 @@ const log = createLogger('OA:SalesTargetApproval');
 
 import { appQuery } from '../../../db/appPool';
 import { FormTypeDefinition, OaInstanceRow } from '../oa.types';
+import type { FormAccessor } from '../form-accessor';
 import { OA_ROLE } from '../oa-role-codes';
 import {
   getTargetById,
@@ -131,9 +132,9 @@ async function beforeSubmitSalesTarget(
  */
 async function onApprovedSalesTarget(
   _instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
-  const targetId = Number(formData._targetId);
+  const targetId = form.getNumber('_targetId');
   if (!targetId) return;
 
   log.info(`目标审批通过: targetId=${targetId}`);
@@ -150,9 +151,9 @@ async function onApprovedSalesTarget(
  */
 async function onRejectedSalesTarget(
   _instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
-  const targetId = Number(formData._targetId);
+  const targetId = form.getNumber('_targetId');
   if (!targetId) return;
 
   log.info(`目标审批驳回: targetId=${targetId}`);

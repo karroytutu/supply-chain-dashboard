@@ -7,6 +7,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('FixedAsset');
 
 import type { OaInstanceRow, CallbackResult } from '../oa/oa.types';
+import type { FormAccessor } from '../oa/form-accessor';
 import { getErpStaff } from './fixed-asset.query';
 import { getErpMeta, updateErpMetaStatus, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig, getErpDefaults, type ErpBillResponse } from '../erp-client';
@@ -20,14 +21,14 @@ import { normalizeDateTime } from './fixed-asset-utils';
  */
 export async function handleMaintenanceAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult> {
   try {
     await updateErpMetaStatus(instance.id, 'paying');
 
-    const paymentAmount = (formData.paymentAmount as string) || '0';
-    const paymentSubjectId = formData.paymentSubjectId as number;
-    const paymentDate = normalizeDateTime(formData.paymentDate as string);
+    const paymentAmount = form.getString('paymentAmount') ?? '0';
+    const paymentSubjectId = form.getNumber('paymentSubjectId');
+    const paymentDate = normalizeDateTime(form.getString('paymentDate') ?? '');
 
     // 获取申请人舟谱信息
     const { defaultSalesmanId, defaultDeptId, cid, uid, defaultPaymentSubjectId } =

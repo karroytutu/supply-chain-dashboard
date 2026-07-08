@@ -7,6 +7,7 @@ const log = createLogger('OA');
 
 import { appQuery as query } from '../../../db/appPool';
 import { AttachmentMeta, OaInstanceRow } from '../oa.types';
+import { createFormAccessor } from '../form-accessor';
 import { isCurrentApprover, getCurrentApproverNode } from '../oa-utils';
 import { getFormTypeByCode } from '../form-types';
 import {
@@ -87,8 +88,9 @@ export async function rejectApproval(
     if (ft?.onRejected) {
       const rejectedInstance = instResult.rows[0];
       const rejectedFormData = rejectedInstance.form_data as Record<string, unknown>;
+      const rejectedForm = createFormAccessor(rejectedFormData);
       queueMicrotask(() => {
-        ft!.onRejected!(rejectedInstance, rejectedFormData).catch(err => {
+        ft!.onRejected!(rejectedInstance, rejectedForm).catch(err => {
           log.error(`审批驳回回调执行失败 [${ft!.code}]:`, err);
         });
       });

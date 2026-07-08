@@ -7,6 +7,7 @@
  */
 
 import { FormTypeDefinition, CallbackResult, OaInstanceRow } from '../oa.types';
+import type { FormAccessor } from '../form-accessor';
 import { OA_ROLE } from '../oa-role-codes';
 import {
   beforeSubmitPromotion,
@@ -476,14 +477,15 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
   onApproved: handlePromotionFullGiftAutoNode,
   onRejected: handlePromotionFullGiftRejected,
 
-  beforeApprove: (nodeOrder, formData) => {
+  beforeApprove: (nodeOrder, form) => {
     const errors: string[] = [];
-    if (nodeOrder === 4 && formData.supplierBorne === 'yes') {
-      if (!formData.supplierId) errors.push('供应商不能为空');
-      if (!formData._supplierName) errors.push('供应商名称不能为空');
-      if (!formData.supplierAmount || Number(formData.supplierAmount) <= 0) errors.push('供应商承担金额必须大于0');
-      if (!formData.incomeCategoryId) errors.push('收入类别不能为空');
-      if (!formData._incomeCategoryName) errors.push('收入类别名称不能为空');
+    if (nodeOrder === 4 && form.getString('supplierBorne') === 'yes') {
+      if (!form.getRaw('supplierId')) errors.push('供应商不能为空');
+      if (!form.getString('_supplierName')) errors.push('供应商名称不能为空');
+      const supplierAmount = form.getNumber('supplierAmount');
+      if (!supplierAmount || supplierAmount <= 0) errors.push('供应商承担金额必须大于0');
+      if (!form.getRaw('incomeCategoryId')) errors.push('收入类别不能为空');
+      if (!form.getString('_incomeCategoryName')) errors.push('收入类别名称不能为空');
     }
     return errors;
   },
@@ -517,7 +519,7 @@ export const promotionFullGiftOfflineFormType: FormTypeDefinition = {
 
 async function handlePromotionFullGiftAutoNode(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
   const nodeResult = await query<{ node_order: number }>(
     `SELECT node_order FROM oa_approval_nodes
@@ -528,8 +530,8 @@ async function handlePromotionFullGiftAutoNode(
   const nodeOrder = nodeResult.rows[0]?.node_order;
   log.info(`[满赠] auto节点执行: instanceId=${instance.id}, nodeOrder=${nodeOrder}`);
   switch (nodeOrder) {
-    case 3: return onApprovedPromotionFullGiftOffline(instance, formData);
-    case 5: return handleCreateSupplierIncomeFullGift(instance, formData);
+    case 3: return onApprovedPromotionFullGiftOffline(instance, form);
+    case 5: return handleCreateSupplierIncomeFullGift(instance, form);
     default:
       log.warn(`[满赠] 未知的auto节点: nodeOrder=${nodeOrder}`);
   }
@@ -537,24 +539,24 @@ async function handlePromotionFullGiftAutoNode(
 
 async function handleCreateSupplierIncomeFullGift(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<CallbackResult | void> {
-  if (formData.supplierBorne !== 'yes') return;
+  if (form.getString('supplierBorne') !== 'yes') return;
   const { defaultSalesmanId, defaultDeptId, defaultDeptName } = getErpDefaults();
-  const supplierAmount = Number(formData.supplierAmount || 0);
+  const supplierAmount = form.getNumber('supplierAmount') ?? 0;
   const result = await createSupplierIncomeBill(
     {
-      traderType: 'SUPPLIER', traderId: formData.supplierId as string,
-      traderName: (formData._supplierName as string) || '',
+      traderType: 'SUPPLIER', traderId: form.getString('supplierId') ?? '',
+      traderName: form.getString('_supplierName') ?? '',
       totalAmount: String(supplierAmount),
-      details: [{ id: 1, subjectId: formData.incomeCategoryId as number,
-        subjectName: (formData._incomeCategoryName as string) || '',
+      details: [{ id: 1, subjectId: form.getNumber('incomeCategoryId') ?? 0,
+        subjectName: form.getString('_incomeCategoryName') ?? '',
         deptId: defaultDeptId, deptName: defaultDeptName,
         taxRadio: 0, taxAmount: '', noTaxAmount: supplierAmount.toFixed(2),
         paymentAmount: supplierAmount }],
       salesmanId: defaultSalesmanId, deptId: defaultDeptId,
       workTime: beijingDateTime(),
-      note: [instance.instance_no, formData.remark].filter(Boolean).join('+'),
+      note: [instance.instance_no, form.getString('remark')].filter(Boolean).join('+'),
     },
     `sb-income-${instance.id}-5`, instance.id
   );
@@ -565,7 +567,7 @@ async function handleCreateSupplierIncomeFullGift(
 }
 
 async function handlePromotionFullGiftRejected(
-  instance: OaInstanceRow, _formData: Record<string, unknown>
+  instance: OaInstanceRow, _form: FormAccessor
 ): Promise<void> {
   const erpMeta = getErpMeta(instance);
   const supplierIncomeBillId = erpMeta?.responseData?.supplierIncomeBillId as number;

@@ -7,6 +7,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('FixedAsset');
 
 import type { OaInstanceRow } from '../oa/oa.types';
+import type { FormAccessor } from '../oa/form-accessor';
 import { searchErpAssets } from './fixed-asset.query';
 import { updateErpMetaStatus, mergeErpResponseData, markErpFailed } from './erp-meta-utils';
 import { erpPost, getErpConfig } from '../erp-client';
@@ -17,10 +18,10 @@ import { erpPost, getErpConfig } from '../erp-client';
  */
 export async function handleAssetTransferApproved(
   instance: OaInstanceRow,
-  formData: Record<string, unknown>
+  form: FormAccessor
 ): Promise<void> {
   try {
-    const lines = (formData.lines as Record<string, unknown>[]) || [];
+    const lines = form.getTableRecords('lines');
     const allAssets = await searchErpAssets('', '');
     const config = getErpConfig();
 
